@@ -390,7 +390,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
             applications. When the user says the demonstration is done, call `host.workflow.record.stop` \
             immediately. Inspect its attached screenshots and recorded action summary, then create or update exactly \
             one `.quillcode/skills/<safe-slug>/SKILL.md` through the normal audited file tools in the same turn. The \
-            skill must state when to use it, list variable inputs, give numbered replay steps, and define verification. \
+            file must begin with YAML frontmatter containing a matching safe `name` and concise `description`. The \
+            skill body must state when to use it, list variable inputs, give numbered replay steps, and define verification. \
             Generalize user-specific values, omit protected or credential text, and never invent steps not supported \
             by the recording.
             """

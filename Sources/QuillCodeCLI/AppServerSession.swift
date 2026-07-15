@@ -2,6 +2,7 @@ import Foundation
 import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeTools
 
 typealias AppServerMessageSink = @Sendable (String) async -> Void
 
@@ -43,6 +44,8 @@ actor AppServerSession {
     var nextServerRequestSequence: Int64 = 1
     var pendingApprovals: [AppServerRequestID: AppServerPendingApproval] = [:]
     var cachedModelCatalog: TrustedRouterModelCatalog?
+    var cachedSkillSnapshots: [String: SkillCatalogSnapshot] = [:]
+    var skillExtraRoots: [URL] = []
     var inputFinished = false
 
     init(
@@ -123,6 +126,8 @@ actor AppServerSession {
             case "account/usage/read": result = try await readAccountUsage(params)
             case "account/rateLimits/read": result = try await readAccountRateLimits(params)
             case "config/read": result = try readConfig(params)
+            case "skills/list": result = try listSkills(params)
+            case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
             case "thread/start": result = try await startThread(params)
             case "thread/resume": result = try await resumeThread(params)
             case "thread/fork": result = try await forkThread(params)

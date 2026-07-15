@@ -144,7 +144,14 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         let workspaceRoot = try makeQuillCodeTestDirectory()
         let skillDirectory = workspaceRoot.appendingPathComponent(".quillcode/plugins/acme/skills/review")
         try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
-        try "# Review".write(
+        try """
+        ---
+        name: review
+        description: Review code for correctness defects.
+        ---
+
+        # Review
+        """.write(
             to: skillDirectory.appendingPathComponent("SKILL.md"),
             atomically: true,
             encoding: .utf8
@@ -178,10 +185,11 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
 
         let resolved = try XCTUnwrap(session.runner.skillResolver).resolve(name: "review")
         XCTAssertEqual(resolved.baseDirectory.standardizedFileURL.path, skillDirectory.standardizedFileURL.path)
-        XCTAssertTrue(
-            session.runner.baseToolDefinitions.first { $0.name == ToolDefinition.skillLoad.name }?
-                .description.contains("Available now: `review`.") == true
-        )
+        let skillDescription = session.runner.baseToolDefinitions.first {
+            $0.name == ToolDefinition.skillLoad.name
+        }?.description
+        XCTAssertTrue(skillDescription?.contains("Available now:") == true)
+        XCTAssertTrue(skillDescription?.contains("`review`") == true)
     }
 
     func testFactoryWiresOnlyTrustedSupportedPluginToolHooks() throws {

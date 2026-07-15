@@ -11,10 +11,33 @@ swift build --product quill-code >/dev/null
 
 python3 - "$ROOT_DIR/.build/debug/quill-code" "$SMOKE_ROOT/home" "$SMOKE_ROOT/workspace" <<'PY'
 import json
+import os
 import subprocess
 import sys
 
 binary, home, workspace = sys.argv[1:]
+skill_directory = os.path.join(workspace, ".agents", "skills", "smoke-review")
+os.makedirs(skill_directory, exist_ok=True)
+with open(os.path.join(skill_directory, "SKILL.md"), "w", encoding="utf-8") as manifest:
+    manifest.write("""---
+name: smoke-review
+description: Review the smoke-test workspace.
+---
+
+# Smoke review
+""")
+extra_skill_root = os.path.join(home, "extra-skills")
+os.makedirs(os.path.join(extra_skill_root, "smoke-advisor"), exist_ok=True)
+with open(
+    os.path.join(extra_skill_root, "smoke-advisor", "SKILL.md"),
+    "w",
+    encoding="utf-8",
+) as manifest:
+    manifest.write("""---
+name: smoke-advisor
+description: Advise the app-server smoke test.
+---
+""")
 process = subprocess.Popen(
     [binary, "--home", home, "app-server", "--mock"],
     cwd=workspace,
@@ -64,19 +87,37 @@ config, _ = read_until(lambda record: record.get("id") == 4)
 assert config["result"]["config"]["model"] == "trustedrouter/fast", config
 assert config["result"]["config"]["model_provider"] == "trustedrouter", config
 
-send({"id": 5, "method": "thread/start", "params": {
+send({"id": 5, "method": "skills/list", "params": {"cwds": [workspace]}})
+skills, _ = read_until(lambda record: record.get("id") == 5)
+skill = skills["result"]["data"][0]["skills"][0]
+assert skill["name"] == "smoke-review", skills
+assert skill["scope"] == "repo", skills
+
+send({"id": 6, "method": "skills/extraRoots/set", "params": {
+    "extraRoots": [extra_skill_root],
+}})
+extra_roots, records = read_until(lambda record: record.get("id") == 6)
+assert extra_roots["result"] == {}, extra_roots
+assert any(record.get("method") == "skills/changed" for record in records), records
+
+send({"id": 7, "method": "skills/list", "params": {"forceReload": True}})
+skills, _ = read_until(lambda record: record.get("id") == 7)
+skill_names = {skill["name"] for skill in skills["result"]["data"][0]["skills"]}
+assert skill_names == {"smoke-review", "smoke-advisor"}, skills
+
+send({"id": 8, "method": "thread/start", "params": {
     "cwd": workspace,
     "model": "trustedrouter/fast",
     "sandbox": "workspace-write",
 }})
-started, _ = read_until(lambda record: record.get("id") == 5)
+started, _ = read_until(lambda record: record.get("id") == 8)
 thread_id = started["result"]["thread"]["id"]
 
-send({"id": 6, "method": "turn/start", "params": {
+send({"id": 9, "method": "turn/start", "params": {
     "threadId": thread_id,
     "input": [{"type": "text", "text": "app-server smoke"}],
 }})
-turn_response, records = read_until(lambda record: record.get("id") == 6)
+turn_response, records = read_until(lambda record: record.get("id") == 9)
 assert turn_response["result"]["turn"]["status"] == "inProgress", turn_response
 completed, tail = read_until(lambda record: record.get("method") == "turn/completed")
 records.extend(tail)

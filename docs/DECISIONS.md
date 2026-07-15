@@ -1,5 +1,24 @@
 # QuillCode Decisions
 
+## 2026-07-15: One bounded skill catalog powers live agents and app-server clients
+
+- **Discovery:** QuillCode follows Codex/Open Agent Skills roots: repository `.agents/skills` from the
+  active directory through the Git root, user `~/.agents/skills`, admin/system locations, plus legacy
+  `.quillcode` and `.codex` roots. Root order is explicit precedence; the catalog keeps duplicate names
+  while the name-only live tool resolves the first match.
+- **Progressive disclosure:** Discovery parses bounded YAML frontmatter and optional
+  `agents/openai.yaml` interface/tool metadata. Full `SKILL.md` instructions enter model context only
+  after `host.skill.load`, keeping the base prompt compact.
+- **Filesystem boundary:** Repo, user, and admin skill-directory symlinks are supported like Codex,
+  but system roots do not follow them. Canonical visited paths, depth/count/byte caps, hidden-directory
+  skips, and safe name/icon validation bound traversal. Parent traversal derives normalized filesystem
+  paths so a non-Git workspace stops at `/` instead of walking indefinitely through `/..`.
+- **Protocol:** `skills/list` uses the shared catalog, caches by canonical working directory, supports
+  explicit `forceReload`, and reports invalid working directories as per-entry errors. Bounded absolute
+  `skills/extraRoots/set` roots are session-local, clear the cache, and emit `skills/changed`.
+- **Why:** A separate RPC scanner and live-agent resolver would drift in roots, metadata validation,
+  and precedence. One catalog gives desktop, CLI, and app-server clients the same truthful skill set.
+
 ## 2026-07-14: Record & Replay is an explicit-consent Computer Use workflow
 
 - **Decision:** QuillCode implements Codex-style Record & Replay on macOS as two structured tools, `host.workflow.record.start` and `host.workflow.record.stop`. **Record a skill** drafts a normal composer request; the agent starts recording immediately after the user submits and approves it, and Stop ends capture before any model analysis begins.

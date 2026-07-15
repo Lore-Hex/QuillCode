@@ -262,6 +262,7 @@ public struct WorkflowRecordingCapture: Codable, Sendable, Hashable {
         lines.append(
             "Inspect the attached screenshots. Create or update one project skill at "
                 + "`.quillcode/skills/<safe-slug>/SKILL.md` using the normal audited file tools. "
+                + "Start it with YAML frontmatter containing a matching safe name and concise description. "
                 + "Include when to use it, variable inputs, numbered replay steps, and verification. "
                 + "Generalize user-specific values into inputs. Never include credentials, protected text, "
                 + "or details not supported by the demonstration. Complete the skill in this turn."

@@ -1,7 +1,7 @@
 import Foundation
 import QuillCodeCore
 
-/// Executes `host.skill.load`: resolve a skill name (user shadows builtin), read its `SKILL.md`, and
+/// Executes `host.skill.load`: resolve a skill name by catalog precedence, read its `SKILL.md`, and
 /// return a `<skill_content>` block carrying the skill's base directory (absolute), a listing of the
 /// files inside it, and the `SKILL.md` body. The model then references those files by absolute path
 /// with the ordinary file tools.
@@ -79,7 +79,7 @@ public struct SkillLoadToolExecutor: Sendable {
             totalFileCount: listing.total
         )
 
-        let sourceLabel = skill.kind == .user ? "user" : "builtin"
+        let sourceLabel = skill.kind.protocolScope
         let summary = "Loaded \(sourceLabel) skill `\(skill.name)` from \(skill.baseDirectory.path)."
         return ToolResult(ok: true, stdout: summary + "\n\n" + content)
     }
@@ -137,7 +137,7 @@ public struct SkillLoadToolExecutor: Sendable {
         totalFileCount: Int
     ) -> String {
         var lines: [String] = []
-        lines.append("<skill_content name=\"\(skill.name)\" source=\"\(skill.kind.rawValue)\">")
+        lines.append("<skill_content name=\"\(skill.name)\" source=\"\(skill.kind.protocolScope)\">")
         lines.append("Base directory (absolute): \(skill.baseDirectory.path)")
         lines.append("Reference any file below by its absolute path, e.g. \(skill.baseDirectory.path)/<relative-path>.")
         lines.append("")
@@ -176,11 +176,14 @@ public struct SkillLoadToolExecutor: Sendable {
             `\(name)` is not a valid skill name. Pass a bare skill name (letters, digits, `.`, `-`, `_`) \
             such as `code-review` — not a path, and no `/` or `..`.
             """
+        case .invalidManifest(let requested, let message):
+            return "Skill `\(requested)` has an invalid \(SkillResolver.manifestFileName): \(message)"
         case .notFound(let requested, let available):
             if available.isEmpty {
                 return """
                 No skill named `\(requested)` is available, and no skills are installed. Add a skill under \
-                .quillcode/skills/<name>/\(SkillResolver.manifestFileName).
+                .agents/skills/<name>/\(SkillResolver.manifestFileName) (or QuillCode's legacy \
+                .quillcode/skills location).
                 """
             }
             let suggestions = FilePathSuggester.suggest(missing: requested, candidates: available, limit: 3)

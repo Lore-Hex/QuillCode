@@ -191,7 +191,15 @@ final class AgentToolLoopTests: XCTestCase {
         let root = try makeTempDirectory()
         let skillDirectory = root.appendingPathComponent("plugin-skills/review")
         try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
-        try "# Review\nFind correctness defects first.".write(
+        try """
+        ---
+        name: review
+        description: Review code for correctness defects.
+        ---
+
+        # Review
+        Find correctness defects first.
+        """.write(
             to: skillDirectory.appendingPathComponent("SKILL.md"),
             atomically: true,
             encoding: .utf8

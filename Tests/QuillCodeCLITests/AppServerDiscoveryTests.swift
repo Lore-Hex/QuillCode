@@ -225,6 +225,113 @@ final class AppServerDiscoveryTests: XCTestCase {
         XCTAssertFalse(encoded.contains("must-not-leak"))
     }
 
+    func testSkillsListReturnsCodexCompatibleMetadataAndPerCWDValidationErrors() async throws {
+        let fixture = try await makeSession()
+        let skillRoot = fixture.workspace.appendingPathComponent(".agents/skills", isDirectory: true)
+        try writeSkill(
+            in: skillRoot,
+            name: "browser-use",
+            description: "Drive a browser to complete web tasks.",
+            metadata: """
+            interface:
+              display_name: Browser Use
+              short_description: Browse web pages.
+            dependencies:
+              tools:
+                - type: mcp
+                  value: browser
+            """
+        )
+        let missing = fixture.workspace.appendingPathComponent("missing").path
+
+        try await fixture.request(
+            id: 1,
+            method: "skills/list",
+            params: ["cwds": [fixture.workspace.path, missing]]
+        )
+
+        let records = try await fixture.output.records()
+        let entries = try XCTUnwrap(
+            result(for: 1, in: records)?["data"]?.arrayValue?.compactMap(\.objectValue)
+        )
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries[0]["cwd"]?.stringValue, fixture.workspace.path)
+        let skill = try XCTUnwrap(entries[0]["skills"]?.arrayValue?.first?.objectValue)
+        XCTAssertEqual(Set(skill.keys), Set([
+            "name", "description", "shortDescription", "interface", "dependencies",
+            "path", "scope", "enabled"
+        ]))
+        XCTAssertEqual(skill["name"]?.stringValue, "browser-use")
+        XCTAssertEqual(skill["scope"]?.stringValue, "repo")
+        XCTAssertEqual(skill["enabled"]?.boolValue, true)
+        XCTAssertEqual(skill["interface"]?.objectValue?["displayName"]?.stringValue, "Browser Use")
+        XCTAssertEqual(
+            skill["dependencies"]?.objectValue?["tools"]?.arrayValue?.first?
+                .objectValue?["value"]?.stringValue,
+            "browser"
+        )
+        XCTAssertEqual(entries[1]["cwd"]?.stringValue, missing)
+        XCTAssertEqual(entries[1]["skills"]?.arrayValue, [])
+        XCTAssertEqual(entries[1]["errors"]?.arrayValue?.first?.objectValue?["path"]?.stringValue, missing)
+    }
+
+    func testSkillsListCachesUntilForcedReload() async throws {
+        let fixture = try await makeSession()
+        let skillRoot = fixture.workspace.appendingPathComponent(".agents/skills", isDirectory: true)
+        let manifest = try writeSkill(
+            in: skillRoot,
+            name: "review",
+            description: "First description."
+        )
+        try await fixture.request(id: 1, method: "skills/list")
+        try """
+        ---
+        name: review
+        description: Updated description.
+        ---
+        """.write(to: manifest, atomically: true, encoding: .utf8)
+        try await fixture.request(id: 2, method: "skills/list")
+        try await fixture.request(id: 3, method: "skills/list", params: ["forceReload": true])
+
+        let records = try await fixture.output.records()
+        XCTAssertEqual(skillDescription(result(for: 1, in: records)), "First description.")
+        XCTAssertEqual(skillDescription(result(for: 2, in: records)), "First description.")
+        XCTAssertEqual(skillDescription(result(for: 3, in: records)), "Updated description.")
+    }
+
+    func testSkillExtraRootsInvalidateCacheNotifyAndRejectRelativePaths() async throws {
+        let fixture = try await makeSession()
+        let extraRoot = try temporaryDirectory(prefix: "app-server-extra-skills")
+        try writeSkill(in: extraRoot, name: "advisor", description: "Advise on model selection.")
+
+        try await fixture.request(
+            id: 1,
+            method: "skills/extraRoots/set",
+            params: ["extraRoots": [extraRoot.path]]
+        )
+        try await fixture.request(id: 2, method: "skills/list")
+        try await fixture.request(
+            id: 3,
+            method: "skills/extraRoots/set",
+            params: ["extraRoots": ["relative/skills"]]
+        )
+        try await fixture.request(
+            id: 4,
+            method: "skills/extraRoots/set",
+            params: ["extraRoots": ["/" + String(repeating: "a", count: 4_096)]]
+        )
+
+        let records = try await fixture.output.records()
+        XCTAssertEqual(result(for: 1, in: records), [:])
+        XCTAssertTrue(records.contains { $0["method"]?.stringValue == "skills/changed" })
+        let skill = result(for: 2, in: records)?["data"]?.arrayValue?.first?
+            .objectValue?["skills"]?.arrayValue?.first?.objectValue
+        XCTAssertEqual(skill?["name"]?.stringValue, "advisor")
+        XCTAssertEqual(skill?["scope"]?.stringValue, "user")
+        XCTAssertEqual(errorCode(for: 3, in: records), -32_602)
+        XCTAssertEqual(errorCode(for: 4, in: records), -32_602)
+    }
+
     private func assertModelShape(_ model: [String: CLIJSONValue]) {
         let required = Set([
             "id", "model", "upgrade", "upgradeInfo", "availabilityNux", "displayName",
@@ -234,6 +341,41 @@ final class AppServerDiscoveryTests: XCTestCase {
         ])
         XCTAssertEqual(Set(model.keys), required)
         XCTAssertEqual(model["inputModalities"]?.arrayValue?.first?.stringValue, "text")
+    }
+
+    private func skillDescription(_ result: [String: CLIJSONValue]?) -> String? {
+        result?["data"]?.arrayValue?.first?.objectValue?["skills"]?.arrayValue?.first?
+            .objectValue?["description"]?.stringValue
+    }
+
+    @discardableResult
+    private func writeSkill(
+        in root: URL,
+        name: String,
+        description: String,
+        metadata: String? = nil
+    ) throws -> URL {
+        let directory = root.appendingPathComponent(name, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let manifest = directory.appendingPathComponent("SKILL.md")
+        try """
+        ---
+        name: \(name)
+        description: \(description)
+        ---
+
+        # \(name)
+        """.write(to: manifest, atomically: true, encoding: .utf8)
+        if let metadata {
+            let agents = directory.appendingPathComponent("agents", isDirectory: true)
+            try FileManager.default.createDirectory(at: agents, withIntermediateDirectories: true)
+            try metadata.write(
+                to: agents.appendingPathComponent("openai.yaml"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        return manifest
     }
 
     private func makeSession(

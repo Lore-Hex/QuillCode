@@ -27,7 +27,11 @@ final class SkillResolverTests: XCTestCase {
     ) throws {
         let dir = root.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try manifest.write(to: dir.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
+        try skillManifest(name: name, body: manifest).write(
+            to: dir.appendingPathComponent("SKILL.md"),
+            atomically: true,
+            encoding: .utf8
+        )
         for (relative, contents) in extraFiles {
             let fileURL = dir.appendingPathComponent(relative)
             try FileManager.default.createDirectory(
@@ -36,6 +40,17 @@ final class SkillResolverTests: XCTestCase {
             )
             try contents.write(to: fileURL, atomically: true, encoding: .utf8)
         }
+    }
+
+    private func skillManifest(name: String, body: String) -> String {
+        """
+        ---
+        name: \(name)
+        description: Test instructions for \(name).
+        ---
+
+        \(body)
+        """
     }
 
     private func resolver(user: URL? = nil, builtin: URL? = nil) -> SkillResolver {
@@ -86,6 +101,20 @@ final class SkillResolverTests: XCTestCase {
 
         let resolved = try resolver(user: user, builtin: builtin).resolve(name: "only-builtin")
         XCTAssertEqual(resolved.kind, .builtin)
+    }
+
+    func testDefaultRootsOutsideRepositoryTerminateAtWorkspace() throws {
+        let workspace = tempRoot.appendingPathComponent("workspace", isDirectory: true)
+        let home = tempRoot.appendingPathComponent("home", isDirectory: true)
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+
+        let roots = SkillResolver.defaultRoots(workspaceRoot: workspace, homeDirectory: home)
+
+        XCTAssertEqual(roots.first?.kind, .repo)
+        XCTAssertEqual(
+            roots.first?.url.standardizedFileURL.path,
+            workspace.appendingPathComponent(".agents/skills", isDirectory: true).standardizedFileURL.path
+        )
     }
 
     // MARK: - Missing / invalid
@@ -162,7 +191,7 @@ final class SkillResolverTests: XCTestCase {
         XCTAssertThrowsError(try resolver(user: user).resolve(name: "../outside/loot"))
     }
 
-    func testSymlinkedSkillDirectoryPointingOutsideRootIsRejected() throws {
+    func testUserRootFollowsSymlinkedSkillDirectory() throws {
         let user = tempRoot.appendingPathComponent("user", isDirectory: true)
         try FileManager.default.createDirectory(at: user, withIntermediateDirectories: true)
         let outside = tempRoot.appendingPathComponent("outside-skill", isDirectory: true)
@@ -172,11 +201,22 @@ final class SkillResolverTests: XCTestCase {
         let link = user.appendingPathComponent("escape", isDirectory: true)
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
 
-        XCTAssertThrowsError(try resolver(user: user).resolve(name: "escape")) { error in
-            guard case SkillResolutionError.notFound = error else {
-                return XCTFail("expected notFound (symlink rejected), got \(error)")
-            }
-        }
+        let resolved = try resolver(user: user).resolve(name: "outside-skill")
+        XCTAssertEqual(resolved.baseDirectory.standardizedFileURL.path, outside.standardizedFileURL.path)
+    }
+
+    func testSystemRootDoesNotFollowSymlinkedSkillDirectory() throws {
+        let system = tempRoot.appendingPathComponent("system", isDirectory: true)
+        try FileManager.default.createDirectory(at: system, withIntermediateDirectories: true)
+        let outside = tempRoot.appendingPathComponent("outside-system-skill", isDirectory: true)
+        try makeSkill(in: outside.deletingLastPathComponent(), name: "outside-system-skill")
+        try FileManager.default.createSymbolicLink(
+            at: system.appendingPathComponent("escape", isDirectory: true),
+            withDestinationURL: outside
+        )
+
+        let resolver = SkillResolver(roots: [SkillRoot(kind: .system, url: system)])
+        XCTAssertThrowsError(try resolver.resolve(name: "outside-system-skill"))
     }
 
     func testIsSafeSkillName() {

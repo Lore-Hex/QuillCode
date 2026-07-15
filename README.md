@@ -19,7 +19,8 @@ This initial repository contains the compile-stable foundation:
   runs, final-message files, structured output, and fail-closed Git/workspace guards
 - Codex-compatible `quill-code app-server` stdio JSONL core with strict initialization, durable
   thread lifecycle, streamed turns, steering, interruption, managed local images, approvals,
-  model/provider discovery, non-secret account/local usage state, and effective config reads
+  model/provider discovery, non-secret account/local usage state, effective config reads, and
+  Open Agent Skills discovery with per-session extra roots
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
 - Playwright mock UI harness (test-only; any `node_modules` lives under `E2E/playwright` and is ignored)
 - parity, roadmap, decision, and test-plan docs
@@ -66,6 +67,12 @@ presence without receiving credentials, read locally observed UTC token usage an
 spend controls, and inspect effective config. Input messages are capped at 1 MiB, local images are
 copied into managed storage, unsupported transports and danger-full-access are rejected, and client
 EOF resolves pending approvals instead of leaving an agent turn stranded.
+
+Skill discovery follows the Codex/Open Agent Skills layout without putting full skill instructions in
+the base prompt: repository `.agents/skills` directories from the working directory through the Git
+root, user `~/.agents/skills`, admin/system roots, and legacy QuillCode/Codex roots. `skills/list`
+returns validated frontmatter plus optional `agents/openai.yaml` interface/tool metadata;
+`skills/extraRoots/set` updates bounded per-session roots and emits `skills/changed`.
 
 Nike 1.0 (`trustedrouter/fast`) is the default model. The only named presets are QuillCode’s branded TrustedRouter profiles: Nike 1.0 for fast everyday work, Zeus 1.0 for deep research, Prometheus 1.0 (`trustedrouter/fusion`) for freedom-oriented OSS deep research, Socrates 1.0 for coding-agent work, Aristotle 1.0 for smart general reasoning, and Plato 1.0 for freedom-oriented OSS coding. The picker searches the live TrustedRouter catalog when signed in, so raw provider/model IDs remain selectable without turning raw model types like synth into named defaults.
 

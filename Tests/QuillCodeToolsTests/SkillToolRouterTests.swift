@@ -42,7 +42,15 @@ final class SkillToolRouterTests: XCTestCase {
             .appendingPathComponent("skills", isDirectory: true)
             .appendingPathComponent("demo", isDirectory: true)
         try FileManager.default.createDirectory(at: skillsDir, withIntermediateDirectories: true)
-        try "# Demo skill\nHello from the skill.\n".write(
+        try """
+        ---
+        name: demo
+        description: Demonstrate skill loading.
+        ---
+
+        # Demo skill
+        Hello from the skill.
+        """.write(
             to: skillsDir.appendingPathComponent("SKILL.md"),
             atomically: true,
             encoding: .utf8
@@ -80,7 +88,14 @@ final class SkillToolRouterTests: XCTestCase {
             .appendingPathComponent("skills", isDirectory: true)
             .appendingPathComponent("wired", isDirectory: true)
         try FileManager.default.createDirectory(at: skillsDir, withIntermediateDirectories: true)
-        try "# Wired\n".write(
+        try """
+        ---
+        name: wired
+        description: Verify default skill resolver wiring.
+        ---
+
+        # Wired
+        """.write(
             to: skillsDir.appendingPathComponent("SKILL.md"),
             atomically: true,
             encoding: .utf8
@@ -92,6 +107,6 @@ final class SkillToolRouterTests: XCTestCase {
             argumentsJSON: #"{"name":"wired"}"#
         ))
         XCTAssertTrue(result.ok, result.error ?? "")
-        XCTAssertTrue(result.stdout.contains("source=\"user\""))
+        XCTAssertTrue(result.stdout.contains("source=\"repo\""))
     }
 }

@@ -30,7 +30,15 @@ final class SkillLoadToolExecutorTests: XCTestCase {
     ) throws {
         let dir = root.appendingPathComponent(name, isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try manifest.write(to: dir.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
+        let contents = """
+        ---
+        name: \(name)
+        description: Test instructions for \(name).
+        ---
+
+        \(manifest)
+        """
+        try contents.write(to: dir.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
         for (relative, contents) in extraFiles {
             let fileURL = dir.appendingPathComponent(relative)
             try FileManager.default.createDirectory(
@@ -73,7 +81,7 @@ final class SkillLoadToolExecutorTests: XCTestCase {
         let out = result.stdout
 
         // <skill_content> wrapper with source label.
-        XCTAssertTrue(out.contains("<skill_content name=\"reviewer\" source=\"builtin\">"))
+        XCTAssertTrue(out.contains("<skill_content name=\"reviewer\" source=\"system\">"))
         XCTAssertTrue(out.contains("</skill_content>"))
 
         // Absolute base directory.
@@ -133,7 +141,7 @@ final class SkillLoadToolExecutorTests: XCTestCase {
     // MARK: - Capping
 
     func testOversizedManifestIsCapped() throws {
-        let big = String(repeating: "line of skill text\n", count: 5_000)
+        let big = String(repeating: "line of skill text\n", count: 1_000)
         try makeSkill(in: builtinRoot, name: "huge", manifest: big)
 
         let result = executor(manifestMaxBytes: 2_048).load(name: "huge")

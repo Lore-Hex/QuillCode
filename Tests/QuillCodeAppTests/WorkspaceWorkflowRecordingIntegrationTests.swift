@@ -14,6 +14,11 @@ final class WorkspaceWorkflowRecordingIntegrationTests: XCTestCase {
             .appendingPathComponent(".quillcode/skills/publish-release", isDirectory: true)
         try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
         let skillContent = """
+        ---
+        name: publish-release
+        description: Publish a tested release and verify the published version.
+        ---
+
         # Publish a release
 
         ## When to use

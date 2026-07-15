@@ -16,10 +16,12 @@ enum WorkspacePluginSkillResolver {
             workspaceRoot: workspaceRoot,
             manifests: manifests
         )
-        guard let first = defaults.first else {
-            return SkillResolver(roots: pluginRoots)
-        }
-        return SkillResolver(roots: [first] + pluginRoots + defaults.dropFirst())
+        let firstGlobal = defaults.firstIndex { $0.kind != .repo } ?? defaults.endIndex
+        return SkillResolver(
+            roots: Array(defaults[..<firstGlobal])
+                + pluginRoots
+                + Array(defaults[firstGlobal...])
+        )
     }
 
     private static func roots(
