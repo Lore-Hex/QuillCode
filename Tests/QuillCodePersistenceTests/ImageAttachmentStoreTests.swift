@@ -20,6 +20,22 @@ final class ImageAttachmentStoreTests: PersistenceTestCase {
         XCTAssertEqual((permissions as? NSNumber)?.intValue, 0o600)
     }
 
+    func testImportsValidatedBytesAndPreservesImageDetail() throws {
+        let root = try makeTempDirectory()
+        let store = ImageAttachmentStore(directory: root.appendingPathComponent("managed"))
+
+        let attachment = try store.importImage(
+            data: Self.onePixelPNG,
+            displayName: "remote.png",
+            threadID: UUID(),
+            detail: .original
+        )
+
+        XCTAssertEqual(attachment.displayName, "remote.png")
+        XCTAssertEqual(attachment.detail, .original)
+        XCTAssertEqual(try store.data(for: attachment), Self.onePixelPNG)
+    }
+
     func testRejectsUnsupportedAndUnmanagedFiles() throws {
         let root = try makeTempDirectory()
         let invalid = root.appendingPathComponent("notes.txt")

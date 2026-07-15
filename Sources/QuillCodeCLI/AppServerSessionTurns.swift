@@ -25,7 +25,12 @@ extension AppServerSession {
         )
         let userMessage = input.message()
         appendUserMessage(userMessage, to: &record.thread)
-        try await repository.save(record)
+        do {
+            try await repository.save(record)
+        } catch {
+            input.attachments.forEach { try? attachmentStore.remove($0) }
+            throw error
+        }
 
         let turnID = UUID().uuidString.lowercased()
         let userItem = AppServerThreadProjection.userMessageItem(
@@ -223,6 +228,9 @@ extension AppServerSession {
         error: String?
     ) async {
         guard var active = activeTurns.removeValue(forKey: threadID) else { return }
+        active.queuedSteering
+            .flatMap(\.attachments)
+            .forEach { try? attachmentStore.remove($0) }
         let completedAt = Date()
         let notifications = active.projector.finish(snapshot, completedAt: completedAt)
         var completionStatus = status

@@ -12,7 +12,9 @@ struct AppServerConfiguredRunner: Sendable {
 }
 
 actor AppServerSession {
-    static let maximumMessageBytes = 1_048_576
+    static let maximumMessageBytes =
+        AppServerImageDataURL.maximumEncodedBytes * ChatAttachment.maximumCountPerTurn
+        + 256 * 1_024
 
     enum HandshakeState: Sendable, Equatable {
         case awaitingInitialize

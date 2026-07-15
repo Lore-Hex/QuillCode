@@ -94,7 +94,8 @@ enum AppServerThreadProjection {
         content.append(contentsOf: message.attachments.map { attachment in
             .object([
                 "type": .string("localImage"),
-                "path": .string(attachment.localURL.path)
+                "path": .string(attachment.localURL.path),
+                "detail": .string(attachment.detail.rawValue)
             ])
         })
         return .object([

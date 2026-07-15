@@ -18,44 +18,62 @@ struct AppServerTurnInput: Sendable {
 
         var textSegments: [String] = []
         var attachments: [ChatAttachment] = []
-        for (index, value) in items.enumerated() {
-            let item = try AppServerParams(value)
-            let type = try item.requiredString("type")
-            switch type {
-            case "text":
-                guard let text = item.object["text"]?.stringValue else {
-                    throw AppServerRPCError.invalidParams("input[\(index)].text must be a string")
+        do {
+            for (index, value) in items.enumerated() {
+                let item = try AppServerParams(value)
+                let type = try item.requiredString("type")
+                switch type {
+                case "text":
+                    guard let text = item.object["text"]?.stringValue else {
+                        throw AppServerRPCError.invalidParams("input[\(index)].text must be a string")
+                    }
+                    textSegments.append(text)
+                case "localImage":
+                    try Self.requireImageCapacity(attachments.count)
+                    let path = try item.requiredString("path")
+                    let source = URL(fileURLWithPath: path).standardizedFileURL
+                    let detail = try Self.imageDetail(item, index: index)
+                    do {
+                        attachments.append(try attachmentStore.importImage(
+                            from: source,
+                            threadID: threadID,
+                            detail: detail
+                        ))
+                    } catch {
+                        throw AppServerRPCError.invalidParams(
+                            "input[\(index)] localImage is invalid: \(error.localizedDescription)"
+                        )
+                    }
+                case "image":
+                    try Self.requireImageCapacity(attachments.count)
+                    let detail = try Self.imageDetail(item, index: index)
+                    do {
+                        let image = try AppServerImageDataURL(item.requiredString("url"))
+                        attachments.append(try attachmentStore.importImage(
+                            data: image.data,
+                            displayName: image.displayName,
+                            threadID: threadID,
+                            detail: detail
+                        ))
+                    } catch {
+                        throw AppServerRPCError.invalidParams(
+                            "input[\(index)] image is invalid: \(error.localizedDescription)"
+                        )
+                    }
+                case "skill", "mention":
+                    throw AppServerRPCError.invalidParams("\(type) input is not supported yet")
+                default:
+                    throw AppServerRPCError.invalidParams("input[\(index)] has unsupported type \(type)")
                 }
-                textSegments.append(text)
-            case "localImage":
-                guard attachments.count < ChatAttachment.maximumCountPerTurn else {
-                    throw AppServerRPCError.invalidParams(
-                        "input supports at most \(ChatAttachment.maximumCountPerTurn) images"
-                    )
-                }
-                let path = try item.requiredString("path")
-                let source = URL(fileURLWithPath: path).standardizedFileURL
-                do {
-                    attachments.append(try attachmentStore.importImage(from: source, threadID: threadID))
-                } catch {
-                    throw AppServerRPCError.invalidParams(
-                        "input[\(index)] localImage is invalid: \(error.localizedDescription)"
-                    )
-                }
-            case "image":
-                throw AppServerRPCError.invalidParams(
-                    "remote image input is not supported yet; provide a localImage path"
-                )
-            case "skill", "mention":
-                throw AppServerRPCError.invalidParams("\(type) input is not supported yet")
-            default:
-                throw AppServerRPCError.invalidParams("input[\(index)] has unsupported type \(type)")
             }
+        } catch {
+            attachments.forEach { try? attachmentStore.remove($0) }
+            throw error
         }
 
         let text = textSegments.joined(separator: "\n\n")
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty else {
-            throw AppServerRPCError.invalidParams("input must contain text or a local image")
+            throw AppServerRPCError.invalidParams("input must contain text or an image")
         }
 
         self.text = text
@@ -65,5 +83,23 @@ struct AppServerTurnInput: Sendable {
 
     func message() -> ChatMessage {
         ChatMessage(role: .user, content: text, attachments: attachments)
+    }
+
+    private static func requireImageCapacity(_ count: Int) throws {
+        guard count < ChatAttachment.maximumCountPerTurn else {
+            throw AppServerRPCError.invalidParams(
+                "input supports at most \(ChatAttachment.maximumCountPerTurn) images"
+            )
+        }
+    }
+
+    private static func imageDetail(_ item: AppServerParams, index: Int) throws -> ChatImageDetail {
+        guard let value = try item.optionalString("detail") else { return .auto }
+        guard let detail = ChatImageDetail(rawValue: value) else {
+            throw AppServerRPCError.invalidParams(
+                "input[\(index)].detail must be auto, low, high, or original"
+            )
+        }
+        return detail
     }
 }

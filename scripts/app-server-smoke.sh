@@ -7,7 +7,9 @@ trap 'rm -rf "$SMOKE_ROOT"' EXIT
 
 mkdir -p "$SMOKE_ROOT/home" "$SMOKE_ROOT/workspace"
 cd "$ROOT_DIR"
-swift build --product quill-code >/dev/null
+if [[ "${QUILLCODE_SKIP_BUILD:-0}" != "1" ]]; then
+  swift build --product quill-code >/dev/null
+fi
 
 python3 - \
   "$ROOT_DIR/.build/debug/quill-code" \
@@ -465,9 +467,16 @@ assert set(mcp_fast_server["tools"]) == {"search"}, mcp_fast_status
 assert mcp_fast_server["resources"] == [], mcp_fast_status
 assert mcp_fast_server["resourceTemplates"] == [], mcp_fast_status
 
+image_bytes = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+image_data_url = "data:image/png;base64," + base64.b64encode(image_bytes).decode("ascii")
 send({"id": 9, "method": "turn/start", "params": {
     "threadId": thread_id,
-    "input": [{"type": "text", "text": "app-server smoke"}],
+    "input": [
+        {"type": "text", "text": "app-server smoke"},
+        {"type": "image", "url": image_data_url, "detail": "high"},
+    ],
 }})
 turn_response, records = read_until(lambda record: record.get("id") == 9)
 assert turn_response["result"]["turn"]["status"] == "inProgress", turn_response
@@ -478,6 +487,21 @@ methods = {record.get("method") for record in records}
 assert "turn/started" in methods, methods
 assert "item/started" in methods, methods
 assert "item/completed" in methods, methods
+user_item = next(
+    item
+    for item in completed["params"]["turn"]["items"]
+    if item["type"] == "userMessage"
+)
+managed_image = next(item for item in user_item["content"] if item["type"] == "localImage")
+assert managed_image["detail"] == "high", managed_image
+managed_path = os.path.realpath(managed_image["path"])
+attachment_root = os.path.realpath(os.path.join(home, "attachments"))
+assert os.path.commonpath([managed_path, attachment_root]) == attachment_root, managed_image
+with open(managed_image["path"], "rb") as image_stream:
+    assert image_stream.read() == image_bytes, managed_image
+for thread_name in os.listdir(os.path.join(home, "threads")):
+    with open(os.path.join(home, "threads", thread_name), "r", encoding="utf-8") as thread_file:
+        assert image_data_url not in thread_file.read(), thread_name
 
 process.stdin.close()
 status = process.wait(timeout=10)
