@@ -1096,6 +1096,31 @@
   stdin open while driving the built executable, proving the real process responds incrementally
   before EOF.
 
+## 2026-07-14: App-server discovery distinguishes provider facts from local observations
+
+- **Model contract:** `model/list` projects the normalized TrustedRouter catalog into the generated
+  Codex 0.142.5 shape, caches one live/public fetch per app-server session, preserves QuillCode's
+  selected default, and uses opaque deterministic offset cursors. Unsupported reasoning and service
+  tiers remain empty instead of being invented.
+- **Account contract:** `account/read` reports only whether a usable explicit, environment, or stored
+  TrustedRouter credential exists. It returns the schema-compatible `apiKey` account kind but never
+  serializes the credential itself; externally managed refresh requests are type-checked and ignored.
+- **Usage contract:** `account/usage/read` aggregates only persisted local model-usage receipts into
+  UTC daily buckets and streaks. `account/rateLimits/read` exposes configured QuillCode day/week/month
+  spend controls under `quillcode-local-*` IDs and names every row as local. Neither method claims to
+  represent TrustedRouter account history, balances, or provider quotas.
+- **Config contract:** `config/read` maps effective QuillCode model, reviewer, sandbox, and web-search
+  state onto required Codex fields, validates the requested working directory, and optionally reports
+  the existing user config layer. Origins remain empty until true per-key layering is implemented.
+- **Code boundary:** Model, account/usage, config, and parameter support live in focused app-server
+  files. Credential precedence is one shared CLI resolver used by both ordinary CLI execution and
+  app-server discovery, so the two surfaces cannot drift.
+- **Verification:** Seven focused JSON-RPC tests cover pagination and schema fields, capability truth,
+  credential precedence and non-disclosure, UTC usage aggregation, local spend controls, config
+  layers, and invalid inputs. The real app-server process smoke reads models, account state, and
+  effective config before starting a turn. The CLI module and every new production/test file grade
+  A+ under the repository quality gate.
+
 ## 2026-07-14: Model code review is a dedicated read-only workflow
 
 - **Command boundary:** `/review` and the **Code review** command open a scope chooser for uncommitted work, a base-branch comparison, one commit, or custom review criteria. `/diff` remains the ordinary Git diff/review-pane route; the two commands no longer pretend to be aliases.
