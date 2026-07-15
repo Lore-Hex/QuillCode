@@ -40,6 +40,44 @@ name: smoke-advisor
 description: Advise the app-server smoke test.
 ---
 """)
+marketplace_directory = os.path.join(workspace, ".agents", "plugins")
+catalog_plugin_root = os.path.join(workspace, "catalog", "smoke-tools")
+installed_plugin_root = os.path.join(workspace, ".quillcode", "plugins", "smoke-tools")
+for directory in [marketplace_directory, catalog_plugin_root, installed_plugin_root]:
+    target = os.path.join(directory, ".codex-plugin") \
+        if directory != marketplace_directory else directory
+    os.makedirs(target, exist_ok=True)
+with open(
+    os.path.join(marketplace_directory, "marketplace.json"),
+    "w",
+    encoding="utf-8",
+) as manifest:
+    json.dump({
+        "name": "smoke-marketplace",
+        "interface": {"displayName": "Smoke Marketplace"},
+        "plugins": [{
+            "name": "smoke-tools",
+            "source": "./catalog/smoke-tools",
+            "category": "Testing",
+        }],
+    }, manifest)
+with open(
+    os.path.join(catalog_plugin_root, ".codex-plugin", "plugin.json"),
+    "w",
+    encoding="utf-8",
+) as manifest:
+    json.dump({
+        "name": "smoke-tools",
+        "version": "1.0.0",
+        "keywords": ["smoke"],
+        "interface": {"displayName": "Smoke Tools"},
+    }, manifest)
+with open(
+    os.path.join(installed_plugin_root, ".codex-plugin", "plugin.json"),
+    "w",
+    encoding="utf-8",
+) as manifest:
+    json.dump({"name": "smoke-tools", "version": "2.0.0"}, manifest)
 process = subprocess.Popen(
     [binary, "--home", home, "app-server", "--mock"],
     cwd=workspace,
@@ -124,6 +162,29 @@ assert config["result"]["config"]["desktop"] == {
 assert config["result"]["origins"]["desktop.workspace.width"]["version"] \
     == config_batch["result"]["version"], config
 assert config["result"]["layers"][0]["config"]["desktop"]["appearanceTheme"] == "dark", config
+
+send({"id": 43, "method": "plugin/list", "params": {"cwds": [workspace]}})
+plugin_list, _ = read_until(lambda record: record.get("id") == 43)
+assert plugin_list["result"]["featuredPluginIds"] == [], plugin_list
+assert plugin_list["result"]["marketplaceLoadErrors"] == [], plugin_list
+marketplace = plugin_list["result"]["marketplaces"][0]
+assert marketplace["name"] == "smoke-marketplace", plugin_list
+assert marketplace["interface"] == {"displayName": "Smoke Marketplace"}, plugin_list
+plugin = marketplace["plugins"][0]
+assert plugin["id"] == "smoke-tools@smoke-marketplace", plugin_list
+assert plugin["installed"] is True and plugin["enabled"] is True, plugin_list
+assert plugin["localVersion"] == "2.0.0", plugin_list
+assert plugin["interface"]["category"] == "Testing", plugin_list
+assert plugin["keywords"] == ["smoke"], plugin_list
+
+send({"id": 44, "method": "plugin/installed", "params": {"cwds": [workspace]}})
+plugin_installed, _ = read_until(lambda record: record.get("id") == 44)
+assert "featuredPluginIds" not in plugin_installed["result"], plugin_installed
+assert [
+    item["name"]
+    for entry in plugin_installed["result"]["marketplaces"]
+    for item in entry["plugins"]
+] == ["smoke-tools"], plugin_installed
 
 send({"id": 5, "method": "skills/list", "params": {"cwds": [workspace]}})
 skills, _ = read_until(lambda record: record.get("id") == 5)

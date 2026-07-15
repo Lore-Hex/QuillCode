@@ -135,6 +135,8 @@ actor AppServerSession {
             case "config/read": result = try readConfig(params)
             case "config/value/write": result = try await writeConfigValue(params)
             case "config/batchWrite": result = try await writeConfigBatch(params)
+            case "plugin/list": result = try listPlugins(params)
+            case "plugin/installed": result = try listInstalledPlugins(params)
             case "skills/list": result = try listSkills(params)
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
             case "skills/config/write": result = try await writeSkillConfig(params)

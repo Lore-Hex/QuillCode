@@ -19,8 +19,9 @@ This initial repository contains the compile-stable foundation:
   runs, final-message files, structured output, and fail-closed Git/workspace guards
 - Codex-compatible `quill-code app-server` stdio JSONL core with strict initialization, durable
   thread lifecycle, streamed turns, steering, interruption, managed local images, approvals,
-  model/provider discovery, non-secret account/local usage state, effective config reads, and
-  Open Agent Skills discovery with per-session extra roots, plus binary-safe host filesystem
+  model/provider discovery, non-secret account/local usage state, config reads/writes, local plugin
+  marketplace and installed-state discovery, Open Agent Skills discovery with per-session extra
+  roots, plus binary-safe host filesystem
   read/write/metadata/directory/copy/remove and connection-scoped watch methods
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
 - Playwright mock UI harness (test-only; any `node_modules` lives under `E2E/playwright` and is ignored)
@@ -67,6 +68,8 @@ transcript persistence. Clients can also list models, read provider capabilities
 presence without receiving credentials, read locally observed UTC token usage and explicitly local
 spend controls, inspect effective config, atomically update the user config through Codex-compatible
 `config/value/write` and `config/batchWrite` with content-version conflict detection, and use
+`plugin/list` and `plugin/installed` to inspect bounded local repository/home marketplaces and
+QuillCode-installed packages without executing marketplace code. Clients can also use
 Codex-compatible `fs/readFile`, `fs/writeFile`,
 `fs/createDirectory`, `fs/getMetadata`, `fs/readDirectory`, `fs/remove`, `fs/copy`, `fs/watch`, and
 `fs/unwatch` methods. Files are binary-safe base64 payloads, reads use Codex's 512 MiB bound, recursive
