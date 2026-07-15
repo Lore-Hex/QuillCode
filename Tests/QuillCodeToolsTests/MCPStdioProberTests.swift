@@ -45,6 +45,17 @@ private final class MCPStdioProbeFixture {
         try output.fileHandleForWriting.close()
     }
 
+    func readRequests() throws -> [[String: Any]] {
+        try input.fileHandleForWriting.close()
+        var data = input.fileHandleForReading.readDataToEndOfFile()
+        var requests: [[String: Any]] = []
+        while let message = try MCPStdioMessageCodec.nextMessageData(from: &data) {
+            requests.append(try MCPStdioMessageCodec.decodeJSONObject(message))
+        }
+        XCTAssertTrue(data.isEmpty, "fixture should contain only complete MCP messages")
+        return requests
+    }
+
     func close() {
         try? input.fileHandleForWriting.close()
         try? input.fileHandleForReading.close()
@@ -120,7 +131,14 @@ final class MCPStdioProberTests: XCTestCase {
         XCTAssertEqual(result.protocolVersion, "2024-11-05")
         XCTAssertEqual(result.serverName, "Fixture MCP")
         XCTAssertEqual(result.serverVersion, "1.0.0")
+        XCTAssertEqual(
+            result.serverInfo,
+            .object(["name": .string("Fixture MCP"), "version": .string("1.0.0")])
+        )
         XCTAssertEqual(result.toolNames, ["read_file", "write_file"])
+        XCTAssertEqual(result.tools.count, 2)
+        XCTAssertEqual(result.tools[0].objectValue?["name"], .string("read_file"))
+        XCTAssertEqual(result.tools[0].objectValue?["description"], .string("Read a file"))
         XCTAssertEqual(result.toolDescriptors.map(\.name), ["read_file", "write_file"])
         XCTAssertEqual(result.toolDescriptors[0].description, "Read a file")
         XCTAssertEqual(result.toolDescriptors[0].requiredArguments, ["path"])
@@ -160,6 +178,15 @@ final class MCPStdioProberTests: XCTestCase {
             "jsonrpc": "2.0",
             "id": 4,
             "result": [
+                "resourceTemplates": [
+                    ["name": "Workspace file", "uriTemplate": "file:///{path}"]
+                ]
+            ]
+        ])
+        try fixture.write([
+            "jsonrpc": "2.0",
+            "id": 5,
+            "result": [
                 "prompts": [
                     ["name": "summarize_project"]
                 ]
@@ -172,7 +199,36 @@ final class MCPStdioProberTests: XCTestCase {
         XCTAssertEqual(result.toolNames, ["read_file"])
         XCTAssertEqual(result.resourceNames, ["README", "file:///workspace/package.json"])
         XCTAssertEqual(result.resourceURIs, ["file:///workspace/README.md", "file:///workspace/package.json"])
+        XCTAssertEqual(result.resources.count, 2)
+        XCTAssertEqual(result.resources[0].objectValue?["name"], .string("README"))
+        XCTAssertEqual(result.resourceTemplates.count, 1)
+        XCTAssertEqual(
+            result.resourceTemplates[0].objectValue?["uriTemplate"],
+            .string("file:///{path}")
+        )
         XCTAssertEqual(result.promptNames, ["summarize_project"])
+    }
+
+    func testToolsAndAuthOnlyProbeSkipsResourceAndPromptInventory() throws {
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
+
+        try fixture.writeInitialize(capabilities: [
+            "tools": [:],
+            "resources": [:],
+            "prompts": [:]
+        ])
+        try fixture.writeTools([["name": "read_file"]])
+        try fixture.finishWriting()
+
+        let result = try fixture.prober.probe(detail: .toolsAndAuthOnly, timeout: 1.0)
+        let methods = try fixture.readRequests().compactMap { $0["method"] as? String }
+
+        XCTAssertEqual(methods, ["initialize", "notifications/initialized", "tools/list"])
+        XCTAssertEqual(result.toolNames, ["read_file"])
+        XCTAssertTrue(result.resources.isEmpty)
+        XCTAssertTrue(result.resourceTemplates.isEmpty)
+        XCTAssertTrue(result.promptNames.isEmpty)
     }
 
     func testCallToolSendsToolsCallAndParsesTextContent() throws {
@@ -205,6 +261,50 @@ final class MCPStdioProberTests: XCTestCase {
         XCTAssertEqual(result.stdout, "hello from MCP")
     }
 
+    func testCallToolResultPreservesStructuredContentErrorAndMetadata() throws {
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
+
+        try fixture.writeInitialize(serverInfo: ["name": "Fixture MCP"])
+        try fixture.writeTools([["name": "search"]])
+        try fixture.write([
+            "jsonrpc": "2.0",
+            "id": 3,
+            "result": [
+                "content": [["type": "text", "text": "partial result"]],
+                "structuredContent": ["matches": 2, "query": "swift"],
+                "isError": true,
+                "_meta": ["traceID": "trace-123"]
+            ]
+        ])
+        try fixture.finishWriting()
+
+        let prober = fixture.prober
+        _ = try prober.probe(timeout: 1.0)
+        let result = try prober.callToolResult(
+            toolName: "search",
+            arguments: .object(["query": .string("swift")]),
+            metadata: .object(["requestID": .string("request-123")]),
+            timeout: 1.0
+        )
+        let call = try XCTUnwrap(
+            fixture.readRequests().first { ($0["method"] as? String) == "tools/call" }
+        )
+        let params = try XCTUnwrap(call["params"] as? [String: Any])
+        let arguments = try XCTUnwrap(params["arguments"] as? [String: Any])
+        let metadata = try XCTUnwrap(params["_meta"] as? [String: Any])
+
+        XCTAssertEqual(result.content, [.object(["text": .string("partial result"), "type": .string("text")])])
+        XCTAssertEqual(
+            result.structuredContent,
+            .object(["matches": .number(2), "query": .string("swift")])
+        )
+        XCTAssertEqual(result.isError, true)
+        XCTAssertEqual(result.metadata, .object(["traceID": .string("trace-123")]))
+        XCTAssertEqual(arguments["query"] as? String, "swift")
+        XCTAssertEqual(metadata["requestID"] as? String, "request-123")
+    }
+
     func testReadResourceSendsResourcesReadAndParsesTextContent() throws {
         let fixture = MCPStdioProbeFixture()
         defer { fixture.close() }
@@ -226,6 +326,11 @@ final class MCPStdioProberTests: XCTestCase {
         try fixture.write([
             "jsonrpc": "2.0",
             "id": 4,
+            "result": ["resourceTemplates": []]
+        ])
+        try fixture.write([
+            "jsonrpc": "2.0",
+            "id": 5,
             "result": [
                 "contents": [
                     ["uri": "file:///workspace/README.md", "mimeType": "text/markdown", "text": "# README"]

@@ -11,6 +11,7 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         let mcpProcessHandleText = try Self.appSourceText(named: "WorkspaceMCPProcessHandle.swift")
         let mcpProbeNoticeText = try Self.appSourceText(named: "WorkspaceMCPRuntimeProbeNotice.swift")
         let mcpLauncherText = try Self.appSourceText(named: "WorkspaceMCPServerLauncher.swift")
+        let sharedLauncherText = try Self.toolsSourceText(named: "MCPClientLauncher.swift")
         let mcpCatalogText = try Self.appSourceText(named: "WorkspaceMCPToolCatalog.swift")
 
         XCTAssertTrue(mcpSurfaceText.contains("public struct ExtensionsState"), "MCP extension state should live in a focused surface file.")
@@ -25,8 +26,16 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(mcpProcessHandleText.contains("WorkspaceMCPSession"), "MCP process handles should keep session abstraction typed.")
         XCTAssertTrue(mcpLauncherText.contains("protocol WorkspaceMCPServerLaunching"), "MCP process launch should have an injectable launcher protocol.")
         XCTAssertTrue(mcpLauncherText.contains("struct WorkspaceMCPLaunchRequest"), "MCP launch request validation should live beside the launcher.")
-        XCTAssertTrue(mcpLauncherText.contains("struct WorkspaceMCPProcessLaunchConfiguration"), "MCP command resolution should live beside the launcher.")
+        XCTAssertTrue(
+            mcpLauncherText.contains("typealias WorkspaceMCPProcessLaunchConfiguration = MCPProcessLaunchConfiguration"),
+            "Workspace launch validation should reuse the shared MCP command resolver."
+        )
+        XCTAssertTrue(
+            sharedLauncherText.contains("public struct MCPProcessLaunchConfiguration"),
+            "Shared MCP command resolution should live beside shared process launch."
+        )
         XCTAssertTrue(mcpLauncherText.contains("struct DefaultWorkspaceMCPServerLauncher"), "Concrete MCP stdio launch should live in a focused launcher.")
+        XCTAssertTrue(mcpLauncherText.contains("MCPClientLaunching"), "The workspace launcher should delegate transport construction through the shared launcher seam.")
         XCTAssertTrue(mcpRuntimeText.contains("private let launcher"), "MCP runtime should delegate server launch through the launcher seam.")
         XCTAssertTrue(mcpRuntimeText.contains("WorkspaceMCPLaunchRequest.make"), "MCP runtime should delegate manifest launch validation to launch request construction.")
         XCTAssertTrue(mcpRuntimeText.contains("launcher.launch("), "MCP runtime should delegate process creation to the launcher.")
@@ -56,7 +65,8 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(mcpRuntimeText.contains("URL(fileURLWithPath: \"/usr/bin/env\")"), "WorkspaceMCPRuntime should not resolve launch commands directly.")
         XCTAssertFalse(mcpRuntimeText.contains("private static func execute"), "WorkspaceMCPRuntime should not own dynamic tool routing details.")
         XCTAssertFalse(mcpRuntimeText.contains("private static func userFacingError"), "WorkspaceMCPRuntime should not own dynamic tool error formatting.")
-        XCTAssertTrue(mcpLauncherText.contains("Process()"), "Concrete process construction should be isolated to the MCP launcher.")
+        XCTAssertFalse(mcpLauncherText.contains("Process()"), "The app launcher should not duplicate shared process construction.")
+        XCTAssertTrue(sharedLauncherText.contains("let process = Process()"), "Concrete process construction should be isolated to the shared MCP launcher.")
         XCTAssertFalse(modelText.contains("readyMCPToolDescriptions"), "WorkspaceModel should not format MCP tool descriptions directly.")
         XCTAssertFalse(mcpRuntimeText.contains("func readyToolDescriptions"), "MCP runtime should not format MCP tool descriptions directly.")
         XCTAssertFalse(mcpRuntimeText.contains("func readyResourceDescriptions"), "MCP runtime should not format MCP resource descriptions directly.")
@@ -93,6 +103,7 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         let skillResolverText = try Self.appSourceText(named: "WorkspacePluginSkillResolver.swift")
         let sessionFactoryText = try Self.appSourceText(named: "WorkspaceAgentSendSessionFactory.swift")
         let launcherText = try Self.appSourceText(named: "WorkspaceMCPServerLauncher.swift")
+        let sharedLauncherText = try Self.toolsSourceText(named: "MCPClientLauncher.swift")
         let agentText = try Self.agentSourceText(named: "AgentToolStepRunner.swift")
 
         XCTAssertTrue(loaderText.contains(".codex-plugin/plugin.json"))
@@ -103,7 +114,7 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(sessionFactoryText.contains("WorkspacePluginSkillResolver.make"))
         XCTAssertTrue(agentText.contains("skillResolver.map"))
         XCTAssertTrue(launcherText.contains("${CODEX_PLUGIN_ROOT}"))
-        XCTAssertTrue(launcherText.contains("process.environment"))
+        XCTAssertTrue(sharedLauncherText.contains("process.environment"))
         XCTAssertFalse(loaderText.contains("Process()"), "Discovery must never execute plugin code.")
     }
 

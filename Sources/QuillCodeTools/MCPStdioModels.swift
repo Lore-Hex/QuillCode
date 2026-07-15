@@ -4,6 +4,10 @@ public struct MCPServerProbeResult: Sendable, Hashable {
     public var protocolVersion: String?
     public var serverName: String?
     public var serverVersion: String?
+    public var serverInfo: MCPJSONValue?
+    public var tools: [MCPJSONValue]
+    public var resources: [MCPJSONValue]
+    public var resourceTemplates: [MCPJSONValue]
     public var toolDescriptors: [MCPToolDescriptor]
     public var toolNames: [String]
     public var resourceNames: [String]
@@ -14,6 +18,10 @@ public struct MCPServerProbeResult: Sendable, Hashable {
         protocolVersion: String? = nil,
         serverName: String? = nil,
         serverVersion: String? = nil,
+        serverInfo: MCPJSONValue? = nil,
+        tools: [MCPJSONValue] = [],
+        resources: [MCPJSONValue] = [],
+        resourceTemplates: [MCPJSONValue] = [],
         toolDescriptors: [MCPToolDescriptor] = [],
         toolNames: [String] = [],
         resourceNames: [String] = [],
@@ -23,6 +31,10 @@ public struct MCPServerProbeResult: Sendable, Hashable {
         self.protocolVersion = protocolVersion
         self.serverName = serverName
         self.serverVersion = serverVersion
+        self.serverInfo = serverInfo
+        self.tools = tools
+        self.resources = resources
+        self.resourceTemplates = resourceTemplates
         self.toolDescriptors = toolDescriptors.isEmpty
             ? toolNames.map { MCPToolDescriptor(name: $0) }
             : toolDescriptors
@@ -32,6 +44,38 @@ public struct MCPServerProbeResult: Sendable, Hashable {
         self.resourceNames = resourceNames
         self.resourceURIs = resourceURIs
         self.promptNames = promptNames
+    }
+}
+
+public enum MCPProbeDetail: String, Sendable, Hashable {
+    case full
+    case toolsAndAuthOnly
+}
+
+public struct MCPToolCallResult: Codable, Sendable, Hashable {
+    public var content: [MCPJSONValue]
+    public var structuredContent: MCPJSONValue?
+    public var isError: Bool?
+    public var metadata: MCPJSONValue?
+
+    public init(
+        content: [MCPJSONValue] = [],
+        structuredContent: MCPJSONValue? = nil,
+        isError: Bool? = nil,
+        metadata: MCPJSONValue? = nil
+    ) {
+        self.content = content
+        self.structuredContent = structuredContent
+        self.isError = isError
+        self.metadata = metadata
+    }
+}
+
+public struct MCPResourceReadResult: Codable, Sendable, Hashable {
+    public var contents: [MCPJSONValue]
+
+    public init(contents: [MCPJSONValue] = []) {
+        self.contents = contents
     }
 }
 

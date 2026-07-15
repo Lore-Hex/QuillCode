@@ -35,6 +35,7 @@ actor AppServerSession {
     var appConfig: AppConfig
     let repository: AppServerThreadRepository
     let attachmentStore: ImageAttachmentStore
+    let mcpRegistry: AppServerMCPRegistry
     let runnerFactory: CLIAgentRunnerFactory
     let sink: AppServerMessageSink
 
@@ -58,6 +59,7 @@ actor AppServerSession {
         environment: [String: String],
         currentDirectory: URL,
         runnerFactory: @escaping CLIAgentRunnerFactory,
+        mcpLauncher: any MCPClientLaunching = DefaultMCPClientLauncher(),
         sink: @escaping AppServerMessageSink
     ) throws {
         let paths = request.home.map { QuillCodePaths(home: $0) } ?? QuillCodePaths()
@@ -69,6 +71,7 @@ actor AppServerSession {
         self.appConfig = try ConfigStore(fileURL: paths.configFile).load()
         self.repository = AppServerThreadRepository(paths: paths, fallbackCWD: currentDirectory)
         self.attachmentStore = ImageAttachmentStore(directory: paths.attachmentsDirectory)
+        self.mcpRegistry = AppServerMCPRegistry(launcher: mcpLauncher)
         self.runnerFactory = runnerFactory
         self.sink = sink
     }
@@ -100,10 +103,11 @@ actor AppServerSession {
         for task in tasks { await task.value }
     }
 
-    func finishInput() {
+    func finishInput() async {
         inputFinished = true
         cancelSkillWatcher()
         cancelAllFileWatches()
+        await mcpRegistry.terminateAll()
         resolveAllPendingApprovals(
             with: .deny(reason: "The app-server client disconnected before answering the approval request.")
         )
@@ -142,6 +146,11 @@ actor AppServerSession {
             case "skills/list": result = try listSkills(params)
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
             case "skills/config/write": result = try await writeSkillConfig(params)
+            case "mcpServerStatus/list": result = try await listMCPServerStatus(params)
+            case "config/mcpServer/reload": result = try await reloadMCPServers(params)
+            case "mcpServer/tool/call": result = try await callMCPServerTool(params)
+            case "mcpServer/resource/read": result = try await readMCPResource(params)
+            case "mcpServer/oauth/login": result = try loginMCPServerOAuth(params)
             case "fs/readFile": result = try readFile(params)
             case "fs/writeFile": result = try writeFile(params)
             case "fs/createDirectory": result = try createDirectory(params)

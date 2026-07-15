@@ -2,14 +2,9 @@ import Foundation
 import QuillCodeCore
 import QuillCodeTools
 
-protocol WorkspaceMCPSession: Sendable {
-    func probe(timeout: TimeInterval) throws -> MCPServerProbeResult
-    func callTool(toolName: String, argumentsJSON: String, timeout: TimeInterval) throws -> ToolResult
-    func readResource(uri: String, timeout: TimeInterval) throws -> ToolResult
-    func getPrompt(name: String, argumentsJSON: String, timeout: TimeInterval) throws -> ToolResult
-}
-
-extension MCPStdioProber: WorkspaceMCPSession {}
+typealias WorkspaceMCPSession = MCPClientSession
+typealias WorkspaceMCPProcessControlling = MCPProcessControlling
+typealias WorkspaceMCPProcessLaunchConfiguration = MCPProcessLaunchConfiguration
 
 extension WorkspaceMCPSession {
     func callTool(toolName: String, argumentsJSON: String) throws -> ToolResult {
@@ -23,13 +18,6 @@ extension WorkspaceMCPSession {
     func getPrompt(name: String, argumentsJSON: String) throws -> ToolResult {
         try getPrompt(name: name, argumentsJSON: argumentsJSON, timeout: 10.0)
     }
-}
-
-protocol WorkspaceMCPProcessControlling: AnyObject, Sendable {
-    var isRunning: Bool { get }
-    func terminate()
-    func clearReadabilityHandlers()
-    func startDrainingStandardError()
 }
 
 struct WorkspaceMCPLaunchRequest: Sendable, Hashable {
@@ -189,185 +177,58 @@ protocol WorkspaceMCPServerLaunching: Sendable {
     ) throws -> WorkspaceMCPLaunchedServer
 }
 
-struct WorkspaceMCPProcessLaunchConfiguration: Sendable, Hashable {
-    var executableURL: URL
-    var arguments: [String]
-    var environment: [String: String]
-
-    static func resolve(
-        command: String,
-        arguments: [String],
-        environment: [String: String] = [:],
-        workingDirectory: URL
-    ) -> WorkspaceMCPProcessLaunchConfiguration {
-        if command.contains("/") {
-            let commandURL = command.hasPrefix("/")
-                ? URL(fileURLWithPath: command)
-                : workingDirectory.appendingPathComponent(command)
-            return WorkspaceMCPProcessLaunchConfiguration(
-                executableURL: commandURL,
-                arguments: arguments,
-                environment: environment
-            )
-        }
-
-        return WorkspaceMCPProcessLaunchConfiguration(
-            executableURL: URL(fileURLWithPath: "/usr/bin/env"),
-            arguments: [command] + arguments,
-            environment: environment
-        )
-    }
-}
-
 struct DefaultWorkspaceMCPServerLauncher: WorkspaceMCPServerLaunching {
     /// Secret store used to resolve stored OAuth tokens for remote servers. Nil disables auth
     /// (open servers still connect; servers requiring auth surface a 401 at probe time).
     var secretStore: (any MCPSecretStore)?
     /// HTTP transport for remote servers. Defaults to the real `URLSession` client.
     var httpClient: any MCPHTTPClient
+    private let clientLauncher: any MCPClientLaunching
 
     init(
         secretStore: (any MCPSecretStore)? = nil,
-        httpClient: any MCPHTTPClient = URLSessionMCPHTTPClient()
+        httpClient: any MCPHTTPClient = URLSessionMCPHTTPClient(),
+        clientLauncher: (any MCPClientLaunching)? = nil
     ) {
         self.secretStore = secretStore
         self.httpClient = httpClient
+        self.clientLauncher = clientLauncher ?? DefaultMCPClientLauncher(httpClient: httpClient)
     }
 
     func launch(
         request: WorkspaceMCPLaunchRequest,
         onTermination: @escaping @MainActor @Sendable (_ id: String, _ terminationStatus: Int32) -> Void
     ) throws -> WorkspaceMCPLaunchedServer {
+        let transport: MCPClientLaunchRequest.Transport
         switch request.transport {
         case .stdio:
-            return try launchStdio(request: request, onTermination: onTermination)
+            transport = .stdio
         case let .remote(url, headers, preferSSE, oauthClientID):
-            return launchRemote(
-                request: request,
+            transport = .remote(
                 url: url,
                 headers: headers,
-                preferSSE: preferSSE,
-                oauthClientID: oauthClientID
+                mode: preferSSE ? .httpSSE : .automatic,
+                authorization: WorkspaceMCPRemoteAuthResolver.authorization(
+                    serverID: request.serverID,
+                    serverURL: url,
+                    oauthClientID: oauthClientID,
+                    secretStore: secretStore,
+                    httpClient: httpClient
+                )
             )
         }
-    }
-
-    private func launchStdio(
-        request: WorkspaceMCPLaunchRequest,
-        onTermination: @escaping @MainActor @Sendable (_ id: String, _ terminationStatus: Int32) -> Void
-    ) throws -> WorkspaceMCPLaunchedServer {
-        let process = Process()
-        process.currentDirectoryURL = request.workingDirectory
-
-        let launch = WorkspaceMCPProcessLaunchConfiguration.resolve(
-            command: request.command,
-            arguments: request.arguments,
-            environment: request.environment,
-            workingDirectory: request.workingDirectory
-        )
-        process.executableURL = launch.executableURL
-        process.arguments = launch.arguments
-        if !launch.environment.isEmpty {
-            process.environment = ProcessInfo.processInfo.environment.merging(
-                launch.environment,
-                uniquingKeysWith: { _, pluginValue in pluginValue }
-            )
-        }
-
-        let standardInput = Pipe()
-        let standardOutput = Pipe()
-        let standardError = Pipe()
-        process.standardInput = standardInput
-        process.standardOutput = standardOutput
-        process.standardError = standardError
-
-        let controller = WorkspaceMCPFoundationProcessController(
-            process: process,
-            standardInput: standardInput,
-            standardOutput: standardOutput,
-            standardError: standardError
-        )
-
-        process.terminationHandler = { process in
-            controller.clearReadabilityHandlers()
-            Task { @MainActor in
-                onTermination(request.serverID, process.terminationStatus)
+        let launched = try clientLauncher.launch(
+            request: MCPClientLaunchRequest(
+                transport: transport,
+                command: request.command,
+                arguments: request.arguments,
+                environment: request.environment,
+                workingDirectory: request.workingDirectory
+            ),
+            onTermination: { status in
+                Task { @MainActor in onTermination(request.serverID, status) }
             }
-        }
-
-        try process.run()
-
-        let session = MCPStdioProber(
-            standardInput: standardInput.fileHandleForWriting,
-            standardOutput: standardOutput.fileHandleForReading
         )
-        return WorkspaceMCPLaunchedServer(process: controller, session: session)
-    }
-
-    private func launchRemote(
-        request: WorkspaceMCPLaunchRequest,
-        url: URL,
-        headers: [String: String],
-        preferSSE: Bool,
-        oauthClientID: String?
-    ) -> WorkspaceMCPLaunchedServer {
-        let authorization = WorkspaceMCPRemoteAuthResolver.authorization(
-            serverID: request.serverID,
-            serverURL: url,
-            oauthClientID: oauthClientID,
-            secretStore: secretStore,
-            httpClient: httpClient
-        )
-        let prober = MCPHTTPProber(
-            endpoint: url,
-            httpClient: httpClient,
-            authorization: authorization,
-            extraHeaders: headers,
-            mode: preferSSE ? .httpSSE : .automatic
-        )
-        // A remote connection owns no OS process — it stays "running" until torn down. There is
-        // nothing to await, so the termination callback is never invoked from here.
-        return WorkspaceMCPLaunchedServer(
-            process: WorkspaceMCPRemoteConnectionController(),
-            session: WorkspaceMCPRemoteSession(prober: prober)
-        )
-    }
-}
-
-private final class WorkspaceMCPFoundationProcessController: WorkspaceMCPProcessControlling, @unchecked Sendable {
-    private let process: Process
-    private let standardInput: Pipe
-    private let standardOutput: Pipe
-    private let standardError: Pipe
-
-    init(
-        process: Process,
-        standardInput: Pipe,
-        standardOutput: Pipe,
-        standardError: Pipe
-    ) {
-        self.process = process
-        self.standardInput = standardInput
-        self.standardOutput = standardOutput
-        self.standardError = standardError
-    }
-
-    var isRunning: Bool {
-        process.isRunning
-    }
-
-    func terminate() {
-        process.terminate()
-    }
-
-    func clearReadabilityHandlers() {
-        standardOutput.fileHandleForReading.readabilityHandler = nil
-        standardError.fileHandleForReading.readabilityHandler = nil
-    }
-
-    func startDrainingStandardError() {
-        standardError.fileHandleForReading.readabilityHandler = { handle in
-            _ = handle.availableData
-        }
+        return WorkspaceMCPLaunchedServer(process: launched.process, session: launched.session)
     }
 }

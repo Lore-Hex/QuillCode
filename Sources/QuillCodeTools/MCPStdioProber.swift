@@ -19,6 +19,13 @@ public final class MCPStdioProber: @unchecked Sendable {
     }
 
     public func probe(timeout: TimeInterval = 2.0) throws -> MCPServerProbeResult {
+        try probe(detail: .full, timeout: timeout)
+    }
+
+    public func probe(
+        detail: MCPProbeDetail,
+        timeout: TimeInterval = 2.0
+    ) throws -> MCPServerProbeResult {
         ioLock.lock()
         defer { ioLock.unlock() }
 
@@ -46,10 +53,18 @@ public final class MCPStdioProber: @unchecked Sendable {
         let toolDescriptors = MCPStdioResultMapper.toolDescriptors(from: tools)
 
         let capabilities = initializeResult["capabilities"] as? [String: Any]
-        let resources = capabilities?["resources"] == nil
+        let resourceEntries = detail == .toolsAndAuthOnly || capabilities?["resources"] == nil
             ? []
-            : optionalResourceList(deadline: deadline)
-        let promptNames = capabilities?["prompts"] == nil
+            : optionalList(method: "resources/list", resultKey: "resources", deadline: deadline)
+        let resources = MCPStdioResultMapper.resourceList(from: ["resources": resourceEntries])
+        let resourceTemplates = detail == .toolsAndAuthOnly || capabilities?["resources"] == nil
+            ? []
+            : optionalList(
+                method: "resources/templates/list",
+                resultKey: "resourceTemplates",
+                deadline: deadline
+            )
+        let promptNames = detail == .toolsAndAuthOnly || capabilities?["prompts"] == nil
             ? []
             : optionalListNames(
                 method: "prompts/list",
@@ -63,6 +78,10 @@ public final class MCPStdioProber: @unchecked Sendable {
             protocolVersion: initializeResult["protocolVersion"] as? String,
             serverName: serverInfo?["name"] as? String,
             serverVersion: serverInfo?["version"] as? String,
+            serverInfo: MCPStdioResultMapper.jsonValue(from: serverInfo),
+            tools: MCPStdioResultMapper.jsonValues(from: tools),
+            resources: MCPStdioResultMapper.jsonValues(from: resourceEntries),
+            resourceTemplates: MCPStdioResultMapper.jsonValues(from: resourceTemplates),
             toolDescriptors: toolDescriptors,
             resourceNames: resources.map(\.displayName),
             resourceURIs: resources.map(\.uri),
@@ -93,6 +112,30 @@ public final class MCPStdioProber: @unchecked Sendable {
         return MCPStdioResultMapper.toolResult(from: result)
     }
 
+    public func callToolResult(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval = 10.0
+    ) throws -> MCPToolCallResult {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+
+        let toolName = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !toolName.isEmpty else {
+            throw MCPProbeError.invalidMessage("MCP tool name is required.")
+        }
+        var params: [String: Any] = [
+            "name": toolName,
+            "arguments": (arguments ?? .object([:])).foundationObject
+        ]
+        if let metadata { params["_meta"] = metadata.foundationObject }
+        let requestID = nextID()
+        try write(method: "tools/call", id: requestID, params: params)
+        let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
+        return MCPStdioResultMapper.toolCallResult(from: try resultDictionary(from: response))
+    }
+
     public func readResource(
         uri: String,
         timeout: TimeInterval = 10.0
@@ -110,6 +153,23 @@ public final class MCPStdioProber: @unchecked Sendable {
         let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
         let result = try resultDictionary(from: response)
         return MCPStdioResultMapper.resourceResult(from: result, uri: uri)
+    }
+
+    public func readResourceResult(
+        uri: String,
+        timeout: TimeInterval = 10.0
+    ) throws -> MCPResourceReadResult {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+
+        let uri = uri.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !uri.isEmpty else {
+            throw MCPProbeError.invalidMessage("MCP resource URI is required.")
+        }
+        let requestID = nextID()
+        try write(method: "resources/read", id: requestID, params: ["uri": uri])
+        let response = try readResponse(id: requestID, deadline: Date().addingTimeInterval(timeout))
+        return MCPStdioResultMapper.resourceReadResult(from: try resultDictionary(from: response))
     }
 
     public func getPrompt(
@@ -230,6 +290,21 @@ public final class MCPStdioProber: @unchecked Sendable {
             let response = try readResponse(id: requestID, deadline: deadline)
             let result = try resultDictionary(from: response)
             return MCPStdioResultMapper.resourceList(from: result)
+        } catch {
+            return []
+        }
+    }
+
+    private func optionalList(
+        method: String,
+        resultKey: String,
+        deadline: Date
+    ) -> [[String: Any]] {
+        do {
+            let requestID = nextID()
+            try write(method: method, id: requestID, params: [:])
+            let response = try readResponse(id: requestID, deadline: deadline)
+            return (try resultDictionary(from: response)[resultKey] as? [[String: Any]]) ?? []
         } catch {
             return []
         }

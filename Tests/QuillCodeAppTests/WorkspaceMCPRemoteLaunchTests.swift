@@ -60,7 +60,7 @@ final class WorkspaceMCPRemoteLaunchTests: XCTestCase {
         let launcher = DefaultWorkspaceMCPServerLauncher(secretStore: nil, httpClient: NoopMCPHTTPClient())
         let launched = try launcher.launch(request: request) { _, _ in }
         XCTAssertTrue(launched.process.isRunning)
-        XCTAssertTrue(launched.session is WorkspaceMCPRemoteSession)
+        XCTAssertTrue(launched.session is MCPHTTPProber)
         launched.process.terminate()
         XCTAssertFalse(launched.process.isRunning)
     }

@@ -421,10 +421,11 @@ final class WorkspaceMCPIntegrationTests: XCTestCase {
         let resourceAndPromptResponses = includeResourcesAndPrompts
             ? """
         emit '{"jsonrpc":"2.0","id":3,"result":{"resources":[{"name":"README","uri":"file:///workspace/README.md"},{"name":"Project config","uri":"file:///workspace/.quillcode/config.toml"}]}}'
-        emit '{"jsonrpc":"2.0","id":4,"result":{"prompts":[{"name":"summarize_project"}]}}'
+        emit '{"jsonrpc":"2.0","id":4,"result":{"resourceTemplates":[]}}'
+        emit '{"jsonrpc":"2.0","id":5,"result":{"prompts":[{"name":"summarize_project"}]}}'
         """
             : ""
-        let callResponseID = includeResourcesAndPrompts ? 5 : 3
+        let callResponseID = includeResourcesAndPrompts ? 6 : 3
         let callResponse: String
         if let resourceText {
             callResponse = """

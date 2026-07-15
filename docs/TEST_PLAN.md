@@ -61,9 +61,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   anonymous account state, effective config, value and batch config writes with matching versioned
   origins/layers, shared skill discovery, persistent skill disable/enable,
   watched manifest invalidation without forced reload, binary filesystem
-  create/write/read/metadata/list/copy/watch/unwatch/remove round trips, thread start, turn start,
-  incremental lifecycle output before EOF, persistence, clean EOF, and zero exit. This specifically
-  guards against pipe readers that accidentally buffer until the client disconnects.
+  create/write/read/metadata/list/copy/watch/unwatch/remove round trips, a real Content-Length-framed
+  MCP child with full/lightweight status, lossless tool call, resource read, and reload, thread start,
+  turn start, incremental lifecycle output before EOF, persistence, clean EOF, and zero exit. This
+  specifically guards against pipe readers that accidentally buffer until the client disconnects.
 - App-server discovery contract tests against the generated Codex 0.142.5 shapes: deterministic
   model pagination and required fields, exact provider capabilities, explicit/environment/stored-key
   account presence without secret disclosure, persisted UTC token aggregation and streaks, local-only
@@ -73,6 +74,13 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   agent enforcement, missing-root creation and manifest-change invalidation via `skills/changed`,
   watcher disconnect cleanup, malformed cursor/limit/type rejection, and per-working-directory
   skill-discovery errors.
+- App-server MCP contract tests against Codex 0.142.5 shapes: exact dash/underscore server names,
+  opaque pagination, full versus `toolsAndAuthOnly` discovery, raw tool annotations/schemas,
+  resources/templates/server info/auth status, global plus thread-project config precedence,
+  stdio and HTTP launch configuration, environment/header/bearer resolution without wire leakage,
+  enabled/disabled tool filters, lossless arguments/content/structured content/error/metadata,
+  resource contents, reload, stale-config replacement, EOF teardown, unknown-thread errors, and an
+  explicit OAuth deferral until a genuine authorization URL/completion flow exists.
 - App-server config mutation conformance: strict nested TOML round trips, unknown-key preservation,
   all TOML offset/local date-time, local-date, local-time, infinity, and NaN values, dotted and quoted paths,
   scalar-parent replacement, recursive table upsert with array replacement, null deletion, atomic

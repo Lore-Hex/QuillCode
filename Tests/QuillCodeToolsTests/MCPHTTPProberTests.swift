@@ -18,13 +18,25 @@ final class MCPHTTPProberTests: XCTestCase {
                 return MCPHTTPStubStream.json(Self.result(id: body["id"], [
                     "protocolVersion": "2025-03-26",
                     "serverInfo": ["name": "Remote MCP", "version": "2.0.0"],
-                    "capabilities": ["tools": [:]]
+                    "capabilities": ["tools": [:], "resources": [:], "prompts": [:]]
                 ]), sessionID: "sess-123")
             case "notifications/initialized":
                 return MCPHTTPStubStream(statusCode: 202, headerFields: [:], chunks: [.success(nil)])
             case "tools/list":
                 return MCPHTTPStubStream.json(Self.result(id: body["id"], [
                     "tools": [["name": "search", "description": "Search the web"]]
+                ]))
+            case "resources/list":
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], [
+                    "resources": [["name": "Guide", "uri": "docs://guide", "mimeType": "text/markdown"]]
+                ]))
+            case "resources/templates/list":
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], [
+                    "resourceTemplates": [["name": "File", "uriTemplate": "file:///{path}"]]
+                ]))
+            case "prompts/list":
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], [
+                    "prompts": [["name": "summarize"]]
                 ]))
             default:
                 return MCPHTTPStubStream.json(Self.result(id: body["id"], [:]))
@@ -37,11 +49,100 @@ final class MCPHTTPProberTests: XCTestCase {
         XCTAssertEqual(result.protocolVersion, "2025-03-26")
         XCTAssertEqual(result.serverName, "Remote MCP")
         XCTAssertEqual(result.serverVersion, "2.0.0")
+        XCTAssertEqual(
+            result.serverInfo,
+            .object(["name": .string("Remote MCP"), "version": .string("2.0.0")])
+        )
         XCTAssertEqual(result.toolNames, ["search"])
         XCTAssertEqual(result.toolDescriptors.first?.description, "Search the web")
+        XCTAssertEqual(result.tools.first?.objectValue?["name"], .string("search"))
+        XCTAssertEqual(result.resources.first?.objectValue?["uri"], .string("docs://guide"))
+        XCTAssertEqual(result.resourceTemplates.first?.objectValue?["uriTemplate"], .string("file:///{path}"))
+        XCTAssertEqual(result.promptNames, ["summarize"])
         // The session id from the initialize response is echoed on subsequent requests.
         let toolsRequest = client.requests.first { ($0.body.flatMap(Self.method)) == "tools/list" }
         XCTAssertEqual(toolsRequest?.headers["Mcp-Session-Id"], "sess-123")
+    }
+
+    func testToolsAndAuthOnlyProbeSkipsResourceAndPromptRequests() throws {
+        let client = MCPHTTPStubClient()
+        client.onStream { request in
+            let body = try XCTUnwrapMessage(request.body)
+            switch body["method"] as? String {
+            case "initialize":
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], [
+                    "protocolVersion": "2025-03-26",
+                    "serverInfo": ["name": "Fast MCP"],
+                    "capabilities": ["tools": [:], "resources": [:], "prompts": [:]]
+                ]))
+            case "notifications/initialized":
+                return MCPHTTPStubStream(statusCode: 202, headerFields: [:], chunks: [.success(nil)])
+            case "tools/list":
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], [
+                    "tools": [["name": "search"]]
+                ]))
+            default:
+                XCTFail("tools-only status must not request resource or prompt inventory")
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], [:]))
+            }
+        }
+
+        let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client)
+        let result = try prober.probe(detail: .toolsAndAuthOnly, timeout: 2.0)
+        let methods = client.requests.compactMap { $0.body.flatMap(Self.method) }
+
+        XCTAssertEqual(methods, ["initialize", "notifications/initialized", "tools/list"])
+        XCTAssertEqual(result.toolNames, ["search"])
+        XCTAssertTrue(result.resources.isEmpty)
+        XCTAssertTrue(result.resourceTemplates.isEmpty)
+        XCTAssertTrue(result.promptNames.isEmpty)
+    }
+
+    func testStreamableHTTPCallPreservesStructuredContentErrorAndMetadata() throws {
+        let client = MCPHTTPStubClient()
+        client.onStream { request in
+            let body = try XCTUnwrapMessage(request.body)
+            switch body["method"] as? String {
+            case "initialize":
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], [
+                    "protocolVersion": "2025-03-26",
+                    "serverInfo": ["name": "Remote MCP"],
+                    "capabilities": ["tools": [:]]
+                ]))
+            case "notifications/initialized":
+                return MCPHTTPStubStream(statusCode: 202, headerFields: [:], chunks: [.success(nil)])
+            case "tools/list":
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], ["tools": [["name": "search"]]]))
+            case "tools/call":
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], [
+                    "content": [["type": "text", "text": "partial result"]],
+                    "structuredContent": ["matches": 2],
+                    "isError": true,
+                    "_meta": ["traceID": "trace-123"]
+                ]))
+            default:
+                return MCPHTTPStubStream.json(Self.result(id: body["id"], [:]))
+            }
+        }
+
+        let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client)
+        _ = try prober.probe(detail: .toolsAndAuthOnly, timeout: 2.0)
+        let result = try prober.callToolResult(
+            toolName: "search",
+            arguments: .object(["query": .string("swift")]),
+            metadata: .object(["requestID": .string("request-123")]),
+            timeout: 2.0
+        )
+        let request = try XCTUnwrap(client.requests.first { $0.body.flatMap(Self.method) == "tools/call" })
+        let body = try XCTUnwrapMessage(request.body)
+        let params = try XCTUnwrap(body["params"] as? [String: Any])
+
+        XCTAssertEqual(result.content.first?.objectValue?["text"], .string("partial result"))
+        XCTAssertEqual(result.structuredContent, .object(["matches": .number(2)]))
+        XCTAssertEqual(result.isError, true)
+        XCTAssertEqual(result.metadata, .object(["traceID": .string("trace-123")]))
+        XCTAssertEqual((params["arguments"] as? [String: Any])?["query"] as? String, "swift")
+        XCTAssertEqual((params["_meta"] as? [String: Any])?["requestID"] as? String, "request-123")
     }
 
     // MARK: StreamableHTTP with an SSE response body
