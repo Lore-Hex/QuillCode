@@ -130,6 +130,26 @@ final class CLIArgumentParserTests: XCTestCase {
         ], currentDirectory: cwd))
     }
 
+    func testMCPServerDefaultsToLiveAndParsesRuntimeOverrides() throws {
+        let defaults = try mcpServerRequest(parser.parse(["mcp-server"], currentDirectory: cwd))
+        XCTAssertTrue(defaults.live)
+
+        let configured = try mcpServerRequest(parser.parse([
+            "--home", ".quill-home",
+            "mcp-server",
+            "--mock",
+            "--api-key", "test-key",
+            "--model=trustedrouter/deepseek-v4-flash",
+            "--base-url", "https://example.test/v1"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(configured.home?.path, "/tmp/project/.quill-home")
+        XCTAssertFalse(configured.live)
+        XCTAssertEqual(configured.apiKey, "test-key")
+        XCTAssertEqual(configured.model, "trustedrouter/deepseek-v4-flash")
+        XCTAssertEqual(configured.baseURL, "https://example.test/v1")
+        XCTAssertThrowsError(try parser.parse(["mcp-server", "--listen", "stdio://"], currentDirectory: cwd))
+    }
+
     func testDoctorParsesGlobalHomeAndOutputOptions() throws {
         let request = try doctorRequest(parser.parse([
             "--home", ".quill-home",
@@ -241,6 +261,13 @@ final class CLIArgumentParserTests: XCTestCase {
     private func appServerRequest(_ command: CLICommand) throws -> CLIAppServerRequest {
         guard case .appServer(let request) = command else {
             throw XCTSkip("Expected app-server command")
+        }
+        return request
+    }
+
+    private func mcpServerRequest(_ command: CLICommand) throws -> CLIMCPServerRequest {
+        guard case .mcpServer(let request) = command else {
+            throw XCTSkip("Expected mcp-server command")
         }
         return request
     }

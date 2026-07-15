@@ -366,7 +366,7 @@ actor AppServerSession {
         )
         let runtime = CLIRuntimeConfiguration(
             request: runRequest,
-            appConfig: appConfig,
+            appConfig: record.settings.runtimeAppConfig ?? appConfig,
             paths: paths,
             imageAttachmentStore: attachmentStore,
             environment: environment

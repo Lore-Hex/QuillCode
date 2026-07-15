@@ -32,6 +32,12 @@ public struct CLIArgumentParser: Sendable {
                 home: home
             ))
         }
+        if first == "mcp-server" {
+            return .mcpServer(try parseMCPServer(
+                Array(arguments.dropFirst()),
+                home: home
+            ))
+        }
         if first == "exec" {
             return .run(try parseRun(
                 Array(arguments.dropFirst()),
@@ -63,22 +69,63 @@ public struct CLIArgumentParser: Sendable {
                     throw CLIError.unsupportedAppServerTransport(value)
                 }
                 request.transport = transport
-            case "--live":
-                request.live = true
-            case "--mock":
-                request.live = false
-            case "--api-key":
-                request.apiKey = try cliValue(for: option, tokens: arguments, index: &index)
-            case "--model", "-m":
-                request.model = try cliValue(for: option, tokens: arguments, index: &index)
-            case "--base-url":
-                request.baseURL = try cliValue(for: option, tokens: arguments, index: &index)
             default:
+                guard try parseServerRuntimeOption(
+                    option,
+                    tokens: arguments,
+                    index: &index,
+                    request: &request
+                ) else {
+                    throw CLIError.unknownOption(option.name)
+                }
+            }
+            index += 1
+        }
+        return request
+    }
+
+    private func parseMCPServer(
+        _ arguments: [String],
+        home: URL?
+    ) throws -> CLIMCPServerRequest {
+        var request = CLIMCPServerRequest(home: home)
+        var index = 0
+        while index < arguments.count {
+            let option = cliSplitOption(arguments[index])
+            guard try parseServerRuntimeOption(
+                option,
+                tokens: arguments,
+                index: &index,
+                request: &request
+            ) else {
                 throw CLIError.unknownOption(option.name)
             }
             index += 1
         }
         return request
+    }
+
+    private func parseServerRuntimeOption<Request: CLIServerRuntimeRequest>(
+        _ option: CLIParsedOption,
+        tokens: [String],
+        index: inout Int,
+        request: inout Request
+    ) throws -> Bool {
+        switch option.name {
+        case "--live":
+            request.live = true
+        case "--mock":
+            request.live = false
+        case "--api-key":
+            request.apiKey = try cliValue(for: option, tokens: tokens, index: &index)
+        case "--model", "-m":
+            request.model = try cliValue(for: option, tokens: tokens, index: &index)
+        case "--base-url":
+            request.baseURL = try cliValue(for: option, tokens: tokens, index: &index)
+        default:
+            return false
+        }
+        return true
     }
 
     private func parseAuth(_ arguments: [String], home: URL?) throws -> CLICommand {
@@ -275,3 +322,13 @@ public struct CLIArgumentParser: Sendable {
     }
 
 }
+
+private protocol CLIServerRuntimeRequest {
+    var live: Bool { get set }
+    var apiKey: String? { get set }
+    var model: String? { get set }
+    var baseURL: String? { get set }
+}
+
+extension CLIAppServerRequest: CLIServerRuntimeRequest {}
+extension CLIMCPServerRequest: CLIServerRuntimeRequest {}
