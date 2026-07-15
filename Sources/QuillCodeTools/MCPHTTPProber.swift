@@ -73,6 +73,13 @@ public final class MCPHTTPProber: @unchecked Sendable {
     // MARK: - Public session surface (mirrors MCPStdioProber)
 
     public func probe(timeout: TimeInterval = 20.0) throws -> MCPServerProbeResult {
+        try probe(detail: .full, timeout: timeout)
+    }
+
+    public func probe(
+        detail: MCPProbeDetail,
+        timeout: TimeInterval = 20.0
+    ) throws -> MCPServerProbeResult {
         ioLock.lock()
         defer { ioLock.unlock() }
         let deadline = Date().addingTimeInterval(max(1, timeout))
@@ -86,10 +93,18 @@ public final class MCPHTTPProber: @unchecked Sendable {
         let toolDescriptors = MCPStdioResultMapper.toolDescriptors(from: tools)
 
         let capabilities = initializeResult["capabilities"] as? [String: Any]
-        let resources = capabilities?["resources"] == nil
+        let resourceEntries = detail == .toolsAndAuthOnly || capabilities?["resources"] == nil
             ? []
-            : optionalResourceList(deadline: deadline)
-        let promptNames = capabilities?["prompts"] == nil
+            : optionalList(method: "resources/list", resultKey: "resources", deadline: deadline)
+        let resources = MCPStdioResultMapper.resourceList(from: ["resources": resourceEntries])
+        let resourceTemplates = detail == .toolsAndAuthOnly || capabilities?["resources"] == nil
+            ? []
+            : optionalList(
+                method: "resources/templates/list",
+                resultKey: "resourceTemplates",
+                deadline: deadline
+            )
+        let promptNames = detail == .toolsAndAuthOnly || capabilities?["prompts"] == nil
             ? []
             : optionalListNames(method: "prompts/list", resultKey: "prompts", deadline: deadline)
 
@@ -98,6 +113,10 @@ public final class MCPHTTPProber: @unchecked Sendable {
             protocolVersion: initializeResult["protocolVersion"] as? String,
             serverName: serverInfo?["name"] as? String,
             serverVersion: serverInfo?["version"] as? String,
+            serverInfo: MCPStdioResultMapper.jsonValue(from: serverInfo),
+            tools: MCPStdioResultMapper.jsonValues(from: tools),
+            resources: MCPStdioResultMapper.jsonValues(from: resourceEntries),
+            resourceTemplates: MCPStdioResultMapper.jsonValues(from: resourceTemplates),
             toolDescriptors: toolDescriptors,
             resourceNames: resources.map(\.displayName),
             resourceURIs: resources.map(\.uri),
@@ -125,6 +144,31 @@ public final class MCPHTTPProber: @unchecked Sendable {
         return MCPStdioResultMapper.toolResult(from: result)
     }
 
+    public func callToolResult(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval = 30.0
+    ) throws -> MCPToolCallResult {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+        let toolName = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !toolName.isEmpty else {
+            throw MCPProbeError.invalidMessage("MCP tool name is required.")
+        }
+        var params: [String: Any] = [
+            "name": toolName,
+            "arguments": (arguments ?? .object([:])).foundationObject
+        ]
+        if let metadata { params["_meta"] = metadata.foundationObject }
+        let result = try request(
+            method: "tools/call",
+            params: params,
+            deadline: Date().addingTimeInterval(max(1, timeout))
+        )
+        return MCPStdioResultMapper.toolCallResult(from: result)
+    }
+
     public func readResource(uri: String, timeout: TimeInterval = 30.0) throws -> ToolResult {
         ioLock.lock()
         defer { ioLock.unlock() }
@@ -138,6 +182,24 @@ public final class MCPHTTPProber: @unchecked Sendable {
             deadline: Date().addingTimeInterval(max(1, timeout))
         )
         return MCPStdioResultMapper.resourceResult(from: result, uri: uri)
+    }
+
+    public func readResourceResult(
+        uri: String,
+        timeout: TimeInterval = 30.0
+    ) throws -> MCPResourceReadResult {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+        let uri = uri.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !uri.isEmpty else {
+            throw MCPProbeError.invalidMessage("MCP resource URI is required.")
+        }
+        let result = try request(
+            method: "resources/read",
+            params: ["uri": uri],
+            deadline: Date().addingTimeInterval(max(1, timeout))
+        )
+        return MCPStdioResultMapper.resourceReadResult(from: result)
     }
 
     public func getPrompt(
@@ -243,6 +305,15 @@ public final class MCPHTTPProber: @unchecked Sendable {
     private func optionalResourceList(deadline: Date) -> [MCPStdioResultMapper.ResourceListEntry] {
         guard let result = try? request(method: "resources/list", params: [:], deadline: deadline) else { return [] }
         return MCPStdioResultMapper.resourceList(from: result)
+    }
+
+    private func optionalList(
+        method: String,
+        resultKey: String,
+        deadline: Date
+    ) -> [[String: Any]] {
+        guard let result = try? request(method: method, params: [:], deadline: deadline) else { return [] }
+        return (result[resultKey] as? [[String: Any]]) ?? []
     }
 
     // MARK: - Request identifiers

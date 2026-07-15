@@ -1,5 +1,35 @@
 # QuillCode Decisions
 
+## 2026-07-15: Desktop and app-server share one MCP transport runtime
+
+- **Decision:** `QuillCodeTools` owns the reusable MCP client session, process controller, stdio/HTTP
+  launcher, bounded wire-shaped JSON values, and lossless probe/tool/resource result models. The desktop
+  launcher keeps project-manifest validation and secret-store OAuth resolution, then delegates concrete
+  transport construction to that shared runtime. App-server config uses the same runtime instead of
+  spawning a second MCP implementation.
+- **App-server contract:** `mcpServerStatus/list`, `config/mcpServer/reload`,
+  `mcpServer/tool/call`, and `mcpServer/resource/read` follow the Codex 0.142.5 camel-case JSONL shapes.
+  Status preserves exact server names, server info, raw tool schemas/annotations, resources, resource
+  templates, and auth status. Tool calls preserve arbitrary arguments, `_meta`, content blocks,
+  `structuredContent`, `isError`, and result metadata. OAuth login remains an explicit unsupported error
+  until app-server can return a genuine authorization URL and completion notification.
+- **Configuration and scope:** Global `~/.quillcode/config.toml` MCP tables merge with thread-workspace
+  `.codex/config.toml` and `.quillcode/config.toml`, in that precedence order, without normalizing server
+  names. Stdio servers use direct command/argv, declared and inherited environment, bounded timeouts, and
+  optional tool filters. HTTP servers support static/environment headers and environment-backed bearer
+  tokens without returning those values on the app-server wire. Thread IDs select persisted project cwd;
+  unknown threads fail instead of silently falling back to global config.
+- **Lifecycle and cost:** Each app-server connection caches one initialized session per scope/server,
+  invalidates it when config changes, terminates all children on reload or EOF, and restarts a lightweight
+  session before a later full inventory because MCP initialization is single-use. `toolsAndAuthOnly`
+  deliberately skips resource, template, and prompt enumeration; `full` performs the complete bounded
+  inventory.
+- **Evidence:** Stdio and StreamableHTTP tests cover exact payload preservation, metadata forwarding, and
+  lightweight discovery. App-server integration tests cover pagination, dash/underscore name collisions,
+  project overrides, tool filters, thread errors, reload, and teardown. The shipped-binary smoke launches
+  a real Content-Length-framed MCP child, discovers it, calls a tool, reads a resource, reloads it, and
+  verifies lightweight rediscovery.
+
 ## 2026-07-15: Local plugin detail reads stay lazy and data-only
 
 - **Decision:** Codex-compatible `plugin/read` accepts exactly one local or remote marketplace source.

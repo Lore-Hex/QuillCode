@@ -21,8 +21,8 @@ This initial repository contains the compile-stable foundation:
   thread lifecycle, streamed turns, steering, interruption, managed local images, approvals,
   model/provider discovery, non-secret account/local usage state, config reads/writes, local plugin
   marketplace and installed-state discovery, Open Agent Skills discovery with per-session extra
-  roots, plus binary-safe host filesystem
-  read/write/metadata/directory/copy/remove and connection-scoped watch methods
+  roots, binary-safe host filesystem read/write/metadata/directory/copy/remove and connection-scoped
+  watch methods, plus MCP status/reload/tool/resource methods backed by shared stdio and HTTP clients
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
 - Playwright mock UI harness (test-only; any `node_modules` lives under `E2E/playwright` and is ignored)
 - parity, roadmap, decision, and test-plan docs
@@ -81,6 +81,14 @@ app-server client's direct host authority; model-authored file tools still use Q
 and safety boundaries. Input messages are capped at 1 MiB, local images are copied into managed
 storage, unsupported transports and danger-full-access are rejected, and client EOF resolves pending
 approvals and filesystem watches instead of leaving work stranded.
+
+App-server clients can also use Codex-compatible `mcpServerStatus/list`,
+`config/mcpServer/reload`, `mcpServer/tool/call`, and `mcpServer/resource/read`. MCP configuration is
+read from global `mcp_servers` tables plus the selected thread workspace's `.codex/config.toml` and
+`.quillcode/config.toml`. Stdio and HTTP transports share the desktop's bounded MCP session runtime;
+status preserves raw tool/resource metadata, while `toolsAndAuthOnly` skips the heavier resource and
+prompt inventory. Reload and disconnect terminate cached sessions. App-server MCP OAuth currently
+returns an explicit unsupported-flow error; desktop OAuth remains available.
 
 Skill discovery follows the Codex/Open Agent Skills layout without putting full skill instructions in
 the base prompt: repository `.agents/skills` directories from the working directory through the Git

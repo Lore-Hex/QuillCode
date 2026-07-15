@@ -49,6 +49,15 @@ enum MCPStdioResultMapper {
         }
     }
 
+    static func jsonValues(from entries: [[String: Any]]) -> [MCPJSONValue] {
+        entries.compactMap { try? MCPJSONValue(jsonObject: $0) }
+    }
+
+    static func jsonValue(from value: Any?) -> MCPJSONValue? {
+        guard let value else { return nil }
+        return try? MCPJSONValue(jsonObject: value)
+    }
+
     static func argumentsObject(from json: String) throws -> [String: Any] {
         let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return [:] }
@@ -61,42 +70,57 @@ enum MCPStdioResultMapper {
     }
 
     static func toolResult(from result: [String: Any]) -> ToolResult {
-        let isError = (result["isError"] as? Bool) ?? false
-        let content = (result["content"] as? [[String: Any]]) ?? []
-        let text = content
-            .compactMap(jsonText)
-            .joined(separator: "\n")
-        if isError {
+        toolResult(from: toolCallResult(from: result))
+    }
+
+    static func toolCallResult(from result: [String: Any]) -> MCPToolCallResult {
+        MCPToolCallResult(
+            content: jsonValues(from: (result["content"] as? [[String: Any]]) ?? []),
+            structuredContent: jsonValue(from: result["structuredContent"]),
+            isError: result["isError"] as? Bool,
+            metadata: jsonValue(from: result["_meta"])
+        )
+    }
+
+    static func toolResult(from result: MCPToolCallResult) -> ToolResult {
+        let text = result.content.compactMap(contentText).joined(separator: "\n")
+        if result.isError == true {
             return ToolResult(ok: false, stderr: text, error: text.isEmpty ? "MCP tool returned an error." : text)
         }
         if !text.isEmpty {
             return ToolResult(ok: true, stdout: text)
         }
-        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
+        if let data = try? JSONEncoder.prettySorted.encode(result) {
             return ToolResult(ok: true, stdout: String(decoding: data, as: UTF8.self))
         }
         return ToolResult(ok: true)
     }
 
     static func resourceResult(from result: [String: Any], uri: String) -> ToolResult {
-        let contents = (result["contents"] as? [[String: Any]]) ?? []
-        let text = contents
-            .compactMap { item -> String? in
-                if let text = item["text"] as? String {
-                    return text
-                }
-                if let blob = item["blob"] as? String {
-                    let itemURI = item["uri"] as? String ?? uri
-                    let mimeType = item["mimeType"] as? String ?? "binary"
-                    return "[\(itemURI) \(mimeType) blob, \(blob.count) base64 characters]"
-                }
-                return jsonText(from: item)
+        resourceResult(from: resourceReadResult(from: result), uri: uri)
+    }
+
+    static func resourceReadResult(from result: [String: Any]) -> MCPResourceReadResult {
+        MCPResourceReadResult(
+            contents: jsonValues(from: (result["contents"] as? [[String: Any]]) ?? [])
+        )
+    }
+
+    static func resourceResult(from result: MCPResourceReadResult, uri: String) -> ToolResult {
+        let text = result.contents.compactMap { item -> String? in
+            guard let object = item.objectValue else { return contentText(item) }
+            if let text = object["text"]?.stringValue { return text }
+            if let blob = object["blob"]?.stringValue {
+                let itemURI = object["uri"]?.stringValue ?? uri
+                let mimeType = object["mimeType"]?.stringValue ?? "binary"
+                return "[\(itemURI) \(mimeType) blob, \(blob.count) base64 characters]"
             }
-            .joined(separator: "\n")
+            return contentText(item)
+        }.joined(separator: "\n")
         if !text.isEmpty {
             return ToolResult(ok: true, stdout: text, artifacts: [uri])
         }
-        if let data = try? JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]) {
+        if let data = try? JSONEncoder.prettySorted.encode(result) {
             return ToolResult(ok: true, stdout: String(decoding: data, as: UTF8.self), artifacts: [uri])
         }
         return ToolResult(ok: true, artifacts: [uri])
@@ -234,5 +258,25 @@ enum MCPStdioResultMapper {
             return String(decoding: data, as: UTF8.self)
         }
         return nil
+    }
+
+    private static func contentText(_ item: MCPJSONValue) -> String? {
+        if let text = item.objectValue?["text"]?.stringValue { return text }
+        guard let data = try? JSONEncoder.sorted.encode(item) else { return nil }
+        return String(decoding: data, as: UTF8.self)
+    }
+}
+
+private extension JSONEncoder {
+    static var sorted: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return encoder
+    }
+
+    static var prettySorted: JSONEncoder {
+        let encoder = sorted
+        encoder.outputFormatting.insert(.prettyPrinted)
+        return encoder
     }
 }
