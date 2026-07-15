@@ -20,6 +20,7 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         let review = WorkspaceReviewSurface(files: [firstFile, secondFile])
 
         XCTAssertFalse(empty.isVisible)
+        XCTAssertEqual(empty.availableScopes, WorkspaceReviewScope.allCases)
         XCTAssertEqual(empty.subtitle, "Latest git diff")
         XCTAssertTrue(review.isVisible)
         XCTAssertEqual(review.title, "Review changes")
@@ -28,6 +29,14 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         XCTAssertEqual(review.totalDeletions, 1)
         XCTAssertEqual(review.totalHunks, 3)
         XCTAssertEqual(review.badgeLabel, "3 hunks")
+    }
+
+    func testExplicitlyPresentedEmptyReviewRemainsVisible() {
+        let review = WorkspaceReviewSurface(isPresented: true)
+
+        XCTAssertTrue(review.isVisible)
+        XCTAssertFalse(review.hasContent)
+        XCTAssertEqual(review.availableScopes, WorkspaceReviewScope.allCases)
     }
 
     func testReviewSurfaceKeepsSuccessfulEmptyDiffVisibleByScope() {

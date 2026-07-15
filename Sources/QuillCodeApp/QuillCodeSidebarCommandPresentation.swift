@@ -49,6 +49,7 @@ struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
             id: "workspace",
             title: "Workspace",
             commandIDs: [
+                "toggle-review-panel",
                 "toggle-terminal",
                 "toggle-browser"
             ]
@@ -97,6 +98,12 @@ struct QuillCodeSidebarCommandPresentation: Sendable, Hashable {
             title: "Terminal",
             htmlIconToken: "terminal",
             htmlTestID: "terminal-button"
+        ),
+        "toggle-review-panel": QuillCodeSidebarCommandMetadata(
+            title: "Review",
+            htmlIconToken: "review",
+            htmlTestID: "review-button",
+            systemImageOverride: "doc.text.magnifyingglass"
         ),
         "toggle-browser": QuillCodeSidebarCommandMetadata(
             title: "Browser",

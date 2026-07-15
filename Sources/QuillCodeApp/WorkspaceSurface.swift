@@ -156,9 +156,9 @@ public extension QuillCodeWorkspaceModel {
             allowsTurnRevert: selectedProject?.isRemote != true,
             pullRequestReviewDraft: pullRequestReviewDraft
         ).surface()
-        review.isPresented = chrome.isReviewVisible
+        review.isPresented = chrome.reviewPresentation.resolves(hasContent: review.hasContent)
         return WorkspaceSurface(
-            chrome: WorkspaceChromeSurface(state: chrome),
+            chrome: WorkspaceChromeSurface(state: chrome, reviewHasContent: review.hasContent),
             topBar: topBar,
             projects: navigation.projects,
             sidebar: navigation.sidebar,

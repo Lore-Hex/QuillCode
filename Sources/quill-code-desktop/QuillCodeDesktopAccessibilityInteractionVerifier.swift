@@ -51,6 +51,14 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         requiredControlDescription: "task summary",
         closeIdentifier: "quillcode-activity-close"
     )
+    private static let reviewSurfaceContract = DismissibleSurfaceContract(
+        contractID: "command.toggle-review-panel",
+        name: "Review",
+        titleIdentifier: "quillcode-review-title",
+        requiredControlIdentifier: "quillcode-review-scope",
+        requiredControlDescription: "scope control",
+        closeIdentifier: "quillcode-review-close"
+    )
 
     static func observeWorkspaceThreads(
         _ controller: QuillCodeDesktopController
@@ -211,6 +219,12 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
             evidence: "\(dismissal.evidence) and restored composer width from \(Int(constrainedWidth)) to \(Int(restoredWidth)) points",
             validationIssue: nil
         )
+    }
+
+    static func verifyReviewDismissal(
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        await verifyDismissibleSurface(reviewSurfaceContract, contentView: contentView)
     }
 
     private static func verifyReversibleTextEntry(

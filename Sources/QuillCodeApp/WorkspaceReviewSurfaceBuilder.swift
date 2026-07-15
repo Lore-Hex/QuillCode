@@ -26,6 +26,7 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
         guard let completedDiff = latestCompletedGitDiffResult else {
             return WorkspaceReviewSurface(
                 title: pullRequestThreads.isEmpty ? "Review changes" : "Review threads",
+                scopeNotice: latestGitDiffFailureMessage,
                 files: [],
                 pullRequestThreads: pullRequestThreads,
                 pullRequestReviewDraft: pullRequestReviewDraft
@@ -65,8 +66,12 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
         var selection: WorkspaceReviewSelection
     }
 
+    private var latestGitDiffCard: ToolCardState? {
+        toolCards.reversed().first { $0.title == ToolDefinition.gitDiff.name }
+    }
+
     private var latestCompletedGitDiffResult: CompletedGitDiff? {
-        guard let card = toolCards.reversed().first(where: { $0.title == ToolDefinition.gitDiff.name }),
+        guard let card = latestGitDiffCard,
               card.status == .done,
               let outputJSON = card.outputJSON,
               let result = try? JSONHelpers.decode(ToolResult.self, from: outputJSON),
@@ -78,6 +83,25 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
             result: result,
             selection: reviewSelection(from: card.inputJSON)
         )
+    }
+
+    private var latestGitDiffFailureMessage: String? {
+        guard let card = latestGitDiffCard,
+              card.status == .failed || card.status == .done
+        else {
+            return nil
+        }
+        guard let outputJSON = card.outputJSON,
+              let result = try? JSONHelpers.decode(ToolResult.self, from: outputJSON)
+        else {
+            return card.status == .failed ? "Couldn't load this review." : nil
+        }
+        guard !result.ok else { return nil }
+        let detail = [result.error, result.stderr]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+        return detail.map { "Couldn't load this review: \($0)" }
+            ?? "Couldn't load this review."
     }
 
     private func reviewSelection(from inputJSON: String?) -> WorkspaceReviewSelection {

@@ -214,7 +214,8 @@ extension QuillCodeParityTestCase {
         "command.toggle-automations",
         "command.toggle-extensions",
         "command.toggle-memories",
-        "command.toggle-activity"
+        "command.toggle-activity",
+        "command.toggle-review-panel"
     ]
 
     static func accessibilityActivationJSON() -> String {
@@ -286,6 +287,8 @@ extension QuillCodeParityTestCase {
             return "Memories renders its Add control and dismisses through Close"
         case "command.toggle-activity":
             return "Activity renders its task summary, dismisses through Close, and restores workspace width"
+        case "command.toggle-review-panel":
+            return "Review renders its scope control and dismisses through Close"
         default:
             return "observable controller state changes"
         }
@@ -309,6 +312,8 @@ extension QuillCodeParityTestCase {
             return "rendered Memories with its Add control and dismissed through quillcode-memories-close with AXPress"
         case "command.toggle-activity":
             return "rendered Activity with its task summary, dismissed through quillcode-activity-close with AXPress, and restored composer width from 480 to 800 points"
+        case "command.toggle-review-panel":
+            return "rendered Review with its scope control and dismissed through quillcode-review-close with AXPress"
         default:
             return "AXPress changed observable controller state"
         }

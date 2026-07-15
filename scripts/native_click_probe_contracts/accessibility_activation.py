@@ -144,6 +144,18 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         raise SystemExit(
             f"{report_path} command.toggle-activity does not prove rendered content, close-button dismissal, and workspace restoration"
         )
+    if contract_id == "command.toggle-review-panel" and not all(
+        marker in interaction_evidence
+        for marker in (
+            "Review",
+            "scope control",
+            "quillcode-review-close",
+            "AXPress",
+        )
+    ):
+        raise SystemExit(
+            f"{report_path} command.toggle-review-panel does not prove rendered scope controls and close-button dismissal"
+        )
 
     return {
         "contractID": contract_id,

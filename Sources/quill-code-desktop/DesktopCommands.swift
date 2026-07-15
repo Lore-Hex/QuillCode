@@ -5,6 +5,7 @@ import QuillCodeApp
 struct QuillCodeDesktopCommands: Commands {
     var commands: [WorkspaceCommandSurface]
     var shortcutProfile: WorkspaceShortcutProfile
+    var onCommand: (String) -> Void
 
     private var commandsByID: [String: WorkspaceCommandSurface] {
         Dictionary(uniqueKeysWithValues: commands.map { ($0.id, $0) })
@@ -29,7 +30,7 @@ struct QuillCodeDesktopCommands: Commands {
 
             command("Toggle Sidebar", id: "toggle-sidebar")
             command("Open Review", id: "git-diff")
-            command("Toggle Review Panel", id: "toggle-review-panel")
+            command("Toggle Review", id: "toggle-review-panel")
             command("Toggle Bottom Panel", id: "toggle-bottom-panel")
             command("Toggle Terminal", id: "toggle-terminal")
             command("Clear Terminal", id: "terminal-clear")
@@ -65,19 +66,12 @@ struct QuillCodeDesktopCommands: Commands {
 
     private func command(_ title: String, id commandID: String) -> some View {
         Button(title) {
-            NotificationCenter.default.post(
-                name: .quillCodeRunCommand,
-                object: commandID
-            )
+            onCommand(commandID)
         }
         .disabled(commandsByID[commandID]?.isEnabled != true)
         .accessibilityIdentifier("quillcode-menu-command-\(commandID)")
         .quillCodeShortcut(commandID, profile: shortcutProfile)
     }
-}
-
-extension Notification.Name {
-    static let quillCodeRunCommand = Notification.Name("QuillCodeRunCommand")
 }
 
 extension View {

@@ -8,9 +8,17 @@ enum QuillCodeDesktopWindowSmokeRunner {
     private static var smokeWindow: NSWindow?
     private static var smokeController: QuillCodeDesktopController?
 
-    static func runAndExit(_ request: QuillCodeDesktopWindowSmokeRequest) async {
+    static func runAndExit(
+        _ request: QuillCodeDesktopWindowSmokeRequest,
+        controller: QuillCodeDesktopController,
+        workspaceRoot: QuillCodeDesktopWindowSmokeWorkspaceRoot
+    ) async {
         do {
-            let report = try await run(request)
+            let report = try await run(
+                request,
+                controller: controller,
+                workspaceRoot: workspaceRoot
+            )
             let json = try report.prettyJSON()
             if let reportPath = request.reportPath, !reportPath.isEmpty {
                 let reportURL = URL(fileURLWithPath: reportPath)
@@ -29,8 +37,12 @@ enum QuillCodeDesktopWindowSmokeRunner {
         }
     }
 
-    private static func run(_ request: QuillCodeDesktopWindowSmokeRequest) async throws -> QuillCodeDesktopWindowSmokeReport {
-        let window = try await waitForWindow()
+    private static func run(
+        _ request: QuillCodeDesktopWindowSmokeRequest,
+        controller: QuillCodeDesktopController,
+        workspaceRoot: QuillCodeDesktopWindowSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopWindowSmokeReport {
+        let window = try await waitForWindow(controller: controller)
         window.makeKeyAndOrderFront(nil)
         window.displayIfNeeded()
         window.contentView?.layoutSubtreeIfNeeded()
@@ -75,6 +87,9 @@ enum QuillCodeDesktopWindowSmokeRunner {
             windowFrame: window.frame,
             contentSize: bounds.size,
             screenshotPath: screenshotURL.path,
+            stateRootPath: workspaceRoot.root.path,
+            appStatePath: workspaceRoot.appState.path,
+            workspacePath: workspaceRoot.workspace.path,
             image: stats.report,
             nativeHitTargets: nativeHitTargets,
             accessibilityFrameSamples: accessibilityFrameSamples,
@@ -83,10 +98,10 @@ enum QuillCodeDesktopWindowSmokeRunner {
         )
     }
 
-    private static func waitForWindow() async throws -> NSWindow {
+    private static func waitForWindow(controller: QuillCodeDesktopController) async throws -> NSWindow {
         NSApplication.shared.activate(ignoringOtherApps: true)
         if smokeWindow == nil {
-            openSmokeWindow()
+            openSmokeWindow(controller: controller)
         }
         for _ in 0..<100 {
             if let window = smokeWindow, isSmokeWindow(window) {
@@ -101,8 +116,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
         throw QuillCodeDesktopSmokeFailure.windowNotFound
     }
 
-    private static func openSmokeWindow() {
-        let controller = QuillCodeDesktopController()
+    private static func openSmokeWindow(controller: QuillCodeDesktopController) {
         let rootView = QuillCodeDesktopRootView(controller: controller)
             .frame(minWidth: 1280, minHeight: 900)
         let contentView = NSHostingView(rootView: rootView)

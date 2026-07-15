@@ -2,6 +2,8 @@ import SwiftUI
 import QuillCodeCore
 
 struct QuillCodeTranscriptView: View {
+    private static let reviewAnchorID = "quillcode-review-pane-anchor"
+
     var transcript: TranscriptSurface
     /// The currently selected thread, so the "N new turns" watermark is tracked per thread and a
     /// thread that grew in the background shows its pill on return. `nil` for the empty/no-thread
@@ -17,6 +19,7 @@ struct QuillCodeTranscriptView: View {
     var copiedTranscriptItemID: String?
     var onContextCommand: (WorkspaceCommandSurface) -> Void
     var onRuntimeIssueAction: (() -> Void)?
+    var onCloseReview: () -> Void
     var onReviewScopeChange: (WorkspaceReviewSelection) -> Void
     var onReviewAction: (WorkspaceReviewActionSurface) -> Void
     var onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
@@ -141,6 +144,7 @@ struct QuillCodeTranscriptView: View {
                             if review.isVisible {
                                 QuillCodeReviewPaneView(
                                     review: review,
+                                    onClose: onCloseReview,
                                     onReviewScopeChange: onReviewScopeChange,
                                     onReviewAction: onReviewAction,
                                     onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
@@ -150,6 +154,7 @@ struct QuillCodeTranscriptView: View {
                                     onSubmitPullRequestReviewDraft: onSubmitPullRequestReviewDraft,
                                     onAddReviewComment: onAddReviewComment
                                 )
+                                .id(Self.reviewAnchorID)
                             }
                             timelineItems
                             if let thinking = transcript.thinking {
@@ -165,7 +170,7 @@ struct QuillCodeTranscriptView: View {
                         newTurnsPillOverlay(proxy)
                     }
                     .onAppear {
-                        scrollToTranscriptEnd(proxy, id: scrollAnchorID)
+                        scrollForReviewVisibility(review.isVisible, proxy: proxy)
                     }
                     .onChange(of: scrollAnchorID) { _, id in
                         scrollToTranscriptEnd(proxy, id: id)
@@ -184,6 +189,9 @@ struct QuillCodeTranscriptView: View {
                     }
                     .onChange(of: pendingJumpAnchorID) { _, id in
                         scrollToPendingJump(proxy, id: id)
+                    }
+                    .onChange(of: review.isVisible) { _, isVisible in
+                        scrollForReviewVisibility(isVisible, proxy: proxy)
                     }
                 }
             }
@@ -363,7 +371,7 @@ struct QuillCodeTranscriptView: View {
     }
 
     private func scrollToTranscriptEnd(_ proxy: ScrollViewProxy, id: String?) {
-        guard let id, !isFindPresented else { return }
+        guard let id, !isFindPresented, !review.isVisible else { return }
         // NOTE: this deliberately does NOT mark the thread seen. Marking seen here (it fires on
         // appear and on every scroll-anchor change, including on return to a grown thread) would
         // advance the watermark before the pill could ever evaluate — the exact bug that made the
@@ -371,6 +379,18 @@ struct QuillCodeTranscriptView: View {
         DispatchQueue.main.async {
             quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
                 proxy.scrollTo(id, anchor: .bottom)
+            }
+        }
+    }
+
+    private func scrollForReviewVisibility(_ isVisible: Bool, proxy: ScrollViewProxy) {
+        DispatchQueue.main.async {
+            quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
+                if isVisible {
+                    proxy.scrollTo(Self.reviewAnchorID, anchor: .top)
+                } else if let scrollAnchorID {
+                    proxy.scrollTo(scrollAnchorID, anchor: .bottom)
+                }
             }
         }
     }

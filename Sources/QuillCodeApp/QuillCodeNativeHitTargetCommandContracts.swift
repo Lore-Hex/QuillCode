@@ -34,7 +34,7 @@ extension QuillCodeNativeHitTargetAudit {
                 surface: "Sidebar primary",
                 kind: .fullRow
             )
-        case "toggle-terminal", "toggle-browser", "toggle-memories", "toggle-activity", "command-palette":
+        case "toggle-review-panel", "toggle-terminal", "toggle-browser", "toggle-memories", "toggle-activity", "command-palette":
             return CommandHitTargetPlacement(
                 family: .sidebar,
                 surface: "Sidebar tools",

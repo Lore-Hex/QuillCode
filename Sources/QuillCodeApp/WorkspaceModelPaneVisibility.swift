@@ -10,12 +10,14 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func toggleReviewPanel(workspaceRoot: URL) -> Bool {
         let review = surface().review
-        if review.hasContent {
-            chrome.isReviewVisible.toggle()
+        if review.isVisible {
+            chrome.reviewPresentation = .hidden
             return true
         }
-        chrome.isReviewVisible = true
-        runReviewScopeChange(.unstaged, workspaceRoot: workspaceRoot)
+        chrome.reviewPresentation = .visible
+        if !review.hasContent {
+            runReviewScopeChange(.unstaged, workspaceRoot: workspaceRoot)
+        }
         return true
     }
 

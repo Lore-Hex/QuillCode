@@ -8,15 +8,23 @@ struct QuillCodeDesktopApp: App {
     @StateObject private var controller: QuillCodeDesktopController
 
     init() {
+        if let windowRequest = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
+            let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: windowRequest)
+            let controller = workspaceRoot.makeController()
+            _controller = StateObject(wrappedValue: controller)
+            QuillCodeDesktopWindowSmokeLaunch.schedule(
+                windowRequest,
+                controller: controller,
+                workspaceRoot: workspaceRoot
+            )
+            return
+        }
+
         let controller = QuillCodeDesktopController()
         _controller = StateObject(wrappedValue: controller)
 
         guard let request = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments) else {
-            if let windowRequest = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
-                QuillCodeDesktopWindowSmokeLaunch.schedule(windowRequest)
-            } else {
-                QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)
-            }
+            QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)
             return
         }
         Task { @MainActor in
@@ -35,7 +43,8 @@ struct QuillCodeDesktopApp: App {
                 commands: controller.surface.commands,
                 shortcutProfile: WorkspaceShortcutRegistry.profile(
                     preferences: controller.surface.settings.keyboardShortcuts
-                )
+                ),
+                onCommand: { controller.runCommand(commandID: $0) }
             )
         }
         MenuBarExtra {
@@ -71,7 +80,7 @@ struct QuillCodeDesktopRootView: View {
 
     var body: some View {
         workspaceContent
-            .quillCodeDesktopCommandNotifications(controller: controller)
+            .quillCodeDesktopCommandBindings(controller: controller)
             .fileImporter(
                 isPresented: $controller.isProjectImporterPresented,
                 allowedContentTypes: [.folder],
@@ -168,32 +177,25 @@ struct QuillCodeDesktopRootView: View {
     }
 }
 
-private struct QuillCodeDesktopCommandNotifications: ViewModifier {
+private struct QuillCodeDesktopCommandBindings: ViewModifier {
     @ObservedObject var controller: QuillCodeDesktopController
-    @State private var observers: [NSObjectProtocol] = []
     @State private var shortcutMonitor: Any?
 
     func body(content: Content) -> some View {
         content
-            .onAppear(perform: installObservers)
-            .onDisappear(perform: removeObservers)
+            .onAppear(perform: installBindings)
+            .onDisappear(perform: removeBindings)
             .onChange(of: controller.surface.settings.keyboardShortcuts) { _, _ in
                 installShortcutMonitor()
             }
     }
 
-    private func installObservers() {
-        guard observers.isEmpty else { return }
+    private func installBindings() {
         controller.installApprovalNotificationHandling()
-        observers = [
-            observeCommand()
-        ]
         installShortcutMonitor()
     }
 
-    private func removeObservers() {
-        observers.forEach(NotificationCenter.default.removeObserver)
-        observers = []
+    private func removeBindings() {
         if let shortcutMonitor {
             NSEvent.removeMonitor(shortcutMonitor)
             self.shortcutMonitor = nil
@@ -214,30 +216,17 @@ private struct QuillCodeDesktopCommandNotifications: ViewModifier {
                     profile: profile
                   )
             else { return event }
-            NotificationCenter.default.post(name: .quillCodeRunCommand, object: commandID)
+            controller.runCommand(commandID: commandID)
             return nil
-        }
-    }
-
-    private func observeCommand() -> NSObjectProtocol {
-        NotificationCenter.default.addObserver(
-            forName: .quillCodeRunCommand,
-            object: nil,
-            queue: .main
-        ) { [weak controller] notification in
-            guard let controller, let commandID = notification.object as? String else { return }
-            Task { @MainActor in
-                controller.runCommand(commandID: commandID)
-            }
         }
     }
 }
 
 private extension View {
-    func quillCodeDesktopCommandNotifications(
+    func quillCodeDesktopCommandBindings(
         controller: QuillCodeDesktopController
     ) -> some View {
-        modifier(QuillCodeDesktopCommandNotifications(controller: controller))
+        modifier(QuillCodeDesktopCommandBindings(controller: controller))
     }
 }
 
@@ -245,7 +234,11 @@ private extension View {
 private enum QuillCodeDesktopWindowSmokeLaunch {
     private static var observer: NSObjectProtocol?
 
-    static func schedule(_ request: QuillCodeDesktopWindowSmokeRequest) {
+    static func schedule(
+        _ request: QuillCodeDesktopWindowSmokeRequest,
+        controller: QuillCodeDesktopController,
+        workspaceRoot: QuillCodeDesktopWindowSmokeWorkspaceRoot
+    ) {
         observer = NotificationCenter.default.addObserver(
             forName: NSApplication.didFinishLaunchingNotification,
             object: nil,
@@ -257,7 +250,11 @@ private enum QuillCodeDesktopWindowSmokeLaunch {
                     Self.observer = nil
                 }
                 try? await Task.sleep(nanoseconds: 300_000_000)
-                await QuillCodeDesktopWindowSmokeRunner.runAndExit(request)
+                await QuillCodeDesktopWindowSmokeRunner.runAndExit(
+                    request,
+                    controller: controller,
+                    workspaceRoot: workspaceRoot
+                )
             }
         }
     }

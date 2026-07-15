@@ -55,6 +55,39 @@ final class QuillCodeDesktopAccessibilityActivationResolutionTests: XCTestCase {
         XCTAssertEqual(resolved?.role, kAXMenuItemRole as String)
     }
 
+    func testReviewActivationUsesNormalizedToggleMenuTitle() {
+        let menu = element(
+            identifier: "",
+            role: kAXMenuItemRole as String,
+            title: "Toggle Review",
+            frame: .zero
+        )
+        let probe = QuillCodeNativeHitTargetProbe(
+            contractID: "command.toggle-review-panel",
+            family: .sidebar,
+            collisionScope: "sidebar:tools",
+            label: "Review",
+            kind: .fullRow,
+            action: .press,
+            allowsNestedInteractiveChildren: false,
+            requiresUnblockedInterior: true,
+            requiresTactileFeedback: true,
+            allowsTextSelection: false,
+            selectorKind: .commandID,
+            selector: "toggle-review-panel",
+            requiredMinWidth: 40,
+            requiredMinHeight: 40,
+            samplePoints: []
+        )
+
+        let resolved = QuillCodeDesktopAccessibilityFrameSampler.resolveElementForActivation(
+            probe,
+            in: [menu]
+        )
+
+        XCTAssertEqual(resolved?.title, "Toggle Review")
+    }
+
     private var commandProbe: QuillCodeNativeHitTargetProbe {
         QuillCodeNativeHitTargetProbe(
             contractID: "command.toggle-memories",

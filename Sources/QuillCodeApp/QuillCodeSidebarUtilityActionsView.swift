@@ -37,6 +37,7 @@ struct QuillCodeSidebarUtilityActionsView: View {
                         }
                         .quillCodePlatformMenuItemTarget(reason: menuGeometryReason)
                         .disabled(!command.isEnabled)
+                        .accessibilityIdentifier("quillcode-sidebar-command-\(command.id)")
                     }
                 }
             }

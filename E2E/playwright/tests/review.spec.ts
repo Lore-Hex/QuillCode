@@ -169,6 +169,7 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await page.getByRole('button', { name: 'Send' }).click();
 
   await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('review-close')).toBeVisible();
   await expect(page.getByTestId('review-scope')).toHaveCount(5);
   await expect(page.getByTestId('review-scope').filter({ hasText: 'Unstaged' })).toHaveAttribute('aria-pressed', 'true');
   const scopeTops = await page.getByTestId('review-scope').evaluateAll(buttons =>
@@ -197,6 +198,12 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await page.getByTestId('review-range-comment-form').getByRole('button', { name: 'Add range note' }).click();
   const rangeComment = page.getByTestId('review-line-comment').filter({ hasText: 'Lines 1-2' });
   await expect(rangeComment).toContainText('Keep the title adjacent to the import');
+
+  await page.getByTestId('review-close').click();
+  await expect(page.getByTestId('review-pane')).toHaveCount(0);
+  await page.getByTestId('sidebar-tools-button').click();
+  await page.getByTestId('review-button').click();
+  await expect(page.getByTestId('review-pane')).toBeVisible();
 });
 
 test('mock harness compares one exact commit with a focused read-only review', async ({ page }) => {

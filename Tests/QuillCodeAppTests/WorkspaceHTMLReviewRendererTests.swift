@@ -32,6 +32,8 @@ final class WorkspaceHTMLReviewRendererTests: XCTestCase {
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
         XCTAssertTrue(html.contains(#"data-testid="review-pane""#))
+        XCTAssertTrue(html.contains(#"data-testid="review-close""#))
+        XCTAssertTrue(html.contains(#"data-command-id="toggle-review-panel""#))
         XCTAssertTrue(html.contains(#"data-testid="review-file""#))
         XCTAssertTrue(html.contains(#"data-testid="review-action""#))
         XCTAssertTrue(html.contains(#"data-testid="review-hunk""#))

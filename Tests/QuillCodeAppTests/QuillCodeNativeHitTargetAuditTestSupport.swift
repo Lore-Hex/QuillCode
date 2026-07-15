@@ -35,6 +35,7 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
         "review.mode",
         "review.file-row",
         "review.action",
+        "review.close",
         "secondary-pane.tab",
         "menu-bar.action",
         "command.add-project",
@@ -158,6 +159,10 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
             createWorkspaceScheduleCommand: .automationCreateWorkspaceSchedule(isEnabled: true)
         )
         surface.activity = WorkspaceActivitySurface(isVisible: true)
+        surface.review = WorkspaceReviewSurface(
+            isPresented: true,
+            activeScope: .unstaged
+        )
 
         return surface
     }

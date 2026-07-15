@@ -47,6 +47,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   ]);
   await expect(page.locator('[data-testid="sidebar-tools-section"][data-command-group="navigate"]')).toContainText('Command palette');
   await expect(page.locator('[data-testid="sidebar-tools-section"][data-command-group="workspace"]')).toContainText('Terminal');
+  await expect(page.locator('[data-testid="sidebar-tools-section"][data-command-group="workspace"]')).toContainText('Review');
   await page.getByTestId('sidebar-tools-button').click();
   await expect(page.getByTestId('sidebar-tools-menu')).not.toHaveAttribute('open', '');
 
