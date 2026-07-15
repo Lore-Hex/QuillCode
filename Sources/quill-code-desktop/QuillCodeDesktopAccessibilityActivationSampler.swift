@@ -133,6 +133,17 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
                 }
             },
             verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyMemoriesDismissal
+        ),
+        .presentation(
+            "command.toggle-activity",
+            expectedOutcome: "Activity renders its task summary, dismisses through Close, and restores workspace width",
+            observe: { $0.surface.activity.isVisible },
+            resetToBaseline: { baseline, controller in
+                if controller.surface.activity.isVisible != baseline {
+                    controller.toggleActivity()
+                }
+            },
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyActivityDismissal
         )
     ]
 

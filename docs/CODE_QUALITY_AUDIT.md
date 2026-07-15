@@ -16076,3 +16076,25 @@ Validation:
 - `npm test`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-14 Packaged Activity Render, Dismissal, And Layout Proof
+
+Overall grade after this slice: **A+ interaction architecture, A+ native fidelity, A+ layout recovery**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Component reuse | A+ | Activity joins Automations, Extensions, and Memories on the shared pane-close component without introducing pane-specific button chrome. |
+| Accessibility identity | A+ | The Activity title, task summary, and Close action expose stable native identifiers. |
+| Navigation architecture | A+ | Sidebar, shortcut, slash-command, native-menu, and pane-close paths share `toggle-activity`. |
+| Native fidelity | A+ | Packaged smoke AX-presses Activity, requires rendered task content, AX-presses Close, and waits for disappearance. |
+| Layout recovery | A+ | Smoke measures the constrained composer before dismissal and requires at least 240 points of horizontal space to return afterward. |
+| State safety | A+ | Verification changes no plan, section, instruction, worker, tool, or task state and restores baseline visibility. |
+| Regression evidence | A+ | Native contracts, negative fixtures, direct and Launch Services startup, and live-window smoke cover the complete route. |
+
+Validation:
+
+- `swift test --filter 'QuillCodeNativeHitTargetSurfaceAuditTests|QuillCodeDesktopWindowReportTests|ParityWorkspaceSecondaryPaneSurfaceGateTests|ParityPackagedClickProbeSmokeGateTests'`
+- `scripts/packaged-macos-smoke.sh`
+- `npm test`
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`

@@ -74,6 +74,7 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
         "automations.run",
         "automations.primary",
         "automations.delete",
+        "activity.close",
         "transcript.thinking-trace"
     ]
 
@@ -156,6 +157,7 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
             createThreadFollowUpCommand: .automationCreateThreadFollowUp(isEnabled: true),
             createWorkspaceScheduleCommand: .automationCreateWorkspaceSchedule(isEnabled: true)
         )
+        surface.activity = WorkspaceActivitySurface(isVisible: true)
 
         return surface
     }

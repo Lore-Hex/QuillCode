@@ -202,7 +202,8 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 "command.settings",
                 "command.toggle-automations",
                 "command.toggle-extensions",
-                "command.toggle-memories"
+                "command.toggle-memories",
+                "command.toggle-activity"
             ]
         )
     }

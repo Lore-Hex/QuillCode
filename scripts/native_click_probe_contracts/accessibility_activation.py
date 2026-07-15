@@ -131,6 +131,19 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         raise SystemExit(
             f"{report_path} command.toggle-memories does not prove rendered controls and close-button dismissal"
         )
+    if contract_id == "command.toggle-activity" and not all(
+        marker in interaction_evidence
+        for marker in (
+            "Activity",
+            "task summary",
+            "quillcode-activity-close",
+            "AXPress",
+            "restored composer width",
+        )
+    ):
+        raise SystemExit(
+            f"{report_path} command.toggle-activity does not prove rendered content, close-button dismissal, and workspace restoration"
+        )
 
     return {
         "contractID": contract_id,

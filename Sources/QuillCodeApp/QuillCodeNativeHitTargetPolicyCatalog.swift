@@ -81,7 +81,12 @@ extension QuillCodeNativeHitTargetAudit {
                 actions: [.textInput, .press],
                 focusTargets: [.reviewBody, .reviewThreadReply]
             ),
-            policy(.secondaryPane, kinds: [.capsule], actions: [.press]),
+            policy(
+                .secondaryPane,
+                kinds: [.capsule],
+                actions: [.press],
+                allowedKinds: [.capsule, .icon]
+            ),
             policy(
                 .terminal,
                 kinds: [.textEntry, .textButton],
