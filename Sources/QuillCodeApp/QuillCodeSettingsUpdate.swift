@@ -15,6 +15,8 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
     public var runSpendFuseUSD: Double?
     public var runSpendPeriodLimits: RunSpendPeriodLimits
     public var managedWorktrees: ManagedWorktreeSettings
+    public var reviewModel: String?
+    public var reviewDelivery: CodeReviewDelivery
 
     public init(
         apiBaseURL: String,
@@ -29,7 +31,9 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         notificationPreferences: QuillCodeNotificationPreferences = QuillCodeNotificationPreferences(),
         runSpendFuseUSD: Double? = 1.0,
         runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits(),
-        managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings()
+        managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings(),
+        reviewModel: String? = nil,
+        reviewDelivery: CodeReviewDelivery = .current
     ) {
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
@@ -53,5 +57,7 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         self.runSpendFuseUSD = RunSpendLedger.normalizedFuse(runSpendFuseUSD)
         self.runSpendPeriodLimits = runSpendPeriodLimits
         self.managedWorktrees = managedWorktrees
+        self.reviewModel = AppConfig.normalizedReviewModelID(reviewModel)
+        self.reviewDelivery = reviewDelivery
     }
 }

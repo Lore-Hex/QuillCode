@@ -5,6 +5,7 @@ import QuillCodeApp
 final class QuillCodeDesktopTaskCoordinator {
     enum Slot: Hashable, Sendable {
         case send(UUID?)
+        case codeReview(UUID)
         case terminal
         case browserPreview
         case automationTicker
@@ -71,9 +72,20 @@ final class QuillCodeDesktopTaskCoordinator {
         coordinator.cancel(Array(runningSendSlots))
     }
 
+    func cancelAllCodeReviews() {
+        coordinator.cancel(Array(runningCodeReviewSlots))
+    }
+
     private var runningSendSlots: Set<Slot> {
         coordinator.runningSlots.filter { slot in
             if case .send = slot { return true }
+            return false
+        }
+    }
+
+    private var runningCodeReviewSlots: Set<Slot> {
+        coordinator.runningSlots.filter { slot in
+            if case .codeReview = slot { return true }
             return false
         }
     }

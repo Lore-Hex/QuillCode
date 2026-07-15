@@ -19,6 +19,9 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertTrue(draft.developerOverrideEnabled)
         XCTAssertEqual(draft.replacementAPIKey, "")
         XCTAssertFalse(draft.shouldClearAPIKey)
+        XCTAssertEqual(draft.reviewModelText, "")
+        XCTAssertEqual(draft.reviewDelivery, .current)
+        XCTAssertTrue(draft.isReviewModelValid)
         XCTAssertEqual(draft.computerUseApprovedBundleIdentifiersText, "")
         XCTAssertEqual(draft.computerUseApprovedAppNamesText, "")
         XCTAssertEqual(draft.browserAllowedDomainsText, "")
@@ -33,6 +36,56 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertEqual(draft.managedWorktreeRetentionLimit, 15)
         XCTAssertTrue(draft.managedWorktreeAutomaticCleanupEnabled)
         XCTAssertEqual(draft.managedWorktreeRootPathText, draft.managedWorktreeDefaultRootPath)
+    }
+
+    func testCodeReviewSettingsInitializeAndBuildNormalizedUpdate() {
+        let surface = WorkspaceSettingsSurface(
+            config: AppConfig(
+                reviewModel: "socrates",
+                reviewDelivery: .detached
+            ),
+            hasStoredAPIKey: false
+        )
+        var draft = QuillCodeSettingsDraft(settings: surface)
+
+        XCTAssertEqual(draft.reviewModelText, TrustedRouterDefaults.socratesModel)
+        XCTAssertEqual(draft.reviewDelivery, .detached)
+        XCTAssertEqual(draft.update.reviewModel, TrustedRouterDefaults.socratesModel)
+        XCTAssertEqual(draft.update.reviewDelivery, .detached)
+
+        draft.reviewModelText = " Deep Research "
+        draft.reviewDelivery = .current
+
+        XCTAssertTrue(draft.isReviewModelValid)
+        XCTAssertEqual(draft.update.reviewModel, TrustedRouterDefaults.zeusModel)
+        XCTAssertEqual(draft.update.reviewDelivery, .current)
+    }
+
+    func testBlankReviewModelUsesCurrentModel() {
+        var draft = QuillCodeSettingsDraft()
+        draft.apiBaseURL = TrustedRouterDefaults.defaultAPIBaseURL
+        draft.reviewModelText = " \n "
+
+        XCTAssertTrue(draft.canSave)
+        XCTAssertNil(draft.update.reviewModel)
+        XCTAssertEqual(draft.update.reviewDelivery, .current)
+    }
+
+    func testReviewModelWithUnrecognizedSpacesCannotSave() {
+        var draft = QuillCodeSettingsDraft()
+        draft.apiBaseURL = TrustedRouterDefaults.defaultAPIBaseURL
+        draft.reviewModelText = "acme/code pro"
+
+        XCTAssertFalse(draft.isReviewModelValid)
+        XCTAssertFalse(draft.canSave)
+        XCTAssertNil(draft.update.reviewModel)
+    }
+
+    func testWorkspaceSettingsUpdateDefaultsCodeReviewToCurrentModel() {
+        let update = WorkspaceSettingsUpdate(apiBaseURL: TrustedRouterDefaults.defaultAPIBaseURL)
+
+        XCTAssertNil(update.reviewModel)
+        XCTAssertEqual(update.reviewDelivery, .current)
     }
 
     func testManagedWorktreeSettingsInitializeUpdateAndResetToDefault() {

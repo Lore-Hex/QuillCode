@@ -1063,3 +1063,12 @@
 - **Verification:** 30 focused CLI tests cover parser, repository, schema, runtime, event, secret,
   interruption, and failure contracts. `scripts/cli-exec-smoke.sh` verifies the built process, including
   real SIGINT delivery during a running shell command, and is part of the aggregate smoke gate.
+
+## 2026-07-14: Model code review is a dedicated read-only workflow
+
+- **Command boundary:** `/review` and the **Code review** command open a scope chooser for uncommitted work, a base-branch comparison, one commit, or custom review criteria. `/diff` remains the ordinary Git diff/review-pane route; the two commands no longer pretend to be aliases.
+- **Execution boundary:** The workflow preflights the selected local or SSH Remote project with `host.git.status` before creating transcript state. A dedicated runner receives only bounded read/search/Git-inspection tools plus `host.review.submit`; it cannot write files, run arbitrary shell commands, mutate Git, invoke Computer Use, or inherit ordinary project tool breadth.
+- **Completion boundary:** The reviewer must call `host.review.submit` exactly once with strict JSON. QuillCode validates paths, line ranges, priorities, unknown fields, finding count, duplicate findings, and a nonempty summary before merging only the typed report into the parent task. Internal investigation turns and tool feedback remain private.
+- **Presentation boundary:** Findings render as P0-P3 comments in the normal Review surface and as a concise Markdown report in the transcript. A finding-only file exposes Open and review-note actions but never Stage, Restore, or whole-diff mutation controls; its badge says `finding`, never `0 hunks`.
+- **Lifecycle boundary:** Current-task delivery refuses to overlap an active run. Detached delivery creates exactly one review task, including when no source task exists. Stop All cancels the dedicated task and leaves a visible stopped result. Model and current-versus-detached defaults live in Settings and persist through the normal config store.
+- **Interaction proof:** Playwright drives the command palette and `/review`, validates all scope fields, types character by character without losing focus, requires the optimistic user turn and reviewer progress before completion, checks typed findings and mutation absence, and proves backdrop, Escape, and Stop behavior. Native tests cover local, non-Git, detached, cancellation, and SSH Remote execution; packaged macOS smoke remains the release-level SwiftUI gate.

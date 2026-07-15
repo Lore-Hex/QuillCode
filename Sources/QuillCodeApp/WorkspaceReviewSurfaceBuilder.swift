@@ -23,11 +23,13 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
             ).surface()
         }
 
+        let commentBuckets = Self.reviewCommentBuckets(from: events)
         guard let completedDiff = latestCompletedGitDiffResult else {
+            let findingFiles = Self.findingOnlyFiles(from: commentBuckets.allComments)
             return WorkspaceReviewSurface(
-                title: pullRequestThreads.isEmpty ? "Review changes" : "Review threads",
+                title: findingFiles.isEmpty && !pullRequestThreads.isEmpty ? "Review threads" : "Review changes",
                 scopeNotice: latestGitDiffFailureMessage,
-                files: [],
+                files: findingFiles,
                 pullRequestThreads: pullRequestThreads,
                 pullRequestReviewDraft: pullRequestReviewDraft
             )
@@ -39,18 +41,24 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
         )
         review.pullRequestThreads = pullRequestThreads
         review.pullRequestReviewDraft = pullRequestReviewDraft
-        let commentBuckets = Self.reviewCommentBuckets(from: events)
+        var placedCommentIDs = Set<UUID>()
         review.files = review.files.map { file in
             var file = file
             file.comments = commentBuckets.fileCommentsByPath[file.path] ?? []
+            placedCommentIDs.formUnion(file.comments.map(\.id))
             file.hunkItems = file.hunkItems.map { hunk in
                 var hunk = hunk
                 hunk.lines = hunk.lines.map { line in
                     var line = line
                     if let displayLineNumber = line.displayLineNumber {
                         line.comments = commentBuckets.lineCommentsByPath[file.path]?[displayLineNumber]?.filter { comment in
-                            comment.lineKind == nil || comment.lineKind == line.kind
+                            !placedCommentIDs.contains(comment.id)
+                                && (comment.lineKind == nil || comment.lineKind == line.kind)
+                                && !(comment.source == .codeReview
+                                    && comment.lineKind == nil
+                                    && line.kind == .deletion)
                         } ?? []
+                        placedCommentIDs.formUnion(line.comments.map(\.id))
                     }
                     return line
                 }
@@ -58,7 +66,27 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
             }
             return file
         }
-        return review
+        let unplacedFindings = commentBuckets.allComments.filter {
+            $0.source == .codeReview && !placedCommentIDs.contains($0.id)
+        }
+        for finding in unplacedFindings {
+            if let index = review.files.firstIndex(where: { $0.path == finding.path }) {
+                review.files[index].comments.append(finding)
+            } else {
+                review.files.append(Self.findingOnlyFile(path: finding.path, comments: [finding]))
+            }
+        }
+        return WorkspaceReviewSurface(
+            isPresented: review.isPresented,
+            title: review.title,
+            activeScope: review.activeScope,
+            scopeReference: review.scopeReference,
+            scopeNotice: review.scopeNotice,
+            lastTurnMessageID: review.lastTurnMessageID,
+            files: review.files,
+            pullRequestThreads: review.pullRequestThreads,
+            pullRequestReviewDraft: review.pullRequestReviewDraft
+        )
     }
 
     private struct CompletedGitDiff: Sendable, Hashable {
@@ -151,6 +179,7 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
     private struct ReviewCommentBuckets: Sendable, Hashable {
         var fileCommentsByPath: [String: [WorkspaceReviewCommentSurface]] = [:]
         var lineCommentsByPath: [String: [Int: [WorkspaceReviewCommentSurface]]] = [:]
+        var allComments: [WorkspaceReviewCommentSurface] = []
     }
 
     private static func reviewCommentBuckets(from events: [ThreadEvent]) -> ReviewCommentBuckets {
@@ -160,6 +189,7 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
                 continue
             }
             let surface = WorkspaceReviewCommentSurface(comment: comment)
+            buckets.allComments.append(surface)
             if let lineNumber = comment.lineNumber {
                 buckets.lineCommentsByPath[comment.path, default: [:]][lineNumber, default: []].append(surface)
             } else {
@@ -178,6 +208,28 @@ struct WorkspaceReviewSurfaceBuilder: Sendable, Hashable {
             }
         }
         return buckets
+    }
+
+    private static func findingOnlyFiles(
+        from comments: [WorkspaceReviewCommentSurface]
+    ) -> [WorkspaceReviewFileSurface] {
+        Dictionary(grouping: comments.filter { $0.source == .codeReview }, by: \.path)
+            .map { path, comments in findingOnlyFile(path: path, comments: comments) }
+            .sorted { $0.path.localizedStandardCompare($1.path) == .orderedAscending }
+    }
+
+    private static func findingOnlyFile(
+        path: String,
+        comments: [WorkspaceReviewCommentSurface]
+    ) -> WorkspaceReviewFileSurface {
+        WorkspaceReviewFileSurface(
+            path: path,
+            insertions: 0,
+            deletions: 0,
+            hunks: 0,
+            isFindingOnly: true,
+            comments: comments.sorted { $0.createdAt < $1.createdAt }
+        )
     }
 
     private static func decode<T: Decodable>(_ type: T.Type, _ payloadJSON: String?) -> T? {

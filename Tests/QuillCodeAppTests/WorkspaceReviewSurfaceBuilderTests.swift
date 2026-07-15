@@ -150,6 +150,58 @@ final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(firstLineComments.last?.lineRangeLabel, "Lines 1-2")
     }
 
+    func testCodeReviewFindingWithoutVisibleDiffRemainsAvailableInline() throws {
+        let finding = WorkspaceCodeReviewFinding(
+            priority: .p1,
+            title: "Fix staged crash",
+            body: "This staged-only file force unwraps user input.",
+            path: "Sources/Staged.swift",
+            line: 17
+        )
+        let review = WorkspaceReviewSurfaceBuilder(
+            toolCards: [try diffCard(stdout: "")],
+            events: [WorkspaceReviewCommentPlanner.event(for: finding)]
+        ).surface()
+
+        XCTAssertEqual(review.files.map(\.path), ["Sources/Staged.swift"])
+        XCTAssertEqual(review.files.first?.isFindingOnly, true)
+        XCTAssertEqual(review.files.first?.changeLabel, "1 finding")
+        XCTAssertEqual(review.files.first?.comments.first?.title, "Fix staged crash")
+        XCTAssertEqual(review.files.first?.comments.first?.lineRangeLabel, "Line 17")
+        XCTAssertEqual(review.files.first?.actions(in: .unstaged).map(\.kind), [.open])
+        XCTAssertTrue(review.wholeDiffActions.isEmpty)
+        XCTAssertEqual(review.codeReviewFindingCount, 1)
+        XCTAssertEqual(review.subtitle, "1 review finding")
+    }
+
+    func testCodeReviewFindingOutsideVisibleHunkFallsBackToFileCard() throws {
+        let diff = """
+        diff --git a/Sources/App.swift b/Sources/App.swift
+        --- a/Sources/App.swift
+        +++ b/Sources/App.swift
+        @@ -1 +1 @@
+        -let old = true
+        +let old = false
+        """
+        let finding = WorkspaceCodeReviewFinding(
+            priority: .p2,
+            title: "Later defect",
+            body: "The changed behavior breaks the later call site.",
+            path: "Sources/App.swift",
+            line: 80
+        )
+        let review = WorkspaceReviewSurfaceBuilder(
+            toolCards: [try diffCard(stdout: diff)],
+            events: [WorkspaceReviewCommentPlanner.event(for: finding)]
+        ).surface()
+
+        XCTAssertEqual(review.files.count, 1)
+        XCTAssertFalse(review.files[0].isFindingOnly)
+        XCTAssertEqual(review.files[0].comments.first?.title, "Later defect")
+        XCTAssertEqual(review.files[0].comments.first?.lineRangeLabel, "Line 80")
+        XCTAssertEqual(review.codeReviewFindingCount, 1)
+    }
+
     func testSurfaceMarksDeletedFilesUnreadable() throws {
         let diff = """
         diff --git a/Sources/Removed.swift b/Sources/Removed.swift

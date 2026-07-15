@@ -10,6 +10,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var isSettingsPresented: Bool
     @Binding var settingsDraft: QuillCodeSettingsDraft
     @Binding var isKeyboardShortcutsPresented: Bool
+    @Binding var codeReviewDraft: WorkspaceCodeReviewRequest
     @Binding var worktreeSheet: QuillCodeWorktreeSheet?
     @Binding var newWorktreeTaskDraft: QuillCodeNewWorktreeTaskDraft
     @Binding var createWorktreeDraft: QuillCodeWorktreeCreateDraft
@@ -28,6 +29,8 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     var onSaveKeyboardShortcuts: (KeyboardShortcutPreferences) -> Void
     var onStartTrustedRouterSignIn: () -> Void
+    var onDismissCodeReview: () -> Void
+    var onRunCodeReview: (WorkspaceCodeReviewRequest) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
     var onCreateWorktreeThread: (WorkspaceNewWorktreeThreadRequest) -> Void
     var onCreateWorktree: (WorkspaceWorktreeCreateRequest) -> Void
@@ -52,6 +55,11 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                     settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
                 }
             }
+            .onChange(of: surface.codeReviewRequest) { _, request in
+                if let request {
+                    codeReviewDraft = request
+                }
+            }
     }
 
     @ViewBuilder
@@ -59,6 +67,16 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         ZStack {
             settingsModal
             agentImportModal
+            if surface.codeReviewRequest != nil {
+                dismissibleModal(accessibilityLabel: "Dismiss code review", onDismiss: onDismissCodeReview) {
+                    QuillCodeCodeReviewRequestView(
+                        request: $codeReviewDraft,
+                        onCancel: onDismissCodeReview,
+                        onRun: { onRunCodeReview(codeReviewDraft) }
+                    )
+                }
+                .zIndex(18)
+            }
             if isSearchPresented {
                 dismissibleModal(accessibilityLabel: "Dismiss search", onDismiss: dismissSearch) {
                     QuillCodeSearchView(
@@ -395,6 +413,7 @@ extension View {
         isSettingsPresented: Binding<Bool>,
         settingsDraft: Binding<QuillCodeSettingsDraft>,
         isKeyboardShortcutsPresented: Binding<Bool>,
+        codeReviewDraft: Binding<WorkspaceCodeReviewRequest>,
         worktreeSheet: Binding<QuillCodeWorktreeSheet?>,
         newWorktreeTaskDraft: Binding<QuillCodeNewWorktreeTaskDraft>,
         createWorktreeDraft: Binding<QuillCodeWorktreeCreateDraft>,
@@ -413,6 +432,8 @@ extension View {
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onSaveKeyboardShortcuts: @escaping (KeyboardShortcutPreferences) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
+        onDismissCodeReview: @escaping () -> Void,
+        onRunCodeReview: @escaping (WorkspaceCodeReviewRequest) -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void,
         onCreateWorktreeThread: @escaping (WorkspaceNewWorktreeThreadRequest) -> Void,
         onCreateWorktree: @escaping (WorkspaceWorktreeCreateRequest) -> Void,
@@ -438,6 +459,7 @@ extension View {
             isSettingsPresented: isSettingsPresented,
             settingsDraft: settingsDraft,
             isKeyboardShortcutsPresented: isKeyboardShortcutsPresented,
+            codeReviewDraft: codeReviewDraft,
             worktreeSheet: worktreeSheet,
             newWorktreeTaskDraft: newWorktreeTaskDraft,
             createWorktreeDraft: createWorktreeDraft,
@@ -456,6 +478,8 @@ extension View {
             onSaveSettings: onSaveSettings,
             onSaveKeyboardShortcuts: onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+            onDismissCodeReview: onDismissCodeReview,
+            onRunCodeReview: onRunCodeReview,
             onCommand: onCommand,
             onCreateWorktreeThread: onCreateWorktreeThread,
             onCreateWorktree: onCreateWorktree,

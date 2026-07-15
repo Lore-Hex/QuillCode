@@ -415,6 +415,27 @@ final class QuillCodeReviewSurfaceTests: XCTestCase {
         XCTAssertEqual(rangeComment.lineKind, .context)
     }
 
+    func testFindingOnlySurfaceBadgeDoesNotClaimZeroHunks() {
+        let comment = WorkspaceReviewCommentSurface(comment: WorkspaceReviewCommentState(
+            path: "Sources/Cache.swift",
+            text: "This stale read can return the previous value.",
+            source: .codeReview,
+            priority: .p1,
+            title: "Avoid stale cache reads"
+        ))
+        let surface = WorkspaceReviewSurface(files: [WorkspaceReviewFileSurface(
+            path: "Sources/Cache.swift",
+            insertions: 0,
+            deletions: 0,
+            hunks: 0,
+            isFindingOnly: true,
+            comments: [comment]
+        )])
+
+        XCTAssertEqual(surface.badgeLabel, "1 finding")
+        XCTAssertEqual(surface.subtitle, "1 review finding")
+    }
+
     func testPullRequestReviewDraftReordersInlineComments() {
         var draft = WorkspacePullRequestReviewDraftSurface(inlineComments: [
             WorkspacePullRequestReviewDraftCommentSurface(

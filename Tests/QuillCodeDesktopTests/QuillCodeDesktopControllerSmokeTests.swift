@@ -9,6 +9,19 @@ import QuillComputerUseKit
 @MainActor
 final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
 
+    func testDesktopSettingsSaveAppliesCodeReviewPreferences() throws {
+        let controller = try makeController(workspaceRoot: try makeTempDirectory())
+
+        controller.saveSettings(WorkspaceSettingsUpdate(
+            apiBaseURL: controller.surface.settings.apiBaseURL,
+            reviewModel: "/prometheus",
+            reviewDelivery: .detached
+        ))
+
+        XCTAssertEqual(controller.surface.settings.reviewModel, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(controller.surface.settings.reviewDelivery, .detached)
+    }
+
     func testDesktopWindowSmokeSurfaceReportSummarizesWorkspaceChrome() throws {
         let controller = try makeController(workspaceRoot: try makeTempDirectory())
         let report = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: controller.surface)

@@ -87,6 +87,32 @@ final class WorkspaceReviewCommentPlannerTests: XCTestCase {
         ))
     }
 
+    func testCodeReviewFindingEventPreservesTypedMetadata() throws {
+        let createdAt = Date(timeIntervalSince1970: 42)
+        let finding = WorkspaceCodeReviewFinding(
+            priority: .p1,
+            title: "Avoid stale cache reads",
+            body: "The cache is read after invalidation and can return an obsolete value.",
+            path: "Sources/Cache.swift",
+            line: 18,
+            endLine: 21
+        )
+
+        let event = WorkspaceReviewCommentPlanner.event(for: finding, createdAt: createdAt)
+
+        XCTAssertEqual(event.kind, .reviewComment)
+        XCTAssertEqual(event.summary, "P1 finding in Sources/Cache.swift")
+        let comment = try XCTUnwrap(decodeComment(event))
+        XCTAssertEqual(comment.source, .codeReview)
+        XCTAssertEqual(comment.priority, .p1)
+        XCTAssertEqual(comment.title, "Avoid stale cache reads")
+        XCTAssertEqual(comment.text, finding.body)
+        XCTAssertEqual(comment.path, finding.path)
+        XCTAssertEqual(comment.lineNumber, 18)
+        XCTAssertEqual(comment.endLineNumber, 21)
+        XCTAssertEqual(comment.createdAt, createdAt)
+    }
+
     private func review() -> WorkspaceReviewSurface {
         GitDiffReviewParser.parse("""
         diff --git a/hello.txt b/hello.txt

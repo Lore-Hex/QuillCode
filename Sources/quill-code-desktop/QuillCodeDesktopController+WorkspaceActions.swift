@@ -4,6 +4,41 @@ import QuillCodeCore
 
 @MainActor
 extension QuillCodeDesktopController {
+    func dismissCodeReview() {
+        model.dismissCodeReview()
+        refresh()
+    }
+
+    func runCodeReview(_ request: WorkspaceCodeReviewRequest) {
+        let sourceThreadID = model.selectedThread?.id
+        if request.delivery == .current,
+           tasks.isSendRunning(threadID: sourceThreadID) || model.isAgentRunActive(for: sourceThreadID) {
+            return
+        }
+
+        let root = model.activeWorkspaceRoot ?? workspaceRoot
+        let reviewOwnerID = sourceThreadID ?? model.selectedProject?.id ?? UUID()
+        let slot = QuillCodeDesktopTaskCoordinator.Slot.codeReview(reviewOwnerID)
+        let didStart = tasks.startIfIdle(slot) { [weak self] in
+            guard let self else { return }
+            await model.runCodeReview(
+                request,
+                workspaceRoot: root,
+                onProgressUpdated: { [weak self] in self?.refresh() }
+            )
+        } onFinish: { [weak self] in
+            guard let self else { return }
+            refresh()
+            if request.delivery == .current {
+                recoverFollowUpDrain(for: sourceThreadID)
+            }
+        }
+        if didStart {
+            model.dismissCodeReview()
+        }
+        refresh()
+    }
+
     func loadSubagentTranscript(
         parentThreadID: UUID,
         runID: UUID,

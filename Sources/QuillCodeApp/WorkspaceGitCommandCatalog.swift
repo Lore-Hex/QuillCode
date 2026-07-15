@@ -4,6 +4,13 @@ enum WorkspaceGitCommandCatalog {
     static func commands(hasWorkspaceOrRemoteProject: Bool) -> [WorkspaceCommandSurface] {
         let gitCommands = [
             WorkspaceCommandSurface(
+                id: "code-review",
+                title: "Review changes with QuillCode",
+                category: WorkspaceCommandPalette.gitCategory,
+                keywords: ["git", "code review", "find bugs", "review changes", "review commit", "base branch"],
+                isEnabled: hasWorkspaceOrRemoteProject
+            ),
+            WorkspaceCommandSurface(
                 id: "git-status",
                 title: "Git status",
                 category: WorkspaceCommandPalette.gitCategory,
@@ -12,9 +19,9 @@ enum WorkspaceGitCommandCatalog {
             ),
             WorkspaceCommandSurface(
                 id: "git-diff",
-                title: "Review diff",
+                title: "Show diff",
                 category: WorkspaceCommandPalette.gitCategory,
-                keywords: ["git", "diff", "review", "changes", "remote"],
+                keywords: ["git", "diff", "changes", "remote"],
                 isEnabled: hasWorkspaceOrRemoteProject
             ),
             WorkspaceCommandSurface(

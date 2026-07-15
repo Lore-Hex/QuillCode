@@ -146,6 +146,8 @@ struct QuillCodeDesktopRootView: View {
                 discover: controller.discoverAgentImport,
                 perform: controller.performAgentImport
             ),
+            onDismissCodeReview: controller.dismissCodeReview,
+            onRunCodeReview: controller.runCodeReview,
             onReviewScopeChange: controller.runReviewScopeChange,
             onReviewAction: controller.runReviewAction,
             onPullRequestReviewThreadAction: controller.runPullRequestReviewThreadAction,

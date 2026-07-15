@@ -48,6 +48,10 @@ public struct ConfigStore: Sendable {
             switch key {
             case "default_model":
                 config.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(value)
+            case "review_model":
+                config.reviewModel = AppConfig.normalizedReviewModelID(value)
+            case "review_delivery":
+                config.reviewDelivery = CodeReviewDelivery(rawValue: value) ?? config.reviewDelivery
             case "mode":
                 config.mode = AgentMode(rawValue: value) ?? config.mode
             case "api_base_url":
@@ -146,13 +150,17 @@ public struct ConfigStore: Sendable {
             at: fileURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        var lines = [
-            "default_model = \(Self.quote(config.defaultModel))",
+        var lines = ["default_model = \(Self.quote(config.defaultModel))"]
+        if let reviewModel = config.reviewModel {
+            lines.append("review_model = \(Self.quote(reviewModel))")
+        }
+        lines.append(contentsOf: [
+            "review_delivery = \(Self.quote(config.reviewDelivery.rawValue))",
             "mode = \(Self.quote(config.mode.rawValue))",
             "api_base_url = \(Self.quote(config.apiBaseURL))",
             "auth_mode = \(Self.quote(config.authMode.rawValue))",
             "developer_override_enabled = \(Self.boolString(config.developerOverrideEnabled))"
-        ]
+        ])
         Self.appendNotificationPreferences(config.notificationPreferences, to: &lines)
         Self.appendOptionalDouble(config.runSpendFuseUSD, key: "run_spend_fuse_usd", to: &lines)
         Self.appendOptionalDouble(

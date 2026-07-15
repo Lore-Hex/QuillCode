@@ -19,6 +19,12 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         activeScope != nil || !files.isEmpty || !pullRequestThreads.isEmpty || pullRequestReviewDraft != nil
     }
 
+    public var codeReviewFindingCount: Int {
+        files.flatMap(\.comments).filter { $0.source == .codeReview }.count
+            + files.flatMap(\.hunkItems).flatMap(\.lines).flatMap(\.comments)
+                .filter { $0.source == .codeReview }.count
+    }
+
     public var isVisible: Bool {
         isPresented
     }
@@ -35,7 +41,8 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
     /// commit/branch comparisons stay read-only; Last turn gets a provenance-based reverse patch.
     public var wholeDiffActions: [WorkspaceReviewActionSurface] {
         guard let activeScope, !files.isEmpty else { return [] }
-        let paths = files.map(\.path)
+        let paths = files.filter { !$0.isFindingOnly }.map(\.path)
+        guard !paths.isEmpty else { return [] }
         switch activeScope {
         case .unstaged:
             return [
@@ -85,7 +92,10 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         let threadCount = pullRequestThreads.count
         let threadLabel = "\(threadCount) thread\(threadCount == 1 ? "" : "s")"
         let parts = [
-            files.isEmpty ? nil : "\(totalHunks) hunk\(totalHunks == 1 ? "" : "s")",
+            totalHunks == 0 ? nil : "\(totalHunks) hunk\(totalHunks == 1 ? "" : "s")",
+            codeReviewFindingCount == 0
+                ? nil
+                : "\(codeReviewFindingCount) finding\(codeReviewFindingCount == 1 ? "" : "s")",
             pullRequestThreads.isEmpty ? nil : threadLabel,
             pullRequestReviewDraft == nil ? nil : "review draft"
         ].compactMap(\.self)
@@ -142,8 +152,17 @@ public struct WorkspaceReviewSurface: Codable, Sendable, Hashable {
         self.totalDeletions = files.reduce(0) { $0 + $1.deletions }
         self.totalHunks = files.reduce(0) { $0 + $1.hunks }
         if !files.isEmpty {
-            let fileLabel = "\(files.count) file\(files.count == 1 ? "" : "s") changed"
-            self.subtitle = "\(fileLabel), +\(totalInsertions) -\(totalDeletions)"
+            let changedFileCount = files.filter { !$0.isFindingOnly }.count
+            let findingCount = files.flatMap(\.comments).filter { $0.source == .codeReview }.count
+                + files.flatMap(\.hunkItems).flatMap(\.lines).flatMap(\.comments)
+                    .filter { $0.source == .codeReview }.count
+            let changedLabel = changedFileCount == 0
+                ? nil
+                : "\(changedFileCount) file\(changedFileCount == 1 ? "" : "s") changed, +\(totalInsertions) -\(totalDeletions)"
+            let findingLabel = findingCount == 0
+                ? nil
+                : "\(findingCount) review finding\(findingCount == 1 ? "" : "s")"
+            self.subtitle = [changedLabel, findingLabel].compactMap(\.self).joined(separator: " · ")
         } else if !pullRequestThreads.isEmpty {
             let threadCount = pullRequestThreads.count
             let threadLabel = "\(threadCount) review thread\(threadCount == 1 ? "" : "s")"

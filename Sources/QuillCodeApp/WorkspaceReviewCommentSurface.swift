@@ -8,6 +8,9 @@ public struct WorkspaceReviewCommentSurface: Codable, Sendable, Hashable, Identi
     public var lineKind: WorkspaceReviewLineKind?
     public var text: String
     public var createdAt: Date
+    public var source: WorkspaceReviewCommentSource?
+    public var priority: WorkspaceCodeReviewPriority?
+    public var title: String?
 
     public var lineRangeLabel: String? {
         guard let lineNumber else { return nil }
@@ -25,5 +28,8 @@ public struct WorkspaceReviewCommentSurface: Codable, Sendable, Hashable, Identi
         self.lineKind = comment.lineKind
         self.text = comment.text
         self.createdAt = comment.createdAt
+        self.source = comment.source
+        self.priority = comment.priority
+        self.title = comment.title
     }
 }

@@ -234,6 +234,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "show-hooks",
             "workflow-recording-create",
             "workflow-recording-stop",
+            "code-review",
             "git-status",
             "git-diff",
             "git-fetch",

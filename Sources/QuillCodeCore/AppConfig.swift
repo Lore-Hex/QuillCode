@@ -133,6 +133,11 @@ public struct ManagedWorktreeSettings: Codable, Sendable, Hashable {
     }
 }
 
+public enum CodeReviewDelivery: String, Codable, Sendable, CaseIterable, Hashable {
+    case current
+    case detached
+}
+
 public struct AppConfig: Codable, Sendable, Hashable {
     /// Production per-turn tool-step budget. Deliberately much higher than
     /// `AgentRunner.defaultMaxToolSteps` (a conservative library default): a real coding task
@@ -141,6 +146,9 @@ public struct AppConfig: Codable, Sendable, Hashable {
     public static let defaultMaxToolSteps = 64
 
     public var defaultModel: String
+    /// nil uses the model selected for the current task.
+    public var reviewModel: String?
+    public var reviewDelivery: CodeReviewDelivery
     public var mode: AgentMode
     public var apiBaseURL: String
     public var authMode: TrustedRouterAuthMode
@@ -161,6 +169,8 @@ public struct AppConfig: Codable, Sendable, Hashable {
 
     private enum CodingKeys: String, CodingKey {
         case defaultModel
+        case reviewModel
+        case reviewDelivery
         case mode
         case apiBaseURL
         case authMode
@@ -196,9 +206,13 @@ public struct AppConfig: Codable, Sendable, Hashable {
         runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits(),
         managedWorktrees: ManagedWorktreeSettings = ManagedWorktreeSettings(),
         keyboardShortcuts: KeyboardShortcutPreferences = KeyboardShortcutPreferences(),
-        maxToolSteps: Int = AppConfig.defaultMaxToolSteps
+        maxToolSteps: Int = AppConfig.defaultMaxToolSteps,
+        reviewModel: String? = nil,
+        reviewDelivery: CodeReviewDelivery = .current
     ) {
         self.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(defaultModel)
+        self.reviewModel = Self.normalizedReviewModelID(reviewModel)
+        self.reviewDelivery = reviewDelivery
         self.mode = mode
         self.apiBaseURL = apiBaseURL
         self.authMode = developerOverrideEnabled ? .developerOverride : authMode
@@ -286,8 +300,20 @@ public struct AppConfig: Codable, Sendable, Hashable {
                 forKey: .keyboardShortcuts
             ) ?? KeyboardShortcutPreferences(),
             maxToolSteps: try container.decodeIfPresent(Int.self, forKey: .maxToolSteps)
-                ?? Self.defaultMaxToolSteps
+                ?? Self.defaultMaxToolSteps,
+            reviewModel: try container.decodeIfPresent(String.self, forKey: .reviewModel),
+            reviewDelivery: (try? container.decode(
+                CodeReviewDelivery.self,
+                forKey: .reviewDelivery
+            )) ?? .current
         )
+    }
+
+    public static func normalizedReviewModelID(_ modelID: String?) -> String? {
+        guard let modelID else { return nil }
+        let canonicalID = TrustedRouterDefaults.canonicalModelID(modelID)
+        guard !canonicalID.isEmpty else { return nil }
+        return TrustedRouterDefaults.normalizedDefaultModelID(canonicalID)
     }
 
     private static func normalizedModelIDs(_ ids: [String]) -> [String] {
