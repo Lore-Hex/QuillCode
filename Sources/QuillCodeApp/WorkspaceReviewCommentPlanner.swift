@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeReview
 
 public enum WorkspaceReviewCommentSource: String, Codable, Sendable, Hashable {
     case user

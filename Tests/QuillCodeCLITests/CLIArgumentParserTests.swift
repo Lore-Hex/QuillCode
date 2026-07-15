@@ -153,6 +153,84 @@ final class CLIArgumentParserTests: XCTestCase {
         XCTAssertThrowsError(try parser.parse(["doctor", "unexpected"], currentDirectory: cwd))
     }
 
+    func testReviewParsesEveryTargetShape() throws {
+        XCTAssertEqual(
+            try reviewRequest(parser.parse(["review", "--uncommitted"], currentDirectory: cwd)).target,
+            .uncommitted
+        )
+        XCTAssertEqual(
+            try reviewRequest(parser.parse(["review", "--base", "origin/main"], currentDirectory: cwd)).target,
+            .baseBranch("origin/main")
+        )
+        let commit = try reviewRequest(parser.parse([
+            "review", "--commit=HEAD", "--title", "Fix cancellation"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(commit.target, .commit("HEAD"))
+        XCTAssertEqual(commit.title, "Fix cancellation")
+        XCTAssertEqual(
+            try reviewRequest(parser.parse([
+                "review", "Focus", "on", "the", "streaming", "path"
+            ], currentDirectory: cwd)).target,
+            .custom("Focus on the streaming path")
+        )
+        XCTAssertEqual(
+            try reviewRequest(parser.parse(["review", "-"], currentDirectory: cwd)).target,
+            .custom("-")
+        )
+    }
+
+    func testReviewParsesRuntimeOptionsAndRelativeWorkingDirectory() throws {
+        let request = try reviewRequest(parser.parse([
+            "--home", ".quill-home",
+            "review", "--uncommitted", "--mock",
+            "--api-key", "test-key",
+            "--model=trustedrouter/deepseek-v4-flash",
+            "--base-url", "https://example.test/v1",
+            "-C", "nested",
+            "--ignore-user-config"
+        ], currentDirectory: cwd))
+
+        XCTAssertFalse(request.live)
+        XCTAssertEqual(request.apiKey, "test-key")
+        XCTAssertEqual(request.model, "trustedrouter/deepseek-v4-flash")
+        XCTAssertEqual(request.baseURL, "https://example.test/v1")
+        XCTAssertEqual(request.cwd.path, "/tmp/project/nested")
+        XCTAssertEqual(request.home?.path, "/tmp/project/.quill-home")
+        XCTAssertTrue(request.ignoresUserConfig)
+    }
+
+    func testReviewHelpDoesNotRequireTarget() throws {
+        let request = try reviewRequest(parser.parse(["review", "--help"], currentDirectory: cwd))
+        XCTAssertTrue(request.showsHelp)
+        XCTAssertNil(request.target)
+    }
+
+    func testReviewRejectsMissingConflictingAndInvalidTargets() {
+        assertCLIError(.missingReviewTarget, parsing: ["review"])
+        assertCLIError(
+            .conflictingReviewTargets,
+            parsing: ["review", "--uncommitted", "custom focus"]
+        )
+        assertCLIError(
+            .conflictingReviewTargets,
+            parsing: ["review", "--base", "main", "--commit", "HEAD"]
+        )
+        assertCLIError(
+            .reviewTitleRequiresCommit,
+            parsing: ["review", "--uncommitted", "--title", "Not a commit"]
+        )
+        assertCLIError(
+            .invalidOptionValue(option: "review prompt", value: "- extra"),
+            parsing: ["review", "-", "extra"]
+        )
+        XCTAssertThrowsError(try parser.parse([
+            "review", "--commit", "HEAD\nother"
+        ], currentDirectory: cwd))
+        XCTAssertThrowsError(try parser.parse([
+            "review", "--unknown", "value"
+        ], currentDirectory: cwd))
+    }
+
     private func runRequest(_ command: CLICommand) throws -> CLIRunRequest {
         guard case .run(let request) = command else {
             throw XCTSkip("Expected run command")
@@ -172,5 +250,27 @@ final class CLIArgumentParserTests: XCTestCase {
             throw XCTSkip("Expected doctor command")
         }
         return request
+    }
+
+    private func reviewRequest(_ command: CLICommand) throws -> CLIReviewRequest {
+        guard case .review(let request) = command else {
+            throw XCTSkip("Expected review command")
+        }
+        return request
+    }
+
+    private func assertCLIError(
+        _ expected: CLIError,
+        parsing arguments: [String],
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertThrowsError(
+            try parser.parse(arguments, currentDirectory: cwd),
+            file: file,
+            line: line
+        ) { error in
+            XCTAssertEqual(error as? CLIError, expected, file: file, line: line)
+        }
     }
 }

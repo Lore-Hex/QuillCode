@@ -1,5 +1,6 @@
 import SwiftUI
 import QuillCodeCore
+import QuillCodeReview
 
 struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     var surface: WorkspaceSurface

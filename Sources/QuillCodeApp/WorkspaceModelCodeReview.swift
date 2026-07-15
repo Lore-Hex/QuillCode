@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeReview
 import QuillCodeTools
 
 @MainActor
@@ -35,6 +36,7 @@ public extension QuillCodeWorkspaceModel {
             scope: rawRequest.scope,
             reference: rawRequest.reference,
             instructions: rawRequest.instructions,
+            title: rawRequest.title,
             delivery: rawRequest.delivery,
             model: rawRequest.model
         )

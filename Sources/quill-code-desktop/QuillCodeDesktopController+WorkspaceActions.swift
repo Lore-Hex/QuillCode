@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeApp
 import QuillCodeCore
+import QuillCodeReview
 
 @MainActor
 extension QuillCodeDesktopController {

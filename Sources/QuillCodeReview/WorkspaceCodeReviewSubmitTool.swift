@@ -1,17 +1,12 @@
 import Foundation
 import QuillCodeCore
 
-enum WorkspaceCodeReviewSubmitTool {
-    static let name = "host.review.submit"
+public enum WorkspaceCodeReviewSubmitTool {
+    public static let name = ToolDefinition.codeReviewSubmit.name
 
-    static let definition = ToolDefinition(
-        name: name,
-        description: "Submit the complete prioritized review exactly once, including when there are no findings.",
-        parametersJSON: schema,
-        risk: .read
-    )
+    public static let definition = ToolDefinition.codeReviewSubmit
 
-    static func decode(_ call: ToolCall) throws -> WorkspaceCodeReviewReport {
+    public static func decode(_ call: ToolCall) throws -> WorkspaceCodeReviewReport {
         guard call.name == name else {
             throw WorkspaceCodeReviewReportError.wrongTool(call.name)
         }
@@ -45,40 +40,6 @@ enum WorkspaceCodeReviewSubmitTool {
         findings.sort(by: findingSort)
         return WorkspaceCodeReviewReport(summary: summary, findings: findings)
     }
-
-    private static let schema = #"""
-    {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "summary": {
-          "type": "string",
-          "description": "Concise overall review assessment."
-        },
-        "findings": {
-          "type": "array",
-          "maxItems": 100,
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-              "priority": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
-              "title": { "type": "string" },
-              "body": { "type": "string" },
-              "path": {
-                "type": "string",
-                "description": "Workspace-relative file path."
-              },
-              "line": { "type": "integer", "minimum": 1 },
-              "endLine": { "type": "integer", "minimum": 1 }
-            },
-            "required": ["priority", "title", "body", "path"]
-          }
-        }
-      },
-      "required": ["summary", "findings"]
-    }
-    """#
 
     private static func normalizedFinding(_ raw: Payload.Finding) throws -> WorkspaceCodeReviewFinding {
         guard let priority = WorkspaceCodeReviewPriority(rawValue: raw.priority.uppercased()) else {
@@ -200,7 +161,7 @@ enum WorkspaceCodeReviewSubmitTool {
     }
 }
 
-enum WorkspaceCodeReviewReportError: Error, Equatable, CustomStringConvertible {
+public enum WorkspaceCodeReviewReportError: Error, Equatable, CustomStringConvertible {
     case wrongTool(String)
     case invalidJSON
     case invalidPayload(String)
@@ -212,7 +173,7 @@ enum WorkspaceCodeReviewReportError: Error, Equatable, CustomStringConvertible {
     case invalidPath(String)
     case invalidLine
 
-    var description: String {
+    public var description: String {
         switch self {
         case .wrongTool(let name): "Expected \(WorkspaceCodeReviewSubmitTool.name), received \(name)."
         case .invalidJSON: "The review report was not valid UTF-8 JSON."
@@ -229,10 +190,12 @@ enum WorkspaceCodeReviewReportError: Error, Equatable, CustomStringConvertible {
     }
 }
 
-actor WorkspaceCodeReviewReportCollector {
-    private(set) var report: WorkspaceCodeReviewReport?
+public actor WorkspaceCodeReviewReportCollector {
+    public private(set) var report: WorkspaceCodeReviewReport?
 
-    func capture(_ call: ToolCall) -> ToolResult? {
+    public init() {}
+
+    public func capture(_ call: ToolCall) -> ToolResult? {
         guard call.name == WorkspaceCodeReviewSubmitTool.name else { return nil }
         guard report == nil else {
             return ToolResult(ok: false, error: "The complete code-review report was already submitted.")

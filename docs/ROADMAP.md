@@ -13,6 +13,11 @@
   config, auth, Git, terminal, MCP, sandbox, state/task inventory, TrustedRouter reachability, and
   app-server checks. Collection is bounded and read-only, JSON is stable and redacted, and focused plus
   executable tests prove corruption handling, non-disclosure, authorization, and zero state mutation.
+- `quill-code review` now covers the stable Codex target forms for uncommitted work, a base branch,
+  one commit with an optional title, and custom argument/stdin criteria. CLI and native review share one
+  typed engine and report sink; CLI review is ephemeral and capability-filtered to bounded read/search
+  and Git inspection. Focused real-repository tests plus an aggregate process smoke prove target
+  scoping, cancellation, fail-closed completion, large-diff handling, and zero task persistence.
 - Named local worktree tasks now have a one-click **Publish branch** path. QuillCode inspects the real branch, base, upstream, dirty state, divergence, and existing PR before using the standard visible push/PR tool cards; dirty and diverged states stop without remote mutation.
 - Published worktree tasks persist exact PR identity and expose explicit Land, Refresh, and post-merge Clean up actions. QuillCode resumes queued-status reconciliation after relaunch or task selection, polls off the main actor, and repairs already-missing merged bindings without ever deleting an existing checkout in the background.
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import QuillCodeReview
 
 struct QuillCodeReviewCommentView: View {
     var comment: WorkspaceReviewCommentSurface

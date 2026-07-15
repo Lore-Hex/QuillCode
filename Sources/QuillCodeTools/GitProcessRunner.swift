@@ -53,6 +53,7 @@ public struct GitProcessRunner: Sendable {
         let stderr = Pipe()
         process.standardOutput = stdout
         process.standardError = stderr
+        let completionWaiter = ProcessCompletionWaiter(process: process)
 
         do {
             try process.run()
@@ -60,15 +61,16 @@ public struct GitProcessRunner: Sendable {
             return ToolResult(ok: false, error: "Failed to start \(toolName.lowercased()): \(error)")
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
-        process.terminationHandler = { _ in semaphore.signal() }
-        if semaphore.wait(timeout: .now() + timeoutSeconds) == .timedOut {
-            process.terminate()
+        let output = ProcessOutputCollector(stdout: stdout, stderr: stderr)
+        output.start()
+        if completionWaiter.wait(for: process, timeoutSeconds: timeoutSeconds) == .timedOut {
+            output.wait()
             return ToolResult(ok: false, error: "\(toolName) command timed out after \(Int(timeoutSeconds))s.")
         }
+        output.wait()
 
-        let out = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
-        let err = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        let out = String(decoding: output.stdout, as: UTF8.self)
+        let err = String(decoding: output.stderr, as: UTF8.self)
         let ok = process.terminationStatus == 0
         return ToolResult(
             ok: ok,

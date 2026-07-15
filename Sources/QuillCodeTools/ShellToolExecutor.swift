@@ -190,7 +190,7 @@ public struct ShellToolExecutor: Sendable {
         process.standardInput = stdin
         process.standardOutput = stdout
         process.standardError = stderr
-        let completionWaiter = ShellProcessCompletionWaiter(process: process)
+        let completionWaiter = ProcessCompletionWaiter(process: process)
 
         do {
             if processBox?.set(process) == false {
@@ -209,7 +209,7 @@ public struct ShellToolExecutor: Sendable {
             }
         }
 
-        let output = ShellProcessOutputCollector(stdout: stdout, stderr: stderr)
+        let output = ProcessOutputCollector(stdout: stdout, stderr: stderr)
         output.start()
 
         if completionWaiter.wait(for: process, timeoutSeconds: request.timeoutSeconds) == .timedOut {
@@ -234,36 +234,6 @@ public struct ShellToolExecutor: Sendable {
         )
     }
 
-}
-
-private final class ShellProcessOutputCollector: @unchecked Sendable {
-    private let stdoutPipe: Pipe
-    private let stderrPipe: Pipe
-    private let readers = DispatchGroup()
-    private(set) var stdout = Data()
-    private(set) var stderr = Data()
-
-    init(stdout: Pipe, stderr: Pipe) {
-        self.stdoutPipe = stdout
-        self.stderrPipe = stderr
-    }
-
-    func start() {
-        read(stdoutPipe) { [weak self] data in self?.stdout = data }
-        read(stderrPipe) { [weak self] data in self?.stderr = data }
-    }
-
-    func wait() {
-        readers.wait()
-    }
-
-    private func read(_ pipe: Pipe, assign: @escaping @Sendable (Data) -> Void) {
-        readers.enter()
-        DispatchQueue.global(qos: .utility).async { [readers] in
-            assign(pipe.fileHandleForReading.readDataToEndOfFile())
-            readers.leave()
-        }
-    }
 }
 
 private final class CancellableProcessBox: @unchecked Sendable {

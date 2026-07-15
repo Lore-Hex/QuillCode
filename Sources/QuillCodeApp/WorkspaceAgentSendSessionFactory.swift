@@ -2,6 +2,7 @@ import Foundation
 import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeReview
 import QuillCodeSafety
 import QuillCodeTools
 import QuillComputerUseKit
@@ -238,50 +239,15 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         threadID: UUID,
         reportCollector: WorkspaceCodeReviewReportCollector
     ) -> AgentRunner {
-        var reviewer = configuredRunner(
+        let reviewer = configuredRunner(
             modelID: modelID,
             threadID: threadID,
             allowsSubagents: false
         )
-        let allowedNames: Set<String> = [
-            ToolDefinition.fileRead.name,
-            ToolDefinition.fileList.name,
-            ToolDefinition.fileSearch.name,
-            ToolDefinition.gitStatus.name,
-            ToolDefinition.gitDiff.name,
-            ToolDefinition.gitBranchList.name
-        ]
-        reviewer.baseToolDefinitions = reviewer.baseToolDefinitions.filter {
-            allowedNames.contains($0.name) && $0.risk == .read
-        }
-        reviewer.additionalToolDefinitions = [WorkspaceCodeReviewSubmitTool.definition]
-
-        let underlyingOverride = reviewer.toolExecutionOverride
-        reviewer.toolExecutionOverride = { call, workspaceRoot in
-            if call.name == WorkspaceCodeReviewSubmitTool.name {
-                return await reportCollector.capture(call)
-            }
-            guard allowedNames.contains(call.name) else {
-                return ToolResult(
-                    ok: false,
-                    error: "The dedicated code reviewer cannot execute \(call.name)."
-                )
-            }
-            return await underlyingOverride?(call, workspaceRoot)
-        }
-        reviewer.safety = StaticSafetyReviewer()
-        reviewer.preToolUseHook = nil
-        reviewer.postToolUseHook = nil
-        reviewer.permissionRequestHook = nil
-        reviewer.preCompactHook = nil
-        reviewer.postCompactHook = nil
-        reviewer.threadToolExecutionOverride = nil
-        reviewer.toolFeedbackAttachmentProvider = nil
-        reviewer.skillResolver = nil
-        reviewer.webSearch = nil
-        reviewer.lsp = nil
-        reviewer.enablesImmediateActionPreflight = false
-        return reviewer
+        return WorkspaceCodeReviewRunner.configure(
+            reviewer,
+            reportCollector: reportCollector
+        )
     }
 
     private var pluginLifecycleHooks: ProjectPluginLifecycleHookExecutor {

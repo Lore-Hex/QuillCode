@@ -1,3 +1,5 @@
+import Foundation
+
 public struct WorkspaceCodeReviewReport: Codable, Sendable, Hashable {
     public static let maximumFindingCount = 100
 
@@ -10,7 +12,21 @@ public struct WorkspaceCodeReviewReport: Codable, Sendable, Hashable {
     }
 
     public var transcriptMarkdown: String {
-        var lines = ["## Code review", "", summary]
+        markdown()
+    }
+
+    public func markdown(title: String? = nil) -> String {
+        let normalizedTitle = title?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        let heading: String
+        if let normalizedTitle, !normalizedTitle.isEmpty {
+            heading = "## Code review: \(normalizedTitle)"
+        } else {
+            heading = "## Code review"
+        }
+        var lines = [heading, "", summary]
         guard !findings.isEmpty else {
             lines.append(contentsOf: ["", "No actionable findings."])
             return lines.joined(separator: "\n")
