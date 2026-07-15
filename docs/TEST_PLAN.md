@@ -58,9 +58,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   JSONL decoding, no ephemeral thread files, stdin transcript persistence, same-task resume, atomic output
   file, and non-Git refusal. The aggregate deterministic smoke must invoke this standalone gate.
 - Real `quill-code app-server` process smoke with stdin kept open: initialize, model pagination,
-  anonymous account state, effective config, thread start, turn start, incremental lifecycle output
-  before EOF, persistence, clean EOF, and zero exit. This specifically guards against pipe readers
-  that accidentally buffer until the client disconnects.
+  anonymous account state, effective config, shared skill discovery, binary filesystem
+  create/write/read/metadata/list/copy/watch/unwatch/remove round trips, thread start, turn start,
+  incremental lifecycle output before EOF, persistence, clean EOF, and zero exit. This specifically
+  guards against pipe readers that accidentally buffer until the client disconnects.
 - App-server discovery contract tests against the generated Codex 0.142.5 shapes: deterministic
   model pagination and required fields, exact provider capabilities, explicit/environment/stored-key
   account presence without secret disclosure, persisted UTC token aggregation and streaks, local-only
@@ -68,6 +69,12 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   layer metadata, `skills/list` metadata/nullability/scopes, cache and `forceReload`, bounded
   `skills/extraRoots/set` invalidation plus `skills/changed`, malformed cursor/limit/type rejection,
   and per-working-directory skill-discovery errors.
+- App-server filesystem conformance against Codex 0.142.5: absolute-path validation; exact metadata
+  and directory-entry fields; binary and empty writes; the 512 MiB read bound; recursive/null/default
+  directory and remove behavior; file overwrite and directory merge; symlink preservation and target
+  metadata; special-child skipping and standalone-special rejection; lexical and symlink-resolved
+  descendant-copy rejection; immediate directory changes; atomic file replacement; missing targets;
+  duplicate watch IDs; sorted/debounced notification shape; and no events after unwatch or EOF.
 - Standard plugin hook integration over real shell processes: exact `UserPromptSubmit`/`Stop`/`PreToolUse`/`PostToolUse`/`PermissionRequest`/`PreCompact`/`PostCompact` JSON stdin fields and EOF, canonical package-root compatibility variables, stable private workspace/plugin data isolation, transcript redaction, large-output pipe draining, concurrent matching-handler launch with deterministic event ordering, trust invalidation on package-root/definition changes, and failure policy. Exercise Bash/patch/MCP canonical names and aliases, `manual`/`auto` compaction matchers, valid/invalid regex matchers, pre deny/rewrite/context/warning, tool-identity invariants, conflicting rewrite aggregation, malformed and unsupported control output, event-specific exit-code-2 behavior, post observation of success and nonzero shell results, post feedback replacement without side-effect rollback, permission allow/deny/abstain with deny-wins aggregation, hard-deny non-bypass, failure fallback to durable approval, reserved mutation rejection, non-destructive approval descriptions, per-hook/aggregate bounds, approval-pause rewrite durability without duplicate pre execution, one automatic Stop continuation, compaction pre/post ordering, pre-mutation stop, post-mutation durability, no-op Post suppression, and loop prevention.
 - Configuration-layer hook integration: merge project, user, and system `.quillcode/hooks.json`, `.quillcode/config.toml`, `.codex/hooks.json`, and `.codex/config.toml` plus managed requirements documents; prove JSON/TOML and camel/snake field aliases share one canonical definition; cap documents and aggregate hook count without starving later managed policy; reject malformed, oversized, non-regular, symlinked, and out-of-root sources; keep async/prompt/agent/invalid definitions visible but inert; require globally scoped exact-definition trust for user hooks and workspace-scoped trust for project hooks; treat system/managed hooks as immutable policy; cover `allow_managed_hooks_only` and managed feature pins; invalidate only changed definitions; execute trusted before/after commands without a selected project; prove user/managed hooks stay local when the selected project is SSH Remote while workspace hooks follow remote routing; and verify the Hooks UI presents configuration sources and managed status without calling them plugins.
 - File-change monitor automations over a real temporary project file, proving the workspace model creates one monitor thread with trigger context and does not rerun after `lastRunAt` advances.

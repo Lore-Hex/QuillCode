@@ -1,5 +1,24 @@
 # QuillCode Decisions
 
+## 2026-07-15: App-server filesystem authority belongs to the connected client
+
+- **Decision:** Implement the Codex 0.142.5 `fs/readFile`, `fs/writeFile`, `fs/createDirectory`,
+  `fs/getMetadata`, `fs/readDirectory`, `fs/remove`, `fs/copy`, `fs/watch`, and `fs/unwatch` wire
+  contracts as direct host operations. This surface is not routed through model tool approval because
+  the app-server client already holds the process and filesystem authority; model-authored file calls
+  continue through QuillCode's workspace and safety gates.
+- **Fidelity:** File payloads are base64 and reads stop at 512 MiB. Metadata follows symlink targets
+  while separately reporting `isSymlink`. Recursive copy merges existing directories, overwrites
+  regular files, preserves relative and absolute symlinks, ignores special children, and rejects a
+  standalone special source or a destination that resolves inside its source.
+- **Watch lifecycle:** Each stdio session owns its watch IDs. A cross-platform Foundation watcher takes
+  its initial snapshot before acknowledging `fs/watch`, polls at 100 ms, invalidates cached resource
+  values so atomic replacement is visible, and emits sorted changes after a 200 ms debounce. Unwatch
+  awaits task cancellation; EOF cancels every remaining watch and suppresses later notifications.
+- **Evidence:** Dedicated protocol tests cover all methods, exact response fields, empty/binary files,
+  defaults and failures, symlinks, FIFO handling, immediate/atomic/missing-target changes, duplicate
+  IDs, unwatch, and disconnect. The executable smoke performs a binary host-filesystem round trip.
+
 ## 2026-07-15: One bounded skill catalog powers live agents and app-server clients
 
 - **Discovery:** QuillCode follows Codex/Open Agent Skills roots: repository `.agents/skills` from the

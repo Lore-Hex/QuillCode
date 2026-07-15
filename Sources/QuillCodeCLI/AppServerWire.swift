@@ -38,6 +38,10 @@ struct AppServerRPCError: Codable, Sendable, Equatable {
     static let notInitialized = AppServerRPCError(code: -32600, message: "Not initialized")
     static let alreadyInitialized = AppServerRPCError(code: -32600, message: "Already initialized")
 
+    static func invalidRequest(_ reason: String) -> AppServerRPCError {
+        AppServerRPCError(code: -32600, message: reason)
+    }
+
     static func methodNotFound(_ method: String) -> AppServerRPCError {
         AppServerRPCError(code: -32601, message: "Method not found: \(method)")
     }
@@ -135,9 +139,13 @@ struct AppServerParams: Sendable {
         self.object = object
     }
 
-    func requiredString(_ key: String) throws -> String {
-        guard let value = object[key]?.stringValue,
-              !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+    func requiredString(_ key: String, allowingEmpty: Bool = false) throws -> String {
+        guard let value = object[key]?.stringValue else {
+            throw AppServerRPCError.invalidParams(
+                allowingEmpty ? "\(key) must be a string" : "\(key) must be a non-empty string"
+            )
+        }
+        guard allowingEmpty || !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw AppServerRPCError.invalidParams("\(key) must be a non-empty string")
         }
         return value

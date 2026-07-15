@@ -46,6 +46,7 @@ actor AppServerSession {
     var cachedModelCatalog: TrustedRouterModelCatalog?
     var cachedSkillSnapshots: [String: SkillCatalogSnapshot] = [:]
     var skillExtraRoots: [URL] = []
+    var fileWatches: [String: AppServerFileWatchRegistration] = [:]
     var inputFinished = false
 
     init(
@@ -97,6 +98,7 @@ actor AppServerSession {
 
     func finishInput() {
         inputFinished = true
+        cancelAllFileWatches()
         resolveAllPendingApprovals(
             with: .deny(reason: "The app-server client disconnected before answering the approval request.")
         )
@@ -128,6 +130,15 @@ actor AppServerSession {
             case "config/read": result = try readConfig(params)
             case "skills/list": result = try listSkills(params)
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
+            case "fs/readFile": result = try readFile(params)
+            case "fs/writeFile": result = try writeFile(params)
+            case "fs/createDirectory": result = try createDirectory(params)
+            case "fs/getMetadata": result = try fileMetadata(params)
+            case "fs/readDirectory": result = try readDirectory(params)
+            case "fs/remove": result = try removeFileSystemItem(params)
+            case "fs/copy": result = try copyFileSystemItem(params)
+            case "fs/watch": result = try startFileWatch(params)
+            case "fs/unwatch": result = try await stopFileWatch(params)
             case "thread/start": result = try await startThread(params)
             case "thread/resume": result = try await resumeThread(params)
             case "thread/fork": result = try await forkThread(params)
