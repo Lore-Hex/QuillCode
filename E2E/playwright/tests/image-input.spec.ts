@@ -49,6 +49,9 @@ test('image-only submission during a live run queues and drains with the image i
   await expect(page.getByTestId('agent-status')).toHaveText('Running');
 
   await attachImage(page, 'follow-up.png');
+  // setInputFiles dispatches the change event, but the harness still has to finish its
+  // asynchronous FileReader work. The rendered preview is the user-visible readiness boundary.
+  await expect(page.getByTestId('composer-attachment')).toContainText('follow-up.png');
   await page.getByLabel('Message').press('Enter');
 
   await expect(page.getByTestId('composer-followup-text')).toHaveText('1 image');
