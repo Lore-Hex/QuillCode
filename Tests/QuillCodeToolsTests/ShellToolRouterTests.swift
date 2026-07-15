@@ -42,6 +42,32 @@ final class ShellToolRouterTests: XCTestCase {
         XCTAssertEqual(result.error, "Shell cwd must stay inside the current workspace.")
     }
 
+    func testUnrestrictedToolRouterAllowsCWDOutsideWorkspace() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory()
+
+        let result = ToolRouter(
+            workspaceRoot: root,
+            accessScope: .unrestricted
+        ).execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"pwd","cwd":"\#(outside.path)"}"#
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        let actualPath = result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        let actualAttributes = try FileManager.default.attributesOfItem(atPath: actualPath)
+        let expectedAttributes = try FileManager.default.attributesOfItem(atPath: outside.path)
+        XCTAssertEqual(
+            actualAttributes[.systemFileNumber] as? NSNumber,
+            expectedAttributes[.systemFileNumber] as? NSNumber
+        )
+        XCTAssertEqual(
+            actualAttributes[.systemNumber] as? NSNumber,
+            expectedAttributes[.systemNumber] as? NSNumber
+        )
+    }
+
     func testToolRouterShellRejectsSymlinkCWDEscape() throws {
         let root = try makeTempDirectory()
         let outside = try makeTempDirectory()

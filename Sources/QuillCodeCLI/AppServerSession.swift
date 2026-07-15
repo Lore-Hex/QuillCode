@@ -319,13 +319,14 @@ actor AppServerSession {
             explicitMode: record.thread.mode,
             skipsGitRepositoryCheck: true
         )
-        var runner = try runnerFactory(CLIRuntimeConfiguration(
+        let runtime = CLIRuntimeConfiguration(
             request: runRequest,
             appConfig: appConfig,
             paths: paths,
             imageAttachmentStore: attachmentStore,
             environment: environment
-        ))
+        )
+        var runner = runtime.applyingInvocationPolicy(to: try runnerFactory(runtime))
         let mcpContext = try mcpContext(for: record)
         let mcpAdapter = try await MCPAgentRunnerAdapter.prepare(
             registry: mcpRegistry,

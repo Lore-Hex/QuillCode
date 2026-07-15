@@ -154,9 +154,6 @@ public struct QuillCodeCommandRunner: Sendable {
                     "warning: --full-auto is deprecated; use --sandbox workspace-write"
                 )
             }
-            if request.sandbox == .dangerFullAccess {
-                throw CLIError.unsupportedSandbox(CLISandboxMode.dangerFullAccess.rawValue)
-            }
             if request.style == .exec, !request.skipsGitRepositoryCheck {
                 try CLIRepositoryGuard().validate(request.cwd)
             }
@@ -198,7 +195,9 @@ public struct QuillCodeCommandRunner: Sendable {
                 appendUserMessage(prompt, attachments: attachments, to: &thread)
             }
 
-            let runner = preparedMCPSession.configure(try runnerFactory(runtime))
+            let runner = preparedMCPSession.configure(
+                runtime.applyingInvocationPolicy(to: try runnerFactory(runtime))
+            )
             let runPersistence = CLIRunPersistence(
                 store: request.ephemeral ? nil : threadStore
             )
@@ -316,8 +315,9 @@ public struct QuillCodeCommandRunner: Sendable {
       --ephemeral                    Do not persist the run transcript
       -o, --output-last-message PATH Write the final message to PATH
       --output-schema PATH           Require final JSON matching a bounded JSON Schema
-      --sandbox read-only|workspace-write
-                                     Select the least workspace access needed (default: read-only)
+      --sandbox read-only|workspace-write|danger-full-access
+                                     Select host path access (default: read-only). Danger full access
+                                     lets file tools and shell cwd operate outside the workspace.
       --ignore-user-config           Use built-in defaults instead of config.toml
       --ignore-rules                 Ignore persisted permission rules for this controlled run
       --skip-git-repo-check          Allow execution outside a Git repository

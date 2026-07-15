@@ -4,6 +4,7 @@ import QuillCodeCore
 struct ShellToolCallDispatcher: Sendable {
     let workspaceRoot: URL
     let shell: ShellToolExecutor
+    let accessScope: HostToolAccessScope
 
     static let definitions: [ToolDefinition] = [
         .shellRun
@@ -77,7 +78,9 @@ struct ShellToolCallDispatcher: Sendable {
             ? URL(fileURLWithPath: trimmed)
             : root.appendingPathComponent(trimmed)
         let resolved = candidate.standardizedFileURL.resolvingSymlinksInPath()
-        guard Self.isPath(resolved.path, inside: root.path) else {
+        guard accessScope.allowsPathsOutsideWorkspace
+                || Self.isPath(resolved.path, inside: root.path)
+        else {
             return .denied("Shell cwd must stay inside the current workspace.")
         }
         var isDirectory: ObjCBool = false

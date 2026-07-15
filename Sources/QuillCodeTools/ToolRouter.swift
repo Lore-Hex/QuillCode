@@ -3,6 +3,7 @@ import QuillCodeCore
 
 public struct ToolRouter: Sendable {
     public var workspaceRoot: URL
+    public let accessScope: HostToolAccessScope
     public var shell: ShellToolExecutor
     public var files: FileToolExecutor
     public var git: GitToolExecutor
@@ -16,6 +17,7 @@ public struct ToolRouter: Sendable {
 
     public init(
         workspaceRoot: URL,
+        accessScope: HostToolAccessScope = .workspaceOnly,
         shell: ShellToolExecutor = ShellToolExecutor(),
         git: GitToolExecutor? = nil,
         managedWorktreeRoot: URL? = nil,
@@ -25,8 +27,13 @@ public struct ToolRouter: Sendable {
         lsp: LSPCoordinator? = nil
     ) {
         self.workspaceRoot = workspaceRoot
+        self.accessScope = accessScope
         self.shell = shell
-        self.files = FileToolExecutor(workspaceRoot: workspaceRoot, editGuard: editGuard)
+        self.files = FileToolExecutor(
+            workspaceRoot: workspaceRoot,
+            accessScope: accessScope,
+            editGuard: editGuard
+        )
         self.git = git ?? GitToolExecutor(managedWorktreeRoot: managedWorktreeRoot)
         self.patch = PatchToolExecutor(workspaceRoot: workspaceRoot, shell: shell, editGuard: editGuard)
         self.web = web
@@ -53,7 +60,11 @@ public struct ToolRouter: Sendable {
         do {
             let args = try ToolArguments(call.argumentsJSON)
             if ShellToolCallDispatcher.handles(call.name) {
-                return try ShellToolCallDispatcher(workspaceRoot: workspaceRoot, shell: shell)
+                return try ShellToolCallDispatcher(
+                    workspaceRoot: workspaceRoot,
+                    shell: shell,
+                    accessScope: accessScope
+                )
                     .execute(name: call.name, arguments: args)
             }
             if GitToolCallDispatcher.handles(call.name) {

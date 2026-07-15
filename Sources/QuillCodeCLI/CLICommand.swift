@@ -145,7 +145,6 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
     case stdinTooLarge(limit: Int)
     case invalidUTF8Stdin
     case notGitRepository(String)
-    case unsupportedSandbox(String)
     case noSavedThreads
     case threadNotFound(UUID)
     case noFinalMessage
@@ -173,8 +172,6 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
             "Piped stdin must be valid UTF-8 text."
         case .notGitRepository(let path):
             "\(path) is not inside a Git repository. Use --skip-git-repo-check only in a controlled workspace."
-        case .unsupportedSandbox(let value):
-            "Sandbox \(value) is not available yet. QuillCode refused to claim broader access than it can enforce."
         case .noSavedThreads:
             "No saved thread is available to resume."
         case .threadNotFound(let id):

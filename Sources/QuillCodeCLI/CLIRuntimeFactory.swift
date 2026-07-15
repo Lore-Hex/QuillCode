@@ -25,6 +25,16 @@ public struct CLIRuntimeConfiguration: Sendable {
         self.imageAttachmentStore = imageAttachmentStore
         self.environment = environment
     }
+
+    /// Apply invocation-owned policy after an injected factory creates the runner. Keeping this at
+    /// the composition seam ensures production and test factories cannot accidentally disagree.
+    public func applyingInvocationPolicy(to runner: AgentRunner) -> AgentRunner {
+        var configured = runner
+        configured.hostToolAccessScope = request.sandbox == .dangerFullAccess
+            ? .unrestricted
+            : .workspaceOnly
+        return configured
+    }
 }
 
 public typealias CLIAgentRunnerFactory = @Sendable (CLIRuntimeConfiguration) throws -> AgentRunner

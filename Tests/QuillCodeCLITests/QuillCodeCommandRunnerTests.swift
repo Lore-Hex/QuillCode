@@ -331,33 +331,36 @@ final class QuillCodeCommandRunnerTests: XCTestCase {
         XCTAssertEqual(stored.messages.filter { $0.role == .assistant }.map(\.content), ["hello over stdio"])
     }
 
-    func testSkipGitCheckWorksAndDangerousSandboxFailsClosed() async throws {
+    func testSkipGitCheckAndDangerFullAccessReadOutsideWorkspace() async throws {
         let workspace = try temporaryDirectory(prefix: "unguarded-workspace")
         let home = try temporaryDirectory(prefix: "sandbox-home")
-        let runner = commandRunner(llm: EchoLLM())
+        let outside = try temporaryDirectory(prefix: "sandbox-outside")
+        let externalFile = outside.appendingPathComponent("external.txt")
+        try "full-access-proof\n".write(to: externalFile, atomically: true, encoding: .utf8)
+        let runner = commandRunner(llm: ScriptedLLM(actions: [
+            .tool(ToolCall(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": externalFile.path])
+            )),
+            .say("External file inspected.")
+        ]))
         let allowedOutput = BufferedCLIOutput()
         let allowedStatus = await runner.run(
             arguments: [
                 "--home", home.path, "exec", "--mock", "--skip-git-repo-check",
-                "--cwd", workspace.path, "inspect"
+                "--sandbox", "danger-full-access", "--cwd", workspace.path,
+                "read the external file"
             ],
             input: BufferedCLIInput(isTerminal: true),
             output: allowedOutput
         )
         XCTAssertEqual(allowedStatus, 0)
-
-        let deniedOutput = BufferedCLIOutput()
-        let deniedStatus = await runner.run(
-            arguments: [
-                "--home", home.path, "exec", "--mock", "--skip-git-repo-check",
-                "--sandbox", "danger-full-access", "--cwd", workspace.path, "inspect"
-            ],
-            input: BufferedCLIInput(isTerminal: true),
-            output: deniedOutput
-        )
-        let deniedSnapshot = await deniedOutput.snapshot()
-        XCTAssertEqual(deniedStatus, 1)
-        XCTAssertTrue(deniedSnapshot.standardError.contains("refused to claim broader access"))
+        let stored = try XCTUnwrap(JSONThreadStore(
+            directory: home.appendingPathComponent("threads")
+        ).list().first)
+        XCTAssertTrue(stored.messages.contains { message in
+            message.role == .tool && message.content.contains("full-access-proof")
+        })
     }
 
     func testAuthCommandsNeverEchoStoredSecret() async throws {

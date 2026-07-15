@@ -3,6 +3,7 @@ import QuillCodeCore
 
 public struct FileToolExecutor: Sendable {
     public var workspaceRoot: URL
+    public let accessScope: HostToolAccessScope
     /// When set, `write` refuses to overwrite an existing file the session never read, rejects
     /// no-op writes, and serializes concurrent writes to the same file; `read` records the file
     /// in the session's read-set. When nil (the default), reads and writes are unguarded —
@@ -10,7 +11,7 @@ public struct FileToolExecutor: Sendable {
     public var editGuard: FileEditSessionGuard?
 
     private var pathResolver: FileWorkspacePathResolver {
-        FileWorkspacePathResolver(workspaceRoot: workspaceRoot)
+        FileWorkspacePathResolver(workspaceRoot: workspaceRoot, accessScope: accessScope)
     }
 
     private var directoryLister: FileDirectoryLister {
@@ -21,8 +22,13 @@ public struct FileToolExecutor: Sendable {
         FileSearchScanner(pathResolver: pathResolver)
     }
 
-    public init(workspaceRoot: URL, editGuard: FileEditSessionGuard? = nil) {
+    public init(
+        workspaceRoot: URL,
+        accessScope: HostToolAccessScope = .workspaceOnly,
+        editGuard: FileEditSessionGuard? = nil
+    ) {
         self.workspaceRoot = workspaceRoot.standardizedFileURL
+        self.accessScope = accessScope
         self.editGuard = editGuard
     }
 

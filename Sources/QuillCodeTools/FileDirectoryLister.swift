@@ -31,7 +31,7 @@ struct FileDirectoryLister: Sendable {
         )
         return FileDirectoryListResult(
             output: output,
-            artifacts: entries.map { pathResolver.workspaceRoot.appendingPathComponent($0.path).path }
+            artifacts: entries.map { pathResolver.artifactPath(for: $0.path) }
         )
     }
 

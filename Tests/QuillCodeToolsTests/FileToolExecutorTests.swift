@@ -31,6 +31,48 @@ final class FileToolExecutorTests: XCTestCase {
         XCTAssertFalse(files.write(path: "../escape.txt", content: "no").ok)
     }
 
+    func testUnrestrictedFileToolsUseAndReportExternalAbsolutePaths() throws {
+        let root = try makeTempDirectory()
+        let outside = try makeTempDirectory()
+        let existing = outside.appendingPathComponent("outside.txt")
+        try "external needle\n".write(to: existing, atomically: true, encoding: .utf8)
+        let files = FileToolExecutor(workspaceRoot: root, accessScope: .unrestricted)
+
+        let read = files.read(path: existing.path)
+        XCTAssertTrue(read.ok, read.error ?? "")
+        XCTAssertEqual(read.stdout, "1\texternal needle")
+        XCTAssertEqual(read.artifacts, [existing.path])
+
+        let created = outside.appendingPathComponent("created.txt")
+        let write = files.write(path: created.path, content: "created outside\n")
+        XCTAssertTrue(write.ok, write.error ?? "")
+        XCTAssertEqual(try String(contentsOf: created, encoding: .utf8), "created outside\n")
+
+        let list = files.list(path: outside.path)
+        XCTAssertTrue(list.ok, list.error ?? "")
+        let listOutput = try JSONHelpers.decode(FileListToolOutput.self, from: list.stdout)
+        XCTAssertEqual(listOutput.path, outside.path)
+        XCTAssertEqual(Set(listOutput.entries.map(\.path)), Set([existing.path, created.path]))
+        XCTAssertEqual(Set(list.artifacts), Set([existing.path, created.path]))
+
+        let search = files.search(query: "needle", path: outside.path)
+        XCTAssertTrue(search.ok, search.error ?? "")
+        let searchOutput = try JSONHelpers.decode(FileSearchToolOutput.self, from: search.stdout)
+        XCTAssertEqual(searchOutput.matches.map(\.path), [existing.path])
+        XCTAssertEqual(search.artifacts, [existing.path])
+    }
+
+    func testUnrestrictedDefinitionsTellModelAbsolutePathsAreAllowed() throws {
+        let adapted = HostToolAccessScope.unrestricted.adapting(ToolRouter.definitions)
+        let fileRead = try XCTUnwrap(adapted.first { $0.name == ToolDefinition.fileRead.name })
+        let shellRun = try XCTUnwrap(adapted.first { $0.name == ToolDefinition.shellRun.name })
+
+        XCTAssertTrue(fileRead.description.contains("host filesystem"))
+        XCTAssertTrue(fileRead.parametersJSON.contains("absolute and escaping paths are allowed"))
+        XCTAssertTrue(shellRun.description.contains("absolute or escaping cwd values are allowed"))
+        XCTAssertTrue(shellRun.parametersJSON.contains("absolute and escaping paths are allowed"))
+    }
+
     func testToolRouterAllowsEmptyFileWriteContent() throws {
         let root = try makeTempDirectory()
         try "old content\n".write(
