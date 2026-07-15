@@ -31,6 +31,8 @@ final class AppServerMCPConfigurationTests: XCTestCase {
         [mcp_servers.oauth]
         url = "https://oauth.example.com/mcp"
         scopes = ["tools:read"]
+        oauth_client_id = "client-123"
+        oauth_resource = "https://resource.example.com"
 
         [mcp_servers.disabled]
         command = "ignored"
@@ -80,7 +82,11 @@ final class AppServerMCPConfigurationTests: XCTestCase {
         XCTAssertEqual(requestHeaders, headers)
         XCTAssertEqual(authorization.currentAuthorizationHeader(), "Bearer secret-token")
 
-        XCTAssertEqual(configurations["oauth"]?.authStatus, .notLoggedIn)
+        let oauth = try XCTUnwrap(configurations["oauth"])
+        XCTAssertEqual(oauth.authStatus, .notLoggedIn)
+        XCTAssertEqual(oauth.oauthClientID, "client-123")
+        XCTAssertEqual(oauth.oauthScopes, ["tools:read"])
+        XCTAssertEqual(oauth.oauthResource, "https://resource.example.com")
     }
 
     func testProjectConfigurationsOverrideGlobalServersByExactName() throws {
@@ -164,7 +170,22 @@ final class AppServerMCPConfigurationTests: XCTestCase {
             [mcp_servers.invalid]
             command = "server"
             required = "yes"
-            """, "required must be a boolean")
+            """, "required must be a boolean"),
+            ("""
+            [mcp_servers.invalid]
+            url = "https://example.com/mcp"
+            oauth_client_id = " "
+            """, "oauth_client_id must be a non-empty string"),
+            ("""
+            [mcp_servers.invalid]
+            url = "https://example.com/mcp"
+            oauth_resource = 42
+            """, "oauth_resource must be a string"),
+            ("""
+            [mcp_servers.invalid]
+            url = "https://example.com/mcp"
+            scopes = ["tools:read", ""]
+            """, "scopes must contain non-empty strings")
         ]
 
         for (index, invalid) in invalidDocuments.enumerated() {
@@ -217,11 +238,72 @@ final class AppServerMCPConfigurationTests: XCTestCase {
         XCTAssertEqual(configurations["remote"]?.authStatus, .bearerToken)
     }
 
+    func testStoredOAuthDrivesStatusAndLaunchAuthorizationWithoutOverridingConfiguredBearer() throws {
+        let root = try temporaryDirectory()
+        let config = root.appendingPathComponent("config.toml")
+        try Data("""
+        [mcp_servers.oauth]
+        url = "https://oauth.example.com/mcp"
+        scopes = ["tools:read"]
+
+        [mcp_servers.bearer]
+        url = "https://bearer.example.com/mcp"
+        bearer_token_env_var = "MCP_TOKEN"
+        """.utf8).write(to: config)
+        let configurations = try AppServerMCPConfigurationLoader.load(
+            globalConfig: config,
+            projectRoot: nil,
+            fallbackCWD: root,
+            environment: ["MCP_TOKEN": "configured-token"]
+        )
+        let secretStore = AppServerMCPSecretStore(
+            directory: root.appendingPathComponent("secrets", isDirectory: true)
+        )
+        try MCPTokenStore(serverID: "mcp_server:oauth", secretStore: secretStore).saveTokens(
+            MCPOAuthTokens(accessToken: "stored-oauth-token")
+        )
+        try MCPTokenStore(serverID: "mcp_server:bearer", secretStore: secretStore).saveTokens(
+            MCPOAuthTokens(accessToken: "ignored-oauth-token")
+        )
+
+        let oauth = try XCTUnwrap(configurations["oauth"])
+        XCTAssertEqual(oauth.reportingStoredOAuth(secretStore: secretStore).authStatus, .oAuth)
+        guard case let .remote(_, _, _, oauthAuthorization) = oauth.launchRequest(
+            secretStore: secretStore,
+            httpClient: ConfigurationMCPHTTPClient()
+        ).transport else {
+            return XCTFail("expected remote OAuth request")
+        }
+        XCTAssertEqual(oauthAuthorization.currentAuthorizationHeader(), "Bearer stored-oauth-token")
+
+        let bearer = try XCTUnwrap(configurations["bearer"])
+        XCTAssertEqual(bearer.reportingStoredOAuth(secretStore: secretStore).authStatus, .bearerToken)
+        guard case let .remote(_, _, _, bearerAuthorization) = bearer.launchRequest(
+            secretStore: secretStore,
+            httpClient: ConfigurationMCPHTTPClient()
+        ).transport else {
+            return XCTFail("expected remote bearer request")
+        }
+        XCTAssertEqual(bearerAuthorization.currentAuthorizationHeader(), "Bearer configured-token")
+    }
+
     private func temporaryDirectory(suffix: String = "") throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-app-server-mcp-config-\(UUID().uuidString)\(suffix)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: url) }
         return url
+    }
+}
+
+private struct ConfigurationMCPHTTPClient: MCPHTTPClient {
+    func perform(_ request: MCPHTTPRequest) throws -> MCPHTTPResponse {
+        _ = request
+        throw MCPHTTPClientError.transport("unexpected request")
+    }
+
+    func openStream(_ request: MCPHTTPRequest) throws -> MCPHTTPStream {
+        _ = request
+        throw MCPHTTPClientError.transport("unexpected stream")
     }
 }

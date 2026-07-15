@@ -212,6 +212,7 @@ struct DefaultWorkspaceMCPServerLauncher: WorkspaceMCPServerLaunching {
                     serverID: request.serverID,
                     serverURL: url,
                     oauthClientID: oauthClientID,
+                    serverHeaders: headers,
                     secretStore: secretStore,
                     httpClient: httpClient
                 )

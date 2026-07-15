@@ -217,11 +217,14 @@ final class AppServerMCPTests: XCTestCase {
 
         try await sendRequest(id: 4, method: "mcpServerStatus/list", params: [:], to: fixture.session)
         XCTAssertEqual(launcher.recorder(for: "fixture").launchCount, 2)
+        try await sendRequest(id: 5, method: "mcpServer/refresh", params: [:], to: fixture.session)
+        XCTAssertEqual(launcher.recorder(for: "fixture").terminationCount, 2)
         await fixture.session.finishInput()
         XCTAssertEqual(launcher.recorder(for: "fixture").terminationCount, 2)
 
         let records = try await fixture.output.records()
         XCTAssertEqual(result(for: 3, in: records), [:])
+        XCTAssertEqual(result(for: 5, in: records), [:])
     }
 
     func testRequiredServerFailureRejectsThreadBeforePersistence() async throws {
@@ -408,28 +411,233 @@ final class AppServerMCPTests: XCTestCase {
         await fixture.session.finishInput()
     }
 
-    func testOAuthLoginReportsExplicitUnsupportedFlow() async throws {
-        let fixture = try await makeFixture(config: "", launcher: FakeMCPLauncher(specifications: [:]))
+    func testOAuthLoginRespondsBeforeCompletionAndForwardsOptions() async throws {
+        let loginDriver = MCPLoginTestDriver()
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.remote]
+            url = "https://mcp.example.com/api"
+            oauth_client_id = "configured-client"
+            scopes = ["configured:read"]
+            oauth_resource = "https://resource.example.com"
+            """,
+            launcher: FakeMCPLauncher(specifications: [:]),
+            mcpOAuthLoginStarter: loginDriver
+        )
 
+        try await sendRequest(
+            id: 2,
+            method: "mcpServer/oauth/login",
+            params: [
+                "name": "remote",
+                "scopes": ["requested:read", "requested:write"],
+                "timeoutSecs": 7
+            ],
+            to: fixture.session
+        )
+        var records = try await fixture.output.records()
+        XCTAssertEqual(
+            result(for: 2, in: records)?["authorizationUrl"]?.stringValue,
+            MCPLoginTestDriver.authorizationURL.absoluteString
+        )
+        XCTAssertFalse(records.contains { $0["method"]?.stringValue == "mcpServer/oauthLogin/completed" })
+        let invocation = try XCTUnwrap(loginDriver.recorder.invocations.first)
+        XCTAssertEqual(invocation.name, "remote")
+        XCTAssertEqual(invocation.requestedScopes, ["requested:read", "requested:write"])
+        XCTAssertEqual(invocation.timeout, 7)
+
+        await loginDriver.succeed()
+        let completed = try await fixture.output.waitForNotification(
+            method: "mcpServer/oauthLogin/completed"
+        )
+        XCTAssertEqual(completed["name"]?.stringValue, "remote")
+        XCTAssertEqual(completed["threadId"], .null)
+        XCTAssertEqual(completed["success"]?.boolValue, true)
+        XCTAssertEqual(completed["error"], .null)
+
+        records = try await fixture.output.records()
+        let responseIndex = try XCTUnwrap(records.firstIndex { $0["id"]?.numberValue == 2 })
+        let completionIndex = try XCTUnwrap(records.firstIndex {
+            $0["method"]?.stringValue == "mcpServer/oauthLogin/completed"
+        })
+        XCTAssertLessThan(responseIndex, completionIndex)
+
+        await fixture.session.finishInput()
+    }
+
+    func testOAuthFailureRedactsProviderBody() async throws {
+        let loginDriver = MCPLoginTestDriver()
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.remote]
+            url = "https://mcp.example.com/api"
+            scopes = ["tools:read"]
+            """,
+            launcher: FakeMCPLauncher(specifications: [:]),
+            mcpOAuthLoginStarter: loginDriver
+        )
         try await sendRequest(
             id: 2,
             method: "mcpServer/oauth/login",
             params: ["name": "remote"],
             to: fixture.session
         )
-        let records = try await fixture.output.records()
-        XCTAssertEqual(errorCode(for: 2, in: records), -32_600)
-        XCTAssertEqual(
-            errorMessage(for: 2, in: records),
-            "MCP OAuth login is not available through QuillCode app-server yet; use the QuillCode desktop sign-in flow."
+        await loginDriver.fail(
+            MCPOAuthError.tokenExchangeFailed(
+                statusCode: 401,
+                body: #"{"access_token":"must-not-leak"}"#
+            )
         )
 
+        let completed = try await fixture.output.waitForNotification(
+            method: "mcpServer/oauthLogin/completed"
+        )
+        XCTAssertEqual(completed["success"]?.boolValue, false)
+        XCTAssertEqual(completed["error"]?.stringValue, "MCP OAuth token exchange failed with HTTP 401.")
+        let encodedRecords = String(describing: try await fixture.output.records())
+        XCTAssertFalse(encodedRecords.contains("must-not-leak"))
         await fixture.session.finishInput()
+    }
+
+    func testOAuthClampsNonpositiveTimeoutToOneSecond() async throws {
+        let loginDriver = MCPLoginTestDriver()
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.remote]
+            url = "https://mcp.example.com/api"
+            """,
+            launcher: FakeMCPLauncher(specifications: [:]),
+            mcpOAuthLoginStarter: loginDriver
+        )
+
+        try await sendRequest(
+            id: 2,
+            method: "mcpServer/oauth/login",
+            params: ["name": "remote", "timeoutSecs": 0],
+            to: fixture.session
+        )
+
+        XCTAssertEqual(loginDriver.recorder.invocations.first?.timeout, 1)
+        await fixture.session.finishInput()
+    }
+
+    func testOAuthUsesThreadScopedConfigurationAndReportsThreadID() async throws {
+        let loginDriver = MCPLoginTestDriver()
+        let fixture = try await makeFixture(
+            config: "",
+            launcher: FakeMCPLauncher(specifications: [:]),
+            mcpOAuthLoginStarter: loginDriver
+        )
+        let projectConfig = fixture.workspace.appendingPathComponent(".quillcode/config.toml")
+        try FileManager.default.createDirectory(
+            at: projectConfig.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data("""
+        [mcp_servers.project-remote]
+        url = "https://project.example.com/mcp"
+        scopes = ["project:read"]
+        """.utf8).write(to: projectConfig)
+        let threadID = try await startThread(in: fixture)
+
+        try await sendRequest(
+            id: 3,
+            method: "mcpServer/oauth/login",
+            params: ["name": "project-remote", "threadId": threadID],
+            to: fixture.session
+        )
+        await loginDriver.succeed()
+        let completed = try await fixture.output.waitForNotification(
+            method: "mcpServer/oauthLogin/completed"
+        )
+        XCTAssertEqual(completed["threadId"]?.stringValue, threadID)
+        XCTAssertEqual(loginDriver.recorder.invocations.first?.name, "project-remote")
+
+        await fixture.session.finishInput()
+    }
+
+    func testOAuthRejectsInvalidTargetsAndCancelsPendingLoginOnDisconnect() async throws {
+        let loginDriver = MCPLoginTestDriver()
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.local]
+            command = "local"
+
+            [mcp_servers.bearer]
+            url = "https://bearer.example.com/mcp"
+            bearer_token_env_var = "MCP_TOKEN"
+
+            [mcp_servers.remote]
+            url = "https://remote.example.com/mcp"
+            scopes = ["tools:read"]
+            """,
+            launcher: FakeMCPLauncher(specifications: [
+                "local": .init(probe: Self.namedProbe("Local MCP"))
+            ]),
+            environment: ["MCP_TOKEN": "configured-secret"],
+            mcpOAuthLoginStarter: loginDriver
+        )
+
+        try await sendRequest(
+            id: 2,
+            method: "mcpServer/oauth/login",
+            params: ["name": "missing"],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 3,
+            method: "mcpServer/oauth/login",
+            params: ["name": "local"],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 4,
+            method: "mcpServer/oauth/login",
+            params: ["name": "bearer"],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 5,
+            method: "mcpServer/oauth/login",
+            params: ["name": "remote", "scopes": [""]],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 6,
+            method: "mcpServer/oauth/login",
+            params: ["name": "remote"],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 7,
+            method: "mcpServer/oauth/login",
+            params: ["name": "remote"],
+            to: fixture.session
+        )
+
+        let records = try await fixture.output.records()
+        XCTAssertEqual(errorCode(for: 2, in: records), -32_600)
+        XCTAssertTrue(errorMessage(for: 2, in: records)?.contains("No MCP server") == true)
+        XCTAssertTrue(errorMessage(for: 3, in: records)?.contains("HTTP transport") == true)
+        XCTAssertTrue(errorMessage(for: 4, in: records)?.contains("bearer authorization") == true)
+        XCTAssertEqual(errorCode(for: 5, in: records), -32_602)
+        XCTAssertTrue(errorMessage(for: 7, in: records)?.contains("already in progress") == true)
+
+        await fixture.session.finishInput()
+        try await Task.sleep(for: .milliseconds(30))
+        let cancellationCount = await loginDriver.cancellationCount
+        XCTAssertEqual(cancellationCount, 1)
+        let finalRecords = try await fixture.output.records()
+        XCTAssertFalse(finalRecords.contains {
+            $0["method"]?.stringValue == "mcpServer/oauthLogin/completed"
+        })
     }
 
     private func makeFixture(
         config: String,
         launcher: FakeMCPLauncher,
+        environment: [String: String] = [:],
+        mcpOAuthLoginStarter: any AppServerMCPOAuthLoginStarting = MCPLoginTestDriver(),
         runnerFactory: @escaping CLIAgentRunnerFactory = CLIRuntimeFactory.make
     ) async throws -> AppServerMCPFixture {
         let home = try temporaryDirectory(prefix: "app-server-mcp-home")
@@ -438,10 +646,11 @@ final class AppServerMCPTests: XCTestCase {
         let output = AppServerMCPOutputCollector()
         let session = try AppServerSession(
             request: CLIAppServerRequest(live: false, home: home),
-            environment: [:],
+            environment: environment,
             currentDirectory: workspace,
             runnerFactory: runnerFactory,
             mcpLauncher: launcher,
+            mcpOAuthLoginStarter: mcpOAuthLoginStarter,
             sink: { line in await output.append(line) }
         )
         try await sendRequest(
@@ -614,5 +823,88 @@ private actor AppServerMCPAgentLLM: LLMClient {
 
     func observedMCPToolNames() -> [[String]] {
         observed
+    }
+}
+
+private actor MCPLoginTestDriver: AppServerMCPOAuthLoginStarting {
+    nonisolated static let authorizationURL = URL(string: "https://oauth.example.com/authorize")!
+    nonisolated let recorder = MCPLoginInvocationRecorder()
+
+    private var result: Result<Void, Error>?
+    private var continuation: CheckedContinuation<Void, Error>?
+    private(set) var cancellationCount = 0
+
+    nonisolated func start(
+        configuration: AppServerMCPServerConfiguration,
+        requestedScopes: [String]?,
+        timeout: TimeInterval,
+        secretStore: any MCPSecretStore
+    ) throws -> AppServerMCPOAuthLogin {
+        _ = secretStore
+        recorder.record(
+            .init(
+                name: configuration.name,
+                requestedScopes: requestedScopes,
+                timeout: timeout
+            )
+        )
+        return AppServerMCPOAuthLogin(
+            authorizationURL: Self.authorizationURL,
+            waitForCompletion: { try await self.wait() },
+            cancel: { Task { await self.cancel() } }
+        )
+    }
+
+    func succeed() {
+        complete(.success(()))
+    }
+
+    func fail(_ error: Error) {
+        complete(.failure(error))
+    }
+
+    private func wait() async throws {
+        if let result {
+            self.result = nil
+            return try result.get()
+        }
+        return try await withCheckedThrowingContinuation { continuation = $0 }
+    }
+
+    private func cancel() {
+        cancellationCount += 1
+        complete(.failure(CancellationError()))
+    }
+
+    private func complete(_ result: Result<Void, Error>) {
+        if let continuation {
+            self.continuation = nil
+            continuation.resume(with: result)
+        } else {
+            self.result = result
+        }
+    }
+}
+
+private final class MCPLoginInvocationRecorder: @unchecked Sendable {
+    struct Invocation: Sendable, Equatable {
+        var name: String
+        var requestedScopes: [String]?
+        var timeout: TimeInterval
+    }
+
+    private let lock = NSLock()
+    private var storedInvocations: [Invocation] = []
+
+    var invocations: [Invocation] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedInvocations
+    }
+
+    func record(_ invocation: Invocation) {
+        lock.lock()
+        storedInvocations.append(invocation)
+        lock.unlock()
     }
 }

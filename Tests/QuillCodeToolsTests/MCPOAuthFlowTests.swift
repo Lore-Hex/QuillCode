@@ -82,9 +82,10 @@ final class MCPOAuthFlowTests: XCTestCase {
         )
         XCTAssertEqual(registration.clientID, "dyn-123")
         XCTAssertEqual(registration.clientSecret, "shh")
+        XCTAssertEqual(registration.redirectURIs, ["http://localhost:33418/callback"])
     }
 
-    func testRegistrationPrefersStaticClientIDAndExisting() throws {
+    func testRegistrationPrefersStaticClientIDAndReusesMatchingDynamicRegistration() throws {
         let client = MCPHTTPStubClient()
         client.onPerform { _ in XCTFail("must not call the network"); return MCPHTTPResponse(statusCode: 500) }
         let flow = MCPOAuthFlow(httpClient: client)
@@ -97,12 +98,46 @@ final class MCPOAuthFlowTests: XCTestCase {
             configuration: configuration, redirectURI: "http://localhost/cb", existing: nil, staticClientID: "static-1"
         )
         XCTAssertEqual(fromStatic.clientID, "static-1")
+        XCTAssertEqual(fromStatic.redirectURIs, ["http://localhost/cb"])
 
-        let existing = MCPDynamicClientRegistration(clientID: "existing-1")
+        let existing = MCPDynamicClientRegistration(
+            clientID: "existing-1",
+            redirectURIs: ["http://localhost/cb"]
+        )
         let fromExisting = try flow.registerClientIfNeeded(
-            configuration: configuration, redirectURI: "http://localhost/cb", existing: existing, staticClientID: "static-1"
+            configuration: configuration, redirectURI: "http://localhost/cb", existing: existing, staticClientID: nil
         )
         XCTAssertEqual(fromExisting.clientID, "existing-1")
+    }
+
+    func testDynamicRegistrationRefreshesWhenRedirectChanges() throws {
+        let client = MCPHTTPStubClient()
+        client.onPerform { request in
+            let body = try XCTUnwrap(request.body)
+            let object = try JSONSerialization.jsonObject(with: body) as? [String: Any]
+            XCTAssertEqual(object?["redirect_uris"] as? [String], ["http://localhost:33419/callback"])
+            return Self.json(["client_id": "replacement"])
+        }
+        let flow = MCPOAuthFlow(httpClient: client)
+        let configuration = MCPOAuthConfiguration(
+            authorizationEndpoint: URL(string: "https://a/authorize")!,
+            tokenEndpoint: URL(string: "https://a/token")!,
+            registrationEndpoint: URL(string: "https://a/register")!
+        )
+        let existing = MCPDynamicClientRegistration(
+            clientID: "stale",
+            redirectURIs: ["http://localhost:33418/callback"]
+        )
+
+        let refreshed = try flow.registerClientIfNeeded(
+            configuration: configuration,
+            redirectURI: "http://localhost:33419/callback",
+            existing: existing,
+            staticClientID: nil
+        )
+
+        XCTAssertEqual(refreshed.clientID, "replacement")
+        XCTAssertEqual(refreshed.redirectURIs, ["http://localhost:33419/callback"])
     }
 
     func testRegistrationUnavailableThrows() {
@@ -116,6 +151,36 @@ final class MCPOAuthFlowTests: XCTestCase {
         XCTAssertThrowsError(try flow.registerClientIfNeeded(
             configuration: configuration, redirectURI: "http://localhost/cb", existing: nil, staticClientID: nil
         ))
+    }
+
+    func testRegistrationWithoutEndpointReusesOnlyLegacyUnknownRedirect() throws {
+        let flow = MCPOAuthFlow(httpClient: MCPHTTPStubClient())
+        let configuration = MCPOAuthConfiguration(
+            authorizationEndpoint: URL(string: "https://a/authorize")!,
+            tokenEndpoint: URL(string: "https://a/token")!,
+            registrationEndpoint: nil
+        )
+        let legacy = MCPDynamicClientRegistration(clientID: "legacy-client")
+        let legacyResult = try flow.registerClientIfNeeded(
+            configuration: configuration,
+            redirectURI: "http://localhost:33419/callback",
+            existing: legacy,
+            staticClientID: nil
+        )
+        XCTAssertEqual(legacyResult.clientID, "legacy-client")
+
+        let stale = MCPDynamicClientRegistration(
+            clientID: "stale-client",
+            redirectURIs: ["http://localhost:33418/callback"]
+        )
+        XCTAssertThrowsError(try flow.registerClientIfNeeded(
+            configuration: configuration,
+            redirectURI: "http://localhost:33419/callback",
+            existing: stale,
+            staticClientID: nil
+        )) { error in
+            XCTAssertEqual(error as? MCPOAuthError, .registrationUnavailable)
+        }
     }
 
     // MARK: Authorization URL + callback
