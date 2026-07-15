@@ -7,9 +7,10 @@ WORKSPACE="$SMOKE_ROOT/workspace"
 HOME_DIR="$SMOKE_ROOT/home"
 EPHEMERAL_HOME="$SMOKE_ROOT/ephemeral-home"
 STDIN_HOME="$SMOKE_ROOT/stdin-home"
+INTERRUPT_HOME="$SMOKE_ROOT/interrupt-home"
 trap 'rm -rf "$SMOKE_ROOT"' EXIT
 
-mkdir -p "$WORKSPACE" "$HOME_DIR" "$EPHEMERAL_HOME" "$STDIN_HOME"
+mkdir -p "$WORKSPACE" "$HOME_DIR" "$EPHEMERAL_HOME" "$STDIN_HOME" "$INTERRUPT_HOME"
 git -C "$WORKSPACE" init -q
 git -C "$WORKSPACE" config user.email quillcode-exec-smoke@example.com
 git -C "$WORKSPACE" config user.name "QuillCode Exec Smoke"
@@ -79,5 +80,38 @@ if "$CLI" --home "$HOME_DIR" exec --mock --cwd "$NON_REPOSITORY" "inspect" \
   exit 1
 fi
 grep -Fq "not inside a Git repository" "$SMOKE_ROOT/git-guard.stderr"
+
+echo "==> Checking SIGINT cancellation and partial-run persistence"
+INTERRUPT_STDOUT="$SMOKE_ROOT/interrupt.stdout"
+INTERRUPT_STDERR="$SMOKE_ROOT/interrupt.stderr"
+INTERRUPT_FINAL="$SMOKE_ROOT/interrupted-final.txt"
+"$CLI" \
+  --home "$INTERRUPT_HOME" \
+  exec --mock --sandbox workspace-write --cwd "$WORKSPACE" \
+  --output-last-message "$INTERRUPT_FINAL" \
+  "run exec sleep 30" \
+  >"$INTERRUPT_STDOUT" 2>"$INTERRUPT_STDERR" &
+INTERRUPT_PID=$!
+for _ in {1..200}; do
+  grep -Fq "host.shell.run" "$INTERRUPT_STDERR" && break
+  kill -0 "$INTERRUPT_PID" 2>/dev/null || {
+    echo "Exec exited before the interrupt smoke could signal it" >&2
+    exit 1
+  }
+  sleep 0.05
+done
+grep -Fq "host.shell.run" "$INTERRUPT_STDERR"
+kill -INT "$INTERRUPT_PID"
+set +e
+wait "$INTERRUPT_PID"
+INTERRUPT_STATUS=$?
+set -e
+[[ "$INTERRUPT_STATUS" == "1" ]] || {
+  echo "Interrupted exec returned $INTERRUPT_STATUS instead of 1" >&2
+  exit 1
+}
+grep -Fq "Run interrupted." "$INTERRUPT_STDERR"
+[[ ! -e "$INTERRUPT_FINAL" ]]
+grep -RFq "Stopped by user" "$INTERRUPT_HOME/threads"
 
 echo "quill-code exec smoke passed"

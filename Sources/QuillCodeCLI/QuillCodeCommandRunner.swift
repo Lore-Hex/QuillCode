@@ -8,13 +8,27 @@ public struct QuillCodeCommandRunner: Sendable {
 
     private let parser: CLIArgumentParser
     private let runnerFactory: CLIAgentRunnerFactory
+    private let interruptSource: any CLIInterruptSource
 
     public init(
         parser: CLIArgumentParser = CLIArgumentParser(),
         runnerFactory: @escaping CLIAgentRunnerFactory = CLIRuntimeFactory.make
     ) {
+        self.init(
+            parser: parser,
+            runnerFactory: runnerFactory,
+            interruptSource: ProcessCLIInterruptSource()
+        )
+    }
+
+    init(
+        parser: CLIArgumentParser,
+        runnerFactory: @escaping CLIAgentRunnerFactory,
+        interruptSource: any CLIInterruptSource
+    ) {
         self.parser = parser
         self.runnerFactory = runnerFactory
+        self.interruptSource = interruptSource
     }
 
     public func run(
@@ -89,6 +103,7 @@ public struct QuillCodeCommandRunner: Sendable {
         output: any CLIOutputWriting
     ) async -> Int32 {
         let reporter = CLIProgressReporter(emitsJSONLines: request.emitsJSONLines, output: output)
+        var persistence: CLIRunPersistence?
         do {
             if request.usedDeprecatedFullAuto {
                 await output.writeStandardErrorLine(
@@ -135,22 +150,26 @@ public struct QuillCodeCommandRunner: Sendable {
                 environment: environment
             )
             let runner = try runnerFactory(runtime)
-            let persistence = CLIRunPersistence(
+            let runPersistence = CLIRunPersistence(
                 store: request.ephemeral ? nil : threadStore
             )
+            persistence = runPersistence
             await reporter.begin(thread: thread)
-            let result = try await runner.send(
-                prompt,
-                in: thread,
-                workspaceRoot: request.cwd,
-                recordUserMessage: recordsUserMessage,
-                onProgress: { snapshot in
-                    await persistence.save(snapshot)
-                    await reporter.report(snapshot)
-                }
-            )
-            await persistence.save(result.thread)
-            try await persistence.requireSuccess()
+            let runThread = thread
+            let result = try await runUntilInterrupted(source: interruptSource) {
+                try await runner.send(
+                    prompt,
+                    in: runThread,
+                    workspaceRoot: request.cwd,
+                    recordUserMessage: recordsUserMessage,
+                    onProgress: { snapshot in
+                        await runPersistence.save(snapshot)
+                        await reporter.report(snapshot)
+                    }
+                )
+            }
+            await runPersistence.save(result.thread)
+            try await runPersistence.requireSuccess()
 
             guard let finalMessage = result.thread.messages.last(where: { $0.role == .assistant })?.content else {
                 throw CLIError.noFinalMessage
@@ -164,6 +183,15 @@ public struct QuillCodeCommandRunner: Sendable {
                 await output.writeStandardOutputLine(finalMessage)
             }
             return result.stopReason == .finished ? 0 : 1
+        } catch is CancellationError {
+            do {
+                try await persistence?.requireSuccess()
+            } catch {
+                await reporter.fail(error)
+                return 1
+            }
+            await reporter.interrupted()
+            return 1
         } catch {
             await reporter.fail(error)
             return 1

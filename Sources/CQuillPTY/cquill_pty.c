@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <signal.h>
 
 int cquill_pty_open(int *outMasterFD, int *outSlaveFD, char *slavePath, size_t slavePathLen) {
     if (outMasterFD == NULL || outSlaveFD == NULL || slavePath == NULL) {
@@ -67,4 +68,16 @@ int cquill_fd_isatty(int fileDescriptor) {
         return -1;
     }
     return isatty(fileDescriptor) == 1 ? 1 : 0;
+}
+
+int cquill_signal_interrupt(void) {
+    return SIGINT;
+}
+
+int cquill_signal_ignore(int signalNumber) {
+    return signal(signalNumber, SIG_IGN) == SIG_ERR ? -1 : 0;
+}
+
+int cquill_signal_restore_default(int signalNumber) {
+    return signal(signalNumber, SIG_DFL) == SIG_ERR ? -1 : 0;
 }
