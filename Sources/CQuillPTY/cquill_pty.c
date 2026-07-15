@@ -80,6 +80,14 @@ ptrdiff_t cquill_fd_read(int fileDescriptor, void *buffer, size_t length) {
     return (ptrdiff_t)result;
 }
 
+ptrdiff_t cquill_fd_write(int fileDescriptor, const void *buffer, size_t length) {
+    ssize_t result;
+    do {
+        result = write(fileDescriptor, buffer, length);
+    } while (result < 0 && errno == EINTR);
+    return (ptrdiff_t)result;
+}
+
 int cquill_fd_wait_readable(int fileDescriptor, int timeoutMilliseconds) {
     if (fileDescriptor < 0 || timeoutMilliseconds < 0) {
         return -1;
@@ -97,6 +105,16 @@ int cquill_fd_wait_readable(int fileDescriptor, int timeoutMilliseconds) {
         return result;
     }
     return (descriptor.revents & (POLLIN | POLLHUP)) != 0 ? 1 : -1;
+}
+
+int cquill_process_force_kill(int processIdentifier) {
+    if (processIdentifier <= 0) {
+        return -1;
+    }
+    if (kill((pid_t)processIdentifier, SIGKILL) == 0 || errno == ESRCH) {
+        return 0;
+    }
+    return -1;
 }
 
 int cquill_signal_interrupt(void) {

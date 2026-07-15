@@ -149,7 +149,8 @@ def read_until(predicate, limit=200):
     raise AssertionError("app-server did not emit the expected record")
 
 send({"id": 1, "method": "initialize", "params": {
-    "clientInfo": {"name": "quillcode-smoke", "version": "1"}
+    "clientInfo": {"name": "quillcode-smoke", "version": "1"},
+    "capabilities": {"experimentalApi": True},
 }})
 initialized, _ = read_until(lambda record: record.get("id") == 1)
 assert "result" in initialized and "jsonrpc" not in initialized, initialized
@@ -160,6 +161,24 @@ models, _ = read_until(lambda record: record.get("id") == 2)
 assert len(models["result"]["data"]) == 2, models
 assert models["result"]["data"][0]["isDefault"] is True, models
 assert models["result"]["nextCursor"], models
+
+send({"id": 201, "method": "process/spawn", "params": {
+    "command": ["/bin/sh", "-c", "printf process-smoke"],
+    "cwd": workspace,
+    "processHandle": "smoke-process",
+}})
+process_exit, process_records = read_until(
+    lambda record: record.get("method") == "process/exited"
+)
+assert process_records[0] == {"id": 201, "result": {}}, process_records
+assert process_exit["params"] == {
+    "exitCode": 0,
+    "processHandle": "smoke-process",
+    "stderr": "",
+    "stderrCapReached": False,
+    "stdout": "process-smoke",
+    "stdoutCapReached": False,
+}, process_exit
 
 send({"id": 3, "method": "account/read", "params": {}})
 account, _ = read_until(lambda record: record.get("id") == 3)
