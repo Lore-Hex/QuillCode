@@ -99,9 +99,47 @@ final class CLIArgumentParserTests: XCTestCase {
         XCTAssertThrowsError(try parser.parse(["exec", "one", "-", "two"], currentDirectory: cwd))
     }
 
+    func testAppServerDefaultsToLiveStdioAndParsesOverrides() throws {
+        let defaults = try appServerRequest(parser.parse(["app-server"], currentDirectory: cwd))
+        XCTAssertEqual(defaults.transport, .stdio)
+        XCTAssertTrue(defaults.live)
+
+        let configured = try appServerRequest(parser.parse([
+            "--home", ".quill-home",
+            "app-server",
+            "--listen=stdio://",
+            "--mock",
+            "--api-key", "test-key",
+            "--model", "trustedrouter/deepseek-v4-flash",
+            "--base-url", "https://example.test/v1"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(configured.home?.path, "/tmp/project/.quill-home")
+        XCTAssertEqual(configured.transport, .stdio)
+        XCTAssertFalse(configured.live)
+        XCTAssertEqual(configured.apiKey, "test-key")
+        XCTAssertEqual(configured.model, "trustedrouter/deepseek-v4-flash")
+        XCTAssertEqual(configured.baseURL, "https://example.test/v1")
+    }
+
+    func testAppServerRejectsUnsupportedTransportAndUnknownOptions() {
+        XCTAssertThrowsError(try parser.parse([
+            "app-server", "--listen", "ws://127.0.0.1:4500"
+        ], currentDirectory: cwd))
+        XCTAssertThrowsError(try parser.parse([
+            "app-server", "--unknown"
+        ], currentDirectory: cwd))
+    }
+
     private func runRequest(_ command: CLICommand) throws -> CLIRunRequest {
         guard case .run(let request) = command else {
             throw XCTSkip("Expected run command")
+        }
+        return request
+    }
+
+    private func appServerRequest(_ command: CLICommand) throws -> CLIAppServerRequest {
+        guard case .appServer(let request) = command else {
+            throw XCTSkip("Expected app-server command")
         }
         return request
     }

@@ -64,6 +64,7 @@ public struct QuillCodePaths: Sendable, Hashable {
     public var pluginDataDirectory: URL { home.appendingPathComponent("plugin-data") }
     public var subagentSessionsDirectory: URL { home.appendingPathComponent("subagent-sessions") }
     public var importsDirectory: URL { home.appendingPathComponent("imports") }
+    public var appServerMetadataDirectory: URL { home.appendingPathComponent("app-server-threads") }
     public var agentImportReceiptFile: URL { importsDirectory.appendingPathComponent("receipts.json") }
 
     public init() {
@@ -101,5 +102,6 @@ public struct QuillCodePaths: Sendable, Hashable {
         try FileManager.default.createDirectory(at: subagentSessionsDirectory, withIntermediateDirectories: true)
         try PrivateDirectory.ensureExists(at: pluginDataDirectory)
         try PrivateDirectory.ensureExists(at: importsDirectory)
+        try PrivateDirectory.ensureExists(at: appServerMetadataDirectory)
     }
 }

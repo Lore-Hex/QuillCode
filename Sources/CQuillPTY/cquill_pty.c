@@ -13,6 +13,8 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <signal.h>
+#include <errno.h>
+#include <poll.h>
 
 int cquill_pty_open(int *outMasterFD, int *outSlaveFD, char *slavePath, size_t slavePathLen) {
     if (outMasterFD == NULL || outSlaveFD == NULL || slavePath == NULL) {
@@ -68,6 +70,33 @@ int cquill_fd_isatty(int fileDescriptor) {
         return -1;
     }
     return isatty(fileDescriptor) == 1 ? 1 : 0;
+}
+
+ptrdiff_t cquill_fd_read(int fileDescriptor, void *buffer, size_t length) {
+    ssize_t result;
+    do {
+        result = read(fileDescriptor, buffer, length);
+    } while (result < 0 && errno == EINTR);
+    return (ptrdiff_t)result;
+}
+
+int cquill_fd_wait_readable(int fileDescriptor, int timeoutMilliseconds) {
+    if (fileDescriptor < 0 || timeoutMilliseconds < 0) {
+        return -1;
+    }
+    struct pollfd descriptor;
+    descriptor.fd = fileDescriptor;
+    descriptor.events = POLLIN | POLLHUP;
+    descriptor.revents = 0;
+
+    int result;
+    do {
+        result = poll(&descriptor, 1, timeoutMilliseconds);
+    } while (result < 0 && errno == EINTR);
+    if (result <= 0) {
+        return result;
+    }
+    return (descriptor.revents & (POLLIN | POLLHUP)) != 0 ? 1 : -1;
 }
 
 int cquill_signal_interrupt(void) {

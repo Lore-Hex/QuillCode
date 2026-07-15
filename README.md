@@ -17,6 +17,8 @@ This initial repository contains the compile-stable foundation:
 - deterministic mock LLM agent runner
 - testable `quill-code exec` automation CLI with JSONL events, stdin context, resume, ephemeral
   runs, final-message files, structured output, and fail-closed Git/workspace guards
+- Codex-compatible `quill-code app-server` stdio JSONL core with strict initialization, durable
+  thread lifecycle, streamed turns, steering, interruption, managed local images, and approvals
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
 - Playwright mock UI harness (test-only; any `node_modules` lives under `E2E/playwright` and is ignored)
 - parity, roadmap, decision, and test-plan docs
@@ -53,6 +55,14 @@ stdout to JSON Lines lifecycle events; `--ephemeral` disables transcript persist
 and `--output-schema` validates bounded JSON output. Exec starts read-only and requires a Git
 workspace unless `--skip-git-repo-check` is explicitly supplied. `danger-full-access` is rejected
 until QuillCode can enforce that contract honestly. Run `quill-code help` for the complete option set.
+
+`quill-code app-server --mock` starts the deterministic stdio app server; omit `--mock` for the live
+TrustedRouter runtime. The implemented core follows Codex's newline-delimited wire shape without a
+`jsonrpc` marker: initialize/initialized, thread start/resume/fork/list/read/archive/name/delete/goal,
+turn start/steer/interrupt, item and assistant deltas, command/file approval requests, and durable
+transcript persistence. Input messages are capped at 1 MiB, local images are copied into managed
+storage, unsupported transports and danger-full-access are rejected, and client EOF resolves pending
+approvals instead of leaving an agent turn stranded.
 
 Nike 1.0 (`trustedrouter/fast`) is the default model. The only named presets are QuillCode’s branded TrustedRouter profiles: Nike 1.0 for fast everyday work, Zeus 1.0 for deep research, Prometheus 1.0 (`trustedrouter/fusion`) for freedom-oriented OSS deep research, Socrates 1.0 for coding-agent work, Aristotle 1.0 for smart general reasoning, and Plato 1.0 for freedom-oriented OSS coding. The picker searches the live TrustedRouter catalog when signed in, so raw provider/model IDs remain selectable without turning raw model types like synth into named defaults.
 

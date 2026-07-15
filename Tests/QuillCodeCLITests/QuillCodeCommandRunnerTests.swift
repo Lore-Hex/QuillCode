@@ -298,6 +298,39 @@ final class QuillCodeCommandRunnerTests: XCTestCase {
         XCTAssertEqual(completedAgentMessages.count, 1)
     }
 
+    func testAppServerCommandDrainsStdioTurnBeforeExiting() async throws {
+        let workspace = try temporaryDirectory(prefix: "app-server-workspace")
+        let home = try temporaryDirectory(prefix: "app-server-home")
+        let paths = QuillCodePaths(home: home)
+        try paths.ensure()
+        let thread = ChatThread(id: UUID(), mode: .readOnly, model: "trustedrouter/fast")
+        try JSONThreadStore(directory: paths.threadsDirectory).save(thread)
+        let input = """
+        {"id":1,"method":"initialize","params":{"clientInfo":{"name":"stdio-test","version":"1"}}}
+        {"method":"initialized","params":{}}
+        {"id":2,"method":"turn/start","params":{"threadId":"\(thread.id.uuidString.lowercased())","input":[{"type":"text","text":"hello over stdio"}]}}
+
+        """
+        let output = BufferedCLIOutput()
+        let status = await commandRunner(llm: EchoLLM()).run(
+            arguments: ["--home", home.path, "app-server", "--mock"],
+            currentDirectory: workspace,
+            input: BufferedCLIInput(text: input, isTerminal: false),
+            output: output
+        )
+
+        let snapshot = await output.snapshot()
+        let records = try jsonLines(snapshot.standardOutput)
+        XCTAssertEqual(status, 0)
+        XCTAssertEqual(snapshot.standardError, "")
+        XCTAssertNotNil(records.first { ($0["id"] as? Int) == 1 }?["result"])
+        XCTAssertNotNil(records.first { ($0["id"] as? Int) == 2 }?["result"])
+        XCTAssertTrue(records.contains { $0["method"] as? String == "turn/completed" })
+        let stored = try JSONThreadStore(directory: paths.threadsDirectory).load(thread.id)
+        XCTAssertEqual(stored.messages.filter { $0.role == .user }.map(\.content), ["hello over stdio"])
+        XCTAssertEqual(stored.messages.filter { $0.role == .assistant }.map(\.content), ["hello over stdio"])
+    }
+
     func testSkipGitCheckWorksAndDangerousSandboxFailsClosed() async throws {
         let workspace = try temporaryDirectory(prefix: "unguarded-workspace")
         let home = try temporaryDirectory(prefix: "sandbox-home")

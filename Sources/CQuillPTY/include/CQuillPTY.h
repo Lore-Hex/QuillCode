@@ -28,6 +28,16 @@ int cquill_pty_set_winsize(int masterFD, unsigned short rows, unsigned short col
 /// command code stay platform-neutral on macOS and Linux.
 int cquill_fd_isatty(int fileDescriptor);
 
+/// Reads up to `length` bytes from a descriptor, retrying interrupted system calls. Returns the
+/// byte count, 0 at EOF, or -1 on failure. This keeps incremental POSIX pipe I/O behind the shared
+/// macOS/Linux adapter instead of conditional platform imports in Swift command code.
+ptrdiff_t cquill_fd_read(int fileDescriptor, void *buffer, size_t length);
+
+/// Waits until a descriptor can be read without blocking. Returns 1 when readable (including EOF),
+/// 0 after `timeoutMilliseconds`, or -1 on failure. The bounded wait lets Swift cancellation stop an
+/// incremental reader even while the peer keeps an otherwise idle pipe open.
+int cquill_fd_wait_readable(int fileDescriptor, int timeoutMilliseconds);
+
 /// Returns the platform's interrupt signal number (`SIGINT`). Keeping the POSIX constant in the C
 /// adapter lets Swift command code install one signal source without importing Darwin or Glibc.
 int cquill_signal_interrupt(void);
