@@ -186,6 +186,61 @@ final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
         XCTAssertNotNil(session.runner.postCompactHook)
     }
 
+    func testFactoryWiresExplicitGlobalHooksWithoutASelectedProject() throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        func hook(_ id: String, event: String, matcher: String? = nil) -> ProjectPluginHook {
+            ProjectPluginHook(
+                id: id,
+                pluginID: "hook-source:user",
+                pluginName: "User hooks",
+                event: event,
+                matcher: matcher,
+                handlerType: "command",
+                command: "true",
+                relativePath: "~/.quillcode/config.toml#\(event)",
+                definitionHash: String(repeating: "a", count: 64),
+                trustScope: .user,
+                trustStatus: .trusted,
+                supportStatus: .supported
+            )
+        }
+        let runHook = ProjectRunHook(
+            id: "global-before",
+            timing: .beforeAgentRun,
+            title: "Global before",
+            relativePath: "~/.quillcode/config.toml#UserPromptSubmit",
+            command: "true"
+        )
+        let session = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []),
+            selectedProject: nil,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            hooks: [
+                hook("pre", event: "PreToolUse", matcher: "^Bash$"),
+                hook("permission", event: "PermissionRequest", matcher: "^Bash$"),
+                hook("pre-compact", event: "PreCompact", matcher: "auto"),
+                hook("post-compact", event: "PostCompact", matcher: "auto"),
+                hook("session", event: "SessionStart", matcher: "startup")
+            ],
+            runHooks: [runHook],
+            workspaceRoot: workspaceRoot
+        ).makeSession(prompt: "Run true", thread: ChatThread(title: "Global hooks"))
+
+        XCTAssertNotNil(session.runner.preToolUseHook)
+        XCTAssertNotNil(session.runner.permissionRequestHook)
+        XCTAssertNotNil(session.runner.preCompactHook)
+        XCTAssertNotNil(session.runner.postCompactHook)
+        XCTAssertTrue(session.pluginLifecycleHooks.hasExecutableHooks)
+        XCTAssertEqual(session.runHooks, [runHook])
+    }
+
     func testFactoryUsesRemoteProjectToolDefinitionsAndRunHooks() {
         let hook = ProjectRunHook(
             id: "before:.quillcode/hooks/before-agent-run/01-prepare.sh",

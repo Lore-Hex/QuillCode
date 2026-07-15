@@ -23,17 +23,20 @@ public struct ProjectPluginHookSurface: Codable, Sendable, Hashable, Identifiabl
         self.relativePath = hook.relativePath
         self.statusLabel = Self.statusLabel(for: hook)
         self.supportDetail = Self.supportDetail(for: hook.supportStatus)
-        switch (hook.supportStatus.isSupported, hook.trustStatus) {
-        case (true, .reviewRequired):
+        switch (hook.isManaged, hook.supportStatus.isSupported, hook.trustStatus) {
+        case (true, _, _):
+            self.actionTitle = nil
+            self.actionCommandID = nil
+        case (false, true, .reviewRequired):
             self.actionTitle = "Trust"
             self.actionCommandID = "hook-trust:\(hook.id)"
-        case (true, .trusted):
+        case (false, true, .trusted):
             self.actionTitle = "Disable"
             self.actionCommandID = "hook-disable:\(hook.id)"
-        case (true, .disabled):
+        case (false, true, .disabled):
             self.actionTitle = "Enable"
             self.actionCommandID = "hook-trust:\(hook.id)"
-        case (false, _):
+        case (false, false, _):
             self.actionTitle = nil
             self.actionCommandID = nil
         }
@@ -41,6 +44,7 @@ public struct ProjectPluginHookSurface: Codable, Sendable, Hashable, Identifiabl
 
     private static func statusLabel(for hook: ProjectPluginHook) -> String {
         guard hook.supportStatus.isSupported else { return "Unsupported" }
+        if hook.isManaged { return "Managed" }
         switch hook.trustStatus {
         case .reviewRequired: return "Review required"
         case .trusted: return "Trusted"

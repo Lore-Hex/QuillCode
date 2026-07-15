@@ -92,6 +92,8 @@ extension QuillCodeWorkspaceModel {
                 await self?.recordSubagentRun(record, threadID: parentThreadID)
             },
             sessionStartHookCoordinator: sessionStartHookCoordinator,
+            hooks: effectiveHookDefinitions(for: runProject),
+            runHooks: effectiveRunHooks(for: runProject),
             workspaceRoot: workspaceRoot
         )
     }

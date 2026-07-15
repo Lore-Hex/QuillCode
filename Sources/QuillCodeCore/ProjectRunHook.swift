@@ -18,6 +18,8 @@ public struct ProjectRunHook: Codable, Sendable, Hashable, Identifiable {
     public var timeoutSeconds: Int?
     public var pluginID: String?
     public var pluginRootRelativePath: String?
+    /// `nil` decodes legacy hooks as workspace-scoped.
+    public var trustScope: ProjectHookTrustScope?
 
     public init(
         id: String,
@@ -31,7 +33,8 @@ public struct ProjectRunHook: Codable, Sendable, Hashable, Identifiable {
         workingDirectory: String? = nil,
         timeoutSeconds: Int? = nil,
         pluginID: String? = nil,
-        pluginRootRelativePath: String? = nil
+        pluginRootRelativePath: String? = nil,
+        trustScope: ProjectHookTrustScope? = nil
     ) {
         self.id = id
         self.timing = timing
@@ -45,5 +48,10 @@ public struct ProjectRunHook: Codable, Sendable, Hashable, Identifiable {
         self.timeoutSeconds = timeoutSeconds
         self.pluginID = pluginID
         self.pluginRootRelativePath = pluginRootRelativePath
+        self.trustScope = trustScope
+    }
+
+    public var effectiveTrustScope: ProjectHookTrustScope {
+        trustScope ?? .workspace
     }
 }

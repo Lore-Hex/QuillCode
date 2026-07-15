@@ -2,6 +2,17 @@ import XCTest
 @testable import QuillCodePersistence
 
 final class QuillCodePathsTests: PersistenceTestCase {
+    func testExplicitHomeUsesAnIsolatedHookConfigurationPathSet() throws {
+        let home = try makeTempDirectory().appendingPathComponent("portable")
+        let paths = QuillCodePaths(home: home)
+
+        XCTAssertEqual(paths.hookConfigurationPaths.userQuillCodeDirectory, home)
+        XCTAssertNil(paths.hookConfigurationPaths.userCodexDirectory)
+        XCTAssertNil(paths.hookConfigurationPaths.systemQuillCodeDirectory)
+        XCTAssertNil(paths.hookConfigurationPaths.systemCodexDirectory)
+        XCTAssertTrue(paths.hookConfigurationPaths.managedRequirementFiles.isEmpty)
+    }
+
     func testEnsureCreatesDurableWorkspaceDirectories() throws {
         let home = try makeTempDirectory()
             .appendingPathComponent(".quillcode")

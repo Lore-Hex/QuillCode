@@ -29,6 +29,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let subagentSchedulerOverride: WorkspaceSubagentScheduler?
     private let subagentRunRecordSink: WorkspaceSubagentRunRecordSink?
     private let sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator
+    private let hooks: [ProjectPluginHook]
+    private let runHooks: [ProjectRunHook]
 
     init(
         baseRunner: AgentRunner,
@@ -51,6 +53,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         subagentSchedulerOverride: WorkspaceSubagentScheduler? = nil,
         subagentRunRecordSink: WorkspaceSubagentRunRecordSink? = nil,
         sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator = WorkspaceSessionStartHookCoordinator(),
+        hooks: [ProjectPluginHook]? = nil,
+        runHooks: [ProjectRunHook]? = nil,
         workspaceRoot: URL
     ) {
         self.baseRunner = baseRunner
@@ -77,6 +81,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.subagentSchedulerOverride = subagentSchedulerOverride
         self.subagentRunRecordSink = subagentRunRecordSink
         self.sessionStartHookCoordinator = sessionStartHookCoordinator
+        self.hooks = hooks ?? selectedProject?.pluginHooks ?? []
+        self.runHooks = runHooks ?? selectedProject?.runHooks ?? []
         self.workspaceRoot = workspaceRoot
     }
 
@@ -101,7 +107,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             ),
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
-            runHooks: selectedProject?.runHooks ?? [],
+            runHooks: runHooks,
             pluginLifecycleHooks: pluginLifecycleHooks,
             lifecycle: lifecycle ?? .primary(sessionStartHookCoordinator),
             pluginDataBaseDirectory: pluginDataBaseDirectory,
@@ -193,7 +199,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             runner.threadToolExecutionOverride = nil
         }
         let pluginToolHooks = ProjectPluginToolHookExecutor(
-            hooks: selectedProject?.pluginHooks ?? [],
+            hooks: hooks,
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor
@@ -208,7 +214,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             runner.permissionRequestHook = permissionRequestHook
         }
         let pluginCompactionHooks = ProjectPluginCompactionHookExecutor(
-            hooks: selectedProject?.pluginHooks ?? [],
+            hooks: hooks,
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor
@@ -224,7 +230,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
 
     private var pluginLifecycleHooks: ProjectPluginLifecycleHookExecutor {
         ProjectPluginLifecycleHookExecutor(
-            hooks: selectedProject?.pluginHooks ?? [],
+            hooks: hooks,
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor

@@ -184,7 +184,7 @@ public extension QuillCodeWorkspaceModel {
                 isVisible: extensions.isVisible,
                 focusedKind: extensions.focusedKind,
                 manifests: selectedProject?.extensionManifests ?? [],
-                hooks: selectedProject?.pluginHooks ?? [],
+                hooks: effectiveHookDefinitions(for: selectedProject),
                 mcpServerStatuses: extensions.mcpServerStatuses,
                 mcpServerProbeSummaries: extensions.mcpServerProbeSummaries,
                 workflowRecording: (computerUseBackend as? any WorkflowRecordingStatusProviding)?
@@ -279,6 +279,7 @@ public extension QuillCodeWorkspaceModel {
         return WorkspaceCommandSurfaceBuilder(
             selectedThread: selectedThread,
             selectedProject: selectedProject,
+            hooks: effectiveHookDefinitions(for: selectedProject),
             selectedSidebarThreads: selectedSidebarThreads,
             sidebarSelectionIsActive: sidebarSelection.isActive,
             sidebarItemCount: visibleSidebarItemCount,

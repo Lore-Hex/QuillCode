@@ -5,6 +5,7 @@ import QuillComputerUseKit
 struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
     var selectedThread: ChatThread?
     var selectedProject: ProjectRef?
+    var hooks: [ProjectPluginHook] = []
     var selectedSidebarThreads: [ChatThread]
     var sidebarSelectionIsActive: Bool
     var sidebarItemCount: Int
@@ -59,6 +60,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
         + WorkspaceCommandStaticCatalog.memoryCommands()
         + WorkspaceCommandStaticCatalog.extensionToggleCommands(
             hasActiveWorkspaceRoot: hasActiveWorkspaceRoot,
+            hasHookSources: !hooks.isEmpty,
             workflowRecordingAvailable: workflowRecordingAvailable,
             workflowRecordingIsActive: workflowRecordingIsActive
         )
@@ -89,8 +91,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
         )
         + WorkspaceProjectCommandCatalog.pluginHookCommands(
-            hooks: selectedProject?.pluginHooks ?? [],
-            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot
+            hooks: hooks,
+            hasActiveWorkspaceRoot: hasActiveWorkspaceRoot || !hooks.isEmpty
         )
         + WorkspaceCommandStaticCatalog.controlAndSettingsCommands(
             composerIsSending: composerIsSending,

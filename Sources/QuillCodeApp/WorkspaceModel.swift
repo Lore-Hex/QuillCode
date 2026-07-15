@@ -55,6 +55,9 @@ public final class QuillCodeWorkspaceModel {
     /// (tests/CLI without persistence) disables saving; approval flows still work as before.
     let permissionRuleStore: PermissionRuleFileStore?
     let projectHookTrustStore: ProjectHookTrustFileStore?
+    let hookConfigurationPaths: HookConfigurationPaths?
+    let globalHookTrustScope: URL?
+    var globalHookConfiguration: WorkspaceGlobalHookConfiguration
     let subagentSessionStore: WorkspaceSubagentSessionStore?
     let globalMemoryDirectory: URL?
     let pluginDataBaseDirectory: URL?
@@ -133,6 +136,9 @@ public final class QuillCodeWorkspaceModel {
         agentImporter: ClaudeCodeAgentImporter? = nil,
         permissionRuleStore: PermissionRuleFileStore? = nil,
         projectHookTrustStore: ProjectHookTrustFileStore? = nil,
+        hookConfigurationPaths: HookConfigurationPaths? = nil,
+        globalHookTrustScope: URL? = nil,
+        globalHookConfiguration: WorkspaceGlobalHookConfiguration = WorkspaceGlobalHookConfiguration(),
         subagentSessionStoreDirectory: URL? = nil,
         globalMemoryDirectory: URL? = nil,
         pluginDataBaseDirectory: URL? = nil,
@@ -175,6 +181,9 @@ public final class QuillCodeWorkspaceModel {
         self.agentImporter = agentImporter
         self.permissionRuleStore = permissionRuleStore
         self.projectHookTrustStore = projectHookTrustStore
+        self.hookConfigurationPaths = hookConfigurationPaths
+        self.globalHookTrustScope = globalHookTrustScope
+        self.globalHookConfiguration = globalHookConfiguration
         self.subagentSessionStore = subagentSessionStoreDirectory.map(WorkspaceSubagentSessionStore.init)
         self.globalMemoryDirectory = globalMemoryDirectory
         self.pluginDataBaseDirectory = pluginDataBaseDirectory
@@ -277,6 +286,7 @@ public final class QuillCodeWorkspaceModel {
 
     func refreshProjectMetadata(_ id: UUID?) {
         refreshGlobalMemories()
+        refreshGlobalHookConfiguration()
         let previousResolutions = instructionDiagnosticResolutions(for: id)
         WorkspaceProjectContextRefresher.refreshLocalProjectMetadata(
             projectID: id,

@@ -187,23 +187,23 @@ extension QuillCodeWorkspaceModel {
         id: String,
         decision: ProjectHookTrustDecision
     ) -> Bool {
-        guard let project = selectedProject,
-              !project.isRemote,
-              let projectHookTrustStore
-        else { return false }
+        guard let projectHookTrustStore else { return false }
 
-        refreshProjectMetadata(project.id)
-        guard let hook = selectedProject?.pluginHooks.first(where: { $0.id == id }),
-              decision != .trusted || hook.supportStatus.isSupported
+        refreshProjectMetadata(selectedProject?.id)
+        let project = selectedProject
+        guard let hook = effectiveHookDefinitions(for: project).first(where: { $0.id == id }),
+              !hook.isManaged,
+              decision != .trusted || hook.supportStatus.isSupported,
+              let trustScopeRoot = trustScopeRoot(for: hook, project: project)
         else { return false }
 
         do {
             try projectHookTrustStore.setDecision(
                 decision,
                 for: hook,
-                workspaceRoot: URL(fileURLWithPath: project.path)
+                workspaceRoot: trustScopeRoot
             )
-            refreshProjectMetadata(project.id)
+            refreshProjectMetadata(project?.id)
             saveProjects()
             appendNotice(
                 decision == .trusted

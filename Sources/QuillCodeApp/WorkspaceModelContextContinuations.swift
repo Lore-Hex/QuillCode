@@ -182,7 +182,7 @@ extension QuillCodeWorkspaceModel {
             root.projects.first { $0.id == projectID }
         }
         return ProjectPluginCompactionHookExecutor(
-            hooks: project?.pluginHooks ?? [],
+            hooks: effectiveHookDefinitions(for: project),
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: project,
             sshRemoteShellExecutor: sshRemoteShellExecutor

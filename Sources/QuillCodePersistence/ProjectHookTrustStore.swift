@@ -36,6 +36,7 @@ public struct ProjectHookTrustLoadResult: Sendable, Hashable {
     }
 
     public func status(for hook: ProjectPluginHook) -> ProjectHookTrustStatus {
+        if hook.isManaged { return .trusted }
         guard !degraded,
               let record = records.last(where: { $0.hookID == hook.id }),
               record.definitionHash == hook.definitionHash
@@ -49,16 +50,20 @@ public struct ProjectHookTrustLoadResult: Sendable, Hashable {
 
 public enum ProjectHookTrustStoreError: LocalizedError, Sendable, Equatable {
     case degradedFile
+    case managedHook
 
     public var errorDescription: String? {
         switch self {
         case .degradedFile:
             return "The hook trust file is unreadable or uses an unsupported format. It was left unchanged."
+        case .managedHook:
+            return "Managed hooks are trusted by policy and cannot be changed here."
         }
     }
 }
 
-/// Atomic, per-workspace persistence for reviewed hooks.
+/// Atomic, scoped persistence for reviewed hooks. The scope root is either a workspace root or the
+/// app home for user-level definitions.
 ///
 /// A corrupt or newer file fails closed: every discovered hook returns to `reviewRequired` until
 /// the trust file is repaired. Trust is valid only for the exact definition hash.
@@ -104,6 +109,9 @@ public struct ProjectHookTrustFileStore: Sendable {
         workspaceRoot: URL,
         now: Date = Date()
     ) throws {
+        guard !hook.isManaged else {
+            throw ProjectHookTrustStoreError.managedHook
+        }
         let existing = load(forWorkspaceRoot: workspaceRoot)
         guard !existing.degraded else {
             throw ProjectHookTrustStoreError.degradedFile

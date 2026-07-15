@@ -5,6 +5,66 @@ import TOMLDecoder
 
 struct CodexHookConfiguration: Decodable {
     var hooks: [String: [CodexHookGroup]]
+    var hooksFeatureOverride: Bool?
+    var allowManagedHooksOnly: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case hooks
+        case features
+        case allowManagedHooksOnly
+        case allowManagedHooksOnlySnake = "allow_managed_hooks_only"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hooks = try container.decodeIfPresent(CodexHookTable.self, forKey: .hooks)?.events ?? [:]
+        let features = try container.decodeIfPresent(CodexHookFeatures.self, forKey: .features)
+        hooksFeatureOverride = features?.hooks ?? features?.legacyHooks
+        allowManagedHooksOnly = try container.decodeIfPresent(Bool.self, forKey: .allowManagedHooksOnly)
+            ?? container.decodeIfPresent(Bool.self, forKey: .allowManagedHooksOnlySnake)
+    }
+}
+
+private struct CodexHookFeatures: Decodable {
+    var hooks: Bool?
+    var legacyHooks: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case hooks
+        case legacyHooks = "codex_hooks"
+    }
+}
+
+/// A hooks table may contain policy metadata such as `managed_dir` next to event arrays.
+/// Decode only array-shaped event entries so managed requirements remain forward compatible.
+private struct CodexHookTable: Decodable {
+    var events: [String: [CodexHookGroup]]
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+        var events: [String: [CodexHookGroup]] = [:]
+        for key in container.allKeys {
+            if let groups = try? container.decode([CodexHookGroup].self, forKey: key) {
+                events[key.stringValue] = groups
+            }
+        }
+        self.events = events
+    }
+}
+
+private struct DynamicCodingKey: CodingKey {
+    var stringValue: String
+    var intValue: Int?
+
+    init?(stringValue: String) {
+        self.stringValue = stringValue
+        self.intValue = nil
+    }
+
+    init?(intValue: Int) {
+        self.stringValue = String(intValue)
+        self.intValue = intValue
+    }
 }
 
 struct CodexHookGroup: Decodable {
@@ -60,6 +120,23 @@ struct CodexHookDefinitionSource: Sendable, Hashable {
     var ownerName: String
     var relativePath: String
     var pluginRootRelativePath: String?
+    var trustScope: ProjectHookTrustScope?
+
+    init(
+        idPrefix: String,
+        ownerID: String,
+        ownerName: String,
+        relativePath: String,
+        pluginRootRelativePath: String?,
+        trustScope: ProjectHookTrustScope? = nil
+    ) {
+        self.idPrefix = idPrefix
+        self.ownerID = ownerID
+        self.ownerName = ownerName
+        self.relativePath = relativePath
+        self.pluginRootRelativePath = pluginRootRelativePath
+        self.trustScope = trustScope
+    }
 }
 
 enum CodexHookDefinitionBuilder {
@@ -116,6 +193,8 @@ enum CodexHookDefinitionBuilder {
                             isAsync: isAsync,
                             pluginRootRelativePath: source.pluginRootRelativePath
                         ),
+                        trustScope: source.trustScope,
+                        trustStatus: source.trustScope == .managed ? .trusted : .reviewRequired,
                         supportStatus: supportStatus(
                             event: event,
                             matcher: matcher,

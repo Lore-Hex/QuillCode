@@ -28,7 +28,8 @@ enum ProjectPluginHookResolver {
                 command: command,
                 timeoutSeconds: hook.timeoutSeconds,
                 pluginID: hook.pluginID,
-                pluginRootRelativePath: hook.pluginRootRelativePath
+                pluginRootRelativePath: hook.pluginRootRelativePath,
+                trustScope: hook.effectiveTrustScope
             )
         }
     }

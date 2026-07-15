@@ -79,16 +79,6 @@ struct ProjectPluginLifecycleHookExecutor: Sendable {
         }
         guard !matching.isEmpty else { return [] }
 
-        let executor = WorkspaceToolCallExecutor(
-            selectedProject: selectedProject,
-            browser: BrowserState(),
-            browserDomainPolicy: .unrestricted,
-            router: ToolRouter(
-                workspaceRoot: workspaceRoot,
-                editGuard: .session(for: sessionThread.id)
-            ),
-            sshRemoteShellExecutor: sshRemoteShellExecutor
-        )
         var immediate: [ProjectPluginLifecycleHookExecutionOutcome] = []
         var invocations: [(Int, ProjectPluginLifecycleHookInvocation)] = []
         for (index, hook) in matching.enumerated() {
@@ -113,6 +103,19 @@ struct ProjectPluginLifecycleHookExecutor: Sendable {
         let completed = await withTaskGroup(of: ProjectPluginLifecycleHookExecutionOutcome.self) { group in
             for (index, invocation) in invocations {
                 group.addTask {
+                    let executor = WorkspaceToolCallExecutor(
+                        selectedProject: ProjectHookExecutionRouting.selectedProject(
+                            for: invocation.hook.effectiveTrustScope,
+                            selectedProject: selectedProject
+                        ),
+                        browser: BrowserState(),
+                        browserDomainPolicy: .unrestricted,
+                        router: ToolRouter(
+                            workspaceRoot: workspaceRoot,
+                            editGuard: .session(for: sessionThread.id)
+                        ),
+                        sshRemoteShellExecutor: sshRemoteShellExecutor
+                    )
                     let result = executor.executePrimary(invocation.call)
                     do {
                         let acceptsExitTwo: Bool

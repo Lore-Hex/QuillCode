@@ -41,17 +41,6 @@ enum ProjectRunHookExecutor {
         let matchingHooks = hooks.filter { $0.timing == timing }
         guard !matchingHooks.isEmpty else { return ProjectRunHookExecutionReport() }
 
-        let executor = WorkspaceToolCallExecutor(
-            selectedProject: selectedProject,
-            browser: BrowserState(),
-            browserDomainPolicy: .unrestricted,
-            router: ToolRouter(
-                workspaceRoot: workspaceRoot,
-                editGuard: .session(for: thread.id)
-            ),
-            sshRemoteShellExecutor: sshRemoteShellExecutor
-        )
-
         for hook in matchingHooks {
             try Task.checkCancellation()
             thread.events.append(ThreadEvent(
@@ -89,10 +78,24 @@ enum ProjectRunHookExecutor {
             }
         }
 
+        let threadID = thread.id
         let completed = await withTaskGroup(of: HookExecutionOutcome.self) { group in
             for (index, invocation) in invocations {
                 group.addTask {
-                    HookExecutionOutcome(
+                    let executor = WorkspaceToolCallExecutor(
+                        selectedProject: ProjectHookExecutionRouting.selectedProject(
+                            for: invocation.hook.effectiveTrustScope,
+                            selectedProject: selectedProject
+                        ),
+                        browser: BrowserState(),
+                        browserDomainPolicy: .unrestricted,
+                        router: ToolRouter(
+                            workspaceRoot: workspaceRoot,
+                            editGuard: .session(for: threadID)
+                        ),
+                        sshRemoteShellExecutor: sshRemoteShellExecutor
+                    )
+                    return HookExecutionOutcome(
                         index: index,
                         hook: invocation.hook,
                         call: invocation.call,

@@ -3,6 +3,21 @@ import XCTest
 import QuillCodeCore
 
 final class ProjectRunHookLoaderTests: XCTestCase {
+    func testLegacyPersistedHookDefaultsToWorkspaceScope() throws {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "id": "legacy",
+            "timing": "before_agent_run",
+            "title": "Legacy",
+            "relativePath": ".quillcode/hooks/before-agent-run/legacy.sh",
+            "command": "true"
+        ])
+
+        let hook = try JSONDecoder().decode(ProjectRunHook.self, from: data)
+
+        XCTAssertNil(hook.trustScope)
+        XCTAssertEqual(hook.effectiveTrustScope, .workspace)
+    }
+
     func testLoadsBeforeAndAfterHooksWithMetadata() throws {
         let root = try makeQuillCodeTestDirectory()
         let beforeDirectory = root.appendingPathComponent(".quillcode/hooks/before-agent-run")

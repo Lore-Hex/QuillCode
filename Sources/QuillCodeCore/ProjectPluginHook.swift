@@ -11,6 +11,12 @@ public enum ProjectHookTrustStatus: String, Codable, Sendable, Hashable {
     case disabled
 }
 
+public enum ProjectHookTrustScope: String, Codable, Sendable, Hashable {
+    case workspace
+    case user
+    case managed
+}
+
 public enum ProjectHookSupportStatus: String, Codable, Sendable, Hashable {
     case supported
     case unsupportedEvent = "unsupported_event"
@@ -43,6 +49,8 @@ public struct ProjectPluginHook: Codable, Sendable, Hashable, Identifiable {
     public var relativePath: String
     public var pluginRootRelativePath: String?
     public var definitionHash: String
+    /// `nil` decodes legacy persisted hooks as workspace-scoped.
+    public var trustScope: ProjectHookTrustScope?
     public var trustStatus: ProjectHookTrustStatus
     public var supportStatus: ProjectHookSupportStatus
 
@@ -61,6 +69,7 @@ public struct ProjectPluginHook: Codable, Sendable, Hashable, Identifiable {
         relativePath: String,
         pluginRootRelativePath: String? = nil,
         definitionHash: String,
+        trustScope: ProjectHookTrustScope? = nil,
         trustStatus: ProjectHookTrustStatus = .reviewRequired,
         supportStatus: ProjectHookSupportStatus
     ) {
@@ -78,11 +87,20 @@ public struct ProjectPluginHook: Codable, Sendable, Hashable, Identifiable {
         self.relativePath = relativePath
         self.pluginRootRelativePath = pluginRootRelativePath
         self.definitionHash = definitionHash
+        self.trustScope = trustScope
         self.trustStatus = trustStatus
         self.supportStatus = supportStatus
     }
 
     public var isExecutable: Bool {
         trustStatus == .trusted && supportStatus.isSupported && command != nil
+    }
+
+    public var effectiveTrustScope: ProjectHookTrustScope {
+        trustScope ?? .workspace
+    }
+
+    public var isManaged: Bool {
+        effectiveTrustScope == .managed
     }
 }
