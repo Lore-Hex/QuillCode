@@ -23,6 +23,35 @@ final class AppConfigCompatibilityTests: XCTestCase {
         XCTAssertEqual(config.managedWorktrees, ManagedWorktreeSettings())
         XCTAssertEqual(config.keyboardShortcuts, KeyboardShortcutPreferences())
         XCTAssertEqual(config.maxToolSteps, AppConfig.defaultMaxToolSteps)
+        XCTAssertNil(config.reviewModel)
+        XCTAssertEqual(config.reviewDelivery, .current)
+    }
+
+    func testAppConfigNormalizesAndRoundTripsCodeReviewSettings() throws {
+        let config = AppConfig(
+            reviewModel: " /prometheus ",
+            reviewDelivery: .detached
+        )
+
+        XCTAssertEqual(config.reviewModel, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(config.reviewDelivery, .detached)
+        XCTAssertNil(AppConfig(reviewModel: " \n ").reviewModel)
+        XCTAssertEqual(AppConfig(reviewModel: "tr/synth").reviewModel, TrustedRouterDefaults.defaultModel)
+
+        let encoded = try JSONEncoder().encode(config)
+        XCTAssertEqual(try JSONDecoder().decode(AppConfig.self, from: encoded), config)
+    }
+
+    func testAppConfigDefaultsUnknownReviewDeliveryToCurrent() throws {
+        let config = try JSONHelpers.decode(AppConfig.self, from: """
+        {
+          "reviewModel": "Nike 1.0",
+          "reviewDelivery": "background"
+        }
+        """)
+
+        XCTAssertEqual(config.reviewModel, TrustedRouterDefaults.fastModel)
+        XCTAssertEqual(config.reviewDelivery, .current)
     }
 
     func testKeyboardShortcutPreferencesNormalizeAndKeepLatestOverride() throws {

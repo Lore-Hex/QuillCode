@@ -232,6 +232,7 @@ enum WorkspaceCommandPlan: Equatable {
 }
 
 enum WorkspaceCommandAction: String, Equatable {
+    case codeReview = "code-review"
     case newChat = "new-chat"
     case quickChat = "quick-chat"
     case workspaceBack = "workspace-back"

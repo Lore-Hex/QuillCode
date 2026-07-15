@@ -18,6 +18,9 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var activity: ActivityState
     public internal(set) var automations: AutomationsState
     public internal(set) var pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface?
+    /// Session-only request presented by `/review` and the command palette. The review result is
+    /// durable in the target thread; an unfinished chooser is intentionally not persisted.
+    public internal(set) var codeReviewRequest: WorkspaceCodeReviewRequest?
     /// Session-only Review selection when the pane is showing thread provenance rather than a
     /// recorded git-diff tool card. `nil` means derive the scope from the latest diff card.
     public internal(set) var reviewSelectionOverride: WorkspaceReviewSelection?
@@ -121,6 +124,7 @@ public final class QuillCodeWorkspaceModel {
         activity: ActivityState = ActivityState(),
         automations: AutomationsState = AutomationsState(),
         pullRequestReviewDraft: WorkspacePullRequestReviewDraftSurface? = nil,
+        codeReviewRequest: WorkspaceCodeReviewRequest? = nil,
         reviewSelectionOverride: WorkspaceReviewSelection? = nil,
         sidebarFilter: SidebarSavedFilterKind = .all,
         activeSidebarSavedSearchID: UUID? = nil,
@@ -163,6 +167,7 @@ public final class QuillCodeWorkspaceModel {
         self.activity = activity
         self.automations = automations
         self.pullRequestReviewDraft = pullRequestReviewDraft
+        self.codeReviewRequest = codeReviewRequest
         self.reviewSelectionOverride = reviewSelectionOverride
         self.sidebarFilter = sidebarFilter
         self.sidebarSavedSearches = JSONSidebarSavedSearchStore.normalized(sidebarSavedSearches)

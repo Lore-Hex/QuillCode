@@ -21,6 +21,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var activeFindIndex = 0
     @State private var commandQuery = ""
     @State private var settingsDraft = QuillCodeSettingsDraft()
+    @State private var codeReviewDraft = WorkspaceCodeReviewRequest()
     @State private var sidebarSavedSearchDraft: QuillCodeSidebarSavedSearchDraft?
     @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
     @State private var renameProjectDraft: QuillCodeProjectRenameDraft?
@@ -71,6 +72,8 @@ public struct QuillCodeWorkspaceView: View {
         onSaveKeyboardShortcuts: @escaping (KeyboardShortcutPreferences) -> Void = { _ in },
         onStartTrustedRouterSignIn: @escaping () -> Void,
         agentImportActions: QuillCodeAgentImportActions? = nil,
+        onDismissCodeReview: @escaping () -> Void = {},
+        onRunCodeReview: @escaping (WorkspaceCodeReviewRequest) -> Void = { _ in },
         onReviewScopeChange: @escaping (WorkspaceReviewSelection) -> Void = { _ in },
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onPullRequestReviewThreadAction: @escaping (WorkspacePullRequestReviewThreadActionSurface) -> Void = { _ in },
@@ -143,6 +146,8 @@ public struct QuillCodeWorkspaceView: View {
             onSaveKeyboardShortcuts: onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
             agentImport: agentImportActions,
+            onDismissCodeReview: onDismissCodeReview,
+            onRunCodeReview: onRunCodeReview,
             onReviewScopeChange: onReviewScopeChange,
             onReviewAction: onReviewAction,
             onPullRequestReviewThreadAction: onPullRequestReviewThreadAction,
@@ -267,6 +272,7 @@ public struct QuillCodeWorkspaceView: View {
             isSettingsPresented: $isSettingsPresented,
             settingsDraft: $settingsDraft,
             isKeyboardShortcutsPresented: $isKeyboardShortcutsPresented,
+            codeReviewDraft: $codeReviewDraft,
             worktreeSheet: $worktreeDialogs.sheet,
             newWorktreeTaskDraft: $worktreeDialogs.newTaskDraft,
             createWorktreeDraft: $worktreeDialogs.createDraft,
@@ -285,6 +291,8 @@ public struct QuillCodeWorkspaceView: View {
             onSaveSettings: actions.onSaveSettings,
             onSaveKeyboardShortcuts: actions.onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,
+            onDismissCodeReview: actions.onDismissCodeReview,
+            onRunCodeReview: actions.onRunCodeReview,
             onCommand: handleCommand,
             onCreateWorktreeThread: actions.onCreateWorktreeThread,
             onCreateWorktree: actions.onCreateWorktree,

@@ -7,6 +7,66 @@ import QuillComputerUseKit
 @testable import QuillCodeApp
 
 final class WorkspaceAgentSendSessionFactoryTests: XCTestCase {
+    func testDedicatedCodeReviewRunnerExposesOnlyReadToolsAndReportSink() async throws {
+        let workspaceRoot = try makeQuillCodeTestDirectory()
+        let collector = WorkspaceCodeReviewReportCollector()
+        let runner = WorkspaceAgentSendSessionFactory(
+            baseRunner: AgentRunner(),
+            selectedProject: nil,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: workspaceRoot
+        ).configuredCodeReviewRunner(
+            modelID: "trustedrouter/fast",
+            threadID: UUID(),
+            reportCollector: collector
+        )
+
+        XCTAssertEqual(Set(runner.baseToolDefinitions.map(\.name)), Set([
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileList.name,
+            ToolDefinition.fileSearch.name,
+            ToolDefinition.gitStatus.name,
+            ToolDefinition.gitDiff.name,
+            ToolDefinition.gitBranchList.name
+        ]))
+        XCTAssertEqual(runner.additionalToolDefinitions.map(\.name), [WorkspaceCodeReviewSubmitTool.name])
+        XCTAssertNil(runner.preToolUseHook)
+        XCTAssertNil(runner.postToolUseHook)
+        XCTAssertNil(runner.permissionRequestHook)
+        XCTAssertNil(runner.threadToolExecutionOverride)
+        XCTAssertNil(runner.toolFeedbackAttachmentProvider)
+        XCTAssertNil(runner.skillResolver)
+        XCTAssertNil(runner.webSearch)
+        XCTAssertNil(runner.lsp)
+        XCTAssertFalse(runner.enablesImmediateActionPreflight)
+
+        let execute = try XCTUnwrap(runner.toolExecutionOverride)
+        let denied = await execute(
+            ToolCall(name: ToolDefinition.shellRun.name, argumentsJSON: #"{"cmd":"whoami"}"#),
+            workspaceRoot
+        )
+        XCTAssertEqual(denied?.ok, false)
+        XCTAssertTrue(denied?.error?.contains("cannot execute") == true)
+
+        let accepted = await execute(
+            ToolCall(
+                name: WorkspaceCodeReviewSubmitTool.name,
+                argumentsJSON: #"{"summary":"No defects.","findings":[]}"#
+            ),
+            workspaceRoot
+        )
+        XCTAssertEqual(accepted?.ok, true)
+        let report = await collector.report
+        XCTAssertEqual(report?.summary, "No defects.")
+    }
+
     func testMakeSessionPreservesThreadWorkspaceAndConfiguredTools() throws {
         let workspaceRoot = try makeQuillCodeTestDirectory()
         let memoryRoot = try makeQuillCodeTestDirectory()

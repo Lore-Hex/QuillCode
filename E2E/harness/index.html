@@ -889,7 +889,8 @@
       line-height: 1.35;
     }
     .settings-panel,
-    .search-panel {
+    .search-panel,
+    .code-review-panel {
       position: fixed;
       inset: 0;
       display: grid;
@@ -900,7 +901,8 @@
       z-index: 5;
     }
     .settings-card,
-    .search-card {
+    .search-card,
+    .code-review-card {
       width: min(520px, 100%);
       min-width: 0;
       max-width: 100%;
@@ -915,6 +917,65 @@
       box-shadow: var(--shadow-panel);
     }
     .search-card { width: min(620px, 100%); }
+    .code-review-card { width: min(560px, 100%); }
+    .code-review-card header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+    }
+    .code-review-card header h2,
+    .code-review-card header p { margin: 0; }
+    .code-review-card header p {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      text-wrap: pretty;
+    }
+    .code-review-scope-list { display: grid; gap: 7px; }
+    .code-review-scope {
+      min-height: 52px;
+      border-radius: 8px;
+      transition-property: background-color, border-color, scale;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .code-review-scope:active { scale: .96; }
+    .code-review-scope[aria-pressed="true"] {
+      border-color: rgba(61,201,230,.46);
+      background: rgba(61,201,230,.12);
+    }
+    .code-review-scope strong { display: block; }
+    .code-review-field { display: grid; gap: 6px; }
+    .code-review-field > span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .code-review-field small,
+    .code-review-routing,
+    .code-review-validation {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      text-wrap: pretty;
+    }
+    .code-review-field textarea { min-height: 92px; resize: vertical; }
+    .code-review-routing {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+    }
+    .code-review-validation { color: var(--yellow); }
+    .code-review-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--hit-target-clearance);
+    }
     .settings-card h2, .settings-card p { margin: 0; }
     .settings-card > *,
     .permission-card > * { min-width: 0; }
@@ -3982,6 +4043,41 @@
       border-radius: 8px;
       font-size: 13px;
     }
+    .review-finding {
+      display: grid;
+      gap: 5px;
+      border-left-color: var(--finding-color, rgba(61,201,230,.72));
+      background: color-mix(in srgb, var(--finding-color, #3dc9e6) 7%, rgba(0,0,0,.18));
+    }
+    .review-finding-header {
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      min-width: 0;
+    }
+    .review-finding-priority {
+      flex: none;
+      padding: 2px 6px;
+      border-radius: 999px;
+      color: var(--finding-color, var(--blue));
+      background: color-mix(in srgb, var(--finding-color, #3dc9e6) 13%, transparent);
+      font-size: 11px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .review-finding-title { min-width: 0; color: var(--text); font-weight: 700; }
+    .review-finding-location {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .review-finding-body { color: var(--text); line-height: 1.4; text-wrap: pretty; }
+    .review-finding[data-priority="P0"] { --finding-color: #ff6262; }
+    .review-finding[data-priority="P1"] { --finding-color: #ffb84d; }
+    .review-finding[data-priority="P2"] { --finding-color: #3dc9e6; }
+    .review-finding[data-priority="P3"] { --finding-color: #93a4ad; }
     .pr-review-draft {
       display: grid;
       gap: 10px;
@@ -5012,6 +5108,13 @@
         pendingScope: null,
         referenceDraft: ''
       },
+      codeReviewDialog: {
+        isOpen: false,
+        scope: 'uncommitted',
+        reference: '',
+        instructions: ''
+      },
+      codeReviewRun: null,
       mockGitReviewChangeScope: 'unstaged',
       mockLastTurnHasPartialProvenance: false,
       extensions: {
@@ -5486,7 +5589,8 @@
         { id: 'command-palette', title: 'Command palette', shortcut: 'Cmd+K', category: 'Navigation', keywords: ['commands', 'actions'], isEnabled: true },
         { id: 'keyboard-shortcuts', title: 'Keyboard shortcuts', shortcut: 'Cmd+Shift+/', category: 'Navigation', keywords: ['keyboard', 'shortcuts', 'help', 'commands'], isEnabled: true },
         { id: 'git-status', title: 'Git status', shortcut: '', category: 'Git', keywords: ['git', 'status', 'changes', 'remote'], isEnabled: true },
-        { id: 'git-diff', title: 'Review diff', shortcut: 'Ctrl+Shift+G', category: 'Git', keywords: ['git', 'diff', 'review', 'changes', 'remote'], isEnabled: true },
+        { id: 'code-review', title: 'Code review', shortcut: '', category: 'Git', keywords: ['review', 'code review', 'bugs', 'findings', 'uncommitted', 'base branch', 'commit'], isEnabled: true },
+        { id: 'git-diff', title: 'Review diff', shortcut: 'Ctrl+Shift+G', category: 'Git', keywords: ['git', 'diff', 'changes', 'remote'], isEnabled: true },
         { id: 'git-fetch', title: 'Fetch latest refs', shortcut: '', category: 'Git', keywords: ['git', 'fetch', 'sync', 'remote', 'latest', 'refs'], isEnabled: true },
         { id: 'git-pull', title: 'Pull latest changes', shortcut: '', category: 'Git', keywords: ['git', 'pull', 'sync', 'remote', 'latest', 'ff-only'], isEnabled: true },
         { id: 'git-branch-list', title: 'List branches', shortcut: '', category: 'Git', keywords: ['git', 'branch', 'branches', 'switch', 'remote'], isEnabled: true },
@@ -6223,8 +6327,8 @@
       { usage: '/activity', title: 'Toggle activity', detail: 'Show or hide task plans, tool history, artifacts, sources, and handoff notes.', insertText: '/activity', aliases: [] },
       { usage: '/browser [target]', title: 'Open browser', detail: 'Open a URL, localhost app, or project file in the browser preview; omit target to show or hide the panel.', insertText: '/browser ', aliases: ['preview'] },
       { usage: '/session [target]', title: 'Open browser session', detail: 'Open a visible browser session for a URL, localhost app, or project file; omit target to use the current browser tab.', insertText: '/session ', aliases: ['browser session', 'browser-session', 'sign in browser'] },
-      { usage: '/review', title: 'Review changes', detail: 'Show the working-tree git diff in the review pane.', insertText: '/review', aliases: ['review diff', 'review changes'] },
-      { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff', 'review'] },
+      { usage: '/review', title: 'Code review', detail: 'Choose a scope and run a dedicated read-only model reviewer.', insertText: '/review', aliases: ['code review', 'review changes', 'find bugs'] },
+      { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff', 'review diff'] },
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
       { usage: '/git fetch', title: 'Fetch latest refs', detail: 'Fetch from the selected project remote without changing the working tree.', insertText: '/git fetch', aliases: ['git fetch origin', 'fetch'] },
       { usage: '/git pull', title: 'Pull latest changes', detail: 'Pull the selected project with --ff-only by default.', insertText: '/git pull', aliases: ['git sync', 'pull latest'] },
@@ -8406,6 +8510,7 @@
         command.id === 'project-remove' ? { ...command, isEnabled: hasProject } :
         command.id === 'terminal-clear' ? { ...command, isEnabled: state.terminal.entries.length > 0 && !state.terminal.isRunning } :
         command.id === 'git-status' ? { ...command, isEnabled: hasProject } :
+        command.id === 'code-review' ? { ...command, isEnabled: hasProject && !state.composer.isSending } :
         command.id === 'git-diff' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-fetch' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-pull' ? { ...command, isEnabled: hasProject } :
@@ -8753,6 +8858,11 @@
 
     function handleModalEscape(event) {
       if (event.key !== 'Escape') return false;
+      if (state.codeReviewDialog.isOpen) {
+        event.preventDefault();
+        closeCodeReviewDialog();
+        return true;
+      }
       if (state.settings.isOpen) {
         event.preventDefault();
         state.settings.isOpen = false;
@@ -8767,6 +8877,303 @@
         return true;
       }
       return false;
+    }
+
+    const codeReviewScopes = [
+      {
+        id: 'uncommitted',
+        title: 'Uncommitted changes',
+        subtitle: 'Staged, unstaged, and untracked files'
+      },
+      {
+        id: 'baseBranch',
+        title: 'Against a base branch',
+        subtitle: 'Everything changed from a merge base'
+      },
+      {
+        id: 'commit',
+        title: 'A specific commit',
+        subtitle: 'One exact commit'
+      },
+      {
+        id: 'custom',
+        title: 'Custom review',
+        subtitle: 'Uncommitted changes with your review criteria'
+      }
+    ];
+
+    function codeReviewValidationMessage() {
+      const dialog = state.codeReviewDialog;
+      if (dialog.scope === 'baseBranch' || dialog.scope === 'commit') {
+        const reference = dialog.reference.trim();
+        if (!reference) {
+          return dialog.scope === 'baseBranch'
+            ? 'Enter the base branch to review against.'
+            : 'Enter the commit or SHA to review.';
+        }
+        const isSafeReference = /^[A-Za-z0-9._/-]+$/.test(reference)
+          && !reference.startsWith('-')
+          && !reference.includes('..');
+        if (!isSafeReference) {
+          return dialog.scope === 'baseBranch'
+            ? 'Enter a valid base branch name.'
+            : 'Enter a valid commit or SHA.';
+        }
+      }
+      if (dialog.scope === 'custom' && !dialog.instructions.trim()) {
+        return 'Describe what the reviewer should focus on.';
+      }
+      return '';
+    }
+
+    function openCodeReviewDialog() {
+      if (!state.projects.selectedProjectID || state.composer.isSending) return;
+      state.commandPalette.isOpen = false;
+      state.codeReviewDialog = {
+        isOpen: true,
+        scope: 'uncommitted',
+        reference: '',
+        instructions: ''
+      };
+      render();
+    }
+
+    function closeCodeReviewDialog() {
+      state.codeReviewDialog.isOpen = false;
+      render();
+    }
+
+    function codeReviewTranscriptPrompt(request) {
+      if (request.scope === 'baseBranch') {
+        return `Review changes against base branch \`${request.reference.trim()}\``;
+      }
+      if (request.scope === 'commit') {
+        return `Review commit \`${request.reference.trim()}\``;
+      }
+      if (request.scope === 'custom') {
+        return `Review all uncommitted changes with this focus: ${request.instructions.trim()}`;
+      }
+      return 'Review all uncommitted changes';
+    }
+
+    function codeReviewReportMarkdown(report) {
+      const lines = ['## Code review', '', report.summary];
+      if (!report.findings.length) return [...lines, '', 'No actionable findings.'].join('\n');
+      lines.push('');
+      report.findings.forEach(finding => {
+        const endLine = finding.endLine || finding.line;
+        const location = finding.line
+          ? endLine === finding.line
+            ? `\`${finding.path}:${finding.line}\``
+            : `\`${finding.path}:${finding.line}-${endLine}\``
+          : `\`${finding.path}\``;
+        lines.push(`- **[${finding.priority}] ${finding.title}** ${location} — ${finding.body}`);
+      });
+      return lines.join('\n');
+    }
+
+    function completeMockCodeReview(runID) {
+      if (!activeMockRun || activeMockRun.id !== runID || activeMockRun.kind !== 'code-review') return;
+      activeMockRun = null;
+      const report = {
+        summary: 'The requested changes contain one actionable correctness issue.',
+        findings: [{
+          id: crypto.randomUUID(),
+          priority: 'P1',
+          title: 'Preserve the existing project title',
+          body: 'This assignment replaces the configured title for every launch instead of applying the requested fallback only when no title exists.',
+          path: 'Sources/App.swift',
+          line: 1,
+          endLine: 1
+        }]
+      };
+      const comments = report.findings.map(finding => ({
+        id: finding.id,
+        path: finding.path,
+        lineNumber: finding.line,
+        endLineNumber: finding.endLine,
+        text: finding.body,
+        source: 'codeReview',
+        priority: finding.priority,
+        title: finding.title
+      }));
+      state.review = {
+        title: 'Review changes',
+        subtitle: '1 review finding',
+        hasGitDiff: false,
+        activeScope: null,
+        scopeReference: null,
+        scopeNotice: null,
+        lastTurnMessageID: null,
+        files: [{
+          path: 'Sources/App.swift',
+          changeLabel: '1 finding',
+          isFindingOnly: true,
+          hunks: [],
+          comments
+        }],
+        pullRequestThreads: [],
+        reviewDraft: null,
+        totalInsertions: 0,
+        totalDeletions: 0,
+        totalHunks: 0,
+        activeReplyThreadID: null
+      };
+      state.chrome.isReviewVisible = true;
+      state.codeReviewRun = null;
+      addMessage('assistant', codeReviewReportMarkdown(report));
+      finishMockAgentTurn();
+    }
+
+    function runCodeReview() {
+      const validationMessage = codeReviewValidationMessage();
+      if (validationMessage || state.composer.isSending) return;
+      const request = {
+        scope: state.codeReviewDialog.scope,
+        reference: state.codeReviewDialog.reference,
+        instructions: state.codeReviewDialog.instructions
+      };
+      state.codeReviewDialog.isOpen = false;
+      addMessage('user', codeReviewTranscriptPrompt(request));
+      touchSelectedThread();
+      state.composer.isSending = true;
+      state.topBar.agentStatus = 'Reviewing';
+      state.codeReviewRun = { request };
+      const runID = crypto.randomUUID();
+      const timer = window.setTimeout(() => completeMockCodeReview(runID), 500);
+      activeMockRun = { id: runID, timer, kind: 'code-review' };
+      render();
+    }
+
+    function renderCodeReviewDialog() {
+      if (!state.codeReviewDialog.isOpen) return '';
+      const dialog = state.codeReviewDialog;
+      const validationMessage = codeReviewValidationMessage();
+      const detail = dialog.scope === 'baseBranch' || dialog.scope === 'commit' ? `
+        <label class="code-review-field">
+          <span>${dialog.scope === 'baseBranch' ? 'Base branch' : 'Commit or SHA'}</span>
+          <input
+            class="hit-target-text-entry"
+            data-testid="code-review-reference"
+            aria-label="${dialog.scope === 'baseBranch' ? 'Base branch' : 'Commit or SHA'}"
+            placeholder="${dialog.scope === 'baseBranch' ? 'main or origin/main' : 'HEAD or commit SHA'}"
+            value="${escapeHTML(dialog.reference)}">
+          <small>${dialog.scope === 'baseBranch' ? 'Reviews changes from the merge base through HEAD.' : 'Reviews the patch introduced by exactly this commit.'}</small>
+        </label>` : dialog.scope === 'custom' ? `
+        <label class="code-review-field">
+          <span>Review focus</span>
+          <textarea class="hit-target-text-entry" data-testid="code-review-instructions" aria-label="Review focus" placeholder="Prioritize correctness, security, performance, or API concerns">${escapeHTML(dialog.instructions)}</textarea>
+          <small>Describe correctness, security, performance, or API concerns to prioritize.</small>
+        </label>` : '';
+      return `
+        <div class="code-review-panel" data-testid="code-review-panel">
+          <form class="code-review-card" data-testid="code-review-dialog" role="dialog" aria-modal="true" aria-labelledby="code-review-title">
+            <header>
+              <div>
+                <h2 id="code-review-title">Review changes</h2>
+                <p>Run a dedicated read-only reviewer and surface prioritized findings inline.</p>
+              </div>
+              <button type="button" class="hit-target-icon" data-testid="code-review-close" aria-label="Close code review" title="Close">×</button>
+            </header>
+            <section class="code-review-scope-list" aria-label="Review scope">
+              <span class="eyebrow">Review scope</span>
+              ${codeReviewScopes.map(scope => `
+                <button
+                  type="button"
+                  class="dialog-choice code-review-scope hit-target-row"
+                  data-testid="code-review-scope"
+                  data-scope="${scope.id}"
+                  aria-pressed="${dialog.scope === scope.id ? 'true' : 'false'}">
+                  <strong>${escapeHTML(scope.title)}</strong>
+                  <span>${escapeHTML(scope.subtitle)}</span>
+                </button>`).join('')}
+            </section>
+            ${detail}
+            <p class="code-review-routing" data-testid="code-review-routing"><span aria-hidden="true">◫</span><span>Current task</span><span aria-hidden="true">•</span><span>${escapeHTML(state.topBar.modelLabel || 'Current model')}</span></p>
+            <footer class="code-review-footer">
+              <span class="code-review-validation" data-testid="code-review-validation" role="status">${escapeHTML(validationMessage)}</span>
+              <button type="button" class="hit-target-form-action" data-testid="code-review-cancel">Cancel</button>
+              <button type="submit" class="hit-target-form-action" data-testid="code-review-start" ${validationMessage ? 'disabled' : ''}>Start review</button>
+            </footer>
+          </form>
+        </div>`;
+    }
+
+    function refreshCodeReviewValidation() {
+      const message = codeReviewValidationMessage();
+      const validation = document.querySelector('[data-testid="code-review-validation"]');
+      const start = document.querySelector('[data-testid="code-review-start"]');
+      if (validation) validation.textContent = message;
+      if (start) start.disabled = Boolean(message);
+    }
+
+    function bindCodeReviewDialogHandlers() {
+      const panel = document.querySelector('[data-testid="code-review-panel"]');
+      const form = document.querySelector('[data-testid="code-review-dialog"]');
+      if (!panel || !form) return;
+      panel.addEventListener('click', event => {
+        if (event.target === panel) closeCodeReviewDialog();
+      });
+      form.addEventListener('click', event => event.stopPropagation());
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        runCodeReview();
+      });
+      form.querySelector('[data-testid="code-review-close"]')?.addEventListener('click', closeCodeReviewDialog);
+      form.querySelector('[data-testid="code-review-cancel"]')?.addEventListener('click', closeCodeReviewDialog);
+      form.querySelectorAll('[data-testid="code-review-scope"]').forEach(button => {
+        button.addEventListener('click', event => {
+          const scope = event.currentTarget.getAttribute('data-scope');
+          state.codeReviewDialog.scope = scope;
+          render();
+          const fieldTestID = scope === 'custom' ? 'code-review-instructions' : scope === 'uncommitted' ? null : 'code-review-reference';
+          if (fieldTestID) window.requestAnimationFrame(() => document.querySelector(`[data-testid="${fieldTestID}"]`)?.focus());
+        });
+      });
+      form.querySelector('[data-testid="code-review-reference"]')?.addEventListener('input', event => {
+        state.codeReviewDialog.reference = event.currentTarget.value;
+        refreshCodeReviewValidation();
+      });
+      form.querySelector('[data-testid="code-review-instructions"]')?.addEventListener('input', event => {
+        state.codeReviewDialog.instructions = event.currentTarget.value;
+        refreshCodeReviewValidation();
+      });
+    }
+
+    function codeReviewFindingCount(review) {
+      return (review.files || []).reduce((total, file) => {
+        const fileFindings = (file.comments || []).filter(comment => comment.source === 'codeReview').length;
+        const lineFindings = (file.hunks || []).reduce((hunkTotal, hunk) => (
+          hunkTotal + (hunk.lines || []).reduce((lineTotal, line) => (
+            lineTotal + (line.comments || []).filter(comment => comment.source === 'codeReview').length
+          ), 0)
+        ), 0);
+        return total + fileFindings + lineFindings;
+      }, 0);
+    }
+
+    function reviewCommentMarkup(comment, { lineComment = false } = {}) {
+      if (comment.source !== 'codeReview') {
+        const location = comment.endLineNumber && comment.endLineNumber !== comment.lineNumber
+          ? `<strong>Lines ${escapeHTML(comment.lineNumber)}-${escapeHTML(comment.endLineNumber)}</strong> `
+          : comment.lineNumber ? `<strong>Line ${escapeHTML(comment.lineNumber)}</strong> ` : '';
+        return `<blockquote class="${lineComment ? 'review-line-comment' : 'review-comment'}" data-testid="${lineComment ? 'review-line-comment' : 'review-comment'}">${location}${escapeHTML(comment.text)}</blockquote>`;
+      }
+      const location = comment.lineNumber
+        ? comment.endLineNumber && comment.endLineNumber !== comment.lineNumber
+          ? `Lines ${comment.lineNumber}-${comment.endLineNumber}`
+          : `Line ${comment.lineNumber}`
+        : '';
+      const priority = comment.priority || 'P2';
+      return `
+        <blockquote class="${lineComment ? 'review-line-comment' : 'review-comment'} review-finding" data-testid="code-review-finding" data-priority="${escapeHTML(priority)}">
+          <span class="review-finding-header">
+            <span class="review-finding-priority">${escapeHTML(priority)}</span>
+            <span class="review-finding-title">${escapeHTML(comment.title || 'Code review finding')}</span>
+            ${location ? `<span class="review-finding-location">${escapeHTML(location)}</span>` : ''}
+          </span>
+          <span class="review-finding-body">${escapeHTML(comment.text)}</span>
+        </blockquote>`;
     }
 
     function estimatedContextTokens() {
@@ -9086,7 +9493,8 @@
         branch: 'Branch',
         last_turn: 'Last turn'
       };
-      const wholeReviewActions = !state.review.files.length
+      const mutableReviewFiles = state.review.files.filter(file => !file.isFindingOnly);
+      const wholeReviewActions = !hasGitDiff || !mutableReviewFiles.length
         ? []
         : reviewScope === 'unstaged'
           ? [{ action: 'stage_all', title: 'Stage all' }, { action: 'restore_all', title: 'Revert all' }]
@@ -9095,8 +9503,10 @@
             : reviewScope === 'last_turn' && state.review.lastTurnMessageID
               ? [{ action: 'revert_turn', title: 'Revert all' }]
               : [];
+      const reviewFindingCount = codeReviewFindingCount(state.review);
       const reviewBadge = [
-        state.review.files.length ? `${state.review.totalHunks} hunk${state.review.totalHunks === 1 ? '' : 's'}` : null,
+        state.review.totalHunks > 0 ? `${state.review.totalHunks} hunk${state.review.totalHunks === 1 ? '' : 's'}` : null,
+        reviewFindingCount ? `${reviewFindingCount} finding${reviewFindingCount === 1 ? '' : 's'}` : null,
         reviewThreads.length ? `${reviewThreads.length} thread${reviewThreads.length === 1 ? '' : 's'}` : null,
         reviewDraft ? 'review draft' : null
       ].filter(Boolean).join(' · ') || 'Review';
@@ -9135,7 +9545,9 @@
                 <span class="review-actions">
                   <small>${escapeHTML(file.changeLabel)}</small>
                   <button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="open" data-path="${escapeHTML(file.path)}">Open</button>
-                  ${isHistoricalReview
+                  ${file.isFindingOnly
+                    ? ''
+                    : isHistoricalReview
                     ? ''
                     : reviewScope === 'staged'
                     ? `<button type="button" class="review-action-button hit-target-text" data-testid="review-action" data-action="unstage" data-path="${escapeHTML(file.path)}">Unstage</button>`
@@ -9176,7 +9588,7 @@
                               </form>
                               ${(line.comments || []).length ? `
                                 <div class="review-line-comments">
-                                  ${line.comments.map(comment => `<blockquote class="review-line-comment" data-testid="review-line-comment">${comment.endLineNumber && comment.endLineNumber !== comment.lineNumber ? `<strong>Lines ${escapeHTML(comment.lineNumber)}-${escapeHTML(comment.endLineNumber)}</strong> ` : comment.lineNumber ? `<strong>Line ${escapeHTML(comment.lineNumber)}</strong> ` : ''}${escapeHTML(comment.text)}</blockquote>`).join('')}
+                                  ${line.comments.map(comment => reviewCommentMarkup(comment, { lineComment: true })).join('')}
                                 </div>` : ''}
                             </li>`).join('')}
                         </ol>
@@ -9184,7 +9596,7 @@
                   </div>` : ''}
                 ${(file.comments || []).length ? `
                   <div class="review-comments">
-                    ${file.comments.map(comment => `<blockquote class="review-comment" data-testid="review-comment">${escapeHTML(comment.text)}</blockquote>`).join('')}
+                    ${file.comments.map(comment => reviewCommentMarkup(comment)).join('')}
                   </div>` : ''}
                 <form class="review-comment-form" data-testid="review-comment-form" data-path="${escapeHTML(file.path)}">
                   <input class="hit-target-text-entry" data-testid="review-comment-input" aria-label="Review note for ${escapeHTML(file.path)}" placeholder="Add review note">
@@ -9261,7 +9673,9 @@
       const renderThinkingIndicator = () => {
         if (!state.composer.isSending) return '';
         const traceLines = thinkingTraceLines();
-        const subtitle = traceLines[traceLines.length - 1] || 'Preparing the next step';
+        const subtitle = state.codeReviewRun
+          ? 'Reviewing the requested changes'
+          : traceLines[traceLines.length - 1] || 'Preparing the next step';
         const trace = traceLines.length ? `
           <details data-testid="thinking-trace">
             <summary class="hit-target-row">Trace</summary>
@@ -9939,6 +10353,7 @@
             </main>
             ${state.activity.isVisible ? renderActivityPane() : ''}
           </div>
+          ${renderCodeReviewDialog()}
           ${state.settings.isOpen ? renderSettingsPanel() : ''}
           ${state.agentImport.isOpen ? renderAgentImportPanel() : ''}
           ${state.search.isOpen ? renderSearchPanel() : ''}
@@ -9952,6 +10367,7 @@
         </section>`;
 
       normalizeInteractionTargetContracts(document.getElementById('app'));
+      bindCodeReviewDialogHandlers();
       restoreTranscriptScroll(scrollSnapshot);
 
       const form = document.querySelector('[data-testid="composer"]');
@@ -15836,9 +16252,14 @@
     }
 
     function stopActiveWork({ stopMCPServers = true } = {}) {
+      const stoppedCodeReview = activeMockRun?.kind === 'code-review';
       if (activeMockRun?.timer) {
         window.clearTimeout(activeMockRun.timer);
         activeMockRun = null;
+      }
+      if (stoppedCodeReview) {
+        state.codeReviewRun = null;
+        addMessage('assistant', 'Code review stopped.');
       }
       if (activeTerminalRun) {
         if (activeTerminalRun.timer) {
@@ -15917,6 +16338,7 @@
       'decrease-font-size',
       'find-in-chat',
       'copy-conversation',
+      'code-review',
       'export-conversation-markdown',
       'fork-from-last',
       'fork-full-context',
@@ -16691,6 +17113,10 @@
       }
       if (commandID === 'git-status') {
         runGitStatusAction();
+        return;
+      }
+      if (commandID === 'code-review') {
+        openCodeReviewDialog();
         return;
       }
       if (commandID === 'git-diff') {
@@ -19700,8 +20126,22 @@
         return;
       }
       if (!attachments.length && openBrowserSessionFromSlash(text)) return;
+      if (!attachments.length && openCodeReviewFromSlash(text)) return;
       if (!attachments.length && runInstantViewSlashCommand(text)) return;
       startMockAgentTurn(text, attachments);
+    }
+
+    function openCodeReviewFromSlash(text) {
+      if (!/^\/review\b/i.test(text)) return false;
+      if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
+      state.composer.draft = '';
+      state.composer.canSend = false;
+      state.composer.slashActiveIndex = 0;
+      state.composer.historyRecallIndex = null;
+      state.composer.historySavedDraft = null;
+      state.runtimeIssue = null;
+      runCommand('code-review');
+      return true;
     }
 
     function runInstantStopSlashCommand(text) {
@@ -20589,7 +21029,7 @@
         if (lastUserMessage) {
           lastUserMessage.revert = { turnMessageID: lastUserMessage.id, hasNonApplyPatchEdits: false };
         }
-      } else if (/^\/(review|diff|changes)\b/i.test(text)) {
+      } else if (/^\/(diff|changes)\b/i.test(text)) {
         runGitDiffAction();
         return;
       } else if (/^\/git-?status\b/i.test(text)) {

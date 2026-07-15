@@ -17,6 +17,9 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     func runWorkspaceCommandActionEffect(_ effect: WorkspaceCommandActionEffect, workspaceRoot: URL) -> Bool {
         switch effect {
+        case .presentCodeReview:
+            presentCodeReview()
+            return codeReviewRequest != nil
         case .newChat:
             _ = newChat()
             return true

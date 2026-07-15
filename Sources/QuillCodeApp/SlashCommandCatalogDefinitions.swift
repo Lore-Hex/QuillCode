@@ -364,15 +364,15 @@ extension SlashCommandCatalog {
         ),
         slashDefinition(
             "/review",
-            "Review changes",
-            "Show the working-tree git diff in the review pane.",
-            aliases: ["review diff", "review changes"]
+            "Review changes with QuillCode",
+            "Run a dedicated read-only reviewer against uncommitted changes, a base branch, a commit, or custom criteria.",
+            aliases: ["code review", "review changes"]
         ),
         slashDefinition(
             "/diff",
             "Review diff",
             "Show the working-tree git diff in the review pane.",
-            aliases: ["changes", "git diff", "review"]
+            aliases: ["changes", "git diff"]
         ),
         slashDefinition(
             "/git-status",

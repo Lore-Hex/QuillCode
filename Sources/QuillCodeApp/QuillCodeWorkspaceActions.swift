@@ -33,6 +33,8 @@ public struct QuillCodeWorkspaceActions {
     let onSaveKeyboardShortcuts: (KeyboardShortcutPreferences) -> Void
     let onStartTrustedRouterSignIn: () -> Void
     let agentImport: QuillCodeAgentImportActions?
+    let onDismissCodeReview: () -> Void
+    let onRunCodeReview: (WorkspaceCodeReviewRequest) -> Void
     let onReviewScopeChange: (WorkspaceReviewSelection) -> Void
     let onReviewAction: (WorkspaceReviewActionSurface) -> Void
     let onPullRequestReviewThreadAction: (WorkspacePullRequestReviewThreadActionSurface) -> Void
@@ -92,6 +94,8 @@ public struct QuillCodeWorkspaceActions {
         onSaveKeyboardShortcuts: @escaping (KeyboardShortcutPreferences) -> Void = { _ in },
         onStartTrustedRouterSignIn: @escaping () -> Void,
         agentImport: QuillCodeAgentImportActions? = nil,
+        onDismissCodeReview: @escaping () -> Void = {},
+        onRunCodeReview: @escaping (WorkspaceCodeReviewRequest) -> Void = { _ in },
         onReviewScopeChange: @escaping (WorkspaceReviewSelection) -> Void = { _ in },
         onReviewAction: @escaping (WorkspaceReviewActionSurface) -> Void,
         onPullRequestReviewThreadAction: @escaping (WorkspacePullRequestReviewThreadActionSurface) -> Void = { _ in },
@@ -152,6 +156,8 @@ public struct QuillCodeWorkspaceActions {
         self.onSaveKeyboardShortcuts = onSaveKeyboardShortcuts
         self.onStartTrustedRouterSignIn = onStartTrustedRouterSignIn
         self.agentImport = agentImport
+        self.onDismissCodeReview = onDismissCodeReview
+        self.onRunCodeReview = onRunCodeReview
         self.onReviewScopeChange = onReviewScopeChange
         self.onReviewAction = onReviewAction
         self.onPullRequestReviewThreadAction = onPullRequestReviewThreadAction

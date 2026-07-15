@@ -85,6 +85,8 @@ struct QuillCodeDesktopSettingsCoordinator {
         config.runSpendFuseUSD = update.runSpendFuseUSD
         config.runSpendPeriodLimits = update.runSpendPeriodLimits
         config.managedWorktrees = update.managedWorktrees
+        config.reviewModel = update.reviewModel
+        config.reviewDelivery = update.reviewDelivery
 
         if update.shouldClearAPIKey {
             try? bootstrap.clearTrustedRouterAPIKey()

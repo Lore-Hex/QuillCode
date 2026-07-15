@@ -1,6 +1,11 @@
 import Foundation
 import QuillCodeCore
 
+public enum WorkspaceReviewCommentSource: String, Codable, Sendable, Hashable {
+    case user
+    case codeReview
+}
+
 public struct WorkspaceReviewCommentState: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID
     public var path: String
@@ -9,6 +14,9 @@ public struct WorkspaceReviewCommentState: Codable, Sendable, Hashable, Identifi
     public var lineKind: WorkspaceReviewLineKind?
     public var text: String
     public var createdAt: Date
+    public var source: WorkspaceReviewCommentSource?
+    public var priority: WorkspaceCodeReviewPriority?
+    public var title: String?
 
     public init(
         id: UUID = UUID(),
@@ -17,7 +25,10 @@ public struct WorkspaceReviewCommentState: Codable, Sendable, Hashable, Identifi
         endLineNumber: Int? = nil,
         lineKind: WorkspaceReviewLineKind? = nil,
         text: String,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        source: WorkspaceReviewCommentSource? = .user,
+        priority: WorkspaceCodeReviewPriority? = nil,
+        title: String? = nil
     ) {
         self.id = id
         self.path = path
@@ -26,10 +37,32 @@ public struct WorkspaceReviewCommentState: Codable, Sendable, Hashable, Identifi
         self.lineKind = lineKind
         self.text = text
         self.createdAt = createdAt
+        self.source = source
+        self.priority = priority
+        self.title = title
     }
 }
 
 struct WorkspaceReviewCommentPlanner: Sendable, Hashable {
+    static func event(for finding: WorkspaceCodeReviewFinding, createdAt: Date = Date()) -> ThreadEvent {
+        let comment = WorkspaceReviewCommentState(
+            path: finding.path,
+            lineNumber: finding.line,
+            endLineNumber: finding.endLine,
+            text: finding.body,
+            createdAt: createdAt,
+            source: .codeReview,
+            priority: finding.priority,
+            title: finding.title
+        )
+        return ThreadEvent(
+            kind: .reviewComment,
+            createdAt: createdAt,
+            summary: "\(finding.priority.label) finding in \(finding.path)",
+            payloadJSON: (try? JSONHelpers.encodePretty(comment)) ?? "{}"
+        )
+    }
+
     static func event(
         path: String,
         lineNumber: Int? = nil,

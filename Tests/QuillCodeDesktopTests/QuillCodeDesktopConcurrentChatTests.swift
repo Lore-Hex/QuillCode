@@ -211,6 +211,41 @@ final class QuillCodeDesktopConcurrentChatTests: XCTestCase {
         XCTAssertFalse(tasks.isRunning(.workflowRecording))
     }
 
+    func testDesktopStopAllCancelsActiveCodeReviewTask() {
+        let model = QuillCodeWorkspaceModel()
+        let tasks = QuillCodeDesktopTaskCoordinator()
+        let slot = QuillCodeDesktopTaskCoordinator.Slot.codeReview(UUID())
+        var draft = "unsent local text"
+        XCTAssertTrue(tasks.startIfIdle(slot) {
+            try? await Task.sleep(nanoseconds: 60_000_000_000)
+        })
+        XCTAssertTrue(tasks.isRunning(slot))
+
+        QuillCodeDesktopActiveWorkCoordinator().stopAll(
+            draft: &draft,
+            model: model,
+            tasks: tasks,
+            refresh: {}
+        )
+
+        XCTAssertFalse(tasks.isRunning(slot))
+        XCTAssertEqual(draft, "")
+    }
+
+    func testCodeReviewTaskRejectsDuplicateRunForSameOwner() {
+        let tasks = QuillCodeDesktopTaskCoordinator()
+        let ownerID = UUID()
+        let slot = QuillCodeDesktopTaskCoordinator.Slot.codeReview(ownerID)
+
+        XCTAssertTrue(tasks.startIfIdle(slot) {
+            try? await Task.sleep(nanoseconds: 60_000_000_000)
+        })
+        XCTAssertFalse(tasks.startIfIdle(slot) {})
+
+        tasks.cancel(slot)
+        XCTAssertFalse(tasks.isRunning(slot))
+    }
+
     private func waitUntil(
         timeoutSeconds: TimeInterval,
         condition: @MainActor @escaping () -> Bool,

@@ -8,6 +8,8 @@ struct QuillCodeSettingsDraft: Equatable {
     var developerOverrideEnabled: Bool = false
     var replacementAPIKey: String = ""
     var shouldClearAPIKey: Bool = false
+    var reviewModelText: String = ""
+    var reviewDelivery: CodeReviewDelivery = .current
     var computerUseApprovedBundleIdentifiersText: String = ""
     var computerUseApprovedAppNamesText: String = ""
     var browserAllowedDomainsText: String = ""
@@ -32,6 +34,8 @@ struct QuillCodeSettingsDraft: Equatable {
         self.apiBaseURL = settings.apiBaseURL
         self.authMode = settings.authMode
         self.developerOverrideEnabled = settings.developerOverrideEnabled
+        self.reviewModelText = settings.reviewModel ?? ""
+        self.reviewDelivery = settings.reviewDelivery
         self.computerUseApprovedBundleIdentifiersText = Self.joinedApprovals(
             settings.computerUseApprovedBundleIdentifiers
         )
@@ -56,6 +60,15 @@ struct QuillCodeSettingsDraft: Equatable {
     var canSave: Bool {
         !apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && Self.isValidWorktreeRoot(managedWorktreeRootPathText)
+            && isReviewModelValid
+    }
+
+    var isReviewModelValid: Bool {
+        let trimmed = reviewModelText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return true }
+        let canonicalID = TrustedRouterDefaults.canonicalModelID(trimmed)
+        return !canonicalID.isEmpty
+            && canonicalID.rangeOfCharacter(from: .whitespacesAndNewlines) == nil
     }
 
     var update: WorkspaceSettingsUpdate {
@@ -88,8 +101,15 @@ struct QuillCodeSettingsDraft: Equatable {
                 ),
                 automaticCleanupEnabled: managedWorktreeAutomaticCleanupEnabled,
                 retentionLimit: managedWorktreeRetentionLimit
-            )
+            ),
+            reviewModel: normalizedReviewModel,
+            reviewDelivery: reviewDelivery
         )
+    }
+
+    private var normalizedReviewModel: String? {
+        guard isReviewModelValid else { return nil }
+        return AppConfig.normalizedReviewModelID(reviewModelText)
     }
 
     mutating func clearComputerUseApprovals() {

@@ -60,10 +60,7 @@ struct QuillCodeReviewFileRowView: View {
         if !file.comments.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(file.comments) { comment in
-                    Label(comment.text, systemImage: "text.bubble")
-                        .font(.caption)
-                        .foregroundStyle(QuillCodePalette.text)
-                        .labelStyle(.titleAndIcon)
+                    QuillCodeReviewCommentView(comment: comment)
                 }
             }
             .padding(.leading, 30)

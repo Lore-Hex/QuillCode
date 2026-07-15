@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { elementRect, harnessURL } from './harness-helpers';
+import {
+  clickCommandPaletteCommand,
+  elementRect,
+  harnessURL,
+  openCommandPalette
+} from './harness-helpers';
 
 test('mock harness exposes actionable approval buttons on review cards', async ({ page }) => {
   await page.goto(harnessURL());
@@ -204,6 +209,121 @@ test('mock harness shows git review summary for diff flow', async ({ page }) => 
   await page.getByTestId('sidebar-tools-button').click();
   await page.getByTestId('review-button').click();
   await expect(page.getByTestId('review-pane')).toBeVisible();
+});
+
+test('code review command opens a focused, keyboard-stable scope chooser', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await openCommandPalette(page);
+  await clickCommandPaletteCommand(page, '>code review', 'code-review');
+
+  const dialog = page.getByTestId('code-review-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTestId('code-review-scope')).toHaveCount(4);
+  await expect(page.locator('[data-testid="code-review-scope"][data-scope="uncommitted"]'))
+    .toHaveAttribute('aria-pressed', 'true');
+  const scopeBounds = await page.getByTestId('code-review-scope').evaluateAll(buttons => (
+    buttons.map(button => {
+      const bounds = button.getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height };
+    })
+  ));
+  expect(scopeBounds.every(bounds => bounds.width >= 40 && bounds.height >= 40)).toBe(true);
+
+  await page.locator('[data-testid="code-review-scope"][data-scope="baseBranch"]').click();
+  const reference = page.getByTestId('code-review-reference');
+  await expect(reference).toBeFocused();
+  await expect(page.getByTestId('code-review-start')).toBeDisabled();
+  await reference.pressSequentially('origin/main');
+  await expect(reference).toBeFocused();
+  await expect(reference).toHaveValue('origin/main');
+  await expect(page.getByTestId('code-review-start')).toBeEnabled();
+  await reference.fill('main; rm -rf .');
+  await expect(page.getByTestId('code-review-validation')).toHaveText('Enter a valid base branch name.');
+  await expect(page.getByTestId('code-review-start')).toBeDisabled();
+  await reference.fill('origin/main');
+  await expect(page.getByTestId('code-review-start')).toBeEnabled();
+
+  await page.locator('[data-testid="code-review-scope"][data-scope="commit"]').click();
+  const commitReference = page.getByTestId('code-review-reference');
+  await expect(commitReference).toBeFocused();
+  await expect(commitReference).toHaveValue('origin/main');
+  await commitReference.fill('');
+  await expect(page.getByTestId('code-review-start')).toBeDisabled();
+
+  await page.locator('[data-testid="code-review-scope"][data-scope="custom"]').click();
+  const instructions = page.getByTestId('code-review-instructions');
+  await expect(instructions).toBeFocused();
+  await instructions.pressSequentially('Prioritize cancellation races');
+  await expect(instructions).toBeFocused();
+  await expect(instructions).toHaveValue('Prioritize cancellation races');
+  await expect(page.getByTestId('code-review-start')).toBeEnabled();
+
+  for (const testID of ['code-review-close', 'code-review-cancel', 'code-review-start']) {
+    const bounds = await elementRect(page, `[data-testid="${testID}"]`);
+    expect(bounds.width).toBeGreaterThanOrEqual(40);
+    expect(bounds.height).toBeGreaterThanOrEqual(40);
+  }
+});
+
+test('slash code review shows the user turn immediately and surfaces typed findings', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('/review');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('code-review-dialog')).toBeVisible();
+  await expect(page.getByTestId('message')).toHaveCount(0);
+
+  await page.getByTestId('code-review-start').click();
+  await expect(page.getByTestId('message')).toHaveCount(1);
+  await expect(page.getByTestId('message').first()).toContainText('Review all uncommitted changes');
+  await expect(page.getByTestId('thinking-indicator')).toBeVisible();
+  await expect(page.getByTestId('thinking-subtitle')).toHaveText('Reviewing the requested changes');
+  await expect(page.getByTestId('agent-status')).toHaveText('Reviewing');
+
+  await expect(page.getByTestId('thinking-indicator')).toHaveCount(0);
+  await expect(page.getByTestId('message')).toHaveCount(2);
+  await expect(page.getByTestId('message').last()).toContainText('## Code review');
+  await expect(page.getByTestId('message').last()).toContainText('[P1] Preserve the existing project title');
+  await expect(page.getByTestId('review-pane')).toBeVisible();
+  await expect(page.getByTestId('review-summary')).toHaveText('1 review finding');
+  await expect(page.getByTestId('review-badge')).toHaveText('1 finding');
+  await expect(page.getByTestId('review-badge')).not.toContainText('0 hunks');
+  await expect(page.getByTestId('review-file-path')).toHaveText('Sources/App.swift');
+
+  const finding = page.getByTestId('code-review-finding');
+  await expect(finding).toHaveAttribute('data-priority', 'P1');
+  await expect(finding).toContainText('Preserve the existing project title');
+  await expect(finding).toContainText('Line 1');
+  await expect(finding).toContainText('replaces the configured title');
+  await expect(page.getByRole('button', { name: 'Open', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Stage', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Restore', exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('tool-card')).toHaveCount(0);
+});
+
+test('code review chooser dismisses outside and with Escape, while Stop cancels an active review', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('/review');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByTestId('code-review-panel').click({ position: { x: 4, y: 4 } });
+  await expect(page.getByTestId('code-review-dialog')).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('/review');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('code-review-dialog')).toHaveCount(0);
+
+  await page.getByLabel('Message').fill('/review');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByTestId('code-review-start').click();
+  await expect(page.getByTestId('thinking-indicator')).toBeVisible();
+  await page.getByTestId('stop-button').click();
+  await expect(page.getByTestId('message').last()).toContainText('Code review stopped.');
+  await expect(page.getByTestId('thinking-indicator')).toHaveCount(0);
+  await page.waitForTimeout(600);
+  await expect(page.getByTestId('code-review-finding')).toHaveCount(0);
 });
 
 test('mock harness compares one exact commit with a focused read-only review', async ({ page }) => {

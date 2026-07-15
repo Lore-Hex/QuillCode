@@ -81,7 +81,9 @@ enum SlashWorkspaceCommandParser {
             return parseBrowser(argument)
         case "browser-session", "session":
             return parseBrowserSession(argument)
-        case "review", "diff", "changes":
+        case "review":
+            return .workspaceCommand("code-review")
+        case "diff", "changes":
             return .workspaceCommand("git-diff")
         case "git-status", "gitstatus":
             return .workspaceCommand("git-status")

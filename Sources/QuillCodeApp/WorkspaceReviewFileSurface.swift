@@ -8,6 +8,7 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
     public var hunks: Int
     public var isBinary: Bool
     public var isDeleted: Bool
+    public var isFindingOnly: Bool
     public var hunkItems: [WorkspaceReviewHunkSurface]
     public var comments: [WorkspaceReviewCommentSurface]
 
@@ -18,11 +19,16 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         case hunks
         case isBinary
         case isDeleted
+        case isFindingOnly
         case hunkItems
         case comments
     }
 
     public var changeLabel: String {
+        if isFindingOnly {
+            let findingCount = comments.filter { $0.source == .codeReview }.count
+            return "\(findingCount) finding\(findingCount == 1 ? "" : "s")"
+        }
         var parts = ["+\(insertions)", "-\(deletions)"]
         if hunks > 0 {
             parts.append("\(hunks) hunk\(hunks == 1 ? "" : "s")")
@@ -51,6 +57,11 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
     }
 
     public func actions(in scope: WorkspaceReviewScope) -> [WorkspaceReviewActionSurface] {
+        if isFindingOnly {
+            return unreadableReason == nil
+                ? [WorkspaceReviewActionSurface(kind: .open, path: path, scope: scope)]
+                : []
+        }
         let mutatingActions: [WorkspaceReviewActionSurface]
         switch scope {
         case .unstaged:
@@ -78,6 +89,7 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         hunks: Int,
         isBinary: Bool = false,
         isDeleted: Bool = false,
+        isFindingOnly: Bool = false,
         hunkItems: [WorkspaceReviewHunkSurface] = [],
         comments: [WorkspaceReviewCommentSurface] = []
     ) {
@@ -87,6 +99,7 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         self.hunks = hunks
         self.isBinary = isBinary
         self.isDeleted = isDeleted
+        self.isFindingOnly = isFindingOnly
         self.hunkItems = hunkItems
         self.comments = comments
     }
@@ -99,6 +112,7 @@ public struct WorkspaceReviewFileSurface: Codable, Sendable, Hashable, Identifia
         self.hunks = try container.decode(Int.self, forKey: .hunks)
         self.isBinary = try container.decodeIfPresent(Bool.self, forKey: .isBinary) ?? false
         self.isDeleted = try container.decodeIfPresent(Bool.self, forKey: .isDeleted) ?? false
+        self.isFindingOnly = try container.decodeIfPresent(Bool.self, forKey: .isFindingOnly) ?? false
         self.hunkItems = try container.decodeIfPresent([WorkspaceReviewHunkSurface].self, forKey: .hunkItems) ?? []
         self.comments = try container.decodeIfPresent([WorkspaceReviewCommentSurface].self, forKey: .comments) ?? []
     }

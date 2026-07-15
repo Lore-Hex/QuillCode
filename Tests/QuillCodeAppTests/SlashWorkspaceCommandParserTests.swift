@@ -102,6 +102,7 @@ final class SlashWorkspaceCommandParserTests: XCTestCase {
     }
 
     func testGitDiffAndStatusAliasesRunGitCommands() {
+        XCTAssertEqual(SlashCommandParser.parse("/review"), .workspaceCommand("code-review"))
         XCTAssertEqual(SlashCommandParser.parse("/diff"), .workspaceCommand("git-diff"))
         XCTAssertEqual(SlashCommandParser.parse("/changes"), .workspaceCommand("git-diff"))
         XCTAssertEqual(SlashCommandParser.parse("/git-status"), .workspaceCommand("git-status"))

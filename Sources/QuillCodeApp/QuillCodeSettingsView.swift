@@ -21,6 +21,7 @@ struct QuillCodeSettingsView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    generalSection
                     QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
                     QuillCodeSpendLimitSettingsCard(settings: settings, draft: $draft)
                     QuillCodeManagedWorktreeSettingsCard(settings: settings, draft: $draft)
@@ -49,6 +50,16 @@ struct QuillCodeSettingsView: View {
         .frame(width: 560)
         .frame(maxHeight: 720)
         .background(QuillCodePalette.background)
+    }
+
+    private var generalSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("General")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(QuillCodePalette.muted)
+                .accessibilityAddTraits(.isHeader)
+            QuillCodeCodeReviewSettingsCard(draft: $draft)
+        }
     }
 
     private var settingsHeader: some View {

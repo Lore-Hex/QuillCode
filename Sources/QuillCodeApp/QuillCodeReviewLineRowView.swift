@@ -54,18 +54,7 @@ struct QuillCodeReviewLineRowView: View {
         if !line.comments.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(line.comments) { comment in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Image(systemName: "text.bubble")
-                            .foregroundStyle(QuillCodePalette.blue)
-                        if let label = comment.lineRangeLabel {
-                            Text(label)
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(QuillCodePalette.muted)
-                        }
-                        Text(comment.text)
-                            .font(.caption)
-                            .foregroundStyle(QuillCodePalette.text)
-                    }
+                    QuillCodeReviewCommentView(comment: comment)
                 }
             }
             .padding(.leading, 58)

@@ -18,6 +18,59 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertEqual(config.defaultModel, TrustedRouterDefaults.prometheusModel)
     }
 
+    func testConfigRoundTripsCodeReviewSettings() throws {
+        let store = try makeConfigStore()
+        let config = AppConfig(
+            reviewModel: " /prometheus ",
+            reviewDelivery: .detached
+        )
+
+        try store.save(config)
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.reviewModel, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(loaded.reviewDelivery, .detached)
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertTrue(stored.contains(#"review_model = "trustedrouter/fusion""#))
+        XCTAssertTrue(stored.contains(#"review_delivery = "detached""#))
+    }
+
+    func testConfigWithoutCodeReviewKeysLoadsCurrentModelDefaults() throws {
+        let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
+        try """
+        default_model = "/prometheus"
+        mode = "auto"
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let loaded = try ConfigStore(fileURL: fileURL).load()
+
+        XCTAssertNil(loaded.reviewModel)
+        XCTAssertEqual(loaded.reviewDelivery, .current)
+    }
+
+    func testConfigNormalizesBlankReviewModelAndIgnoresUnknownDelivery() throws {
+        let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
+        try """
+        review_model = "  "
+        review_delivery = "background"
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        let loaded = try ConfigStore(fileURL: fileURL).load()
+
+        XCTAssertNil(loaded.reviewModel)
+        XCTAssertEqual(loaded.reviewDelivery, .current)
+    }
+
+    func testConfigOmitsInheritedReviewModelAndWritesCurrentDelivery() throws {
+        let store = try makeConfigStore()
+
+        try store.save(AppConfig())
+
+        let stored = try String(contentsOf: store.fileURL, encoding: .utf8)
+        XCTAssertFalse(stored.contains("review_model ="))
+        XCTAssertTrue(stored.contains(#"review_delivery = "current""#))
+    }
+
     func testConfigRoundTripsManagedWorktreeSettings() throws {
         let store = try makeConfigStore()
         let config = AppConfig(managedWorktrees: ManagedWorktreeSettings(

@@ -228,6 +228,61 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         return runner
     }
 
+    /// Builds the dedicated code-review runner. This is a capability boundary, not merely a prompt:
+    /// the reviewer receives only file/Git read tools plus the typed report sink. Even a malformed or
+    /// adversarial model action cannot fall through to shell, writes, browser, plugins, MCP, memories,
+    /// Computer Use, LSP mutation, subagents, or project hooks.
+    func configuredCodeReviewRunner(
+        modelID: String,
+        threadID: UUID,
+        reportCollector: WorkspaceCodeReviewReportCollector
+    ) -> AgentRunner {
+        var reviewer = configuredRunner(
+            modelID: modelID,
+            threadID: threadID,
+            allowsSubagents: false
+        )
+        let allowedNames: Set<String> = [
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileList.name,
+            ToolDefinition.fileSearch.name,
+            ToolDefinition.gitStatus.name,
+            ToolDefinition.gitDiff.name,
+            ToolDefinition.gitBranchList.name
+        ]
+        reviewer.baseToolDefinitions = reviewer.baseToolDefinitions.filter {
+            allowedNames.contains($0.name) && $0.risk == .read
+        }
+        reviewer.additionalToolDefinitions = [WorkspaceCodeReviewSubmitTool.definition]
+
+        let underlyingOverride = reviewer.toolExecutionOverride
+        reviewer.toolExecutionOverride = { call, workspaceRoot in
+            if call.name == WorkspaceCodeReviewSubmitTool.name {
+                return await reportCollector.capture(call)
+            }
+            guard allowedNames.contains(call.name) else {
+                return ToolResult(
+                    ok: false,
+                    error: "The dedicated code reviewer cannot execute \(call.name)."
+                )
+            }
+            return await underlyingOverride?(call, workspaceRoot)
+        }
+        reviewer.safety = StaticSafetyReviewer()
+        reviewer.preToolUseHook = nil
+        reviewer.postToolUseHook = nil
+        reviewer.permissionRequestHook = nil
+        reviewer.preCompactHook = nil
+        reviewer.postCompactHook = nil
+        reviewer.threadToolExecutionOverride = nil
+        reviewer.toolFeedbackAttachmentProvider = nil
+        reviewer.skillResolver = nil
+        reviewer.webSearch = nil
+        reviewer.lsp = nil
+        reviewer.enablesImmediateActionPreflight = false
+        return reviewer
+    }
+
     private var pluginLifecycleHooks: ProjectPluginLifecycleHookExecutor {
         ProjectPluginLifecycleHookExecutor(
             hooks: hooks,

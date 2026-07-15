@@ -16,6 +16,8 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.apiKeyStatusLabel, "Not signed in")
         XCTAssertEqual(settings.modelCatalogStatusLabel, "Bundled catalog")
         XCTAssertEqual(settings.modelProviderHealthLabel, "Provider health unavailable")
+        XCTAssertNil(settings.reviewModel)
+        XCTAssertEqual(settings.reviewDelivery, .current)
         XCTAssertEqual(settings.computerUseStatus.message, "Needs Screen Recording + Accessibility")
         XCTAssertEqual(settings.computerUseSetupCommand.id, "computer-use-setup")
         XCTAssertEqual(settings.computerUseScreenRecordingCommand.id, "computer-use-open-screen-recording")
@@ -96,6 +98,19 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
             settings.modelCatalogStatusDetail,
             "The latest TrustedRouter model refresh failed: HTTP 503"
         )
+    }
+
+    func testSettingsSurfaceCarriesCodeReviewSettings() {
+        let settings = WorkspaceSettingsSurface(
+            config: AppConfig(
+                reviewModel: "/prometheus",
+                reviewDelivery: .detached
+            ),
+            hasStoredAPIKey: true
+        )
+
+        XCTAssertEqual(settings.reviewModel, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(settings.reviewDelivery, .detached)
     }
 
     func testSettingsSurfaceShowsProviderHealthDiagnostics() {
@@ -242,6 +257,8 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
 
         XCTAssertNil(settings.modelProviderHealthLabel)
         XCTAssertNil(settings.modelProviderHealthDetail)
+        XCTAssertNil(settings.reviewModel)
+        XCTAssertEqual(settings.reviewDelivery, .current)
         XCTAssertEqual(settings.computerUseStatusLabel, "Accessibility needed")
         XCTAssertEqual(
             settings.computerUseNextAction,

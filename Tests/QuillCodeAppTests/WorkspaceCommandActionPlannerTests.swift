@@ -16,6 +16,7 @@ final class WorkspaceCommandActionPlannerTests: XCTestCase {
         XCTAssertEqual(planner.effect(for: .toggleTerminal), .toggleTerminal)
         XCTAssertEqual(planner.effect(for: .toggleBottomPanel), .toggleTerminal)
         XCTAssertEqual(planner.effect(for: .toggleReviewPanel), .toggleReviewPanel)
+        XCTAssertEqual(planner.effect(for: .codeReview), .presentCodeReview)
         XCTAssertEqual(planner.effect(for: .increaseFontSize), .increaseTextScale)
         XCTAssertEqual(planner.effect(for: .decreaseFontSize), .decreaseTextScale)
         XCTAssertEqual(planner.effect(for: .clearTerminal), .clearTerminal)
