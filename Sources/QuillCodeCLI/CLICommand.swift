@@ -99,6 +99,34 @@ public enum CLIAuthCommand: Sendable, Equatable {
     case clear
 }
 
+public struct CLIDoctorRequest: Sendable, Equatable {
+    public var home: URL?
+    public var emitsJSON: Bool
+    public var summaryOnly: Bool
+    public var expandsLongLists: Bool
+    public var disablesColor: Bool
+    public var usesASCII: Bool
+    public var showsHelp: Bool
+
+    public init(
+        home: URL? = nil,
+        emitsJSON: Bool = false,
+        summaryOnly: Bool = false,
+        expandsLongLists: Bool = false,
+        disablesColor: Bool = false,
+        usesASCII: Bool = false,
+        showsHelp: Bool = false
+    ) {
+        self.home = home
+        self.emitsJSON = emitsJSON
+        self.summaryOnly = summaryOnly
+        self.expandsLongLists = expandsLongLists
+        self.disablesColor = disablesColor
+        self.usesASCII = usesASCII
+        self.showsHelp = showsHelp
+    }
+}
+
 public enum CLIAppServerTransport: String, Sendable, Equatable {
     case stdio = "stdio://"
 }
@@ -132,6 +160,7 @@ public enum CLICommand: Sendable, Equatable {
     case run(CLIRunRequest)
     case appServer(CLIAppServerRequest)
     case auth(CLIAuthCommand, home: URL?)
+    case doctor(CLIDoctorRequest)
     case help
     case version
 }

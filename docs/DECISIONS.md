@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-07-15: Doctor diagnostics are bounded, read-only, and redacted at every boundary
+
+- **Compatibility contract:** `quill-code doctor` follows the observable Codex 0.142.5 command and
+  option surface, including grouped human output, stable JSON, warning-versus-failure status, and a
+  nonzero exit only for failures. TrustedRouter `/models` reachability replaces OpenAI-specific checks.
+- **Mutation boundary:** Diagnostics inspect paths and decode task files directly; they do not call
+  `QuillCodePaths.ensure()`, write migration output, repair config, refresh credentials, or alter task
+  state. A missing home is a healthy new-install state.
+- **Cost boundary:** Git commands have two-second limits, network reachability has a five-second limit,
+  and task inventory stops after 5,000 immediate JSON files while refusing symlinks, special files,
+  and files above 8 MiB. `--all` expands already-collected detail; it never expands the scan boundary.
+- **Privacy boundary:** Reports name credential/proxy sources rather than values. URL userinfo, query,
+  and fragment data are removed; network errors are type/code based and API-key redacted again at the
+  collector; MCP command, argument, header, and environment values plus malformed config text and task
+  content never enter report models.
+- **Evidence:** Focused tests cover parsing, schema, stable ordering, summary/ASCII/list rendering,
+  redaction, malformed and legacy config, corrupt/oversized/mismatched/duplicate tasks, scan caps,
+  auth/reachability classification, and no-state creation. A real executable smoke uses an authorized
+  loopback `/models` server and proves JSON/human output plus before/after state identity.
+
 ## 2026-07-15: App-server MCP OAuth is asynchronous and shares durable desktop credentials
 
 - **Wire contract:** `mcpServer/oauth/login` returns a genuine authorization URL before waiting for

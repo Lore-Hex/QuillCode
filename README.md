@@ -17,6 +17,8 @@ This initial repository contains the compile-stable foundation:
 - deterministic mock LLM agent runner
 - testable `quill-code exec` automation CLI with JSONL events, stdin context, resume, ephemeral
   runs, final-message files, structured output, and fail-closed Git/workspace guards
+- redacted, read-only `quill-code doctor` diagnostics for installation, config, auth, Git, terminal,
+  MCP, saved tasks, connectivity, and app-server health
 - Codex-compatible `quill-code app-server` stdio JSONL core with strict initialization, durable
   thread lifecycle, streamed turns, steering, interruption, managed local images, approvals,
   model/provider discovery, non-secret account/local usage state, API-key and browser OAuth account
@@ -43,6 +45,7 @@ swift run quill-code "run whoami"
 swift run quill-code "make a file that says hello world"
 swift run quill-code exec --mock --json --ephemeral "inspect this repository"
 git diff | swift run quill-code exec --mock "summarize these changes"
+swift run quill-code doctor --summary
 swift run quill-code auth status
 swift run quill-code-desktop
 cd E2E/playwright && npm install && npx playwright install chromium && npm test
@@ -66,6 +69,13 @@ after success, failure, or interruption. A server marked `required = true` fails
 invocation or persistence if it cannot initialize; optional failures do not hide healthy tools.
 `--ignore-user-config` skips both user and project MCP configuration. Run `quill-code help` for the
 complete option set.
+
+`quill-code doctor` performs bounded, read-only health checks without creating `~/.quillcode` or
+rewriting existing state. Human output supports `--summary`, `--all`, `--ascii`, and `--no-color`;
+`--json` emits a stable redacted report for support tooling. Reports identify credential and proxy
+sources but never include credential values, proxy URLs, MCP headers/environment values, or malformed
+config contents. The command exits nonzero only when at least one check fails; warnings remain useful
+in CI and redirected terminals without making the report unusable.
 
 `quill-code app-server --mock` starts the deterministic stdio app server; omit `--mock` for the live
 TrustedRouter runtime. The implemented core follows Codex's newline-delimited wire shape without a

@@ -130,6 +130,29 @@ final class CLIArgumentParserTests: XCTestCase {
         ], currentDirectory: cwd))
     }
 
+    func testDoctorParsesGlobalHomeAndOutputOptions() throws {
+        let request = try doctorRequest(parser.parse([
+            "--home", ".quill-home",
+            "doctor", "--json", "--summary", "--all", "--no-color", "--ascii"
+        ], currentDirectory: cwd))
+
+        XCTAssertEqual(request.home?.path, "/tmp/project/.quill-home")
+        XCTAssertTrue(request.emitsJSON)
+        XCTAssertTrue(request.summaryOnly)
+        XCTAssertTrue(request.expandsLongLists)
+        XCTAssertTrue(request.disablesColor)
+        XCTAssertTrue(request.usesASCII)
+        XCTAssertFalse(request.showsHelp)
+    }
+
+    func testDoctorHelpAndInvalidOptions() throws {
+        let help = try doctorRequest(parser.parse(["doctor", "-h"], currentDirectory: cwd))
+        XCTAssertTrue(help.showsHelp)
+
+        XCTAssertThrowsError(try parser.parse(["doctor", "--unknown"], currentDirectory: cwd))
+        XCTAssertThrowsError(try parser.parse(["doctor", "unexpected"], currentDirectory: cwd))
+    }
+
     private func runRequest(_ command: CLICommand) throws -> CLIRunRequest {
         guard case .run(let request) = command else {
             throw XCTSkip("Expected run command")
@@ -140,6 +163,13 @@ final class CLIArgumentParserTests: XCTestCase {
     private func appServerRequest(_ command: CLICommand) throws -> CLIAppServerRequest {
         guard case .appServer(let request) = command else {
             throw XCTSkip("Expected app-server command")
+        }
+        return request
+    }
+
+    private func doctorRequest(_ command: CLICommand) throws -> CLIDoctorRequest {
+        guard case .doctor(let request) = command else {
+            throw XCTSkip("Expected doctor command")
         }
         return request
     }

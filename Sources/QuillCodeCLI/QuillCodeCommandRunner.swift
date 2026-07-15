@@ -10,6 +10,7 @@ public struct QuillCodeCommandRunner: Sendable {
     private let runnerFactory: CLIAgentRunnerFactory
     private let interruptSource: any CLIInterruptSource
     private let mcpSessionPreparer: CLIMCPAgentSessionPreparer
+    private let doctor: CLIDoctor
 
     public init(
         parser: CLIArgumentParser = CLIArgumentParser(),
@@ -19,7 +20,8 @@ public struct QuillCodeCommandRunner: Sendable {
             parser: parser,
             runnerFactory: runnerFactory,
             interruptSource: ProcessCLIInterruptSource(),
-            mcpSessionPreparer: CLIMCPAgentSessionPreparer()
+            mcpSessionPreparer: CLIMCPAgentSessionPreparer(),
+            doctor: CLIDoctor()
         )
     }
 
@@ -27,12 +29,14 @@ public struct QuillCodeCommandRunner: Sendable {
         parser: CLIArgumentParser,
         runnerFactory: @escaping CLIAgentRunnerFactory,
         interruptSource: any CLIInterruptSource,
-        mcpSessionPreparer: CLIMCPAgentSessionPreparer = CLIMCPAgentSessionPreparer()
+        mcpSessionPreparer: CLIMCPAgentSessionPreparer = CLIMCPAgentSessionPreparer(),
+        doctor: CLIDoctor = CLIDoctor()
     ) {
         self.parser = parser
         self.runnerFactory = runnerFactory
         self.interruptSource = interruptSource
         self.mcpSessionPreparer = mcpSessionPreparer
+        self.doctor = doctor
     }
 
     public func run(
@@ -61,6 +65,14 @@ public struct QuillCodeCommandRunner: Sendable {
             case .auth(let auth, let home):
                 try await runAuth(auth, home: home, output: output)
                 return 0
+            case .doctor(let request):
+                return try await runDoctor(
+                    request,
+                    environment: environment,
+                    currentDirectory: currentDirectory,
+                    inputIsTerminal: input.isTerminal,
+                    output: output
+                )
             case .appServer(let request):
                 return await runAppServer(
                     request,
@@ -81,6 +93,34 @@ public struct QuillCodeCommandRunner: Sendable {
             await output.writeStandardErrorLine("quill-code: \(error.localizedDescription)")
             return 1
         }
+    }
+
+    private func runDoctor(
+        _ request: CLIDoctorRequest,
+        environment: [String: String],
+        currentDirectory: URL,
+        inputIsTerminal: Bool,
+        output: any CLIOutputWriting
+    ) async throws -> Int32 {
+        if request.showsHelp {
+            await output.writeStandardOutput(CLIDoctorRenderer.help + "\n")
+            return 0
+        }
+        let report = await doctor.collect(
+            request: request,
+            environment: environment,
+            currentDirectory: currentDirectory,
+            inputIsTerminal: inputIsTerminal
+        )
+        if request.emitsJSON {
+            let json = try CLIDoctorRenderer.json(report)
+            await output.writeStandardOutput(json)
+        } else {
+            await output.writeStandardOutput(
+                CLIDoctorRenderer.human(report, request: request, environment: environment)
+            )
+        }
+        return report.exitStatus
     }
 
     private func runAuth(
@@ -307,6 +347,7 @@ public struct QuillCodeCommandRunner: Sendable {
       quill-code exec [OPTIONS] PROMPT
       quill-code exec resume (--last | THREAD_ID) [OPTIONS] PROMPT
       quill-code app-server [--listen stdio://] [--mock | --live]
+      quill-code [--home PATH] doctor [--json | --summary] [--all] [--no-color] [--ascii]
       quill-code [LEGACY OPTIONS] PROMPT
       quill-code [--home PATH] auth (status | set-key KEY | clear)
 
@@ -335,6 +376,10 @@ public struct QuillCodeCommandRunner: Sendable {
       Uses newline-delimited JSON over stdio. Clients must send `initialize`, then the
       `initialized` notification, before thread and turn requests. `--mock` selects the
       deterministic local model for protocol tests; TrustedRouter is the default.
+
+    Doctor:
+      Generates bounded local installation, config, auth, runtime, Git, terminal, MCP,
+      state, connectivity, app-server, and task-inventory diagnostics without mutating state.
     """
 }
 
