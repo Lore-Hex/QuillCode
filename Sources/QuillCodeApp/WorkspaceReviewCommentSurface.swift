@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeReview
 
 public struct WorkspaceReviewCommentSurface: Codable, Sendable, Hashable, Identifiable {
     public var id: UUID

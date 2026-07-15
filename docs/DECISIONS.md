@@ -1420,3 +1420,29 @@
 - **Verification:** Focused Core, Agent, Persistence, App, catalog, and Playwright tests cover parsing,
   old-state migration, round trips, prompt isolation, live capability decoding, Settings scope,
   slash confirmation, and unsupported-model behavior.
+
+## 2026-07-15: Native and CLI code review share one typed engine
+
+- **One domain:** `QuillCodeReview` owns review targets, validation, prompt construction, finding and
+  report normalization, the dedicated runner, and `host.review.submit`. Native and CLI adapters supply
+  transport and presentation only; they cannot evolve incompatible reviewer protocols.
+- **CLI contract:** `quill-code review` requires exactly one uncommitted, base, commit, or custom target.
+  A custom argument or `-` stdin value supplies criteria for the current uncommitted change set. Commit
+  titles are bounded UTF-8 data and are valid only for commit reviews. The run is always ephemeral,
+  final Markdown alone goes to stdout, and human progress alone goes to stderr.
+- **Capability boundary:** The runner starts from a normal agent only long enough to reuse provider and
+  transport plumbing, then replaces its catalog with bounded file read/list/search, Git status/diff/
+  branch inspection, and the typed report sink. Shell, writes, patches, Git mutation, hooks, skills,
+  web, LSP, Computer Use, subagents, attachments, and immediate-action planning are absent rather than
+  relying on a prompt to avoid them.
+- **Completion boundary:** Success requires exactly one schema-valid report submission. Missing,
+  malformed, duplicate, or out-of-bounds findings fail closed. The same normalization gives native
+  findings and CLI Markdown deterministic ordering and deduplication.
+- **Process invariant:** A subprocess with piped output must drain stdout and stderr concurrently while
+  waiting for exit. Git review diffs can exceed pipe capacity; waiting first can deadlock a healthy Git
+  process. Shell and Git now share one completion waiter/output collector, with a real >128 KiB Git diff
+  regression test.
+- **Verification:** Parser and resolver tests cover every target and conflict; shared-domain and native
+  integration tests prove capability filtering and report delivery; real temporary-repository CLI tests
+  prove scoped diffs, cancellation, failure, and no persistence; and `scripts/cli-review-smoke.sh` proves
+  the built public command inside the aggregate smoke gate.

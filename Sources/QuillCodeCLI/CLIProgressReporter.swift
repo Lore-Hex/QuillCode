@@ -179,6 +179,9 @@ actor CLIProgressReporter {
             } else {
                 let mark = event.kind == .toolCompleted ? "✓" : "✗"
                 await output.writeStandardErrorLine("\(mark) \(active.call.name)")
+                if event.kind == .toolFailed, let detail = result?.displayedFailureDetail {
+                    await output.writeStandardErrorLine("  \(detail)")
+                }
             }
         case .approvalRequested:
             await emitEventItem(event, type: "approval_request", status: "pending")
@@ -281,5 +284,15 @@ actor CLIProgressReporter {
         case .approvalRequired:
             "approval_required"
         }
+    }
+}
+
+private extension ToolResult {
+    var displayedFailureDetail: String? {
+        for candidate in [error].compactMap({ $0 }) + [stderr, stdout] {
+            let detail = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !detail.isEmpty { return detail }
+        }
+        return nil
     }
 }

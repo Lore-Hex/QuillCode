@@ -16,6 +16,7 @@ let package = Package(
         .library(name: "QuillCodePlatform", targets: ["QuillCodePlatform"]),
         .library(name: "QuillCodePlatformUI", targets: ["QuillCodePlatformUI"]),
         .library(name: "QuillCodeAgent", targets: ["QuillCodeAgent"]),
+        .library(name: "QuillCodeReview", targets: ["QuillCodeReview"]),
         .library(name: "QuillCodeApp", targets: ["QuillCodeApp"]),
         .library(name: "QuillCodeCLI", targets: ["QuillCodeCLI"]),
         .executable(name: "quill-code", targets: ["quill-code"]),
@@ -67,10 +68,20 @@ let package = Package(
             ]
         ),
         .target(
+            name: "QuillCodeReview",
+            dependencies: [
+                "QuillCodeCore",
+                "QuillCodeAgent",
+                "QuillCodeTools",
+                "QuillCodeSafety"
+            ]
+        ),
+        .target(
             name: "QuillCodeApp",
             dependencies: [
                 "QuillCodeCore",
                 "QuillCodeAgent",
+                "QuillCodeReview",
                 "QuillCodeTools",
                 "QuillCodePersistence",
                 "QuillCodeSafety",
@@ -87,6 +98,7 @@ let package = Package(
                 "QuillCodeTools",
                 "QuillCodePersistence",
                 "QuillCodeAgent",
+                "QuillCodeReview",
                 "QuillCodePlatform",
                 "CQuillPTY"
             ]
@@ -101,6 +113,7 @@ let package = Package(
                 "QuillCodeCore",
                 "QuillCodeApp",
                 "QuillCodeAgent",
+                "QuillCodeReview",
                 "QuillCodeTools",
                 "QuillComputerUseKit",
                 "QuillCodePlatform"
@@ -122,16 +135,24 @@ let package = Package(
         .testTarget(name: "QuillCodePlatformUITests", dependencies: ["QuillCodePlatformUI"]),
         .testTarget(name: "QuillCodeAgentTests", dependencies: ["QuillCodeAgent", "QuillCodeTools", "QuillCodeSafety"]),
         .testTarget(
+            name: "QuillCodeReviewTests",
+            dependencies: ["QuillCodeReview", "QuillCodeAgent", "QuillCodeCore", "QuillCodeTools"]
+        ),
+        .testTarget(
             name: "QuillCodeCLITests",
             dependencies: [
                 "QuillCodeCLI",
                 "QuillCodeAgent",
                 "QuillCodeCore",
                 "QuillCodePersistence",
+                "QuillCodeReview",
                 "QuillCodeTools"
             ]
         ),
-        .testTarget(name: "QuillCodeAppTests", dependencies: ["QuillCodeApp", "QuillCodeAgent"]),
+        .testTarget(
+            name: "QuillCodeAppTests",
+            dependencies: ["QuillCodeApp", "QuillCodeAgent", "QuillCodeReview"]
+        ),
         .testTarget(
             name: "QuillCodeDesktopTests",
             dependencies: [

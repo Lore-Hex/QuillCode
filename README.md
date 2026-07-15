@@ -19,6 +19,8 @@ This initial repository contains the compile-stable foundation:
   runs, final-message files, structured output, and fail-closed Git/workspace guards
 - redacted, read-only `quill-code doctor` diagnostics for installation, config, auth, Git, terminal,
   MCP, saved tasks, connectivity, and app-server health
+- Codex-compatible `quill-code review` for uncommitted changes, base-branch comparisons, individual
+  commits, or custom criteria, backed by the same typed read-only reviewer as the desktop app
 - Codex-compatible `quill-code app-server` stdio JSONL core with strict initialization, durable
   thread lifecycle, streamed turns, steering, interruption, managed local images, approvals,
   model/provider discovery, non-secret account/local usage state, API-key and browser OAuth account
@@ -46,12 +48,19 @@ swift run quill-code "make a file that says hello world"
 swift run quill-code exec --mock --json --ephemeral "inspect this repository"
 git diff | swift run quill-code exec --mock "summarize these changes"
 swift run quill-code doctor --summary
+swift run quill-code review --uncommitted --mock
+swift run quill-code review --base main --mock
 swift run quill-code auth status
 swift run quill-code-desktop
 cd E2E/playwright && npm install && npx playwright install chromium && npm test
 ```
 
-`./scripts/smoke.sh` runs the Swift tests, exercises the mock CLI in a temporary workspace, verifies that file creation plus list/read follow-up works without dirtying the repo, runs native/packaged desktop smoke with the same create-then-read follow-through, and runs Playwright automatically when `E2E/playwright/node_modules` is present. Set `QUILLCODE_SMOKE_ARTIFACT_DIR` to preserve native smoke screenshots and a `deterministic-smoke-manifest.json` that records which deterministic sub-suites ran.
+`./scripts/smoke.sh` runs the Swift tests, exercises the exec, doctor, and review CLI process contracts
+in temporary workspaces, verifies that file creation plus list/read follow-up works without dirtying
+the repo, runs native/packaged desktop smoke with the same create-then-read follow-through, and runs
+Playwright automatically when `E2E/playwright/node_modules` is present. Set
+`QUILLCODE_SMOKE_ARTIFACT_DIR` to preserve native smoke screenshots and a
+`deterministic-smoke-manifest.json` that records which deterministic sub-suites ran.
 
 Agent PRs should merge through the repo merge train instead of racing direct pushes to `main`. Open a PR, wait for CI, then add the `merge-train` label. See [Merge Train](docs/MERGE_TRAIN.md).
 
@@ -61,8 +70,9 @@ The legacy CLI invocation and desktop shell use a deterministic mock LLM by defa
 stdout to JSON Lines lifecycle events; `--ephemeral` disables transcript persistence; `exec resume
 --last` or `exec resume THREAD_ID` continues a saved task; `-o` writes the final message atomically;
 and `--output-schema` validates bounded JSON output. Exec starts read-only and requires a Git
-workspace unless `--skip-git-repo-check` is explicitly supplied. `danger-full-access` is rejected
-until QuillCode can enforce that contract honestly. Exec also initializes MCP servers from the
+workspace unless `--skip-git-repo-check` is explicitly supplied. Explicit `danger-full-access`
+removes the built-in workspace boundary for shell working directories and file tools while retaining
+safety review, edit guards, output bounds, and secret protections. Exec also initializes MCP servers from the
 global config plus workspace `.codex/config.toml` and `.quillcode/config.toml`, exposes discovered
 tools under deterministic `mcp__server__tool` names, and terminates every MCP process or connection
 after success, failure, or interruption. A server marked `required = true` fails the run before model
@@ -76,6 +86,14 @@ rewriting existing state. Human output supports `--summary`, `--all`, `--ascii`,
 sources but never include credential values, proxy URLs, MCP headers/environment values, or malformed
 config contents. The command exits nonzero only when at least one check fails; warnings remain useful
 in CI and redirected terminals without making the report unusable.
+
+`quill-code review` runs live TrustedRouter by default; `--mock` selects the deterministic local
+reviewer. Every invocation selects exactly one target: `--uncommitted`, `--base BRANCH`,
+`--commit SHA`, a custom criteria prompt, or `-` for bounded stdin criteria. `--title` is accepted only
+with `--commit`. The command writes only the validated Markdown review report to stdout and progress
+to stderr, never persists a task transcript, and gives the reviewer only bounded file/search/Git-read
+tools plus the typed `host.review.submit` report sink. Shell execution, file mutation, Git mutation,
+Computer Use, subagents, hooks, skills, and project write tools are absent from that capability set.
 
 `quill-code app-server --mock` starts the deterministic stdio app server; omit `--mock` for the live
 TrustedRouter runtime. The implemented core follows Codex's newline-delimited wire shape without a
@@ -96,8 +114,9 @@ copy preserves symlinks while skipping special children, and watches emit sorted
 `fs/changed` notifications until unwatch or disconnect. These methods represent the connected
 app-server client's direct host authority; model-authored file tools still use QuillCode's workspace
 and safety boundaries. Input messages are capped at 1 MiB, local images are copied into managed
-storage, unsupported transports and danger-full-access are rejected, and client EOF resolves pending
-approvals and filesystem watches instead of leaving work stranded.
+storage, unsupported transports are rejected, and explicit danger-full-access uses the same honest
+unrestricted built-in host-tool scope as exec. Client EOF resolves pending approvals and filesystem
+watches instead of leaving work stranded.
 
 Account clients can start API-key or browser-based TrustedRouter sign-in through
 `account/login/start`, cancel an outstanding browser flow through `account/login/cancel`, and clear

@@ -12,6 +12,7 @@ FINAL_DETAIL="interrupted"
 SWIFT_TESTS_STATUS="not-run"
 APP_SERVER_STATUS="not-run"
 CLI_DOCTOR_STATUS="not-run"
+CLI_REVIEW_STATUS="not-run"
 CLI_SHELL_STATUS="not-run"
 CLI_DIAGNOSTICS_STATUS="not-run"
 CLI_GIT_READ_STATUS="not-run"
@@ -51,6 +52,7 @@ write_manifest() {
     "$SWIFT_TESTS_STATUS" \
     "$APP_SERVER_STATUS" \
     "$CLI_DOCTOR_STATUS" \
+    "$CLI_REVIEW_STATUS" \
     "$CLI_SHELL_STATUS" \
     "$CLI_DIAGNOSTICS_STATUS" \
     "$CLI_GIT_READ_STATUS" \
@@ -82,6 +84,7 @@ from datetime import datetime, timezone
     swift_tests_status,
     app_server_status,
     cli_doctor_status,
+    cli_review_status,
     cli_shell_status,
     cli_diagnostics_status,
     cli_git_read_status,
@@ -173,6 +176,7 @@ manifest = {
         "swiftTests": {"status": swift_tests_status},
         "appServer": {"status": app_server_status},
         "cliDoctor": {"status": cli_doctor_status},
+        "cliReview": {"status": cli_review_status},
         "cliShell": {"status": cli_shell_status},
         "cliNaturalDiagnostics": {"status": cli_diagnostics_status},
         "cliGitRead": {"status": cli_git_read_status},
@@ -300,6 +304,12 @@ CLI_DOCTOR_STATUS="running"
 FINAL_DETAIL="CLI doctor process smoke failed"
 "$ROOT_DIR/scripts/cli-doctor-smoke.sh"
 CLI_DOCTOR_STATUS="passed"
+
+echo "==> Running CLI review process smoke"
+CLI_REVIEW_STATUS="running"
+FINAL_DETAIL="CLI review process smoke failed"
+"$ROOT_DIR/scripts/cli-review-smoke.sh"
+CLI_REVIEW_STATUS="passed"
 
 echo "==> Running app-server protocol smoke"
 APP_SERVER_STATUS="running"

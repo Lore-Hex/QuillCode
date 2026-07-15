@@ -158,6 +158,7 @@ public struct CLIAppServerRequest: Sendable, Equatable {
 
 public enum CLICommand: Sendable, Equatable {
     case run(CLIRunRequest)
+    case review(CLIReviewRequest)
     case appServer(CLIAppServerRequest)
     case auth(CLIAuthCommand, home: URL?)
     case doctor(CLIDoctorRequest)
@@ -171,6 +172,10 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
     case invalidOptionValue(option: String, value: String)
     case missingPrompt
     case invalidResumeTarget(String)
+    case missingReviewTarget
+    case conflictingReviewTargets
+    case reviewTitleRequiresCommit
+    case invalidReviewRequest(String)
     case stdinTooLarge(limit: Int)
     case invalidUTF8Stdin
     case notGitRepository(String)
@@ -195,6 +200,14 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
             "Provide a prompt argument or pipe a prompt on stdin."
         case .invalidResumeTarget(let value):
             "Resume target must be --last or a saved thread UUID, not \(value)."
+        case .missingReviewTarget:
+            "Choose exactly one review target: --uncommitted, --base BRANCH, --commit SHA, or a custom prompt."
+        case .conflictingReviewTargets:
+            "Review targets conflict. Choose only one of --uncommitted, --base, --commit, or a custom prompt."
+        case .reviewTitleRequiresCommit:
+            "--title requires --commit."
+        case .invalidReviewRequest(let message):
+            message
         case .stdinTooLarge(let limit):
             "Piped stdin exceeds the \(limit)-byte limit."
         case .invalidUTF8Stdin:

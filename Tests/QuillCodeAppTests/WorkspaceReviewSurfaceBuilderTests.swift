@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillCodeReview
 @testable import QuillCodeApp
 
 final class WorkspaceReviewSurfaceBuilderTests: XCTestCase {

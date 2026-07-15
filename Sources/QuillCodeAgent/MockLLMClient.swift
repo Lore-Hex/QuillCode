@@ -6,6 +6,13 @@ public struct MockLLMClient: LLMClient {
     public init() {}
 
     public func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        if let reviewAction = MockCodeReviewPlanner.action(
+            thread: thread,
+            prompt: userMessage,
+            tools: tools
+        ) {
+            return reviewAction
+        }
         if thread.messages.last?.role == .tool,
            let lastToolOutput = thread.messages.last?.content,
            let feedback = try? JSONHelpers.decode(AgentToolFeedback.self, from: lastToolOutput) {
@@ -117,7 +124,7 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
-        if let browserTarget = Self.extractBrowserOpenTarget(from: request, lowercasedRequest: lower),
+        if let browserTarget = MockBrowserIntentPlanner.openTarget(from: request, lowercasedRequest: lower),
            tools.contains(where: { $0.name == ToolDefinition.browserOpen.name }) {
             return .tool(.init(
                 name: ToolDefinition.browserOpen.name,
@@ -125,7 +132,8 @@ public struct MockLLMClient: LLMClient {
             ))
         }
 
-        if Self.isBrowserInspectionRequest(lower), tools.contains(where: { $0.name == ToolDefinition.browserInspect.name }) {
+        if MockBrowserIntentPlanner.isInspectionRequest(lower),
+           tools.contains(where: { $0.name == ToolDefinition.browserInspect.name }) {
             return .tool(.init(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"))
         }
 
@@ -357,62 +365,6 @@ public struct MockLLMClient: LLMClient {
             return tokens[nextIndex]
         }
         return nil
-    }
-
-    static func isBrowserInspectionRequest(_ lowercasedRequest: String) -> Bool {
-        let browserTerms = lowercasedRequest.contains("browser")
-            || lowercasedRequest.contains("page")
-            || lowercasedRequest.contains("preview")
-            || lowercasedRequest.contains("localhost")
-        let inspectionTerms = lowercasedRequest.contains("inspect")
-            || lowercasedRequest.contains("look at")
-            || lowercasedRequest.contains("what is on")
-            || lowercasedRequest.contains("summarize")
-            || lowercasedRequest.contains("snapshot")
-        return browserTerms && inspectionTerms
-    }
-
-    static func extractBrowserOpenTarget(from request: String, lowercasedRequest: String) -> String? {
-        let navigationTerms = [
-            "open ",
-            "browse ",
-            "go to ",
-            "visit ",
-            "preview ",
-            "show "
-        ]
-        guard navigationTerms.contains(where: { lowercasedRequest.contains($0) }) else { return nil }
-
-        if let quoted = firstBacktickQuotedValue(in: request), looksLikeBrowserTarget(quoted) {
-            return quoted
-        }
-
-        let tokenSeparators = CharacterSet.whitespacesAndNewlines
-            .union(CharacterSet(charactersIn: "\"'(),<>[]{}"))
-        let tokens = request
-            .components(separatedBy: tokenSeparators)
-            .map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".:;!?")) }
-            .filter { !$0.isEmpty }
-
-        return tokens.first(where: looksLikeBrowserTarget)
-    }
-
-    private static func firstBacktickQuotedValue(in request: String) -> String? {
-        AgentRequestTextScanner.backtickQuotedValues(in: request).first
-    }
-
-    private static func looksLikeBrowserTarget(_ value: String) -> Bool {
-        let lower = value.lowercased()
-        return lower.hasPrefix("http://")
-            || lower.hasPrefix("https://")
-            || lower.hasPrefix("file://")
-            || lower.hasPrefix("localhost")
-            || lower.hasPrefix("127.0.0.1")
-            || lower.hasPrefix("./")
-            || lower.hasPrefix("/")
-            || lower.hasSuffix(".html")
-            || lower.hasSuffix(".htm")
-            || (lower.contains(".") && !lower.contains("@"))
     }
 
     private static func parentDirectory(for path: String) -> String {

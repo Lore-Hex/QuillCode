@@ -2,6 +2,7 @@ import Foundation
 import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeReview
 import QuillCodeTools
 import QuillComputerUseKit
 

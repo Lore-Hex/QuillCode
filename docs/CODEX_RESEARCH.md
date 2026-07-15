@@ -39,6 +39,14 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   that support-tool contract while adapting provider checks to TrustedRouter, adding bounded MCP/task
   inspection, and refusing to emit secrets or task contents. Source: current Codex manual and locally
   installed `codex-cli 0.142.5`, audited 2026-07-15.
+- Codex 0.142.5 exposes `review` as a dedicated non-interactive workflow rather than an `exec`
+  prompt convention. Its targets are mutually exclusive: uncommitted changes, changes against a base
+  branch, one commit with an optional title, or custom review instructions supplied as an argument or
+  complete stdin prompt. QuillCode follows that command shape while requiring typed
+  `host.review.submit` completion, keeping the run ephemeral, and reusing the desktop review engine
+  under a capability-filtered read-only tool catalog. Custom instructions review the current
+  uncommitted change set; they do not silently broaden into arbitrary shell execution. Source: current
+  Codex manual and locally installed `codex-cli 0.142.5`, audited 2026-07-15.
 - Current Codex app-server account mutation uses `account/login/start`, `account/login/cancel`, and
   `account/logout`, with asynchronous `account/login/completed` and `account/updated` notifications.
   API-key start returns `{type: "apiKey"}`; browser start returns a login ID and authorization URL;

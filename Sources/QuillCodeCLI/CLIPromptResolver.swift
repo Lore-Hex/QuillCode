@@ -1,11 +1,11 @@
 import Foundation
 
 struct CLIPromptResolver: Sendable {
-    static let maximumStdinBytes = 1_048_576
+    static let maximumStdinBytes = CLIStdinTextReader.maximumBytes
 
     func resolve(request: CLIRunRequest, input: any CLIInputReading) throws -> String {
         let readsStdin = request.prompt == "-" || !input.isTerminal
-        let stdin = readsStdin ? try decodedInput(input) : ""
+        let stdin = readsStdin ? try CLIStdinTextReader().read(input) : ""
         let prompt = request.prompt == "-" ? "" : request.prompt
 
         if prompt.isEmpty {
@@ -23,8 +23,13 @@ struct CLIPromptResolver: Sendable {
         """
     }
 
-    private func decodedInput(_ input: any CLIInputReading) throws -> String {
-        let data = try input.read(maxBytes: Self.maximumStdinBytes)
+}
+
+struct CLIStdinTextReader: Sendable {
+    static let maximumBytes = 1_048_576
+
+    func read(_ input: any CLIInputReading) throws -> String {
+        let data = try input.read(maxBytes: Self.maximumBytes)
         guard let text = String(data: data, encoding: .utf8) else { throw CLIError.invalidUTF8Stdin }
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }

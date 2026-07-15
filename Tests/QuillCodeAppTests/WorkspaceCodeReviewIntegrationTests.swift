@@ -1,6 +1,7 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeReview
 import QuillCodeTools
 @testable import QuillCodeApp
 

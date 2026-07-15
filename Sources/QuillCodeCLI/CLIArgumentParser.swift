@@ -7,7 +7,7 @@ public struct CLIArgumentParser: Sendable {
     public func parse(_ arguments: [String], currentDirectory: URL) throws -> CLICommand {
         var arguments = arguments
         let home = try removeGlobalValue("--home", from: &arguments).map {
-            pathURL($0, relativeTo: currentDirectory)
+            cliPathURL($0, relativeTo: currentDirectory)
         }
 
         guard let first = arguments.first else { return .help }
@@ -18,6 +18,13 @@ public struct CLIArgumentParser: Sendable {
         }
         if first == "doctor" {
             return .doctor(try parseDoctor(Array(arguments.dropFirst()), home: home))
+        }
+        if first == "review" {
+            return .review(try CLIReviewArgumentParser().parse(
+                Array(arguments.dropFirst()),
+                currentDirectory: currentDirectory,
+                home: home
+            ))
         }
         if first == "app-server" {
             return .appServer(try parseAppServer(
@@ -48,10 +55,10 @@ public struct CLIArgumentParser: Sendable {
         var request = CLIAppServerRequest(home: home)
         var index = 0
         while index < arguments.count {
-            let option = splitOption(arguments[index])
+            let option = cliSplitOption(arguments[index])
             switch option.name {
             case "--listen":
-                let value = try value(for: option, tokens: arguments, index: &index)
+                let value = try cliValue(for: option, tokens: arguments, index: &index)
                 guard let transport = CLIAppServerTransport(rawValue: value) else {
                     throw CLIError.unsupportedAppServerTransport(value)
                 }
@@ -61,11 +68,11 @@ public struct CLIArgumentParser: Sendable {
             case "--mock":
                 request.live = false
             case "--api-key":
-                request.apiKey = try value(for: option, tokens: arguments, index: &index)
+                request.apiKey = try cliValue(for: option, tokens: arguments, index: &index)
             case "--model", "-m":
-                request.model = try value(for: option, tokens: arguments, index: &index)
+                request.model = try cliValue(for: option, tokens: arguments, index: &index)
             case "--base-url":
-                request.baseURL = try value(for: option, tokens: arguments, index: &index)
+                request.baseURL = try cliValue(for: option, tokens: arguments, index: &index)
             default:
                 throw CLIError.unknownOption(option.name)
             }
@@ -111,7 +118,7 @@ public struct CLIArgumentParser: Sendable {
             case "--help", "-h":
                 request.showsHelp = true
             default:
-                throw CLIError.unknownOption(splitOption(argument).name)
+                throw CLIError.unknownOption(cliSplitOption(argument).name)
             }
         }
         return request
@@ -168,7 +175,7 @@ public struct CLIArgumentParser: Sendable {
                 continue
             }
 
-            let option = splitOption(token)
+            let option = cliSplitOption(token)
             switch option.name {
             case "--live":
                 request.live = true
@@ -188,39 +195,39 @@ public struct CLIArgumentParser: Sendable {
                 request.sandbox = .workspaceWrite
                 request.usedDeprecatedFullAuto = true
             case "--api-key":
-                request.apiKey = try value(for: option, tokens: tokens, index: &index)
+                request.apiKey = try cliValue(for: option, tokens: tokens, index: &index)
             case "--model", "-m":
-                request.model = try value(for: option, tokens: tokens, index: &index)
+                request.model = try cliValue(for: option, tokens: tokens, index: &index)
             case "--base-url":
-                request.baseURL = try value(for: option, tokens: tokens, index: &index)
+                request.baseURL = try cliValue(for: option, tokens: tokens, index: &index)
             case "--cwd", "-C":
-                request.cwd = pathURL(
-                    try value(for: option, tokens: tokens, index: &index),
+                request.cwd = cliPathURL(
+                    try cliValue(for: option, tokens: tokens, index: &index),
                     relativeTo: currentDirectory
                 )
             case "--image":
-                request.imageURLs.append(pathURL(
-                    try value(for: option, tokens: tokens, index: &index),
+                request.imageURLs.append(cliPathURL(
+                    try cliValue(for: option, tokens: tokens, index: &index),
                     relativeTo: currentDirectory
                 ))
             case "--output-last-message", "-o":
-                request.outputLastMessageURL = pathURL(
-                    try value(for: option, tokens: tokens, index: &index),
+                request.outputLastMessageURL = cliPathURL(
+                    try cliValue(for: option, tokens: tokens, index: &index),
                     relativeTo: currentDirectory
                 )
             case "--output-schema":
-                request.outputSchemaURL = pathURL(
-                    try value(for: option, tokens: tokens, index: &index),
+                request.outputSchemaURL = cliPathURL(
+                    try cliValue(for: option, tokens: tokens, index: &index),
                     relativeTo: currentDirectory
                 )
             case "--sandbox":
-                let raw = try value(for: option, tokens: tokens, index: &index)
+                let raw = try cliValue(for: option, tokens: tokens, index: &index)
                 guard let sandbox = CLISandboxMode(rawValue: raw) else {
                     throw CLIError.invalidOptionValue(option: option.name, value: raw)
                 }
                 request.sandbox = sandbox
             case "--mode":
-                let raw = try value(for: option, tokens: tokens, index: &index)
+                let raw = try cliValue(for: option, tokens: tokens, index: &index)
                 guard let mode = AgentMode(rawValue: raw) else {
                     throw CLIError.invalidOptionValue(option: option.name, value: raw)
                 }
@@ -248,7 +255,7 @@ public struct CLIArgumentParser: Sendable {
         var found: String?
         var index = 0
         while index < arguments.count {
-            let option = splitOption(arguments[index])
+            let option = cliSplitOption(arguments[index])
             guard option.name == name else {
                 index += 1
                 continue
@@ -267,38 +274,4 @@ public struct CLIArgumentParser: Sendable {
         return found
     }
 
-    private func value(
-        for option: ParsedOption,
-        tokens: [String],
-        index: inout Int
-    ) throws -> String {
-        if let inlineValue = option.inlineValue { return inlineValue }
-        let valueIndex = index + 1
-        guard tokens.indices.contains(valueIndex) else { throw CLIError.missingOptionValue(option.name) }
-        index = valueIndex
-        return tokens[valueIndex]
-    }
-
-    private func splitOption(_ token: String) -> ParsedOption {
-        guard token.hasPrefix("--"), let separator = token.firstIndex(of: "=") else {
-            return ParsedOption(name: token, inlineValue: nil)
-        }
-        return ParsedOption(
-            name: String(token[..<separator]),
-            inlineValue: String(token[token.index(after: separator)...])
-        )
-    }
-
-    private func pathURL(_ value: String, relativeTo directory: URL) -> URL {
-        let expanded = value.cliExpandingTildeInPath
-        if NSString(string: expanded).isAbsolutePath {
-            return URL(fileURLWithPath: expanded).standardizedFileURL
-        }
-        return directory.appendingPathComponent(expanded).standardizedFileURL
-    }
-}
-
-private struct ParsedOption {
-    var name: String
-    var inlineValue: String?
 }

@@ -1,5 +1,6 @@
 import SwiftUI
 import QuillCodeCore
+import QuillCodeReview
 import QuillCodeTools
 
 public struct QuillCodeWorkspaceView: View {

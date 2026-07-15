@@ -73,6 +73,16 @@ public struct QuillCodeCommandRunner: Sendable {
                     inputIsTerminal: input.isTerminal,
                     output: output
                 )
+            case .review(let request):
+                return await CLIReviewCommand(
+                    runnerFactory: runnerFactory,
+                    interruptSource: interruptSource
+                ).run(
+                    request,
+                    environment: environment,
+                    input: input,
+                    output: output
+                )
             case .appServer(let request):
                 return await runAppServer(
                     request,
@@ -346,6 +356,7 @@ public struct QuillCodeCommandRunner: Sendable {
     Usage:
       quill-code exec [OPTIONS] PROMPT
       quill-code exec resume (--last | THREAD_ID) [OPTIONS] PROMPT
+      quill-code review (--uncommitted | --base BRANCH | --commit SHA | PROMPT) [OPTIONS]
       quill-code app-server [--listen stdio://] [--mock | --live]
       quill-code [--home PATH] doctor [--json | --summary] [--all] [--no-color] [--ascii]
       quill-code [LEGACY OPTIONS] PROMPT
@@ -367,6 +378,9 @@ public struct QuillCodeCommandRunner: Sendable {
       --image PATH                   Attach an image (repeat up to the attachment limit)
       --mock                         Use the deterministic local test model
       --live                         Use TrustedRouter (default for `exec`)
+
+    Review:
+      Run `quill-code review --help` for dedicated read-only review targets and options.
 
     Stdin:
       Use `-` as the prompt to read the full prompt from stdin. When a prompt argument is present,

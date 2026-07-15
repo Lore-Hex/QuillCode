@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeReview
 import QuillCodeTools
 
 public struct QuillCodeWorkspaceActions {

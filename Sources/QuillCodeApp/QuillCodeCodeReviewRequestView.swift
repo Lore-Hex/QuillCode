@@ -1,5 +1,6 @@
 import SwiftUI
 import QuillCodeCore
+import QuillCodeReview
 
 struct QuillCodeCodeReviewRequestView: View {
     @Binding var request: WorkspaceCodeReviewRequest
