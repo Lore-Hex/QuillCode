@@ -1,5 +1,32 @@
 # QuillCode Decisions
 
+## 2026-07-15: App-server account mutation reuses TrustedRouter OAuth without inventing identity
+
+- **Wire contract:** `account/login/start` supports Codex-compatible `apiKey` and `chatgpt`
+  discriminators plus the explicit `trustedRouter` alias. API-key login completes immediately;
+  browser login returns a real authorization URL and login ID before asynchronous completion.
+  `account/login/cancel` returns exact `canceled`/`notFound` states, `account/logout` clears only the
+  managed credential, and completion/update notifications honor client opt-outs.
+- **Identity contract:** TrustedRouter browser OAuth ultimately yields a delegated API key, so
+  `account/read` and `account/updated` truthfully report `apiKey`/`apikey`. QuillCode does not fabricate
+  a ChatGPT email, plan type, quota, or provider account history. Optional TrustedRouter userinfo is
+  persisted locally for QuillCode UI only and never returned with the key on the app-server wire.
+- **Platform boundary:** One `QuillCodePlatform` loopback callback server owns loopback-only sockets,
+  bounded HTTP parsing, cancellation, and one-shot callback capture. App-server OAuth, desktop sign-in,
+  and desktop MCP OAuth reuse it; platform socket details remain in the C adapter rather than three
+  divergent Swift implementations or app-level conditionals. TrustedRouter account flows bind the
+  exact allowlisted `http://localhost:3000/callback` redirect, while MCP OAuth retains its own
+  server-registration-compatible candidate ports.
+- **Durability and lifecycle:** Credential/config updates are transactional and preserve unrelated TOML
+  keys. Cancellation, EOF, and failed exchange cannot persist a late credential or emit duplicate
+  completion. Explicit/environment credentials remain externally managed and therefore survive logout.
+- **Evidence:** Dedicated lifecycle tests cover success, failure, cancellation ordering, logout,
+  external credentials, notification opt-outs, disconnect cleanup, exact TrustedRouter callback
+  selection, and secret non-disclosure. Shared listener tests cover exact configured redirects,
+  matching/unrelated requests, stalled partial requests, invalid callback URLs, and cancellation. The
+  real executable smoke proves login/read/logout ordering without losing the session's MCP
+  configuration.
+
 ## 2026-07-15: Desktop and app-server share one MCP transport runtime
 
 - **Decision:** `QuillCodeTools` owns the reusable MCP client session, process controller, stdio/HTTP

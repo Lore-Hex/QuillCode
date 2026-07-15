@@ -235,6 +235,27 @@ public struct TrustedRouterOAuthClient: Sendable {
         return try JSONDecoder().decode(TrustedRouterUserInfo.self, from: data)
     }
 
+    /// Projects the non-secret account metadata returned during OAuth, enriching it from the
+    /// userinfo endpoint when available. Authentication must still succeed when that optional
+    /// profile request is unavailable.
+    public func accountProfile(from token: TrustedRouterOAuthToken) async -> TrustedRouterAccountProfile? {
+        var profile = TrustedRouterAccountProfile(
+            userID: token.userID,
+            subject: token.identity?.sub,
+            email: token.identity?.email,
+            walletAddress: token.identity?.walletAddress
+        )
+        if let userInfo = try? await fetchUserInfo(apiKey: token.key) {
+            profile = TrustedRouterAccountProfile(
+                userID: profile.userID,
+                subject: profile.subject ?? userInfo.data.sub,
+                email: profile.email ?? userInfo.data.email,
+                walletAddress: profile.walletAddress ?? userInfo.data.walletAddress
+            )
+        }
+        return profile.isEmpty ? nil : profile
+    }
+
     private struct ExchangeRequest: Encodable {
         var code: String
         var codeVerifier: String

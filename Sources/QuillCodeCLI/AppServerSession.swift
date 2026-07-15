@@ -42,6 +42,7 @@ actor AppServerSession {
     let attachmentStore: ImageAttachmentStore
     let mcpRegistry: AppServerMCPRegistry
     let runnerFactory: CLIAgentRunnerFactory
+    let accountLoginStarter: any AppServerAccountLoginStarting
     let sink: AppServerMessageSink
 
     var handshake = HandshakeState.awaitingInitialize
@@ -49,6 +50,7 @@ actor AppServerSession {
     var activeTurns: [UUID: ActiveTurn] = [:]
     var nextServerRequestSequence: Int64 = 1
     var pendingApprovals: [AppServerRequestID: AppServerPendingApproval] = [:]
+    var pendingAccountLogins: [String: AppServerPendingAccountLogin] = [:]
     var cachedModelCatalog: TrustedRouterModelCatalog?
     var cachedSkillSnapshots: [String: SkillCatalogSnapshot] = [:]
     var skillExtraRoots: [URL] = []
@@ -65,6 +67,7 @@ actor AppServerSession {
         currentDirectory: URL,
         runnerFactory: @escaping CLIAgentRunnerFactory,
         mcpLauncher: any MCPClientLaunching = DefaultMCPClientLauncher(),
+        accountLoginStarter: any AppServerAccountLoginStarting = DefaultAppServerAccountLoginStarter(),
         sink: @escaping AppServerMessageSink
     ) throws {
         let paths = request.home.map { QuillCodePaths(home: $0) } ?? QuillCodePaths()
@@ -78,6 +81,7 @@ actor AppServerSession {
         self.attachmentStore = ImageAttachmentStore(directory: paths.attachmentsDirectory)
         self.mcpRegistry = AppServerMCPRegistry(launcher: mcpLauncher)
         self.runnerFactory = runnerFactory
+        self.accountLoginStarter = accountLoginStarter
         self.sink = sink
     }
 
@@ -112,6 +116,7 @@ actor AppServerSession {
         inputFinished = true
         cancelSkillWatcher()
         cancelAllFileWatches()
+        cancelAllAccountLogins()
         await mcpRegistry.terminateAll()
         resolveAllPendingApprovals(
             with: .deny(reason: "The app-server client disconnected before answering the approval request.")
@@ -135,10 +140,23 @@ actor AppServerSession {
         do {
             let result: CLIJSONValue
             var turnToLaunch: UUID?
+            var accountAfterResponse: AppServerAccountAfterResponse?
             switch method {
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
             case "account/read": result = try readAccount(params)
+            case "account/login/start":
+                let outcome = try startAccountLogin(params)
+                result = outcome.result
+                accountAfterResponse = outcome.afterResponse
+            case "account/login/cancel":
+                let outcome = try cancelAccountLogin(params)
+                result = outcome.result
+                accountAfterResponse = outcome.afterResponse
+            case "account/logout":
+                let outcome = try logoutAccount(params)
+                result = outcome.result
+                accountAfterResponse = outcome.afterResponse
             case "account/usage/read": result = try await readAccountUsage(params)
             case "account/rateLimits/read": result = try await readAccountRateLimits(params)
             case "config/read": result = try readConfig(params)
@@ -186,6 +204,9 @@ actor AppServerSession {
                 throw AppServerRPCError.methodNotFound(method)
             }
             await send(.response(id: id, result: result))
+            if let accountAfterResponse {
+                await performAccountAfterResponse(accountAfterResponse)
+            }
             if let turnToLaunch { launchTurn(turnToLaunch) }
         } catch let error as AppServerRPCError {
             await send(.error(id: id, error: error))

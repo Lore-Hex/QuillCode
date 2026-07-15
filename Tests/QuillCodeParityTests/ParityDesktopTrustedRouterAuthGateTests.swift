@@ -7,7 +7,11 @@ final class ParityDesktopTrustedRouterAuthGateTests: QuillCodeParityTestCase {
         let signInText = try Self.desktopSourceText(named: "QuillCodeDesktopSignInCoordinator.swift")
 
         Self.assertSource(text, contains: "QuillCodeDesktopSignInCoordinator")
-        Self.assertSource(text, contains: "TrustedRouterLoopbackCallbackServer")
+        Self.assertSource(text, contains: "LoopbackHTTPCallbackServer")
+        Self.assertSource(
+            text,
+            contains: "LoopbackHTTPCallbackServer(callbackURL: configuredCallbackURL)"
+        )
         Self.assertSource(text, contains: "TrustedRouterDefaults.loopbackCallbackURL")
         Self.assertSource(text, contains: "createAuthorization")
         Self.assertSource(text, contains: "exchangeCode")
@@ -21,7 +25,7 @@ final class ParityDesktopTrustedRouterAuthGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, contains: "signInCoordinator.completeSignInAndApply")
         Self.assertSource(controllerText, excludes: "exchangeCode")
         Self.assertSource(controllerText, excludes: "TrustedRouterOAuthClient")
-        Self.assertSource(controllerText, excludes: "TrustedRouterLoopbackCallbackServer")
+        Self.assertSource(controllerText, excludes: "LoopbackHTTPCallbackServer")
         Self.assertSource(controllerText, excludes: "private func completeTrustedRouterSignIn")
         Self.assertSource(controllerText, excludes: "QuillCodeRuntimeStatusLabel.signInFailed")
         XCTAssertFalse(

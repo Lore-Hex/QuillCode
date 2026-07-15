@@ -246,6 +246,44 @@ send({"id": 3, "method": "account/read", "params": {}})
 account, _ = read_until(lambda record: record.get("id") == 3)
 assert account["result"] == {"account": None, "requiresOpenaiAuth": False}, account
 
+account_secret = "sk-tr-v1-app-server-smoke"
+send({"id": 30, "method": "account/login/start", "params": {
+    "type": "apiKey",
+    "apiKey": account_secret,
+}})
+account_updated, login_records = read_until(
+    lambda record: record.get("method") == "account/updated"
+)
+assert [record.get("id") for record in login_records] == [30, None, None], login_records
+assert login_records[0]["result"] == {"type": "apiKey"}, login_records
+assert login_records[1]["method"] == "account/login/completed", login_records
+assert login_records[1]["params"] == {
+    "loginId": None,
+    "success": True,
+    "error": None,
+}, login_records
+assert account_updated["params"] == {"authMode": "apikey", "planType": None}, account_updated
+assert account_secret not in json.dumps(login_records, sort_keys=True), login_records
+
+send({"id": 31, "method": "account/read", "params": {}})
+account, _ = read_until(lambda record: record.get("id") == 31)
+assert account["result"] == {
+    "account": {"type": "apiKey"},
+    "requiresOpenaiAuth": False,
+}, account
+
+send({"id": 32, "method": "account/logout", "params": {}})
+account_updated, logout_records = read_until(
+    lambda record: record.get("method") == "account/updated"
+)
+assert [record.get("id") for record in logout_records] == [32, None], logout_records
+assert logout_records[0]["result"] == {}, logout_records
+assert account_updated["params"] == {"authMode": None, "planType": None}, account_updated
+
+send({"id": 33, "method": "account/read", "params": {}})
+account, _ = read_until(lambda record: record.get("id") == 33)
+assert account["result"] == {"account": None, "requiresOpenaiAuth": False}, account
+
 send({"id": 4, "method": "config/read", "params": {"cwd": workspace}})
 config, _ = read_until(lambda record: record.get("id") == 4)
 assert config["result"]["config"]["model"] == "trustedrouter/fast", config

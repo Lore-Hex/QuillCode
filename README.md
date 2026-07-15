@@ -19,7 +19,8 @@ This initial repository contains the compile-stable foundation:
   runs, final-message files, structured output, and fail-closed Git/workspace guards
 - Codex-compatible `quill-code app-server` stdio JSONL core with strict initialization, durable
   thread lifecycle, streamed turns, steering, interruption, managed local images, approvals,
-  model/provider discovery, non-secret account/local usage state, config reads/writes, local plugin
+  model/provider discovery, non-secret account/local usage state, API-key and browser OAuth account
+  login/cancel/logout, config reads/writes, local plugin
   marketplace and installed-state discovery, Open Agent Skills discovery with per-session extra
   roots, binary-safe host filesystem read/write/metadata/directory/copy/remove and connection-scoped
   watch methods, plus MCP status/reload/tool/resource methods backed by shared stdio and HTTP clients
@@ -81,6 +82,12 @@ app-server client's direct host authority; model-authored file tools still use Q
 and safety boundaries. Input messages are capped at 1 MiB, local images are copied into managed
 storage, unsupported transports and danger-full-access are rejected, and client EOF resolves pending
 approvals and filesystem watches instead of leaving work stranded.
+
+Account clients can start API-key or browser-based TrustedRouter sign-in through
+`account/login/start`, cancel an outstanding browser flow through `account/login/cancel`, and clear
+the managed credential through `account/logout`. Responses are emitted before the matching
+`account/login/completed` and `account/updated` notifications. Account reads and notifications expose
+only the compatible account kind and auth mode; delegated keys never appear on the protocol wire.
 
 App-server clients can also use Codex-compatible `mcpServerStatus/list`,
 `config/mcpServer/reload`, `mcpServer/tool/call`, and `mcpServer/resource/read`. MCP configuration is

@@ -3,6 +3,7 @@ import Foundation
 import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
+import QuillCodePlatform
 
 struct QuillCodeDesktopSignInResult {
     var config: AppConfig
@@ -28,12 +29,16 @@ struct QuillCodeDesktopSignInCoordinator {
     ) async throws -> QuillCodeDesktopSignInResult {
         status("Opening TrustedRouter", nil)
         let client = try TrustedRouterOAuthClient(baseURL: currentConfig.apiBaseURL)
-        let server = try TrustedRouterLoopbackCallbackServer()
-        try await server.start()
+        guard let configuredCallbackURL = URL(
+            string: TrustedRouterDefaults.loopbackCallbackURL
+        ) else {
+            throw TrustedRouterOAuthError.invalidCallbackURL(TrustedRouterDefaults.loopbackCallbackURL)
+        }
+        let server = try LoopbackHTTPCallbackServer(callbackURL: configuredCallbackURL)
         defer { server.cancel() }
 
         let authorization = try client.createAuthorization(
-            callbackURL: TrustedRouterLoopbackCallbackServer.callbackURL,
+            callbackURL: server.callbackURL.absoluteString,
             keyLabel: "QuillCode"
         )
         openURL(authorization.url)
@@ -50,7 +55,7 @@ struct QuillCodeDesktopSignInCoordinator {
         var config = currentConfig
         config.authMode = .oauth
         config.developerOverrideEnabled = false
-        config.trustedRouterAccount = await accountProfile(from: token, client: client)
+        config.trustedRouterAccount = await client.accountProfile(from: token)
 
         try bootstrap.saveTrustedRouterAPIKey(token.key)
         try bootstrap.saveConfig(config)
@@ -84,27 +89,6 @@ struct QuillCodeDesktopSignInCoordinator {
             )
             refresh()
         }
-    }
-
-    private func accountProfile(
-        from token: TrustedRouterOAuthToken,
-        client: TrustedRouterOAuthClient
-    ) async -> TrustedRouterAccountProfile? {
-        var profile = TrustedRouterAccountProfile(
-            userID: token.userID,
-            subject: token.identity?.sub,
-            email: token.identity?.email,
-            walletAddress: token.identity?.walletAddress
-        )
-        if let userInfo = try? await client.fetchUserInfo(apiKey: token.key) {
-            profile = TrustedRouterAccountProfile(
-                userID: profile.userID,
-                subject: profile.subject ?? userInfo.data.sub,
-                email: profile.email ?? userInfo.data.email,
-                walletAddress: profile.walletAddress ?? userInfo.data.walletAddress
-            )
-        }
-        return profile.isEmpty ? nil : profile
     }
 
     private func applySignInResult(
