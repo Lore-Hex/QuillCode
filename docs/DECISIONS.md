@@ -1,5 +1,28 @@
 # QuillCode Decisions
 
+## 2026-07-15: App-server plugin discovery reuses the desktop's data-only catalog
+
+- **Decision:** `plugin/list` and `plugin/installed` project local home and repository marketplaces
+  through the Codex 0.142.5 response schema. The app-server and desktop now share one bounded catalog
+  reader instead of decoding the same marketplace and package manifests independently.
+- **Security boundary:** Discovery reads only bounded regular JSON files, rejects symlinked catalogs
+  and installed-state directories, accepts explicit `./` local package sources that remain within
+  their workspace, and never clones, downloads, or executes plugin code. Invalid marketplaces are
+  skipped and returned as per-path load errors without hiding valid marketplaces from other roots.
+- **State boundary:** QuillCode package directories and explicit project manifests determine local
+  installed/enabled state. `plugin/installed` returns installed entries plus bounded explicit install
+  suggestions and ignores orphaned installed state when no catalog advertises it. Local package
+  versions and interface asset paths project truthfully from the package manifest.
+- **Remote boundary:** Codex marketplace-kind values are accepted, but only `local` has an implemented
+  backend. Remote catalogs, sharing, featured IDs, install/update mutation, private Codex cache/config
+  conventions, and plugin detail methods remain deferred rather than being synthesized from local
+  data or TrustedRouter state.
+- **Evidence:** Shared loader tests cover modern/legacy manifests, interface metadata, path escapes,
+  symlinks, byte limits, and partial failure. JSON-RPC tests cover exact response fields, home and
+  workspace roots, local versions, installed/suggested filtering, installed-state symlink rejection,
+  invalid parameters, and remote-only empty results. The real executable smoke verifies both methods
+  over an open stdio process.
+
 ## 2026-07-15: App-server config mutation shares one structured TOML document
 
 - **Decision:** `ConfigDocumentStore` is the shared representation for app settings and Codex-compatible
