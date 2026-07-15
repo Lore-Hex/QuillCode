@@ -217,6 +217,10 @@ struct QuillCodeDesktopSmokePixelReport {
 struct QuillCodeDesktopSmokePixelStats {
     var report: QuillCodeDesktopSmokePixelReport
 
+    init(report: QuillCodeDesktopSmokePixelReport) {
+        self.report = report
+    }
+
     init(image: CGImage) throws {
         let width = image.width
         let height = image.height
@@ -285,7 +289,7 @@ struct QuillCodeDesktopSmokePixelStats {
         guard report.opaquePixelRatio > 0.98 else {
             throw QuillCodeDesktopSmokeFailure.imageTooTransparent(report.opaquePixelRatio)
         }
-        guard report.distinctColorBuckets > minDistinctColorBuckets else {
+        guard report.distinctColorBuckets >= minDistinctColorBuckets else {
             throw QuillCodeDesktopSmokeFailure.imageTooFlat(report.distinctColorBuckets)
         }
         guard report.brightPixelRatio > minBrightPixelRatio else {

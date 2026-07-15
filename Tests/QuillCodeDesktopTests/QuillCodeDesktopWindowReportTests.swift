@@ -7,6 +7,49 @@ import QuillComputerUseKit
 
 @MainActor
 final class QuillCodeDesktopWindowReportTests: XCTestCase {
+    func testDesktopSmokePixelValidationAcceptsConfiguredMinimumColorBuckets() throws {
+        let stats = QuillCodeDesktopSmokePixelStats(
+            report: QuillCodeDesktopSmokePixelReport(
+                width: 1280,
+                height: 900,
+                opaquePixelRatio: 1,
+                brightPixelRatio: 0.01,
+                blueAccentPixelRatio: 0,
+                distinctColorBuckets: 14
+            )
+        )
+
+        XCTAssertNoThrow(
+            try stats.validate(
+                expectedWidth: 1280,
+                expectedHeight: 900,
+                minDistinctColorBuckets: 14,
+                minBrightPixelRatio: 0.0005,
+                minBlueAccentPixelRatio: 0
+            )
+        )
+
+        let flatStats = QuillCodeDesktopSmokePixelStats(
+            report: QuillCodeDesktopSmokePixelReport(
+                width: 1280,
+                height: 900,
+                opaquePixelRatio: 1,
+                brightPixelRatio: 0.01,
+                blueAccentPixelRatio: 0,
+                distinctColorBuckets: 13
+            )
+        )
+        XCTAssertThrowsError(
+            try flatStats.validate(
+                expectedWidth: 1280,
+                expectedHeight: 900,
+                minDistinctColorBuckets: 14,
+                minBrightPixelRatio: 0.0005,
+                minBlueAccentPixelRatio: 0
+            )
+        )
+    }
+
     func testDesktopWindowSmokeRequestParsesReportAndScreenshotPaths() {
         let request = QuillCodeDesktopWindowSmokeRequest(arguments: [
             "QuillCode",
