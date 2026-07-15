@@ -20,7 +20,8 @@ This initial repository contains the compile-stable foundation:
 - Codex-compatible `quill-code app-server` stdio JSONL core with strict initialization, durable
   thread lifecycle, streamed turns, steering, interruption, managed local images, approvals,
   model/provider discovery, non-secret account/local usage state, effective config reads, and
-  Open Agent Skills discovery with per-session extra roots
+  Open Agent Skills discovery with per-session extra roots, plus binary-safe host filesystem
+  read/write/metadata/directory/copy/remove and connection-scoped watch methods
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
 - Playwright mock UI harness (test-only; any `node_modules` lives under `E2E/playwright` and is ignored)
 - parity, roadmap, decision, and test-plan docs
@@ -64,9 +65,15 @@ TrustedRouter runtime. The implemented core follows Codex's newline-delimited wi
 turn start/steer/interrupt, item and assistant deltas, command/file approval requests, and durable
 transcript persistence. Clients can also list models, read provider capabilities, detect account
 presence without receiving credentials, read locally observed UTC token usage and explicitly local
-spend controls, and inspect effective config. Input messages are capped at 1 MiB, local images are
-copied into managed storage, unsupported transports and danger-full-access are rejected, and client
-EOF resolves pending approvals instead of leaving an agent turn stranded.
+spend controls, inspect effective config, and use Codex-compatible `fs/readFile`, `fs/writeFile`,
+`fs/createDirectory`, `fs/getMetadata`, `fs/readDirectory`, `fs/remove`, `fs/copy`, `fs/watch`, and
+`fs/unwatch` methods. Files are binary-safe base64 payloads, reads use Codex's 512 MiB bound, recursive
+copy preserves symlinks while skipping special children, and watches emit sorted, 200 ms-debounced
+`fs/changed` notifications until unwatch or disconnect. These methods represent the connected
+app-server client's direct host authority; model-authored file tools still use QuillCode's workspace
+and safety boundaries. Input messages are capped at 1 MiB, local images are copied into managed
+storage, unsupported transports and danger-full-access are rejected, and client EOF resolves pending
+approvals and filesystem watches instead of leaving work stranded.
 
 Skill discovery follows the Codex/Open Agent Skills layout without putting full skill instructions in
 the base prompt: repository `.agents/skills` directories from the working directory through the Git

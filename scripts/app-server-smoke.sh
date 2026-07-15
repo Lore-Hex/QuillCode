@@ -11,6 +11,7 @@ swift build --product quill-code >/dev/null
 
 python3 - "$ROOT_DIR/.build/debug/quill-code" "$SMOKE_ROOT/home" "$SMOKE_ROOT/workspace" <<'PY'
 import json
+import base64
 import os
 import subprocess
 import sys
@@ -104,6 +105,63 @@ send({"id": 7, "method": "skills/list", "params": {"forceReload": True}})
 skills, _ = read_until(lambda record: record.get("id") == 7)
 skill_names = {skill["name"] for skill in skills["result"]["data"][0]["skills"]}
 assert skill_names == {"smoke-review", "smoke-advisor"}, skills
+
+fs_root = os.path.join(workspace, "app-server-fs")
+nested = os.path.join(fs_root, "nested")
+source_file = os.path.join(nested, "blob.bin")
+copy_file = os.path.join(fs_root, "blob-copy.bin")
+payload = bytes([0, 1, 2, 255])
+
+send({"id": 80, "method": "fs/createDirectory", "params": {"path": nested}})
+created, _ = read_until(lambda record: record.get("id") == 80)
+assert created["result"] == {}, created
+
+send({"id": 81, "method": "fs/writeFile", "params": {
+    "path": source_file,
+    "dataBase64": base64.b64encode(payload).decode("ascii"),
+}})
+written, _ = read_until(lambda record: record.get("id") == 81)
+assert written["result"] == {}, written
+
+send({"id": 82, "method": "fs/readFile", "params": {"path": source_file}})
+read_file, _ = read_until(lambda record: record.get("id") == 82)
+assert base64.b64decode(read_file["result"]["dataBase64"]) == payload, read_file
+
+send({"id": 83, "method": "fs/getMetadata", "params": {"path": source_file}})
+metadata, _ = read_until(lambda record: record.get("id") == 83)
+assert set(metadata["result"]) == {
+    "isDirectory", "isFile", "isSymlink", "createdAtMs", "modifiedAtMs",
+}, metadata
+assert metadata["result"]["isFile"] is True, metadata
+
+send({"id": 84, "method": "fs/readDirectory", "params": {"path": nested}})
+directory, _ = read_until(lambda record: record.get("id") == 84)
+assert directory["result"]["entries"] == [{
+    "fileName": "blob.bin", "isDirectory": False, "isFile": True,
+}], directory
+
+send({"id": 85, "method": "fs/copy", "params": {
+    "sourcePath": source_file,
+    "destinationPath": copy_file,
+}})
+copied, _ = read_until(lambda record: record.get("id") == 85)
+assert copied["result"] == {}, copied
+with open(copy_file, "rb") as copied_stream:
+    assert copied_stream.read() == payload, copied
+
+send({"id": 86, "method": "fs/watch", "params": {
+    "watchId": "smoke-copy", "path": copy_file,
+}})
+watched, _ = read_until(lambda record: record.get("id") == 86)
+assert set(watched["result"]) == {"path"}, watched
+assert os.path.samefile(watched["result"]["path"], copy_file), watched
+send({"id": 87, "method": "fs/unwatch", "params": {"watchId": "smoke-copy"}})
+unwatched, _ = read_until(lambda record: record.get("id") == 87)
+assert unwatched["result"] == {}, unwatched
+
+send({"id": 88, "method": "fs/remove", "params": {"path": copy_file}})
+removed, _ = read_until(lambda record: record.get("id") == 88)
+assert removed["result"] == {} and not os.path.exists(copy_file), removed
 
 send({"id": 8, "method": "thread/start", "params": {
     "cwd": workspace,
