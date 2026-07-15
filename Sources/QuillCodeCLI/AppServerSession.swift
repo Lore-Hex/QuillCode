@@ -6,6 +6,11 @@ import QuillCodeTools
 
 typealias AppServerMessageSink = @Sendable (String) async -> Void
 
+struct AppServerConfiguredRunner: Sendable {
+    var runner: AgentRunner
+    var mcpRoutes: [String: MCPAgentToolRoute]
+}
+
 actor AppServerSession {
     static let maximumMessageBytes = 1_048_576
 
@@ -257,7 +262,7 @@ actor AppServerSession {
         return paths.threadsDirectory.appendingPathComponent("\(id.uuidString).json")
     }
 
-    func runner(for record: AppServerThreadRecord) throws -> AgentRunner {
+    func runner(for record: AppServerThreadRecord) async throws -> AppServerConfiguredRunner {
         let runRequest = CLIRunRequest(
             style: .exec,
             prompt: "",
@@ -278,6 +283,28 @@ actor AppServerSession {
             imageAttachmentStore: attachmentStore,
             environment: environment
         ))
+        let mcpContext = try mcpContext(for: record)
+        let mcpCatalog = try await mcpRegistry.agentToolCatalog(
+            scope: mcpContext.scope,
+            configurations: mcpContext.configurations
+        )
+        runner.additionalToolDefinitions.append(contentsOf: mcpCatalog.definitions)
+        let inheritedToolExecution = runner.toolExecutionOverride
+        let registry = mcpRegistry
+        let scope = mcpContext.scope
+        let configurations = mcpContext.configurations
+        runner.toolExecutionOverride = { call, workspaceRoot in
+            if let route = mcpCatalog.route(forModelName: call.name),
+               let configuration = configurations[route.serverName] {
+                return await registry.executeAgentTool(
+                    scope: scope,
+                    configuration: configuration,
+                    route: route,
+                    argumentsJSON: call.argumentsJSON
+                )
+            }
+            return await inheritedToolExecution?(call, workspaceRoot)
+        }
         let inheritedHook = runner.permissionRequestHook
         runner.permissionRequestHook = { [weak self] call, reason, thread, workspaceRoot in
             var notices: [String] = []
@@ -309,7 +336,10 @@ actor AppServerSession {
                 notices: notices
             )
         }
-        return runner
+        return AppServerConfiguredRunner(
+            runner: runner,
+            mcpRoutes: mcpCatalog.routesByModelName
+        )
     }
 }
 

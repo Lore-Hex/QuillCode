@@ -1,5 +1,6 @@
 import Foundation
 @testable import QuillCodeCLI
+import QuillCodeAgent
 import QuillCodeCore
 import QuillCodeTools
 import XCTest
@@ -223,6 +224,190 @@ final class AppServerMCPTests: XCTestCase {
         XCTAssertEqual(result(for: 3, in: records), [:])
     }
 
+    func testRequiredServerFailureRejectsThreadBeforePersistence() async throws {
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.required-fixture]
+            command = "missing"
+            required = true
+            """,
+            launcher: FakeMCPLauncher(specifications: [:])
+        )
+
+        try await sendRequest(
+            id: 2,
+            method: "thread/start",
+            params: ["cwd": fixture.workspace.path, "model": "trustedrouter/fast"],
+            to: fixture.session
+        )
+        let records = try await fixture.output.records()
+        XCTAssertEqual(errorCode(for: 2, in: records), -32_603)
+        XCTAssertTrue(
+            errorMessage(for: 2, in: records)?.contains(
+                "required MCP servers failed to initialize: required-fixture"
+            ) == true
+        )
+        let threadFiles = try FileManager.default.contentsOfDirectory(
+            at: fixture.home.appendingPathComponent("threads", isDirectory: true),
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertTrue(threadFiles.isEmpty)
+
+        await fixture.session.finishInput()
+    }
+
+    func testRequiredServerFailureRejectsResumeAndForkWithoutMutatingThreads() async throws {
+        let launcher = FakeMCPLauncher(specifications: [
+            "fixture": .init(probe: Self.toolProbe(serverName: "Fixture MCP", toolName: "ping"))
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.required-fixture]
+            command = "fixture"
+            required = true
+            """,
+            launcher: launcher
+        )
+        let threadID = try await startThread(in: fixture)
+        try Data("""
+        [mcp_servers.required-fixture]
+        command = "missing"
+        required = true
+        """.utf8).write(to: fixture.home.appendingPathComponent("config.toml"))
+
+        try await sendRequest(
+            id: 3,
+            method: "thread/resume",
+            params: ["threadId": threadID, "model": "trustedrouter/fusion"],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 4,
+            method: "thread/fork",
+            params: ["threadId": threadID],
+            to: fixture.session
+        )
+
+        let records = try await fixture.output.records()
+        XCTAssertEqual(errorCode(for: 3, in: records), -32_603)
+        XCTAssertEqual(errorCode(for: 4, in: records), -32_603)
+        let threadFiles = try FileManager.default.contentsOfDirectory(
+            at: fixture.home.appendingPathComponent("threads", isDirectory: true),
+            includingPropertiesForKeys: nil
+        )
+        XCTAssertEqual(threadFiles.count, 1)
+        let persistedID = try XCTUnwrap(UUID(uuidString: threadID))
+        let persisted = try await fixture.session.repository.load(persistedID)
+        XCTAssertEqual(persisted.thread.model, "trustedrouter/fast")
+
+        await fixture.session.finishInput()
+    }
+
+    func testNormalTurnDiscoversAndExecutesMCPToolWithNativeProgressItem() async throws {
+        let llm = AppServerMCPAgentLLM()
+        let launcher = FakeMCPLauncher(specifications: [
+            "fixture": .init(
+                probe: Self.dashProbe,
+                toolResult: MCPToolCallResult(
+                    content: [.object(["type": .string("text"), "text": .string("searched swift")])],
+                    structuredContent: .object(["matches": .number(1)]),
+                    isError: false
+                )
+            )
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.fixture]
+            command = "fixture"
+            enabled_tools = ["search"]
+
+            [mcp_servers.optional-broken]
+            command = "missing"
+            """,
+            launcher: launcher,
+            runnerFactory: { _ in AgentRunner(llm: llm) }
+        )
+        let threadID = try await startThread(in: fixture)
+
+        try await startAndWaitTurn(
+            id: 3,
+            threadID: threadID,
+            text: "Search the documentation for Swift",
+            in: fixture
+        )
+
+        let recorded = try XCTUnwrap(launcher.recorder(for: "fixture").toolCalls.first)
+        XCTAssertEqual(recorded.tool, "search")
+        XCTAssertEqual(recorded.arguments, .object(["query": .string("swift")]))
+        XCTAssertNil(recorded.metadata)
+        let observedToolNames = await llm.observedMCPToolNames()
+        XCTAssertEqual(observedToolNames, [["mcp__fixture__search"], ["mcp__fixture__search"]])
+
+        let records = try await fixture.output.records()
+        let completed = try XCTUnwrap(records.last { $0["method"]?.stringValue == "turn/completed" })
+        let items = completed["params"]?.objectValue?["turn"]?.objectValue?["items"]?.arrayValue ?? []
+        let mcpItem = try XCTUnwrap(items.first { $0.objectValue?["type"]?.stringValue == "mcpToolCall" })
+            .objectValue
+        XCTAssertEqual(mcpItem?["server"]?.stringValue, "fixture")
+        XCTAssertEqual(mcpItem?["tool"]?.stringValue, "search")
+        XCTAssertEqual(mcpItem?["status"]?.stringValue, "completed")
+        XCTAssertEqual(mcpItem?["arguments"]?.objectValue?["query"]?.stringValue, "swift")
+        XCTAssertEqual(
+            mcpItem?["result"]?.objectValue?["content"]?.arrayValue?.first?.objectValue?["text"]?.stringValue,
+            "searched swift"
+        )
+
+        await fixture.session.finishInput()
+    }
+
+    func testReloadAppliesReplacementMCPInventoryToNextTurn() async throws {
+        let llm = AppServerMCPAgentLLM()
+        let launcher = FakeMCPLauncher(specifications: [
+            "first": .init(probe: Self.toolProbe(serverName: "First MCP", toolName: "ping")),
+            "replacement": .init(
+                probe: Self.toolProbe(serverName: "Replacement MCP", toolName: "lookup"),
+                toolResult: MCPToolCallResult(
+                    content: [.object(["type": .string("text"), "text": .string("replacement result")])]
+                )
+            )
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.fixture]
+            command = "first"
+            """,
+            launcher: launcher,
+            runnerFactory: { _ in AgentRunner(llm: llm) }
+        )
+        let threadID = try await startThread(in: fixture)
+        try await startAndWaitTurn(id: 3, threadID: threadID, text: "First turn", in: fixture)
+
+        try Data("""
+        [mcp_servers.fixture]
+        command = "replacement"
+        """.utf8).write(to: fixture.home.appendingPathComponent("config.toml"))
+        try await sendRequest(
+            id: 4,
+            method: "config/mcpServer/reload",
+            params: [:],
+            to: fixture.session
+        )
+        try await startAndWaitTurn(id: 5, threadID: threadID, text: "Second turn", in: fixture)
+
+        XCTAssertEqual(launcher.recorder(for: "first").toolCalls.map(\.tool), ["ping"])
+        XCTAssertEqual(launcher.recorder(for: "first").terminationCount, 1)
+        XCTAssertEqual(launcher.recorder(for: "replacement").toolCalls.map(\.tool), ["lookup"])
+        let observedToolNames = await llm.observedMCPToolNames()
+        XCTAssertEqual(observedToolNames, [
+            ["mcp__fixture__ping"],
+            ["mcp__fixture__ping"],
+            ["mcp__fixture__lookup"],
+            ["mcp__fixture__lookup"]
+        ])
+
+        await fixture.session.finishInput()
+    }
+
     func testOAuthLoginReportsExplicitUnsupportedFlow() async throws {
         let fixture = try await makeFixture(config: "", launcher: FakeMCPLauncher(specifications: [:]))
 
@@ -244,7 +429,8 @@ final class AppServerMCPTests: XCTestCase {
 
     private func makeFixture(
         config: String,
-        launcher: FakeMCPLauncher
+        launcher: FakeMCPLauncher,
+        runnerFactory: @escaping CLIAgentRunnerFactory = CLIRuntimeFactory.make
     ) async throws -> AppServerMCPFixture {
         let home = try temporaryDirectory(prefix: "app-server-mcp-home")
         let workspace = try temporaryDirectory(prefix: "app-server-mcp-workspace")
@@ -254,7 +440,7 @@ final class AppServerMCPTests: XCTestCase {
             request: CLIAppServerRequest(live: false, home: home),
             environment: [:],
             currentDirectory: workspace,
-            runnerFactory: CLIRuntimeFactory.make,
+            runnerFactory: runnerFactory,
             mcpLauncher: launcher,
             sink: { line in await output.append(line) }
         )
@@ -282,6 +468,24 @@ final class AppServerMCPTests: XCTestCase {
         )
         let records = try await fixture.output.records()
         return try XCTUnwrap(result(for: 2, in: records)?["thread"]?.objectValue?["id"]?.stringValue)
+    }
+
+    private func startAndWaitTurn(
+        id: Int,
+        threadID: String,
+        text: String,
+        in fixture: AppServerMCPFixture
+    ) async throws {
+        try await sendRequest(
+            id: id,
+            method: "turn/start",
+            params: [
+                "threadId": threadID,
+                "input": [["type": "text", "text": text]]
+            ],
+            to: fixture.session
+        )
+        await fixture.session.waitForActiveTurns()
     }
 
     private func sendRequest(
@@ -366,5 +570,49 @@ final class AppServerMCPTests: XCTestCase {
             resourceNames: ["Status"],
             resourceURIs: ["status://current"]
         )
+    }
+
+    private static func toolProbe(serverName: String, toolName: String) -> MCPServerProbeResult {
+        MCPServerProbeResult(
+            protocolVersion: "2025-03-26",
+            serverName: serverName,
+            tools: [
+                .object([
+                    "name": .string(toolName),
+                    "inputSchema": .object([
+                        "type": .string("object"),
+                        "properties": .object([:])
+                    ]),
+                    "annotations": .object(["readOnlyHint": .bool(true)])
+                ])
+            ],
+            toolNames: [toolName]
+        )
+    }
+}
+
+private actor AppServerMCPAgentLLM: LLMClient {
+    private var observed: [[String]] = []
+
+    func nextAction(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AgentAction {
+        _ = userMessage
+        let mcpTools = tools.filter { $0.host == .mcp }.map(\.name).sorted()
+        observed.append(mcpTools)
+        if thread.messages.last?.role == .tool {
+            return .say("MCP tool completed.")
+        }
+        guard let tool = mcpTools.first else {
+            throw MCPProbeError.responseError("No MCP tool was available to the test model.")
+        }
+        let arguments = tool.hasSuffix("search") ? #"{"query":"swift"}"# : "{}"
+        return .tool(ToolCall(name: tool, argumentsJSON: arguments))
+    }
+
+    func observedMCPToolNames() -> [[String]] {
+        observed
     }
 }

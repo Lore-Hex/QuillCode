@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeTools
 
 struct AppServerProjectedNotification: Sendable {
     var method: String
@@ -15,6 +16,7 @@ struct AppServerProgressProjector: Sendable {
     private var assistantTextByID: [UUID: String]
     private var completedAssistantIDs: Set<UUID> = []
     private var activeTools: [ToolCall] = []
+    private var mcpRoutes: [String: MCPAgentToolRoute] = [:]
     private(set) var items: [CLIJSONValue]
 
     init(
@@ -32,6 +34,10 @@ struct AppServerProgressProjector: Sendable {
             message.role == .assistant ? (message.id, message.content) : nil
         })
         self.items = [userItem]
+    }
+
+    mutating func registerMCPRoutes(_ routes: [String: MCPAgentToolRoute]) {
+        mcpRoutes.merge(routes) { _, replacement in replacement }
     }
 
     mutating func project(_ snapshot: ChatThread) -> [AppServerProjectedNotification] {
@@ -144,6 +150,9 @@ struct AppServerProgressProjector: Sendable {
     }
 
     private func toolItem(call: ToolCall, result: ToolResult?, status: String) -> CLIJSONValue {
+        if let route = mcpRoutes[call.name] {
+            return mcpToolItem(call: call, route: route, result: result, status: status)
+        }
         if isShell(call) {
             return .object([
                 "type": .string("commandExecution"),
@@ -174,6 +183,48 @@ struct AppServerProgressProjector: Sendable {
             ])]) } ?? .null,
             "success": result.map { .bool($0.ok) } ?? .null,
             "durationMs": .null
+        ])
+    }
+
+    private func mcpToolItem(
+        call: ToolCall,
+        route: MCPAgentToolRoute,
+        result: ToolResult?,
+        status: String
+    ) -> CLIJSONValue {
+        let output = combinedOutput(result)
+        let projectedResult: CLIJSONValue
+        let projectedError: CLIJSONValue
+        if let result, result.ok {
+            let content: [CLIJSONValue] = output.map { text in
+                [.object(["type": .string("text"), "text": .string(text)])]
+            } ?? []
+            projectedResult = .object([
+                "content": .array(content),
+                "structuredContent": .null,
+                "_meta": .null
+            ])
+            projectedError = .null
+        } else if let result {
+            projectedResult = .null
+            projectedError = .object([
+                "message": .string(output ?? result.error ?? "MCP tool failed.")
+            ])
+        } else {
+            projectedResult = .null
+            projectedError = .null
+        }
+        return .object([
+            "type": .string("mcpToolCall"),
+            "id": .string(call.id),
+            "server": .string(route.serverName),
+            "tool": .string(route.toolName),
+            "status": .string(status),
+            "arguments": decodedJSON(call.argumentsJSON),
+            "appContext": .null,
+            "pluginId": .null,
+            "result": projectedResult,
+            "error": projectedError
         ])
     }
 

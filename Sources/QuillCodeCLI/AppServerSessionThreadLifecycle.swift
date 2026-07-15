@@ -18,6 +18,7 @@ extension AppServerSession {
         try appendInstructions(from: params, to: &thread)
 
         let record = AppServerThreadRecord(thread: thread, settings: settings)
+        try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
         await notifyThreadStarted(record)
         return startOrResumeResponse(record, includeTurns: false, isActive: false)
@@ -33,6 +34,7 @@ extension AppServerSession {
         record.thread.model = try model(from: params, fallback: record.thread.model)
         try appendInstructions(from: params, to: &record.thread)
         record.thread.updatedAt = Date()
+        try await validateRequiredMCPServers(for: record)
         try await repository.save(record)
         return startOrResumeResponse(record, includeTurns: true, isActive: activeTurns[id] != nil)
     }
@@ -51,6 +53,7 @@ extension AppServerSession {
         settings.sessionID = source.settings.sessionID ?? sourceID
         settings.forkedFromID = sourceID
         let record = AppServerThreadRecord(thread: thread, settings: settings)
+        try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
         await notifyThreadStarted(record)
         return startOrResumeResponse(record, includeTurns: true, isActive: false)
