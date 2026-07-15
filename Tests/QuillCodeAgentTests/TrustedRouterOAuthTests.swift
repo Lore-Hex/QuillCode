@@ -101,6 +101,30 @@ final class TrustedRouterOAuthTests: XCTestCase {
         XCTAssertEqual(userInfo.data.sub, "usr_123")
         XCTAssertEqual(userInfo.data.email, "a@example.com")
     }
+
+    func testAccountProfileEnrichesTokenMetadataWithoutExposingKey() async throws {
+        OAuthURLProtocol.handler = { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "authorization"), "Bearer secret-key")
+            return (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data(#"{"data":{"sub":"subject","email":"profile@example.com","wallet_address":"0x123"}}"#.utf8)
+            )
+        }
+        let client = try TrustedRouterOAuthClient(urlSession: OAuthURLProtocol.session())
+        let token = TrustedRouterOAuthToken(
+            key: "secret-key",
+            userID: "user-1",
+            identity: nil
+        )
+
+        let profile = await client.accountProfile(from: token)
+
+        XCTAssertEqual(profile?.userID, "user-1")
+        XCTAssertEqual(profile?.subject, "subject")
+        XCTAssertEqual(profile?.email, "profile@example.com")
+        XCTAssertEqual(profile?.walletAddress, "0x123")
+        XCTAssertFalse(String(describing: profile).contains("secret-key"))
+    }
 }
 
 private final class OAuthURLProtocol: URLProtocol {

@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import QuillCodeApp
 import QuillCodeCore
+import QuillCodePlatform
 import QuillCodeTools
 
 /// Desktop driver for interactive remote-MCP OAuth sign-in. Binds a single-use loopback callback
@@ -26,7 +27,6 @@ struct QuillCodeDesktopMCPOAuthDriver {
     /// Sign in to one remote MCP server. On success the tokens are stored under the server ID.
     func signIn(serverID: String, serverURL: URL, staticClientID: String?) async throws {
         let server = try Self.reserveLoopbackServer()
-        try await server.start()
         defer { server.cancel() }
 
         let openURL = self.openURL
@@ -39,23 +39,23 @@ struct QuillCodeDesktopMCPOAuthDriver {
         try await coordinator.signIn(
             serverID: serverID,
             serverURL: serverURL,
-            redirectURI: server.redirectURI,
+            redirectURI: server.callbackURL.absoluteString,
             staticClientID: staticClientID
         )
     }
 
     /// Try a handful of ephemeral loopback ports until one binds. A fixed small set keeps the
     /// redirect URI predictable enough for servers that pre-register redirect URIs by port.
-    private static func reserveLoopbackServer() throws -> MCPOAuthLoopbackCallbackServer {
+    private static func reserveLoopbackServer() throws -> LoopbackHTTPCallbackServer {
         let candidatePorts: [UInt16] = [33418, 33419, 33420, 33421, 33422, 33423]
         var lastError: Error?
         for port in candidatePorts {
             do {
-                return try MCPOAuthLoopbackCallbackServer(port: port)
+                return try LoopbackHTTPCallbackServer(port: port)
             } catch {
                 lastError = error
             }
         }
-        throw lastError ?? MCPOAuthLoopbackError.invalidPort
+        throw lastError ?? LoopbackHTTPCallbackError.listenerUnavailable(port: 0)
     }
 }
