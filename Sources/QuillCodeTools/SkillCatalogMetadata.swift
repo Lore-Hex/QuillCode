@@ -56,6 +56,8 @@ public struct SkillCatalogMetadata: Sendable, Hashable {
     public var shortDescription: String?
     public var interface: SkillInterfaceMetadata?
     public var dependencies: [SkillToolDependencyMetadata]
+    /// Product allow-list from `agents/openai.yaml`. An empty list means unrestricted.
+    public var productRestrictions: [String]
     public var path: URL
     public var scope: SkillRootKind
 
@@ -65,6 +67,7 @@ public struct SkillCatalogMetadata: Sendable, Hashable {
         shortDescription: String? = nil,
         interface: SkillInterfaceMetadata? = nil,
         dependencies: [SkillToolDependencyMetadata] = [],
+        productRestrictions: [String] = [],
         path: URL,
         scope: SkillRootKind
     ) {
@@ -73,6 +76,7 @@ public struct SkillCatalogMetadata: Sendable, Hashable {
         self.shortDescription = shortDescription
         self.interface = interface
         self.dependencies = dependencies
+        self.productRestrictions = productRestrictions
         self.path = path
         self.scope = scope
     }

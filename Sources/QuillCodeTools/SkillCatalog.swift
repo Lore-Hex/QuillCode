@@ -146,6 +146,7 @@ public struct SkillCatalog: Sendable {
             shortDescription: shortDescription,
             interface: optionalMetadata.interface,
             dependencies: optionalMetadata.dependencies,
+            productRestrictions: optionalMetadata.productRestrictions,
             path: manifest.standardizedFileURL.resolvingSymlinksInPath(),
             scope: scope
         )
@@ -189,7 +190,14 @@ public struct SkillCatalog: Sendable {
                 url: Self.limitedSingleLine(dependency.url, maximum: 1_024)
             )
         }
-        return LoadedOptionalMetadata(interface: interface, dependencies: dependencies)
+        let productRestrictions = Array(Set((payload.policy?.products ?? []).compactMap {
+            Self.limitedSingleLine($0, maximum: 64)?.uppercased()
+        }).sorted().prefix(32))
+        return LoadedOptionalMetadata(
+            interface: interface,
+            dependencies: dependencies,
+            productRestrictions: productRestrictions
+        )
     }
 
     private func boundedUTF8(at url: URL, maximumBytes: Int) throws -> String {
@@ -251,6 +259,7 @@ private struct SkillManifestDiscovery {
 private struct LoadedOptionalMetadata {
     var interface: SkillInterfaceMetadata?
     var dependencies: [SkillToolDependencyMetadata] = []
+    var productRestrictions: [String] = []
 }
 
 private struct SkillFrontmatter: Decodable {
@@ -294,6 +303,7 @@ private struct SkillFrontmatter: Decodable {
 private struct SkillMetadataPayload: Decodable {
     var interface: InterfacePayload?
     var dependencies: DependenciesPayload?
+    var policy: PolicyPayload?
 
     struct InterfacePayload: Decodable {
         var displayName: String?
@@ -315,6 +325,10 @@ private struct SkillMetadataPayload: Decodable {
 
     struct DependenciesPayload: Decodable {
         var tools: [ToolPayload] = []
+    }
+
+    struct PolicyPayload: Decodable {
+        var products: [String] = []
     }
 
     struct ToolPayload: Decodable {

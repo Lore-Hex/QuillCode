@@ -1,5 +1,23 @@
 # QuillCode Decisions
 
+## 2026-07-15: Local plugin detail reads stay lazy and data-only
+
+- **Decision:** Codex-compatible `plugin/read` accepts exactly one local or remote marketplace source.
+  Local reads project the 0.142.5 `PluginDetail` shape from the shared marketplace entry and a lazy
+  package-detail loader. Remote reads and remote-only `plugin/skill/read` return explicit invalid-request
+  errors until QuillCode has a genuine remote plugin service.
+- **Progressive disclosure:** Detail discovery parses skill frontmatter and optional interface policy,
+  but never reads `SKILL.md` bodies into model context. It filters skills to the Codex product, applies
+  namespaced persistent enablement, and projects exact hook keys, app metadata, and usable MCP names.
+- **Filesystem boundary:** Component manifests must be bounded regular files below a real package root.
+  Absolute paths, traversal, symlink roots, nested symlink escapes, oversized files, malformed JSON,
+  unsupported handler types, and excessive component counts are excluded without executing package code.
+  An explicit invalid component path never falls back to a default component directory.
+- **Evidence:** Dedicated loader tests cover default and explicit components, product filters, hook order,
+  inline manifests, malformed and oversized data, path traversal, and root/nested symlinks. Protocol tests
+  cover the exact local response and every source/error boundary. The shipped-binary stdio smoke performs
+  a real `plugin/read` and verifies the explicit remote skill-read error.
+
 ## 2026-07-15: App-server plugin discovery reuses the desktop's data-only catalog
 
 - **Decision:** `plugin/list` and `plugin/installed` project local home and repository marketplaces
@@ -14,9 +32,9 @@
   suggestions and ignores orphaned installed state when no catalog advertises it. Local package
   versions and interface asset paths project truthfully from the package manifest.
 - **Remote boundary:** Codex marketplace-kind values are accepted, but only `local` has an implemented
-  backend. Remote catalogs, sharing, featured IDs, install/update mutation, private Codex cache/config
-  conventions, and plugin detail methods remain deferred rather than being synthesized from local
-  data or TrustedRouter state.
+  backend. Local plugin detail reads are implemented separately above. Remote catalogs, sharing, featured
+  IDs, install/update mutation, private Codex cache/config conventions, and remote detail/skill methods
+  remain deferred rather than being synthesized from local data or TrustedRouter state.
 - **Evidence:** Shared loader tests cover modern/legacy manifests, interface metadata, path escapes,
   symlinks, byte limits, and partial failure. JSON-RPC tests cover exact response fields, home and
   workspace roots, local versions, installed/suggested filtering, installed-state symlink rejection,

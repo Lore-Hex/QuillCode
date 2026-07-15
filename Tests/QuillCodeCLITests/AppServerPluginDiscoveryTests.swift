@@ -318,6 +318,219 @@ final class AppServerPluginDiscoveryTests: XCTestCase {
         )
     }
 
+    func testPluginReadProjectsLocalBundleDetails() async throws {
+        let fixture = try await makeFixture()
+        try writeMarketplace(
+            #"{"name":"codex-curated","plugins":[{"name":"demo-plugin","source":"./plugins/demo-plugin","policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"},"category":"Design"}]}"#,
+            in: fixture.workspace
+        )
+        try writePackage(
+            #"{"name":"demo-plugin","version":"1.0.0","description":"Longer manifest description","keywords":["api-key","developer tools"],"interface":{"displayName":"Plugin Display Name","defaultPrompt":["Draft the reply"],"logoDark":"./assets/logo-dark.png"}}"#,
+            at: "plugins/demo-plugin",
+            in: fixture.workspace
+        )
+        try write(
+            """
+            ---
+            name: thread-summarizer
+            description: Summarize email threads
+            ---
+            """,
+            to: "plugins/demo-plugin/skills/thread-summarizer/SKILL.md",
+            in: fixture.workspace
+        )
+        try write(
+            """
+            policy:
+              products:
+                - CODEX
+            """,
+            to: "plugins/demo-plugin/skills/thread-summarizer/agents/openai.yaml",
+            in: fixture.workspace
+        )
+        try write(
+            """
+            ---
+            name: chatgpt-only
+            description: Hidden from Codex
+            ---
+            """,
+            to: "plugins/demo-plugin/skills/chatgpt-only/SKILL.md",
+            in: fixture.workspace
+        )
+        try write(
+            """
+            policy:
+              products:
+                - CHATGPT
+            """,
+            to: "plugins/demo-plugin/skills/chatgpt-only/agents/openai.yaml",
+            in: fixture.workspace
+        )
+        try write(
+            #"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command"}]}],"SessionStart":[{"hooks":[{"type":"command"}]}]}}"#,
+            to: "plugins/demo-plugin/hooks/hooks.json",
+            in: fixture.workspace
+        )
+        try write(
+            #"{"apps":{"gmail":{"id":"gmail","category":"Communication"}}}"#,
+            to: "plugins/demo-plugin/.app.json",
+            in: fixture.workspace
+        )
+        try write(
+            #"{"mcpServers":{"demo":{"command":"demo-server"}}}"#,
+            to: "plugins/demo-plugin/.mcp.json",
+            in: fixture.workspace
+        )
+        try writePackage(
+            #"{"name":"demo-plugin","version":"2.0.0"}"#,
+            at: ".quillcode/plugins/demo-plugin",
+            in: fixture.workspace
+        )
+
+        try await fixture.request(
+            id: 70,
+            method: "skills/config/write",
+            params: ["name": "demo-plugin:thread-summarizer", "enabled": false]
+        )
+        try await fixture.request(
+            id: 71,
+            method: "plugin/read",
+            params: [
+                "marketplacePath": fixture.workspace.appendingPathComponent(
+                    ".agents/plugins/marketplace.json"
+                ).path,
+                "pluginName": "demo-plugin"
+            ]
+        )
+
+        let pluginReadResult = try await fixture.result(id: 71)
+        let response = try XCTUnwrap(pluginReadResult)
+        let plugin = try XCTUnwrap(response["plugin"]?.objectValue)
+        XCTAssertEqual(Set(plugin.keys), [
+            "marketplaceName", "marketplacePath", "summary", "shareUrl", "description",
+            "skills", "hooks", "apps", "appTemplates", "mcpServers"
+        ])
+        XCTAssertEqual(plugin["marketplaceName"], .string("codex-curated"))
+        XCTAssertEqual(plugin["shareUrl"], .null)
+        XCTAssertEqual(plugin["description"], .string("Longer manifest description"))
+        XCTAssertEqual(plugin["appTemplates"], .array([]))
+        XCTAssertEqual(plugin["mcpServers"], .array([.string("demo")]))
+
+        let summary = try XCTUnwrap(plugin["summary"]?.objectValue)
+        XCTAssertEqual(summary["id"], .string("demo-plugin@codex-curated"))
+        XCTAssertEqual(summary["localVersion"], .string("2.0.0"))
+        XCTAssertEqual(summary["installed"], .bool(true))
+        XCTAssertEqual(summary["enabled"], .bool(true))
+        XCTAssertEqual(summary["installPolicy"], .string("AVAILABLE"))
+        XCTAssertEqual(summary["authPolicy"], .string("ON_INSTALL"))
+        XCTAssertEqual(
+            summary["interface"]?.objectValue?["category"],
+            .string("Design")
+        )
+
+        let skills = try XCTUnwrap(plugin["skills"]?.arrayValue?.compactMap(\.objectValue))
+        XCTAssertEqual(skills.count, 1)
+        XCTAssertEqual(skills[0]["name"], .string("demo-plugin:thread-summarizer"))
+        XCTAssertEqual(skills[0]["enabled"], .bool(false))
+        XCTAssertEqual(skills[0]["description"], .string("Summarize email threads"))
+
+        let hooks = try XCTUnwrap(plugin["hooks"]?.arrayValue?.compactMap(\.objectValue))
+        XCTAssertEqual(hooks, [
+            [
+                "key": .string(
+                    "demo-plugin@codex-curated:hooks/hooks.json:pre_tool_use:0:0"
+                ),
+                "eventName": .string("preToolUse")
+            ],
+            [
+                "key": .string(
+                    "demo-plugin@codex-curated:hooks/hooks.json:session_start:0:0"
+                ),
+                "eventName": .string("sessionStart")
+            ]
+        ])
+        let app = try XCTUnwrap(plugin["apps"]?.arrayValue?.first?.objectValue)
+        XCTAssertEqual(app, [
+            "id": .string("gmail"),
+            "name": .string("gmail"),
+            "description": .null,
+            "installUrl": .null,
+            "category": .string("Communication")
+        ])
+    }
+
+    func testPluginReadValidatesSourcesAndReportsUnsupportedRemoteReads() async throws {
+        let fixture = try await makeFixture()
+        try writeMarketplace(
+            #"{"name":"local","plugins":[{"name":"demo","source":"./plugins/demo"}]}"#,
+            in: fixture.workspace
+        )
+        try writePackage(#"{"name":"demo"}"#, at: "plugins/demo", in: fixture.workspace)
+        let catalog = fixture.workspace.appendingPathComponent(
+            ".agents/plugins/marketplace.json"
+        ).path
+
+        try await fixture.request(
+            id: 80,
+            method: "plugin/read",
+            params: ["pluginName": "demo"]
+        )
+        try await fixture.request(
+            id: 81,
+            method: "plugin/read",
+            params: [
+                "marketplacePath": catalog,
+                "remoteMarketplaceName": "remote",
+                "pluginName": "demo"
+            ]
+        )
+        try await fixture.request(
+            id: 82,
+            method: "plugin/read",
+            params: ["remoteMarketplaceName": "remote", "pluginName": "demo"]
+        )
+        try await fixture.request(
+            id: 83,
+            method: "plugin/skill/read",
+            params: [
+                "remoteMarketplaceName": "remote",
+                "remotePluginId": "plugin-1",
+                "skillName": "review"
+            ]
+        )
+        try await fixture.request(
+            id: 84,
+            method: "plugin/read",
+            params: ["marketplacePath": catalog, "pluginName": "missing"]
+        )
+        try await fixture.request(
+            id: 85,
+            method: "plugin/read",
+            params: ["marketplacePath": fixture.workspace.path, "pluginName": "demo"]
+        )
+        try await fixture.request(
+            id: 86,
+            method: "plugin/read",
+            params: ["remoteMarketplaceName": "remote", "pluginName": "bad/name"]
+        )
+
+        for id in 80...86 {
+            let errorCode = try await fixture.errorCode(id: id)
+            XCTAssertEqual(errorCode, -32_600)
+        }
+        let remoteReadMessage = try await fixture.errorMessage(id: 82)
+        let remoteSkillMessage = try await fixture.errorMessage(id: 83)
+        let missingPluginMessage = try await fixture.errorMessage(id: 84)
+        let invalidPathMessage = try await fixture.errorMessage(id: 85)
+        XCTAssertTrue(remoteReadMessage?.contains("remote plugin read is not available") == true)
+        XCTAssertTrue(
+            remoteSkillMessage?.contains("remote plugin skill read is not available") == true
+        )
+        XCTAssertTrue(missingPluginMessage?.contains("was not found") == true)
+        XCTAssertTrue(invalidPathMessage?.contains("unsupported marketplace path") == true)
+    }
+
     private func makeFixture() async throws -> PluginDiscoveryFixture {
         let home = try temporaryDirectory(prefix: "plugin-home")
         let workspace = try temporaryDirectory(prefix: "plugin-workspace")
@@ -400,6 +613,12 @@ private struct PluginDiscoveryFixture {
         try await output.records().first {
             $0["id"]?.numberValue == Double(id)
         }?["error"]?.objectValue?["code"]?.numberValue
+    }
+
+    func errorMessage(id: Int) async throws -> String? {
+        try await output.records().first {
+            $0["id"]?.numberValue == Double(id)
+        }?["error"]?.objectValue?["message"]?.stringValue
     }
 
     private func send(_ value: [String: Any]) async throws {
