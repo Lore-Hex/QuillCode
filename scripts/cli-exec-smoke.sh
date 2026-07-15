@@ -8,9 +8,13 @@ HOME_DIR="$SMOKE_ROOT/home"
 EPHEMERAL_HOME="$SMOKE_ROOT/ephemeral-home"
 STDIN_HOME="$SMOKE_ROOT/stdin-home"
 INTERRUPT_HOME="$SMOKE_ROOT/interrupt-home"
+MCP_HOME="$SMOKE_ROOT/mcp-home"
+MCP_FAILURE_HOME="$SMOKE_ROOT/mcp-failure-home"
 trap 'rm -rf "$SMOKE_ROOT"' EXIT
 
-mkdir -p "$WORKSPACE" "$HOME_DIR" "$EPHEMERAL_HOME" "$STDIN_HOME" "$INTERRUPT_HOME"
+mkdir -p \
+  "$WORKSPACE" "$HOME_DIR" "$EPHEMERAL_HOME" "$STDIN_HOME" "$INTERRUPT_HOME" \
+  "$MCP_HOME" "$MCP_FAILURE_HOME"
 git -C "$WORKSPACE" init -q
 git -C "$WORKSPACE" config user.email quillcode-exec-smoke@example.com
 git -C "$WORKSPACE" config user.name "QuillCode Exec Smoke"
@@ -113,5 +117,56 @@ set -e
 grep -Fq "Run interrupted." "$INTERRUPT_STDERR"
 [[ ! -e "$INTERRUPT_FINAL" ]]
 grep -RFq "Stopped by user" "$INTERRUPT_HOME/threads"
+
+echo "==> Checking required MCP startup and process cleanup"
+MCP_FIXTURE="$ROOT_DIR/scripts/fixtures/mcp-stdio-server.py"
+MCP_PID_FILE="$SMOKE_ROOT/mcp.pid"
+python3 - "$MCP_HOME/config.toml" "$MCP_FIXTURE" "$MCP_PID_FILE" <<'PY'
+import json
+import sys
+
+config, fixture, pid_file = sys.argv[1:]
+with open(config, "w", encoding="utf-8") as handle:
+    handle.write(
+        "[mcp_servers.smoke-mcp]\n"
+        f"command = {json.dumps(sys.executable)}\n"
+        f"args = [{json.dumps(fixture)}]\n"
+        f"env = {{ QUILLCODE_MCP_PID_FILE = {json.dumps(pid_file)} }}\n"
+        "startup_timeout_sec = 5\n"
+        "tool_timeout_sec = 5\n"
+        "required = true\n"
+    )
+PY
+"$CLI" --home "$MCP_HOME" exec --mock --cwd "$WORKSPACE" "inspect the repository" >/dev/null
+[[ -s "$MCP_PID_FILE" ]]
+MCP_PID="$(cat "$MCP_PID_FILE")"
+for _ in {1..100}; do
+  kill -0 "$MCP_PID" 2>/dev/null || break
+  sleep 0.02
+done
+if kill -0 "$MCP_PID" 2>/dev/null; then
+  echo "Exec left MCP fixture process $MCP_PID running" >&2
+  exit 1
+fi
+
+echo "==> Checking required MCP failure before persistence"
+cat > "$MCP_FAILURE_HOME/config.toml" <<'EOF'
+[mcp_servers.required-broken]
+command = "quillcode-definitely-not-a-real-mcp-server"
+required = true
+startup_timeout_sec = 1
+EOF
+if "$CLI" --home "$MCP_FAILURE_HOME" exec --mock --cwd "$WORKSPACE" "inspect" \
+  >"$SMOKE_ROOT/mcp-failure.stdout" 2>"$SMOKE_ROOT/mcp-failure.stderr"; then
+  echo "Exec unexpectedly accepted a broken required MCP server" >&2
+  exit 1
+fi
+grep -Fq "required MCP servers failed to initialize: required-broken" \
+  "$SMOKE_ROOT/mcp-failure.stderr"
+if [[ -d "$MCP_FAILURE_HOME/threads" ]] \
+  && [[ -n "$(find "$MCP_FAILURE_HOME/threads" -name '*.json' -print -quit)" ]]; then
+  echo "Required MCP startup failure persisted a thread" >&2
+  exit 1
+fi
 
 echo "quill-code exec smoke passed"
