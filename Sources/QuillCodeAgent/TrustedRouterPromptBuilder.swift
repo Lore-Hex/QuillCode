@@ -389,7 +389,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
                let dataURL = try? imageAttachmentStore.dataURL(for: attachment) {
                 parts.append([
                     "type": "image_url",
-                    "image_url": ["url": dataURL, "detail": "auto"]
+                    "image_url": ["url": dataURL, "detail": attachment.detail.rawValue]
                 ])
             } else {
                 parts.append([

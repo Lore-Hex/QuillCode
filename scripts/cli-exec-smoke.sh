@@ -23,7 +23,9 @@ git -C "$WORKSPACE" add README.md
 git -C "$WORKSPACE" commit -qm "Create exec smoke fixture"
 
 cd "$ROOT_DIR"
-swift build --product quill-code >/dev/null
+if [[ "${QUILLCODE_SKIP_BUILD:-0}" != "1" ]]; then
+  swift build --product quill-code >/dev/null
+fi
 CLI="$ROOT_DIR/.build/debug/quill-code"
 [[ -x "$CLI" ]] || { echo "Built quill-code executable is missing" >&2; exit 1; }
 

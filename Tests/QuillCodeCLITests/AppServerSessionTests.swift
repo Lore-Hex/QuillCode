@@ -237,6 +237,93 @@ final class AppServerSessionTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: attachment.localURL), try Data(contentsOf: source))
     }
 
+    func testImageDataURLInputIsCopiedWithoutPersistingInlineData() async throws {
+        let fixture = try await makeSession(llm: AppServerEchoLLM())
+        let threadID = try await startThread(in: fixture)
+        let dataURL = "data:image/png;base64,\(Self.onePixelPNG.base64EncodedString())"
+
+        try await sendRequest(
+            id: 3,
+            method: "turn/start",
+            params: [
+                "threadId": threadID,
+                "input": [["type": "image", "url": dataURL, "detail": "original"]]
+            ],
+            to: fixture.session
+        )
+        await fixture.session.waitForActiveTurns()
+
+        let stored = try XCTUnwrap(
+            JSONThreadStore(directory: fixture.home.appendingPathComponent("threads")).list().first
+        )
+        let attachment = try XCTUnwrap(stored.messages.first(where: { $0.role == .user })?.attachments.first)
+        XCTAssertEqual(attachment.displayName, "image.png")
+        XCTAssertEqual(attachment.detail, .original)
+        XCTAssertEqual(try Data(contentsOf: attachment.localURL), Self.onePixelPNG)
+        XCTAssertFalse(try String(contentsOf: storedThreadFile(in: fixture.home), encoding: .utf8).contains(dataURL))
+
+        let records = try await fixture.output.records()
+        let completion = try XCTUnwrap(records.last { $0["method"]?.stringValue == "turn/completed" })
+        let userItem = try XCTUnwrap(
+            completion["params"]?.objectValue?["turn"]?.objectValue?["items"]?.arrayValue?
+                .compactMap(\.objectValue)
+                .first(where: { $0["type"]?.stringValue == "userMessage" })
+        )
+        let projected = try XCTUnwrap(userItem["content"]?.arrayValue?.first?.objectValue)
+        XCTAssertEqual(projected["type"]?.stringValue, "localImage")
+        XCTAssertEqual(projected["detail"]?.stringValue, "original")
+        XCTAssertFalse(projected["path"]?.stringValue?.contains("base64") == true)
+    }
+
+    func testImageInputRejectsRemoteURLWithoutLeakingItOrMutatingThread() async throws {
+        let fixture = try await makeSession(llm: AppServerEchoLLM())
+        let threadID = try await startThread(in: fixture)
+        let privateURL = "https://example.com/image.png?token=super-secret"
+
+        try await sendRequest(
+            id: 3,
+            method: "turn/start",
+            params: ["threadId": threadID, "input": [["type": "image", "url": privateURL]]],
+            to: fixture.session
+        )
+
+        let records = try await fixture.output.records()
+        let message = try XCTUnwrap(errorMessage(for: 3, in: records))
+        XCTAssertTrue(message.contains("base64 data URL"))
+        XCTAssertFalse(message.contains("super-secret"))
+        let stored = try XCTUnwrap(
+            JSONThreadStore(directory: fixture.home.appendingPathComponent("threads")).list().first
+        )
+        XCTAssertTrue(stored.messages.isEmpty)
+    }
+
+    func testInvalidLaterInputRemovesEarlierManagedImage() async throws {
+        let fixture = try await makeSession(llm: AppServerEchoLLM())
+        let threadID = try await startThread(in: fixture)
+        let dataURL = "data:image/png;base64,\(Self.onePixelPNG.base64EncodedString())"
+
+        try await sendRequest(
+            id: 3,
+            method: "turn/start",
+            params: [
+                "threadId": threadID,
+                "input": [
+                    ["type": "image", "url": dataURL],
+                    ["type": "image", "url": "data:image/png;base64,%%%"]
+                ]
+            ],
+            to: fixture.session
+        )
+
+        let records = try await fixture.output.records()
+        XCTAssertNotNil(errorMessage(for: 3, in: records))
+        XCTAssertEqual(try managedAttachmentFiles(in: fixture.home).count, 0)
+        let stored = try XCTUnwrap(
+            JSONThreadStore(directory: fixture.home.appendingPathComponent("threads")).list().first
+        )
+        XCTAssertTrue(stored.messages.isEmpty)
+    }
+
     func testSteerQueuesInputInsideActiveTurn() async throws {
         let llm = AppServerSteerableLLM()
         let fixture = try await makeSession(llm: llm)
@@ -302,6 +389,42 @@ final class AppServerSessionTests: XCTestCase {
         let completion = try XCTUnwrap(records.last { $0["method"]?.stringValue == "turn/completed" })
         let turn = try XCTUnwrap(completion["params"]?.objectValue?["turn"]?.objectValue)
         XCTAssertEqual(turn["status"]?.stringValue, "interrupted")
+    }
+
+    func testInterruptRemovesUnconsumedSteeringImages() async throws {
+        let llm = AppServerBlockingLLM()
+        let fixture = try await makeSession(llm: llm)
+        let threadID = try await startThread(in: fixture)
+        try await sendRequest(
+            id: 3,
+            method: "turn/start",
+            params: ["threadId": threadID, "input": [["type": "text", "text": "wait"]]],
+            to: fixture.session
+        )
+        await llm.waitUntilStarted()
+        let turnID = try responseTurnID(id: 3, records: await fixture.output.records())
+        let dataURL = "data:image/png;base64,\(Self.onePixelPNG.base64EncodedString())"
+        try await sendRequest(
+            id: 4,
+            method: "turn/steer",
+            params: [
+                "threadId": threadID,
+                "expectedTurnId": turnID,
+                "input": [["type": "image", "url": dataURL]]
+            ],
+            to: fixture.session
+        )
+        XCTAssertEqual(try managedAttachmentFiles(in: fixture.home).count, 1)
+
+        try await sendRequest(
+            id: 5,
+            method: "turn/interrupt",
+            params: ["threadId": threadID, "turnId": turnID],
+            to: fixture.session
+        )
+        await fixture.session.waitForActiveTurns()
+
+        XCTAssertEqual(try managedAttachmentFiles(in: fixture.home).count, 0)
     }
 
     func testShellToolProjectsCommandExecutionAndOutput() async throws {
@@ -675,6 +798,32 @@ final class AppServerSessionTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: url) }
         return url
     }
+
+    private func storedThreadFile(in home: URL) throws -> URL {
+        let files = try FileManager.default.contentsOfDirectory(
+            at: home.appendingPathComponent("threads"),
+            includingPropertiesForKeys: nil
+        )
+        return try XCTUnwrap(files.first)
+    }
+
+    private func managedAttachmentFiles(in home: URL) throws -> [URL] {
+        let root = home.appendingPathComponent("attachments")
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey]
+        ) else { return [] }
+        return try enumerator.compactMap { item -> URL? in
+            guard let url = item as? URL,
+                  try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true
+            else { return nil }
+            return url
+        }
+    }
+
+    private static let onePixelPNG = Data(base64Encoded:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )!
 }
 
 private struct AppServerFixture {

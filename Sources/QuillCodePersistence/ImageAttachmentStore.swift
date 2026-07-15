@@ -37,9 +37,36 @@ public struct ImageAttachmentStore: Sendable, Hashable {
         self.directory = directory.standardizedFileURL
     }
 
-    public func importImage(from sourceURL: URL, threadID: UUID) throws -> ChatAttachment {
+    public func importImage(
+        from sourceURL: URL,
+        threadID: UUID,
+        detail: ChatImageDetail = .auto
+    ) throws -> ChatAttachment {
         let image = try validatedImage(at: sourceURL)
+        return try store(
+            image,
+            displayName: sourceURL.lastPathComponent,
+            threadID: threadID,
+            detail: detail
+        )
+    }
 
+    public func importImage(
+        data: Data,
+        displayName: String,
+        threadID: UUID,
+        detail: ChatImageDetail = .auto
+    ) throws -> ChatAttachment {
+        let image = try validatedImage(data)
+        return try store(image, displayName: displayName, threadID: threadID, detail: detail)
+    }
+
+    private func store(
+        _ image: (data: Data, format: ChatImageFormat),
+        displayName: String,
+        threadID: UUID,
+        detail: ChatImageDetail
+    ) throws -> ChatAttachment {
         let id = UUID()
         let threadDirectory = directory.appendingPathComponent(threadID.uuidString, isDirectory: true)
         try FileManager.default.createDirectory(
@@ -55,10 +82,11 @@ public struct ImageAttachmentStore: Sendable, Hashable {
 
         guard let attachment = ChatAttachment(
             id: id,
-            displayName: sourceURL.lastPathComponent,
+            displayName: displayName,
             format: image.format,
             localURL: destination,
-            byteCount: image.data.count
+            byteCount: image.data.count,
+            detail: detail
         ) else {
             try? FileManager.default.removeItem(at: destination)
             throw ImageAttachmentStoreError.unsupportedImage
@@ -71,7 +99,8 @@ public struct ImageAttachmentStore: Sendable, Hashable {
     /// one private file with one lifecycle. Outside paths are rejected before any bytes are read.
     public func attachmentForManagedImage(
         at fileURL: URL,
-        displayName: String? = nil
+        displayName: String? = nil,
+        detail: ChatImageDetail = .auto
     ) throws -> ChatAttachment {
         guard contains(fileURL) else {
             throw ImageAttachmentStoreError.unmanagedAttachment
@@ -82,7 +111,8 @@ public struct ImageAttachmentStore: Sendable, Hashable {
             displayName: displayName ?? fileURL.lastPathComponent,
             format: image.format,
             localURL: fileURL,
-            byteCount: image.data.count
+            byteCount: image.data.count,
+            detail: detail
         ) else {
             throw ImageAttachmentStoreError.unsupportedImage
         }
@@ -140,6 +170,10 @@ public struct ImageAttachmentStore: Sendable, Hashable {
         }
 
         let data = try Data(contentsOf: fileURL, options: .mappedIfSafe)
+        return try validatedImage(data)
+    }
+
+    private func validatedImage(_ data: Data) throws -> (data: Data, format: ChatImageFormat) {
         guard data.count <= ChatAttachment.maximumByteCount else {
             throw ImageAttachmentStoreError.fileTooLarge(maximumBytes: ChatAttachment.maximumByteCount)
         }

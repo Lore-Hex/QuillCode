@@ -30,6 +30,24 @@ final class ChatAttachmentTests: XCTestCase {
         ))
     }
 
+    func testAttachmentDetailRoundTripsAndDefaultsForLegacyRecords() throws {
+        let attachment = try XCTUnwrap(ChatAttachment(
+            displayName: "image.png",
+            format: .png,
+            localURL: URL(fileURLWithPath: "/tmp/image.png"),
+            byteCount: 8,
+            detail: .high
+        ))
+        let encoder = JSONEncoder()
+        let encoded = try encoder.encode(attachment)
+        XCTAssertEqual(try JSONDecoder().decode(ChatAttachment.self, from: encoded).detail, .high)
+
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        legacy.removeValue(forKey: "detail")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacy)
+        XCTAssertEqual(try JSONDecoder().decode(ChatAttachment.self, from: legacyData).detail, .auto)
+    }
+
     func testLegacyMessageAndThreadDecodeWithoutAttachmentFields() throws {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

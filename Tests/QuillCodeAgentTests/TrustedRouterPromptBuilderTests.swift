@@ -18,7 +18,7 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         )!
         try png.write(to: source)
         let store = ImageAttachmentStore(directory: root.appendingPathComponent("managed"))
-        let attachment = try store.importImage(from: source, threadID: UUID())
+        let attachment = try store.importImage(from: source, threadID: UUID(), detail: .high)
         let thread = ChatThread(messages: [
             ChatMessage(role: .user, content: "Explain this screenshot", attachments: [attachment])
         ])
@@ -35,7 +35,7 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertEqual(content[0]["text"] as? String, "Explain this screenshot")
         XCTAssertEqual(content[1]["type"] as? String, "image_url")
         let image = try XCTUnwrap(content[1]["image_url"] as? [String: Any])
-        XCTAssertEqual(image["detail"] as? String, "auto")
+        XCTAssertEqual(image["detail"] as? String, "high")
         XCTAssertTrue((image["url"] as? String)?.hasPrefix("data:image/png;base64,") == true)
     }
 

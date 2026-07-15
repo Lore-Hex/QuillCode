@@ -40,6 +40,23 @@ public enum ChatImageFormat: String, Codable, Sendable, Hashable, CaseIterable {
         }
         return nil
     }
+
+    public init?(mimeType: String) {
+        switch mimeType.lowercased() {
+        case "image/png": self = .png
+        case "image/jpeg", "image/jpg": self = .jpeg
+        case "image/gif": self = .gif
+        case "image/webp": self = .webp
+        default: return nil
+        }
+    }
+}
+
+public enum ChatImageDetail: String, Codable, Sendable, Hashable, CaseIterable {
+    case auto
+    case low
+    case high
+    case original
 }
 
 /// A bounded image copied into QuillCode-owned storage and attached to a composer turn.
@@ -55,6 +72,7 @@ public struct ChatAttachment: Codable, Sendable, Hashable, Identifiable {
     public var format: ChatImageFormat
     public var localURL: URL
     public var byteCount: Int
+    public var detail: ChatImageDetail
     public var createdAt: Date
 
     public var mimeType: String { format.mimeType }
@@ -65,6 +83,7 @@ public struct ChatAttachment: Codable, Sendable, Hashable, Identifiable {
         format: ChatImageFormat,
         localURL: URL,
         byteCount: Int,
+        detail: ChatImageDetail = .auto,
         createdAt: Date = Date()
     ) {
         guard let displayName = Self.normalizedDisplayName(displayName),
@@ -79,6 +98,7 @@ public struct ChatAttachment: Codable, Sendable, Hashable, Identifiable {
         self.format = format
         self.localURL = localURL.standardizedFileURL
         self.byteCount = byteCount
+        self.detail = detail
         self.createdAt = createdAt
     }
 
@@ -88,6 +108,7 @@ public struct ChatAttachment: Codable, Sendable, Hashable, Identifiable {
         case format
         case localURL
         case byteCount
+        case detail
         case createdAt
     }
 
@@ -99,6 +120,7 @@ public struct ChatAttachment: Codable, Sendable, Hashable, Identifiable {
             format: try container.decode(ChatImageFormat.self, forKey: .format),
             localURL: try container.decode(URL.self, forKey: .localURL),
             byteCount: try container.decode(Int.self, forKey: .byteCount),
+            detail: try container.decodeIfPresent(ChatImageDetail.self, forKey: .detail) ?? .auto,
             createdAt: try container.decode(Date.self, forKey: .createdAt)
         ) else {
             throw DecodingError.dataCorruptedError(

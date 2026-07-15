@@ -1306,7 +1306,8 @@
 - **Wire contract:** `quill-code app-server` uses Codex's newline-delimited JSON shape without a
   `jsonrpc` marker, preserves string and integer request IDs, requires `initialize` followed by the
   `initialized` notification, distinguishes malformed JSON from a valid invalid envelope, honors
-  notification opt-outs, and caps each inbound message at 1 MiB.
+  notification opt-outs, and caps each inbound message to four maximum-size encoded image inputs
+  plus bounded JSON envelope overhead.
 - **Lifecycle contract:** The first slice owns thread start/resume/fork/list/read/archive/unarchive/
   delete/name/goals and turn start/steer/interrupt. Turn responses precede streaming notifications;
   user, reasoning, assistant, shell, and dynamic-tool items project through typed Codex-shaped events;
@@ -1320,9 +1321,13 @@
   interruption or client EOF resolves every waiter without executing an unapproved action. String and
   granular approval policies plus all documented reviewer identities round-trip without silently
   weakening or rewriting the client's policy.
-- **Attachment contract:** Only bounded `localImage` inputs are accepted in this slice. Images are
-  validated by content and copied into QuillCode-managed private storage before entering a transcript;
-  remote image URLs, skill references, and mentions fail explicitly rather than being ignored.
+- **Attachment contract:** Bounded `localImage` and Codex-shaped `image` inputs are accepted. `image`
+  means a base64 `data:` URL, not an HTTP fetch; current Codex core also rejects remote HTTP(S) image
+  URLs. Both paths validate MIME declarations against magic bytes, preserve image detail, and copy
+  bytes into QuillCode-managed private storage before transcript persistence or TrustedRouter use.
+  Multi-item parsing is transactional, interrupted queued steering removes unconsumed images, errors
+  never echo source data or URL query secrets, and stored threads never contain inline base64. Skill
+  references and mentions still fail explicitly rather than being ignored.
 - **Platform boundary:** Incremental stdin uses the shared C adapter's EINTR-safe descriptor read plus
   a bounded readability wait. This avoids Foundation pipe buffering, lets stream cancellation end an
   idle reader whose peer keeps stdin open, and keeps macOS/Linux command code free of platform
