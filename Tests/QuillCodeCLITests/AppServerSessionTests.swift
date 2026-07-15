@@ -340,6 +340,50 @@ final class AppServerSessionTests: XCTestCase {
         XCTAssertEqual(output, "app-server-tool")
     }
 
+    func testDangerFullAccessRoundTripsWithDedicatedPermissionProfile() async throws {
+        let outside = try temporaryDirectory(prefix: "app-server-full-access")
+        let externalFile = outside.appendingPathComponent("external.txt")
+        try "app-server-full-access-proof\n".write(
+            to: externalFile,
+            atomically: true,
+            encoding: .utf8
+        )
+        let fixture = try await makeSession(llm: AppServerScriptedLLM(actions: [
+            .tool(ToolCall(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": externalFile.path])
+            )),
+            .say("External file inspected.")
+        ]))
+        let threadID = try await startThread(in: fixture, sandbox: "danger-full-access")
+
+        let records = try await fixture.output.records()
+        let response = try XCTUnwrap(result(for: 2, in: records))
+        XCTAssertEqual(response["sandbox"]?.objectValue?["type"]?.stringValue, "dangerFullAccess")
+        XCTAssertEqual(
+            response["activePermissionProfile"]?.objectValue?["id"]?.stringValue,
+            ":danger-full-access"
+        )
+
+        try await sendRequest(
+            id: 3,
+            method: "turn/start",
+            params: [
+                "threadId": threadID,
+                "input": [["type": "text", "text": "read the external file"]]
+            ],
+            to: fixture.session
+        )
+        await fixture.session.waitForActiveTurns()
+
+        let stored = try JSONThreadStore(
+            directory: fixture.home.appendingPathComponent("threads")
+        ).load(try XCTUnwrap(UUID(uuidString: threadID)))
+        XCTAssertTrue(stored.messages.contains { message in
+            message.role == .tool && message.content.contains("app-server-full-access-proof")
+        })
+    }
+
     func testReviewModeRoundTripsCommandApprovalBeforeExecution() async throws {
         let llm = AppServerScriptedLLM(actions: [
             .tool(ToolCall(

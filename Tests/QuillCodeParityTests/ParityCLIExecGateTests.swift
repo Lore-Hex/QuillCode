@@ -6,6 +6,10 @@ final class ParityCLIExecGateTests: QuillCodeParityTestCase {
         let package = try text(root.appendingPathComponent("Package.swift"))
         let parser = try text(root.appendingPathComponent("Sources/QuillCodeCLI/CLIArgumentParser.swift"))
         let runner = try text(root.appendingPathComponent("Sources/QuillCodeCLI/QuillCodeCommandRunner.swift"))
+        let runtime = try text(root.appendingPathComponent("Sources/QuillCodeCLI/CLIRuntimeFactory.swift"))
+        let accessScope = try text(
+            root.appendingPathComponent("Sources/QuillCodeTools/HostToolAccessScope.swift")
+        )
         let mcpSession = try text(root.appendingPathComponent("Sources/QuillCodeCLI/CLIMCPAgentSession.swift"))
         let mcpAdapter = try text(root.appendingPathComponent("Sources/QuillCodeCLI/MCPAgentRunnerAdapter.swift"))
         let reporter = try text(root.appendingPathComponent("Sources/QuillCodeCLI/CLIProgressReporter.swift"))
@@ -35,8 +39,21 @@ final class ParityCLIExecGateTests: QuillCodeParityTestCase {
             "CLIRepositoryGuard().validate",
             "CLIPromptResolver().resolve",
             "mcpSessionPreparer.prepare",
+            "runtime.applyingInvocationPolicy",
             "schema?.validate(finalMessage:",
             "CLIRunPersistence"
+        ])
+        Self.assertSource(runtime, containsAll: [
+            "request.sandbox == .dangerFullAccess",
+            ".unrestricted",
+            ".workspaceOnly"
+        ])
+        Self.assertSource(accessScope, containsAll: [
+            "case workspaceOnly",
+            "case unrestricted",
+            "absolute or escaping cwd values are allowed",
+            "private static func pathSchema",
+            "property: \"path\""
         ])
         Self.assertSource(mcpSession, containsAll: [
             "CLIMCPAgentSessionPreparer",
@@ -66,7 +83,7 @@ final class ParityCLIExecGateTests: QuillCodeParityTestCase {
             "testExactResumeEmitsOnlyNewAssistantMessage",
             "testJSONFailureLifecycleNeverClaimsTurnCompleted",
             "testInterruptCancelsRunPersistsPartialThreadAndDoesNotWriteFinalOutput",
-            "testSkipGitCheckWorksAndDangerousSandboxFailsClosed"
+            "testSkipGitCheckAndDangerFullAccessReadOutsideWorkspace"
         ])
         Self.assertSource(mcpTests, containsAll: [
             "testRequiredServerFailureStopsBeforeModelInvocationOrPersistence",
@@ -86,6 +103,7 @@ final class ParityCLIExecGateTests: QuillCodeParityTestCase {
             "kill -INT",
             "Stopped by user",
             "required MCP startup and process cleanup",
+            "danger-full-access",
             "QUILLCODE_MCP_PID_FILE",
             "scripts/fixtures/mcp-stdio-server.py",
             "required MCP servers failed to initialize"

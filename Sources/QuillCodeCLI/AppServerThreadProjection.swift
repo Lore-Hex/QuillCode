@@ -54,7 +54,7 @@ enum AppServerThreadProjection {
             "approvalsReviewer": .string(record.settings.approvalsReviewer),
             "sandbox": sandbox(record.settings.sandbox),
             "activePermissionProfile": .object([
-                "id": .string(record.settings.sandbox == .readOnly ? ":read-only" : ":workspace"),
+                "id": .string(permissionProfileID(record.settings.sandbox)),
                 "extends": .null
             ]),
             "reasoningEffort": .null,
@@ -179,6 +179,17 @@ enum AppServerThreadProjection {
             ])
         case .dangerFullAccess:
             .object(["type": .string("dangerFullAccess")])
+        }
+    }
+
+    private static func permissionProfileID(_ mode: CLISandboxMode) -> String {
+        switch mode {
+        case .readOnly:
+            ":read-only"
+        case .workspaceWrite:
+            ":workspace"
+        case .dangerFullAccess:
+            ":danger-full-access"
         }
     }
 

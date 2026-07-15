@@ -192,8 +192,15 @@ extension AgentRunner {
         onProgress: AgentRunProgressHandler? = nil
     ) async throws -> AgentApprovedToolExecution {
         var next = thread
-        let definitions = Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
-        let router = ToolRouter(workspaceRoot: workspaceRoot, editGuard: .session(for: next.id), lsp: lsp)
+        let definitions = hostToolAccessScope.adapting(
+            Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
+        )
+        let router = ToolRouter(
+            workspaceRoot: workspaceRoot,
+            accessScope: hostToolAccessScope,
+            editGuard: .session(for: next.id),
+            lsp: lsp
+        )
 
         guard definitions.contains(where: { $0.name == call.name }) else {
             let result = ToolResult(ok: false, error: "Tool is not available in this workspace: \(call.name)")
@@ -274,6 +281,7 @@ extension AgentRunner {
     private func toolRouter(workspaceRoot: URL, threadID: UUID) -> ToolRouter {
         ToolRouter(
             workspaceRoot: workspaceRoot,
+            accessScope: hostToolAccessScope,
             editGuard: .session(for: threadID),
             skill: skillResolver.map { SkillLoadToolExecutor(resolver: $0) },
             lsp: lsp

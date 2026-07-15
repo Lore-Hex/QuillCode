@@ -13,15 +13,17 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - Codex non-interactive automation keeps the final answer on stdout and progress on stderr, offers
   JSONL thread/turn/item/error events, accepts a prompt plus piped context or `-` for a full stdin
   prompt, resumes the latest or an exact saved task, supports ephemeral runs and final-message/schema
-  files, defaults to read-only, and requires a Git repository unless explicitly bypassed. QuillCode
-  mirrors those observable contracts while rejecting `danger-full-access` until its sandbox can make
-  that promise truthfully. Exec and app-server thread start/resume/fork initialize required MCP servers
+  files, defaults to read-only, and requires a Git repository unless explicitly bypassed. Current
+  Codex names its disabled filesystem permission profile `:danger-full-access`; QuillCode mirrors that
+  explicit opt-in by removing the built-in workspace path boundary for shell working directories and
+  file tools while preserving safety review, output bounds, edit guards, and secret protections. Exec
+  and app-server thread start/resume/fork initialize required MCP servers
   before model invocation or persistence, expose ready schemas as normal model tools, tolerate optional
   startup failures, aggregate required failures by configured name, and await registry teardown on every
   terminal path. Exec honors `--ignore-user-config` by skipping MCP configuration. Broader
   account/model/config/plugin methods and websocket transport remain separate slices. Sources: current
   Codex manual, Non-interactive mode, and `openai/codex`
-  `codex-rs/exec/tests/suite/mcp_required_exit.rs` plus
+  `codex-rs/protocol/src/permissions.rs`, `codex-rs/exec/tests/suite/mcp_required_exit.rs` plus
   `codex-rs/mcp-server/src/connection_manager.rs`, audited 2026-07-15.
 - Current Codex exec installs a one-shot Ctrl-C listener, sends `turn/interrupt`, waits for the
   interrupted turn acknowledgement, and exits 1. Its JSONL event processor emits neither

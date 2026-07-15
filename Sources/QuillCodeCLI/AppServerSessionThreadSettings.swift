@@ -58,11 +58,6 @@ extension AppServerSession {
         let sandbox = try sandboxMode(params.object["sandbox"] ?? params.object["sandboxPolicy"])
             ?? base?.sandbox
             ?? .readOnly
-        guard sandbox != .dangerFullAccess else {
-            throw AppServerRPCError.invalidParams(
-                "danger-full-access is unavailable because QuillCode cannot enforce it honestly"
-            )
-        }
         let approvalPolicy = try approvalPolicy(params.object["approvalPolicy"])
             ?? base?.approvalPolicy
             ?? .string("on-request")

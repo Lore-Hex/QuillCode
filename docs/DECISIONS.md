@@ -1354,3 +1354,24 @@
 - **Runtime boundary:** App-server builds the catalog for each active turn from the thread's global/project configuration and composes it with the runner's existing definitions and execution override. Calls reuse `AppServerMCPRegistry` sessions and therefore share the direct status/tool/resource transport rather than creating a second MCP client. Existing safety review, permission hooks, tool hooks, transcript feedback, and cancellation remain in the ordinary agent path.
 - **Lifecycle boundary:** A server configured with `required = true` must complete the lightweight initialize/tools probe before thread start, resume, or fork is persisted. Optional failures are omitted without suppressing healthy servers. `config/mcpServer/reload` tears down cached sessions, and the next turn reconstructs its inventory from current config. Progress projects exact raw identities as Codex-shaped `mcpToolCall` items; direct `mcpServer/tool/call` remains the lossless structured-result API.
 - **Verification:** Focused catalog tests pin schemas, risks, malformed inventory, collision stability, and the 64-byte bound. App-server integration tests prove required failure leaves no thread, a scripted model discovers and executes a tool in one turn, exact arguments reach the fake MCP session, native lifecycle items complete, and replacement config takes effect after reload.
+
+## 2026-07-15: Danger full access is one explicit host-tool policy
+
+- **Supersedes:** The earlier exec and app-server decisions correctly rejected danger full access
+  while no honest implementation existed. This decision replaces that temporary rejection.
+- **Policy boundary:** `HostToolAccessScope` is the single source of truth for built-in host file
+  and shell-working-directory reach. Desktop, read-only CLI, and workspace-write CLI keep
+  `workspaceOnly`; only an explicit `danger-full-access` invocation selects `unrestricted`.
+- **Composition boundary:** Exec and app-server apply invocation-owned policy after constructing an
+  agent runner. Injected factories therefore cannot accidentally weaken or omit the requested scope,
+  and every built-in router path, including approved-tool continuation, receives the same value.
+- **Honest model contract:** Unrestricted runs adapt only the built-in path-bearing tool descriptions
+  and schemas. Relative paths still anchor at the selected project, while absolute paths and `..`
+  traversal are allowed. MCP providers retain ownership of their own schemas; patch and Git tools
+  remain project-scoped.
+- **Safety boundary:** Removing the workspace path boundary does not bypass review policy, trusted
+  permission hooks, read-before-write guards, cancellation, output caps, or secret protections.
+- **Verification:** Focused unit and integration tests prove workspace defaults remain bounded,
+  unrestricted file read/write/list/search and external shell working directories work, exec and
+  app-server persist external tool results, the app-server reports `:danger-full-access`, and the real
+  CLI process accepts the flag.

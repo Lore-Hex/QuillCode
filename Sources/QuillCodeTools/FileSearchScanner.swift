@@ -38,7 +38,7 @@ struct FileSearchScanner: Sendable {
         )
         return FileSearchResult(
             output: output,
-            artifacts: Array(Set(matches.map { pathResolver.workspaceRoot.appendingPathComponent($0.path).path }))
+            artifacts: Array(Set(matches.map { pathResolver.artifactPath(for: $0.path) }))
                 .sorted()
         )
     }

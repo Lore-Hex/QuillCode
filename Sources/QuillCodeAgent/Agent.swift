@@ -16,6 +16,9 @@ public struct AgentRunner: Sendable {
     public var safety: SafetyReviewer
     public var baseToolDefinitions: [ToolDefinition]
     public var additionalToolDefinitions: [ToolDefinition]
+    /// Path reach for built-in file tools and shell working directories. The desktop and ordinary
+    /// CLI runs stay workspace-relative; only explicit danger-full-access selects unrestricted.
+    public var hostToolAccessScope: HostToolAccessScope
     public var toolExecutionOverride: AgentToolExecutionOverride?
     /// Trusted standard-plugin lifecycle hooks. The desktop supplies validated adapters; the core
     /// agent owns ordering so rewrites precede safety review and post hooks also run after a held
@@ -67,6 +70,7 @@ public struct AgentRunner: Sendable {
         safety: SafetyReviewer = AutoSafetyReviewer(),
         baseToolDefinitions: [ToolDefinition] = ToolRouter.definitions,
         additionalToolDefinitions: [ToolDefinition] = [],
+        hostToolAccessScope: HostToolAccessScope = .workspaceOnly,
         toolExecutionOverride: AgentToolExecutionOverride? = nil,
         preToolUseHook: AgentPreToolUseHook? = nil,
         postToolUseHook: AgentPostToolUseHook? = nil,
@@ -88,6 +92,7 @@ public struct AgentRunner: Sendable {
         self.safety = safety
         self.baseToolDefinitions = baseToolDefinitions
         self.additionalToolDefinitions = additionalToolDefinitions
+        self.hostToolAccessScope = hostToolAccessScope
         self.toolExecutionOverride = toolExecutionOverride
         self.preToolUseHook = preToolUseHook
         self.postToolUseHook = postToolUseHook
@@ -126,7 +131,9 @@ public struct AgentRunner: Sendable {
 
         do {
             try Task.checkCancellation()
-            let tools = Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
+            let tools = hostToolAccessScope.adapting(
+                Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
+            )
             var runLoop = AgentRunLoopState()
             let limit = max(1, maxToolSteps)
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature

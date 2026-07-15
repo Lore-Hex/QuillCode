@@ -85,6 +85,12 @@ if "$CLI" --home "$HOME_DIR" exec --mock --cwd "$NON_REPOSITORY" "inspect" \
 fi
 grep -Fq "not inside a Git repository" "$SMOKE_ROOT/git-guard.stderr"
 
+echo "==> Checking explicit danger-full-access process contract"
+"$CLI" \
+  --home "$HOME_DIR" \
+  exec --mock --sandbox danger-full-access --cwd "$WORKSPACE" \
+  "inspect the repository" >/dev/null
+
 echo "==> Checking SIGINT cancellation and partial-run persistence"
 INTERRUPT_STDOUT="$SMOKE_ROOT/interrupt.stdout"
 INTERRUPT_STDERR="$SMOKE_ROOT/interrupt.stderr"
