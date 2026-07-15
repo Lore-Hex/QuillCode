@@ -128,6 +128,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Do not reply with a future-tense promise"))
         XCTAssertTrue(prompt.contains("call `host.workflow.record.stop` immediately"))
         XCTAssertTrue(prompt.contains(".quillcode/skills/<safe-slug>/SKILL.md"))
+        XCTAssertTrue(prompt.contains("YAML frontmatter"))
+        XCTAssertTrue(prompt.contains("matching safe `name` and concise `description`"))
         XCTAssertTrue(prompt.contains("list variable inputs, give numbered replay steps, and define verification"))
         XCTAssertTrue(prompt.contains("omit protected or credential text"))
 

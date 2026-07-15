@@ -1,13 +1,31 @@
 import Foundation
 import QuillCodeCore
 
-/// Where a resolved skill came from. `user` roots shadow `builtin` roots of the same name, so the
-/// caller orders `SkillResolver.roots` user-first and the resolver returns the first match.
+/// Where a resolved skill came from. Root order is the deterministic precedence for QuillCode's
+/// name-only `host.skill.load` tool; the catalog itself retains duplicate names for rich clients.
 public enum SkillRootKind: String, Sendable, Hashable {
-    /// A project (or otherwise user-owned) skills directory — e.g. `<workspace>/.quillcode/skills`.
+    case repo
     case user
-    /// A shared/global skills directory — e.g. `~/.quillcode/skills`.
+    case admin
+    case system
+    /// Compatibility for callers that supplied QuillCode's former global-root label.
     case builtin
+
+    public var protocolScope: String {
+        switch self {
+        case .repo: "repo"
+        case .user: "user"
+        case .admin: "admin"
+        case .system, .builtin: "system"
+        }
+    }
+
+    var followsDirectorySymlinks: Bool {
+        switch self {
+        case .repo, .user, .admin: true
+        case .system, .builtin: false
+        }
+    }
 }
 
 /// One skills directory to search, and what kind it is. Ordering in `SkillResolver.roots` is the
@@ -19,6 +37,44 @@ public struct SkillRoot: Sendable, Hashable {
     public init(kind: SkillRootKind, url: URL) {
         self.kind = kind
         self.url = url
+    }
+}
+
+public struct SkillRootLocations: Sendable, Hashable {
+    public var quillCodeHome: URL
+    public var codexHome: URL?
+    public var userHome: URL?
+    public var adminSkillRoots: [URL]
+
+    public init(
+        quillCodeHome: URL,
+        codexHome: URL? = nil,
+        userHome: URL? = nil,
+        adminSkillRoots: [URL] = []
+    ) {
+        self.quillCodeHome = quillCodeHome
+        self.codexHome = codexHome
+        self.userHome = userHome
+        self.adminSkillRoots = adminSkillRoots
+    }
+
+    public static func live(
+        quillCodeHome: URL,
+        userHome: URL = FileManager.default.homeDirectoryForCurrentUser
+    ) -> SkillRootLocations {
+        SkillRootLocations(
+            quillCodeHome: quillCodeHome,
+            codexHome: userHome.appendingPathComponent(".codex", isDirectory: true),
+            userHome: userHome,
+            adminSkillRoots: [
+                URL(fileURLWithPath: "/etc/quillcode/skills", isDirectory: true),
+                URL(fileURLWithPath: "/etc/codex/skills", isDirectory: true)
+            ]
+        )
+    }
+
+    public static func isolated(quillCodeHome: URL) -> SkillRootLocations {
+        SkillRootLocations(quillCodeHome: quillCodeHome)
     }
 }
 
@@ -46,18 +102,19 @@ public enum SkillResolutionError: Error, Sendable, Equatable {
     /// The name was empty, or contained a path separator / `..` / other unsafe component. The name is
     /// model-controlled, so this is the gate that keeps resolution inside the known skill roots.
     case invalidName(String)
+    /// A matching skill directory exists, but its manifest could not be parsed or validated.
+    case invalidManifest(requested: String, message: String)
     /// No skill directory with a readable `SKILL.md` matched, across every configured root. Carries
     /// the sorted list of available skill names so the caller can offer "did you mean" suggestions.
     case notFound(requested: String, available: [String])
 }
 
-/// Resolves a model-controlled skill *name* to an on-disk skill with user-shadows-builtin precedence.
+/// Resolves a model-controlled skill *name* to the first matching catalog entry.
 ///
 /// The name is untrusted, so this is deliberately strict: a skill name is a single path component
-/// (`^[A-Za-z0-9._-]+$`, no `/`, no `\`, not `.`/`..`), it is joined onto each known root, and the
-/// resolved directory must still live *inside* that root (a symlink pointing out is rejected via
-/// `WorkspaceBoundary`). There is no way for a name to escape the configured roots — absolute paths,
-/// `../`, and separator injection are all refused before any filesystem access that could leave a root.
+/// (`^[A-Za-z0-9._-]+$`, no `/`, no `\`, not `.`/`..`). Discovery may follow user-authored directory
+/// symlinks in repo, user, and admin roots, matching Codex; callers can select only discovered names,
+/// never an arbitrary path.
 public struct SkillResolver: Sendable {
     /// Search roots in precedence order — earlier wins. A user root before a builtin root shadows it.
     public var roots: [SkillRoot]
@@ -68,27 +125,86 @@ public struct SkillResolver: Sendable {
         self.roots = roots
     }
 
-    /// The default roots for a workspace: the project `.quillcode/skills` (user, wins) then
-    /// `~/.quillcode/skills` (builtin/global, shadowed). Missing directories are harmless — they
-    /// simply contribute no skills.
+    /// Codex-compatible roots plus QuillCode's legacy project/user roots. Missing directories are
+    /// harmless. Repo roots are ordered nearest-first for deterministic name-only resolution.
     public static func defaultRoots(
         workspaceRoot: URL,
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
     ) -> [SkillRoot] {
-        [
-            SkillRoot(
-                kind: .user,
-                url: workspaceRoot
-                    .appendingPathComponent(".quillcode", isDirectory: true)
-                    .appendingPathComponent("skills", isDirectory: true)
-            ),
-            SkillRoot(
-                kind: .builtin,
-                url: homeDirectory
-                    .appendingPathComponent(".quillcode", isDirectory: true)
-                    .appendingPathComponent("skills", isDirectory: true)
+        roots(
+            workspaceRoot: workspaceRoot,
+            locations: .live(
+                quillCodeHome: homeDirectory.appendingPathComponent(".quillcode", isDirectory: true),
+                userHome: homeDirectory
             )
-        ]
+        )
+    }
+
+    public static func roots(
+        workspaceRoot: URL,
+        locations: SkillRootLocations,
+        extraRoots: [URL] = []
+    ) -> [SkillRoot] {
+        let cwd = workspaceRoot.standardizedFileURL
+        let repositoryRoot = nearestRepositoryRoot(from: cwd)
+        var roots: [SkillRoot] = []
+
+        for directory in directories(from: cwd, through: repositoryRoot) {
+            roots.append(SkillRoot(
+                kind: .repo,
+                url: directory
+                    .appendingPathComponent(".agents", isDirectory: true)
+                    .appendingPathComponent("skills", isDirectory: true)
+            ))
+        }
+        for directory in deduplicatedURLs([cwd, repositoryRoot]) {
+            roots.append(SkillRoot(
+                kind: .repo,
+                url: directory
+                    .appendingPathComponent(".quillcode", isDirectory: true)
+                    .appendingPathComponent("skills", isDirectory: true)
+            ))
+            roots.append(SkillRoot(
+                kind: .repo,
+                url: directory
+                    .appendingPathComponent(".codex", isDirectory: true)
+                    .appendingPathComponent("skills", isDirectory: true)
+            ))
+        }
+
+        roots.append(contentsOf: extraRoots.map { SkillRoot(kind: .user, url: $0) })
+        if let userHome = locations.userHome {
+            roots.append(SkillRoot(
+                kind: .user,
+                url: userHome
+                    .appendingPathComponent(".agents", isDirectory: true)
+                    .appendingPathComponent("skills", isDirectory: true)
+            ))
+        }
+        roots.append(SkillRoot(
+            kind: .user,
+            url: locations.quillCodeHome.appendingPathComponent("skills", isDirectory: true)
+        ))
+        roots.append(SkillRoot(
+            kind: .system,
+            url: locations.quillCodeHome
+                .appendingPathComponent("skills", isDirectory: true)
+                .appendingPathComponent(".system", isDirectory: true)
+        ))
+        if let codexHome = locations.codexHome {
+            roots.append(SkillRoot(
+                kind: .user,
+                url: codexHome.appendingPathComponent("skills", isDirectory: true)
+            ))
+            roots.append(SkillRoot(
+                kind: .system,
+                url: codexHome
+                    .appendingPathComponent("skills", isDirectory: true)
+                    .appendingPathComponent(".system", isDirectory: true)
+            ))
+        }
+        roots.append(contentsOf: locations.adminSkillRoots.map { SkillRoot(kind: .admin, url: $0) })
+        return deduplicatedRoots(roots)
     }
 
     public static func `default`(
@@ -96,6 +212,10 @@ public struct SkillResolver: Sendable {
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
     ) -> SkillResolver {
         SkillResolver(roots: defaultRoots(workspaceRoot: workspaceRoot, homeDirectory: homeDirectory))
+    }
+
+    public func catalogSnapshot() -> SkillCatalogSnapshot {
+        SkillCatalog(roots: roots).load()
     }
 
     /// Resolves `name` to the first root (in precedence order) that holds a skill directory with a
@@ -106,68 +226,33 @@ public struct SkillResolver: Sendable {
             throw SkillResolutionError.invalidName(rawName)
         }
 
-        for root in roots {
-            let rootURL = root.url.standardizedFileURL
-            let candidate = rootURL.appendingPathComponent(name, isDirectory: true).standardizedFileURL
-            // The joined directory must still live inside its root — a symlink named like a skill that
-            // points outside the root is not a skill of this root.
-            guard WorkspaceBoundary.isWithin(candidate, root: rootURL) else {
-                continue
-            }
-            var isDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory),
-                  isDirectory.boolValue
-            else {
-                continue
-            }
-            let manifest = candidate.appendingPathComponent(Self.manifestFileName, isDirectory: false)
-            var manifestIsDirectory: ObjCBool = false
-            guard FileManager.default.fileExists(atPath: manifest.path, isDirectory: &manifestIsDirectory),
-                  !manifestIsDirectory.boolValue,
-                  // The manifest itself must resolve inside the root too (defends against a symlinked
-                  // SKILL.md pointing at an arbitrary file on disk).
-                  WorkspaceBoundary.isWithin(manifest, root: rootURL)
-            else {
-                continue
-            }
+        let snapshot = catalogSnapshot()
+        if let skill = snapshot.skills.first(where: { $0.name == name }) {
             return ResolvedSkill(
-                name: name,
-                kind: root.kind,
-                baseDirectory: candidate,
-                skillFile: manifest
+                name: skill.name,
+                kind: skill.scope,
+                baseDirectory: skill.path.deletingLastPathComponent(),
+                skillFile: skill.path
             )
         }
 
-        throw SkillResolutionError.notFound(requested: name, available: availableSkillNames())
+        if let catalogError = snapshot.errors.first(where: {
+            $0.path.deletingLastPathComponent().lastPathComponent == name
+        }) {
+            throw SkillResolutionError.invalidManifest(
+                requested: name,
+                message: catalogError.message
+            )
+        }
+
+        let available = Array(Set(snapshot.skills.map(\.name))).sorted()
+        throw SkillResolutionError.notFound(requested: name, available: available)
     }
 
     /// Every skill name available across all roots, de-duplicated (a name present in several roots is
     /// listed once) and sorted. Used for "did you mean" suggestions and empty-state messaging.
     public func availableSkillNames() -> [String] {
-        var names: Set<String> = []
-        for root in roots {
-            let rootURL = root.url.standardizedFileURL
-            let entries = (try? FileManager.default.contentsOfDirectory(
-                at: rootURL,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )) ?? []
-            for entry in entries {
-                let dir = entry.standardizedFileURL
-                guard WorkspaceBoundary.isWithin(dir, root: rootURL) else { continue }
-                var isDirectory: ObjCBool = false
-                guard FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDirectory),
-                      isDirectory.boolValue
-                else {
-                    continue
-                }
-                let manifest = dir.appendingPathComponent(Self.manifestFileName, isDirectory: false)
-                if FileManager.default.fileExists(atPath: manifest.path) {
-                    names.insert(dir.lastPathComponent)
-                }
-            }
-        }
-        return names.sorted()
+        Array(Set(catalogSnapshot().skills.map(\.name))).sorted()
     }
 
     /// A skill name is exactly one safe path component: non-empty, not `.`/`..`, no path separators,
@@ -181,5 +266,53 @@ public struct SkillResolver: Sendable {
             character.isASCII &&
                 (character.isLetter || character.isNumber || character == "." || character == "-" || character == "_")
         }
+    }
+    private static func nearestRepositoryRoot(from directory: URL) -> URL {
+        var candidate = directory.standardizedFileURL
+        while true {
+            if FileManager.default.fileExists(
+                atPath: candidate.appendingPathComponent(".git", isDirectory: false).path
+            ) {
+                return candidate
+            }
+            let parent = parentDirectory(of: candidate)
+            guard parent.path != candidate.path else { return directory.standardizedFileURL }
+            candidate = parent
+        }
+    }
+
+    private static func directories(from directory: URL, through root: URL) -> [URL] {
+        var directories: [URL] = []
+        var candidate = directory.standardizedFileURL
+        let root = root.standardizedFileURL
+        while true {
+            directories.append(candidate)
+            guard candidate.path != root.path else { break }
+            let parent = parentDirectory(of: candidate)
+            guard parent.path != candidate.path else { break }
+            candidate = parent
+        }
+        return directories
+    }
+
+    /// Foundation can represent the parent of `/` as `/..`; deriving parents from the normalized
+    /// path keeps ancestor walks finite on every platform.
+    private static func parentDirectory(of directory: URL) -> URL {
+        let path = directory.standardizedFileURL.path
+        let parentPath = NSString(string: path).deletingLastPathComponent
+        return URL(
+            fileURLWithPath: parentPath.isEmpty ? "/" : parentPath,
+            isDirectory: true
+        ).standardizedFileURL
+    }
+
+    private static func deduplicatedURLs(_ values: [URL]) -> [URL] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0.standardizedFileURL.path).inserted }
+    }
+
+    private static func deduplicatedRoots(_ values: [SkillRoot]) -> [SkillRoot] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0.url.standardizedFileURL.path).inserted }
     }
 }

@@ -12,7 +12,15 @@ final class WorkspacePluginSkillResolverTests: XCTestCase {
         let global = home.appendingPathComponent(".quillcode/skills/review")
         for directory in [direct, plugin, pluginOnly, global] {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            try directory.path.write(
+            let name = directory.lastPathComponent
+            try """
+            ---
+            name: \(name)
+            description: Test instructions for \(name).
+            ---
+
+            # \(name)
+            """.write(
                 to: directory.appendingPathComponent("SKILL.md"),
                 atomically: true,
                 encoding: .utf8
@@ -63,6 +71,6 @@ final class WorkspacePluginSkillResolverTests: XCTestCase {
         )
 
         XCTAssertTrue(resolver.availableSkillNames().isEmpty)
-        XCTAssertEqual(resolver.roots.count, 2)
+        XCTAssertFalse(resolver.roots.contains { $0.url.standardizedFileURL.path == outside.path })
     }
 }

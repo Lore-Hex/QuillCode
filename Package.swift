@@ -26,13 +26,21 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/Lore-Hex/trusted-router-swift.git", from: "0.4.1"),
-        .package(url: "https://github.com/dduan/TOMLDecoder.git", from: "0.4.5")
+        .package(url: "https://github.com/dduan/TOMLDecoder.git", from: "0.4.5"),
+        .package(url: "https://github.com/jpsim/Yams.git", from: "5.1.3")
     ],
     targets: [
         .target(name: "QuillCodeCore"),
         .target(name: "QuillCodeSafety", dependencies: ["QuillCodeCore"]),
         .target(name: "CQuillPTY"),
-        .target(name: "QuillCodeTools", dependencies: ["QuillCodeCore", "CQuillPTY"]),
+        .target(
+            name: "QuillCodeTools",
+            dependencies: [
+                "QuillCodeCore",
+                "CQuillPTY",
+                .product(name: "Yams", package: "Yams")
+            ]
+        ),
         .target(name: "QuillCodePersistence", dependencies: ["QuillCodeCore", "QuillCodeSafety"]),
         .target(name: "QuillComputerUseKit", dependencies: ["QuillCodeCore"]),
         .target(name: "QuillCodePlatformUI", dependencies: ["QuillCodeTools"]),
