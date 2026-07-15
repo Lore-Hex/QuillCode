@@ -3,6 +3,7 @@ import QuillCodeCore
 
 struct QuillCodeActivityPaneView: View {
     var activity: WorkspaceActivitySurface
+    var onClose: () -> Void
     var onCommand: (String) -> Void = { _ in }
 
     var body: some View {
@@ -30,6 +31,7 @@ struct QuillCodeActivityPaneView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(activity.title)
                     .font(.headline)
+                    .accessibilityIdentifier("quillcode-activity-title")
                 Text(activity.subtitle)
                     .font(.caption)
                     .foregroundStyle(QuillCodePalette.muted)
@@ -54,6 +56,11 @@ struct QuillCodeActivityPaneView: View {
                 .padding(.vertical, 4)
                 .background(QuillCodePalette.blue.opacity(0.14))
                 .clipShape(Capsule())
+            QuillCodePaneCloseButton(
+                paneName: "Activity",
+                accessibilityIdentifier: "quillcode-activity-close",
+                action: onClose
+            )
         }
     }
 
@@ -78,6 +85,7 @@ struct QuillCodeActivityPaneView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(QuillCodePalette.background.opacity(0.55))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .accessibilityIdentifier("quillcode-activity-task-summary")
     }
 
 }

@@ -186,6 +186,7 @@ private extension QuillCodeNativeHitTargetSurfaceAuditTests {
         XCTAssertEqual(contractsByID["memories.item-action"]?.kind, .icon)
         XCTAssertEqual(contractsByID["automations.create"]?.kind, .formAction)
         XCTAssertEqual(contractsByID["automations.close"]?.kind, .icon)
+        XCTAssertEqual(contractsByID["activity.close"]?.kind, .icon)
         XCTAssertEqual(contractsByID["review.mode"]?.kind, .segmentedControl)
         XCTAssertEqual(contractsByID["browser.comment"]?.kind, .textEntry)
         XCTAssertEqual(contractsByID["browser.family-icon"]?.kind, .icon)
@@ -220,6 +221,7 @@ private extension QuillCodeNativeHitTargetSurfaceAuditTests {
         XCTAssertEqual(contractsByID["memories.close"]?.testID, "quillcode-memories-close")
         XCTAssertEqual(contractsByID["automations.delete"]?.testID, "quillcode-automation-delete")
         XCTAssertEqual(contractsByID["automations.close"]?.testID, "quillcode-automations-close")
+        XCTAssertEqual(contractsByID["activity.close"]?.testID, "quillcode-activity-close")
         XCTAssertEqual(contractsByID["project.clear"]?.testID, "quillcode-project-clear-button")
         XCTAssertEqual(contractsByID["command.add-project"]?.commandID, "add-project")
         XCTAssertEqual(contractsByID["command.new-chat"]?.commandID, "new-chat")
@@ -268,5 +270,6 @@ private extension QuillCodeNativeHitTargetSurfaceAuditTests {
         XCTAssertEqual(Set(policyByFamily[.review]?.requiredKinds ?? []), Set([.textEntry, .segmentedControl, .fullRow, .formAction]))
         XCTAssertEqual(Set(policyByFamily[.review]?.requiredActions ?? []), Set([.textInput, .press]))
         XCTAssertEqual(Set(policyByFamily[.review]?.requiredFocusTargets ?? []), Set([.reviewBody, .reviewThreadReply]))
+        XCTAssertEqual(Set(policyByFamily[.secondaryPane]?.allowedKinds ?? []), Set([.capsule, .icon]))
     }
 }

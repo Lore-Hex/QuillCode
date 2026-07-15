@@ -169,14 +169,18 @@ struct QuillCodeWorkspaceMainPaneView: View {
             }
             if surface.activity.isVisible {
                 Divider()
-                QuillCodeActivityPaneView(activity: surface.activity) { commandID in
-                    onCommand(WorkspaceCommandSurface(
-                        id: commandID,
-                        title: "Toggle activity section",
-                        category: WorkspaceCommandPalette.workspaceCategory,
-                        keywords: ["activity", "task", "collapse", "expand"]
-                    ))
-                }
+                QuillCodeActivityPaneView(
+                    activity: surface.activity,
+                    onClose: { runCommand(id: "toggle-activity") },
+                    onCommand: { commandID in
+                        onCommand(WorkspaceCommandSurface(
+                            id: commandID,
+                            title: "Toggle activity section",
+                            category: WorkspaceCommandPalette.workspaceCategory,
+                            keywords: ["activity", "task", "collapse", "expand"]
+                        ))
+                    }
+                )
                     .frame(width: 320)
             }
         }

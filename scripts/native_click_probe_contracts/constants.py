@@ -41,6 +41,7 @@ REQUIRED_LIVE_ACCESSIBILITY_ACTIVATION_CONTRACT_IDS = [
     "command.toggle-automations",
     "command.toggle-extensions",
     "command.toggle-memories",
+    "command.toggle-activity",
 ]
 EXPECTED_SAMPLE_POINTS = {
     "center": (0.5, 0.5),

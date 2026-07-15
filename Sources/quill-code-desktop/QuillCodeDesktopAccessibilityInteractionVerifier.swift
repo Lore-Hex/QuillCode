@@ -43,6 +43,14 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         requiredControlDescription: "Add control",
         closeIdentifier: "quillcode-memories-close"
     )
+    private static let activitySurfaceContract = DismissibleSurfaceContract(
+        contractID: "command.toggle-activity",
+        name: "Activity",
+        titleIdentifier: "quillcode-activity-title",
+        requiredControlIdentifier: "quillcode-activity-task-summary",
+        requiredControlDescription: "task summary",
+        closeIdentifier: "quillcode-activity-close"
+    )
 
     static func observeWorkspaceThreads(
         _ controller: QuillCodeDesktopController
@@ -165,6 +173,44 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
         await verifyDismissibleSurface(memoriesSurfaceContract, contentView: contentView)
+    }
+
+    static func verifyActivityDismissal(
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        guard let constrainedComposer = await waitForInput(composerInputIdentifier, expectedValue: nil, in: contentView),
+              let constrainedFrame = constrainedComposer.frame
+        else {
+            return .init(
+                evidence: "Activity rendered without a measurable composer",
+                validationIssue: "command.toggle-activity could not measure the composer while Activity was visible"
+            )
+        }
+
+        let dismissal = await verifyDismissibleSurface(activitySurfaceContract, contentView: contentView)
+        guard dismissal.validationIssue == nil else { return dismissal }
+        guard let restoredComposer = await waitForInput(composerInputIdentifier, expectedValue: nil, in: contentView),
+              let restoredFrame = restoredComposer.frame
+        else {
+            return .init(
+                evidence: "Activity dismissed but the composer did not reappear",
+                validationIssue: "command.toggle-activity did not restore the composer after dismissal"
+            )
+        }
+
+        let restoredWidth = restoredFrame.width
+        let constrainedWidth = constrainedFrame.width
+        guard restoredWidth - constrainedWidth >= 240 else {
+            return .init(
+                evidence: "Activity dismissed but composer width changed from \(Int(constrainedWidth)) to only \(Int(restoredWidth)) points",
+                validationIssue: "command.toggle-activity did not restore the horizontal workspace after dismissal"
+            )
+        }
+
+        return .init(
+            evidence: "\(dismissal.evidence) and restored composer width from \(Int(constrainedWidth)) to \(Int(restoredWidth)) points",
+            validationIssue: nil
+        )
     }
 
     private static func verifyReversibleTextEntry(

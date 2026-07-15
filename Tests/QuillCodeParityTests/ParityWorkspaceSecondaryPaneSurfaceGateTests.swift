@@ -71,6 +71,7 @@ final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCas
         let automationsText = try Self.appSourceText(named: "QuillCodeAutomationsPaneView.swift")
         let automationMenuText = try Self.appSourceText(named: "QuillCodeAutomationCreateMenu.swift")
         let automationCardText = try Self.appSourceText(named: "QuillCodeAutomationWorkflowCard.swift")
+        let activityText = try Self.appSourceText(named: "WorkspaceActivityPaneView.swift")
 
         Self.assertSource(workspaceText, contains: "QuillCodeWorkspaceMainPaneView")
 
@@ -109,6 +110,14 @@ final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCas
         ].forEach { Self.assertSource(automationsText, contains: $0) }
         Self.assertSource(mainPaneText, contains: "onClose: { runCommand(id: \"toggle-automations\") }")
 
+        [
+            "struct QuillCodeActivityPaneView",
+            "accessibilityIdentifier(\"quillcode-activity-title\")",
+            "accessibilityIdentifier(\"quillcode-activity-task-summary\")",
+            "accessibilityIdentifier: \"quillcode-activity-close\""
+        ].forEach { Self.assertSource(activityText, contains: $0) }
+        Self.assertSource(mainPaneText, contains: "onClose: { runCommand(id: \"toggle-activity\") }")
+
         Self.assertSource(automationMenuText, contains: "struct QuillCodeAutomationCreateMenu")
         Self.assertSource(automationMenuText, contains: "quillCodePlatformMenuItemTarget")
         Self.assertSource(automationCardText, contains: "struct QuillCodeAutomationWorkflowCard")
@@ -119,14 +128,15 @@ final class ParityWorkspaceSecondaryPaneSurfaceGateTests: QuillCodeParityTestCas
             "accessibilityIdentifier(accessibilityIdentifier)",
             "quillCodeIconButtonTarget()"
         ].forEach { Self.assertSource(chromeText, contains: $0) }
-        [extensionsText, memoriesText, automationsText].forEach {
+        [extensionsText, memoriesText, automationsText, activityText].forEach {
             Self.assertSource($0, contains: "QuillCodePaneCloseButton")
         }
 
         [
             "QuillCodeExtensionsPaneView",
             "QuillCodeMemoriesPaneView",
-            "QuillCodeAutomationsPaneView"
+            "QuillCodeAutomationsPaneView",
+            "QuillCodeActivityPaneView"
         ].forEach { Self.assertSource(mainPaneText, contains: $0) }
 
         [

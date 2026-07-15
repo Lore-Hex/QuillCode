@@ -1011,3 +1011,10 @@
 - **Native proof:** Packaged macOS smoke opens Memories, requires its identified title and Add control, AX-presses its identified Close control, and waits for disappearance.
 - **State safety:** Verification adds, edits, forgets, reconciles, or redacts no memory and restores baseline visibility.
 - **Why:** A compact layout must not make a primary workspace pane untestable or undiscoverable. Native menu activation and visible dismissal form one reversible interaction contract.
+
+## 2026-07-14: Activity dismissal restores working space
+
+- **Behavior:** The Activity pane exposes an identified Close control in its header; sidebar, shortcut, slash-command, native-menu, and pane-close routes share `toggle-activity`.
+- **Native proof:** Packaged macOS smoke opens Activity through AXPress, requires its identified title and task summary, AX-presses Close, waits for the pane to disappear, and measures the composer regaining at least 240 points of width.
+- **State safety:** Verification does not collapse sections, change plans, resolve instruction diagnostics, approve workers, or mutate task state. It restores baseline pane visibility.
+- **Why:** A Boolean visibility transition cannot prove a fixed-width side pane rendered, dismissed, or returned useful workspace area. Content, dismissal, and layout restoration are one release contract.
