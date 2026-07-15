@@ -73,12 +73,19 @@ enum SlashCommandCatalog {
         return definitions[index].insertText
     }
 
-    static func suggestions(for draft: String, limit: Int = 6) -> [SlashCommandSuggestionSurface] {
+    static func suggestions(
+        for draft: String,
+        limit: Int = 6,
+        supportsPersonality: Bool = true
+    ) -> [SlashCommandSuggestionSurface] {
         let trimmedLeading = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmedLeading.hasPrefix("/"), !trimmedLeading.contains("\n") else { return [] }
         let query = normalize(String(trimmedLeading.dropFirst()))
         let scored = definitions.enumerated().compactMap { index, definition -> (Int, SlashCommandDefinition, Int)? in
-            score(definition, query: query).map { (index, definition, $0) }
+            if !supportsPersonality, definition.usage.hasPrefix("/personality ") {
+                return nil
+            }
+            return score(definition, query: query).map { (index, definition, $0) }
         }
         return scored
             .sorted { lhs, rhs in

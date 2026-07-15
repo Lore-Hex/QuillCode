@@ -5,6 +5,7 @@ struct WorkspaceThreadCreationContext: Sendable, Hashable {
     var projectID: UUID?
     var mode: AgentMode
     var model: String
+    var personality: QuillCodePersonality
     var instructions: [ProjectInstruction]
     var memories: [MemoryNote]
 
@@ -12,12 +13,14 @@ struct WorkspaceThreadCreationContext: Sendable, Hashable {
         projectID: UUID?,
         mode: AgentMode,
         model: String,
+        personality: QuillCodePersonality = .defaultValue,
         instructions: [ProjectInstruction] = [],
         memories: [MemoryNote] = []
     ) {
         self.projectID = projectID
         self.mode = mode
         self.model = model
+        self.personality = personality
         self.instructions = instructions
         self.memories = memories
     }
@@ -29,6 +32,7 @@ struct WorkspaceThreadCreationEngine {
             projectID: context.projectID,
             mode: context.mode,
             model: context.model,
+            personality: context.personality,
             instructions: context.instructions,
             memories: context.memories
         )
@@ -45,6 +49,7 @@ struct WorkspaceThreadCreationEngine {
             projectID: projectID,
             mode: source.mode,
             model: source.model,
+            personality: source.personality,
             messages: WorkspaceThreadSeedBuilder.forkSeedMessages(
                 from: source,
                 strategy: strategy,
@@ -73,6 +78,7 @@ struct WorkspaceThreadCreationEngine {
             projectID: projectID,
             mode: source.mode,
             model: source.model,
+            personality: source.personality,
             messages: WorkspaceThreadSeedBuilder.compactSeedMessages(
                 from: source,
                 summaryOverride: summaryOverride
@@ -96,6 +102,7 @@ struct WorkspaceThreadCreationEngine {
             projectID: projectID,
             mode: source.mode,
             model: source.model,
+            personality: source.personality,
             messages: source.messages,
             events: source.events,
             goal: source.goal,
@@ -118,6 +125,7 @@ struct WorkspaceThreadCreationEngine {
             projectID: projectID,
             mode: source.mode,
             model: source.model,
+            personality: source.personality,
             messages: source.messages,
             events: [
                 .init(

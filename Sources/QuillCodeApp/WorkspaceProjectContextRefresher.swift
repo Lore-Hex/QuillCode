@@ -63,6 +63,7 @@ enum WorkspaceProjectContextRefresher {
         projectID: UUID?,
         mode: AgentMode,
         model: String,
+        personality: QuillCodePersonality = .defaultValue,
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceThreadCreationContext {
@@ -70,7 +71,7 @@ enum WorkspaceProjectContextRefresher {
             projectID: projectID,
             projects: projects,
             globalMemories: globalMemories
-        ).threadCreation(mode: mode, model: model)
+        ).threadCreation(mode: mode, model: model, personality: personality)
     }
 
     static func worktreeOpenContext(
@@ -78,6 +79,7 @@ enum WorkspaceProjectContextRefresher {
         projectID: UUID,
         mode: AgentMode,
         model: String,
+        personality: QuillCodePersonality = .defaultValue,
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
@@ -90,7 +92,8 @@ enum WorkspaceProjectContextRefresher {
             branch: request.branch,
             projectID: projectID,
             mode: mode,
-            model: model
+            model: model,
+            personality: personality
         )
     }
 
@@ -99,6 +102,7 @@ enum WorkspaceProjectContextRefresher {
         projectID: UUID,
         mode: AgentMode,
         model: String,
+        personality: QuillCodePersonality = .defaultValue,
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
@@ -111,7 +115,8 @@ enum WorkspaceProjectContextRefresher {
             branch: "",
             projectID: projectID,
             mode: mode,
-            model: model
+            model: model,
+            personality: personality
         )
     }
 

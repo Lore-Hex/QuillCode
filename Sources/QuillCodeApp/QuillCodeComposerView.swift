@@ -178,7 +178,10 @@ struct QuillCodeComposerView: View {
         // Once the user has committed to `/model ` and is querying a model, the model sub-search
         // owns the popup; suppress the top-level slash list so the two never both render.
         guard !SlashModelCatalogSearch.isActive(in: draft) else { return [] }
-        return SlashCommandCatalog.suggestions(for: draft)
+        return SlashCommandCatalog.suggestions(
+            for: draft,
+            supportsPersonality: composer.supportsPersonality
+        )
     }
 
     private var fileMentionSuggestions: [FileMentionSuggestionSurface] {

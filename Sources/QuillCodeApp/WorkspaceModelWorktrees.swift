@@ -353,6 +353,7 @@ extension QuillCodeWorkspaceModel {
             projectID: projectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
+            personality: root.config.defaultPersonality,
             projects: root.projects,
             globalMemories: root.globalMemories
         )
@@ -367,6 +368,7 @@ extension QuillCodeWorkspaceModel {
             projectID: projectID,
             mode: root.config.mode,
             model: root.config.defaultModel,
+            personality: root.config.defaultPersonality,
             projects: root.projects,
             globalMemories: root.globalMemories
         )

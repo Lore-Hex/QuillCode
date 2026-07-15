@@ -87,6 +87,7 @@ struct QuillCodeDesktopSettingsCoordinator {
         config.managedWorktrees = update.managedWorktrees
         config.reviewModel = update.reviewModel
         config.reviewDelivery = update.reviewDelivery
+        config.defaultPersonality = update.defaultPersonality
 
         if update.shouldClearAPIKey {
             try? bootstrap.clearTrustedRouterAPIKey()

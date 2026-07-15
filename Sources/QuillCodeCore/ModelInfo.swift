@@ -7,6 +7,9 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
     public var inputModalities: [String]
     public var outputModalities: [String]
     public var capabilityTags: [String]
+    /// nil means the catalog did not advertise support. QuillCode can still provide personality
+    /// through prompt guidance, so callers treat only an explicit false as unsupported.
+    public var supportsPersonality: Bool?
     public var status: String?
     public var summary: String?
     public var releaseDate: Date?
@@ -18,6 +21,7 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
             && inputModalities.isEmpty
             && outputModalities.isEmpty
             && capabilityTags.isEmpty
+            && supportsPersonality == nil
             && status == nil
             && summary == nil
             && releaseDate == nil
@@ -30,6 +34,7 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         inputModalities: [String] = [],
         outputModalities: [String] = [],
         capabilityTags: [String] = [],
+        supportsPersonality: Bool? = nil,
         status: String? = nil,
         summary: String? = nil,
         releaseDate: Date? = nil
@@ -40,6 +45,7 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         self.inputModalities = Self.normalizedList(inputModalities)
         self.outputModalities = Self.normalizedList(outputModalities)
         self.capabilityTags = Self.normalizedList(capabilityTags)
+        self.supportsPersonality = supportsPersonality
         self.status = Self.normalizedOptional(status)
         self.summary = Self.normalizedOptional(summary)
         self.releaseDate = releaseDate
@@ -52,6 +58,7 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         case inputModalities
         case outputModalities
         case capabilityTags
+        case supportsPersonality
         case status
         case summary
         case releaseDate
@@ -72,6 +79,7 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
             inputModalities: try container.decodeIfPresent([String].self, forKey: .inputModalities) ?? [],
             outputModalities: try container.decodeIfPresent([String].self, forKey: .outputModalities) ?? [],
             capabilityTags: try container.decodeIfPresent([String].self, forKey: .capabilityTags) ?? [],
+            supportsPersonality: try container.decodeIfPresent(Bool.self, forKey: .supportsPersonality),
             status: try container.decodeIfPresent(String.self, forKey: .status),
             summary: try container.decodeIfPresent(String.self, forKey: .summary),
             releaseDate: try container.decodeIfPresent(Date.self, forKey: .releaseDate)
@@ -106,6 +114,10 @@ public struct ModelInfo: Codable, Sendable, Hashable, Identifiable {
     public var displayName: String
     public var category: String
     public var capabilities: ModelCapabilities
+
+    public var supportsPersonality: Bool {
+        capabilities.supportsPersonality != false
+    }
 
     public init(
         id: String,

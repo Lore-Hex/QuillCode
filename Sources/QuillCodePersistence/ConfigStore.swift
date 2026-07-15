@@ -57,6 +57,8 @@ public struct ConfigStore: Sendable {
             switch key {
             case "default_model":
                 config.defaultModel = TrustedRouterDefaults.normalizedDefaultModelID(value)
+            case "personality":
+                config.defaultPersonality = QuillCodePersonality.parse(value) ?? config.defaultPersonality
             case "review_model":
                 config.reviewModel = AppConfig.normalizedReviewModelID(value)
             case "review_delivery":
@@ -168,6 +170,7 @@ public struct ConfigStore: Sendable {
 
         for key in Self.ownedKeys { document.values.removeValue(forKey: key) }
         document.values["model"] = .string(config.defaultModel)
+        document.values["personality"] = .string(config.defaultPersonality.rawValue)
         document.values["review_model"] = config.reviewModel.map(ConfigValue.string)
         document.values["review_delivery"] = .string(config.reviewDelivery.rawValue)
         document.values["mode"] = .string(config.mode.rawValue)
@@ -229,7 +232,7 @@ public struct ConfigStore: Sendable {
     }
 
     private static let ownedKeys: Set<String> = [
-        "default_model", "model", "review_model", "review_delivery", "mode", "api_base_url",
+        "default_model", "model", "personality", "review_model", "review_delivery", "mode", "api_base_url",
         "auth_mode", "developer_override_enabled", "model_provider", "sandbox_mode",
         "approvals_reviewer", "approval_policy", "trustedrouter_user_id", "trustedrouter_subject",
         "trustedrouter_email", "trustedrouter_wallet_address", "favorite_model",
@@ -282,6 +285,8 @@ public struct ConfigStore: Sendable {
             defaultModel: values.string("model")
                 ?? values.string("default_model")
                 ?? TrustedRouterDefaults.defaultModel,
+            defaultPersonality: values.string("personality")
+                .flatMap(QuillCodePersonality.parse) ?? .defaultValue,
             mode: mode,
             apiBaseURL: values.string("api_base_url") ?? TrustedRouterDefaults.defaultAPIBaseURL,
             authMode: authMode,

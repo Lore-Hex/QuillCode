@@ -302,21 +302,27 @@ test('mock harness creates and removes worktrees from dialogs', async ({ page })
 
 test('mock harness retries failed worktree choice loading', async ({ page }) => {
   await page.evaluate(() => {
-    (window as typeof window & {
+    const harnessWindow = window as typeof window & {
       __quillCodeFailNextWorktreeChoiceLoad?: boolean
-    }).__quillCodeFailNextWorktreeChoiceLoad = true;
+      __quillCodeWorktreeChoiceLoadDelayMS?: number
+    };
+    harnessWindow.__quillCodeFailNextWorktreeChoiceLoad = true;
+    harnessWindow.__quillCodeWorktreeChoiceLoadDelayMS = 1_000;
   });
 
-  await openWorktreeCommand(page, '>open worktree', 'git-worktree-open');
+  await Promise.all([
+    page.getByTestId('worktree-choices-loading').waitFor({ state: 'visible' }),
+    openWorktreeCommand(page, '>open worktree', 'git-worktree-open')
+  ]);
   await expect(page.getByTestId('worktree-open-panel')).toBeVisible();
-  await expect(page.getByTestId('worktree-choices-loading')).toBeVisible();
   await expect(page.getByTestId('worktree-choices-error'))
     .toContainText('Could not load registered git worktrees.');
   await expect(page.getByTestId('worktree-choices-retry')).toBeVisible();
 
-  await page.getByTestId('worktree-choices-retry').click();
-
-  await expect(page.getByTestId('worktree-choices-loading')).toBeVisible();
+  await Promise.all([
+    page.getByTestId('worktree-choices-loading').waitFor({ state: 'visible' }),
+    page.getByTestId('worktree-choices-retry').click()
+  ]);
   await expect(page.getByTestId('worktree-choice')).toContainText('quillcode-existing');
   await expect(page.getByTestId('worktree-choices-error')).toHaveCount(0);
 });

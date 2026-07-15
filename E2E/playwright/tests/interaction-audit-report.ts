@@ -417,6 +417,18 @@ export async function interactionAuditReport(page: Page): Promise<InteractionAud
       if (!label) return false;
       const rect = label.getBoundingClientRect();
       const clipped = visibleRect(label, rect);
+      if (
+        hasSharedHitTargetClass(label)
+        && hasExplicitHitTargetContract(label)
+        && hasHitTargetAction(label)
+        && isVisible(label, rect)
+        && clipped.rect.width > 0
+        && clipped.rect.height > 0
+        && isInActiveInteractionLayer(label)
+      ) {
+        // The label is audited independently as the single owned interaction target.
+        return true;
+      }
       return isVisible(label, rect)
         && Math.round(rect.width) >= minimumHitTarget
         && Math.round(rect.height) >= minimumHitTarget

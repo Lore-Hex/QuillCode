@@ -29,6 +29,10 @@ struct TrustedRouterCatalogModel: Decodable {
             inputModalities: container.firstStringList(for: ["input_modalities", "inputModalities"]),
             outputModalities: container.firstStringList(for: ["output_modalities", "outputModalities"]),
             capabilityTags: Self.capabilityTags(in: container),
+            supportsPersonality: container.firstBool(for: [
+                "supports_personality",
+                "supportsPersonality"
+            ]),
             status: container.firstNonEmptyString(for: ["status", "availability"]),
             summary: container.firstNonEmptyString(for: ["description", "summary"]),
             releaseDate: Self.releaseDate(in: container)
@@ -243,6 +247,23 @@ private extension KeyedDecodingContainer where Key == FlexibleCodingKey {
             if let raw = try? decodeIfPresent(String.self, forKey: FlexibleCodingKey(key)),
                let value = normalizedNumber(raw).flatMap(Double.init) {
                 return value
+            }
+        }
+        return nil
+    }
+
+    func firstBool(for keys: [String]) -> Bool? {
+        for key in keys {
+            let codingKey = FlexibleCodingKey(key)
+            if let value = try? decodeIfPresent(Bool.self, forKey: codingKey) {
+                return value
+            }
+            if let raw = try? decodeIfPresent(String.self, forKey: codingKey) {
+                switch raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+                case "true", "yes", "1": return true
+                case "false", "no", "0": return false
+                default: continue
+                }
             }
         }
         return nil

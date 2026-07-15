@@ -27,6 +27,7 @@ enum WorkspaceThreadContextBuilder {
         projectID: UUID?,
         mode: AgentMode,
         model: String,
+        personality: QuillCodePersonality = .defaultValue,
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceThreadCreationContext {
@@ -35,6 +36,7 @@ enum WorkspaceThreadContextBuilder {
             projectID: projectID,
             mode: mode,
             model: model,
+            personality: personality,
             instructions: snapshot.instructions,
             memories: snapshot.memories
         )
@@ -46,6 +48,7 @@ enum WorkspaceThreadContextBuilder {
         projectID: UUID,
         mode: AgentMode,
         model: String,
+        personality: QuillCodePersonality = .defaultValue,
         projects: [ProjectRef],
         globalMemories: [MemoryNote]
     ) -> WorkspaceWorktreeOpenContext {
@@ -56,6 +59,7 @@ enum WorkspaceThreadContextBuilder {
             projectID: projectID,
             mode: mode,
             model: model,
+            personality: personality,
             instructions: snapshot.instructions,
             memories: snapshot.memories
         )

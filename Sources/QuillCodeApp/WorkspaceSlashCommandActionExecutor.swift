@@ -23,6 +23,14 @@ extension QuillCodeWorkspaceModel {
                 userText: userText,
                 model: modelID
             ))
+        case .setPersonality(let personality, let userText):
+            let supported = setPersonality(personality)
+            appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.personality(
+                userText: userText,
+                personality: personality,
+                supported: supported,
+                model: selectedThread?.model ?? root.config.defaultModel
+            ))
         case .renameThread(let title, let userText):
             let succeeded = root.selectedThreadID.map { renameThread($0, to: title) } ?? false
             appendLocalCommandTranscript(WorkspaceSlashCommandTranscriptPlanner.renameThread(

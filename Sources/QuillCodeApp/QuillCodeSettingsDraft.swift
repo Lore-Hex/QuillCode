@@ -10,6 +10,7 @@ struct QuillCodeSettingsDraft: Equatable {
     var shouldClearAPIKey: Bool = false
     var reviewModelText: String = ""
     var reviewDelivery: CodeReviewDelivery = .current
+    var defaultPersonality: QuillCodePersonality = .defaultValue
     var computerUseApprovedBundleIdentifiersText: String = ""
     var computerUseApprovedAppNamesText: String = ""
     var browserAllowedDomainsText: String = ""
@@ -36,6 +37,7 @@ struct QuillCodeSettingsDraft: Equatable {
         self.developerOverrideEnabled = settings.developerOverrideEnabled
         self.reviewModelText = settings.reviewModel ?? ""
         self.reviewDelivery = settings.reviewDelivery
+        self.defaultPersonality = settings.defaultPersonality
         self.computerUseApprovedBundleIdentifiersText = Self.joinedApprovals(
             settings.computerUseApprovedBundleIdentifiers
         )
@@ -103,7 +105,8 @@ struct QuillCodeSettingsDraft: Equatable {
                 retentionLimit: managedWorktreeRetentionLimit
             ),
             reviewModel: normalizedReviewModel,
-            reviewDelivery: reviewDelivery
+            reviewDelivery: reviewDelivery,
+            defaultPersonality: defaultPersonality
         )
     }
 

@@ -48,6 +48,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
             Self.chatMessage(role: "system", content: Self.systemPrompt(tools: tools))
         ]
 
+        appendPersonalityGuidance(from: thread, to: &messages)
         appendModeGuidance(from: thread, to: &messages)
         appendGoal(from: thread, to: &messages)
         appendProjectInstructions(from: thread, to: &messages)
@@ -257,6 +258,34 @@ public struct TrustedRouterPromptBuilder: Sendable {
         guard let guidance = Self.modeGuidance(for: thread.mode) else { return }
         messages.append(Self.chatMessage(role: "system", content: guidance))
     }
+
+    private func appendPersonalityGuidance(from thread: ChatThread, to messages: inout [[String: Any]]) {
+        guard let guidance = Self.personalityGuidance(for: thread.personality) else { return }
+        messages.append(Self.chatMessage(role: "system", content: guidance))
+    }
+
+    static func personalityGuidance(for personality: QuillCodePersonality) -> String? {
+        switch personality {
+        case .friendly:
+            return friendlyPersonalityPrompt
+        case .pragmatic:
+            return pragmaticPersonalityPrompt
+        case .none:
+            return nil
+        }
+    }
+
+    static let friendlyPersonalityPrompt = """
+    Communication style: Friendly. Be warm, approachable, and conversational while staying focused \
+    on the task. Explain decisions in plain language, acknowledge uncertainty honestly, and keep \
+    progress updates useful. Avoid empty praise, excessive enthusiasm, and unnecessary chatter.
+    """
+
+    static let pragmaticPersonalityPrompt = """
+    Communication style: Pragmatic. Be direct, concise, and task-focused. State concrete actions, \
+    evidence, constraints, and tradeoffs clearly. Prefer actionable conclusions over narration, \
+    while remaining respectful and explaining decisions that materially affect the user.
+    """
 
     /// Mode-aware guidance so the agent's behavior matches the active approval mode and it does not
     /// waste turns proposing tools the mode will block. `.auto` returns `nil`: it has no extra
