@@ -127,7 +127,7 @@ private extension AppServerSession {
             )
         }
         if let sandboxValue, sandboxValue != .null {
-            let policy = try appServerSandboxPolicy(from: sandboxValue)
+            let policy = try AppServerSandboxPolicyParser.parse(sandboxValue)
             record.settings.sandbox = policy.mode
             record.settings.sandboxPolicy = policy
             record.settings.permissionProfileID = nil
@@ -265,67 +265,4 @@ private extension AppServerSession {
         return effort
     }
 
-    func appServerSandboxPolicy(from value: CLIJSONValue) throws -> AppServerSandboxPolicy {
-        guard let object = value.objectValue,
-              let type = object["type"]?.stringValue else {
-            throw AppServerRPCError.invalidRequest(
-                "Invalid request: sandboxPolicy must be an object with a type"
-            )
-        }
-        switch type {
-        case "readOnly":
-            return AppServerSandboxPolicy(
-                mode: .readOnly,
-                networkAccess: try sandboxBoolean("networkAccess", in: object, default: false)
-            )
-        case "workspaceWrite":
-            let roots: [String]
-            if let value = object["writableRoots"] {
-                guard let array = value.arrayValue,
-                      array.allSatisfy({ $0.stringValue != nil }) else {
-                    throw AppServerRPCError.invalidRequest(
-                        "Invalid request: writableRoots must contain strings"
-                    )
-                }
-                roots = array.compactMap(\.stringValue)
-            } else {
-                roots = []
-            }
-            return AppServerSandboxPolicy(
-                mode: .workspaceWrite,
-                networkAccess: try sandboxBoolean("networkAccess", in: object, default: false),
-                writableRoots: roots,
-                excludeTemporaryDirectoryEnvironmentVariable: try sandboxBoolean(
-                    "excludeTmpdirEnvVar",
-                    in: object,
-                    default: false
-                ),
-                excludeSlashTemporaryDirectory: try sandboxBoolean(
-                    "excludeSlashTmp",
-                    in: object,
-                    default: false
-                )
-            )
-        case "dangerFullAccess":
-            return AppServerSandboxPolicy(mode: .dangerFullAccess)
-        default:
-            throw AppServerRPCError.invalidRequest(
-                "Invalid request: unsupported sandbox policy `\(type)`"
-            )
-        }
-    }
-
-    func sandboxBoolean(
-        _ key: String,
-        in object: [String: CLIJSONValue],
-        default defaultValue: Bool
-    ) throws -> Bool {
-        guard let value = object[key] else { return defaultValue }
-        guard let boolean = value.boolValue else {
-            throw AppServerRPCError.invalidRequest(
-                "Invalid request: \(key) must be a boolean"
-            )
-        }
-        return boolean
-    }
 }

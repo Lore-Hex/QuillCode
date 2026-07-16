@@ -216,6 +216,44 @@ assert process_exit["params"] == {
     "stdoutCapReached": False,
 }, process_exit
 
+command_payload = b"command-exec-smoke\n"
+send({"id": 204, "method": "command/exec", "params": {
+    "command": ["/bin/cat"],
+    "processId": "smoke-command-exec",
+    "streamStdin": True,
+    "streamStdoutStderr": True,
+    "disableTimeout": True,
+    "permissionProfile": ":danger-full-access",
+}})
+send({"id": 205, "method": "command/exec/write", "params": {
+    "processId": "smoke-command-exec",
+    "deltaBase64": base64.b64encode(command_payload).decode("ascii"),
+    "closeStdin": True,
+}})
+command_response, command_records = read_until(lambda record: record.get("id") == 204)
+write_index = next(index for index, record in enumerate(command_records) if record.get("id") == 205)
+response_index = len(command_records) - 1
+command_deltas = [
+    record for record in command_records
+    if record.get("method") == "command/exec/outputDelta"
+]
+assert command_records[write_index] == {"id": 205, "result": {}}, command_records
+assert write_index < response_index, command_records
+assert command_deltas, command_records
+assert all(command_records.index(record) < response_index for record in command_deltas), command_records
+assert all(record["params"]["processId"] == "smoke-command-exec" for record in command_deltas)
+assert all(record["params"]["stream"] == "stdout" for record in command_deltas)
+assert all(record["params"]["capReached"] is False for record in command_deltas)
+streamed_command_output = b"".join(
+    base64.b64decode(record["params"]["deltaBase64"])
+    for record in command_deltas
+)
+assert streamed_command_output == command_payload, command_records
+assert command_response == {
+    "id": 204,
+    "result": {"exitCode": 0, "stdout": "", "stderr": ""},
+}, command_response
+
 send({"id": 3, "method": "account/read", "params": {}})
 account, _ = read_until(lambda record: record.get("id") == 3)
 assert account["result"] == {"account": None, "requiresOpenaiAuth": False}, account

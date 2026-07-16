@@ -1706,3 +1706,23 @@
 - **Evidence:** Focused tests cover selected shells, output caps, response ordering, concurrent commands,
   model feedback, projection isolation, rollback, interruption, and slow-command overlap with ordinary,
   review, and compaction turns. The built app-server JSONL smoke verifies the public process contract.
+
+## 2026-07-16: Standalone app-server commands are connection-owned sandboxed processes
+
+- **Protocol boundary:** `command/exec` owns no thread or turn. Buffered commands may use an internal
+  handle; PTY or streaming commands require a client process ID. The final response waits for process
+  exit and output drain, follows every output delta, and never duplicates streamed bytes.
+- **Lifecycle boundary:** Follow-up write, resize, and terminate requests address only the originating
+  connection's active ID. An ID is reusable after exit. EOF terminates every process, drains its event
+  task, and suppresses deltas and deferred responses after the channel closes.
+- **Sandbox boundary:** Built-in profiles and explicit legacy policies normalize existing writable
+  roots before launch. macOS uses a closed-by-default Seatbelt profile derived from OpenAI Codex 0.142.5
+  under Apache 2.0; Linux uses bubblewrap and fails closed when restrictive execution cannot be
+  enforced. `/var` and `/tmp` rules include macOS `/private` aliases so allowed temporary/workspace
+  writes work without broadening access. Danger full access deliberately launches directly.
+- **Compatibility boundary:** Arbitrary configured permission profiles, managed network proxies,
+  Windows restricted-token behavior, and a remotely disabled local environment are not fabricated;
+  they remain explicit work in the broader app-server parity row.
+- **Evidence:** Focused tests cover buffered and streaming execution, pipe and PTY control, output caps,
+  timeout, validation, ID lifecycle, disconnect teardown, and real Seatbelt denial/allow boundaries.
+  The executable JSONL smoke proves streamed stdin/output ordering through the packaged protocol path.
