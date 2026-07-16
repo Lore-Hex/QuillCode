@@ -21019,7 +21019,7 @@
         state.runtimeIssue = makeRuntimeIssue({
           severity: 'warning',
           title: 'Model response was malformed',
-          message: "Nike 1.0 did not follow QuillCode's action schema. Try Socrates 1.0, or another coding model.",
+          message: "The selected model did not follow QuillCode's action schema. Try Nike 1.0, Socrates 1.0, or another coding model.",
           actionLabel: 'Switch model'
         }, 'Expected valid QuillCode action JSON but received an empty argument object.');
       } else if (/^\/status\b/i.test(text)) {
