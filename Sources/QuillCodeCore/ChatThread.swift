@@ -10,6 +10,8 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
     public var model: String
     public var personality: QuillCodePersonality
     public var messages: [ChatMessage]
+    /// Model-visible protocol history that must not appear as ordinary transcript messages.
+    public var modelContextItems: [ThreadModelContextItem]
     public var events: [ThreadEvent]
     /// Compact manifests for delegated work. Child transcripts and held approval payloads live in
     /// dedicated persistence stores and are referenced from these records by stable identifiers.
@@ -54,6 +56,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         model: String = TrustedRouterDefaults.defaultModel,
         personality: QuillCodePersonality = .defaultValue,
         messages: [ChatMessage] = [],
+        modelContextItems: [ThreadModelContextItem] = [],
         events: [ThreadEvent] = [],
         subagentRuns: [SubagentRunRecord] = [],
         goal: ThreadGoal? = nil,
@@ -81,6 +84,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         self.model = TrustedRouterDefaults.normalizedDefaultModelID(model)
         self.personality = personality
         self.messages = messages
+        self.modelContextItems = modelContextItems
         self.events = events
         self.subagentRuns = subagentRuns
         self.goal = goal
@@ -108,6 +112,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         case model
         case personality
         case messages
+        case modelContextItems
         case events
         case subagentRuns
         case goal
@@ -138,6 +143,10 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
             forKey: .personality
         ) ?? .defaultValue
         self.messages = try container.decode([ChatMessage].self, forKey: .messages)
+        self.modelContextItems = try container.decodeIfPresent(
+            [ThreadModelContextItem].self,
+            forKey: .modelContextItems
+        ) ?? []
         self.events = try container.decode([ThreadEvent].self, forKey: .events)
         self.subagentRuns = try container.decodeIfPresent([SubagentRunRecord].self, forKey: .subagentRuns) ?? []
         self.goal = try container.decodeIfPresent(ThreadGoal.self, forKey: .goal)
@@ -173,6 +182,7 @@ public struct ChatThread: Codable, Sendable, Hashable, Identifiable {
         try container.encode(model, forKey: .model)
         try container.encode(personality, forKey: .personality)
         try container.encode(messages, forKey: .messages)
+        try container.encode(modelContextItems, forKey: .modelContextItems)
         try container.encode(events, forKey: .events)
         try container.encode(subagentRuns, forKey: .subagentRuns)
         try container.encodeIfPresent(goal, forKey: .goal)

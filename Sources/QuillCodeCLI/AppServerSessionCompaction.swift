@@ -83,7 +83,8 @@ extension AppServerSession {
             )
             try Task.checkCancellation()
             guard var active = activeCompactions[threadID] else { return }
-            active.latestThread = mergingUserShellMessages(active.userShellMessages, into: thread)
+            let preservedThread = preservingModelContext(from: active.latestThread, in: thread)
+            active.latestThread = mergingUserShellMessages(active.userShellMessages, into: preservedThread)
             activeCompactions[threadID] = active
             try await repository.save(AppServerThreadRecord(
                 thread: active.latestThread,
@@ -134,6 +135,7 @@ extension AppServerSession {
 
     private func receiveCompactionProgress(threadID: UUID, snapshot: ChatThread) async {
         guard var active = activeCompactions[threadID] else { return }
+        let snapshot = preservingModelContext(from: active.latestThread, in: snapshot)
         active.latestThread = mergingUserShellMessages(active.userShellMessages, into: snapshot)
         activeCompactions[threadID] = active
         do {
@@ -156,7 +158,8 @@ extension AppServerSession {
         error: String?
     ) async {
         guard let active = activeCompactions.removeValue(forKey: threadID) else { return }
-        let snapshot = mergingUserShellMessages(active.userShellMessages, into: snapshot)
+        let preservedSnapshot = preservingModelContext(from: active.latestThread, in: snapshot)
+        let snapshot = mergingUserShellMessages(active.userShellMessages, into: preservedSnapshot)
         let completedAt = Date()
         let item = contextCompactionItem(id: active.itemID)
         var completionStatus = status

@@ -207,9 +207,10 @@ extension AppServerSession {
                 if let failure = latest.persistenceFailure {
                     throw AppServerTurnExecutionError.persistence(failure)
                 }
+                let resultThread = preservingModelContext(from: latest.latestThread, in: result.thread)
                 latest.latestThread = mergingUserShellMessages(
                     latest.userShellMessages,
-                    into: result.thread
+                    into: resultThread
                 )
                 activeTurns[threadID] = latest
                 try await repository.save(AppServerThreadRecord(
@@ -288,6 +289,7 @@ extension AppServerSession {
 
     private func receiveTurnProgress(threadID: UUID, snapshot: ChatThread) async {
         guard var active = activeTurns[threadID] else { return }
+        let snapshot = preservingModelContext(from: active.latestThread, in: snapshot)
         let merged = mergingUserShellMessages(active.userShellMessages, into: snapshot)
         active.latestThread = merged
         let notifications = active.projector.project(merged)

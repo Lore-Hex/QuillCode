@@ -4,6 +4,19 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 
 ## Current Research Inputs
 
+- Codex app-server 0.142.5 `thread/inject_items` accepts one nonempty list of raw Responses API
+  `ResponseItem` values and returns `{}` without a notification. The items are persisted as model-only
+  history: before the first turn they follow standard context and precede the first user prompt; later
+  injections follow the last durable transcript item and precede the next prompt. Injection remains
+  legal while a turn is active and must survive that turn's eventual snapshot. Empty arrays, malformed
+  response items, unknown/archived tasks, and remote image URLs fail with `-32600`; inline `data:` images
+  and forward-compatible message roles are accepted. Public 0.142.5 integration tests confirm that raw
+  injected items reach the next Responses request but never become visible transcript turns. Because
+  TrustedRouter uses chat-completions input, QuillCode maps message text/inline images to equivalent
+  chat messages and preserves every other response-item variant as canonical model-visible JSON rather
+  than inventing executable tool calls. Sources: generated 0.142.5 schemas, isolated local
+  `codex-cli 0.142.5` success/error/active-turn probes, and public `openai/codex` thread processor and
+  integration tests, audited 2026-07-16.
 - Current Codex `main` at `18110b810f0a328147f6cd85e6f1ab6414927366` exposes experimental
   `thread/backgroundTerminals/list`, `thread/backgroundTerminals/terminate`, and
   `thread/backgroundTerminals/clean`. Listing loads the thread, returns active unified-exec processes
