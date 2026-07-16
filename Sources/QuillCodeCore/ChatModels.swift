@@ -12,6 +12,12 @@ public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
     public var role: ChatRole
     public var content: String
     public var attachments: [ChatAttachment]
+    /// Stable protocol turn identity when the message originated from a multi-message turn.
+    /// Ordinary desktop messages leave this nil and continue to use their own id as a boundary.
+    public var turnID: String?
+    /// Optional caller-provided identity for a user message (for example app-server
+    /// `clientUserMessageId`). It is metadata only and never enters model context.
+    public var clientMessageID: String?
     public var createdAt: Date
 
     public init(
@@ -19,12 +25,16 @@ public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
         role: ChatRole,
         content: String,
         attachments: [ChatAttachment] = [],
+        turnID: String? = nil,
+        clientMessageID: String? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
         self.role = role
         self.content = content
         self.attachments = Array(attachments.prefix(ChatAttachment.maximumCountPerTurn))
+        self.turnID = turnID
+        self.clientMessageID = clientMessageID
         self.createdAt = createdAt
     }
 
@@ -33,6 +43,8 @@ public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
         case role
         case content
         case attachments
+        case turnID
+        case clientMessageID
         case createdAt
     }
 
@@ -45,6 +57,8 @@ public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
             (try container.decodeIfPresent([ChatAttachment].self, forKey: .attachments) ?? [])
                 .prefix(ChatAttachment.maximumCountPerTurn)
         )
+        self.turnID = try container.decodeIfPresent(String.self, forKey: .turnID)
+        self.clientMessageID = try container.decodeIfPresent(String.self, forKey: .clientMessageID)
         self.createdAt = try container.decode(Date.self, forKey: .createdAt)
     }
 
@@ -54,6 +68,8 @@ public struct ChatMessage: Codable, Sendable, Hashable, Identifiable {
         try container.encode(role, forKey: .role)
         try container.encode(content, forKey: .content)
         try container.encode(attachments, forKey: .attachments)
+        try container.encodeIfPresent(turnID, forKey: .turnID)
+        try container.encodeIfPresent(clientMessageID, forKey: .clientMessageID)
         try container.encode(createdAt, forKey: .createdAt)
     }
 }

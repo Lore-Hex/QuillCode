@@ -439,6 +439,7 @@ send({"id": 8, "method": "thread/start", "params": {
 }})
 started, _ = read_until(lambda record: record.get("id") == 8)
 thread_id = started["result"]["thread"]["id"]
+session_id = started["result"]["thread"]["sessionId"]
 
 send({"id": 60, "method": "mcpServerStatus/list", "params": {
     "threadId": thread_id,
@@ -569,6 +570,59 @@ compaction_turn = next(
     record for record in compaction_lifecycle if record.get("method") == "turn/completed"
 )
 assert compaction_turn["params"]["turn"]["status"] == "completed", compaction_turn
+
+send({"id": 11, "method": "turn/start", "params": {
+    "threadId": thread_id,
+    "input": [{"type": "text", "text": "rollback this turn"}],
+}})
+second_turn, _ = read_until(lambda record: record.get("id") == 11)
+assert second_turn["result"]["turn"]["status"] == "inProgress", second_turn
+second_completed, _ = read_until(
+    lambda record: record.get("method") == "turn/completed"
+)
+assert second_completed["params"]["turn"]["status"] == "completed", second_completed
+read_until(
+    lambda record: (
+        record.get("method") == "thread/status/changed"
+        and record.get("params", {}).get("threadId") == thread_id
+        and record.get("params", {}).get("status", {}).get("type") == "idle"
+    )
+)
+
+send({"id": 12, "method": "thread/rollback", "params": {
+    "threadId": thread_id,
+    "numTurns": 1,
+}})
+rollback_response, rollback_records = read_until(
+    lambda record: record.get("id") == 12
+)
+assert len(rollback_records) == 1, rollback_records
+assert not any(record.get("method") for record in rollback_records), rollback_records
+rolled_back = rollback_response["result"]["thread"]
+assert rolled_back["id"] == thread_id, rolled_back
+assert rolled_back["sessionId"] == session_id, rolled_back
+assert rolled_back["status"] == {"type": "idle"}, rolled_back
+assert rolled_back["name"] is None, rolled_back
+assert len(rolled_back["turns"]) == 1, rolled_back
+
+send({"id": 13, "method": "thread/read", "params": {
+    "threadId": thread_id,
+    "includeTurns": True,
+}})
+thread_after_rollback, _ = read_until(lambda record: record.get("id") == 13)
+assert len(thread_after_rollback["result"]["thread"]["turns"]) == 1, (
+    thread_after_rollback
+)
+
+send({"id": 14, "method": "thread/rollback", "params": {
+    "threadId": thread_id,
+    "numTurns": 0,
+}})
+invalid_rollback, _ = read_until(lambda record: record.get("id") == 14)
+assert invalid_rollback["error"] == {
+    "code": -32600,
+    "message": "numTurns must be >= 1",
+}, invalid_rollback
 
 process.stdin.close()
 status = process.wait(timeout=10)

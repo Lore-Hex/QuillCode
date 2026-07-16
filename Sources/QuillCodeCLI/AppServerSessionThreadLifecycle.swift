@@ -96,6 +96,7 @@ extension AppServerSession {
         let id = try threadID(from: params)
         let name = String(try params.requiredString("name").prefix(200))
         var record = try await loadRecord(id)
+        record.settings.name = name
         record.thread.title = name
         record.thread.updatedAt = Date()
         try await repository.save(record)

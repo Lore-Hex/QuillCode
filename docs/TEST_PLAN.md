@@ -75,7 +75,8 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   watched manifest invalidation without forced reload, binary filesystem
   create/write/read/metadata/list/copy/watch/unwatch/remove round trips, a real Content-Length-framed
   MCP child with full/lightweight status, lossless tool call, resource read, and reload, thread start,
-  turn start, incremental lifecycle output before EOF, persistence, clean EOF, and zero exit. This
+  turn start, incremental lifecycle output before EOF, response-only history rollback, persisted
+  post-rollback thread reads, zero-count rejection, persistence, clean EOF, and zero exit. This
   specifically guards against pipe readers that accidentally buffer until the client disconnects.
 - Real `quill-code mcp-server` process smoke with stdin kept open: strict JSON-RPC initialize,
   exact two-tool discovery, a mock `whoami` run with begin/end/complete events, durable
@@ -83,6 +84,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   dependency teardown. Focused tests additionally cover malformed envelopes, `result: null`,
   duplicate active IDs, cancellation, approval accept/deny conflict handling, Unicode-safe progress
   bounds, empty prompts, config precedence, and custom compaction prompts.
+- App-server rollback tests cover Codex wire errors, unknown/malformed threads, excessive counts,
+  active-turn exclusion, response ordering without lifecycle notifications, explicit-name retention,
+  generated-title nullability, steered messages as one durable turn, client-message identity,
+  restart persistence, side-state preservation, event/subagent cleanup, and retained token-spend receipts.
 - App-server discovery contract tests against the generated Codex 0.142.5 shapes: deterministic
   model pagination and required fields, exact provider capabilities, explicit/environment/stored-key
   account presence without secret disclosure, persisted UTC token aggregation and streaks, local-only

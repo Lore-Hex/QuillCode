@@ -65,6 +65,7 @@ actor AppServerSession {
     var experimentalAPIEnabled = false
     var activeTurns: [UUID: ActiveTurn] = [:]
     var activeCompactions: [UUID: ActiveCompaction] = [:]
+    var activeRollbacks: Set<UUID> = []
     var processSessions: [String: AppServerProcessSession] = [:]
     var processEventTasks: [String: Task<Void, Never>] = [:]
     var nextServerRequestSequence: Int64 = 1
@@ -144,7 +145,9 @@ actor AppServerSession {
     }
 
     func hasActiveOperation(for threadID: UUID) -> Bool {
-        activeTurns[threadID] != nil || activeCompactions[threadID] != nil
+        activeTurns[threadID] != nil
+            || activeCompactions[threadID] != nil
+            || activeRollbacks.contains(threadID)
     }
 
     func finishInput() async {
@@ -248,6 +251,7 @@ actor AppServerSession {
             case "thread/compact/start":
                 compactionToLaunch = try await startThreadCompaction(params)
                 result = .object([:])
+            case "thread/rollback": result = try await rollbackThread(params)
             case "turn/start":
                 result = try await startTurn(params)
                 turnToLaunch = try threadID(from: AppServerParams(params))

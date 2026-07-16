@@ -113,7 +113,7 @@ boundaries that remain are recorded explicitly in the [Parity Matrix](docs/CODEX
 `quill-code app-server --mock` starts the deterministic stdio app server; omit `--mock` for the live
 TrustedRouter runtime. The implemented core follows Codex's newline-delimited wire shape without a
 `jsonrpc` marker: initialize/initialized, thread start/resume/fork/list/read/archive/name/delete/goal,
-turn start/steer/interrupt, response-first manual `thread/compact/start` with a non-steerable
+history-only `thread/rollback`, turn start/steer/interrupt, response-first manual `thread/compact/start` with a non-steerable
 `contextCompaction` turn, item and assistant deltas, command/file approval requests, and durable
 transcript persistence. Manual compaction shares the desktop's summarizer, transactional persistence,
 `PreCompact`/`PostCompact` hooks, and interruption semantics. Clients can also list models, read provider capabilities, detect account
@@ -134,6 +134,10 @@ and safety boundaries. Input messages are capped at 1 MiB, local images are copi
 storage, unsupported transports are rejected, and explicit danger-full-access uses the same honest
 unrestricted built-in host-tool scope as exec. Client EOF resolves pending approvals and filesystem
 watches instead of leaving work stranded.
+
+`thread/rollback` removes complete persisted user turns, including all steering inputs grouped under
+the same turn ID, and survives app-server restart. It is rejected while a turn or compaction is active
+and deliberately does not undo workspace files, commands, account state, or recorded token spend.
 
 Account clients can start API-key or browser-based TrustedRouter sign-in through
 `account/login/start`, cancel an outstanding browser flow through `account/login/cancel`, and clear
