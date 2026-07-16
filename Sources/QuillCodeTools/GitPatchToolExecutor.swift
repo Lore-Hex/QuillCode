@@ -68,7 +68,6 @@ public struct GitPatchToolExecutor: Sendable {
         }
         let snapshots = touchedPaths.map { FileSnapshot(cwd: cwd, path: $0) }
 
-        let arguments = ["apply", "--reverse", "--whitespace=nowarn"]
         for patch in ordered {
             let patchURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("quillcode-turn-\(UUID().uuidString).patch")
@@ -77,13 +76,38 @@ public struct GitPatchToolExecutor: Sendable {
             } catch {
                 return rollback(snapshots, after: ToolResult(ok: false, error: String(describing: GitToolError.temporaryPatchFailed(String(describing: error)))))
             }
-            let result = runner.runGit(arguments + [patchURL.path], cwd: cwd, timeoutSeconds: 30)
+            let result = reverseApplyWithTolerance(patchPath: patchURL.path, cwd: cwd)
             try? FileManager.default.removeItem(at: patchURL)
             guard result.ok else {
                 return rollback(snapshots, after: result)
             }
         }
         return ToolResult(ok: true, stdout: "Reverted this turn's edits.\n")
+    }
+
+    /// The reverse tolerance ladder — mirrors `PatchToolExecutor`'s FORWARD ladder so any diff the
+    /// tolerant apply accepted (recounted headers, whitespace drift, reduced context) can also be
+    /// UN-applied. Without this, a turn-revert of a tolerantly-applied patch fails strictly
+    /// ("corrupt patch" / "patch does not apply"), offering an undo that cannot undo. Strict-applied
+    /// patches still reverse on the first (strict) rung, so this only engages for tolerant matches.
+    /// Each rung is an atomic `git apply` (all-or-nothing), so at most one rung mutates the tree.
+    private static let reverseApplyLadders: [[String]] = [
+        ["apply", "--reverse", "--whitespace=nowarn"],
+        ["apply", "--reverse", "--whitespace=nowarn", "--recount"],
+        ["apply", "--reverse", "--whitespace=nowarn", "--ignore-whitespace"],
+        ["apply", "--reverse", "--whitespace=nowarn", "--recount", "--ignore-whitespace"],
+        ["apply", "--reverse", "--whitespace=nowarn", "-C1", "--recount", "--ignore-whitespace"]
+    ]
+
+    private func reverseApplyWithTolerance(patchPath: String, cwd: URL) -> ToolResult {
+        var strictFailure: ToolResult?
+        for arguments in Self.reverseApplyLadders {
+            let result = runner.runGit(arguments + [patchPath], cwd: cwd, timeoutSeconds: 30)
+            if result.ok { return result }
+            // The STRICT rung's diagnostics are the most precise, so keep them for total failure.
+            if strictFailure == nil { strictFailure = result }
+        }
+        return strictFailure ?? ToolResult(ok: false, error: "Reverse apply failed.")
     }
 
     /// Rolls every touched file back to its pre-revert state after a failed patch, and
