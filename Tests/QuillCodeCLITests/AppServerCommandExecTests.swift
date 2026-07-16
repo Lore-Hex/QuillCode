@@ -195,17 +195,24 @@ final class AppServerCommandExecTests: XCTestCase {
         )
         _ = try await waitForResponse(id: 2, output: fixture.output)
 
-        try await sendRequest(
-            id: 5,
-            method: "command/exec",
-            params: execParams(command: ["/bin/echo", "reused"], processID: "shared-process"),
-            to: fixture.session
-        )
-        let records = try await waitForResponse(id: 5, output: fixture.output)
-        XCTAssertEqual(
-            response(id: 5, in: records)?["result"]?.objectValue?["stdout"]?.stringValue,
-            "reused\n"
-        )
+        for generation in 0..<8 {
+            let requestID = 5 + generation
+            let expected = "reused-\(generation)"
+            try await sendRequest(
+                id: requestID,
+                method: "command/exec",
+                params: execParams(
+                    command: ["/bin/echo", expected],
+                    processID: "shared-process"
+                ),
+                to: fixture.session
+            )
+            let records = try await waitForResponse(id: requestID, output: fixture.output)
+            XCTAssertEqual(
+                response(id: requestID, in: records)?["result"]?.objectValue?["stdout"]?.stringValue,
+                "\(expected)\n"
+            )
+        }
     }
 
     func testTimeoutUsesExitCode124() async throws {

@@ -120,6 +120,15 @@ public struct ConfigDocument: Sendable, Equatable {
         apply(ConfigDocumentEdit(keyPath: keyPath, value: nil, mergeStrategy: .replace))
     }
 
+    /// Applies a higher-precedence document using the same recursive table merge as TOML config
+    /// layers: scalar and array values replace, while tables merge recursively.
+    public mutating func merge(overridingWith incoming: ConfigDocument) {
+        values = Self.recursivelyMerging(
+            .object(values),
+            with: .object(incoming.values)
+        ).objectValue ?? [:]
+    }
+
     private static func applying(
         value: ConfigValue?,
         at segments: ArraySlice<String>,

@@ -152,9 +152,12 @@ actor AppServerSession {
         mcpHTTPClient: any MCPHTTPClient = URLSessionMCPHTTPClient(),
         accountLoginStarter: any AppServerAccountLoginStarting = DefaultAppServerAccountLoginStarter(),
         mcpOAuthLoginStarter: (any AppServerMCPOAuthLoginStarting)? = nil,
+        paths providedPaths: QuillCodePaths? = nil,
         sink: @escaping AppServerMessageSink
     ) throws {
-        let paths = request.home.map { QuillCodePaths(home: $0) } ?? QuillCodePaths()
+        let paths = providedPaths
+            ?? request.home.map { QuillCodePaths(home: $0) }
+            ?? QuillCodePaths()
         try paths.ensure()
         self.request = request
         self.environment = environment
@@ -307,6 +310,7 @@ actor AppServerSession {
             case "account/usage/read": result = try await readAccountUsage(params)
             case "account/rateLimits/read": result = try await readAccountRateLimits(params)
             case "config/read": result = try readConfig(params)
+            case "configRequirements/read": result = try readConfigRequirements(params)
             case "config/value/write": result = try await writeConfigValue(params)
             case "config/batchWrite": result = try await writeConfigBatch(params)
             case "plugin/list": result = try listPlugins(params)
@@ -316,6 +320,8 @@ actor AppServerSession {
             case "skills/list": result = try listSkills(params)
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
             case "skills/config/write": result = try await writeSkillConfig(params)
+            case "permissionProfile/list": result = try listPermissionProfiles(params)
+            case "collaborationMode/list": result = try listCollaborationModes(params)
             case "mcpServerStatus/list": result = try await listMCPServerStatus(params)
             case "config/mcpServer/reload", "mcpServer/refresh":
                 result = try await reloadMCPServers(params, method: method)

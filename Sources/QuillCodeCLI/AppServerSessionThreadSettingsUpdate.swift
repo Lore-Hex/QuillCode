@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodePersistence
 
 extension AppServerSession {
     func updateThreadSettings(
@@ -9,12 +10,13 @@ extension AppServerSession {
         let reference = try threadControlReference(from: params)
         var record = try await loadThreadControlRecord(reference)
         let original = record
+        let requirements = try managedRequirements()
 
         try applyModel(from: params, to: &record)
         try applyReasoningEffort(from: params, to: &record)
         try applyCWD(from: params, to: &record)
-        try applyApprovalSettings(from: params, to: &record)
-        try applySandboxSettings(from: params, to: &record)
+        try applyApprovalSettings(from: params, requirements: requirements, to: &record)
+        try applySandboxSettings(from: params, requirements: requirements, to: &record)
         try applyPersonality(from: params, to: &record)
         try applyServiceAndSummary(from: params, to: &record)
         try applyCollaborationMode(from: params, to: &record)
@@ -87,12 +89,14 @@ private extension AppServerSession {
 
     func applyApprovalSettings(
         from params: AppServerParams,
+        requirements: ManagedRequirements?,
         to record: inout AppServerThreadRecord
     ) throws {
         if let value = params.object["approvalPolicy"], value != .null {
             do {
-                record.settings.approvalPolicy = try approvalPolicy(value)
-                    ?? record.settings.approvalPolicy
+                let policy = try approvalPolicy(value) ?? record.settings.approvalPolicy
+                try validateManagedApprovalPolicy(policy, against: requirements)
+                record.settings.approvalPolicy = policy
             } catch let error as AppServerRPCError {
                 throw AppServerRPCError.invalidRequest(
                     error.message.replacingOccurrences(
@@ -109,6 +113,7 @@ private extension AppServerSession {
                 "Invalid request: approvalsReviewer must be `user` or `auto_review`"
             )
         }
+        try validateManagedApprovalsReviewer(reviewer, against: requirements)
         record.settings.approvalsReviewer = reviewer == "guardian_subagent"
             ? "auto_review"
             : reviewer
@@ -116,6 +121,7 @@ private extension AppServerSession {
 
     func applySandboxSettings(
         from params: AppServerParams,
+        requirements: ManagedRequirements?,
         to record: inout AppServerThreadRecord
     ) throws {
         let sandboxValue = params.object["sandboxPolicy"]
@@ -128,6 +134,7 @@ private extension AppServerSession {
         }
         if let sandboxValue, sandboxValue != .null {
             let policy = try AppServerSandboxPolicyParser.parse(sandboxValue)
+            try validateManagedSandboxMode(policy.mode, against: requirements)
             record.settings.sandbox = policy.mode
             record.settings.sandboxPolicy = policy
             record.settings.permissionProfileID = nil
@@ -139,17 +146,8 @@ private extension AppServerSession {
                     "Invalid request: permissions must be a string"
                 )
             }
-            let mode: CLISandboxMode
-            switch profileID {
-            case ":read-only": mode = .readOnly
-            case ":workspace": mode = .workspaceWrite
-            case ":danger-full-access": mode = .dangerFullAccess
-            default:
-                throw AppServerRPCError.invalidRequest(
-                    "failed to load configuration: default_permissions refers to "
-                        + "unknown built-in profile `\(profileID)`"
-                )
-            }
+            let mode = try permissionProfileMode(profileID)
+            try validateManagedPermissionProfile(profileID, mode: mode, against: requirements)
             record.settings.sandbox = mode
             record.settings.sandboxPolicy = AppServerSandboxPolicy(mode: mode)
             record.settings.permissionProfileID = profileID

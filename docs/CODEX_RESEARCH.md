@@ -55,6 +55,18 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   named permission profile are mutually exclusive. Sources: generated 0.142.5 schemas, public
   `openai/codex` command-exec processor/manager/integration tests, and QuillCode executable protocol
   probes, audited 2026-07-16.
+- Codex app-server 0.142.5 exposes client configuration discovery through
+  `permissionProfile/list`, experimental `collaborationMode/list`, and `configRequirements/read`.
+  The permission catalog is the ordered built-in `:read-only`, `:workspace`, and
+  `:danger-full-access` set; pagination uses numeric string offsets, clamps a zero limit to one, and
+  returns an empty page at the exact end. Collaboration discovery returns Plan then Default and
+  requires the initialize-time experimental API capability. Requirements are null when no managed
+  document exists. Managed requirement layers merge low to high, recursively merge tables, replace
+  scalar/list values, constrain both profile IDs and their sandbox modes, and require one valid
+  effective default when a profile allowlist exists. Stable responses omit experimental reviewer,
+  hook, and network fields. Sources: generated stable/experimental 0.142.5 schemas, isolated local
+  `codex-cli 0.142.5` success/error/pagination probes, and public `openai/codex` requirements stack,
+  processor, and config-requirements source, audited 2026-07-16.
 - Codex app: projects, worktrees, automations, Git review, in-app browser, Computer Use, artifact previews.
 - Codex Review treats Unstaged, Staged, Commit, Branch, and Last turn as distinct scopes, with whole-diff Stage all/Revert all controls. QuillCode should preserve that information architecture while keeping historical comparisons read-only and deriving Last turn from auditable turn-owned edits instead of guessing from the current working tree.
 - Official managed-worktree behavior: new Worktree tasks start at detached HEAD from the selected branch, can carry current uncommitted changes, copy normally ignored files only when selected by `.worktreeinclude`, automatically copy ignored `AGENTS.override.md`, and keep a stable task/worktree association. Codex stores managed worktrees under `$CODEX_HOME/worktrees` by default, lets users choose another root, and automatically retains the 15 most recent managed tasks unless cleanup is disabled or the limit is changed. Handoff moves a task and its code between Local and that same worktree; managed cleanup saves restorable snapshots before deletion. Pinned, selected, still-running, Local, and permanent/named-branch worktrees are excluded from automatic removal, while reopening a task whose disposable worktree was removed offers restoration. Source: current Codex manual, Worktrees section (`environments/git-worktrees`).
