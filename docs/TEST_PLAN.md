@@ -25,6 +25,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   limits, stable forward/backward anchor cursors, `summary`/`full`/`notLoaded` views, active-turn merge,
   same-second event ordering, durable shell/reasoning/tool reconstruction after reconnect, malformed
   requests, and explicit `thread/turns/items/list` non-support matching Codex 0.142.5.
+- App-server `gitDiffToRemote`: current upstream-tip SHA rather than HEAD or merge base; clean output;
+  committed-ahead, staged, unstaged, untracked, ignored, binary, and diverged histories; tracked-before-
+  untracked ordering; relative and absolute CWDs; missing/non-Git/no-upstream errors; unsafe paths;
+  inventory/file/diff byte caps; and no external diff or text-conversion execution.
 - App-server fuzzy search: Codex reference scores/indices, case-insensitive multi-root ordering, empty
   queries, result and traversal caps, cancellation-token replacement, live-session query generations,
   independent sessions, stop/missing-session behavior, experimental gating, and EOF cleanup.
@@ -110,6 +114,9 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   listener. Focused tests cover RFC 6455 accept calculation, masking, fragmentation, control frames,
   binary dropping, message bounds, exact overload errors, signed HS256 bearer claims, and IPv4/IPv6
   socket behavior.
+- The real stdio app-server smoke must initialize a repository and local bare upstream, dirty one
+  tracked file, add one untracked file, call `gitDiffToRemote`, and verify the exact upstream SHA plus
+  both patch classes through the built executable.
 - The app-server process smoke must also execute `thread/shellCommand` through the built binary and
   prove response-before-lifecycle ordering, configured login-shell display, source/cwd/action metadata,
   streamed and aggregated output, exit status, an empty durable history turn, and absence of historical

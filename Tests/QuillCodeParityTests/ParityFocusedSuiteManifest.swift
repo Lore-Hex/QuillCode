@@ -288,6 +288,9 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityAppServerMemoryResetGateTests.swift", testNames: [
             "testMemoryResetStaysWiredThroughPersistenceRuntimeTestsSmokeAndDocs"
         ]),
+        Suite(fileName: "ParityAppServerGitDiffToRemoteGateTests.swift", testNames: [
+            "testGitDiffToRemoteStaysWiredThroughProtocolTestsSmokeAndDocs"
+        ]),
         Suite(fileName: "ParityAutomationCoreModelGateTests.swift", testNames: [
             "testAutomationModelsLiveOutsideGeneralDomainModels"
         ]),

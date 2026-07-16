@@ -116,6 +116,11 @@
 
 ## Latest Quality Pass
 
+- App-server Git inspection now includes Codex-compatible `gitDiffToRemote`: one bounded, binary,
+  non-mutating diff from the current local upstream tip to committed-ahead, staged, unstaged, and
+  untracked state, with ignored files excluded. Focused real-Git tests and the built JSONL smoke cover
+  clean, dirty, diverged, invalid, and output-limit behavior; remote fetching remains intentionally
+  outside this read-only request.
 - Bundled Extensions now expose curated on-demand skill installs for LLM
   Advisor, Browser Use, OpenClaw Video Toolkit, and BurstyRouter. Each install
   writes both `.quillcode/skills/<name>/SKILL.md` content and a matching
