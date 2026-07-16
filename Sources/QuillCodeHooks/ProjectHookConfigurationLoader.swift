@@ -30,8 +30,19 @@ struct CodexHookDocument: Sendable, Hashable {
 
 struct CodexHookDocumentLoadResult: Sendable, Hashable {
     var hooks: [ProjectPluginHook] = []
+    var warnings: [String] = []
     var hooksFeatureOverride: Bool?
     var allowManagedHooksOnly: Bool?
+}
+
+public struct HookConfigurationDiscovery: Sendable, Hashable {
+    public var hooks: [ProjectPluginHook]
+    public var warnings: [String]
+
+    public init(hooks: [ProjectPluginHook] = [], warnings: [String] = []) {
+        self.hooks = hooks
+        self.warnings = warnings
+    }
 }
 
 /// Shared data-only loader for project, user, system, and managed hook documents.
@@ -45,9 +56,25 @@ enum CodexHookDocumentLoader {
     ) -> CodexHookDocumentLoadResult {
         var result = CodexHookDocumentLoadResult()
         for document in documents {
-            guard let data = loadDocument(document),
-                  let configuration = decode(data, format: document.format)
-            else { continue }
+            let data: Data
+            switch loadDocument(document) {
+            case .missing:
+                continue
+            case .failure(let warning):
+                result.warnings.append(warning)
+                continue
+            case .success(let loaded):
+                data = loaded
+            }
+            let configuration: CodexHookConfiguration
+            do {
+                configuration = try decode(data, format: document.format)
+            } catch {
+                result.warnings.append(
+                    "failed to parse hooks config \(documentURL(document).path): \(error.localizedDescription)"
+                )
+                continue
+            }
             let remaining = max(0, maxHooks - result.hooks.count)
             if remaining > 0 {
                 result.hooks.append(contentsOf: CodexHookDefinitionBuilder.definitions(
@@ -71,45 +98,89 @@ enum CodexHookDocumentLoader {
     private static func decode(
         _ data: Data,
         format: CodexHookDocumentFormat
-    ) -> CodexHookConfiguration? {
+    ) throws -> CodexHookConfiguration {
         switch format {
         case .json:
-            return CodexHookConfigurationDecoder.decodeJSON(data)
+            return try CodexHookConfigurationDecoder.decodeJSONThrowing(data)
         case .toml:
-            return CodexHookConfigurationDecoder.decodeTOML(data)
+            return try CodexHookConfigurationDecoder.decodeTOMLThrowing(data)
         }
     }
 
-    private static func loadDocument(_ document: CodexHookDocument) -> Data? {
+    private enum DocumentReadResult {
+        case missing
+        case success(Data)
+        case failure(String)
+    }
+
+    private static func loadDocument(_ document: CodexHookDocument) -> DocumentReadResult {
         let root = document.root.standardizedFileURL.resolvingSymlinksInPath()
-        let candidate = root
-            .appendingPathComponent(document.fileName)
-            .standardizedFileURL
-        guard WorkspaceBoundary.isWithin(candidate, root: root),
-              let values = try? candidate.resourceValues(
-                forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
-              ),
-              values.isRegularFile == true,
-              values.isSymbolicLink != true,
-              let fileSize = values.fileSize,
-              fileSize <= maxDocumentBytes
-        else { return nil }
+        let candidate = documentURL(document)
+        if (try? FileManager.default.destinationOfSymbolicLink(atPath: candidate.path)) != nil {
+            return .failure("refusing symlinked hooks config: \(candidate.path)")
+        }
+        guard WorkspaceBoundary.isWithin(candidate, root: root) else {
+            return .failure("refusing hooks config outside its source root: \(candidate.path)")
+        }
+        guard FileManager.default.fileExists(atPath: candidate.path) else { return .missing }
+
+        let values: URLResourceValues
+        do {
+            values = try candidate.resourceValues(
+                forKeys: [.isRegularFileKey, .fileSizeKey]
+            )
+        } catch {
+            return .failure("failed to inspect hooks config \(candidate.path): \(error.localizedDescription)")
+        }
+        guard values.isRegularFile == true else {
+            return .failure("hooks config is not a regular file: \(candidate.path)")
+        }
+        guard let fileSize = values.fileSize, fileSize <= maxDocumentBytes else {
+            return .failure(
+                "hooks config exceeds the \(maxDocumentBytes)-byte limit: \(candidate.path)"
+            )
+        }
 
         let resolved = candidate.resolvingSymlinksInPath()
-        guard WorkspaceBoundary.isWithin(resolved, root: root) else { return nil }
-        return try? Data(contentsOf: resolved, options: [.mappedIfSafe])
+        guard WorkspaceBoundary.isWithin(resolved, root: root) else {
+            return .failure("refusing hooks config outside its source root: \(candidate.path)")
+        }
+        do {
+            let data = try Data(contentsOf: resolved, options: [.mappedIfSafe])
+            guard data.count <= maxDocumentBytes else {
+                return .failure(
+                    "hooks config exceeds the \(maxDocumentBytes)-byte limit: \(candidate.path)"
+                )
+            }
+            return .success(data)
+        } catch {
+            return .failure("failed to read hooks config \(candidate.path): \(error.localizedDescription)")
+        }
+    }
+
+    private static func documentURL(_ document: CodexHookDocument) -> URL {
+        document.root
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .appendingPathComponent(document.fileName)
+            .standardizedFileURL
     }
 }
 
-enum ProjectHookConfigurationLoader {
-    static let maxDocumentBytes = CodexHookDocumentLoader.maxDocumentBytes
-    static let maxHooks = 96
+public enum ProjectHookConfigurationLoader {
+    public static let maxDocumentBytes = CodexHookDocumentLoader.maxDocumentBytes
+    public static let maxHooks = 96
 
-    static func load(from projectRoot: URL) -> [ProjectPluginHook] {
-        CodexHookDocumentLoader.load(
+    public static func load(from projectRoot: URL) -> [ProjectPluginHook] {
+        discover(from: projectRoot).hooks
+    }
+
+    public static func discover(from projectRoot: URL) -> HookConfigurationDiscovery {
+        let result = CodexHookDocumentLoader.load(
             documents(for: projectRoot),
             maxHooks: maxHooks
-        ).hooks
+        )
+        return HookConfigurationDiscovery(hooks: result.hooks, warnings: result.warnings)
     }
 
     private static func documents(for projectRoot: URL) -> [CodexHookDocument] {

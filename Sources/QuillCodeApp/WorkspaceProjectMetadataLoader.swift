@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeHooks
 import QuillCodePersistence
 import QuillCodeTools
 

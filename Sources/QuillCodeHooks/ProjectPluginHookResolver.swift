@@ -1,8 +1,8 @@
 import QuillCodeCore
 import QuillCodePersistence
 
-enum ProjectPluginHookResolver {
-    static func resolve(
+public enum ProjectPluginHookResolver {
+    public static func resolve(
         _ hooks: [ProjectPluginHook],
         trust: ProjectHookTrustLoadResult
     ) -> [ProjectPluginHook] {
@@ -13,7 +13,7 @@ enum ProjectPluginHookResolver {
         }
     }
 
-    static func executableRunHooks(from hooks: [ProjectPluginHook]) -> [ProjectRunHook] {
+    public static func executableRunHooks(from hooks: [ProjectPluginHook]) -> [ProjectRunHook] {
         hooks.compactMap { hook in
             guard hook.isExecutable,
                   let timing = timing(for: hook.event),

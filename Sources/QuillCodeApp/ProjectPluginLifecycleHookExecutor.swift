@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeHooks
 import QuillCodeTools
 
 struct ProjectPluginLifecycleHookExecutor: Sendable {

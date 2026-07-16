@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeHooks
 import QuillCodeTools
 
 enum ProjectPluginToolKind: Sendable, Hashable {

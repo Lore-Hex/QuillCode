@@ -1755,3 +1755,20 @@
 - **Evidence:** Persistence tests cover nested, hidden, linked, missing, repeated, and unsafe roots;
   app-server tests cover omitted parameters and project isolation; the executable JSONL smoke verifies
   the public request against the built process.
+
+## 2026-07-16: Hook discovery has one shared data-only catalog boundary
+
+- **Ownership boundary:** Hook decoding, layered project/global discovery, matcher validation, and
+  trust resolution live in `QuillCodeHooks`. Desktop and CLI clients consume that module instead of
+  maintaining app-specific parsers or importing UI ownership into protocol code.
+- **Dependency boundary:** The catalog depends on Core models, Persistence path/trust models, the
+  shared Tools SHA-256 primitive, and the TOML decoder. It does not depend on App and cannot execute
+  hook commands during discovery.
+- **Filesystem boundary:** Missing documents are quiet. Symlinked, non-regular, oversized, escaped,
+  unreadable, or malformed documents fail closed with bounded diagnostics, while independent valid
+  layers continue to load in deterministic order.
+- **API boundary:** Plugin packages receive a narrow data-to-definition facade; internal decoder and
+  builder models remain module-private so callers cannot couple to parser internals.
+- **Evidence:** Dedicated catalog tests cover missing, malformed, symlinked, oversized, and regex
+  inputs. Existing project, global, plugin-integration, trust, and execution suites remain green, and
+  the parity gate enforces the module boundary and absence of discovery-time process execution.

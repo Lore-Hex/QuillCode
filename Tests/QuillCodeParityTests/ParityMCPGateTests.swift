@@ -119,10 +119,10 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
     }
 
     func testStandardHooksShareOneBoundedJSONAndTOMLDefinitionPipeline() throws {
-        let decoderText = try Self.appSourceText(named: "CodexHookConfiguration.swift")
+        let decoderText = try Self.hooksSourceText(named: "CodexHookConfiguration.swift")
         let pluginLoaderText = try Self.appSourceText(named: "CodexPluginPackageLoader.swift")
-        let configLoaderText = try Self.appSourceText(named: "ProjectHookConfigurationLoader.swift")
-        let globalLoaderText = try Self.appSourceText(named: "GlobalHookConfigurationLoader.swift")
+        let configLoaderText = try Self.hooksSourceText(named: "ProjectHookConfigurationLoader.swift")
+        let globalLoaderText = try Self.hooksSourceText(named: "GlobalHookConfigurationLoader.swift")
         let modelHooksText = try Self.appSourceText(named: "WorkspaceModelHooks.swift")
         let executionRoutingText = try Self.appSourceText(named: "ProjectHookExecutionRouting.swift")
         let metadataLoaderText = try Self.appSourceText(named: "WorkspaceProjectMetadataLoader.swift")
@@ -138,8 +138,9 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(decoderText.contains("decodeTOML"))
         XCTAssertTrue(decoderText.contains("command_windows"))
         XCTAssertTrue(decoderText.contains("status_message"))
-        XCTAssertTrue(pluginLoaderText.contains("CodexHookConfigurationDecoder.decodeJSON"))
-        XCTAssertTrue(pluginLoaderText.contains("CodexHookDefinitionBuilder.definitions"))
+        XCTAssertTrue(pluginLoaderText.contains("CodexHookDefinitionLoader.definitions"))
+        XCTAssertFalse(pluginLoaderText.contains("CodexHookConfigurationDecoder"))
+        XCTAssertFalse(pluginLoaderText.contains("CodexHookDefinitionBuilder"))
         XCTAssertTrue(configLoaderText.contains(".quillcode/hooks.json"))
         XCTAssertTrue(configLoaderText.contains(".quillcode/config.toml"))
         XCTAssertTrue(configLoaderText.contains(".codex/hooks.json"))
@@ -156,6 +157,7 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(testsText.contains("asynchronousHandler"))
         XCTAssertTrue(globalTestsText.contains("testManagedOnlyPolicySkipsUserAndProjectEligibleSources"))
         XCTAssertTrue(globalTestsText.contains("testUserRunHookStaysLocalWhenSelectedProjectIsRemote"))
+        XCTAssertTrue(packageText.contains("name: \"QuillCodeHooks\""))
         XCTAssertTrue(packageText.contains("TOMLDecoder"))
         XCTAssertFalse(configLoaderText.contains("Process()"), "Config discovery must never execute hooks.")
     }

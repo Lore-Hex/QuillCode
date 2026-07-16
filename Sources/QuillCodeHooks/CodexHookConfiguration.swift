@@ -106,23 +106,31 @@ struct CodexHookHandler: Decodable {
 
 enum CodexHookConfigurationDecoder {
     static func decodeJSON(_ data: Data) -> CodexHookConfiguration? {
-        try? JSONDecoder().decode(CodexHookConfiguration.self, from: data)
+        try? decodeJSONThrowing(data)
     }
 
     static func decodeTOML(_ data: Data) -> CodexHookConfiguration? {
-        try? TOMLDecoder().decode(CodexHookConfiguration.self, from: data)
+        try? decodeTOMLThrowing(data)
+    }
+
+    static func decodeJSONThrowing(_ data: Data) throws -> CodexHookConfiguration {
+        try JSONDecoder().decode(CodexHookConfiguration.self, from: data)
+    }
+
+    static func decodeTOMLThrowing(_ data: Data) throws -> CodexHookConfiguration {
+        try TOMLDecoder().decode(CodexHookConfiguration.self, from: data)
     }
 }
 
-struct CodexHookDefinitionSource: Sendable, Hashable {
-    var idPrefix: String
-    var ownerID: String
-    var ownerName: String
-    var relativePath: String
-    var pluginRootRelativePath: String?
-    var trustScope: ProjectHookTrustScope?
+public struct CodexHookDefinitionSource: Sendable, Hashable {
+    public var idPrefix: String
+    public var ownerID: String
+    public var ownerName: String
+    public var relativePath: String
+    public var pluginRootRelativePath: String?
+    public var trustScope: ProjectHookTrustScope?
 
-    init(
+    public init(
         idPrefix: String,
         ownerID: String,
         ownerName: String,
@@ -136,6 +144,23 @@ struct CodexHookDefinitionSource: Sendable, Hashable {
         self.relativePath = relativePath
         self.pluginRootRelativePath = pluginRootRelativePath
         self.trustScope = trustScope
+    }
+}
+
+/// Public data-only entry point for plugin packages that keep hooks in JSON.
+/// Decoded configuration types remain private to this module so callers cannot couple to parser details.
+public enum CodexHookDefinitionLoader {
+    public static func definitions(
+        fromJSON data: Data,
+        source: CodexHookDefinitionSource,
+        limit: Int
+    ) -> [ProjectPluginHook] {
+        guard let configuration = CodexHookConfigurationDecoder.decodeJSON(data) else { return [] }
+        return CodexHookDefinitionBuilder.definitions(
+            from: configuration,
+            source: source,
+            limit: limit
+        )
     }
 }
 

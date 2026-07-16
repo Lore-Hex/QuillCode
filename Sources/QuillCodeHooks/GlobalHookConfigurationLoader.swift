@@ -6,18 +6,21 @@ public struct WorkspaceGlobalHookConfiguration: Sendable, Hashable {
     public var hooks: [ProjectPluginHook]
     public var hooksEnabled: Bool
     public var managedOnly: Bool
+    public var warnings: [String]
 
     public init(
         hooks: [ProjectPluginHook] = [],
         hooksEnabled: Bool = true,
-        managedOnly: Bool = false
+        managedOnly: Bool = false,
+        warnings: [String] = []
     ) {
         self.hooks = hooks
         self.hooksEnabled = hooksEnabled
         self.managedOnly = managedOnly
+        self.warnings = warnings
     }
 
-    func resolvingTrust(_ trust: ProjectHookTrustLoadResult) -> WorkspaceGlobalHookConfiguration {
+    public func resolvingTrust(_ trust: ProjectHookTrustLoadResult) -> WorkspaceGlobalHookConfiguration {
         var resolved = self
         resolved.hooks = ProjectPluginHookResolver.resolve(hooks, trust: trust)
         return resolved
@@ -26,10 +29,10 @@ public struct WorkspaceGlobalHookConfiguration: Sendable, Hashable {
 
 /// Loads additive global hooks in deterministic low-to-high configuration order.
 /// System and requirements sources are managed; user sources retain exact-definition review.
-enum GlobalHookConfigurationLoader {
-    static let maxHooks = 192
+public enum GlobalHookConfigurationLoader {
+    public static let maxHooks = 192
 
-    static func load(from paths: HookConfigurationPaths) -> WorkspaceGlobalHookConfiguration {
+    public static func load(from paths: HookConfigurationPaths) -> WorkspaceGlobalHookConfiguration {
         let managed = CodexHookDocumentLoader.load(
             managedDocuments(from: paths),
             maxHooks: maxHooks
@@ -48,7 +51,8 @@ enum GlobalHookConfigurationLoader {
                 ? merged.filter { !managedOnly || $0.isManaged }
                 : [],
             hooksEnabled: hooksEnabled,
-            managedOnly: managedOnly
+            managedOnly: managedOnly,
+            warnings: ordinary.warnings + managed.warnings
         )
     }
 

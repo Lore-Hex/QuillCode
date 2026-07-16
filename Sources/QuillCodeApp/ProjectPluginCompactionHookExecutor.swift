@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeHooks
 import QuillCodeTools
 
 struct ProjectPluginCompactionHookExecutor: Sendable {
