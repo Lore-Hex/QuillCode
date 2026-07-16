@@ -26,10 +26,14 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var subagentTranscript: WorkspaceSubagentTranscriptSurface?
     @ObservedObject var agentImportDialog: QuillCodeAgentImportDialogCoordinator
     var agentImportActions: QuillCodeAgentImportActions?
+    @ObservedObject var sshConnectionDialog: QuillCodeSSHConnectionDialogCoordinator
     var onSelectThread: (UUID) -> Void
     var onSaveSettings: (WorkspaceSettingsUpdate) -> Void
     var onSaveKeyboardShortcuts: (KeyboardShortcutPreferences) -> Void
     var onStartTrustedRouterSignIn: () -> Void
+    var onRetrySSHHosts: () -> Void
+    var onRegisterSSHProject: (WorkspaceSSHProjectRequest) async -> WorkspaceSSHProjectRegistrationResult
+    var onPresentSSHConnection: () -> Void
     var onDismissCodeReview: () -> Void
     var onRunCodeReview: (WorkspaceCodeReviewRequest) -> Void
     var onCommand: (WorkspaceCommandSurface) -> Void
@@ -117,6 +121,17 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                 }
                 .zIndex(50)
             }
+            if sshConnectionDialog.isPresented {
+                dismissibleModal(accessibilityLabel: "Dismiss SSH connection", onDismiss: sshConnectionDialog.dismiss) {
+                    QuillCodeSSHConnectionView(
+                        coordinator: sshConnectionDialog,
+                        onCancel: sshConnectionDialog.dismiss,
+                        onRetry: onRetrySSHHosts,
+                        onConnect: connectSSHProject
+                    )
+                }
+                .zIndex(55)
+            }
             if let draft = renameThreadDraft {
                 dismissibleModal(accessibilityLabel: "Dismiss rename thread", onDismiss: dismissThreadRename) {
                     QuillCodeThreadRenameView(
@@ -163,6 +178,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         .animation(.easeOut(duration: 0.16), value: agentImportDialog.phase)
         .animation(.easeOut(duration: 0.16), value: isSearchPresented)
         .animation(.easeOut(duration: 0.16), value: isCommandPalettePresented)
+        .animation(.easeOut(duration: 0.16), value: sshConnectionDialog.isPresented)
         .animation(.easeOut(duration: 0.16), value: subagentTranscript?.id)
     }
 
@@ -177,6 +193,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
                     onSave: saveSettings,
                     onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
                     onOpenAgentImport: agentImportActions.map { _ in openAgentImport },
+                    onOpenSSHConnection: openSSHConnection,
                     onCommand: onCommand
                 )
             }
@@ -291,6 +308,15 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
 
     private func dismissAgentImport() {
         agentImportDialog.dismiss()
+    }
+
+    private func connectSSHProject() {
+        sshConnectionDialog.connect(register: onRegisterSSHProject)
+    }
+
+    private func openSSHConnection() {
+        isSettingsPresented = false
+        onPresentSSHConnection()
     }
 
     private func performAgentImport() {
@@ -429,10 +455,14 @@ extension View {
         subagentTranscript: Binding<WorkspaceSubagentTranscriptSurface?>,
         agentImportDialog: QuillCodeAgentImportDialogCoordinator,
         agentImportActions: QuillCodeAgentImportActions?,
+        sshConnectionDialog: QuillCodeSSHConnectionDialogCoordinator,
         onSelectThread: @escaping (UUID) -> Void,
         onSaveSettings: @escaping (WorkspaceSettingsUpdate) -> Void,
         onSaveKeyboardShortcuts: @escaping (KeyboardShortcutPreferences) -> Void,
         onStartTrustedRouterSignIn: @escaping () -> Void,
+        onRetrySSHHosts: @escaping () -> Void,
+        onRegisterSSHProject: @escaping (WorkspaceSSHProjectRequest) async -> WorkspaceSSHProjectRegistrationResult,
+        onPresentSSHConnection: @escaping () -> Void,
         onDismissCodeReview: @escaping () -> Void,
         onRunCodeReview: @escaping (WorkspaceCodeReviewRequest) -> Void,
         onCommand: @escaping (WorkspaceCommandSurface) -> Void,
@@ -475,10 +505,14 @@ extension View {
             subagentTranscript: subagentTranscript,
             agentImportDialog: agentImportDialog,
             agentImportActions: agentImportActions,
+            sshConnectionDialog: sshConnectionDialog,
             onSelectThread: onSelectThread,
             onSaveSettings: onSaveSettings,
             onSaveKeyboardShortcuts: onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+            onRetrySSHHosts: onRetrySSHHosts,
+            onRegisterSSHProject: onRegisterSSHProject,
+            onPresentSSHConnection: onPresentSSHConnection,
             onDismissCodeReview: onDismissCodeReview,
             onRunCodeReview: onRunCodeReview,
             onCommand: onCommand,

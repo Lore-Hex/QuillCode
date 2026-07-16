@@ -43,10 +43,17 @@ public struct ProjectConnection: Codable, Sendable, Hashable {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
-        if let components = URLComponents(string: trimmed),
-           components.scheme == "ssh",
-           let host = components.host,
-           !host.isEmpty {
+        if trimmed.contains("://") {
+            guard let components = URLComponents(string: trimmed),
+                  components.scheme?.lowercased() == "ssh",
+                  let host = components.host,
+                  isValidSSHDestinationComponent(host),
+                  components.password == nil,
+                  components.query == nil,
+                  components.fragment == nil,
+                  components.user.map(isValidSSHDestinationComponent) != false,
+                  components.port.map(isValidSSHPort) != false
+            else { return nil }
             let path = components.path.isEmpty ? "/" : components.path
             return .ssh(path: path, host: host, user: components.user, port: components.port)
         }
@@ -59,8 +66,38 @@ public struct ProjectConnection: Codable, Sendable, Hashable {
         let userAndHost = left.split(separator: "@", maxSplits: 1).map(String.init)
         let user = userAndHost.count == 2 ? userAndHost[0] : nil
         let host = userAndHost.count == 2 ? userAndHost[1] : userAndHost[0]
-        guard !host.isEmpty else { return nil }
+        guard isValidSSHDestinationComponent(host),
+              user.map(isValidSSHDestinationComponent) != false
+        else { return nil }
         return .ssh(path: path, host: host, user: user)
+    }
+
+    /// Parses an SSH destination without requiring a remote path in the entered value.
+    ///
+    /// This is the form used by connection dialogs where the destination and project folder are
+    /// separate fields. URL paths are rejected so the folder has one unambiguous source of truth.
+    public static func parseSSHDestination(_ value: String, path: String) -> ProjectConnection? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let normalized = trimmed.lowercased().hasPrefix("ssh://") ? trimmed : "ssh://\(trimmed)"
+        guard let components = URLComponents(string: normalized),
+              components.scheme?.lowercased() == "ssh",
+              let host = components.host,
+              isValidSSHDestinationComponent(host),
+              components.password == nil,
+              components.query == nil,
+              components.fragment == nil,
+              components.path.isEmpty || components.path == "/",
+              components.user.map(isValidSSHDestinationComponent) != false,
+              components.port.map(isValidSSHPort) != false
+        else { return nil }
+        return .ssh(path: path, host: host, user: components.user, port: components.port)
+    }
+
+    public func replacingPath(with path: String) -> ProjectConnection {
+        var connection = self
+        connection.path = path
+        return connection
     }
 
     public var isRemote: Bool {
@@ -75,7 +112,8 @@ public struct ProjectConnection: Codable, Sendable, Hashable {
             let userPrefix = user.map { "\($0)@" } ?? ""
             let hostLabel = host ?? "ssh"
             let portSuffix = port.map { ":\($0)" } ?? ""
-            return "ssh://\(userPrefix)\(hostLabel)\(portSuffix)\(path)"
+            let pathSeparator = path.hasPrefix("/") ? "" : "/"
+            return "ssh://\(userPrefix)\(hostLabel)\(portSuffix)\(pathSeparator)\(path)"
         }
     }
 
@@ -86,5 +124,17 @@ public struct ProjectConnection: Codable, Sendable, Hashable {
         case .ssh:
             return "SSH Remote"
         }
+    }
+
+    private static func isValidSSHDestinationComponent(_ value: String) -> Bool {
+        !value.isEmpty
+            && !value.hasPrefix("-")
+            && !value.contains("/")
+            && !value.contains("\\")
+            && !value.contains { $0.isWhitespace || $0.isNewline || $0 == "\u{0}" }
+    }
+
+    private static func isValidSSHPort(_ value: Int) -> Bool {
+        (1...65_535).contains(value)
     }
 }

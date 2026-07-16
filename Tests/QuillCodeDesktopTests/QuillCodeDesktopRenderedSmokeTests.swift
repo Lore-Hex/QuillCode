@@ -3,11 +3,58 @@ import SwiftUI
 import XCTest
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeTools
 @testable import QuillCodeApp
 @testable import quill_code_desktop
 
 @MainActor
 final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
+    func testRenderedSSHConnectionDialogShowsConfiguredHostsAndActions() throws {
+        let coordinator = QuillCodeSSHConnectionDialogCoordinator()
+        coordinator.isPresented = true
+        coordinator.draft.apply(SSHHostDiscoveryResult(
+            hosts: [
+                SSHHostConfiguration(
+                    alias: "production",
+                    hostName: "prod.example.com",
+                    user: "deploy",
+                    port: 2222
+                ),
+                SSHHostConfiguration(alias: "staging", hostName: "192.0.2.20", user: "qa")
+            ],
+            configPath: "/Users/quill/.ssh/config",
+            warnings: ["One included SSH config file could not be read."]
+        ))
+        coordinator.draft.remotePath = "~/QuillCode"
+
+        let view = QuillCodeSSHConnectionView(
+            coordinator: coordinator,
+            onCancel: {},
+            onRetry: {},
+            onConnect: {}
+        )
+        .frame(width: 560, height: 610)
+        let image = try renderHostedView(
+            view,
+            width: 560,
+            height: 610,
+            debugPathEnvironmentKey: "QUILLCODE_RENDER_SSH_DIALOG_IMAGE_PATH"
+        )
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertGreaterThanOrEqual(stats.width, 560)
+        XCTAssertGreaterThanOrEqual(stats.height, 610)
+        XCTAssertEqual(
+            Double(stats.width) / Double(stats.height),
+            560.0 / 610.0,
+            accuracy: 0.001
+        )
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.brightPixelRatio, 0.0005)
+        XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
+    }
+
     func testRenderedWorkspaceShowsRealWorldActionResult() async throws {
         let workspaceRoot = try makeTempDirectory()
         let controller = try makeController(workspaceRoot: workspaceRoot)
@@ -150,6 +197,44 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
 
         guard let image = renderer.cgImage else {
             XCTFail("SwiftUI workspace did not render a CGImage.")
+            throw RenderedWorkspaceSmokeFailure.renderFailed
+        }
+        try writeDebugRenderIfRequested(image, environmentKey: debugPathEnvironmentKey)
+        return image
+    }
+
+    private func renderHostedView<Content: View>(
+        _ view: Content,
+        width: CGFloat,
+        height: CGFloat,
+        debugPathEnvironmentKey: String
+    ) throws -> CGImage {
+        let frame = CGRect(x: 0, y: 0, width: width, height: height)
+        let hostingView = NSHostingView(rootView: view)
+        hostingView.frame = frame
+        let window = NSWindow(
+            contentRect: frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.contentView = hostingView
+        window.orderBack(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        hostingView.displayIfNeeded()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.1))
+        hostingView.layoutSubtreeIfNeeded()
+        hostingView.displayIfNeeded()
+
+        guard let bitmap = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
+            window.orderOut(nil)
+            throw RenderedWorkspaceSmokeFailure.bitmapContextFailed
+        }
+        hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+        window.orderOut(nil)
+        guard let image = bitmap.cgImage else {
             throw RenderedWorkspaceSmokeFailure.renderFailed
         }
         try writeDebugRenderIfRequested(image, environmentKey: debugPathEnvironmentKey)

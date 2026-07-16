@@ -3,6 +3,7 @@ import SwiftUI
 import UserNotifications
 import QuillCodeApp
 import QuillCodeCore
+import QuillCodeTools
 
 @MainActor
 final class QuillCodeDesktopController: ObservableObject {
@@ -34,6 +35,8 @@ final class QuillCodeDesktopController: ObservableObject {
     let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
     let modelCatalogRefreshCoordinator: QuillCodeDesktopModelCatalogRefreshCoordinator
     let trustedRouterCreditsCoordinator: QuillCodeDesktopTrustedRouterCreditsCoordinator
+    let sshHostDiscovery: SSHHostDiscovery
+    let sshRemoteProjectProbe: SSHRemoteProjectProbe
     let composerCoordinator: QuillCodeDesktopComposerCoordinator
     let copyCoordinator: QuillCodeDesktopCopyCoordinator
     let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
@@ -54,6 +57,8 @@ final class QuillCodeDesktopController: ObservableObject {
         browserLiveDOMCapturer: (any BrowserLiveDOMCapturing)? = DesktopBrowserLiveDOMCapturer(),
         browserSessionPresenter: any DesktopBrowserSessionPresenting = DesktopBrowserSessionPresenter(),
         automationNotifier: any QuillCodeAutomationNotifying = DesktopAutomationNotifierFactory.platformDefault(),
+        sshHostDiscovery: SSHHostDiscovery = SSHHostDiscovery(),
+        sshRemoteProjectProbe: SSHRemoteProjectProbe = SSHRemoteProjectProbe(),
         transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator =
             QuillCodeDesktopTranscriptExportCoordinator(),
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
@@ -74,6 +79,8 @@ final class QuillCodeDesktopController: ObservableObject {
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
         self.modelCatalogRefreshCoordinator = QuillCodeDesktopModelCatalogRefreshCoordinator(bootstrap: bootstrap)
         self.trustedRouterCreditsCoordinator = QuillCodeDesktopTrustedRouterCreditsCoordinator(bootstrap: bootstrap)
+        self.sshHostDiscovery = sshHostDiscovery
+        self.sshRemoteProjectProbe = sshRemoteProjectProbe
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()

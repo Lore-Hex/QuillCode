@@ -28,20 +28,35 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func addSSHProject(_ address: String, name: String? = nil) -> UUID? {
+        guard let connection = ProjectConnection.parseSSH(address) else {
+            setLastError(WorkspaceProjectEngine.invalidSSHAddressMessage)
+            return nil
+        }
+        return addSSHProject(connection: connection, name: name)
+    }
+
+    @discardableResult
+    public func addSSHProject(connection: ProjectConnection, name: String? = nil) -> UUID? {
         let previousLocation = currentNavigationLocation
-        switch WorkspaceProjectEngine.upsertSSHProject(address: address, name: name, projects: &root.projects) {
+        let result: WorkspaceProjectUpsertResult
+        switch WorkspaceProjectEngine.upsertSSHProject(
+            connection: connection,
+            name: name,
+            projects: &root.projects
+        ) {
         case .failure(let error):
             setLastError(error.message)
             return nil
-        case .success(let result):
-            root.selectedProjectID = result.projectID
-            syncTerminalSessionToSelectedProject()
-            refreshFileMentionIndex()
-            saveProjects()
-            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
-            recordNavigationTransition(from: previousLocation)
-            return result.projectID
+        case .success(let upsertedProject):
+            result = upsertedProject
         }
+        root.selectedProjectID = result.projectID
+        syncTerminalSessionToSelectedProject()
+        refreshFileMentionIndex()
+        saveProjects()
+        refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+        recordNavigationTransition(from: previousLocation)
+        return result.projectID
     }
 
     public func selectProject(_ id: UUID?, recordsNavigation: Bool = true) {

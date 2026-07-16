@@ -60,7 +60,7 @@ test('mock harness manages projects from the sidebar', async ({ page }) => {
   await expect(page.getByTestId('project-item').first()).toContainText('QuillCode');
 });
 
-test('mock harness adds an SSH remote project from command palette and slash command', async ({ page }) => {
+test('mock harness discovers and probes an SSH remote from the native connection dialog', async ({ page }) => {
   await page.goto(harnessURL());
 
   await clickSidebarTool(page, 'command-palette-button');
@@ -68,16 +68,23 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByTestId('command-palette-result')).toHaveCount(1);
   await expect(page.getByTestId('command-palette-result')).toContainText('Project: Add SSH Remote');
   await page.getByTestId('command-palette-result').click();
-  await expect(page.getByLabel('Message')).toHaveValue('/ssh user@host:/absolute/path');
-
-  await page.getByLabel('Message').fill('/ssh quill@feather.local:/srv/quill');
-  await page.getByRole('button', { name: 'Send' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Connect over SSH' });
+  await expect(dialog).toBeVisible();
+  await page.getByTestId('ssh-host-search').fill('feather');
+  await expect(page.getByTestId('ssh-host-option')).toHaveCount(1);
+  await page.getByTestId('ssh-host-option').click();
+  await page.getByTestId('ssh-remote-path').fill('/srv/quill');
+  await page.evaluate(() => { (window as any).__quillCodeFailNextSSHProbe = true; });
+  await page.getByTestId('ssh-connection-submit').click();
+  await expect(page.getByTestId('ssh-connection-error')).toContainText('Permission denied');
+  await page.getByTestId('ssh-connection-submit').click();
+  await expect(dialog).toBeHidden();
 
   const remoteProject = page.getByTestId('project-row').first();
   await expect(remoteProject.getByTestId('project-item')).toContainText('feather.local · quill');
   await expect(remoteProject.getByTestId('project-item')).toHaveAttribute(
     'title',
-    'ssh://quill@feather.local/srv/quill'
+    'ssh://feather.local/srv/quill'
   );
   await expect(remoteProject.getByTestId('project-connection-kind')).toHaveText('SSH');
   await expect(page.getByTestId('top-bar-subtitle')).toContainText('feather.local · quill');
@@ -88,7 +95,7 @@ test('mock harness adds an SSH remote project from command palette and slash com
 
   await clickSidebarTool(page, 'terminal-button');
   await expect(page.getByTestId('terminal-pane')).toBeVisible();
-  await expect(page.getByTestId('terminal-cwd')).toHaveText('ssh://quill@feather.local/srv/quill');
+  await expect(page.getByTestId('terminal-cwd')).toHaveText('ssh://feather.local/srv/quill');
   await page.getByTestId('terminal-input').fill('pwd');
   await page.getByTestId('terminal-run').click();
   await expect(page.getByTestId('terminal-status')).toHaveText('Done · exit 0');
@@ -110,7 +117,7 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.git.status');
   await expect(page.getByTestId('tool-card').last()).toHaveAttribute('data-execution-context', 'ssh-remote');
   await expect(page.getByTestId('tool-card-execution-context').last()).toHaveText('SSH Remote · feather.local');
-  await expect(page.getByTestId('tool-card-output').last()).toContainText('ssh://quill@feather.local/srv/quill');
+  await expect(page.getByTestId('tool-card-output').last()).toContainText('ssh://feather.local/srv/quill');
 
   await clickSidebarTool(page, 'command-palette-button');
   await page.getByLabel('Search commands').fill('>review diff');
@@ -126,4 +133,49 @@ test('mock harness adds an SSH remote project from command palette and slash com
   await expect(page.getByTestId('tool-card-title').last()).toHaveText('host.shell.run');
   await expect(page.getByTestId('tool-card-input').last()).toContainText('printf %s');
   await expect(page.getByText('Wrote `hello.txt` on feather.local · quill.')).toBeVisible();
+});
+
+test('SSH connection is available from Settings and validates manual addresses', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByTestId('settings-button').click();
+  await expect(page.getByTestId('ssh-connections-settings')).toBeVisible();
+  await page.getByTestId('ssh-settings-open').click();
+  await expect(page.getByTestId('settings-panel')).toBeHidden();
+  await expect(page.getByRole('dialog', { name: 'Connect over SSH' })).toBeVisible();
+
+  await page.getByTestId('ssh-connection-mode').selectOption('manual');
+  await page.getByTestId('ssh-manual-address').fill('not an address');
+  await page.getByTestId('ssh-remote-path').fill('relative/path');
+  await expect(page.getByTestId('ssh-connection-submit')).toBeDisabled();
+
+  await page.getByTestId('ssh-manual-address').fill('deploy@build.example:2202');
+  await page.getByTestId('ssh-remote-path').fill('/srv/build');
+  await page.getByTestId('ssh-project-name').fill('Build Host');
+  await expect(page.getByTestId('ssh-connection-submit')).toBeEnabled();
+  await page.getByTestId('ssh-connection-submit').click();
+
+  const remoteProject = page.getByTestId('project-row').first();
+  await expect(remoteProject.getByTestId('project-item')).toContainText('Build Host');
+  await expect(remoteProject.getByTestId('project-item')).toHaveAttribute(
+    'title',
+    'ssh://deploy@build.example:2202/srv/build'
+  );
+});
+
+test('closing the SSH dialog cancels an in-flight remote probe', async ({ page }) => {
+  await page.goto(harnessURL());
+  const initialProjectCount = await page.getByTestId('project-row').count();
+
+  await page.evaluate(() => { (window as any).__quillCodeSSHProbeDelayMS = 300; });
+  await clickSidebarTool(page, 'add-ssh-project-button');
+  await page.getByTestId('ssh-remote-path').fill('/srv/cancelled');
+  await page.getByTestId('ssh-connection-submit').click();
+  await expect(page.getByTestId('ssh-connection-submit')).toHaveText('Connecting...');
+  await page.getByTestId('ssh-connection-close').click();
+  await expect(page.getByRole('dialog', { name: 'Connect over SSH' })).toBeHidden();
+
+  await page.waitForTimeout(400);
+  await expect(page.getByTestId('project-row')).toHaveCount(initialProjectCount);
+  await expect(page.getByText(/Added SSH Remote/)).toHaveCount(0);
 });

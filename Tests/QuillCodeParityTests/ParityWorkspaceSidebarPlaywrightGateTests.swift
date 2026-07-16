@@ -60,7 +60,9 @@ final class ParityWorkspaceSidebarPlaywrightGateTests: QuillCodeParityTestCase {
                 projectSpecText,
                 [
                     "manages projects from the sidebar",
-                    "adds an SSH remote project from command palette and slash command"
+                    "mock harness discovers and probes an SSH remote from the native connection dialog",
+                    "SSH connection is available from Settings and validates manual addresses",
+                    "closing the SSH dialog cancels an in-flight remote probe"
                 ]
             )
         ]
@@ -69,7 +71,7 @@ final class ParityWorkspaceSidebarPlaywrightGateTests: QuillCodeParityTestCase {
         Self.assertSource(helperText, contains: "clickProjectAction")
         Self.assertSource(helperText, contains: "clickThreadAction")
         Self.assertSource(projectSpecText, contains: "clickSidebarTool")
-        Self.assertSource(projectSpecText, contains: "ssh://quill@feather.local/srv/quill")
+        Self.assertSource(projectSpecText, contains: "ssh://feather.local/srv/quill")
         Self.assertSource(coreSpecText, excludes: "clickProjectAction")
         Self.assertSource(coreSpecText, excludes: "replaceFocusedText")
 

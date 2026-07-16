@@ -168,6 +168,43 @@ final class WorkspaceProjectEngineTests: XCTestCase {
         XCTAssertEqual(projects[0].lastOpenedAt, secondDate)
     }
 
+    func testUpsertTypedSSHProjectPreservesConfigAliasAndPort() {
+        var projects: [ProjectRef] = []
+        let connection = ProjectConnection.ssh(
+            path: "/srv/quillcode",
+            host: "production",
+            user: "deploy",
+            port: 2202
+        )
+
+        let result = resultValue(WorkspaceProjectEngine.upsertSSHProject(
+            connection: connection,
+            name: "Production",
+            projects: &projects
+        ))
+
+        XCTAssertTrue(result?.isNewProject == true)
+        XCTAssertEqual(projects.count, 1)
+        XCTAssertEqual(projects[0].name, "Production")
+        XCTAssertEqual(projects[0].connection, connection)
+    }
+
+    func testUpsertTypedSSHProjectRejectsLocalConnectionWithoutMutation() {
+        var projects: [ProjectRef] = []
+
+        let result = WorkspaceProjectEngine.upsertSSHProject(
+            connection: .local(path: "/tmp/project"),
+            name: "Invalid",
+            projects: &projects
+        )
+
+        guard case .failure(let error) = result else {
+            return XCTFail("Expected a non-SSH connection to fail")
+        }
+        XCTAssertEqual(error, .invalidSSHAddress)
+        XCTAssertTrue(projects.isEmpty)
+    }
+
     func testDisplayOrderedProjectsUsesLastOpenedThenStableIDTieBreak() throws {
         let lowerID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
         let higherID = try XCTUnwrap(UUID(uuidString: "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"))

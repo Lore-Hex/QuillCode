@@ -3,11 +3,45 @@ import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeTools
 import QuillComputerUseKit
 @testable import quill_code_desktop
 
 @MainActor
 final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
+
+    func testDesktopRegistersOnlyAProbedSSHProjectAndUsesResolvedFolder() async throws {
+        let root = try makeTempDirectory()
+        let fakeSSH = root.appendingPathComponent("fake-ssh")
+        try #"""
+        #!/bin/sh
+        printf '__QUILLCODE_SSH_READY__\n/srv/resolved-project\n'
+        """#.write(to: fakeSSH, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: fakeSSH.path)
+        let probe = SSHRemoteProjectProbe(
+            remoteExecutor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+        let controller = try makeController(
+            workspaceRoot: root,
+            sshRemoteProjectProbe: probe
+        )
+
+        let request = try XCTUnwrap(WorkspaceSSHProjectRequest(
+            connection: .ssh(path: "~/project", host: "production"),
+            name: "Production"
+        ))
+        let result = await controller.registerSSHProject(request)
+
+        guard case .success(let projectID) = result else {
+            return XCTFail("Expected the probed SSH project to register, got \(result)")
+        }
+        XCTAssertEqual(controller.model.selectedProject?.id, projectID)
+        XCTAssertEqual(controller.model.selectedProject?.name, "Production")
+        XCTAssertEqual(controller.model.selectedProject?.connection.host, "production")
+        XCTAssertEqual(controller.model.selectedProject?.connection.path, "/srv/resolved-project")
+        XCTAssertEqual(controller.surface.projects.selectedProjectID, projectID)
+        XCTAssertEqual(controller.surface.terminal.cwdLabel, "ssh://production/srv/resolved-project")
+    }
 
     func testDesktopSettingsSaveAppliesCodeReviewPreferences() throws {
         let controller = try makeController(workspaceRoot: try makeTempDirectory())
@@ -694,7 +728,8 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
 
     private func makeController(
         workspaceRoot: URL,
-        browserSessionPresenter: any DesktopBrowserSessionPresenting = NoopDesktopBrowserSessionPresenter()
+        browserSessionPresenter: any DesktopBrowserSessionPresenting = NoopDesktopBrowserSessionPresenter(),
+        sshRemoteProjectProbe: SSHRemoteProjectProbe = SSHRemoteProjectProbe()
     ) throws -> QuillCodeDesktopController {
         let stateRoot = try makeTempDirectory().appendingPathComponent("state", isDirectory: true)
         let paths = QuillCodePaths(home: stateRoot)
@@ -709,6 +744,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
             browserLiveDOMCapturer: nil,
             browserSessionPresenter: browserSessionPresenter,
             automationNotifier: NoopAutomationNotifier(),
+            sshRemoteProjectProbe: sshRemoteProjectProbe,
             workspaceRoot: workspaceRoot
         )
     }

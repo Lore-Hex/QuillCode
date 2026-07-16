@@ -10,6 +10,7 @@ struct QuillCodeProjectListView: View {
     var projects: ProjectListSurface
     var onSelectProject: (UUID?) -> Void
     var onAddProjectRequested: () -> Void
+    var onAddSSHProjectRequested: () -> Void = {}
     var onProjectAction: (ProjectItemActionSurface) -> Void
     var onMoveProjectBefore: (UUID, UUID) -> Bool
     var onMoveProjectToBottom: (UUID) -> Bool
@@ -39,6 +40,16 @@ struct QuillCodeProjectListView: View {
             .accessibilityLabel("Open project")
             .accessibilityIdentifier("quillcode-sidebar-command-add-project")
             .help("Open project")
+            Button(action: onAddSSHProjectRequested) {
+                Image(systemName: "network")
+                    .imageScale(.small)
+                    .quillCodeIconButtonTarget()
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .foregroundStyle(QuillCodePalette.muted)
+            .accessibilityLabel("Connect over SSH")
+            .accessibilityIdentifier("quillcode-sidebar-command-add-ssh-project")
+            .help("Connect over SSH")
             Button {
                 onSelectProject(nil)
             } label: {

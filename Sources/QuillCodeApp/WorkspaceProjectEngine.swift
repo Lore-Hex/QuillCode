@@ -122,11 +122,30 @@ enum WorkspaceProjectEngine {
             return .failure(.invalidSSHAddress)
         }
 
+        return upsertSSHProject(
+            connection: connection,
+            name: name,
+            projects: &projects,
+            now: now
+        )
+    }
+
+    @discardableResult
+    static func upsertSSHProject(
+        connection: ProjectConnection,
+        name: String?,
+        projects: inout [ProjectRef],
+        now: Date = Date()
+    ) -> Result<WorkspaceProjectUpsertResult, WorkspaceProjectError> {
+        guard connection.kind == .ssh else { return .failure(.invalidSSHAddress) }
         let projectName = name ?? defaultSSHProjectName(for: connection)
         if let index = projects.firstIndex(where: { $0.connection == connection }) {
             projects[index].name = projectName
             projects[index].lastOpenedAt = now
-            return .success(WorkspaceProjectUpsertResult(projectID: projects[index].id, isNewProject: false))
+            return .success(WorkspaceProjectUpsertResult(
+                projectID: projects[index].id,
+                isNewProject: false
+            ))
         }
 
         let project = ProjectRef(

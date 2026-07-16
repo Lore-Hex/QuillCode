@@ -8,6 +8,7 @@ struct QuillCodeSettingsView: View {
     var onSave: () -> Void
     var onStartTrustedRouterSignIn: () -> Void
     var onOpenAgentImport: (() -> Void)?
+    var onOpenSSHConnection: (() -> Void)?
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -35,6 +36,10 @@ struct QuillCodeSettingsView: View {
                     QuillCodeComputerUseSettingsCard(settings: settings, onCommand: onCommand)
                     QuillCodeComputerUseApprovalSettingsCard(settings: settings, draft: $draft)
                     QuillCodeBrowserDomainSettingsCard(settings: settings, draft: $draft)
+                    QuillCodeSSHConnectionsSettingsCard(
+                        isAvailable: onOpenSSHConnection != nil,
+                        onOpen: { onOpenSSHConnection?() }
+                    )
                     QuillCodeAgentImportSettingsCard(
                         isAvailable: onOpenAgentImport != nil,
                         onOpen: { onOpenAgentImport?() }
