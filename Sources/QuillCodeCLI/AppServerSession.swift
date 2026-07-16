@@ -85,6 +85,8 @@ actor AppServerSession {
     var activeReviews: [UUID: ActiveReview] = [:]
     var activeRollbacks: Set<UUID> = []
     var loadedThreadIDs: Set<UUID> = []
+    var subscribedThreadIDs: Set<UUID> = []
+    var outOfBandElicitationCounts: [UUID: UInt64] = [:]
     var processSessions: [String: AppServerProcessSession] = [:]
     var processEventTasks: [String: Task<Void, Never>] = [:]
     var activeFuzzyFileSearches: [UUID: AppServerActiveFuzzyFileSearch] = [:]
@@ -234,6 +236,7 @@ actor AppServerSession {
             var compactionToLaunch: UUID?
             var reviewToLaunch: UUID?
             var mcpStartupThreadToLaunch: UUID?
+            var notificationsAfterResponse: [AppServerDeferredNotification] = []
             switch method {
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
@@ -308,6 +311,17 @@ actor AppServerSession {
             case "thread/turns/list": result = try await listThreadTurns(params)
             case "thread/turns/items/list":
                 throw AppServerRPCError.methodNotSupported(method)
+            case "thread/unsubscribe": result = try unsubscribeThread(params)
+            case "thread/increment_elicitation": result = try await incrementThreadElicitation(params)
+            case "thread/decrement_elicitation": result = try await decrementThreadElicitation(params)
+            case "thread/metadata/update": result = try await updateThreadMetadata(params)
+            case "thread/settings/update":
+                let outcome = try await updateThreadSettings(params)
+                result = outcome.result
+                if let notification = outcome.notification {
+                    notificationsAfterResponse.append(notification)
+                }
+            case "thread/memoryMode/set": result = try await setThreadMemoryMode(params)
             case "thread/archive": result = try await setThreadArchived(params, archived: true)
             case "thread/unarchive": result = try await setThreadArchived(params, archived: false)
             case "thread/delete": result = try await deleteThread(params)
@@ -332,6 +346,9 @@ actor AppServerSession {
                 throw AppServerRPCError.methodNotFound(method)
             }
             await send(.response(id: id, result: result))
+            for notification in notificationsAfterResponse {
+                await sendNotification(notification.method, params: notification.params)
+            }
             if let accountAfterResponse {
                 await performAccountAfterResponse(accountAfterResponse)
             }
@@ -418,6 +435,12 @@ actor AppServerSession {
 
     func sendNotification(_ method: String, params: CLIJSONValue) async {
         guard !optedOutNotifications.contains(method) else { return }
+        if method.hasPrefix("turn/") || method.hasPrefix("item/"),
+           let rawThreadID = params.objectValue?["threadId"]?.stringValue,
+           let threadID = UUID(uuidString: rawThreadID),
+           !subscribedThreadIDs.contains(threadID) {
+            return
+        }
         await send(.notification(method: method, params: params))
     }
 

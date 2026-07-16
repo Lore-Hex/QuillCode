@@ -30,7 +30,7 @@ enum AppServerThreadProjection {
             "threadSource": .null,
             "agentNickname": .null,
             "agentRole": .null,
-            "gitInfo": .null,
+            "gitInfo": record.settings.gitInfo?.projection ?? .null,
             "name": record.settings.name.map(CLIJSONValue.string) ?? .null,
             "turns": includeTurns ? .array(AppServerThreadHistoryProjection.turns(record)) : .array([])
         ])
@@ -46,18 +46,41 @@ enum AppServerThreadProjection {
             "thread": thread(record, includeTurns: includeTurns, isActive: isActive, threadFile: threadFile),
             "model": .string(record.thread.model),
             "modelProvider": .string("trustedrouter"),
-            "serviceTier": .null,
+            "serviceTier": record.settings.serviceTier.map(CLIJSONValue.string) ?? .null,
             "cwd": .string(record.settings.cwd.path),
             "runtimeWorkspaceRoots": .array([.string(record.settings.cwd.path)]),
             "instructionSources": .array(record.thread.instructions.map { .string($0.path) }),
             "approvalPolicy": record.settings.approvalPolicy,
             "approvalsReviewer": .string(record.settings.approvalsReviewer),
-            "sandbox": sandbox(record.settings.sandbox),
-            "activePermissionProfile": .object([
-                "id": .string(permissionProfileID(record.settings.sandbox)),
-                "extends": .null
-            ]),
-            "reasoningEffort": .null,
+            "sandbox": record.settings.effectiveSandboxPolicy.projection,
+            "activePermissionProfile": activePermissionProfile(record.settings),
+            "reasoningEffort": record.settings.reasoningEffort.map(CLIJSONValue.string) ?? .null,
+            "multiAgentMode": .string("explicitRequestOnly")
+        ])
+    }
+
+    static func settings(_ record: AppServerThreadRecord) -> CLIJSONValue {
+        let collaboration = record.settings.collaborationMode ?? AppServerCollaborationMode(
+            mode: .default,
+            settings: .init(
+                model: record.thread.model,
+                reasoningEffort: record.settings.reasoningEffort,
+                developerInstructions: nil
+            )
+        )
+        return .object([
+            "model": .string(record.thread.model),
+            "modelProvider": .string("trustedrouter"),
+            "effort": record.settings.reasoningEffort.map(CLIJSONValue.string) ?? .null,
+            "cwd": .string(record.settings.cwd.path),
+            "approvalPolicy": record.settings.approvalPolicy,
+            "approvalsReviewer": .string(record.settings.approvalsReviewer),
+            "sandboxPolicy": record.settings.effectiveSandboxPolicy.projection,
+            "activePermissionProfile": activePermissionProfile(record.settings),
+            "collaborationMode": collaboration.projection,
+            "personality": .string(record.thread.personality.rawValue),
+            "serviceTier": record.settings.serviceTier.map(CLIJSONValue.string) ?? .null,
+            "summary": record.settings.reasoningSummary.map(CLIJSONValue.string) ?? .null,
             "multiAgentMode": .string("explicitRequestOnly")
         ])
     }
@@ -141,21 +164,16 @@ enum AppServerThreadProjection {
         id.map { .string(identifier($0)) } ?? .null
     }
 
-    private static func sandbox(_ mode: CLISandboxMode) -> CLIJSONValue {
-        switch mode {
-        case .readOnly:
-            .object(["type": .string("readOnly"), "networkAccess": .bool(false)])
-        case .workspaceWrite:
-            .object([
-                "type": .string("workspaceWrite"),
-                "writableRoots": .array([]),
-                "networkAccess": .bool(false),
-                "excludeTmpdirEnvVar": .bool(false),
-                "excludeSlashTmp": .bool(false)
-            ])
-        case .dangerFullAccess:
-            .object(["type": .string("dangerFullAccess")])
+    private static func activePermissionProfile(_ settings: AppServerThreadSettings) -> CLIJSONValue {
+        if settings.permissionProfileIsExplicit == true {
+            guard let id = settings.permissionProfileID else { return .null }
+            return permissionProfile(id)
         }
+        return permissionProfile(permissionProfileID(settings.sandbox))
+    }
+
+    private static func permissionProfile(_ id: String) -> CLIJSONValue {
+        .object(["id": .string(id), "extends": .null])
     }
 
     private static func permissionProfileID(_ mode: CLISandboxMode) -> String {

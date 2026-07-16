@@ -881,6 +881,91 @@ assert invalid_rollback["error"] == {
     "message": "numTurns must be >= 1",
 }, invalid_rollback
 
+send({"id": 150, "method": "thread/increment_elicitation", "params": {
+    "threadId": thread_id,
+}})
+elicitation_increment, _ = read_until(lambda record: record.get("id") == 150)
+assert elicitation_increment["result"] == {"count": 1, "paused": True}, (
+    elicitation_increment
+)
+send({"id": 151, "method": "thread/decrement_elicitation", "params": {
+    "threadId": thread_id,
+}})
+elicitation_decrement, _ = read_until(lambda record: record.get("id") == 151)
+assert elicitation_decrement["result"] == {"count": 0, "paused": False}, (
+    elicitation_decrement
+)
+
+send({"id": 152, "method": "thread/metadata/update", "params": {
+    "threadId": thread_id,
+    "gitInfo": {
+        "sha": "app-server-smoke-sha",
+        "branch": "smoke/thread-controls",
+        "originUrl": "https://example.invalid/quillcode.git",
+    },
+}})
+metadata_update, _ = read_until(lambda record: record.get("id") == 152)
+assert metadata_update["result"]["thread"]["gitInfo"] == {
+    "sha": "app-server-smoke-sha",
+    "branch": "smoke/thread-controls",
+    "originUrl": "https://example.invalid/quillcode.git",
+}, metadata_update
+
+send({"id": 153, "method": "thread/settings/update", "params": {
+    "threadId": thread_id,
+    "effort": "low",
+    "personality": "friendly",
+    "serviceTier": "priority",
+    "summary": "concise",
+    "permissions": ":workspace",
+}})
+settings_response, settings_records = read_until(lambda record: record.get("id") == 153)
+assert settings_response["result"] == {}, settings_response
+assert not any(
+    record.get("method") == "thread/settings/updated"
+    for record in settings_records
+), settings_records
+settings_updated, _ = read_until(
+    lambda record: record.get("method") == "thread/settings/updated"
+)
+thread_settings = settings_updated["params"]["threadSettings"]
+assert settings_updated["params"]["threadId"] == thread_id, settings_updated
+assert thread_settings["effort"] == "low", thread_settings
+assert thread_settings["personality"] == "friendly", thread_settings
+assert thread_settings["serviceTier"] == "priority", thread_settings
+assert thread_settings["summary"] == "concise", thread_settings
+assert thread_settings["activePermissionProfile"] == {
+    "id": ":workspace",
+    "extends": None,
+}, thread_settings
+
+send({"id": 154, "method": "thread/memoryMode/set", "params": {
+    "threadId": thread_id,
+    "mode": "disabled",
+}})
+memory_mode, _ = read_until(lambda record: record.get("id") == 154)
+assert memory_mode["result"] == {}, memory_mode
+
+send({"id": 155, "method": "thread/unsubscribe", "params": {
+    "threadId": thread_id,
+}})
+unsubscribed, _ = read_until(lambda record: record.get("id") == 155)
+assert unsubscribed["result"] == {"status": "unsubscribed"}, unsubscribed
+send({"id": 156, "method": "thread/loaded/list", "params": {}})
+loaded_after_unsubscribe, _ = read_until(lambda record: record.get("id") == 156)
+assert thread_id in loaded_after_unsubscribe["result"]["data"], loaded_after_unsubscribe
+
+send({"id": 157, "method": "thread/resume", "params": {"threadId": thread_id}})
+resumed, _ = read_until(lambda record: record.get("id") == 157)
+assert resumed["result"]["thread"]["gitInfo"]["branch"] == "smoke/thread-controls", resumed
+assert resumed["result"]["reasoningEffort"] == "low", resumed
+assert resumed["result"]["serviceTier"] == "priority", resumed
+send({"id": 158, "method": "thread/unsubscribe", "params": {
+    "threadId": thread_id,
+}})
+resubscribed, _ = read_until(lambda record: record.get("id") == 158)
+assert resubscribed["result"] == {"status": "unsubscribed"}, resubscribed
+
 process.stdin.close()
 status = process.wait(timeout=10)
 stderr = process.stderr.read()

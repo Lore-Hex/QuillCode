@@ -74,7 +74,19 @@ extension AppServerSession {
             approvalsReviewer: reviewer,
             sandbox: sandbox,
             sessionID: base?.sessionID,
-            forkedFromID: base?.forkedFromID
+            forkedFromID: base?.forkedFromID,
+            runtimeAppConfig: base?.runtimeAppConfig,
+            compactPrompt: base?.compactPrompt,
+            name: base?.name,
+            gitInfo: base?.gitInfo,
+            reasoningEffort: base?.reasoningEffort,
+            reasoningSummary: base?.reasoningSummary,
+            serviceTier: base?.serviceTier,
+            collaborationMode: base?.collaborationMode,
+            memoryMode: base?.memoryMode,
+            sandboxPolicy: base?.sandboxPolicy,
+            permissionProfileID: base?.permissionProfileID,
+            permissionProfileIsExplicit: base?.permissionProfileIsExplicit
         )
     }
 
@@ -129,17 +141,23 @@ extension AppServerSession {
         let required = [
             "sandbox_approval",
             "rules",
-            "skill_approval",
-            "request_permissions",
             "mcp_elicitations"
         ]
-        guard Set(granular.keys) == Set(required),
+        let optional = ["skill_approval", "request_permissions"]
+        guard Set(granular.keys).isSubset(of: Set(required + optional)),
               required.allSatisfy({ granular[$0]?.boolValue != nil }) else {
             throw AppServerRPCError.invalidParams(
-                "approvalPolicy.granular must contain the five documented boolean fields"
+                "approvalPolicy.granular must contain the three required boolean fields"
             )
         }
-        return value
+        guard optional.allSatisfy({ granular[$0] == nil || granular[$0]?.boolValue != nil }) else {
+            throw AppServerRPCError.invalidParams(
+                "approvalPolicy.granular optional fields must be booleans"
+            )
+        }
+        var normalized = granular
+        optional.forEach { normalized[$0] = normalized[$0] ?? .bool(false) }
+        return .object(["granular": .object(normalized)])
     }
 
     func mode(for settings: AppServerThreadSettings) -> AgentMode {

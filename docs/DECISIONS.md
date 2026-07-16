@@ -1,5 +1,31 @@
 # QuillCode Decisions
 
+## 2026-07-16: Thread controls separate connection state from durable settings
+
+- **Connection contract:** Loaded and subscribed are distinct connection-local states. Start, resume,
+  and fork both load and subscribe a task. `thread/unsubscribe` suppresses only detailed `turn/*` and
+  `item/*` events, leaves task-level status/name events visible, and does not remove the task from
+  `thread/loaded/list`. The first operation on a persisted but not-yet-loaded task subscribes it;
+  later operations preserve an explicit unsubscribe. Resume always restores detailed delivery.
+- **Pause contract:** Out-of-band elicitation counts belong to one app-server connection, use
+  overflow-safe accounting, and disappear with that connection. They do not become durable task
+  metadata or alter normal MCP elicitation ownership.
+- **Persistence contract:** Git metadata, runtime settings, named permission profiles, collaboration
+  mode, and memory mode are stored with app-server task metadata. Omitted patch fields preserve state;
+  supported null fields follow observed Codex semantics; no-op settings patches produce no
+  notification; changed settings notify only after the response.
+- **Memory contract:** Disabled memory mode withholds notes from the runner rather than erasing them.
+  The durable notes are restored to the completed task before persistence, so a later re-enable or
+  reconnect sees the original memory state.
+- **Compatibility boundary:** Built-in `:read-only`, `:workspace`, and `:danger-full-access`
+  permission profiles are supported. Custom profiles and Codex's external-sandbox policy remain
+  explicit future app-server work because QuillCode does not yet have equivalent configured profile
+  or external-sandbox owners.
+- **Evidence:** Isolated Codex 0.142.5 probes define response/error/null/ordering behavior. Focused
+  actor tests cover connection isolation, event filtering, resume, patch persistence, validation,
+  reconstruction, and actual model memory visibility; the real JSONL smoke exercises all six method
+  families against the executable.
+
 ## 2026-07-16: Thread discovery and history use durable content and stable anchors
 
 - **Discovery contract:** `thread/search` searches bounded persisted user and assistant transcript

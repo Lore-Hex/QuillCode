@@ -13,6 +13,15 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
     var runtimeAppConfig: AppConfig?
     var compactPrompt: String?
     var name: String?
+    var gitInfo: AppServerThreadGitInfo?
+    var reasoningEffort: String?
+    var reasoningSummary: String?
+    var serviceTier: String?
+    var collaborationMode: AppServerCollaborationMode?
+    var memoryMode: AppServerThreadMemoryMode?
+    var sandboxPolicy: AppServerSandboxPolicy?
+    var permissionProfileID: String?
+    var permissionProfileIsExplicit: Bool?
 
     init(
         cwd: URL,
@@ -24,7 +33,16 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         forkedFromID: UUID? = nil,
         runtimeAppConfig: AppConfig? = nil,
         compactPrompt: String? = nil,
-        name: String? = nil
+        name: String? = nil,
+        gitInfo: AppServerThreadGitInfo? = nil,
+        reasoningEffort: String? = nil,
+        reasoningSummary: String? = nil,
+        serviceTier: String? = nil,
+        collaborationMode: AppServerCollaborationMode? = nil,
+        memoryMode: AppServerThreadMemoryMode? = nil,
+        sandboxPolicy: AppServerSandboxPolicy? = nil,
+        permissionProfileID: String? = nil,
+        permissionProfileIsExplicit: Bool? = nil
     ) {
         self.cwd = cwd.standardizedFileURL
         self.ephemeral = ephemeral
@@ -36,6 +54,23 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         self.runtimeAppConfig = runtimeAppConfig
         self.compactPrompt = compactPrompt
         self.name = name
+        self.gitInfo = gitInfo
+        self.reasoningEffort = reasoningEffort
+        self.reasoningSummary = reasoningSummary
+        self.serviceTier = serviceTier
+        self.collaborationMode = collaborationMode
+        self.memoryMode = memoryMode
+        self.sandboxPolicy = sandboxPolicy
+        self.permissionProfileID = permissionProfileID
+        self.permissionProfileIsExplicit = permissionProfileIsExplicit
+    }
+
+    var effectiveMemoryMode: AppServerThreadMemoryMode {
+        memoryMode ?? .enabled
+    }
+
+    var effectiveSandboxPolicy: AppServerSandboxPolicy {
+        sandboxPolicy ?? AppServerSandboxPolicy(mode: sandbox)
     }
 }
 
