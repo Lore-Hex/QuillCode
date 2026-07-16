@@ -107,7 +107,7 @@ extension AppServerSession {
         return .object([:])
     }
 
-    private func forkedThread(from source: ChatThread, sourceID: UUID) -> ChatThread {
+    func forkedThread(from source: ChatThread, sourceID: UUID) -> ChatThread {
         var thread = source
         let now = Date()
         thread.id = UUID()
@@ -119,7 +119,7 @@ extension AppServerSession {
         return thread
     }
 
-    private func notifyThreadStarted(_ record: AppServerThreadRecord) async {
+    func notifyThreadStarted(_ record: AppServerThreadRecord) async {
         await sendNotification("thread/started", params: .object([
             "thread": projectedThread(record, includeTurns: false, isActive: false)
         ]))

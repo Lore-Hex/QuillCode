@@ -81,7 +81,9 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   create/write/read/metadata/list/copy/watch/unwatch/remove round trips, a real Content-Length-framed
   MCP child with full/lightweight status, lossless tool call, resource read, and reload, thread start,
   turn start with text/image/skill/mention inputs, exact rich-input wire projection and persisted skill
-  context, incremental lifecycle output before EOF, response-only history rollback, persisted
+  context, inline `review/start` response ordering, entered/exited review-mode lifecycle, validated
+  final report, no historical assistant-item replay, incremental lifecycle output before EOF,
+  response-only history rollback, persisted
   post-rollback thread reads, zero-count rejection, persistence, clean EOF, and zero exit. This
   specifically guards against pipe readers that accidentally buffer until the client disconnects.
 - Real `quill-code mcp-server` process smoke with stdin kept open: strict JSON-RPC initialize,
