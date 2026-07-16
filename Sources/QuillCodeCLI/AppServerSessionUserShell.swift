@@ -101,7 +101,8 @@ extension AppServerSession {
         activeUserShellCommands[itemID] = ActiveUserShellCommand(
             launch: launch,
             session: nil,
-            task: nil
+            task: nil,
+            terminationRequested: false
         )
         return launch
     }
@@ -173,9 +174,8 @@ extension AppServerSession {
             standalone.interrupted = true
             activeUserShellTurns[threadID] = standalone
         }
-        for command in activeUserShellCommands.values
-        where command.launch.threadID == threadID && command.launch.turnID == turnID {
-            command.session?.cancel()
+        requestUserShellCommandTermination {
+            $0.launch.threadID == threadID && $0.launch.turnID == turnID
         }
     }
 
@@ -184,9 +184,23 @@ extension AppServerSession {
             turn.interrupted = true
             activeUserShellTurns[threadID] = turn
         }
-        for command in activeUserShellCommands.values {
+        requestUserShellCommandTermination { _ in true }
+    }
+
+    @discardableResult
+    func requestUserShellCommandTermination(
+        where predicate: (ActiveUserShellCommand) -> Bool
+    ) -> Int {
+        let itemIDs = activeUserShellCommands.compactMap { itemID, command in
+            !command.terminationRequested && predicate(command) ? itemID : nil
+        }
+        for itemID in itemIDs {
+            guard var command = activeUserShellCommands[itemID] else { continue }
+            command.terminationRequested = true
+            activeUserShellCommands[itemID] = command
             command.session?.cancel()
         }
+        return itemIDs.count
     }
 
     func waitForUserShellCommands(threadID: UUID, turnID: String) async {

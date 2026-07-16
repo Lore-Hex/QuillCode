@@ -121,6 +121,11 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   prove response-before-lifecycle ordering, configured login-shell display, source/cwd/action metadata,
   streamed and aggregated output, exit status, an empty durable history turn, and absence of historical
   command items.
+- App-server background terminals: launch concurrent thread-owned shells, wait for real PIDs, verify
+  deterministic list projection and PID-cursor pagination, terminate one process idempotently, clean
+  the remainder, reject invalid cursors/limits/process ids and unknown threads, and prove cancelled
+  shells still settle their normal item/turn persistence lifecycle. Repeat list/terminate/clean against
+  the built `quill-code app-server` process rather than relying only on actor-level unit tests.
 - The app-server process smoke must execute experimental `command/exec` through the built binary,
   stream stdin and base64 stdout under a client process ID, prove every delta precedes the deferred
   final response, and prove streamed bytes are absent from final stdout/stderr. Focused tests cover

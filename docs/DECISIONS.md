@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-07-16: Background-terminal control reuses thread shell ownership
+
+- **One process owner:** App-server background-terminal methods project the existing active user-shell
+  registry. They do not introduce a parallel process table or treat connection-scoped `process/spawn`
+  and `command/exec` sessions as thread-owned terminals.
+- **Identity and ordering:** A running shell is identified by its existing item id and real OS PID.
+  Lists sort by PID and use the last PID as the forward cursor, matching current Codex behavior.
+- **Race contract:** Terminate and clean first mark matching commands as terminating, then cancel their
+  shared streaming sessions. They disappear from subsequent lists immediately, repeated termination
+  returns `false`, and the ordinary event consumer remains responsible for exactly-once completion,
+  persistence, and standalone-turn settlement.
+- **Resource fields:** `osPid` is truthful; CPU and RSS remain null, matching current Codex app-server,
+  until a portable bounded process-metrics adapter exists.
+- **Evidence:** Concurrent-shell and invalid-input XCTest, the real executable app-server smoke, and a
+  source parity gate cover PID pagination, idempotent termination, clean-all, and lifecycle cleanup.
+
 ## 2026-07-16: Thread controls separate connection state from durable settings
 
 - **Connection contract:** Loaded and subscribed are distinct connection-local states. Start, resume,

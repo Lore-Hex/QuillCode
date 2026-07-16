@@ -235,6 +235,153 @@ final class AppServerUserShellTests: XCTestCase {
         XCTAssertEqual(result(for: 11, in: records), [:])
     }
 
+    func testBackgroundTerminalsListPaginatesTerminatesAndCleans() async throws {
+        let fixture = try await makeStartedFixture()
+        try await request(
+            fixture,
+            id: 10,
+            method: "thread/shellCommand",
+            params: ["threadId": fixture.threadID, "command": "exec sleep 30"]
+        )
+        try await request(
+            fixture,
+            id: 11,
+            method: "thread/shellCommand",
+            params: ["threadId": fixture.threadID, "command": "exec sleep 30"]
+        )
+
+        let terminals = try await waitForBackgroundTerminals(
+            count: 2,
+            fixture: fixture,
+            startingRequestID: 20
+        )
+        let first = try XCTUnwrap(terminals.first?.objectValue)
+        let second = try XCTUnwrap(terminals.last?.objectValue)
+        let firstProcessID = try XCTUnwrap(first["processId"]?.stringValue)
+        let secondProcessID = try XCTUnwrap(second["processId"]?.stringValue)
+        XCTAssertLessThan(try XCTUnwrap(Int32(firstProcessID)), try XCTUnwrap(Int32(secondProcessID)))
+        XCTAssertEqual(first["command"]?.stringValue, "exec sleep 30")
+        XCTAssertEqual(first["cwd"]?.stringValue, fixture.workspace.path)
+        XCTAssertEqual(first["osPid"]?.numberValue, Double(try XCTUnwrap(Int32(firstProcessID))))
+        XCTAssertEqual(first["cpuPercent"], .null)
+        XCTAssertEqual(first["rssKb"], .null)
+        XCTAssertNotNil(first["itemId"]?.stringValue)
+
+        try await request(
+            fixture,
+            id: 100,
+            method: "thread/backgroundTerminals/list",
+            params: ["threadId": fixture.threadID, "limit": 1]
+        )
+        var records = try await fixture.output.records()
+        let firstPage = try XCTUnwrap(result(for: 100, in: records))
+        XCTAssertEqual(firstPage["data"]?.arrayValue?.count, 1)
+        XCTAssertEqual(firstPage["nextCursor"]?.stringValue, firstProcessID)
+
+        try await request(
+            fixture,
+            id: 101,
+            method: "thread/backgroundTerminals/list",
+            params: ["threadId": fixture.threadID, "cursor": firstProcessID, "limit": 1]
+        )
+        records = try await fixture.output.records()
+        let secondPage = try XCTUnwrap(result(for: 101, in: records))
+        XCTAssertEqual(secondPage["data"]?.arrayValue, [.object(second)])
+        XCTAssertEqual(secondPage["nextCursor"], .null)
+
+        try await request(
+            fixture,
+            id: 102,
+            method: "thread/backgroundTerminals/terminate",
+            params: ["threadId": fixture.threadID, "processId": firstProcessID]
+        )
+        try await request(
+            fixture,
+            id: 103,
+            method: "thread/backgroundTerminals/terminate",
+            params: ["threadId": fixture.threadID, "processId": firstProcessID]
+        )
+        records = try await fixture.output.records()
+        XCTAssertEqual(result(for: 102, in: records)?["terminated"]?.boolValue, true)
+        XCTAssertEqual(result(for: 103, in: records)?["terminated"]?.boolValue, false)
+
+        try await request(
+            fixture,
+            id: 104,
+            method: "thread/backgroundTerminals/list",
+            params: ["threadId": fixture.threadID]
+        )
+        records = try await fixture.output.records()
+        let afterTerminate = try XCTUnwrap(result(for: 104, in: records)?["data"]?.arrayValue)
+        XCTAssertEqual(afterTerminate.count, 1)
+        XCTAssertEqual(afterTerminate.first?.objectValue?["processId"]?.stringValue, secondProcessID)
+
+        try await request(
+            fixture,
+            id: 105,
+            method: "thread/backgroundTerminals/clean",
+            params: ["threadId": fixture.threadID]
+        )
+        try await request(
+            fixture,
+            id: 106,
+            method: "thread/backgroundTerminals/list",
+            params: ["threadId": fixture.threadID]
+        )
+        records = try await fixture.output.records()
+        XCTAssertEqual(result(for: 105, in: records), [:])
+        XCTAssertEqual(result(for: 106, in: records)?["data"]?.arrayValue, [])
+        XCTAssertEqual(result(for: 106, in: records)?["nextCursor"], .null)
+        await fixture.session.waitForActiveTurns()
+    }
+
+    func testBackgroundTerminalRequestsRejectInvalidInputsAndUnknownThreads() async throws {
+        let fixture = try await makeStartedFixture()
+        try await request(
+            fixture,
+            id: 10,
+            method: "thread/backgroundTerminals/list",
+            params: ["threadId": fixture.threadID, "cursor": "not-a-pid"]
+        )
+        try await request(
+            fixture,
+            id: 11,
+            method: "thread/backgroundTerminals/list",
+            params: ["threadId": fixture.threadID, "limit": -1]
+        )
+        try await request(
+            fixture,
+            id: 12,
+            method: "thread/backgroundTerminals/terminate",
+            params: ["threadId": fixture.threadID, "processId": "not-a-pid"]
+        )
+        try await request(
+            fixture,
+            id: 13,
+            method: "thread/backgroundTerminals/clean",
+            params: ["threadId": UUID().uuidString.lowercased()]
+        )
+
+        let records = try await fixture.output.records()
+        XCTAssertEqual(errorCode(for: 10, in: records), -32_600)
+        XCTAssertEqual(
+            errorMessage(for: 10, in: records),
+            "invalid cursor: expected a 32-bit signed integer"
+        )
+        XCTAssertEqual(errorCode(for: 11, in: records), -32_602)
+        XCTAssertEqual(
+            errorMessage(for: 11, in: records),
+            "Invalid params: limit must be an unsigned 32-bit integer or null"
+        )
+        XCTAssertEqual(errorCode(for: 12, in: records), -32_600)
+        XCTAssertEqual(
+            errorMessage(for: 12, in: records),
+            "invalid background terminal process id: expected a 32-bit signed integer"
+        )
+        XCTAssertEqual(errorCode(for: 13, in: records), -32_602)
+        XCTAssertTrue(errorMessage(for: 13, in: records)?.contains("was not found") == true)
+    }
+
     func testCommandUsesActiveTurnAndFeedbackReentersModelContext() async throws {
         let llm = ShellAwareBlockingLLM()
         let fixture = try await makeStartedFixture(llm: llm)
@@ -438,6 +585,29 @@ final class AppServerUserShellTests: XCTestCase {
                 return predicate(params)
             }), let params = record["params"]?.objectValue {
                 return params
+            }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        throw UserShellTestError.timedOut
+    }
+
+    private func waitForBackgroundTerminals(
+        count: Int,
+        fixture: UserShellFixture,
+        startingRequestID: Int
+    ) async throws -> [CLIJSONValue] {
+        for offset in 0..<400 {
+            let requestID = startingRequestID + offset
+            try await request(
+                fixture,
+                id: requestID,
+                method: "thread/backgroundTerminals/list",
+                params: ["threadId": fixture.threadID]
+            )
+            let records = try await fixture.output.records()
+            if let data = result(for: requestID, in: records)?["data"]?.arrayValue,
+               data.count == count {
+                return data
             }
             try await Task.sleep(for: .milliseconds(5))
         }

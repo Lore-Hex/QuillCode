@@ -4,6 +4,14 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 
 ## Current Research Inputs
 
+- Current Codex `main` at `18110b810f0a328147f6cd85e6f1ab6414927366` exposes experimental
+  `thread/backgroundTerminals/list`, `thread/backgroundTerminals/terminate`, and
+  `thread/backgroundTerminals/clean`. Listing loads the thread, returns active unified-exec processes
+  sorted by process id, exposes item id, process id, command, cwd, and nullable resource metrics, and
+  uses the last PID as an opaque forward cursor. Termination parses one signed 32-bit process id and
+  is idempotent; clean terminates every background process owned by that thread. QuillCode maps this
+  contract to its existing thread-owned user-shell lifecycle rather than creating a second process
+  registry. Source: public `openai/codex` app-server protocol and thread processor, audited 2026-07-16.
 - Codex app-server 0.142.5 exposes `thread/search`, `thread/loaded/list`, and
   `thread/turns/list`. Isolated JSONL probes show that search requires a non-whitespace term, searches
   transcript text rather than a renamed title, returns the matching snippet, and accepts a zero limit
