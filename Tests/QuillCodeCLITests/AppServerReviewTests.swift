@@ -186,6 +186,106 @@ final class AppServerReviewTests: XCTestCase {
         XCTAssertEqual(itemLifecycleCount("exitedReviewMode", in: completedRecords), 2)
     }
 
+    func testUserShellCommandSharesActiveReviewTurnAndSurvivesInterruption() async throws {
+        let llm = AppServerBlockingReviewLLM()
+        let fixture = try await makeSession(llm: llm)
+        let threadID = try await startThread(in: fixture)
+        let baseline = try await fixture.output.records().count
+
+        try await fixture.request(
+            id: 3,
+            method: "review/start",
+            params: [
+                "threadId": threadID,
+                "target": ["type": "custom", "instructions": "Wait for an inspection command."]
+            ]
+        )
+        await llm.waitUntilStarted()
+        let activeRecords = Array(try await fixture.output.records().dropFirst(baseline))
+        let turnID = try XCTUnwrap(
+            result(for: 3, in: activeRecords)?["turn"]?.objectValue?["id"]?.stringValue
+        )
+
+        try await fixture.request(
+            id: 4,
+            method: "thread/shellCommand",
+            params: ["threadId": threadID, "command": "printf review-shell"]
+        )
+        let commandCompletion = try await waitForUserShellCompletion(
+            fixture: fixture,
+            after: baseline
+        )
+        XCTAssertEqual(commandCompletion["turnId"]?.stringValue, turnID)
+
+        try await fixture.request(
+            id: 5,
+            method: "turn/interrupt",
+            params: ["threadId": threadID, "turnId": turnID]
+        )
+        await fixture.session.waitForActiveTurns()
+
+        let records = Array(try await fixture.output.records().dropFirst(baseline))
+        XCTAssertEqual(result(for: 4, in: records), [:])
+        let stored = try XCTUnwrap(
+            JSONThreadStore(directory: fixture.home.appendingPathComponent("threads"))
+                .listing().threads.first { $0.id.uuidString.lowercased() == threadID }
+        )
+        XCTAssertTrue(stored.messages.contains {
+            $0.role == .tool && $0.content.contains("review-shell")
+        })
+    }
+
+    func testCompletedReviewWaitsForAttachedUserShellCommand() async throws {
+        let llm = ControlledReviewLLM(actions: [
+            .tool(ToolCall(
+                name: WorkspaceCodeReviewSubmitTool.name,
+                argumentsJSON: #"{"summary":"No issues found.","findings":[]}"#
+            )),
+            .say("Done.")
+        ])
+        let fixture = try await makeSession(llm: llm)
+        let threadID = try await startThread(in: fixture)
+        let baseline = try await fixture.output.records().count
+
+        try await fixture.request(
+            id: 3,
+            method: "review/start",
+            params: [
+                "threadId": threadID,
+                "target": ["type": "custom", "instructions": "Wait for an inspection command."]
+            ]
+        )
+        await llm.waitUntilStarted()
+        try await fixture.request(
+            id: 4,
+            method: "thread/shellCommand",
+            params: [
+                "threadId": threadID,
+                "command": "sleep 0.2; printf review-waited"
+            ]
+        )
+        await llm.release()
+        await fixture.session.waitForActiveTurns()
+
+        let records = Array(try await fixture.output.records().dropFirst(baseline))
+        let shellCompletionIndex = try XCTUnwrap(records.firstIndex { record in
+            record["method"]?.stringValue == "item/completed"
+                && record["params"]?.objectValue?["item"]?
+                    .objectValue?["source"]?.stringValue == "userShell"
+        })
+        let turnCompletionIndex = try XCTUnwrap(records.lastIndex {
+            $0["method"]?.stringValue == "turn/completed"
+        })
+        XCTAssertLessThan(shellCompletionIndex, turnCompletionIndex)
+        let stored = try XCTUnwrap(
+            JSONThreadStore(directory: fixture.home.appendingPathComponent("threads"))
+                .listing().threads.first { $0.id.uuidString.lowercased() == threadID }
+        )
+        XCTAssertTrue(stored.messages.contains {
+            $0.role == .tool && $0.content.contains("review-waited")
+        })
+    }
+
     func testReviewRejectsMalformedTargetWithoutMutatingThread() async throws {
         let fixture = try await makeSession(llm: AppServerReviewLLM(actions: []))
         let threadID = try await startThread(in: fixture)
@@ -275,6 +375,24 @@ final class AppServerReviewTests: XCTestCase {
                 || $0["method"]?.stringValue == "item/completed")
                 && $0["params"]?.objectValue?["item"]?.objectValue?["type"]?.stringValue == type
         }.count
+    }
+
+    private func waitForUserShellCompletion(
+        fixture: AppServerReviewFixture,
+        after baseline: Int
+    ) async throws -> [String: CLIJSONValue] {
+        for _ in 0..<400 {
+            let records = Array(try await fixture.output.records().dropFirst(baseline))
+            if let params = records.first(where: { record in
+                record["method"]?.stringValue == "item/completed"
+                    && record["params"]?.objectValue?["item"]?
+                        .objectValue?["source"]?.stringValue == "userShell"
+            })?["params"]?.objectValue {
+                return params
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        throw AppServerReviewTestError.missingUserShellCompletion
     }
 
     private func temporaryDirectory(prefix: String) throws -> URL {
@@ -370,6 +488,42 @@ private actor AppServerBlockingReviewLLM: LLMClient {
     }
 }
 
+private actor ControlledReviewLLM: LLMClient {
+    private var actions: [AgentAction]
+    private var started = false
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuation: CheckedContinuation<Void, Never>?
+
+    init(actions: [AgentAction]) {
+        self.actions = actions
+    }
+
+    func nextAction(
+        thread _: ChatThread,
+        userMessage _: String,
+        tools _: [ToolDefinition]
+    ) async -> AgentAction {
+        if !started {
+            started = true
+            startWaiters.forEach { $0.resume() }
+            startWaiters.removeAll()
+            await withCheckedContinuation { releaseContinuation = $0 }
+        }
+        return actions.isEmpty ? .say("Done.") : actions.removeFirst()
+    }
+
+    func waitUntilStarted() async {
+        guard !started else { return }
+        await withCheckedContinuation { startWaiters.append($0) }
+    }
+
+    func release() {
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
+}
+
 private enum AppServerReviewTestError: Error {
     case invalidRecord
+    case missingUserShellCompletion
 }

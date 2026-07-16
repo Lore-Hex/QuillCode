@@ -66,6 +66,26 @@ final class ShellOutputCapperTests: XCTestCase {
         XCTAssertTrue(result.truncated)
         XCTAssertFalse(result.text.contains("\u{FFFD}"))
     }
+
+    func testAccumulatorBoundsAcrossChunksAndReportsCompleteCounts() {
+        var accumulator = ShellOutputAccumulator(maxLines: 3, maxBytes: 1_000)
+        accumulator.append("line1\nline2\n")
+        accumulator.append("line3\nline4\n")
+
+        XCTAssertTrue(accumulator.text.contains("4 lines, 24 bytes total"), accumulator.text)
+        XCTAssertFalse(accumulator.text.contains("line1\n"), accumulator.text)
+        XCTAssertTrue(accumulator.text.hasSuffix("line2\nline3\nline4\n"), accumulator.text)
+    }
+
+    func testAccumulatorKeepsValidUTF8TailAcrossByteBoundary() {
+        var accumulator = ShellOutputAccumulator(maxLines: 100, maxBytes: 5)
+        accumulator.append("prefix")
+        accumulator.append("\u{1F600}\u{1F680}")
+
+        XCTAssertTrue(accumulator.text.contains("14 bytes total"), accumulator.text)
+        XCTAssertFalse(accumulator.text.contains("\u{FFFD}"), accumulator.text)
+        XCTAssertTrue(accumulator.text.hasSuffix("\u{1F680}"), accumulator.text)
+    }
 }
 
 // MARK: - Functional: through the shell executor with real output
@@ -82,6 +102,24 @@ final class ShellToolExecutorCapFunctionalTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("output truncated"), "5000 lines should be capped")
         XCTAssertTrue(result.stdout.contains("\n5000"), "the tail (final lines) must survive")
         XCTAssertLessThan(result.stdout.components(separatedBy: "\n").count, 2100, "capped near the 2000-line ceiling")
+    }
+
+    func testStreamingExecutorCapsAChattyCommand() async throws {
+        let stream = ShellToolExecutor().runStreaming(.init(
+            command: "seq 5000",
+            cwd: FileManager.default.temporaryDirectory,
+            timeoutSeconds: 30
+        ))
+        var finishedResult: ToolResult?
+        for await event in stream {
+            if case .finished(let result) = event { finishedResult = result }
+        }
+
+        let result = try XCTUnwrap(finishedResult)
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("output truncated"))
+        XCTAssertTrue(result.stdout.contains("\n5000"))
+        XCTAssertLessThan(result.stdout.utf8.count, 60_000)
     }
 }
 

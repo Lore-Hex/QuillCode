@@ -12,8 +12,8 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
     private let lock = NSLock()
     private var process: Process?
     private var standardInput: Pipe?
-    private var stdout = ""
-    private var stderr = ""
+    private var stdout = ShellOutputAccumulator()
+    private var stderr = ShellOutputAccumulator()
     private var didFinish = false
     private var didCancel = false
     private var didTimeOut = false
@@ -82,7 +82,7 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         }
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.executableURL = request.shellExecutableURL
         process.arguments = ["-lc", trimmed]
         process.currentDirectoryURL = request.cwd
         process.environment = request.environment
@@ -157,9 +157,9 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         lock.lock()
         switch stream {
         case .stdout:
-            stdout += text
+            stdout.append(text)
         case .stderr:
-            stderr += text
+            stderr.append(text)
         }
         lock.unlock()
         switch stream {
@@ -189,8 +189,8 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         let cancelled: Bool
         let timedOut: Bool
         lock.lock()
-        out = stdout
-        err = stderr
+        out = stdout.text
+        err = stderr.text
         cancelled = didCancel
         timedOut = didTimeOut
         lock.unlock()
@@ -224,8 +224,8 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         let out: String
         let err: String
         lock.lock()
-        out = stdout
-        err = stderr
+        out = stdout.text
+        err = stderr.text
         lock.unlock()
         finish(stdout: out, stderr: err, exitCode: nil, ok: false, error: "Command cancelled.")
     }

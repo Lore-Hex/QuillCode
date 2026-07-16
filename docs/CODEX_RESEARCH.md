@@ -30,6 +30,21 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   durable notes from model context without deleting them. Sources: generated 0.142.5 schemas and
   isolated local `codex-cli 0.142.5` success, error, null-semantics, notification-order, unsubscribe,
   and reconnect probes, audited 2026-07-16.
+- Codex app-server 0.142.5 `thread/shellCommand` is an explicit local-host, full-access shell
+  escape hatch rather than a normal model-authored tool call. It trims the required command, rejects
+  empty input with `-32600 command must not be empty`, returns `{}` before lifecycle events, uses
+  the configured user shell in login-command mode from the thread cwd, and allows one hour. A
+  standalone request opens a normal active/turn/item/completion/idle lifecycle; concurrent standalone
+  commands share that turn. During an ordinary turn, review, or compaction it reuses the existing turn
+  and emits no second turn pair. The command item has source `userShell`, null process ID, streamed
+  output, final status/output/exit code, and a parsed action that may remain one honest `unknown`
+  command. Output remains model-visible, but persisted thread reads/lists/forks expose only an empty
+  standalone turn and never replay command items; rollback removes that empty turn and its hidden
+  output. Interruption cancels the command, background terminal inventory is unchanged, and
+  unsubscribe suppresses detailed lifecycle while retaining task-level status. Sources: generated
+  0.142.5 schemas, public `openai/codex` thread processor/user-shell task/integration tests, and
+  isolated local lifecycle, active-task, history, rollback, unsubscribe, and background-terminal
+  probes, audited 2026-07-16.
 - Codex app: projects, worktrees, automations, Git review, in-app browser, Computer Use, artifact previews.
 - Codex Review treats Unstaged, Staged, Commit, Branch, and Last turn as distinct scopes, with whole-diff Stage all/Revert all controls. QuillCode should preserve that information architecture while keeping historical comparisons read-only and deriving Last turn from auditable turn-owned edits instead of guessing from the current working tree.
 - Official managed-worktree behavior: new Worktree tasks start at detached HEAD from the selected branch, can carry current uncommitted changes, copy normally ignored files only when selected by `.worktreeinclude`, automatically copy ignored `AGENTS.override.md`, and keep a stable task/worktree association. Codex stores managed worktrees under `$CODEX_HOME/worktrees` by default, lets users choose another root, and automatically retains the 15 most recent managed tasks unless cleanup is disabled or the limit is changed. Handoff moves a task and its code between Local and that same worktree; managed cleanup saves restorable snapshots before deletion. Pinned, selected, still-running, Local, and permanent/named-branch worktrees are excluded from automatic removal, while reopening a task whose disposable worktree was removed offers restoration. Source: current Codex manual, Worktrees section (`environments/git-worktrees`).

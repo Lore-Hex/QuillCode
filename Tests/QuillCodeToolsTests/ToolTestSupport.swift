@@ -62,4 +62,16 @@ extension XCTestCase {
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
         return script
     }
+
+    func makeRecordingShell(in root: URL, argumentsFile: URL) throws -> URL {
+        let script = root.appendingPathComponent("recording-shell")
+        let argumentsPath = argumentsFile.path.replacingOccurrences(of: "'", with: "'\\''")
+        try """
+        #!/bin/sh
+        printf '%s\\n' "$@" > '\(argumentsPath)'
+        exec /bin/sh "$@"
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script
+    }
 }

@@ -7,6 +7,68 @@ import QuillCodeSafety
 import XCTest
 
 final class AppServerThreadHistoryTests: XCTestCase {
+    func testTurnProjectionUsesDurableTranscriptOrderWhenTimestampsCollide() {
+        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
+        let firstTurnID = "first-turn"
+        let shellTurnID = "shell-turn"
+        let secondTurnID = "second-turn"
+        let thread = ChatThread(
+            messages: [
+                ChatMessage(
+                    role: .user,
+                    content: "First",
+                    turnID: firstTurnID,
+                    createdAt: timestamp
+                ),
+                ChatMessage(
+                    role: .assistant,
+                    content: "First answer",
+                    turnID: firstTurnID,
+                    createdAt: timestamp
+                ),
+                ChatMessage(
+                    role: .tool,
+                    content: "shell output",
+                    turnID: shellTurnID,
+                    createdAt: timestamp
+                ),
+                ChatMessage(
+                    role: .user,
+                    content: "Second",
+                    turnID: secondTurnID,
+                    createdAt: timestamp
+                ),
+                ChatMessage(
+                    role: .assistant,
+                    content: "Second answer",
+                    turnID: secondTurnID,
+                    createdAt: timestamp
+                )
+            ],
+            createdAt: timestamp,
+            updatedAt: timestamp
+        )
+        let record = AppServerThreadRecord(
+            thread: thread,
+            settings: AppServerThreadSettings(
+                cwd: URL(fileURLWithPath: "/tmp"),
+                userShellTurns: [
+                    AppServerUserShellTurnRecord(
+                        id: shellTurnID,
+                        startedAt: timestamp,
+                        completedAt: timestamp
+                    )
+                ]
+            )
+        )
+
+        let turnIDs = AppServerThreadHistoryProjection.turns(record).compactMap {
+            $0.objectValue?["id"]?.stringValue
+        }
+
+        XCTAssertEqual(turnIDs, [firstTurnID, shellTurnID, secondTurnID])
+    }
+
     func testPaginationLimitsMatchCodexUnsignedAndLoadedListSemantics() throws {
         XCTAssertEqual(try AppServerThreadPagination.boundedLimit(nil), 25)
         XCTAssertEqual(try AppServerThreadPagination.boundedLimit(0), 1)

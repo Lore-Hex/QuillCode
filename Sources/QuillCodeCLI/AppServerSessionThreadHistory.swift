@@ -43,6 +43,9 @@ extension AppServerSession {
         if let active = activeReviews[threadID] {
             return AppServerThreadRecord(thread: active.latestThread, settings: active.settings)
         }
+        if let active = activeUserShellTurns[threadID] {
+            return AppServerThreadRecord(thread: active.latestThread, settings: active.settings)
+        }
         return try await loadRecord(threadID)
     }
 
@@ -78,6 +81,16 @@ extension AppServerSession {
                 startedAt: active.startedAt,
                 completedAt: nil,
                 itemsView: "full"
+            )
+        }
+        if let active = activeUserShellTurns[threadID] {
+            return AppServerThreadProjection.turn(
+                id: active.id,
+                items: [],
+                status: "inProgress",
+                startedAt: active.startedAt,
+                completedAt: nil,
+                itemsView: "notLoaded"
             )
         }
         return nil

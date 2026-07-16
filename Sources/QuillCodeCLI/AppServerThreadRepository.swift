@@ -2,6 +2,12 @@ import Foundation
 import QuillCodeCore
 import QuillCodePersistence
 
+struct AppServerUserShellTurnRecord: Codable, Sendable, Equatable {
+    var id: String
+    var startedAt: Date
+    var completedAt: Date
+}
+
 struct AppServerThreadSettings: Codable, Sendable, Equatable {
     var cwd: URL
     var ephemeral: Bool
@@ -22,6 +28,7 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
     var sandboxPolicy: AppServerSandboxPolicy?
     var permissionProfileID: String?
     var permissionProfileIsExplicit: Bool?
+    var userShellTurns: [AppServerUserShellTurnRecord]?
 
     init(
         cwd: URL,
@@ -42,7 +49,8 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         memoryMode: AppServerThreadMemoryMode? = nil,
         sandboxPolicy: AppServerSandboxPolicy? = nil,
         permissionProfileID: String? = nil,
-        permissionProfileIsExplicit: Bool? = nil
+        permissionProfileIsExplicit: Bool? = nil,
+        userShellTurns: [AppServerUserShellTurnRecord]? = nil
     ) {
         self.cwd = cwd.standardizedFileURL
         self.ephemeral = ephemeral
@@ -63,6 +71,7 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         self.sandboxPolicy = sandboxPolicy
         self.permissionProfileID = permissionProfileID
         self.permissionProfileIsExplicit = permissionProfileIsExplicit
+        self.userShellTurns = userShellTurns
     }
 
     var effectiveMemoryMode: AppServerThreadMemoryMode {
@@ -102,17 +111,6 @@ actor AppServerThreadRepository {
 
     func save(_ record: AppServerThreadRecord) throws {
         try create(record)
-    }
-
-    /// Saves a history-only mutation without rewriting unchanged app-server metadata. This keeps
-    /// rollback to one atomic thread-file replacement and avoids a partial two-file transaction.
-    func saveThread(_ thread: ChatThread) throws {
-        if var record = ephemeral[thread.id] {
-            record.thread = thread
-            ephemeral[thread.id] = record
-        } else {
-            try threadStore.save(thread)
-        }
     }
 
     func load(_ id: UUID) throws -> AppServerThreadRecord {
