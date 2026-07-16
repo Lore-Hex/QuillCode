@@ -1741,3 +1741,17 @@
 - **Evidence:** Focused tests cover buffered and streaming execution, pipe and PTY control, output caps,
   timeout, validation, ID lifecycle, disconnect teardown, and real Seatbelt denial/allow boundaries.
   The executable JSONL smoke proves streamed stdin/output ordering through the packaged protocol path.
+
+## 2026-07-16: Global memory reset preserves project-owned memory
+
+- **Ownership boundary:** `memory/reset` clears only the app-managed global memory root at
+  `~/.quillcode/memories`. Project `.quillcode/memories` files remain workspace-owned content and are
+  never inferred reset targets.
+- **Filesystem boundary:** Reset preserves and re-secures the global root at owner-only permissions,
+  removes its direct children recursively, removes child symlinks without following them, and rejects
+  a root that is itself a file or symlink.
+- **Lifecycle boundary:** The operation is idempotent and affects future memory loading. It cannot
+  remove context already copied into an in-flight model request.
+- **Evidence:** Persistence tests cover nested, hidden, linked, missing, repeated, and unsafe roots;
+  app-server tests cover omitted parameters and project isolation; the executable JSONL smoke verifies
+  the public request against the built process.

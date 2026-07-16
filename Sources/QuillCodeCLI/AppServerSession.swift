@@ -313,6 +313,7 @@ actor AppServerSession {
             case "configRequirements/read": result = try readConfigRequirements(params)
             case "config/value/write": result = try await writeConfigValue(params)
             case "config/batchWrite": result = try await writeConfigBatch(params)
+            case "memory/reset": result = try resetMemory()
             case "plugin/list": result = try listPlugins(params)
             case "plugin/installed": result = try listInstalledPlugins(params)
             case "plugin/read": result = try readPlugin(params)

@@ -95,7 +95,7 @@ public struct QuillCodePaths: Sendable, Hashable {
             ofItemAtPath: subagentApprovalPayloadsDirectory.path
         )
         try FileManager.default.createDirectory(at: attachmentsDirectory, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: memoriesDirectory, withIntermediateDirectories: true)
+        try PrivateDirectory.ensureExists(at: memoriesDirectory)
         try FileManager.default.createDirectory(at: worktreeSnapshotsDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: worktreesDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: secretsDirectory, withIntermediateDirectories: true)
