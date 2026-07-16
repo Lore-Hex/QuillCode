@@ -141,6 +141,33 @@ project_memory = os.path.join(workspace, ".quillcode", "memories", "project.md")
 os.makedirs(os.path.dirname(project_memory), exist_ok=True)
 with open(project_memory, "w", encoding="utf-8") as memory_file:
     memory_file.write("preserve this project memory\n")
+git_diff_tracked = os.path.join(workspace, "git-diff-smoke.txt")
+with open(git_diff_tracked, "w", encoding="utf-8") as file:
+    file.write("remote baseline\n")
+
+def run_git(arguments, cwd=workspace):
+    return subprocess.run(
+        ["git", *arguments],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+run_git(["init", "-b", "main"])
+run_git(["config", "user.email", "smoke@quillcode.local"])
+run_git(["config", "user.name", "QuillCode Smoke"])
+run_git(["add", "."])
+run_git(["commit", "-m", "app-server smoke baseline"])
+git_diff_remote = os.path.join(home, "git-diff-remote.git")
+run_git(["init", "--bare", git_diff_remote], cwd=home)
+run_git(["remote", "add", "origin", git_diff_remote])
+run_git(["push", "-u", "origin", "main"])
+git_diff_remote_sha = run_git(["rev-parse", "@{upstream}"]).stdout.strip()
+with open(git_diff_tracked, "a", encoding="utf-8") as file:
+    file.write("working tree change\n")
+with open(os.path.join(workspace, "git-diff-untracked.txt"), "w", encoding="utf-8") as file:
+    file.write("untracked smoke\n")
 process = subprocess.Popen(
     [binary, "--home", home, "app-server", "--mock"],
     cwd=workspace,
@@ -178,6 +205,13 @@ send({"id": 1, "method": "initialize", "params": {
 initialized, _ = read_until(lambda record: record.get("id") == 1)
 assert "result" in initialized and "jsonrpc" not in initialized, initialized
 send({"method": "initialized", "params": {}})
+
+send({"id": 211, "method": "gitDiffToRemote", "params": {"cwd": workspace}})
+git_diff, _ = read_until(lambda record: record.get("id") == 211)
+assert git_diff["result"]["sha"] == git_diff_remote_sha, git_diff
+assert "+working tree change" in git_diff["result"]["diff"], git_diff
+assert "diff --git a/git-diff-untracked.txt b/git-diff-untracked.txt" in \
+    git_diff["result"]["diff"], git_diff
 
 send({"id": 206, "method": "permissionProfile/list", "params": {}})
 profiles, _ = read_until(lambda record: record.get("id") == 206)

@@ -1835,3 +1835,20 @@
   conditionals.
 - **Evidence:** Focused parser, socket, framing, fragmentation, malformed-frame, capability-token, and
   signed-token tests run beside executable TCP health/auth and multi-client Unix crash/recovery smokes.
+
+## 2026-07-16: Git diff-to-remote compares one bounded local snapshot
+
+- **Protocol boundary:** `gitDiffToRemote` resolves the repository's current local upstream tip and
+  returns that SHA with a direct working-tree diff. It does not fetch, infer a merge base, or mutate
+  refs, the index, or files.
+- **State boundary:** The diff intentionally combines committed-ahead, staged, unstaged, and untracked
+  changes, excludes ignored files, and appends Git-ordered untracked binary patches after the tracked
+  patch. A clean repository returns an empty diff.
+- **Execution boundary:** Git runs with external diff and text conversion disabled. Patch output is
+  written to private temporary files, then checked against aggregate byte limits before and after
+  reading; untracked inventory bytes and file count are independently capped.
+- **Failure boundary:** Missing, non-directory, non-Git, no-upstream, unsafe-path, timeout, and bound
+  failures collapse to Codex's generic `-32600` request error without leaking Git stderr.
+- **Evidence:** Real-Git actor tests cover clean, dirty, ahead, diverged, ignored, invalid, and bounded
+  cases. The built JSONL smoke verifies tracked and untracked output against a real bare upstream, and
+  a parity gate binds implementation, tests, smoke, research, and matrix status.

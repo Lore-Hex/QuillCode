@@ -16203,3 +16203,24 @@ Validation:
 - `scripts/app-server-smoke.sh` (real executable protocol smoke passed)
 - `python3 scripts/grade-code-quality.py --root .` (all modules A+)
 - `git diff --check`
+
+## 2026-07-16 Codex App-Server Git Diff To Remote
+
+Overall grade after this slice: **A+ protocol fidelity, A+ repository safety, A+ bounded I/O**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Protocol fidelity | A+ | The response preserves Codex's upstream-tip SHA, direct full-working-tree comparison, tracked-before-untracked ordering, binary patches, and generic invalid-request boundary. |
+| Repository safety | A+ | The reader performs no fetch or mutation, rejects unsafe untracked paths, omits ignored files, and disables external diff and text-conversion hooks. |
+| I/O architecture | A+ | Git writes patches to private temporary files so large output is not first accumulated in process stdout; inventory, file count, process time, and aggregate bytes are bounded. |
+| Failure semantics | A+ | Invalid repositories, missing upstreams, unsafe paths, Git failure, and cap exhaustion fail closed without exposing raw Git diagnostics. |
+| Test design | A+ | Real repositories cover clean, dirty, ahead, diverged, ignored, invalid, and tiny-cap behavior; the built-process smoke verifies the public JSONL route. |
+
+Validation:
+
+- `swift test --filter AppServerGitDiffToRemoteTests`
+- `swift test --filter ParityAppServerGitDiffToRemoteGateTests`
+- `swift test` (4,618 tests; 2 skipped; 0 failures)
+- `scripts/app-server-smoke.sh`
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
