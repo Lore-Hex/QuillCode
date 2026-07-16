@@ -20,7 +20,7 @@ enum AgentCancellationRecorder {
     }
 
     private static func shouldMarkActiveToolStopped(_ event: ThreadEvent?) -> Bool {
-        event?.kind == .toolQueued || event?.kind == .toolRunning
+        event?.kind == .toolQueued || event?.kind == .toolRunning || event?.kind == .toolProgress
     }
 
     private static func shouldAppendStoppedNotice(_ event: ThreadEvent?) -> Bool {

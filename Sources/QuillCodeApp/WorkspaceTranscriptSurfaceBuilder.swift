@@ -63,7 +63,8 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                 appendMessage(matching: event.summary)
             case .messageFeedback, .reviewComment, .notice:
                 continue
-            case .toolQueued, .toolRunning, .toolCompleted, .toolFailed, .approvalRequested, .approvalDecided:
+            case .toolQueued, .toolRunning, .toolProgress, .toolCompleted, .toolFailed,
+                 .approvalRequested, .approvalDecided:
                 reducer.apply(event)
             }
         }

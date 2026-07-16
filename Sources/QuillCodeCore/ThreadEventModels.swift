@@ -4,6 +4,7 @@ public enum ThreadEventKind: String, Codable, Sendable {
     case message
     case toolQueued
     case toolRunning
+    case toolProgress
     case toolCompleted
     case toolFailed
     case approvalRequested

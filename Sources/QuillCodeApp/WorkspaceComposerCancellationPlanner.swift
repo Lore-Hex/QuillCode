@@ -24,7 +24,7 @@ struct WorkspaceComposerCancellationPlanner {
     }
 
     private static func shouldAppendToolFailure(after event: ThreadEvent?) -> Bool {
-        event?.kind == .toolQueued || event?.kind == .toolRunning
+        event?.kind == .toolQueued || event?.kind == .toolRunning || event?.kind == .toolProgress
     }
 
     private static func shouldAppendNotice(after event: ThreadEvent?) -> Bool {

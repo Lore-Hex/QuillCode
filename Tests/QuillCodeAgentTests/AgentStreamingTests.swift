@@ -93,7 +93,7 @@ final class AgentStreamingTests: XCTestCase {
 
         XCTAssertTrue(result.toolResults.first?.ok == true)
         let eventKinds = await recorder.eventKinds()
-        XCTAssertEqual(eventKinds, [.message, .toolQueued, .toolRunning, .message])
+        XCTAssertEqual(eventKinds, [.message, .toolQueued, .toolRunning, .toolCompleted, .message])
         XCTAssertEqual(
             result.thread.events.map(\.kind),
             [.message, .toolQueued, .toolRunning, .toolCompleted, .message]
@@ -121,7 +121,10 @@ final class AgentStreamingTests: XCTestCase {
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
         let eventKinds = await recorder.eventKinds()
-        XCTAssertEqual(eventKinds, [.message, .notice, .toolQueued, .toolRunning, .notice, .message])
+        XCTAssertEqual(
+            eventKinds,
+            [.message, .notice, .toolQueued, .toolRunning, .toolCompleted, .notice, .message]
+        )
         XCTAssertEqual(result.thread.events.map(\.kind), [
             .message,
             .notice,

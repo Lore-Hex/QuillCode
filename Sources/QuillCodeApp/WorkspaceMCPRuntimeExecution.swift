@@ -4,6 +4,22 @@ import QuillCodeCore
 import QuillCodeTools
 
 extension WorkspaceMCPRuntime {
+    static func streamingExecutionOverride(
+        sessions: [String: any WorkspaceMCPSession],
+        summaries: [String: MCPServerProbeSummary]
+    ) -> AgentStreamingToolExecutionOverride? {
+        guard !sessions.isEmpty else { return nil }
+
+        return { call, _ in
+            guard call.name == ToolDefinition.mcpCall.name else { return nil }
+            return Self.executeToolCallStream(
+                call,
+                sessions: sessions,
+                permissions: WorkspaceMCPAdvertisedCapabilities(summaries: summaries)
+            )
+        }
+    }
+
     static func executionOverride(
         sessions: [String: any WorkspaceMCPSession],
         summaries: [String: MCPServerProbeSummary]
@@ -63,6 +79,67 @@ extension WorkspaceMCPRuntime {
         )
     }
 
+    private static func executeToolCallStream(
+        _ call: ToolCall,
+        sessions: [String: any WorkspaceMCPSession],
+        permissions: WorkspaceMCPAdvertisedCapabilities
+    ) -> AsyncThrowingStream<AgentStreamingToolExecutionEvent, Error> {
+        do {
+            let request = try MCPToolCallRequest(argumentsJSON: call.argumentsJSON)
+            guard let session = sessions[request.serverID] else {
+                return singleResultStream(missingRunningServerResult(request.serverID))
+            }
+            guard permissions.server(request.serverID, advertisesTool: request.toolName) else {
+                return singleResultStream(ToolResult(
+                    ok: false,
+                    error: "MCP tool \(request.toolName) was not advertised by \(request.serverID)."
+                ))
+            }
+            let arguments = try MCPJSONValue(jsonData: Data(request.toolArgumentsJSON.utf8))
+            guard arguments.objectValue != nil else {
+                return singleResultStream(ToolResult(
+                    ok: false,
+                    error: "MCP tool arguments must be a JSON object."
+                ))
+            }
+            let events = session.callToolEvents(
+                toolName: request.toolName,
+                arguments: arguments,
+                metadata: nil,
+                timeout: 30.0
+            )
+            return AsyncThrowingStream { continuation in
+                let task = Task {
+                    do {
+                        for try await event in events {
+                            switch event {
+                            case .progress(let progress):
+                                continuation.yield(.progress(progress))
+                            case .result(let result):
+                                continuation.yield(.result(result.agentToolResult()))
+                            }
+                        }
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
+                    }
+                }
+                continuation.onTermination = { _ in task.cancel() }
+            }
+        } catch {
+            return singleResultStream(ToolResult(ok: false, error: userFacingError(error)))
+        }
+    }
+
+    private static func singleResultStream(
+        _ result: ToolResult
+    ) -> AsyncThrowingStream<AgentStreamingToolExecutionEvent, Error> {
+        AsyncThrowingStream { continuation in
+            continuation.yield(.result(result))
+            continuation.finish()
+        }
+    }
+
     private static func executeResourceRead(
         _ call: ToolCall,
         sessions: [String: any WorkspaceMCPSession],
@@ -116,7 +193,7 @@ extension WorkspaceMCPRuntime {
     }
 }
 
-private struct WorkspaceMCPAdvertisedCapabilities {
+private struct WorkspaceMCPAdvertisedCapabilities: Sendable {
     private let toolNamesByServer: [String: Set<String>]
     private let promptNamesByServer: [String: Set<String>]
 

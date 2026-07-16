@@ -194,6 +194,61 @@ final class MCPHTTPProberTests: XCTestCase {
         XCTAssertEqual(result.toolNames, ["search"])
     }
 
+    func testStreamableHTTPCallEventsStreamsProgressBeforeResult() async throws {
+        let client = MCPHTTPStubClient()
+        client.onStream { request in
+            let body = try XCTUnwrapMessage(request.body)
+            let params = try XCTUnwrap(body["params"] as? [String: Any])
+            let metadata = try XCTUnwrap(params["_meta"] as? [String: Any])
+            XCTAssertEqual(metadata["requestID"] as? String, "request-http")
+            XCTAssertEqual(metadata["progressToken"] as? String, "progress-http")
+
+            return MCPHTTPStubStream.sse([
+                Self.sseMessage(Self.progress(token: "other", completed: 1, total: 100)),
+                Self.sseMessage(Self.progress(
+                    token: "progress-http",
+                    completed: 20,
+                    total: 100,
+                    message: "Indexing"
+                )),
+                Self.sseMessage(Self.progress(
+                    token: "progress-http",
+                    completed: 80,
+                    total: 100,
+                    message: "Writing"
+                )),
+                Self.sseMessage(Self.result(id: body["id"], [
+                    "content": [["type": "text", "text": "complete"]],
+                    "isError": false
+                ]))
+            ])
+        }
+
+        var progress: [ToolExecutionProgress] = []
+        var result: MCPToolCallResult?
+        let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client)
+        for try await event in prober.callToolEvents(
+            toolName: "search",
+            arguments: .object(["query": .string("swift")]),
+            metadata: .object([
+                "requestID": .string("request-http"),
+                "progressToken": .string("progress-http")
+            ]),
+            timeout: 2.0
+        ) {
+            switch event {
+            case .progress(let update): progress.append(update)
+            case .result(let final): result = final
+            }
+        }
+
+        XCTAssertEqual(progress, [
+            .init(completed: 20, total: 100, message: "Indexing"),
+            .init(completed: 80, total: 100, message: "Writing")
+        ])
+        XCTAssertEqual(result?.content.first?.objectValue?["text"], .string("complete"))
+    }
+
     // MARK: Failover from StreamableHTTP to HTTP+SSE
 
     func testFailsOverToHTTPSSEWhenStreamableRejected() throws {
@@ -237,6 +292,54 @@ final class MCPHTTPProberTests: XCTestCase {
         let result = try prober.probe(timeout: 3.0)
         XCTAssertEqual(result.serverName, "Legacy MCP")
         XCTAssertEqual(result.toolNames, ["search"])
+    }
+
+    func testLegacyHTTPSSECallEventsStreamsProgressBeforeResult() async throws {
+        let client = MCPHTTPStubClient()
+        let liveStream = MCPHTTPLiveStubStream()
+        liveStream.pushEvent(name: "endpoint", data: "/messages?session=progress")
+        client.onStream { _ in liveStream }
+        client.onPerform { request in
+            let body = try XCTUnwrapMessage(request.body)
+            let params = try XCTUnwrap(body["params"] as? [String: Any])
+            let metadata = try XCTUnwrap(params["_meta"] as? [String: Any])
+            XCTAssertEqual(metadata["progressToken"] as? String, "legacy-progress")
+            liveStream.pushEvent(
+                name: "message",
+                data: Self.json(Self.progress(token: "legacy-progress", completed: 1, total: 2, message: "Halfway"))
+            )
+            liveStream.pushEvent(
+                name: "message",
+                data: Self.json(Self.result(id: body["id"], [
+                    "content": [["type": "text", "text": "legacy complete"]],
+                    "isError": false
+                ]))
+            )
+            return MCPHTTPResponse(statusCode: 202)
+        }
+
+        var events: [MCPClientToolEvent] = []
+        let prober = MCPHTTPProber(
+            endpoint: endpoint,
+            httpClient: client,
+            mode: .httpSSE
+        )
+        for try await event in prober.callToolEvents(
+            toolName: "search",
+            arguments: nil,
+            metadata: .object(["progressToken": .string("legacy-progress")]),
+            timeout: 2.0
+        ) {
+            events.append(event)
+        }
+
+        XCTAssertEqual(events, [
+            .progress(.init(completed: 1, total: 2, message: "Halfway")),
+            .result(.init(
+                content: [.object(["text": .string("legacy complete"), "type": .string("text")])],
+                isError: false
+            ))
+        ])
     }
 
     // MARK: 401 → refresh → retry once
@@ -376,6 +479,30 @@ final class MCPHTTPProberTests: XCTestCase {
         default:
             return [:]
         }
+    }
+
+    private static func progress(
+        token: Any,
+        completed: Double,
+        total: Double,
+        message: String? = nil
+    ) -> [String: Any] {
+        var params: [String: Any] = [
+            "progressToken": token,
+            "progress": completed,
+            "total": total
+        ]
+        if let message { params["message"] = message }
+        return ["jsonrpc": "2.0", "method": "notifications/progress", "params": params]
+    }
+
+    private static func sseMessage(_ object: [String: Any]) -> String {
+        "event: message\ndata: \(json(object))\n\n"
+    }
+
+    private static func json(_ object: [String: Any]) -> String {
+        let data = (try? JSONSerialization.data(withJSONObject: object)) ?? Data()
+        return String(decoding: data, as: UTF8.self)
     }
 
     private static func method(_ body: Data) -> String? {

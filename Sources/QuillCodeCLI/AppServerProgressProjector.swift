@@ -145,7 +145,8 @@ struct AppServerProgressProjector: Sendable {
             ])
             upsert(item, id: id)
             return [started(item, at: event.createdAt), completed(item, at: event.createdAt)]
-        case .toolRunning, .approvalRequested, .approvalDecided, .reviewComment, .message, .messageFeedback:
+        case .toolRunning, .toolProgress, .approvalRequested, .approvalDecided,
+             .reviewComment, .message, .messageFeedback:
             return []
         }
     }

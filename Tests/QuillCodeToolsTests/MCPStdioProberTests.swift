@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import QuillCodeCore
 @testable import QuillCodeTools
 
 private final class MCPStdioProbeFixture {
@@ -305,6 +306,74 @@ final class MCPStdioProberTests: XCTestCase {
         XCTAssertEqual(metadata["requestID"] as? String, "request-123")
     }
 
+    func testCallToolEventsStreamsMatchingProgressBeforeFinalResult() async throws {
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
+
+        try fixture.write(progressNotification(token: "other", progress: 1, total: 100))
+        try fixture.write(progressNotification(token: "progress-1", progress: 10, total: 100, message: "Indexing"))
+        try fixture.write(progressNotification(token: "progress-1", progress: 10, total: 100, message: "Duplicate"))
+        try fixture.write(progressNotification(token: "progress-1", progress: 75, total: 100, message: "Writing"))
+        try fixture.write([
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": ["content": [["type": "text", "text": "complete"]], "isError": false]
+        ])
+        try fixture.finishWriting()
+
+        var progress: [ToolExecutionProgress] = []
+        var result: MCPToolCallResult?
+        for try await event in fixture.prober.callToolEvents(
+            toolName: "search",
+            arguments: .object(["query": .string("swift")]),
+            metadata: .object([
+                "requestID": .string("request-1"),
+                "progressToken": .string("progress-1")
+            ]),
+            timeout: 1.0
+        ) {
+            switch event {
+            case .progress(let update): progress.append(update)
+            case .result(let final): result = final
+            }
+        }
+
+        XCTAssertEqual(progress, [
+            .init(completed: 10, total: 100, message: "Indexing"),
+            .init(completed: 75, total: 100, message: "Writing")
+        ])
+        XCTAssertEqual(result?.content.first?.objectValue?["text"], .string("complete"))
+        let request = try XCTUnwrap(fixture.readRequests().first)
+        let params = try XCTUnwrap(request["params"] as? [String: Any])
+        let metadata = try XCTUnwrap(params["_meta"] as? [String: Any])
+        XCTAssertEqual(metadata["requestID"] as? String, "request-1")
+        XCTAssertEqual(metadata["progressToken"] as? String, "progress-1")
+    }
+
+    func testCallToolEventsAddsUniqueProgressTokenWhenCallerOmitsOne() async throws {
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
+        try fixture.write([
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": ["content": [], "isError": false]
+        ])
+        try fixture.finishWriting()
+
+        for try await _ in fixture.prober.callToolEvents(
+            toolName: "search",
+            arguments: nil,
+            metadata: .object(["requestID": .string("request-2")]),
+            timeout: 1.0
+        ) {}
+
+        let request = try XCTUnwrap(fixture.readRequests().first)
+        let params = try XCTUnwrap(request["params"] as? [String: Any])
+        let metadata = try XCTUnwrap(params["_meta"] as? [String: Any])
+        XCTAssertEqual(metadata["requestID"] as? String, "request-2")
+        XCTAssertTrue((metadata["progressToken"] as? String)?.hasPrefix("quillcode-") == true)
+    }
+
     func testReadResourceSendsResourcesReadAndParsesTextContent() throws {
         let fixture = MCPStdioProbeFixture()
         defer { fixture.close() }
@@ -396,5 +465,24 @@ final class MCPStdioProberTests: XCTestCase {
             user: Summarize this project.
             """
         )
+    }
+
+    private func progressNotification(
+        token: Any,
+        progress: Double,
+        total: Double,
+        message: String? = nil
+    ) -> [String: Any] {
+        var params: [String: Any] = [
+            "progressToken": token,
+            "progress": progress,
+            "total": total
+        ]
+        if let message { params["message"] = message }
+        return [
+            "jsonrpc": "2.0",
+            "method": "notifications/progress",
+            "params": params
+        ]
     }
 }

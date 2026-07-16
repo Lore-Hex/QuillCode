@@ -1571,3 +1571,24 @@
   engine, desktop integration, rendered AppKit-hosted SwiftUI, source hit-target audit, and Playwright
   tests cover success, invalid input, bounds, cycles, missing files, failure/retry, cancellation, and
   post-registration terminal/Git/review/tool routing.
+
+## 2026-07-15: MCP tool progress is a replayable per-call lifecycle
+
+- **Transport boundary:** Every streaming `tools/call` carries an exact string or integer
+  `_meta.progressToken`. Stdio, Streamable HTTP SSE, and legacy HTTP+SSE accept only matching,
+  finite, nonnegative, strictly increasing `notifications/progress` updates; messages and update
+  counts are bounded before entering agent state.
+- **Agent boundary:** Streaming execution is an optional tool override that emits typed progress or
+  exactly one terminal result. No result, duplicate results, transport errors, and cancellation fail
+  closed through the ordinary tool lifecycle. Consecutive progress snapshots coalesce in the durable
+  transcript while each accepted snapshot still publishes to live UI observers.
+- **Presentation boundary:** One exact tool-call ID updates one active card. SwiftUI, static HTML,
+  thinking/activity state, and CLI JSONL derive from the same event; completion, failure, and stop
+  clear progress immediately. Determinate values use stable tabular percentages, while unknown totals
+  remain honestly indeterminate.
+- **Compatibility:** Existing synchronous MCP sessions keep their default adapter and do not invent
+  progress. App-server startup progress and server-initiated elicitation remain separate wire-contract
+  milestones rather than private notification names.
+- **Evidence:** Focused Core, Agent, App, stdio, and HTTP tests cover validation, ordering, mapping,
+  replay, cancellation, and terminal publication. Playwright drives the composer through a live
+  progress card and its completed state, plus an accessible indeterminate fixture.

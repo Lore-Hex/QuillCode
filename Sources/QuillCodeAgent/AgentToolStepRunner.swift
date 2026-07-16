@@ -261,6 +261,13 @@ extension AgentRunner {
             executedResult = execution.result
         } else if let searchResult = await webSearchResult(for: call) {
             executedResult = searchResult
+        } else if let stream = streamingToolExecutionOverride?(call, workspaceRoot) {
+            executedResult = try await consumeStreamingToolExecution(
+                stream,
+                call: call,
+                thread: &thread,
+                onProgress: onProgress
+            )
         } else if let overrideResult = await toolExecutionOverride?(call, workspaceRoot) {
             executedResult = overrideResult
         } else {
@@ -274,9 +281,66 @@ extension AgentRunner {
             workspaceRoot: workspaceRoot,
             onProgress: onProgress
         )
-        await appendResultEvent(for: call, result: result, to: &thread, onProgress: onProgress)
+        // Publish the terminal lifecycle event immediately. A long-running tool may have emitted
+        // many progress snapshots; waiting for the next model token would leave its card looking
+        // active even though execution has already finished.
+        await appendResultEvent(
+            for: call,
+            result: result,
+            publishProgress: true,
+            to: &thread,
+            onProgress: onProgress
+        )
         return result
     }
+
+    private func consumeStreamingToolExecution(
+        _ stream: AsyncThrowingStream<AgentStreamingToolExecutionEvent, Error>,
+        call: ToolCall,
+        thread: inout ChatThread,
+        onProgress: AgentRunProgressHandler?
+    ) async throws -> ToolResult {
+        var result: ToolResult?
+        var progressUpdateCount = 0
+
+        do {
+            for try await event in stream {
+                try Task.checkCancellation()
+                switch event {
+                case .progress(let progress):
+                    guard result == nil, progressUpdateCount < Self.maximumProgressUpdatesPerTool else {
+                        continue
+                    }
+                    progressUpdateCount += 1
+                    await recordToolProgress(
+                        progress,
+                        for: call,
+                        in: &thread,
+                        onProgress: onProgress
+                    )
+                case .result(let streamedResult):
+                    guard result == nil else {
+                        return ToolResult(
+                            ok: false,
+                            error: "The streaming tool returned more than one final result."
+                        )
+                    }
+                    result = streamedResult
+                }
+            }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return ToolResult(ok: false, error: error.localizedDescription)
+        }
+
+        return result ?? ToolResult(
+            ok: false,
+            error: "The streaming tool finished without a final result."
+        )
+    }
+
+    private static let maximumProgressUpdatesPerTool = 256
 
     private func toolRouter(workspaceRoot: URL, threadID: UUID) -> ToolRouter {
         ToolRouter(

@@ -24,6 +24,8 @@ enum WorkspaceActivityEventSurfaceBuilder {
             return "Tool queued"
         case .toolRunning:
             return "Tool running"
+        case .toolProgress:
+            return "Tool progress"
         case .toolCompleted:
             return "Tool completed"
         case .toolFailed:
@@ -45,7 +47,7 @@ enum WorkspaceActivityEventSurfaceBuilder {
         switch kind {
         case .toolQueued:
             return ActivityStatusLabel.queued
-        case .toolRunning:
+        case .toolRunning, .toolProgress:
             return ActivityStatusLabel.running
         case .toolCompleted:
             return ActivityStatusLabel.done

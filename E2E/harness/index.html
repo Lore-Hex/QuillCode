@@ -3309,6 +3309,48 @@
     }
     .tool-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
     .tool-card header [data-testid="tool-card-status"] { flex: none; }
+    .tool-progress {
+      width: 100%;
+      height: 4px;
+      margin-top: 9px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255,255,255,.09);
+      box-shadow: inset 0 1px 1px rgba(0,0,0,.16);
+    }
+    .tool-progress > span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--blue);
+      box-shadow: 0 0 10px rgba(61,201,230,.26);
+      transition-property: width;
+      transition-duration: 180ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .tool-progress.indeterminate > span {
+      width: 34%;
+      animation: tool-progress-indeterminate 1.2s var(--ease-out) infinite;
+    }
+    .tool-progress-meta {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 16px;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .tool-progress-meta strong {
+      color: var(--blue);
+      font-variant-numeric: tabular-nums;
+    }
+    @keyframes tool-progress-indeterminate {
+      from { transform: translateX(-115%); }
+      to { transform: translateX(340%); }
+    }
     .tool-card-actions {
       display: flex;
       flex-wrap: wrap;
@@ -4853,6 +4895,10 @@
       }
       .workflow-recording-indicator {
         animation: none !important;
+      }
+      .tool-progress.indeterminate > span {
+        animation: none !important;
+        transform: none;
       }
       button,
       summary,
@@ -7719,12 +7765,43 @@
       return collapsed.length > 72 ? `${collapsed.slice(0, 72)}...` : collapsed;
     }
 
+    function toolProgressFraction(progress) {
+      const completed = Number(progress?.completed);
+      const total = Number(progress?.total);
+      if (!Number.isFinite(completed) || !Number.isFinite(total) || total <= 0) return null;
+      return Math.max(0, Math.min(1, completed / total));
+    }
+
+    function toolProgressPercentLabel(progress) {
+      const fraction = toolProgressFraction(progress);
+      return fraction === null ? '' : `${Math.round(fraction * 100)}%`;
+    }
+
     function updateToolCardLifecycle(card, status, subtitle) {
       card.status = status;
       card.subtitle = toolCardSubtitle(subtitle, card.title, card.inputJSON);
       card.reviewState = toolCardReviewState(status, card.actions || [], card.subtitle);
       card.density = toolCardDensity(status, card.isExpanded);
       card.isExpanded = card.density === 'expanded';
+      if (status !== 'running') card.progress = null;
+    }
+
+    function updateToolCardProgress(card, progress) {
+      if (!card || !progress) return false;
+      const completed = Number(progress.completed);
+      const rawTotal = progress.total;
+      const total = rawTotal === null || rawTotal === undefined ? null : Number(rawTotal);
+      card.status = 'running';
+      card.progress = {
+        completed: Number.isFinite(completed) ? completed : 0,
+        total: Number.isFinite(total) ? total : null,
+        message: String(progress.message || '').trim() || null
+      };
+      card.subtitle = card.progress.message || toolProgressPercentLabel(card.progress) || 'Running';
+      card.reviewState = 'none';
+      card.density = 'peek';
+      card.isExpanded = false;
+      return true;
     }
 
     function runToolCardAction(kind, requestID, timelineID) {
@@ -9917,6 +9994,27 @@
       };
       const hasInputOnlyPayload = card => Boolean(card.inputJSON && !card.outputJSON);
       const toolCardCopyLabel = card => card.outputJSON ? 'Copy output' : card.inputJSON ? 'Copy input' : 'Copy';
+      const renderToolProgress = card => {
+        if (card.status !== 'running' || !card.progress) return '';
+        const fraction = toolProgressFraction(card.progress);
+        const percent = toolProgressPercentLabel(card.progress);
+        const message = String(card.progress.message || '').trim();
+        const secondaryMessage = message && message !== card.subtitle ? message : '';
+        const isIndeterminate = fraction === null;
+        const valueAttributes = isIndeterminate
+          ? ''
+          : ` aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(fraction * 100)}"`;
+        const label = message || percent || 'Tool in progress';
+        const meta = secondaryMessage || percent ? `
+          <div class="tool-progress-meta" data-testid="tool-card-progress-meta">
+            <span>${escapeHTML(secondaryMessage)}</span>
+            ${percent ? `<strong data-testid="tool-card-progress-percent">${escapeHTML(percent)}</strong>` : ''}
+          </div>` : '';
+        return `
+          <div class="tool-progress${isIndeterminate ? ' indeterminate' : ''}" data-testid="tool-card-progress" role="progressbar" aria-label="${escapeHTML(label)}"${valueAttributes}>
+            <span style="width: ${isIndeterminate ? '34%' : `${Math.round(fraction * 100)}%`}"></span>
+          </div>${meta}`;
+      };
       const renderToolDetails = (card, copyID = '') => card.inputJSON || card.outputJSON ? `
           <details class="tool-details" data-testid="tool-card-details" ${card.density === 'expanded' ? 'open' : ''}>
             <summary class="hit-target-row">${detailsLabel(card)}</summary>
@@ -9945,6 +10043,7 @@
             <span data-testid="tool-card-status">${escapeHTML(statusDisplayLabel)}</span>
           </header>
           <p data-testid="tool-card-subtitle">${escapeHTML(card.subtitle)}</p>
+          ${renderToolProgress(card)}
           ${renderToolActions(card)}
           ${hasInputOnlyPayload(card) ? '' : copyButton('tool-card-copy', copyID, toolCardCopyLabel(card))}
           ${renderArtifacts(card.artifacts)}
@@ -20765,6 +20864,39 @@
         addMessage('assistant', 'Queued a background turn on another chat.');
       } else if (isOnlyNegatedActionRequest(text)) {
         addMessage('assistant', "Okay, I won't take that action.");
+      } else if (text.toLowerCase().includes('stream mcp progress')) {
+        const card = addToolCard({
+          title: 'host.mcp.call',
+          subtitle: 'Running',
+          status: 'running',
+          inputJSON: JSON.stringify({
+            serverID: 'docs',
+            toolName: 'index',
+            arguments: { path: 'docs' }
+          }, null, 2),
+          outputJSON: null
+        });
+        updateToolCardProgress(card, {
+          completed: 42,
+          total: 100,
+          message: 'Indexing documentation'
+        });
+        const runID = crypto.randomUUID();
+        const configuredDelay = Number(window.__quillCodeMCPProgressDelayMS);
+        const delay = Number.isFinite(configuredDelay) && configuredDelay >= 250
+          ? configuredDelay
+          : 1200;
+        const timer = window.setTimeout(() => {
+          if (!activeMockRun || activeMockRun.id !== runID) return;
+          updateToolCardLifecycle(card, 'done', 'Completed');
+          card.outputJSON = JSON.stringify({ ok: true, stdout: 'Indexed 12 documents.' }, null, 2);
+          card.artifacts = artifactsFromOutput(card.outputJSON);
+          activeMockRun = null;
+          addMessage('assistant', 'Indexed 12 documents through the docs MCP server.');
+          finishMockAgentTurn();
+        }, delay);
+        activeMockRun = { id: runID, timer, kind: 'mcp-progress' };
+        shouldFinishMockAgentTurn = false;
       } else if (text.toLowerCase().includes('stuck task') || text.toLowerCase().includes('slow task')) {
         const card = addToolCard({
           title: 'host.shell.run',

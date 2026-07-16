@@ -104,7 +104,7 @@ public enum RunIntegrityScanner {
             switch event.kind {
             case .toolQueued:
                 pendingCall = decodeCall(event.payloadJSON)
-            case .toolRunning:
+            case .toolRunning, .toolProgress:
                 // No payload of interest; keep the pending call as-is.
                 continue
             case .toolCompleted, .toolFailed:
@@ -194,7 +194,7 @@ public enum RunIntegrityScanner {
                 let command = isCommandTool(call.name) ? shellCommand(from: call) : ""
                 let isTest = isCommandTool(call.name) && TestCommandLexicon.classify(command) != nil
                 pending.append((command, isTest))
-            case .toolRunning:
+            case .toolRunning, .toolProgress:
                 continue
             case .toolCompleted, .toolFailed:
                 scanned += 1

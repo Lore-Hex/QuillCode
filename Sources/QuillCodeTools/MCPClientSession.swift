@@ -12,12 +12,43 @@ public protocol MCPClientSession: Sendable {
         metadata: MCPJSONValue?,
         timeout: TimeInterval
     ) throws -> MCPToolCallResult
+    func callToolEvents(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval
+    ) -> AsyncThrowingStream<MCPClientToolEvent, Error>
     func readResource(uri: String, timeout: TimeInterval) throws -> ToolResult
     func readResourceResult(uri: String, timeout: TimeInterval) throws -> MCPResourceReadResult
     func getPrompt(name: String, argumentsJSON: String, timeout: TimeInterval) throws -> ToolResult
 }
 
 public extension MCPClientSession {
+    func callToolEvents(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval
+    ) -> AsyncThrowingStream<MCPClientToolEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let result = try callToolResult(
+                        toolName: toolName,
+                        arguments: arguments,
+                        metadata: metadata,
+                        timeout: timeout
+                    )
+                    continuation.yield(.result(result))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     func probe(detail: MCPProbeDetail, timeout: TimeInterval) throws -> MCPServerProbeResult {
         try probe(timeout: timeout)
     }
