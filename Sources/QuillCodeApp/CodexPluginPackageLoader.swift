@@ -16,7 +16,6 @@ enum CodexPluginPackageLoader {
     static let maxCollectionEntries = 64
     static let maxComponentsPerPackage = 48
     static let maxHooksPerPackage = 48
-    static let defaultHooksRelativePath = "hooks/hooks.json"
 
     static func load(
         from projectRoot: URL,
@@ -130,42 +129,13 @@ enum CodexPluginPackageLoader {
         return CodexPluginPackage(
             plugin: plugin,
             components: Array(components.prefix(maxComponentsPerPackage)),
-            hooks: hookDefinitions(
-                payload: payload,
-                pluginID: pluginID,
+            hooks: CodexPluginHookConfigurationLoader.loadPackage(
+                at: root,
+                scopeRoot: projectRoot,
+                pluginIdentifier: pluginID,
                 pluginName: displayName,
-                packageRoot: root,
-                projectRoot: projectRoot,
-                maxManifestBytes: maxManifestBytes
-            )
-        )
-    }
-
-    private static func hookDefinitions(
-        payload: CodexPluginPayload,
-        pluginID: String,
-        pluginName: String,
-        packageRoot: URL,
-        projectRoot: URL,
-        maxManifestBytes: Int
-    ) -> [ProjectPluginHook] {
-        let reference = payload.hooks ?? defaultHooksRelativePath
-        guard let configURL = resolveFile(reference, inside: packageRoot, maxBytes: maxManifestBytes),
-              let data = try? Data(contentsOf: configURL)
-        else { return [] }
-
-        let configPath = relativePath(of: configURL, inside: projectRoot)
-        let packageRootRelativePath = relativePath(of: packageRoot, inside: projectRoot)
-        return CodexHookDefinitionLoader.definitions(
-            fromJSON: data,
-            source: CodexHookDefinitionSource(
-                idPrefix: "plugin_hook:\(pluginID)",
-                ownerID: "plugin:\(pluginID)",
-                ownerName: pluginName,
-                relativePath: configPath,
-                pluginRootRelativePath: packageRootRelativePath
-            ),
-            limit: maxHooksPerPackage
+                maximumHooks: maxHooksPerPackage
+            ).definitions.map(\.hook)
         )
     }
 
@@ -392,7 +362,6 @@ private struct CodexPluginPayload: Decodable {
     var repository: String?
     var skills: String?
     var mcpServers: String?
-    var hooks: String?
     var interface: CodexPluginInterfacePayload?
 }
 

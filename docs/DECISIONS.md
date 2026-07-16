@@ -1793,3 +1793,23 @@
   recovery, active-listener protection, and control-directory safety. The built-process smoke keeps two
   clients live, proves connection-local initialization, force-kills the server, and recovers on the
   stale path.
+
+## 2026-07-16: App-server hook listing projects state without gaining execution authority
+
+- **Protocol boundary:** `hooks/list` accepts only bounded absolute CWDs, defaults an empty request to
+  the session CWD, and returns one independent result per input. Missing directories and malformed
+  project documents become per-CWD errors instead of failing unrelated entries.
+- **Repository boundary:** A normal checkout reads its own project hook documents. A linked worktree
+  resolves `.git` and `commondir` through bounded, non-symlinked marker files and reads project config
+  from the primary checkout, matching Codex without launching Git or repository-controlled code.
+- **State boundary:** `hooks.state` is authoritative for enabled and trusted-hash projection. The
+  existing exact-definition trust store remains a compatibility fallback until all desktop writes use
+  the shared state table. Managed hooks remain enabled and trusted regardless of mutable user state.
+- **Plugin boundary:** Codex and Claude plugin manifests, path/path-array references, inline hook
+  objects, and the default `hooks/hooks.json` path use one bounded parser shared with desktop package
+  loading. Escaped, symlinked, oversized, malformed, and unsupported definitions are isolated and
+  never executed during discovery.
+- **Evidence:** Catalog, plugin, worktree, and actor tests cover exact wire fields, project feature
+  overrides, batch-written enabled/trust transitions, malformed independent layers, and a command
+  sentinel. The built JSONL smoke repeats the sentinel assertion, and a parity gate binds runtime,
+  tests, smoke, research, and matrix status.

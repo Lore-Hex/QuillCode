@@ -100,6 +100,51 @@ final class CodexPluginHookIntegrationTests: XCTestCase {
         )?.hooks.isEmpty == true)
     }
 
+    func testPathArrayAndInlineHookReferencesUseSharedLoader() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let manifest = root.appendingPathComponent(
+            ".quillcode/plugins/demo/.codex-plugin/plugin.json"
+        )
+        try FileManager.default.createDirectory(
+            at: manifest.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try #"{"name":"demo","hooks":["config/stop.json","config/start.json"]}"#.write(
+            to: manifest,
+            atomically: true,
+            encoding: .utf8
+        )
+        try writeHooks(
+            #"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"printf stop"}]}]}}"#,
+            in: root,
+            relativePath: "config/stop.json"
+        )
+        try writeHooks(
+            #"{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"printf start"}]}]}}"#,
+            in: root,
+            relativePath: "config/start.json"
+        )
+
+        let pathBacked = try XCTUnwrap(CodexPluginPackageLoader.loadPackage(
+            at: ".quillcode/plugins/demo",
+            in: root,
+            maxManifestBytes: ProjectExtensionManifestLoader.maxManifestBytes
+        ))
+        XCTAssertEqual(pathBacked.hooks.map(\.event), ["Stop", "SessionStart"])
+
+        try #"{"name":"demo","hooks":{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"printf inline"}]}]}}}"#.write(
+            to: manifest,
+            atomically: true,
+            encoding: .utf8
+        )
+        let inline = try XCTUnwrap(CodexPluginPackageLoader.loadPackage(
+            at: ".quillcode/plugins/demo",
+            in: root,
+            maxManifestBytes: ProjectExtensionManifestLoader.maxManifestBytes
+        ))
+        XCTAssertEqual(inline.hooks.map(\.command), ["printf inline"])
+    }
+
     func testPackageMoveChangesExactHookDefinitionHash() throws {
         let root = try makeQuillCodeTestDirectory()
         try writePlugin(in: root)
