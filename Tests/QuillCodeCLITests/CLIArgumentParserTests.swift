@@ -123,7 +123,9 @@ final class CLIArgumentParserTests: XCTestCase {
 
     func testAppServerRejectsUnsupportedTransportAndUnknownOptions() {
         for transport in [
-            "ws://127.0.0.1:4500",
+            "ws://localhost:4500",
+            "ws://127.0.0.1",
+            "ws://127.0.0.1:4500/path",
             "unix://relative.sock",
             "unix:///tmp/socket?query",
             "unix:///tmp/socket#fragment"
@@ -135,6 +137,77 @@ final class CLIArgumentParserTests: XCTestCase {
         XCTAssertThrowsError(try parser.parse([
             "app-server", "--unknown"
         ], currentDirectory: cwd))
+    }
+
+    func testAppServerParsesWebSocketAndOffTransports() throws {
+        let ipv4 = try appServerRequest(parser.parse([
+            "app-server", "--listen", "ws://127.0.0.1:4500", "--mock"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(ipv4.transport, .webSocket(host: "127.0.0.1", port: 4_500))
+        XCTAssertEqual(ipv4.transport.rawValue, "ws://127.0.0.1:4500")
+
+        let ipv6 = try appServerRequest(parser.parse([
+            "app-server", "--listen=ws://[::1]:0"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(ipv6.transport, .webSocket(host: "::1", port: 0))
+        XCTAssertEqual(ipv6.transport.rawValue, "ws://[::1]:0")
+
+        let off = try appServerRequest(parser.parse([
+            "app-server", "--listen", "off"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(off.transport, .off)
+    }
+
+    func testAppServerParsesAndValidatesWebSocketAuth() throws {
+        let capability = try appServerRequest(parser.parse([
+            "app-server",
+            "--listen", "ws://0.0.0.0:4500",
+            "--ws-auth", "capability-token",
+            "--ws-token-file", "/tmp/quillcode-token"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(capability.webSocketAuth.mode, .capabilityToken)
+        XCTAssertEqual(capability.webSocketAuth.tokenFile, "/tmp/quillcode-token")
+
+        let signed = try appServerRequest(parser.parse([
+            "app-server",
+            "--listen=ws://[::]:4500",
+            "--ws-auth=signed-bearer-token",
+            "--ws-shared-secret-file=/tmp/quillcode-secret",
+            "--ws-issuer", "issuer",
+            "--ws-audience", "client",
+            "--ws-max-clock-skew-seconds", "12"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(signed.webSocketAuth.mode, .signedBearerToken)
+        XCTAssertEqual(signed.webSocketAuth.sharedSecretFile, "/tmp/quillcode-secret")
+        XCTAssertEqual(signed.webSocketAuth.issuer, "issuer")
+        XCTAssertEqual(signed.webSocketAuth.audience, "client")
+        XCTAssertEqual(signed.webSocketAuth.maxClockSkewSeconds, 12)
+    }
+
+    func testAppServerRejectsInvalidWebSocketAuthCombinations() {
+        let invalidArguments = [
+            ["app-server", "--ws-auth", "capability-token", "--ws-token-file", "/tmp/token"],
+            ["app-server", "--listen", "ws://127.0.0.1:1", "--ws-token-file", "/tmp/token"],
+            ["app-server", "--listen", "ws://127.0.0.1:1", "--ws-auth", "capability-token"],
+            [
+                "app-server", "--listen", "ws://127.0.0.1:1",
+                "--ws-auth", "capability-token",
+                "--ws-token-file", "/tmp/token",
+                "--ws-token-sha256", String(repeating: "a", count: 64)
+            ],
+            [
+                "app-server", "--listen", "ws://127.0.0.1:1",
+                "--ws-auth", "signed-bearer-token"
+            ],
+            [
+                "app-server", "--listen", "ws://127.0.0.1:1",
+                "--ws-auth", "capability-token",
+                "--ws-token-sha256", "bad"
+            ]
+        ]
+        for arguments in invalidArguments {
+            XCTAssertThrowsError(try parser.parse(arguments, currentDirectory: cwd), "\(arguments)")
+        }
     }
 
     func testAppServerParsesDefaultAndExplicitUnixSockets() throws {

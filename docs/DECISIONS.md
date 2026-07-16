@@ -1776,8 +1776,8 @@
 ## 2026-07-16: Unix app-server transport shares protocol behavior without sharing sessions
 
 - **Transport boundary:** `stdio://`, `unix://`, and `unix:///absolute/path` feed one
-  transport-neutral connection driver and the same bounded incremental JSONL framer. WebSocket is not
-  claimed until it has an equally explicit lifecycle and process smoke.
+  transport-neutral session driver. Unix clients now complete the same standard HTTP WebSocket
+  upgrade and text-frame protocol as TCP clients; only stdio remains newline-delimited JSON.
 - **Isolation boundary:** Every accepted Unix client creates an independent `AppServerSession`, so
   initialization, loaded threads, process handles, subscriptions, approval requests, and disconnect
   cleanup cannot leak between clients. Concurrent direct MCP calls remain connection-owned.
@@ -1813,3 +1813,25 @@
   overrides, batch-written enabled/trust transitions, malformed independent layers, and a command
   sentinel. The built JSONL smoke repeats the sentinel assertion, and a parity gate binds runtime,
   tests, smoke, research, and matrix status.
+
+## 2026-07-16: TCP and Unix app-server clients share one bounded WebSocket protocol
+
+- **Wire boundary:** Every non-stdio client uses RFC 6455 text frames with client masking,
+  fragmentation, ping/pong/close control handling, UTF-8 validation, and a shared message cap. Binary
+  messages are consumed and ignored, matching Codex. Unix sockets do not retain a private JSONL
+  dialect.
+- **Backpressure boundary:** Ingress and egress queues are bounded. A dropped request receives exact
+  JSON-RPC error `-32001` (`Server overloaded; retry later.`); a client that cannot consume bounded
+  outbound work is disconnected. Concurrent request and accepted-connection pools have explicit caps.
+- **HTTP boundary:** TCP exposes `GET /readyz` and `GET /healthz`. Any request carrying `Origin` is
+  rejected before routing. Loopback may run without credentials; non-loopback refuses to start without
+  configured authentication.
+- **Authentication boundary:** Capability tokens are compared through constant-time SHA-256 digests.
+  Signed bearer tokens require HS256, a secret of at least 32 bytes, `exp`, optional `nbf`, and optional
+  exact issuer/audience checks with bounded clock skew. Authorization completes before the WebSocket
+  upgrade and before app-server initialization.
+- **Platform boundary:** Portable TCP/Unix descriptor operations remain in `CQuillPlatform`; HTTP,
+  WebSocket, authentication, and session policy remain testable Swift with no app-level platform
+  conditionals.
+- **Evidence:** Focused parser, socket, framing, fragmentation, malformed-frame, capability-token, and
+  signed-token tests run beside executable TCP health/auth and multi-client Unix crash/recovery smokes.

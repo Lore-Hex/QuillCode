@@ -97,12 +97,19 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   turn views, explicit unsupported per-item paging, persisted
   post-rollback thread reads, zero-count rejection, persistence, clean EOF, and zero exit. This
   specifically guards against pipe readers that accidentally buffer until the client disconnects.
-- Real Unix app-server process smoke: create a `0600` socket at a short explicit path, keep two
-  clients connected concurrently, prove initialization state is connection-local, exercise split
-  JSONL writes and model discovery, force-kill the server, and restart on the stale socket without
+- Real Unix app-server process smoke: create a `0600` socket at a short explicit path, complete a
+  standard HTTP WebSocket upgrade, keep at least eight clients connected concurrently, prove
+  initialization state is connection-local, exercise split masked frames and model discovery,
+  force-kill the server, and restart on the stale socket without
   deleting it externally. Focused tests also cover the default `0700` control directory, active
   listener preservation, regular-file and symlink refusal, path bounds, cancellation, and exact
   device/inode cleanup.
+- Real TCP WebSocket app-server process smoke: verify `/readyz` and `/healthz`, global Origin
+  rejection, unauthenticated loopback initialization/model discovery, capability-token rejection and
+  acceptance before JSON-RPC initialization, and refusal to start an unauthenticated non-loopback
+  listener. Focused tests cover RFC 6455 accept calculation, masking, fragmentation, control frames,
+  binary dropping, message bounds, exact overload errors, signed HS256 bearer claims, and IPv4/IPv6
+  socket behavior.
 - The app-server process smoke must also execute `thread/shellCommand` through the built binary and
   prove response-before-lifecycle ordering, configured login-shell display, source/cwd/action metadata,
   streamed and aggregated output, exit status, an empty durable history turn, and absence of historical

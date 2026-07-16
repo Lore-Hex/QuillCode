@@ -9,9 +9,20 @@
 /// actual host-order port to `outBoundPort`; returns -1 on failure.
 int cquill_loopback_open(unsigned short requestedPort, unsigned short *outBoundPort);
 
+/// Opens a TCP listener on a numeric IPv4 or IPv6 address. Port zero requests an ephemeral port.
+/// Returns the listener descriptor, or -1 on failure.
+int cquill_tcp_open(
+    const char *numericHost,
+    unsigned short requestedPort,
+    unsigned short *outBoundPort
+);
+
 /// Opens a TCP client connected to the IPv4 loopback listener on `port`. Returns the descriptor on
 /// success or -1 on failure. Intended for platform-level integration tests and local adapters.
 int cquill_loopback_connect(unsigned short port);
+
+/// Connects to a numeric IPv4 or IPv6 address. Returns the connected descriptor, or -1.
+int cquill_tcp_connect(const char *numericHost, unsigned short port);
 
 /// Opens a private Unix-domain socket listener at an absolute filesystem path. A stale socket owned
 /// by the current user is removed only after proving that no listener accepts connections. Existing

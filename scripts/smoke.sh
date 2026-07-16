@@ -320,6 +320,7 @@ APP_SERVER_STATUS="running"
 FINAL_DETAIL="app-server protocol smoke failed"
 "$ROOT_DIR/scripts/app-server-smoke.sh"
 QUILLCODE_SKIP_BUILD=1 "$ROOT_DIR/scripts/app-server-unix-smoke.sh"
+QUILLCODE_SKIP_BUILD=1 "$ROOT_DIR/scripts/app-server-websocket-smoke.sh"
 APP_SERVER_STATUS="passed"
 
 echo "==> Running Codex-compatible MCP server protocol smoke"

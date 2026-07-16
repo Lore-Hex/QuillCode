@@ -190,6 +190,15 @@ public struct QuillCodeCommandRunner: Sendable {
                     currentDirectory: currentDirectory,
                     diagnostics: output
                 )
+            case .webSocket:
+                try await AppServerWebSocketTransport(runnerFactory: runnerFactory).run(
+                    request: request,
+                    environment: environment,
+                    currentDirectory: currentDirectory,
+                    diagnostics: output
+                )
+            case .off:
+                return 0
             }
             return 0
         } catch is CancellationError {
@@ -400,7 +409,7 @@ public struct QuillCodeCommandRunner: Sendable {
       quill-code exec [OPTIONS] PROMPT
       quill-code exec resume (--last | THREAD_ID) [OPTIONS] PROMPT
       quill-code review (--uncommitted | --base BRANCH | --commit SHA | PROMPT) [OPTIONS]
-      quill-code app-server [--listen stdio://|unix://|unix:///absolute/path] [--mock | --live]
+      quill-code app-server [--listen stdio://|unix://|unix:///absolute/path|ws://IP:PORT|off] [--mock | --live]
       quill-code mcp-server [--mock | --live]
       quill-code [--home PATH] doctor [--json | --summary] [--all] [--no-color] [--ascii]
       quill-code [LEGACY OPTIONS] PROMPT
@@ -431,9 +440,12 @@ public struct QuillCodeCommandRunner: Sendable {
       piped stdin is appended as explicitly delimited, untrusted context.
 
     App server:
-      Uses newline-delimited JSON over stdio or a private Unix-domain socket. Clients must send
-      `initialize`, then the `initialized` notification, before thread and turn requests. `--mock`
-      selects the deterministic local model for protocol tests; TrustedRouter is the default.
+      Uses newline-delimited JSON over stdio and standard WebSocket text frames over TCP or a private
+      Unix-domain socket. Clients must send `initialize`, then the `initialized` notification.
+      Non-loopback TCP requires `--ws-auth capability-token` with `--ws-token-file` or
+      `--ws-token-sha256`, or `--ws-auth signed-bearer-token` with `--ws-shared-secret-file` and
+      optional `--ws-issuer`, `--ws-audience`, and `--ws-max-clock-skew-seconds`. `--mock` selects the
+      deterministic local model for protocol tests; TrustedRouter is the default.
 
     MCP server:
       Exposes the Codex-compatible `codex` and `codex-reply` tools over JSON-RPC 2.0

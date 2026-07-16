@@ -196,6 +196,15 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   0.142.5 schemas, the official app-server README, and public `openai/codex`
   `app-server-protocol`, MCP connection manager, elicitation processor, and integration tests,
   audited 2026-07-16.
+- Current Codex app-server transport behavior uses JSONL only for stdio. `ws://IP:PORT` sends one
+  JSON-RPC message per WebSocket text frame, while `unix://` performs the same HTTP Upgrade over the
+  Unix socket before entering the shared WebSocket connection loop. TCP exposes `/readyz` and
+  `/healthz`, rejects any request with `Origin`, drops binary frames, answers ping with pong, and uses
+  bounded queues with exact `-32001` request-overload errors. Unauthenticated non-loopback listeners
+  are refused. Capability-token auth accepts a token file or SHA-256 digest; signed bearer auth uses
+  HS256 plus required expiry and optional not-before/issuer/audience checks. Sources: current Codex
+  manual app-server transport section and public `openai/codex` `app-server-transport` transport,
+  websocket, Unix-socket, and auth implementations, audited 2026-07-16.
 
 ## Product Translation
 
