@@ -33,6 +33,7 @@ extension AppServerSession {
             input.attachments.forEach { try? attachmentStore.remove($0) }
             throw error
         }
+        loadedThreadIDs.insert(threadID)
 
         let userItem = AppServerThreadProjection.userMessageItem(
             userMessage,

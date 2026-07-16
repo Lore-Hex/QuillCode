@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-07-16: Thread discovery and history use durable content and stable anchors
+
+- **Discovery contract:** `thread/search` searches bounded persisted user and assistant transcript
+  content rather than titles, returns a contextual snippet, and honors archive, source, sort, and
+  pagination fields. `thread/loaded/list` is deliberately connection-scoped: persisted tasks are not
+  called loaded until this client starts, resumes, forks, or runs work on them.
+- **History contract:** `thread/turns/list` rebuilds durable turns from stable user-turn identities and
+  supports Codex's `summary`, `full`, and `notLoaded` item views. Summary keeps the first user and final
+  assistant item; full history reuses the live app-server projector for reasoning and tool cards.
+- **Ordering contract:** Persisted event timestamps are only second-resolution, so they cannot define
+  same-second tool ordering. Reconstruction preserves append order and aligns message events with
+  persisted user/assistant messages. New pages use opaque anchor cursors with an explicit
+  `includeAnchor` bit, avoiding duplicate or skipped entries when navigating in either direction.
+- **Compatibility boundary:** Codex 0.142.5 advertises `thread/turns/items/list` in generated schemas
+  but returns method-not-supported at runtime. QuillCode returns the same explicit error instead of
+  inventing behavior a client cannot rely on.
+- **Evidence:** Focused actor tests cover search semantics, connection isolation, forward/backward
+  cursors, all item views, validation, multi-turn same-second tool history, and reconnect recovery. The
+  real JSONL smoke exercises discovery and paging against the packaged executable.
+
 ## 2026-07-15: App-server review reuses one capability-limited engine
 
 - **Wire contract:** `review/start` decodes Codex's uncommitted, base-branch, commit, and custom

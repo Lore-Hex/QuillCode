@@ -84,6 +84,7 @@ actor AppServerSession {
     var activeCompactions: [UUID: ActiveCompaction] = [:]
     var activeReviews: [UUID: ActiveReview] = [:]
     var activeRollbacks: Set<UUID> = []
+    var loadedThreadIDs: Set<UUID> = []
     var processSessions: [String: AppServerProcessSession] = [:]
     var processEventTasks: [String: Task<Void, Never>] = [:]
     var activeFuzzyFileSearches: [UUID: AppServerActiveFuzzyFileSearch] = [:]
@@ -301,7 +302,12 @@ actor AppServerSession {
                 result = outcome.result
                 mcpStartupThreadToLaunch = outcome.threadID
             case "thread/list": result = try await listThreads(params)
+            case "thread/search": result = try await searchThreads(params)
+            case "thread/loaded/list": result = try listLoadedThreads(params)
             case "thread/read": result = try await readThread(params)
+            case "thread/turns/list": result = try await listThreadTurns(params)
+            case "thread/turns/items/list":
+                throw AppServerRPCError.methodNotSupported(method)
             case "thread/archive": result = try await setThreadArchived(params, archived: true)
             case "thread/unarchive": result = try await setThreadArchived(params, archived: false)
             case "thread/delete": result = try await deleteThread(params)
