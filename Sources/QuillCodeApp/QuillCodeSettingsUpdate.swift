@@ -63,4 +63,12 @@ public struct WorkspaceSettingsUpdate: Sendable, Hashable {
         self.reviewDelivery = reviewDelivery
         self.defaultPersonality = defaultPersonality
     }
+
+    public func changesTrustedRouterAccountIdentity(comparedTo config: AppConfig) -> Bool {
+        apiBaseURL != config.apiBaseURL
+            || authMode != config.authMode
+            || developerOverrideEnabled != config.developerOverrideEnabled
+            || replacementAPIKey != nil
+            || shouldClearAPIKey
+    }
 }

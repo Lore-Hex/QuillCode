@@ -290,6 +290,16 @@ public extension WorkspaceCommandSurface {
         category: WorkspaceCommandPalette.computerUseCategory,
         keywords: ["computer use", "permissions", "refresh", "status"]
     )
+
+    static func trustedRouterCreditsRefresh(isEnabled: Bool) -> WorkspaceCommandSurface {
+        WorkspaceCommandSurface(
+            id: "trustedrouter-credits-refresh",
+            title: "Refresh TrustedRouter balance",
+            category: WorkspaceCommandPalette.workspaceCategory,
+            keywords: ["trustedrouter", "account", "balance", "credits", "refresh"],
+            isEnabled: isEnabled
+        )
+    }
 }
 
 public struct WorkspaceCommandGroupSurface: Sendable, Hashable, Identifiable {

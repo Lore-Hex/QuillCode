@@ -16,6 +16,7 @@ enum WorkspaceHTMLTopBarRenderer {
             \(renderLiveWork(topBar))
             \(renderWorktreeStatus(topBar))
             \(renderTokenBudget(topBar))
+            \(renderAccountBalance(topBar))
             \(renderSpendStatus(topBar))
             \(renderUsageStatus(topBar))
           </div>
@@ -112,6 +113,11 @@ enum WorkspaceHTMLTopBarRenderer {
     }
 
     private static let tokenBudgetMetadataSeparator = [" ", "·", " "].joined()
+
+    private static func renderAccountBalance(_ topBar: TopBarSurface) -> String {
+        guard let balance = topBar.accountBalance else { return "" }
+        return #"<span class="topbar-account-balance-chip" data-testid="top-bar-account-balance" data-tone="\#(escape(balance.tone.rawValue))" title="\#(escape(balance.detailLabel))" aria-label="\#(escape(balance.accessibilityLabel))">\#(escape(balance.compactLabel))</span>"#
+    }
 
     private static func renderSpendStatus(_ topBar: TopBarSurface) -> String {
         guard let spendStatusLabel = topBar.spendStatusLabel else { return "" }

@@ -13,6 +13,8 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     var favoriteModelIDs: [String]
     var recentThreads: [ChatThread]
     var runtimeIssue: RuntimeIssueSurface?
+    var trustedRouterCredits: TrustedRouterCreditsState = .unavailable
+    var hasTrustedRouterCredential: Bool = false
     var runSpendFuseUSD: Double? = nil
     var runSpendPeriodLimits: RunSpendPeriodLimits = RunSpendPeriodLimits()
     var canNavigateBack: Bool = false
@@ -39,6 +41,10 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             selectedModelID: topBarState.model,
             modelCatalog: self.modelCatalog,
             quotaLimits: quotaLimitSurfaces()
+        ).surface()
+        let accountBalance = WorkspaceTrustedRouterCreditsSurfaceBuilder(
+            state: trustedRouterCredits,
+            hasCredential: hasTrustedRouterCredential
         ).surface()
         return TopBarSurface(
             appName: topBarState.appName,
@@ -77,6 +83,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             },
             usageStatusLabel: spendStatus == nil ? usageStatusLabel : nil,
             tokenBudget: tokenBudget,
+            accountBalance: accountBalance,
             spendStatusLabel: spendStatus?.label,
             spendStatusDetail: spendStatus?.detail,
             canNavigateBack: canNavigateBack,

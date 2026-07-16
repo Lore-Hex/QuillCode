@@ -97,6 +97,31 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(topBar.showsComputerUseSetup)
     }
 
+    func testProjectsTrustedRouterAccountBalanceIntoTopBar() throws {
+        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
+            balance: 6.5,
+            currency: "USD",
+            fetchedAt: Date()
+        ))
+        let topBar = WorkspaceTopBarSurfaceBuilder(
+            topBarState: TopBarState(model: TrustedRouterDefaults.fastModel),
+            thread: nil,
+            projectName: "QuillCode",
+            instructions: [],
+            memories: [],
+            modelCatalog: TrustedRouterDefaults.normalizedModelCatalog([]),
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentThreads: [],
+            runtimeIssue: nil,
+            trustedRouterCredits: .current(snapshot),
+            hasTrustedRouterCredential: true
+        ).surface()
+
+        XCTAssertEqual(topBar.accountBalance?.amountLabel, "$6.50")
+        XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("TrustedRouter account balance"))
+    }
+
     func testShowsResolvableWorktreeBindingInTopBar() throws {
         var thread = ChatThread(title: "Feature", model: TrustedRouterDefaults.fastModel)
         let worktree = try makeTempDirectory("worktree")

@@ -11,6 +11,8 @@ final class QuillCodeDesktopTaskCoordinator {
         case automationTicker
         case modelCatalogRefresh
         case modelCatalogRefreshTicker
+        case trustedRouterCreditsRefresh
+        case trustedRouterCreditsRefreshTicker
         case workflowRecording
     }
 

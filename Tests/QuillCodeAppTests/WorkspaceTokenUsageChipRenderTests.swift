@@ -6,6 +6,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
     private func makeTopBar(
         usageStatusLabel: String?,
         tokenBudget: TokenBudgetSurface? = nil,
+        accountBalance: ProviderAccountBalanceSurface? = nil,
         spendStatusLabel: String? = nil,
         spendStatusDetail: String? = nil
     ) -> TopBarSurface {
@@ -26,6 +27,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
             showsComputerUseSetup: false,
             usageStatusLabel: usageStatusLabel,
             tokenBudget: tokenBudget,
+            accountBalance: accountBalance,
             spendStatusLabel: spendStatusLabel,
             spendStatusDetail: spendStatusDetail
         )
@@ -73,6 +75,24 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         XCTAssertTrue(decoded.tokenBudget?.visibleQuotaLimits.isEmpty == true)
     }
 
+    func testTopBarRoundTripsAndRendersAccountBalanceSeparatelyFromQuota() throws {
+        let accountBalance = ProviderAccountBalanceSurface(
+            amountLabel: "$12.50",
+            statusLabel: "Balance current",
+            detailLabel: "Current TrustedRouter account balance.",
+            tone: .normal
+        )
+        let topBar = makeTopBar(usageStatusLabel: nil, accountBalance: accountBalance)
+
+        let decoded = try JSONDecoder().decode(TopBarSurface.self, from: JSONEncoder().encode(topBar))
+        let html = WorkspaceHTMLTopBarRenderer.render(topBar, commands: [])
+
+        XCTAssertEqual(decoded.accountBalance, accountBalance)
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-account-balance""#))
+        XCTAssertTrue(html.contains("Balance $12.50"))
+        XCTAssertFalse(html.contains(#"data-testid="top-bar-token-quota-limits""#))
+    }
+
     func testTopBarRoundTripsTokenBudgetQuotaLimits() throws {
         let topBar = makeTopBar(
             usageStatusLabel: nil,
@@ -108,6 +128,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
         object.removeValue(forKey: "usageStatusLabel")
         object.removeValue(forKey: "tokenBudget")
+        object.removeValue(forKey: "accountBalance")
         object.removeValue(forKey: "spendStatusLabel")
         object.removeValue(forKey: "spendStatusDetail")
         let legacy = try JSONSerialization.data(withJSONObject: object)
@@ -115,6 +136,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         let decoded = try JSONDecoder().decode(TopBarSurface.self, from: legacy)
         XCTAssertNil(decoded.usageStatusLabel)
         XCTAssertNil(decoded.tokenBudget)
+        XCTAssertNil(decoded.accountBalance)
         XCTAssertNil(decoded.spendStatusLabel)
         XCTAssertNil(decoded.spendStatusDetail)
     }

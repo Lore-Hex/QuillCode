@@ -14,6 +14,8 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.authMode, .oauth)
         XCTAssertEqual(settings.signInURL, TrustedRouterDefaults.loopbackCallbackURL)
         XCTAssertEqual(settings.apiKeyStatusLabel, "Not signed in")
+        XCTAssertNil(settings.trustedRouterAccountBalance)
+        XCTAssertFalse(settings.trustedRouterCreditsRefreshCommand.isEnabled)
         XCTAssertEqual(settings.modelCatalogStatusLabel, "Bundled catalog")
         XCTAssertEqual(settings.modelProviderHealthLabel, "Provider health unavailable")
         XCTAssertNil(settings.reviewModel)
@@ -84,6 +86,24 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.apiKeyStatusLabel, "Signed in")
         XCTAssertEqual(settings.loginStatusLabel, "Signed in as quill@example.com")
         XCTAssertEqual(settings.accountLabel, "quill@example.com")
+    }
+
+    func testSettingsSurfaceShowsLiveTrustedRouterBalanceAndRefreshCommand() throws {
+        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
+            balance: 19.75,
+            currency: "USD",
+            fetchedAt: Date()
+        ))
+        let settings = WorkspaceSettingsSurface(
+            config: AppConfig(),
+            hasStoredAPIKey: true,
+            trustedRouterCredits: .current(snapshot)
+        )
+
+        XCTAssertEqual(settings.trustedRouterAccountBalance?.amountLabel, "$19.75")
+        XCTAssertEqual(settings.trustedRouterAccountBalance?.statusLabel, "Balance current")
+        XCTAssertEqual(settings.trustedRouterCreditsRefreshCommand.id, "trustedrouter-credits-refresh")
+        XCTAssertTrue(settings.trustedRouterCreditsRefreshCommand.isEnabled)
     }
 
     func testSettingsSurfaceShowsModelCatalogFallbackDiagnostics() {
@@ -257,6 +277,8 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
 
         XCTAssertNil(settings.modelProviderHealthLabel)
         XCTAssertNil(settings.modelProviderHealthDetail)
+        XCTAssertNil(settings.trustedRouterAccountBalance)
+        XCTAssertFalse(settings.trustedRouterCreditsRefreshCommand.isEnabled)
         XCTAssertNil(settings.reviewModel)
         XCTAssertEqual(settings.reviewDelivery, .current)
         XCTAssertEqual(settings.computerUseStatusLabel, "Accessibility needed")

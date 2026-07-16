@@ -46,6 +46,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     /// Prominent context-window budget meter. Uses provider-reported usage when available and
     /// falls back to a local estimate so the user can see used/limit/left before the first reply.
     public var tokenBudget: TokenBudgetSurface?
+    /// Current provider account credit balance. This is intentionally separate from context-window
+    /// usage and local spend limits because it comes directly from TrustedRouter's account endpoint.
+    public var accountBalance: ProviderAccountBalanceSurface?
     /// Pre-formatted spend chip (e.g. `Spend $0.0050 / $1.00`), or nil when the thread has no
     /// priced provider usage. When present, renderers prefer this over the raw token-usage chip.
     public var spendStatusLabel: String?
@@ -85,6 +88,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         branchStatusLabel: String? = nil,
         usageStatusLabel: String? = nil,
         tokenBudget: TokenBudgetSurface? = nil,
+        accountBalance: ProviderAccountBalanceSurface? = nil,
         spendStatusLabel: String? = nil,
         spendStatusDetail: String? = nil,
         canNavigateBack: Bool = false,
@@ -120,6 +124,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.branchStatusLabel = branchStatusLabel
         self.usageStatusLabel = usageStatusLabel
         self.tokenBudget = tokenBudget
+        self.accountBalance = accountBalance
         self.spendStatusLabel = spendStatusLabel
         self.spendStatusDetail = spendStatusDetail
         self.canNavigateBack = canNavigateBack

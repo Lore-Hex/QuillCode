@@ -257,6 +257,7 @@
     .topbar-branch-chip,
     .topbar-goal-chip,
     .topbar-worktree-chip,
+    .topbar-account-balance-chip,
     .topbar-usage-chip,
     .topbar-spend-chip {
       flex: 0 0 auto;
@@ -284,6 +285,18 @@
     .topbar-spend-chip {
       color: var(--green);
       background: rgba(66, 214, 119, 0.10);
+    }
+    .topbar-account-balance-chip[data-tone="normal"] {
+      color: var(--green);
+      background: rgba(66, 214, 119, 0.10);
+    }
+    .topbar-account-balance-chip[data-tone="updating"] {
+      color: var(--blue);
+      background: rgba(84, 179, 255, 0.10);
+    }
+    .topbar-account-balance-chip[data-tone="warning"] {
+      color: var(--yellow);
+      background: rgba(255, 190, 92, 0.12);
     }
     .topbar-worktree-chip {
       color: var(--blue);
@@ -1167,6 +1180,32 @@
     .permission-row button, .permission-actions button { min-width: 110px; }
     .permission-status-pill { flex: none; max-width: 180px; padding: 5px 10px; border-radius: 999px; color: var(--yellow); background: rgba(255,184,77,.14); font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .permission-status-pill[data-available="true"] { color: var(--green); background: rgba(67,212,120,.14); }
+    .trustedrouter-balance-amount {
+      color: var(--text);
+      font-size: 22px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .trustedrouter-balance-status {
+      flex: none;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .trustedrouter-balance-status[data-tone="normal"] {
+      color: var(--green);
+      background: rgba(67,212,120,.14);
+    }
+    .trustedrouter-balance-status[data-tone="updating"] {
+      color: var(--blue);
+      background: rgba(84,179,255,.12);
+    }
+    .trustedrouter-balance-status[data-tone="warning"] {
+      color: var(--yellow);
+      background: rgba(255,184,77,.14);
+    }
     .permission-actions { display: flex; justify-content: flex-start; gap: 10px; }
     .agent-import-panel {
       position: fixed;
@@ -4941,6 +4980,18 @@
 <body>
   <div id="app"></div>
   <script>
+    const mockCreditsEnabled = new URLSearchParams(window.location.search).get('credits') === '1';
+
+    function mockTrustedRouterAccountBalance() {
+      if (!mockCreditsEnabled) return null;
+      return {
+        amountLabel: '$24.75',
+        statusLabel: 'Balance current',
+        detailLabel: 'Current TrustedRouter account balance. Updated just now.',
+        tone: 'normal'
+      };
+    }
+
     const state = {
       topBar: {
         primaryTitle: 'QuillCode',
@@ -4949,6 +5000,7 @@
         branchStatusLabel: null,
         usageStatusLabel: null,
         tokenBudget: null,
+        accountBalance: mockTrustedRouterAccountBalance(),
         spendStatusLabel: null,
         spendStatusDetail: null,
         instructionLabel: '1 instruction file loaded',
@@ -5361,15 +5413,24 @@
         apiBaseURL: 'https://api.trustedrouter.com/v1',
         authMode: 'oauth',
         developerOverrideEnabled: false,
-        hasStoredAPIKey: false,
+        hasStoredAPIKey: mockCreditsEnabled,
         signInURL: 'http://localhost:3000/callback',
-        apiKeyStatusLabel: 'Not signed in',
-        loginStatusLabel: 'TrustedRouter login required',
+        apiKeyStatusLabel: mockCreditsEnabled ? 'Signed in' : 'Not signed in',
+        loginStatusLabel: mockCreditsEnabled ? 'TrustedRouter OAuth ready' : 'TrustedRouter login required',
         modelCatalogStatusLabel: 'Bundled catalog',
         modelCatalogStatusDetail: "Using QuillCode's built-in recommended models until TrustedRouter sign-in refreshes the catalog.",
         modelProviderHealthLabel: 'Provider health unavailable',
         modelProviderHealthDetail: 'TrustedRouter catalog did not include live provider status metadata.',
         accountLabel: null,
+        trustedRouterAccountBalance: mockTrustedRouterAccountBalance(),
+        trustedRouterCreditsRefreshCommand: {
+          id: 'trustedrouter-credits-refresh',
+          title: 'Refresh TrustedRouter balance',
+          shortcut: '',
+          category: 'TrustedRouter',
+          keywords: ['trustedrouter', 'credits', 'balance', 'refresh'],
+          isEnabled: mockCreditsEnabled
+        },
         replacementAPIKey: '',
         managedWorktreeRootPath: '/Users/quill/.quillcode/worktrees',
         managedWorktreeDefaultRootPath: '/Users/quill/.quillcode/worktrees',
@@ -6146,6 +6207,19 @@
           <p data-testid="top-bar-token-budget-secondary">${escapeHTML(compactTokenBudgetSecondaryLabel(budget.secondaryLabel || ''))}</p>
           ${quotaRow}
         </section>`;
+    }
+
+    function renderTopBarAccountBalance() {
+      const balance = state.topBar.accountBalance;
+      if (!balance) return '';
+      const label = balance.amountLabel ? `Balance ${balance.amountLabel}` : balance.statusLabel;
+      const accessibleLabel = `TrustedRouter account balance: ${balance.amountLabel || balance.statusLabel}. ${balance.detailLabel}`;
+      return `<span
+        class="topbar-account-balance-chip"
+        data-testid="top-bar-account-balance"
+        data-tone="${escapeHTML(balance.tone)}"
+        title="${escapeHTML(accessibleLabel)}"
+        aria-label="${escapeHTML(accessibleLabel)}">${escapeHTML(label)}</span>`;
     }
 
     function compactTokenBudgetSecondaryLabel(label) {
@@ -10291,6 +10365,7 @@
               ${state.topBar.goal ? `<span class="topbar-goal-chip" data-testid="top-bar-goal" data-tone="${escapeHTML(state.topBar.goal.tone)}" title="${escapeHTML(state.topBar.goal.detail)}">${escapeHTML(state.topBar.goal.label)}</span>` : ''}
               ${state.topBar.worktreeStatusLabel ? `<span class="topbar-worktree-chip" data-testid="top-bar-worktree" data-tone="${state.topBar.worktreeStatusIsWarning ? 'warning' : 'normal'}" title="${escapeHTML(state.topBar.worktreeStatusDetail || state.topBar.worktreeStatusLabel)}">${escapeHTML(state.topBar.worktreeStatusLabel)}</span>` : ''}
               ${renderTopBarTokenBudget()}
+              ${renderTopBarAccountBalance()}
               ${state.topBar.spendStatusLabel ? `<span class="topbar-spend-chip" data-testid="top-bar-spend" title="${escapeHTML(state.topBar.spendStatusDetail || state.topBar.spendStatusLabel)}">${escapeHTML(state.topBar.spendStatusLabel)}</span>` : ''}
               ${!state.topBar.tokenBudget && !state.topBar.spendStatusLabel && state.topBar.usageStatusLabel ? `<span class="topbar-usage-chip" data-testid="top-bar-usage" title="${escapeHTML(state.topBar.usageStatusLabel)}">${escapeHTML(state.topBar.usageStatusLabel)}</span>` : ''}
             </div>
@@ -11066,6 +11141,27 @@
         state.lastOpenedURL = state.settings.signInURL;
         state.settings.loginStatusLabel = 'Opening TrustedRouter sign in';
         render();
+      });
+      document.querySelector('[data-testid="trustedrouter-balance-refresh"]')?.addEventListener('click', () => {
+        if (!state.settings.trustedRouterCreditsRefreshCommand.isEnabled) return;
+        setTrustedRouterAccountBalance({
+          amountLabel: state.settings.trustedRouterAccountBalance?.amountLabel || null,
+          statusLabel: 'Refreshing balance',
+          detailLabel: 'Refreshing the TrustedRouter account balance.',
+          tone: 'updating'
+        });
+        state.settings.trustedRouterCreditsRefreshCommand.isEnabled = false;
+        render();
+        setTimeout(() => {
+          setTrustedRouterAccountBalance({
+            amountLabel: '$24.50',
+            statusLabel: 'Balance current',
+            detailLabel: 'Current TrustedRouter account balance. Updated just now.',
+            tone: 'normal'
+          });
+          state.settings.trustedRouterCreditsRefreshCommand.isEnabled = true;
+          render();
+        }, 400);
       });
       document.querySelector('[data-testid="agent-import-open"]')?.addEventListener('click', openAgentImport);
       document.querySelector('[data-testid="agent-import-panel"]')?.addEventListener('click', event => {
@@ -12197,6 +12293,7 @@
             <p data-testid="settings-model-catalog-status" title="${escapeHTML(state.settings.modelCatalogStatusDetail || state.settings.modelCatalogStatusLabel)}">${escapeHTML(state.settings.modelCatalogStatusLabel)}</p>
             ${state.settings.modelProviderHealthLabel ? `<p data-testid="settings-provider-health" title="${escapeHTML(state.settings.modelProviderHealthDetail || state.settings.modelProviderHealthLabel)}">${escapeHTML(state.settings.modelProviderHealthLabel)}</p>` : ''}
             ${state.settings.accountLabel ? `<p data-testid="settings-account">${escapeHTML(state.settings.accountLabel)}</p>` : ''}
+            ${renderTrustedRouterCreditsSettingsCard()}
             <section class="permission-card" data-testid="personality-settings">
               <header>
                 <div>
@@ -12246,6 +12343,35 @@
             </div>
           </form>
         </div>`;
+    }
+
+    function setTrustedRouterAccountBalance(balance) {
+      state.topBar.accountBalance = balance ? { ...balance } : null;
+      state.settings.trustedRouterAccountBalance = balance ? { ...balance } : null;
+    }
+
+    function renderTrustedRouterCreditsSettingsCard() {
+      const balance = state.settings.trustedRouterAccountBalance;
+      if (!balance) return '';
+      const command = state.settings.trustedRouterCreditsRefreshCommand;
+      return `
+        <section class="permission-card" data-testid="trustedrouter-balance-settings">
+          <header>
+            <div>
+              <h3>TrustedRouter account</h3>
+              <strong class="trustedrouter-balance-amount" data-testid="trustedrouter-balance-amount">${escapeHTML(balance.amountLabel || balance.statusLabel)}</strong>
+            </div>
+            <span class="trustedrouter-balance-status" data-testid="trustedrouter-balance-status" data-tone="${escapeHTML(balance.tone)}">${escapeHTML(balance.statusLabel)}</span>
+          </header>
+          <p data-testid="trustedrouter-balance-detail">${escapeHTML(balance.detailLabel)}</p>
+          <div class="permission-actions">
+            <button
+              class="hit-target-text"
+              type="button"
+              data-testid="trustedrouter-balance-refresh"
+              ${command.isEnabled ? '' : 'disabled'}>Refresh balance</button>
+          </div>
+        </section>`;
     }
 
     function renderManagedWorktreeSettingsCard() {

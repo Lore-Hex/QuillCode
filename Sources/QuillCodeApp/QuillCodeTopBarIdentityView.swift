@@ -61,6 +61,15 @@ struct QuillCodeTopBarIdentityView: View {
                     .accessibilityLabel("Token usage: \(usageStatusLabel)")
             }
 
+            if let accountBalance = topBar.accountBalance {
+                statusChip(
+                    accountBalance.compactLabel,
+                    tint: accountBalance.tone.quillCodeTint
+                )
+                .help(accountBalance.detailLabel)
+                .accessibilityLabel(accountBalance.accessibilityLabel)
+            }
+
             if let spendStatusLabel = topBar.spendStatusLabel {
                 statusChip(spendStatusLabel, tint: QuillCodePalette.green)
                     .help(topBar.spendStatusDetail ?? spendStatusLabel)

@@ -1487,3 +1487,26 @@
   contract. `scripts/mcp-server-smoke.sh` drives the built process through initialize, discovery,
   `whoami`, durable reply, event and persistence inspection, leak rejection, and clean EOF; aggregate
   smoke records the step in its deterministic manifest.
+
+## 2026-07-15: TrustedRouter balance is live account metadata, not a derived quota
+
+- **Source of truth:** QuillCode fetches the authenticated current balance from TrustedRouter's
+  `GET /v1/credits` endpoint through `trusted-router-swift`. It does not infer provider credit from
+  local token receipts, model prices, rate-limit headers, or configured spend caps.
+- **Presentation boundary:** The provider balance has its own top-bar chip and Settings card. Local
+  Today/Week/Month receipts and user-configured caps remain in the token/spend surface; provider
+  rate-limit and reset metadata remains in quota rows. Labels never merge these three concepts.
+- **Freshness:** Desktop startup, a bounded five-minute cadence, credential changes, and the explicit
+  Settings action can refresh the balance. A failed refresh retains the last successful in-memory
+  snapshot with a stale warning and backs off before automatic retry; an initial failure shows no
+  invented value.
+- **Credential and persistence boundary:** The request uses the same resolved TrustedRouter
+  credential as model traffic. Provider bodies and credentials are excluded from surfaced errors.
+  Balance snapshots are intentionally not persisted, preventing one account's value from appearing
+  after a credential change or on the next launch before authentication is revalidated.
+- **Deferred facts:** Account transaction history and provider-owned day/week/month usage limits or
+  reset windows remain absent until TrustedRouter exposes authoritative APIs for them.
+- **Evidence:** Focused Core, Agent, App, and Desktop tests cover finite/currency normalization,
+  `/v1/credits` authorization and redaction, stale retention, retry policy, deterministic formatting,
+  command routing, and refresh coordination. Playwright covers the distinct top-bar balance and the
+  eager Settings refresh transition without introducing balance state into unauthenticated fixtures.

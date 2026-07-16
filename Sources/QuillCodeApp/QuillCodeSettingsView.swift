@@ -22,6 +22,13 @@ struct QuillCodeSettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     generalSection
+                    if let balance = settings.trustedRouterAccountBalance {
+                        QuillCodeTrustedRouterCreditsSettingsCard(
+                            balance: balance,
+                            refreshCommand: settings.trustedRouterCreditsRefreshCommand,
+                            onCommand: onCommand
+                        )
+                    }
                     QuillCodeNotificationSettingsCard(settings: settings, draft: $draft)
                     QuillCodeSpendLimitSettingsCard(settings: settings, draft: $draft)
                     QuillCodeManagedWorktreeSettingsCard(settings: settings, draft: $draft)

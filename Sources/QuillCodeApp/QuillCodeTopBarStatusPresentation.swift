@@ -85,6 +85,9 @@ extension TopBarSurface {
         if let tokenBudget {
             parts.append(tokenBudget.accessibilityLabel)
         }
+        if let accountBalance {
+            parts.append(accountBalance.accessibilityLabel)
+        }
         if let liveWork {
             parts.append(liveWork.detail)
         }
@@ -123,6 +126,9 @@ extension TopBarSurface {
         }
         if let tokenBudget {
             parts.append("token budget: \(tokenBudget.accessibilityLabel)")
+        }
+        if let accountBalance {
+            parts.append(accountBalance.accessibilityLabel)
         }
         if let spendStatusLabel {
             parts.append("spend: \(spendStatusLabel)")

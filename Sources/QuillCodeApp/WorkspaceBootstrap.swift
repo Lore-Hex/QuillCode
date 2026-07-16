@@ -6,19 +6,23 @@ import QuillCodeTools
 
 public struct QuillCodeWorkspaceBootstrap: Sendable {
     public typealias ModelCatalogFetcher = @Sendable (AppConfig) async -> TrustedRouterModelCatalog
+    public typealias AccountCreditsFetcher = @Sendable (AppConfig) async -> TrustedRouterCreditsRefreshResult
 
     public var paths: QuillCodePaths
     public var runtimeFactory: QuillCodeRuntimeFactory
     public var modelCatalogFetcher: ModelCatalogFetcher?
+    public var accountCreditsFetcher: AccountCreditsFetcher?
 
     public init(
         paths: QuillCodePaths = QuillCodePaths(),
         runtimeFactory: QuillCodeRuntimeFactory? = nil,
-        modelCatalogFetcher: ModelCatalogFetcher? = nil
+        modelCatalogFetcher: ModelCatalogFetcher? = nil,
+        accountCreditsFetcher: AccountCreditsFetcher? = nil
     ) {
         self.paths = paths
         self.runtimeFactory = runtimeFactory ?? QuillCodeRuntimeFactory(paths: paths)
         self.modelCatalogFetcher = modelCatalogFetcher
+        self.accountCreditsFetcher = accountCreditsFetcher
     }
 
     @MainActor
@@ -138,5 +142,12 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             return await modelCatalogFetcher(config)
         }
         return await runtimeFactory.fetchModelCatalog(config: config)
+    }
+
+    public func fetchTrustedRouterCredits(config: AppConfig) async -> TrustedRouterCreditsRefreshResult {
+        if let accountCreditsFetcher {
+            return await accountCreditsFetcher(config)
+        }
+        return await runtimeFactory.fetchTrustedRouterCredits(config: config)
     }
 }
