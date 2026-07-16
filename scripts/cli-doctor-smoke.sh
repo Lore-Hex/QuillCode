@@ -5,7 +5,15 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-doctor-smoke.XXXXXX")"
 HOME_DIR="$SMOKE_ROOT/home"
 PORT_FILE="$SMOKE_ROOT/port"
+SERVER_LOG="$SMOKE_ROOT/server.log"
 SERVER_PID=""
+
+print_server_log() {
+  if [[ -s "$SERVER_LOG" ]]; then
+    echo "Doctor HTTP fixture diagnostics:" >&2
+    cat "$SERVER_LOG" >&2
+  fi
+}
 
 cleanup() {
   if [[ -n "$SERVER_PID" ]]; then
@@ -26,17 +34,23 @@ API_KEY="doctor-process-private-key"
 QUERY_SECRET="doctor-query-private-value"
 PROXY_SECRET="doctor-proxy-private-value"
 QUILLCODE_DOCTOR_EXPECTED_TOKEN="$API_KEY" \
-  python3 "$ROOT_DIR/scripts/fixtures/doctor-http-server.py" "$PORT_FILE" &
+  python3 "$ROOT_DIR/scripts/fixtures/doctor-http-server.py" "$PORT_FILE" \
+  >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
-for _ in {1..100}; do
+for _ in {1..300}; do
   [[ -s "$PORT_FILE" ]] && break
   kill -0 "$SERVER_PID" 2>/dev/null || {
     echo "Doctor HTTP fixture exited before publishing its port" >&2
+    print_server_log
     exit 1
   }
-  sleep 0.02
+  sleep 0.05
 done
-[[ -s "$PORT_FILE" ]] || { echo "Doctor HTTP fixture did not publish its port" >&2; exit 1; }
+[[ -s "$PORT_FILE" ]] || {
+  echo "Doctor HTTP fixture did not publish its port within 15 seconds" >&2
+  print_server_log
+  exit 1
+}
 PORT="$(cat "$PORT_FILE")"
 
 printf 'api_base_url = "http://127.0.0.1:%s/v1?token=%s"\n' \
