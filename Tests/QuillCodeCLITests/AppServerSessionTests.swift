@@ -672,7 +672,9 @@ final class AppServerSessionTests: XCTestCase {
         XCTAssertEqual(thread["status"]?.objectValue?["type"]?.stringValue, "idle")
     }
 
-    private func makeSession(llm: any LLMClient) async throws -> AppServerFixture {
+    private func makeSession(
+        llm: any LLMClient
+    ) async throws -> AppServerFixture {
         let home = try temporaryDirectory(prefix: "app-server-home")
         let workspace = try temporaryDirectory(prefix: "app-server-workspace")
         let output = AppServerOutputCollector()
@@ -685,7 +687,8 @@ final class AppServerSessionTests: XCTestCase {
                     llm: llm,
                     safety: StaticSafetyReviewer(),
                     maxToolSteps: configuration.appConfig.maxToolSteps,
-                    enablesImmediateActionPreflight: false
+                    enablesImmediateActionPreflight: false,
+                    compaction: AgentCompactionPolicy(compactor: ThreadCompactor())
                 )
             },
             sink: { line in await output.append(line) }

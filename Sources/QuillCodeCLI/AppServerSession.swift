@@ -35,6 +35,17 @@ actor AppServerSession {
         var projector: AppServerProgressProjector
     }
 
+    struct ActiveCompaction: Sendable {
+        var id: String
+        var itemID: String
+        var startedAt: Date
+        var settings: AppServerThreadSettings
+        var latestThread: ChatThread
+        var persistenceFailure: String?
+        var runner: AgentRunner
+        var task: Task<Void, Never>?
+    }
+
     let request: CLIAppServerRequest
     let environment: [String: String]
     let currentDirectory: URL
@@ -53,6 +64,7 @@ actor AppServerSession {
     var optedOutNotifications: Set<String> = []
     var experimentalAPIEnabled = false
     var activeTurns: [UUID: ActiveTurn] = [:]
+    var activeCompactions: [UUID: ActiveCompaction] = [:]
     var processSessions: [String: AppServerProcessSession] = [:]
     var processEventTasks: [String: Task<Void, Never>] = [:]
     var nextServerRequestSequence: Int64 = 1
@@ -127,7 +139,12 @@ actor AppServerSession {
 
     func waitForActiveTurns() async {
         let tasks = activeTurns.values.compactMap(\.task)
+            + activeCompactions.values.compactMap(\.task)
         for task in tasks { await task.value }
+    }
+
+    func hasActiveOperation(for threadID: UUID) -> Bool {
+        activeTurns[threadID] != nil || activeCompactions[threadID] != nil
     }
 
     func finishInput() async {
@@ -163,6 +180,7 @@ actor AppServerSession {
             var accountAfterResponse: AppServerAccountAfterResponse?
             var mcpOAuthLoginToLaunch: UUID?
             var processToLaunch: String?
+            var compactionToLaunch: UUID?
             switch method {
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
@@ -227,6 +245,9 @@ actor AppServerSession {
             case "thread/goal/set": result = try await setThreadGoal(params)
             case "thread/goal/get": result = try await getThreadGoal(params)
             case "thread/goal/clear": result = try await clearThreadGoal(params)
+            case "thread/compact/start":
+                compactionToLaunch = try await startThreadCompaction(params)
+                result = .object([:])
             case "turn/start":
                 result = try await startTurn(params)
                 turnToLaunch = try threadID(from: AppServerParams(params))
@@ -243,6 +264,7 @@ actor AppServerSession {
                 launchMCPServerOAuthLogin(mcpOAuthLoginToLaunch)
             }
             if let processToLaunch { launchProcessEventStream(processToLaunch) }
+            if let compactionToLaunch { launchThreadCompaction(compactionToLaunch) }
             if let turnToLaunch { launchTurn(turnToLaunch) }
         } catch let error as AppServerRPCError {
             await send(.error(id: id, error: error))

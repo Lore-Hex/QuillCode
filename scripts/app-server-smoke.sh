@@ -502,6 +502,15 @@ assert turn_response["result"]["turn"]["status"] == "inProgress", turn_response
 completed, tail = read_until(lambda record: record.get("method") == "turn/completed")
 records.extend(tail)
 assert completed["params"]["turn"]["status"] == "completed", completed
+idle, tail = read_until(
+    lambda record: (
+        record.get("method") == "thread/status/changed"
+        and record.get("params", {}).get("threadId") == thread_id
+        and record.get("params", {}).get("status", {}).get("type") == "idle"
+    )
+)
+records.extend(tail)
+assert idle["params"]["threadId"] == thread_id, idle
 methods = {record.get("method") for record in records}
 assert "turn/started" in methods, methods
 assert "item/started" in methods, methods
@@ -521,6 +530,45 @@ with open(managed_image["path"], "rb") as image_stream:
 for thread_name in os.listdir(os.path.join(home, "threads")):
     with open(os.path.join(home, "threads", thread_name), "r", encoding="utf-8") as thread_file:
         assert image_data_url not in thread_file.read(), thread_name
+
+send({"id": 10, "method": "thread/compact/start", "params": {
+    "threadId": thread_id,
+}})
+compaction_response, compaction_response_records = read_until(
+    lambda record: record.get("id") == 10
+)
+assert compaction_response["result"] == {}, compaction_response
+assert not any(record.get("method") for record in compaction_response_records), (
+    compaction_response_records
+)
+compaction_idle, compaction_lifecycle = read_until(
+    lambda record: (
+        record.get("method") == "thread/status/changed"
+        and record.get("params", {}).get("status", {}).get("type") == "idle"
+    )
+)
+assert compaction_idle["params"]["threadId"] == thread_id, compaction_idle
+assert [record.get("method") for record in compaction_lifecycle] == [
+    "thread/status/changed",
+    "turn/started",
+    "item/started",
+    "item/completed",
+    "turn/completed",
+    "thread/status/changed",
+], compaction_lifecycle
+compaction_started = next(
+    record for record in compaction_lifecycle if record.get("method") == "item/started"
+)
+compaction_completed = next(
+    record for record in compaction_lifecycle if record.get("method") == "item/completed"
+)
+assert compaction_started["params"]["item"] == compaction_completed["params"]["item"]
+assert compaction_started["params"]["turnId"] == compaction_completed["params"]["turnId"]
+assert compaction_started["params"]["item"]["type"] == "contextCompaction"
+compaction_turn = next(
+    record for record in compaction_lifecycle if record.get("method") == "turn/completed"
+)
+assert compaction_turn["params"]["turn"]["status"] == "completed", compaction_turn
 
 process.stdin.close()
 status = process.wait(timeout=10)

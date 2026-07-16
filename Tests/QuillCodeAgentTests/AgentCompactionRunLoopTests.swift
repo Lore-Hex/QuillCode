@@ -405,6 +405,35 @@ final class AgentCompactionRunLoopTests: XCTestCase {
 
     // MARK: - Standard compaction hook lifecycle
 
+    func testManualCompactionUsesManualHookLifecycle() async throws {
+        let root = try makeTempDirectory()
+        let recorder = CompactionHookRecorder()
+        let runner = AgentRunner(
+            preCompactHook: { trigger, thread, _ in
+                await recorder.record("pre", trigger: trigger, containsSummary: thread.messages.contains {
+                    $0.content == "COMPACTED SUMMARY"
+                })
+                return AgentCompactionHookOutcome(notices: ["manual pre notice"])
+            },
+            postCompactHook: { trigger, thread, _ in
+                await recorder.record("post", trigger: trigger, containsSummary: thread.messages.contains {
+                    $0.content == "COMPACTED SUMMARY"
+                })
+                return AgentCompactionHookOutcome(notices: ["manual post notice"])
+            },
+            compaction: compactionPolicy()
+        )
+        var thread = longThread(pairs: 10)
+
+        let result = try await runner.compactManually(thread: &thread, workspaceRoot: root)
+
+        guard case .compacted = result else { return XCTFail("manual compaction should fold history") }
+        let entries = await recorder.entries
+        XCTAssertEqual(entries, ["pre:manual:false", "post:manual:true"])
+        XCTAssertTrue(thread.events.contains { $0.summary == "manual pre notice" })
+        XCTAssertTrue(thread.events.contains { $0.summary == "manual post notice" })
+    }
+
     func testAutomaticHooksBracketRealCompactionBeforeModelRetry() async throws {
         let root = try makeTempDirectory()
         let state = OverflowScriptState(overflowRounds: 1, finalAction: .say("recovered"))

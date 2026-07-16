@@ -98,8 +98,10 @@ Computer Use, subagents, hooks, skills, and project write tools are absent from 
 `quill-code app-server --mock` starts the deterministic stdio app server; omit `--mock` for the live
 TrustedRouter runtime. The implemented core follows Codex's newline-delimited wire shape without a
 `jsonrpc` marker: initialize/initialized, thread start/resume/fork/list/read/archive/name/delete/goal,
-turn start/steer/interrupt, item and assistant deltas, command/file approval requests, and durable
-transcript persistence. Clients can also list models, read provider capabilities, detect account
+turn start/steer/interrupt, response-first manual `thread/compact/start` with a non-steerable
+`contextCompaction` turn, item and assistant deltas, command/file approval requests, and durable
+transcript persistence. Manual compaction shares the desktop's summarizer, transactional persistence,
+`PreCompact`/`PostCompact` hooks, and interruption semantics. Clients can also list models, read provider capabilities, detect account
 presence without receiving credentials, read locally observed UTC token usage and explicitly local
 spend controls, inspect effective config, atomically update the user config through Codex-compatible
 `config/value/write` and `config/batchWrite` with content-version conflict detection, and use

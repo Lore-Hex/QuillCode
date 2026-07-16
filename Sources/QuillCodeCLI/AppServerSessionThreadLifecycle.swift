@@ -36,7 +36,7 @@ extension AppServerSession {
         record.thread.updatedAt = Date()
         try await validateRequiredMCPServers(for: record)
         try await repository.save(record)
-        return startOrResumeResponse(record, includeTurns: true, isActive: activeTurns[id] != nil)
+        return startOrResumeResponse(record, includeTurns: true, isActive: hasActiveOperation(for: id))
     }
 
     func forkThread(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
@@ -62,7 +62,7 @@ extension AppServerSession {
     func setThreadArchived(_ raw: CLIJSONValue, archived: Bool) async throws -> CLIJSONValue {
         let params = try AppServerParams(raw)
         let id = try threadID(from: params)
-        guard activeTurns[id] == nil else {
+        guard !hasActiveOperation(for: id) else {
             throw AppServerRPCError.invalidParams("cannot archive an active thread")
         }
         var record = try await loadRecord(id)
@@ -79,7 +79,7 @@ extension AppServerSession {
     func deleteThread(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
         let params = try AppServerParams(raw)
         let id = try threadID(from: params)
-        guard activeTurns[id] == nil else {
+        guard !hasActiveOperation(for: id) else {
             throw AppServerRPCError.invalidParams("cannot delete an active thread")
         }
         _ = try await loadRecord(id)

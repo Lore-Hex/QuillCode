@@ -21,7 +21,7 @@ extension AppServerSession {
         let nextOffset = offset + page.count
         return .object([
             "data": .array(page.map { record in
-                projectedThread(record, includeTurns: false, isActive: activeTurns[record.thread.id] != nil)
+                projectedThread(record, includeTurns: false, isActive: hasActiveOperation(for: record.thread.id))
             }),
             "nextCursor": cursorValue(nextOffset < records.count ? nextOffset : nil),
             "backwardsCursor": cursorValue(offset > 0 ? max(0, offset - limit) : nil)
@@ -36,7 +36,7 @@ extension AppServerSession {
             "thread": projectedThread(
                 record,
                 includeTurns: try params.optionalBool("includeTurns") ?? false,
-                isActive: activeTurns[id] != nil
+                isActive: hasActiveOperation(for: id)
             )
         ])
     }

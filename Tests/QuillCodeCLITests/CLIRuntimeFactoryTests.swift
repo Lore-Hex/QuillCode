@@ -89,4 +89,31 @@ final class CLIRuntimeFactoryTests: XCTestCase {
         XCTAssertFalse(resolver.availableSkillNames().contains("review"))
         XCTAssertThrowsError(try resolver.resolve(name: "review"))
     }
+
+    func testMakeConfiguresCompactionForDeterministicRuns() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cli-compaction-\(UUID().uuidString)", isDirectory: true)
+        let home = root.appendingPathComponent("home", isDirectory: true)
+        let workspace = root.appendingPathComponent("workspace", isDirectory: true)
+        let paths = QuillCodePaths(home: home)
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        try paths.ensure()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let runner = try CLIRuntimeFactory.make(CLIRuntimeConfiguration(
+            request: CLIRunRequest(
+                style: .exec,
+                prompt: "compact",
+                live: false,
+                cwd: workspace,
+                home: home
+            ),
+            appConfig: AppConfig(),
+            paths: paths,
+            imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory),
+            environment: [:]
+        ))
+
+        XCTAssertNotNil(runner.compaction)
+    }
 }

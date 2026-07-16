@@ -46,7 +46,37 @@ public struct ContextOverflowUnresolvedError: Error, CustomStringConvertible {
     }
 }
 
+/// Raised when a caller requests explicit compaction from a runner that was intentionally composed
+/// without a compaction policy. Production desktop and CLI compositions always provide one; keeping
+/// the failure typed makes incomplete embeddings fail honestly instead of silently reporting success.
+public struct ManualCompactionUnavailableError: LocalizedError, Sendable {
+    public init() {}
+
+    public var errorDescription: String? {
+        "Manual thread compaction is unavailable because this agent runner has no compaction policy."
+    }
+}
+
 extension AgentRunner {
+    /// Runs one explicit compaction through the same hooks, summarizer, progress, and persistence
+    /// boundary used by proactive and overflow recovery. The caller owns persistence of the returned
+    /// thread snapshot; progress is emitted after every durable mutation, including hook notices.
+    @discardableResult
+    public func compactManually(
+        thread: inout ChatThread,
+        workspaceRoot: URL,
+        onProgress: AgentRunProgressHandler? = nil
+    ) async throws -> ThreadCompactionResult {
+        guard let compaction else { throw ManualCompactionUnavailableError() }
+        return try await compact(
+            thread: &thread,
+            using: compaction.compactor,
+            trigger: .manual,
+            workspaceRoot: workspaceRoot,
+            onProgress: onProgress
+        )
+    }
+
     /// Obtains the next action, compacting-and-resuming on a context overflow instead of failing the
     /// run. When `compaction` is nil this is a straight pass-through to `nextAction`, so a runner
     /// without a policy behaves exactly as before.
@@ -170,6 +200,7 @@ extension AgentRunner {
         )
 
         let result = await compactor.compact(&thread)
+        try Task.checkCancellation()
         await onProgress?(thread)
         guard case .compacted = result else { return result }
 

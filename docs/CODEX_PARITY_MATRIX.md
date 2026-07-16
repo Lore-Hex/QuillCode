@@ -43,6 +43,12 @@
 
 ## Current Parity Notes
 
+- The app server exposes Codex-compatible response-first `thread/compact/start`.
+  It emits a non-steerable `contextCompaction` turn, reuses the desktop's
+  live/mock compaction policy and compact hooks, persists progress transactionally,
+  rejects concurrent turns, and can be interrupted without mutating history after
+  cancellation. Focused protocol, hook, persistence, failure, and executable smoke
+  tests cover the wire contract.
 - The workspace review pane now models Unstaged, Staged, Commit, Branch, and Last turn as explicit scopes
   instead of treating every diff as an implicit working-tree view. Scope changes
   dispatch the matching structured `host.git.diff`, successful empty results
