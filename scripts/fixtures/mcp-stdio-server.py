@@ -5,25 +5,17 @@ import sys
 
 
 def read_message():
-    content_length = None
-    while True:
-        line = sys.stdin.buffer.readline()
-        if not line:
-            return None
-        if line in (b"\n", b"\r\n"):
-            break
-        name, value = line.decode("ascii").split(":", 1)
-        if name.lower() == "content-length":
-            content_length = int(value.strip())
-    if content_length is None:
-        raise RuntimeError("missing Content-Length")
-    return json.loads(sys.stdin.buffer.read(content_length))
+    line = sys.stdin.buffer.readline()
+    if not line:
+        return None
+    if line.lower().startswith(b"content-length:"):
+        raise RuntimeError("legacy Content-Length framing is not supported by this fixture")
+    return json.loads(line)
 
 
 def send(message):
     payload = json.dumps(message, separators=(",", ":")).encode("utf-8")
-    sys.stdout.buffer.write(f"Content-Length: {len(payload)}\r\n\r\n".encode("ascii"))
-    sys.stdout.buffer.write(payload)
+    sys.stdout.buffer.write(payload + b"\n")
     sys.stdout.buffer.flush()
 
 

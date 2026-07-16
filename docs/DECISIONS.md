@@ -1683,8 +1683,23 @@
   retain input ordering. EOF cancels and joins the outstanding request before dependency teardown.
 - **Evidence:** Schema, bridge, stdio, both HTTP transport, fake-session app-server, interruption,
   capability-gating, and malformed-response tests cover the typed boundaries. The real app-server
-  smoke drives a framed child MCP request through the JSONL client response and verifies capability
-  advertisement, metadata sanitization, resolved ordering, and the final accepted payload.
+  smoke drives a newline-delimited child MCP request through the JSONL client response and verifies
+  capability advertisement, metadata sanitization, resolved ordering, and the final accepted payload.
+
+## 2026-07-16: MCP stdio uses canonical newline-delimited JSON
+
+- **Outbound boundary:** Every stdio request, response, and notification is one bounded JSON object
+  followed by a newline, matching MCP 2025-06-18 and Codex. HTTP sessions continue to use the same
+  JSON body encoder without adding stdio framing.
+- **Compatibility boundary:** The incremental decoder accepts both canonical JSONL and the legacy
+  `Content-Length` frames emitted by early QuillCode builds. Compatibility is input-only; new clients
+  cannot silently perpetuate the obsolete framing.
+- **Identity and progress:** Initialization reports `quillcode-mcp-client`, the QuillCode product
+  title, and its client version. Tool discovery carries a unique progress token, as do individual
+  tool calls, so modern servers can associate progress without cross-request collisions.
+- **Evidence:** Focused codec/session tests cover fragmented JSONL, blank separators, legacy input,
+  client metadata, and discovery metadata. The real app-server smoke launches a strict JSONL-only MCP
+  child and completes startup, tool calls, progress metadata, elicitation, and resource reads.
 
 ## 2026-07-16: Direct user shell is a host escape hatch with hidden durable context
 
