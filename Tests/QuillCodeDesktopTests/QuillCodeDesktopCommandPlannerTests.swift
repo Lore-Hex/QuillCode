@@ -76,4 +76,13 @@ final class QuillCodeDesktopCommandPlannerTests: XCTestCase {
             return XCTFail("Expected workflow recording to stop before the drafting turn is queued.")
         }
     }
+
+    func testTrustedRouterBalanceRefreshUsesDedicatedDesktopAction() {
+        let command = WorkspaceCommandSurface.trustedRouterCreditsRefresh(isEnabled: true)
+
+        guard case .refreshTrustedRouterCredits = QuillCodeDesktopCommandPlanner.action(for: command) else {
+            return XCTFail("Expected balance refresh to run in the desktop host.")
+        }
+        XCTAssertTrue(WorkspaceCommandRoutingCatalog.isHostCommand(command.id))
+    }
 }

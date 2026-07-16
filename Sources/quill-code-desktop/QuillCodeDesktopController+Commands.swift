@@ -67,6 +67,17 @@ extension QuillCodeDesktopController: QuillCodeDesktopCommandPerforming {
         refresh()
     }
 
+    func refreshTrustedRouterCredits() {
+        tasks.replace(.trustedRouterCreditsRefresh) { [weak self] in
+            guard let self else { return }
+            await trustedRouterCreditsCoordinator.refresh(
+                on: model,
+                force: true,
+                refreshSurface: { [weak self] in self?.refresh() }
+            )
+        }
+    }
+
     func runWorkspaceCommand(_ commandID: String) {
         // Push the live draft so thread-changing commands (new chat / duplicate /
         // fork / compact) stash it instead of reading a stale model draft.

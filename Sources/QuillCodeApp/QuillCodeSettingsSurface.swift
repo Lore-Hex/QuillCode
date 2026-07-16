@@ -32,6 +32,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
     public var apiKeyStatusLabel: String
     public var loginStatusLabel: String
     public var accountLabel: String?
+    public var trustedRouterAccountBalance: ProviderAccountBalanceSurface?
+    public var trustedRouterCreditsRefreshCommand: WorkspaceCommandSurface
     public var runtimeIssue: RuntimeIssueSurface?
     public var modelCatalogStatusLabel: String
     public var modelCatalogStatusDetail: String?
@@ -81,6 +83,7 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         computerUseRuntime: ComputerUseSettingsRuntime = ComputerUseSettingsRuntime(),
         modelCatalogStatus: ModelCatalogStatus = .bundled,
         modelProviderHealthSummary: ModelProviderHealthSummary = .summarize([]),
+        trustedRouterCredits: TrustedRouterCreditsState = .unavailable,
         managedWorktreeDefaultRoot: URL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".quillcode/worktrees")
     ) {
@@ -90,6 +93,13 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.hasStoredAPIKey = hasStoredAPIKey
         self.signInURL = TrustedRouterDefaults.loopbackCallbackURL
         self.accountLabel = config.trustedRouterAccount?.displayLabel
+        self.trustedRouterAccountBalance = WorkspaceTrustedRouterCreditsSurfaceBuilder(
+            state: trustedRouterCredits,
+            hasCredential: hasStoredAPIKey
+        ).surface()
+        self.trustedRouterCreditsRefreshCommand = .trustedRouterCreditsRefresh(
+            isEnabled: hasStoredAPIKey && trustedRouterCredits.phase != .refreshing
+        )
         self.runtimeIssue = runtimeIssue
         self.modelCatalogStatusLabel = modelCatalogStatus.statusLabel()
         self.modelCatalogStatusDetail = modelCatalogStatus.detailLabel()
@@ -177,6 +187,8 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         case apiKeyStatusLabel
         case loginStatusLabel
         case accountLabel
+        case trustedRouterAccountBalance
+        case trustedRouterCreditsRefreshCommand
         case runtimeIssue
         case modelCatalogStatusLabel
         case modelCatalogStatusDetail
@@ -230,6 +242,14 @@ public struct WorkspaceSettingsSurface: Codable, Sendable, Hashable {
         self.apiKeyStatusLabel = try container.decode(String.self, forKey: .apiKeyStatusLabel)
         self.loginStatusLabel = try container.decode(String.self, forKey: .loginStatusLabel)
         self.accountLabel = try container.decodeIfPresent(String.self, forKey: .accountLabel)
+        self.trustedRouterAccountBalance = try container.decodeIfPresent(
+            ProviderAccountBalanceSurface.self,
+            forKey: .trustedRouterAccountBalance
+        )
+        self.trustedRouterCreditsRefreshCommand = try container.decodeIfPresent(
+            WorkspaceCommandSurface.self,
+            forKey: .trustedRouterCreditsRefreshCommand
+        ) ?? .trustedRouterCreditsRefresh(isEnabled: hasStoredAPIKey)
         self.runtimeIssue = try container.decodeIfPresent(RuntimeIssueSurface.self, forKey: .runtimeIssue)
         self.modelCatalogStatusLabel = try container.decodeIfPresent(String.self, forKey: .modelCatalogStatusLabel)
             ?? ModelCatalogStatus.bundled.statusLabel()

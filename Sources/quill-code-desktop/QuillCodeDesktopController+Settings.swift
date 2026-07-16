@@ -30,11 +30,20 @@ extension QuillCodeDesktopController {
     }
 
     func saveSettings(_ update: WorkspaceSettingsUpdate) {
+        let accountIdentityChanged = update.changesTrustedRouterAccountIdentity(
+            comparedTo: model.root.config
+        )
+        if accountIdentityChanged {
+            model.setTrustedRouterCredits(.unavailable)
+        }
         settingsCoordinator.saveSettings(
             update,
             to: model,
             refresh: { [weak self] in self?.refresh() }
         )
+        if accountIdentityChanged {
+            refreshTrustedRouterCredits()
+        }
     }
 
     func startTrustedRouterSignIn() {
@@ -45,6 +54,8 @@ extension QuillCodeDesktopController {
                 settingsCoordinator: settingsCoordinator,
                 refresh: { [weak self] in self?.refresh() }
             )
+            model.setTrustedRouterCredits(.unavailable)
+            refreshTrustedRouterCredits()
         }
     }
 

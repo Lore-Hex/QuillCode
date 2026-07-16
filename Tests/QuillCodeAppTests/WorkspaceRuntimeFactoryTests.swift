@@ -117,6 +117,55 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
         XCTAssertTrue(catalog.models.contains { $0.id == TrustedRouterDefaults.prometheusModel })
         XCTAssertTrue(catalog.models.contains { $0.id == "minimax/minimax-m3" })
     }
+
+    func testFetchTrustedRouterCreditsUsesConfiguredCredential() async throws {
+        let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
+        try paths.ensure()
+        RuntimeFactoryCatalogURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.absoluteString, "https://api.trustedrouter.test/v1/credits")
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer sk-test")
+            return (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data(#"{"balance":7.25,"currency":"USD"}"#.utf8)
+            )
+        }
+
+        let result = await QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["TRUSTEDROUTER_API_KEY": "sk-test"],
+            accountCreditsURLSession: RuntimeFactoryCatalogURLProtocol.session()
+        ).fetchTrustedRouterCredits(config: AppConfig(
+            apiBaseURL: "https://api.trustedrouter.test/v1"
+        ))
+
+        guard case .success(let snapshot) = result else {
+            return XCTFail("Expected a live account credit snapshot")
+        }
+        XCTAssertEqual(snapshot.balance, 7.25)
+        XCTAssertEqual(snapshot.currency, "USD")
+    }
+
+    func testFetchTrustedRouterCreditsIsUnavailableWithoutCredentialOrInMockMode() async throws {
+        let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
+        try paths.ensure()
+
+        let missingCredential = await QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: [
+                "QUILLCODE_API_KEY_FILE": paths.home.appendingPathComponent("missing.key").path
+            ]
+        ).fetchTrustedRouterCredits(config: AppConfig())
+        let forcedMock = await QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: [
+                "TRUSTEDROUTER_API_KEY": "sk-test",
+                "QUILLCODE_USE_MOCK_LLM": "true"
+            ]
+        ).fetchTrustedRouterCredits(config: AppConfig())
+
+        XCTAssertEqual(missingCredential, .unavailable)
+        XCTAssertEqual(forcedMock, .unavailable)
+    }
 }
 
 private final class RuntimeFactoryCatalogURLProtocol: URLProtocol {

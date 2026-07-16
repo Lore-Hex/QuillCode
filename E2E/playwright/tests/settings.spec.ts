@@ -145,6 +145,24 @@ test('mock harness shows actionable TrustedRouter runtime issue', async ({ page 
   await expect(settingsPanel.getByTestId('runtime-issue-title')).toHaveText('TrustedRouter sign-in needed');
 });
 
+test('mock harness refreshes the authenticated TrustedRouter account balance', async ({ page }) => {
+  await page.goto(`${harnessURL()}?credits=1`);
+
+  await openSettings(page);
+  const card = page.getByTestId('trustedrouter-balance-settings');
+  await expect(card).toBeVisible();
+  await expect(card.getByTestId('trustedrouter-balance-amount')).toHaveText('$24.75');
+  await expect(card.getByTestId('trustedrouter-balance-status')).toHaveText('Balance current');
+
+  await card.getByTestId('trustedrouter-balance-refresh').click();
+  await expect(card.getByTestId('trustedrouter-balance-status')).toHaveText('Refreshing balance');
+  await expect(card.getByTestId('trustedrouter-balance-refresh')).toBeDisabled();
+  await expect(card.getByTestId('trustedrouter-balance-amount')).toHaveText('$24.50');
+  await expect(card.getByTestId('trustedrouter-balance-status')).toHaveText('Balance current');
+  await expect(card.getByTestId('trustedrouter-balance-refresh')).toBeEnabled();
+  await expect(page.getByTestId('top-bar-account-balance')).toHaveText('Balance $24.50');
+});
+
 test('mock harness retries the last user turn from a runtime issue', async ({ page }) => {
   await page.goto(harnessURL());
 

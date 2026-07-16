@@ -33,6 +33,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let signInCoordinator: QuillCodeDesktopSignInCoordinator
     let settingsCoordinator: QuillCodeDesktopSettingsCoordinator
     let modelCatalogRefreshCoordinator: QuillCodeDesktopModelCatalogRefreshCoordinator
+    let trustedRouterCreditsCoordinator: QuillCodeDesktopTrustedRouterCreditsCoordinator
     let composerCoordinator: QuillCodeDesktopComposerCoordinator
     let copyCoordinator: QuillCodeDesktopCopyCoordinator
     let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
@@ -72,6 +73,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.signInCoordinator = QuillCodeDesktopSignInCoordinator(bootstrap: bootstrap)
         self.settingsCoordinator = QuillCodeDesktopSettingsCoordinator(bootstrap: bootstrap)
         self.modelCatalogRefreshCoordinator = QuillCodeDesktopModelCatalogRefreshCoordinator(bootstrap: bootstrap)
+        self.trustedRouterCreditsCoordinator = QuillCodeDesktopTrustedRouterCreditsCoordinator(bootstrap: bootstrap)
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
@@ -132,6 +134,10 @@ final class QuillCodeDesktopController: ObservableObject {
         modelCatalogRefreshCoordinator.startTicker(tasks: tasks) { [weak self] in
             self?.scheduleModelCatalogRefreshIfNeeded()
         }
+        scheduleTrustedRouterCreditsRefreshIfNeeded()
+        trustedRouterCreditsCoordinator.startTicker(tasks: tasks) { [weak self] in
+            self?.scheduleTrustedRouterCreditsRefreshIfNeeded()
+        }
     }
 
     /// Registers the Approve/Skip notification category and the delegate that routes a tapped action
@@ -177,6 +183,16 @@ final class QuillCodeDesktopController: ObservableObject {
             await modelCatalogRefreshCoordinator.refreshIfNeeded(
                 on: model,
                 refresh: { [weak self] in self?.refresh() }
+            )
+        }
+    }
+
+    private func scheduleTrustedRouterCreditsRefreshIfNeeded() {
+        tasks.startIfIdle(.trustedRouterCreditsRefresh) { [weak self] in
+            guard let self else { return }
+            await trustedRouterCreditsCoordinator.refresh(
+                on: model,
+                refreshSurface: { [weak self] in self?.refresh() }
             )
         }
     }

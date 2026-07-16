@@ -103,6 +103,7 @@ public struct QuillCodeRootState: Sendable, Hashable {
     public var modelCatalog: [ModelInfo]
     public var modelCatalogStatus: ModelCatalogStatus
     public var trustedRouterAPIKeyConfigured: Bool
+    public var trustedRouterCredits: TrustedRouterCreditsState
 
     public init(
         config: AppConfig = AppConfig(),
@@ -114,7 +115,8 @@ public struct QuillCodeRootState: Sendable, Hashable {
         topBar: TopBarState = TopBarState(),
         modelCatalog: [ModelInfo] = TrustedRouterDefaults.normalizedModelCatalog([]),
         modelCatalogStatus: ModelCatalogStatus = .bundled,
-        trustedRouterAPIKeyConfigured: Bool = false
+        trustedRouterAPIKeyConfigured: Bool = false,
+        trustedRouterCredits: TrustedRouterCreditsState = .unavailable
     ) {
         self.config = config
         self.projects = projects
@@ -126,6 +128,7 @@ public struct QuillCodeRootState: Sendable, Hashable {
         self.modelCatalog = modelCatalog
         self.modelCatalogStatus = modelCatalogStatus
         self.trustedRouterAPIKeyConfigured = trustedRouterAPIKeyConfigured
+        self.trustedRouterCredits = trustedRouterCredits
     }
 
     public var sidebarItems: [SidebarItem] {

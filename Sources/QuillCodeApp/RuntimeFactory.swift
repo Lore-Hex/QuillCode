@@ -42,15 +42,18 @@ public struct QuillCodeRuntimeFactory: Sendable {
     public var paths: QuillCodePaths
     public var environment: [String: String]
     public var modelCatalogURLSession: URLSession
+    public var accountCreditsURLSession: URLSession
 
     public init(
         paths: QuillCodePaths = QuillCodePaths(),
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        modelCatalogURLSession: URLSession = .shared
+        modelCatalogURLSession: URLSession = .shared,
+        accountCreditsURLSession: URLSession? = nil
     ) {
         self.paths = paths
         self.environment = environment
         self.modelCatalogURLSession = modelCatalogURLSession
+        self.accountCreditsURLSession = accountCreditsURLSession ?? modelCatalogURLSession
     }
 
     public func makeRuntime(config: AppConfig) -> QuillCodeRuntime {
@@ -161,6 +164,27 @@ public struct QuillCodeRuntimeFactory: Sendable {
         guard !forcedMock else { return false }
         if configuredAPIKey() != nil { return true }
         return sessionStore().hasAPIKey
+    }
+
+    public func fetchTrustedRouterCredits(config: AppConfig) async -> TrustedRouterCreditsRefreshResult {
+        guard !forcedMock else { return .unavailable }
+        guard let key = configuredAPIKey() ?? (try? sessionStore().apiKey()) else {
+            return .unavailable
+        }
+        let attemptedAt = Date()
+        do {
+            let snapshot = try await TrustedRouterCreditsClient(
+                apiKey: key,
+                baseURL: config.apiBaseURL,
+                urlSession: accountCreditsURLSession
+            ).fetch(fetchedAt: attemptedAt)
+            return .success(snapshot)
+        } catch {
+            return .failure(
+                attemptedAt: attemptedAt,
+                message: TrustedRouterCreditsClient.userFacingFailure(for: error)
+            )
+        }
     }
 
     private var forcedMock: Bool {

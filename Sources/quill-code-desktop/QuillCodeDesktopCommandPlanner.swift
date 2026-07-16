@@ -19,6 +19,7 @@ enum QuillCodeDesktopCommandAction {
     case settings
     case openComputerUseSystemSettings(MacSystemSettingsOpener.Destination)
     case refreshComputerUseStatus
+    case refreshTrustedRouterCredits
     case stopAll
     case disconnectAll
     case retryLastTurn
@@ -68,6 +69,8 @@ enum QuillCodeDesktopCommandPlanner {
             return .openComputerUseSystemSettings(.accessibility)
         case "computer-use-refresh":
             return .refreshComputerUseStatus
+        case "trustedrouter-credits-refresh":
+            return .refreshTrustedRouterCredits
         case "stop-all":
             return .stopAll
         case "disconnect-all":

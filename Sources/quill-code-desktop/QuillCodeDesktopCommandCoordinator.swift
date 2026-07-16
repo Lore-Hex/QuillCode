@@ -20,6 +20,7 @@ protocol QuillCodeDesktopCommandPerforming: AnyObject {
     func openSettings()
     func openComputerUseSystemSettings(_ destination: MacSystemSettingsOpener.Destination)
     func refreshComputerUseStatus()
+    func refreshTrustedRouterCredits()
     func stopAll()
     func disconnectAll()
     func retryLastTurn()
@@ -71,6 +72,8 @@ struct QuillCodeDesktopCommandCoordinator {
             performer.openComputerUseSystemSettings(destination)
         case .refreshComputerUseStatus:
             performer.refreshComputerUseStatus()
+        case .refreshTrustedRouterCredits:
+            performer.refreshTrustedRouterCredits()
         case .stopAll:
             performer.stopAll()
         case .disconnectAll:

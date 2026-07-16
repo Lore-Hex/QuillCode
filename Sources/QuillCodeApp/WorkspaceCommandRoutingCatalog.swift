@@ -4,6 +4,7 @@ public enum WorkspaceCommandRoutingCatalog {
         "computer-use-open-screen-recording",
         "computer-use-open-accessibility",
         "computer-use-refresh",
+        "trustedrouter-credits-refresh",
         "dictation"
     ]
 

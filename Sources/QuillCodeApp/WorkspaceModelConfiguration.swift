@@ -81,6 +81,28 @@ extension QuillCodeWorkspaceModel {
         root.modelCatalogStatus = catalog.status
     }
 
+    public func setTrustedRouterCredits(_ state: TrustedRouterCreditsState) {
+        root.trustedRouterCredits = state
+    }
+
+    public func applyTrustedRouterCreditsRefresh(
+        _ result: TrustedRouterCreditsRefreshResult,
+        previous: TrustedRouterCreditsState
+    ) {
+        switch result {
+        case .unavailable:
+            root.trustedRouterCredits = .unavailable
+        case .success(let snapshot):
+            root.trustedRouterCredits = .current(snapshot)
+        case .failure(let attemptedAt, let message):
+            root.trustedRouterCredits = .failed(
+                previous: previous,
+                attemptedAt: attemptedAt,
+                message: message
+            )
+        }
+    }
+
     public func applySettings(config: AppConfig, trustedRouterAPIKeyConfigured: Bool) {
         WorkspaceConfigurationEngine.applySettings(
             config,

@@ -83,6 +83,18 @@ test('mock harness surfaces the prominent token budget meter after a turn comple
   await expect(page.getByTestId('top-bar-usage')).toHaveCount(0);
 });
 
+test('mock harness shows live TrustedRouter balance separately from context and quota usage', async ({ page }) => {
+  await page.goto(`${harnessURL()}?credits=1`);
+
+  const balance = page.getByTestId('top-bar-account-balance');
+  await expect(balance).toBeVisible();
+  await expect(balance).toHaveText('Balance $24.75');
+  await expect(balance).toHaveAttribute('data-tone', 'normal');
+  await expect(balance).toHaveAttribute('aria-label', /TrustedRouter account balance/);
+  await expect(page.getByTestId('top-bar-token-budget')).toHaveCount(0);
+  await expect(page.getByTestId('top-bar-token-quota-limits')).toHaveCount(0);
+});
+
 test('mock harness token abbreviator matches the Swift boundary table byte-for-byte', async ({ page }) => {
   await page.goto(harnessURL());
   // Drives the JS twin of WorkspaceTokenUsageLabelBuilder.abbreviate (Swift) across the

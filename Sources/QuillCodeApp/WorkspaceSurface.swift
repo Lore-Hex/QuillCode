@@ -145,6 +145,8 @@ public extension QuillCodeWorkspaceModel {
             favoriteModelIDs: root.config.favoriteModels,
             recentThreads: root.threads,
             runtimeIssue: runtimeIssue,
+            trustedRouterCredits: root.trustedRouterCredits,
+            hasTrustedRouterCredential: root.trustedRouterAPIKeyConfigured,
             runSpendFuseUSD: root.config.runSpendFuseUSD,
             runSpendPeriodLimits: root.config.runSpendPeriodLimits,
             canNavigateBack: navigationHistory.canGoBack,
@@ -242,6 +244,7 @@ public extension QuillCodeWorkspaceModel {
                 computerUseRuntime: ComputerUseSettingsRuntime(topBarState: topBarState),
                 modelCatalogStatus: root.modelCatalogStatus,
                 modelProviderHealthSummary: ModelProviderHealthSummary.summarize(root.modelCatalog),
+                trustedRouterCredits: root.trustedRouterCredits,
                 managedWorktreeDefaultRoot: managedWorktreeDefaultRoot
             ),
             worktreeEnvironments: selectedProject.flatMap { project in
