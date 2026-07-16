@@ -127,8 +127,37 @@ public struct CLIDoctorRequest: Sendable, Equatable {
     }
 }
 
-public enum CLIAppServerTransport: String, Sendable, Equatable {
-    case stdio = "stdio://"
+public enum CLIAppServerTransport: Sendable, Equatable {
+    case stdio
+    case unix(path: String?)
+
+    public init?(rawValue: String) {
+        if rawValue == "stdio://" {
+            self = .stdio
+            return
+        }
+        guard rawValue.hasPrefix("unix://") else { return nil }
+        let suffix = String(rawValue.dropFirst("unix://".count))
+        if suffix.isEmpty {
+            self = .unix(path: nil)
+        } else if suffix.hasPrefix("/"),
+                  suffix != "/",
+                  !suffix.contains("\0"),
+                  !suffix.contains("?"),
+                  !suffix.contains("#") {
+            self = .unix(path: suffix)
+        } else {
+            return nil
+        }
+    }
+
+    public var rawValue: String {
+        switch self {
+        case .stdio: "stdio://"
+        case .unix(nil): "unix://"
+        case .unix(let path?): "unix://\(path)"
+        }
+    }
 }
 
 public struct CLIAppServerRequest: Sendable, Equatable {
@@ -250,7 +279,7 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
         case .structuredOutputMismatch(let reason):
             "The final response does not match --output-schema: \(reason)"
         case .unsupportedAppServerTransport(let value):
-            "App-server transport \(value) is not available yet. Use stdio://."
+            "App-server transport \(value) is not supported. Use stdio://, unix://, or unix:///absolute/path."
         case .appServerMessageTooLarge(let limit):
             "App-server message exceeds the \(limit)-byte limit."
         }

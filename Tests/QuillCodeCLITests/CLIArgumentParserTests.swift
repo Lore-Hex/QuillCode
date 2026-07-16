@@ -122,12 +122,32 @@ final class CLIArgumentParserTests: XCTestCase {
     }
 
     func testAppServerRejectsUnsupportedTransportAndUnknownOptions() {
-        XCTAssertThrowsError(try parser.parse([
-            "app-server", "--listen", "ws://127.0.0.1:4500"
-        ], currentDirectory: cwd))
+        for transport in [
+            "ws://127.0.0.1:4500",
+            "unix://relative.sock",
+            "unix:///tmp/socket?query",
+            "unix:///tmp/socket#fragment"
+        ] {
+            XCTAssertThrowsError(try parser.parse([
+                "app-server", "--listen", transport
+            ], currentDirectory: cwd))
+        }
         XCTAssertThrowsError(try parser.parse([
             "app-server", "--unknown"
         ], currentDirectory: cwd))
+    }
+
+    func testAppServerParsesDefaultAndExplicitUnixSockets() throws {
+        let defaultSocket = try appServerRequest(parser.parse([
+            "app-server", "--listen", "unix://", "--mock"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(defaultSocket.transport, .unix(path: nil))
+
+        let explicitSocket = try appServerRequest(parser.parse([
+            "app-server", "--listen=unix:///tmp/quill code.sock"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(explicitSocket.transport, .unix(path: "/tmp/quill code.sock"))
+        XCTAssertEqual(explicitSocket.transport.rawValue, "unix:///tmp/quill code.sock")
     }
 
     func testMCPServerDefaultsToLiveAndParsesRuntimeOverrides() throws {

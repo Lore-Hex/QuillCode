@@ -13,7 +13,10 @@ final class ParityAppServerMCPElicitationGateTests: QuillCodeParityTestCase {
         let legacyHTTP = try text(root, "Sources/QuillCodeTools/MCPHTTPProberHTTPSSE.swift")
         let appServer = try text(root, "Sources/QuillCodeCLI/AppServerMCPElicitation.swift")
         let directTool = try text(root, "Sources/QuillCodeCLI/AppServerMCP.swift")
-        let runner = try text(root, "Sources/QuillCodeCLI/QuillCodeCommandRunner.swift")
+        let connectionDriver = try text(
+            root,
+            "Sources/QuillCodeCLI/AppServerConnectionDriver.swift"
+        )
         let tests = try text(root, "Tests/QuillCodeCLITests/AppServerMCPTests.swift")
         let smoke = try text(root, "scripts/app-server-smoke.sh")
         let parity = try Self.docsText(named: "CODEX_PARITY_MATRIX.md")
@@ -45,8 +48,8 @@ final class ParityAppServerMCPElicitationGateTests: QuillCodeParityTestCase {
             "resolveAllPendingMCPElicitations"
         ])
         Self.assertSource(directTool, contains: "turnID: nil")
-        Self.assertSource(runner, containsAll: [
-            "appServerRequestCanAwaitClientResponse",
+        Self.assertSource(connectionDriver, containsAll: [
+            "requestCanAwaitClientResponse",
             "mcpServer/tool/call",
             "AppServerConcurrentRequestPool"
         ])
