@@ -72,6 +72,7 @@ extension AppServerSession {
             delivery: delivery,
             settings: updated.settings,
             latestThread: updated.thread,
+            userShellMessages: [],
             userMessage: userMessage,
             baselineAssistantIDs: Set(updated.thread.messages.lazy.filter { $0.role == .assistant }.map(\.id)),
             baselineEventIDs: Set(updated.thread.events.map(\.id)),
@@ -180,14 +181,22 @@ extension AppServerSession {
                 thread: snapshot,
                 settings: active.settings
             ))
+            await waitForUserShellCommands(threadID: threadID, turnID: active.id)
+            try Task.checkCancellation()
+            guard let settled = activeReviews[threadID] else { return }
+            if let failure = settled.persistenceFailure {
+                throw AppServerReviewExecutionError.persistence(failure)
+            }
             await finishReview(
                 threadID,
-                snapshot: snapshot,
+                snapshot: settled.latestThread,
                 status: "completed",
                 error: nil,
                 review: reviewText
             )
         } catch is CancellationError {
+            cancelUserShellCommands(threadID: threadID, turnID: initial.id)
+            await waitForUserShellCommands(threadID: threadID, turnID: initial.id)
             let snapshot = activeReviews[threadID]?.latestThread ?? initial.latestThread
             if let failure = activeReviews[threadID]?.persistenceFailure {
                 await finishReview(
@@ -207,6 +216,7 @@ extension AppServerSession {
                 )
             }
         } catch {
+            await waitForUserShellCommands(threadID: threadID, turnID: initial.id)
             let snapshot = activeReviews[threadID]?.latestThread ?? initial.latestThread
             await finishReview(
                 threadID,
@@ -242,7 +252,7 @@ extension AppServerSession {
         _ snapshot: ChatThread,
         active: ActiveReview
     ) -> ChatThread {
-        var visible = snapshot
+        var visible = mergingUserShellMessages(active.userShellMessages, into: snapshot)
         visible.messages.removeAll {
             $0.role == .assistant && !active.baselineAssistantIDs.contains($0.id)
         }
@@ -260,6 +270,7 @@ extension AppServerSession {
         review: String?
     ) async {
         guard var active = activeReviews.removeValue(forKey: threadID) else { return }
+        let snapshot = mergingUserShellMessages(active.userShellMessages, into: snapshot)
         let completedAt = Date()
         let notifications = active.projector.finish(snapshot, completedAt: completedAt)
         var completionStatus = status

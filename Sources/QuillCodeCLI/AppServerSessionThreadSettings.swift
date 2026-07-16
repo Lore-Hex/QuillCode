@@ -86,7 +86,8 @@ extension AppServerSession {
             memoryMode: base?.memoryMode,
             sandboxPolicy: base?.sandboxPolicy,
             permissionProfileID: base?.permissionProfileID,
-            permissionProfileIsExplicit: base?.permissionProfileIsExplicit
+            permissionProfileIsExplicit: base?.permissionProfileIsExplicit,
+            userShellTurns: base?.userShellTurns
         )
     }
 

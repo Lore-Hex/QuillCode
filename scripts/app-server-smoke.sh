@@ -946,6 +946,73 @@ send({"id": 154, "method": "thread/memoryMode/set", "params": {
 memory_mode, _ = read_until(lambda record: record.get("id") == 154)
 assert memory_mode["result"] == {}, memory_mode
 
+send({"id": 159, "method": "thread/shellCommand", "params": {
+    "threadId": thread_id,
+    "command": "printf app-server-user-shell-smoke",
+}})
+shell_response, shell_response_records = read_until(lambda record: record.get("id") == 159)
+assert shell_response == {"id": 159, "result": {}}, shell_response
+assert shell_response_records == [shell_response], shell_response_records
+shell_turn_completed, shell_lifecycle = read_until(
+    lambda record: record.get("method") == "turn/completed"
+)
+shell_started = next(
+    record for record in shell_lifecycle
+    if record.get("method") == "item/started"
+    and record.get("params", {}).get("item", {}).get("source") == "userShell"
+)
+shell_delta = next(
+    record for record in shell_lifecycle
+    if record.get("method") == "item/commandExecution/outputDelta"
+)
+shell_completed = next(
+    record for record in shell_lifecycle
+    if record.get("method") == "item/completed"
+    and record.get("params", {}).get("item", {}).get("source") == "userShell"
+)
+shell_turn_id = shell_started["params"]["turnId"]
+shell_item_id = shell_started["params"]["item"]["id"]
+assert shell_started["params"]["item"]["type"] == "commandExecution", shell_started
+assert shell_started["params"]["item"]["status"] == "inProgress", shell_started
+assert os.path.realpath(shell_started["params"]["item"]["cwd"]) == os.path.realpath(
+    workspace
+), shell_started
+assert shell_started["params"]["item"]["commandActions"] == [{
+    "type": "unknown",
+    "command": "printf app-server-user-shell-smoke",
+}], shell_started
+assert shell_delta["params"] == {
+    "threadId": thread_id,
+    "turnId": shell_turn_id,
+    "itemId": shell_item_id,
+    "delta": "app-server-user-shell-smoke",
+}, shell_delta
+assert shell_completed["params"]["turnId"] == shell_turn_id, shell_completed
+assert shell_completed["params"]["item"]["id"] == shell_item_id, shell_completed
+assert shell_completed["params"]["item"]["status"] == "completed", shell_completed
+assert shell_completed["params"]["item"]["aggregatedOutput"] == (
+    "app-server-user-shell-smoke"
+), shell_completed
+assert shell_completed["params"]["item"]["exitCode"] == 0, shell_completed
+assert shell_turn_completed["params"]["turn"]["id"] == shell_turn_id, shell_turn_completed
+assert shell_turn_completed["params"]["turn"]["status"] == "completed", shell_turn_completed
+assert shell_turn_completed["params"]["turn"]["items"] == [], shell_turn_completed
+
+send({"id": 160, "method": "thread/read", "params": {
+    "threadId": thread_id,
+    "includeTurns": True,
+}})
+shell_history, _ = read_until(lambda record: record.get("id") == 160)
+shell_turns = shell_history["result"]["thread"]["turns"]
+assert len(shell_turns) == 2, shell_history
+assert shell_turns[-1]["id"] == shell_turn_id, shell_history
+assert shell_turns[-1]["items"] == [], shell_history
+assert all(
+    item.get("type") != "commandExecution"
+    for turn in shell_turns
+    for item in turn["items"]
+), shell_history
+
 send({"id": 155, "method": "thread/unsubscribe", "params": {
     "threadId": thread_id,
 }})

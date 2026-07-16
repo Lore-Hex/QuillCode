@@ -44,19 +44,22 @@ public struct ShellExecutionRequest: Sendable {
     public var timeoutSeconds: TimeInterval
     public var environment: [String: String]?
     public var standardInput: String?
+    public var shellExecutableURL: URL
 
     public init(
         command: String,
         cwd: URL,
         timeoutSeconds: TimeInterval = 30,
         environment: [String: String]? = nil,
-        standardInput: String? = nil
+        standardInput: String? = nil,
+        shellExecutableURL: URL = URL(fileURLWithPath: "/bin/sh")
     ) {
         self.command = command
         self.cwd = cwd
         self.timeoutSeconds = timeoutSeconds
         self.environment = environment
         self.standardInput = standardInput
+        self.shellExecutableURL = shellExecutableURL
     }
 }
 
@@ -179,7 +182,7 @@ public struct ShellToolExecutor: Sendable {
         }
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.executableURL = request.shellExecutableURL
         process.arguments = ["-lc", trimmed]
         process.currentDirectoryURL = request.cwd
         process.environment = request.environment

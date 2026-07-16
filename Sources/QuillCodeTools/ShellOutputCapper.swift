@@ -16,39 +16,69 @@ public enum ShellOutputCapper {
         maxLines: Int = defaultMaxLines,
         maxBytes: Int = defaultMaxBytes
     ) -> (text: String, truncated: Bool) {
-        // A trailing newline TERMINATES the last line — it is not an extra empty line. Count the way
-        // `wc -l` does, so output exactly at the limit isn't truncated one line early (shell output
-        // almost always ends in a newline).
-        let hadTrailingNewline = text.hasSuffix("\n")
-        var lines = text.components(separatedBy: "\n")
-        if hadTrailingNewline {
-            lines.removeLast()
-        }
-        let totalLines = text.isEmpty ? 0 : lines.count
-        let totalBytes = text.utf8.count
-        guard totalLines > maxLines || totalBytes > maxBytes else {
-            return (text, false)
-        }
+        var accumulator = ShellOutputAccumulator(maxLines: maxLines, maxBytes: maxBytes)
+        accumulator.append(text)
+        return accumulator.result
+    }
+}
 
+/// Incrementally retains the same bounded tail as ``ShellOutputCapper`` without first buffering an
+/// arbitrarily large command response. This is used by long-lived streaming shells where collecting
+/// the complete output would defeat the cap's memory-safety guarantee.
+public struct ShellOutputAccumulator: Sendable {
+    private let maxLines: Int
+    private let maxBytes: Int
+    private var tail = Data()
+    private var totalBytes = 0
+    private var newlineCount = 0
+    private var hasContent = false
+    private var endsWithNewline = false
+
+    public init(
+        maxLines: Int = ShellOutputCapper.defaultMaxLines,
+        maxBytes: Int = ShellOutputCapper.defaultMaxBytes
+    ) {
+        self.maxLines = max(0, maxLines)
+        self.maxBytes = max(0, maxBytes)
+    }
+
+    public mutating func append(_ text: String) {
+        guard !text.isEmpty else { return }
+        let data = Data(text.utf8)
+        hasContent = true
+        totalBytes += data.count
+        newlineCount += data.reduce(into: 0) { count, byte in
+            if byte == 0x0A { count += 1 }
+        }
+        endsWithNewline = data.last == 0x0A
+        tail.append(data)
+        if tail.count > maxBytes {
+            tail = Data(tail.suffix(maxBytes))
+        }
+    }
+
+    public var text: String {
+        result.text
+    }
+
+    public var result: (text: String, truncated: Bool) {
+        guard hasContent else { return ("", false) }
+        let totalLines = newlineCount + (endsWithNewline ? 0 : 1)
+        var bytes = Array(tail)
+        while let first = bytes.first, first & 0b1100_0000 == 0b1000_0000 {
+            bytes.removeFirst()
+        }
+        var kept = String(decoding: bytes, as: UTF8.self)
+        let hadTrailingNewline = kept.hasSuffix("\n")
+        var lines = kept.components(separatedBy: "\n")
+        if hadTrailingNewline { lines.removeLast() }
         if lines.count > maxLines {
             lines = Array(lines.suffix(maxLines))
-        }
-        var kept = lines.joined(separator: "\n")
-        if hadTrailingNewline, !kept.isEmpty {
-            kept += "\n"
+            kept = lines.joined(separator: "\n")
+            if hadTrailingNewline, !kept.isEmpty { kept += "\n" }
         }
 
-        // Byte ceiling on the already line-trimmed tail: keep the last maxBytes bytes, then drop any
-        // leading UTF-8 continuation bytes (0b10xxxxxx) so the cut lands on a codepoint boundary — a
-        // raw byte cut can start mid-scalar and would decode to U+FFFD garbage at the head of the tail.
-        if kept.utf8.count > maxBytes {
-            var bytes = Array(kept.utf8.suffix(maxBytes))
-            while let first = bytes.first, first & 0b1100_0000 == 0b1000_0000 {
-                bytes.removeFirst()
-            }
-            kept = String(decoding: bytes, as: UTF8.self)
-        }
-
+        guard totalLines > maxLines || totalBytes > maxBytes else { return (kept, false) }
         let note = "[output truncated — showing the tail; \(totalLines) line\(totalLines == 1 ? "" : "s"), \(totalBytes) bytes total]\n"
         return (note + kept, true)
     }

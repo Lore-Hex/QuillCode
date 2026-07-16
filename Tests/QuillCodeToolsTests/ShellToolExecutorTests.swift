@@ -33,6 +33,27 @@ final class ShellToolExecutorTests: XCTestCase {
         XCTAssertEqual(result.stdout, "from-shell-request")
     }
 
+    func testShellUsesSelectedExecutable() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("shell-arguments.txt")
+        let shell = try makeRecordingShell(in: root, argumentsFile: argumentsFile)
+
+        let result = ShellToolExecutor().run(.init(
+            command: "printf selected-shell",
+            cwd: root,
+            shellExecutableURL: shell
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "selected-shell")
+        XCTAssertEqual(
+            try String(contentsOf: argumentsFile, encoding: .utf8)
+                .split(separator: "\n")
+                .map(String.init),
+            ["-lc", "printf selected-shell"]
+        )
+    }
+
     func testShellSuppliesBoundedStandardInputAndClosesEOF() {
         let result = ShellToolExecutor().run(.init(
             command: "cat",
@@ -100,6 +121,32 @@ final class ShellToolExecutorTests: XCTestCase {
         XCTAssertTrue(result.ok, result.error ?? "")
         XCTAssertTrue(result.stdout.contains("stream-start"))
         XCTAssertTrue(result.stdout.contains("stream-end"))
+    }
+
+    func testStreamingShellUsesSelectedExecutable() async throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("stream-shell-arguments.txt")
+        let shell = try makeRecordingShell(in: root, argumentsFile: argumentsFile)
+        let stream = ShellToolExecutor().runStreaming(.init(
+            command: "printf selected-stream-shell",
+            cwd: root,
+            shellExecutableURL: shell
+        ))
+        var finishedResult: ToolResult?
+
+        for await event in stream {
+            if case .finished(let result) = event { finishedResult = result }
+        }
+
+        let result = try XCTUnwrap(finishedResult)
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "selected-stream-shell")
+        XCTAssertEqual(
+            try String(contentsOf: argumentsFile, encoding: .utf8)
+                .split(separator: "\n")
+                .map(String.init),
+            ["-lc", "printf selected-stream-shell"]
+        )
     }
 
     func testStreamingSessionSendsInputToRunningProcess() async throws {
