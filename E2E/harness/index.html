@@ -2481,6 +2481,22 @@
       cursor: pointer;
       box-shadow: 0 4px 14px rgba(0,0,0,.3);
     }
+    .transcript-jump-to-latest {
+      position: fixed;
+      bottom: 96px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 40;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--blue);
+      border: none;
+      border-radius: 999px;
+      padding: 8px 16px;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0,0,0,.38);
+    }
     .terminal-pane,
     .browser-pane,
     .extensions-pane,
@@ -11960,45 +11976,129 @@
         </section>`;
     }
 
+    // Streaming follow-scroll, mirroring the native SwiftUI rule (QuillCodeTranscriptView +
+    // TranscriptScrollFollow). Two decoupled concerns:
+    //  1. FOLLOW: on each render, stick to the bottom iff the reader was AT the bottom when the render
+    //     began (`wasWindowPinnedToBottom`, read live from the DOM so it can't lag async scroll
+    //     events). Content growth changes scrollHeight, not scrollY, so growth alone never moves the
+    //     reader off the bottom — the native "growth doesn't un-pin".
+    //  2. CHIP: a floating "Jump to latest" chip (parity with quillcode-transcript-jump-to-latest)
+    //     appears only after a genuine USER scroll UP — tracked by `transcriptShowJumpChip`, flipped
+    //     by the window scroll listener. It is NOT derived from the render pin, so content that merely
+    //     OPENS at the top (an overflowing fixture, before any scroll) never shows the chip.
+    // The harness scrolls the WINDOW (the workspace is min-height:100vh, so a tall transcript overflows
+    // the page rather than an inner box), so both read window scroll.
+    let transcriptShowJumpChip = false;
+    let windowScrollTrackingBound = false;
+    const TRANSCRIPT_BOTTOM_THRESHOLD = 24;
+
+    function windowDistanceFromBottom() {
+      const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      return Math.max(0, maxScrollY - window.scrollY);
+    }
+
     function captureTranscriptScroll() {
       const timeline = document.querySelector('[data-testid="timeline"]');
-      const documentElement = document.documentElement;
-      const maxWindowScrollY = Math.max(0, documentElement.scrollHeight - window.innerHeight);
-      const windowDistanceFromBottom = maxWindowScrollY - window.scrollY;
-      if (!timeline) {
-        return {
-          windowScrollY: window.scrollY,
-          wasWindowPinnedToBottom: windowDistanceFromBottom <= 24
-        };
-      }
-      const maxTimelineScrollTop = Math.max(0, timeline.scrollHeight - timeline.clientHeight);
-      const timelineDistanceFromBottom = maxTimelineScrollTop - timeline.scrollTop;
       return {
         windowScrollY: window.scrollY,
-        wasWindowPinnedToBottom: windowDistanceFromBottom <= 24,
-        timelineScrollTop: timeline.scrollTop,
-        wasTimelinePinnedToBottom: timelineDistanceFromBottom <= 24
+        // DOM-derived, SYNCHRONOUSLY: is the reader at the bottom right now, before this render's
+        // content lands? Scroll events are async and lag, so the follow decision must read the live
+        // position here (capturing the pre-growth pin — the native `isPinnedToBottom` at capture).
+        wasWindowPinnedToBottom: windowDistanceFromBottom() <= TRANSCRIPT_BOTTOM_THRESHOLD,
+        timelineScrollTop: timeline ? timeline.scrollTop : 0
       };
     }
 
     function restoreTranscriptScroll(snapshot) {
       if (!snapshot) return;
+      bindWindowScrollTracking();
       const documentElement = document.documentElement;
+      const timeline = document.querySelector('[data-testid="timeline"]');
+      // Follow to the bottom iff the reader was pinned there when this render began; otherwise keep
+      // their scrolled-up position (the native `guard force || isPinnedToBottom`). Reaching the bottom
+      // dismisses the chip; a scrolled-up render leaves the chip state to the scroll listener.
       if (snapshot.wasWindowPinnedToBottom) {
         window.scrollTo(0, documentElement.scrollHeight);
+        if (timeline) timeline.scrollTop = timeline.scrollHeight;
+        transcriptShowJumpChip = false;
       } else {
         const maxWindowScrollY = Math.max(0, documentElement.scrollHeight - window.innerHeight);
         window.scrollTo(0, Math.min(snapshot.windowScrollY || 0, maxWindowScrollY));
+        if (timeline) {
+          const maxScrollTop = Math.max(0, timeline.scrollHeight - timeline.clientHeight);
+          timeline.scrollTop = Math.min(snapshot.timelineScrollTop || 0, maxScrollTop);
+        }
       }
+      updateJumpToLatestChip();
+    }
+
+    function jumpToLatestChipHTML() {
+      return `<button type="button" class="transcript-jump-to-latest" data-testid="jump-to-latest" aria-label="Jump to latest">Jump to latest</button>`;
+    }
+
+    // Show the chip only after a user scroll-up AND while a run is streaming — the native chip's stated
+    // scenario ("shown while the reader has scrolled up during a live run"). Gating on the run keeps it
+    // out of every static, non-running audit/screenshot fixture, where a floating overlay would
+    // otherwise overlap other controls the audit scrolls under.
+    function shouldShowJumpChip() {
+      return transcriptShowJumpChip && !!state.composer.isSending;
+    }
+
+    function renderJumpToLatestChip() {
+      return shouldShowJumpChip() ? jumpToLatestChipHTML() : '';
+    }
+
+    // Reconcile the chip element with the show flag WITHOUT a full render(): re-rendering from a
+    // scroll handler would undo an in-flight programmatic scroll such as the jump bar's
+    // scrollTimelineItemIntoView. So add/remove just the chip node in place.
+    function updateJumpToLatestChip() {
       const timeline = document.querySelector('[data-testid="timeline"]');
       if (!timeline) return;
-      if (snapshot.wasTimelinePinnedToBottom) {
-        timeline.scrollTop = timeline.scrollHeight;
-        return;
+      const existing = timeline.querySelector('[data-testid="jump-to-latest"]');
+      if (!shouldShowJumpChip()) {
+        existing?.remove();
+      } else if (!existing) {
+        timeline.insertAdjacentHTML('beforeend', jumpToLatestChipHTML());
+        timeline.querySelector('[data-testid="jump-to-latest"]')?.addEventListener('click', jumpToLatest);
       }
-      const maxScrollTop = Math.max(0, timeline.scrollHeight - timeline.clientHeight);
-      timeline.scrollTop = Math.min(snapshot.timelineScrollTop || 0, maxScrollTop);
     }
+
+    function jumpToLatest() {
+      transcriptShowJumpChip = false;
+      const timeline = document.querySelector('[data-testid="timeline"]');
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      if (timeline) timeline.scrollTop = timeline.scrollHeight;
+      updateJumpToLatestChip();
+    }
+
+    // The window persists across renders, so bind its scroll listener exactly once. Only a scrollY
+    // move reaches here; content growth changes scrollHeight, which fires no scroll event — so growth
+    // can never be misread as a scroll-up. The chip shows once the reader is off the bottom and hides
+    // the moment they return.
+    function bindWindowScrollTracking() {
+      if (windowScrollTrackingBound) return;
+      windowScrollTrackingBound = true;
+      window.addEventListener('scroll', () => {
+        const show = windowDistanceFromBottom() > TRANSCRIPT_BOTTOM_THRESHOLD;
+        if (show === transcriptShowJumpChip) return;
+        transcriptShowJumpChip = show;
+        updateJumpToLatestChip();
+      });
+    }
+
+    // Test-only: append a large assistant "chunk" during a simulated streaming run, so the
+    // follow-scroll smoke can grow the transcript deterministically (there is no real streaming
+    // backend in the harness). Mirrors a streamed chunk landing mid-run: isSending stays true (so the
+    // Jump-to-latest chip is live), content grows, and the follow decision is re-evaluated on render.
+    window.__harnessAppendAssistantChunk = function(text) {
+      const chunk = String(text == null ? '' : text);
+      const message = { id: `message-${state.nextTimelineIndex++}`, role: 'assistant', text: chunk, attachments: [] };
+      state.transcript.messages.push(message);
+      state.transcript.timelineItems.push({ id: `timeline-${state.nextTimelineIndex++}`, kind: 'message', message });
+      state.composer.isSending = true;
+      saveSelectedThreadSnapshot();
+      render();
+    };
 
     const pullRequestReviewActionLabels = {
       approve: 'Approve',
@@ -13482,7 +13582,7 @@
                 ${state.find.isOpen ? renderFindBar(findMatches) : ''}
 	              ${state.automations.isVisible ? renderAutomationsPane() : ''}
 	              ${hasTimelineContent ? renderTranscriptJumpBar() : ''}
-	              <div class="timeline" data-testid="timeline">${confidentialIsActive() ? renderConfidentialBanner() : ''}${renderSideConversationBanner()}${renderNewTurnsPill()}${timeline}</div>
+	              <div class="timeline" data-testid="timeline">${confidentialIsActive() ? renderConfidentialBanner() : ''}${renderSideConversationBanner()}${renderNewTurnsPill()}${timeline}${renderJumpToLatestChip()}</div>
 	              ${state.browser.isVisible ? renderBrowserPane() : ''}
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
 	              ${state.memories.isVisible ? renderMemoriesPane() : ''}
@@ -13675,6 +13775,9 @@
         render();
         if (firstUnseen) scrollTimelineItemIntoView(firstUnseen);
       });
+      // Bind the chip that render() emitted via innerHTML (the un-pinned state). Chips inserted later
+      // by updateJumpToLatestChip (on a mid-render user scroll) bind their own handler at insert time.
+      document.querySelector('[data-testid="jump-to-latest"]')?.addEventListener('click', jumpToLatest);
       document.querySelectorAll('[data-testid="tool-card-action"]').forEach(button => {
         button.addEventListener('click', event => {
           const cardElement = event.currentTarget.closest('[data-testid="tool-card"]');
