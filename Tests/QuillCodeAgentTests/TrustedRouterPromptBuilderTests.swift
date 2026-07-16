@@ -543,6 +543,124 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(messages.contains { ($0["content"] as? String) == "third" })
     }
 
+    func testInjectedContextBeforeFirstTurnPrecedesCurrentPrompt() throws {
+        let injected = ThreadModelContextItem(
+            afterMessageID: nil,
+            responseItem: responseMessage(role: "assistant", text: "Invisible prior answer")
+        )
+        let thread = ChatThread(modelContextItems: [injected])
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "Visible first request",
+            tools: []
+        )
+        let contents = messages.compactMap { $0["content"] as? String }
+
+        XCTAssertLessThan(
+            try XCTUnwrap(contents.firstIndex(of: "Invisible prior answer")),
+            try XCTUnwrap(contents.firstIndex(of: "Visible first request"))
+        )
+        XCTAssertTrue(thread.messages.isEmpty, "injected context must not become transcript content")
+    }
+
+    func testInjectedContextReplaysImmediatelyAfterItsAnchor() throws {
+        let first = ChatMessage(role: .user, content: "First visible turn")
+        let second = ChatMessage(role: .assistant, content: "Second visible turn")
+        let injected = ThreadModelContextItem(
+            afterMessageID: first.id,
+            responseItem: responseMessage(role: "developer", text: "Hidden boundary guidance")
+        )
+        let thread = ChatThread(messages: [first, second], modelContextItems: [injected])
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "Next request",
+            tools: []
+        )
+        let contents = messages.compactMap { $0["content"] as? String }
+        let firstIndex = try XCTUnwrap(contents.firstIndex(of: first.content))
+        let injectedIndex = try XCTUnwrap(contents.firstIndex(of: "Hidden boundary guidance"))
+        let secondIndex = try XCTUnwrap(contents.firstIndex(of: second.content))
+
+        XCTAssertLessThan(firstIndex, injectedIndex)
+        XCTAssertLessThan(injectedIndex, secondIndex)
+        XCTAssertEqual(messages[injectedIndex]["role"] as? String, "system")
+    }
+
+    func testInjectedInlineImageUsesChatCompletionsMultimodalShape() throws {
+        let dataURL = "data:image/png;base64,aGVsbG8="
+        let item = ThreadModelContextItem(
+            afterMessageID: nil,
+            responseItem: .object([
+                "type": .string("message"),
+                "role": .string("user"),
+                "content": .array([
+                    .object(["type": .string("input_text"), "text": .string("Inspect this")]),
+                    .object([
+                        "type": .string("input_image"),
+                        "image_url": .string(dataURL),
+                        "detail": .string("low")
+                    ])
+                ])
+            ])
+        )
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: ChatThread(modelContextItems: [item]),
+            userMessage: "Continue",
+            tools: []
+        )
+        let injected = try XCTUnwrap(messages.first { $0["role"] as? String == "user" })
+        let content = try XCTUnwrap(injected["content"] as? [[String: Any]])
+
+        XCTAssertEqual(content.first?["text"] as? String, "Inspect this")
+        let image = try XCTUnwrap(content.last?["image_url"] as? [String: Any])
+        XCTAssertEqual(image["url"] as? String, dataURL)
+        XCTAssertEqual(image["detail"] as? String, "low")
+    }
+
+    func testNonMessageResponseItemRemainsModelVisibleAsCanonicalContext() throws {
+        let item = ThreadModelContextItem(
+            afterMessageID: nil,
+            responseItem: .object([
+                "type": .string("reasoning"),
+                "summary": .array([.string("private rationale")])
+            ])
+        )
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: ChatThread(modelContextItems: [item]),
+            userMessage: "Continue",
+            tools: []
+        )
+        let projected = try XCTUnwrap(messages.first {
+            ($0["content"] as? String)?.hasPrefix("[Injected Responses API context]") == true
+        })
+        let content = try XCTUnwrap(projected["content"] as? String)
+
+        XCTAssertEqual(projected["role"] as? String, "assistant")
+        XCTAssertTrue(content.contains(#"{"summary":["private rationale"],"type":"reasoning"}"#))
+    }
+
+    func testInjectedContextParticipatesInHistoryLimitAndCacheStability() {
+        let message = ChatMessage(role: .user, content: "Visible")
+        let injected = ThreadModelContextItem(
+            afterMessageID: message.id,
+            responseItem: responseMessage(role: "assistant", text: "Hidden")
+        )
+        let thread = ChatThread(messages: [message], modelContextItems: [injected])
+        let assembled = TrustedRouterPromptBuilder(historyLimit: 1).assembled(
+            thread: thread,
+            userMessage: "Next",
+            tools: []
+        )
+
+        XCTAssertFalse(assembled.messages.contains { ($0["content"] as? String) == "Visible" })
+        XCTAssertTrue(assembled.messages.contains { ($0["content"] as? String) == "Hidden" })
+        XCTAssertFalse(assembled.historyPrefixStable)
+    }
+
     func testPromptBuilderTreatsNegativeHistoryLimitAsZero() {
         let thread = ChatThread(messages: [
             .init(role: .user, content: "first")
@@ -566,5 +684,15 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
             message["role"] as? String == "system"
                 && (message["content"] as? String)?.contains(marker) == true
         }?["content"] as? String
+    }
+
+    private func responseMessage(role: String, text: String) -> QuillJSONValue {
+        .object([
+            "type": .string("message"),
+            "role": .string(role),
+            "content": .array([
+                .object(["type": .string("output_text"), "text": .string(text)])
+            ])
+        ])
     }
 }

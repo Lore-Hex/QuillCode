@@ -1,5 +1,26 @@
 # QuillCode Decisions
 
+## 2026-07-16: Injected response items use a durable model-only timeline
+
+- **Visibility boundary:** `thread/inject_items` never fabricates `ChatMessage` or `ThreadEvent`
+  records. Raw structured response items live in `ChatThread.modelContextItems`, so thread reads,
+  search, turn history, rollback projections, exports, and native transcripts remain unchanged.
+- **Ordering boundary:** Each injected item records the last visible message as its anchor; no anchor
+  means before the first visible turn. Prompt assembly merges items immediately after that anchor in
+  request order. A missing anchor after compaction is retained at the end of available history rather
+  than silently dropped.
+- **Transport boundary:** Responses `message` items preserve roles, text, and inline image detail when
+  projected into TrustedRouter chat-completions input. Developer messages become system messages.
+  Non-message and future variants remain model-visible as sorted canonical JSON; they are never
+  interpreted as locally executable tool calls.
+- **Concurrency boundary:** Active turn, review, compaction, and user-shell state owns the latest task
+  snapshot. Injection updates that state and persistence together; every progress/completion merge
+  explicitly carries model-only context forward so an older asynchronous snapshot cannot erase it.
+- **Evidence:** Exact-error actor tests cover validation, inline images, archive handling, transcript
+  isolation, and persistence. A blocking-LLM test injects during an active turn and proves the item
+  reaches the next model request. Prompt, legacy decode, real executable smoke, and parity-gate tests
+  cover ordering and durability.
+
 ## 2026-07-16: Background-terminal control reuses thread shell ownership
 
 - **One process owner:** App-server background-terminal methods project the existing active user-shell

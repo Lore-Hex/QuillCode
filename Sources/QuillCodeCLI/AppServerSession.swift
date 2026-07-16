@@ -374,6 +374,7 @@ actor AppServerSession {
             case "thread/read": result = try await readThread(params)
             case "thread/turns/list": result = try await listThreadTurns(params)
             case "thread/items/list": result = try await listThreadItems(params)
+            case "thread/inject_items": result = try await injectThreadItems(params)
             case "thread/turns/items/list":
                 throw AppServerRPCError.methodNotSupported(method)
             case "thread/shellCommand":

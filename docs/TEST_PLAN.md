@@ -27,6 +27,11 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   `thread/items/list` payloads, optional turn filtering, ascending/descending item pages, cursors reused
   across filter changes, malformed anchors, empty history, and explicit legacy
   `thread/turns/items/list` non-support.
+- App-server model-only context injection: exact `thread/inject_items` request validation and errors,
+  nonempty raw Responses API items, inline-data-image acceptance and remote-image rejection, archived
+  and unknown task handling, persistence without transcript turns, before-first/after-anchor prompt
+  ordering, chat-completions projection, history-window/cache interaction, reconnect durability, and
+  injection during an active turn without snapshot loss.
 - App-server `gitDiffToRemote`: current upstream-tip SHA rather than HEAD or merge base; clean output;
   committed-ahead, staged, unstaged, untracked, ignored, binary, and diverged histories; tracked-before-
   untracked ordering; relative and absolute CWDs; missing/non-Git/no-upstream errors; unsafe paths;
@@ -103,6 +108,9 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   turn views, explicit unsupported per-item paging, persisted
   post-rollback thread reads, zero-count rejection, persistence, clean EOF, and zero exit. This
   specifically guards against pipe readers that accidentally buffer until the client disconnects.
+- That executable app-server smoke must inject model-only response context before the first turn,
+  prove `thread/read` still reports no visible turns, execute a later turn, and inspect durable state
+  to prove that asynchronous completion did not erase the injection.
 - Real Unix app-server process smoke: create a `0600` socket at a short explicit path, complete a
   standard HTTP WebSocket upgrade, keep at least eight clients connected concurrently, prove
   initialization state is connection-local, exercise split masked frames and model discovery,

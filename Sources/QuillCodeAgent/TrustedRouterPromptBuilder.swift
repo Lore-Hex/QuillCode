@@ -53,11 +53,12 @@ public struct TrustedRouterPromptBuilder: Sendable {
         appendGoal(from: thread, to: &messages)
         appendProjectInstructions(from: thread, to: &messages)
         appendMemories(from: thread, to: &messages)
-        appendRecentHistory(from: thread, to: &messages)
+        let history = orderedModelHistory(from: thread)
+        appendRecentHistory(history, to: &messages)
         appendRuntimeBoundary(from: thread, to: &messages)
         appendCurrentUserMessageIfNeeded(thread: thread, userMessage: userMessage, to: &messages)
 
-        return (messages, thread.messages.count <= historyLimit)
+        return (messages, history.count <= historyLimit)
     }
 
     public static func systemPrompt(tools: [ToolDefinition]) -> String {
@@ -337,10 +338,38 @@ public struct TrustedRouterPromptBuilder: Sendable {
     is gated for the user to review and approve — and keep proposed steps small and clearly described.
     """
 
-    private func appendRecentHistory(from thread: ChatThread, to messages: inout [[String: Any]]) {
-        for message in thread.messages.suffix(historyLimit) {
-            messages.append(chatMessage(message))
+    private func appendRecentHistory(
+        _ history: [ModelHistoryEntry],
+        to messages: inout [[String: Any]]
+    ) {
+        for entry in history.suffix(historyLimit) {
+            switch entry {
+            case .message(let message):
+                messages.append(chatMessage(message))
+            case .context(let item):
+                messages.append(ThreadModelContextPromptProjector.message(for: item))
+            }
         }
+    }
+
+    private func orderedModelHistory(from thread: ChatThread) -> [ModelHistoryEntry] {
+        let knownMessageIDs = Set(thread.messages.map(\.id))
+        let beforeFirst = thread.modelContextItems.filter { $0.afterMessageID == nil }
+        let orphaned = thread.modelContextItems.filter {
+            guard let anchor = $0.afterMessageID else { return false }
+            return !knownMessageIDs.contains(anchor)
+        }
+        let anchored = Dictionary(grouping: thread.modelContextItems.compactMap { item in
+            item.afterMessageID.map { ($0, item) }
+        }, by: \.0)
+
+        var history = beforeFirst.map(ModelHistoryEntry.context)
+        for message in thread.messages {
+            history.append(.message(message))
+            history.append(contentsOf: (anchored[message.id] ?? []).map { .context($0.1) })
+        }
+        history.append(contentsOf: orphaned.map(ModelHistoryEntry.context))
+        return history
     }
 
     private func appendCurrentUserMessageIfNeeded(
@@ -463,4 +492,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
     private static func chatMessage(role: String, content: String) -> [String: Any] {
         ["role": role, "content": content]
     }
+}
+
+private enum ModelHistoryEntry {
+    case message(ChatMessage)
+    case context(ThreadModelContextItem)
 }

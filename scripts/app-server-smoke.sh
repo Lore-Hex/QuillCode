@@ -660,6 +660,20 @@ assert loaded_threads["result"] == {
     "nextCursor": None,
 }, loaded_threads
 
+send({"id": 802, "method": "thread/inject_items", "params": {
+    "threadId": thread_id,
+    "items": [{
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "output_text", "text": "injected-model-only-smoke"}],
+    }],
+}})
+injected, _ = read_until(lambda record: record.get("id") == 802)
+assert injected["result"] == {}, injected
+send({"id": 803, "method": "thread/read", "params": {"threadId": thread_id}})
+read_after_injection, _ = read_until(lambda record: record.get("id") == 803)
+assert read_after_injection["result"]["thread"]["turns"] == [], read_after_injection
+
 send({"id": 60, "method": "mcpServerStatus/list", "params": {
     "threadId": thread_id,
     "detail": "full",
@@ -825,6 +839,7 @@ assert mention_item == {
     "path": "app://smoke-app",
 }, mention_item
 found_skill_snapshot = False
+found_injected_context = False
 for thread_name in os.listdir(os.path.join(home, "threads")):
     with open(os.path.join(home, "threads", thread_name), "r", encoding="utf-8") as thread_file:
         thread_contents = thread_file.read()
@@ -833,7 +848,12 @@ for thread_name in os.listdir(os.path.join(home, "threads")):
             '"inputReferences"' in thread_contents
             and "Updated by the app-server watcher smoke." in thread_contents
         )
+        found_injected_context = found_injected_context or (
+            '"modelContextItems"' in thread_contents
+            and "injected-model-only-smoke" in thread_contents
+        )
 assert found_skill_snapshot, "selected skill context was not persisted with the turn"
+assert found_injected_context, "injected model-only context did not survive the turn"
 
 send({"id": 901, "method": "thread/search", "params": {
     "searchTerm": "APP-SERVER SMOKE",

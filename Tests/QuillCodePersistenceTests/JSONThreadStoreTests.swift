@@ -14,6 +14,29 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertEqual(try store.list().count, 1)
     }
 
+    func testThreadStoreRoundTripsModelOnlyContextWithoutCreatingMessages() throws {
+        let store = try JSONThreadStore(directory: makeTempDirectory())
+        let anchor = ChatMessage(role: .assistant, content: "Visible")
+        let context = ThreadModelContextItem(
+            afterMessageID: anchor.id,
+            responseItem: .object([
+                "type": .string("message"),
+                "role": .string("assistant"),
+                "content": .array([
+                    .object(["type": .string("output_text"), "text": .string("Hidden")])
+                ])
+            ])
+        )
+        let thread = ChatThread(messages: [anchor], modelContextItems: [context])
+
+        try store.save(thread)
+
+        let reloaded = try store.load(thread.id)
+        XCTAssertEqual(reloaded.messages.map(\.id), [anchor.id])
+        XCTAssertEqual(reloaded.messages.map(\.content), [anchor.content])
+        XCTAssertEqual(reloaded.modelContextItems, [context])
+    }
+
     func testFollowUpQueuePersistsWithThreadAcrossReload() throws {
         let store = JSONThreadStore(directory: try makeTempDirectory())
         var thread = ChatThread(title: "Queued")
@@ -175,6 +198,7 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         decoder.dateDecodingStrategy = .iso8601
         let thread = try decoder.decode(ChatThread.self, from: Data(json.utf8))
         XCTAssertEqual(thread.followUpQueue, [])
+        XCTAssertEqual(thread.modelContextItems, [])
         XCTAssertNil(thread.goal)
     }
 }
