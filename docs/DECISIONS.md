@@ -1772,3 +1772,24 @@
 - **Evidence:** Dedicated catalog tests cover missing, malformed, symlinked, oversized, and regex
   inputs. Existing project, global, plugin-integration, trust, and execution suites remain green, and
   the parity gate enforces the module boundary and absence of discovery-time process execution.
+
+## 2026-07-16: Unix app-server transport shares protocol behavior without sharing sessions
+
+- **Transport boundary:** `stdio://`, `unix://`, and `unix:///absolute/path` feed one
+  transport-neutral connection driver and the same bounded incremental JSONL framer. WebSocket is not
+  claimed until it has an equally explicit lifecycle and process smoke.
+- **Isolation boundary:** Every accepted Unix client creates an independent `AppServerSession`, so
+  initialization, loaded threads, process handles, subscriptions, approval requests, and disconnect
+  cleanup cannot leak between clients. Concurrent direct MCP calls remain connection-owned.
+- **Filesystem boundary:** The default socket lives at
+  `$QUILLCODE_HOME/app-server-control/app-server-control.sock` under a `0700` directory and is itself
+  `0600`. Existing files, symlinks, other-user sockets, and active listeners are preserved. A stale
+  same-user socket is removed only after a failed connect probe and a second device/inode identity
+  check; close removes only the exact socket created by that listener.
+- **Platform boundary:** Swift owns async cancellation, full-duplex connection lifetime, and protocol
+  sessions. The C adapter owns only portable AF_UNIX, poll, descriptor, ownership, and inode operations,
+  keeping app targets free of Linux conditionals.
+- **Evidence:** Focused platform and CLI tests cover lifecycle, permissions, path validation, stale
+  recovery, active-listener protection, and control-directory safety. The built-process smoke keeps two
+  clients live, proves connection-local initialization, force-kills the server, and recovers on the
+  stale path.

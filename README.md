@@ -21,7 +21,8 @@ This initial repository contains the compile-stable foundation:
   MCP, saved tasks, connectivity, and app-server health
 - Codex-compatible `quill-code review` for uncommitted changes, base-branch comparisons, individual
   commits, or custom criteria, backed by the same typed read-only reviewer as the desktop app
-- Codex-compatible `quill-code app-server` stdio JSONL core with strict initialization, durable
+- Codex-compatible `quill-code app-server` JSONL core over stdio or private multi-client Unix
+  sockets, with strict initialization, durable
   thread lifecycle, streamed turns, steering, interruption, inline/detached `review/start`,
   managed local images, approvals,
   model/provider discovery, non-secret account/local usage state, API-key and browser OAuth account
@@ -112,8 +113,10 @@ cooperatively stops the active turn, approval requests fail closed on malformed 
 disconnect, and EOF waits for active turns before terminating MCP dependencies. The compatibility
 boundaries that remain are recorded explicitly in the [Parity Matrix](docs/CODEX_PARITY_MATRIX.md).
 
-`quill-code app-server --mock` starts the deterministic stdio app server; omit `--mock` for the live
-TrustedRouter runtime. The implemented core follows Codex's newline-delimited wire shape without a
+`quill-code app-server --mock` starts the deterministic stdio app server; use `--listen unix://` for
+the default private socket under `~/.quillcode/app-server-control`, or
+`--listen unix:///absolute/path` for an explicit socket. Omit `--mock` for the live TrustedRouter
+runtime. The implemented core follows Codex's newline-delimited wire shape without a
 `jsonrpc` marker: initialize/initialized, thread start/resume/fork/list/read/archive/name/delete/goal,
 history-only `thread/rollback`, turn start/steer/interrupt, response-first manual `thread/compact/start` with a non-steerable
 `contextCompaction` turn, inline/detached `review/start`, item and assistant deltas,

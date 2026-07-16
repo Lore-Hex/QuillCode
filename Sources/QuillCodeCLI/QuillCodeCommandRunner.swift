@@ -174,30 +174,23 @@ public struct QuillCodeCommandRunner: Sendable {
         output: any CLIOutputWriting
     ) async -> Int32 {
         do {
-            let session = try AppServerSession(
-                request: request,
-                environment: environment,
-                currentDirectory: currentDirectory,
-                runnerFactory: runnerFactory,
-                sink: { line in await output.writeStandardOutput(line) }
-            )
-            let concurrentRequests = AppServerConcurrentRequestPool()
-            var inputError: (any Error)?
-            do {
-                for try await line in input.lines(maxLineBytes: AppServerSession.maximumMessageBytes) {
-                    if Self.appServerRequestCanAwaitClientResponse(line) {
-                        await concurrentRequests.submit(line, to: session)
-                    } else {
-                        await session.receive(line)
-                    }
-                }
-            } catch {
-                inputError = error
+            switch request.transport {
+            case .stdio:
+                try await AppServerConnectionDriver(runnerFactory: runnerFactory).run(
+                    request: request,
+                    environment: environment,
+                    currentDirectory: currentDirectory,
+                    lines: input.lines(maxLineBytes: AppServerSession.maximumMessageBytes),
+                    sink: { line in await output.writeStandardOutput(line) }
+                )
+            case .unix:
+                try await AppServerUnixSocketTransport(runnerFactory: runnerFactory).run(
+                    request: request,
+                    environment: environment,
+                    currentDirectory: currentDirectory,
+                    diagnostics: output
+                )
             }
-            await session.finishInput()
-            await concurrentRequests.waitForAll()
-            await session.waitForActiveTurns()
-            if let inputError { throw inputError }
             return 0
         } catch is CancellationError {
             await output.writeStandardErrorLine("quill-code app-server: interrupted")
@@ -206,16 +199,6 @@ public struct QuillCodeCommandRunner: Sendable {
             await output.writeStandardErrorLine("quill-code app-server: \(error.localizedDescription)")
             return 1
         }
-    }
-
-    /// Server-initiated requests must not stop the stdio reader from receiving their response.
-    /// Other methods remain ordered on the input loop; JSON-RPC permits this direct tool request to
-    /// complete out of order while its MCP server waits for an elicitation answer.
-    private static func appServerRequestCanAwaitClientResponse(_ line: Data) -> Bool {
-        guard case .request(_, let method, _) = try? AppServerInboundMessage(data: line) else {
-            return false
-        }
-        return method == "mcpServer/tool/call"
     }
 
     private func runMCPServer(
@@ -417,7 +400,7 @@ public struct QuillCodeCommandRunner: Sendable {
       quill-code exec [OPTIONS] PROMPT
       quill-code exec resume (--last | THREAD_ID) [OPTIONS] PROMPT
       quill-code review (--uncommitted | --base BRANCH | --commit SHA | PROMPT) [OPTIONS]
-      quill-code app-server [--listen stdio://] [--mock | --live]
+      quill-code app-server [--listen stdio://|unix://|unix:///absolute/path] [--mock | --live]
       quill-code mcp-server [--mock | --live]
       quill-code [--home PATH] doctor [--json | --summary] [--all] [--no-color] [--ascii]
       quill-code [LEGACY OPTIONS] PROMPT
@@ -448,9 +431,9 @@ public struct QuillCodeCommandRunner: Sendable {
       piped stdin is appended as explicitly delimited, untrusted context.
 
     App server:
-      Uses newline-delimited JSON over stdio. Clients must send `initialize`, then the
-      `initialized` notification, before thread and turn requests. `--mock` selects the
-      deterministic local model for protocol tests; TrustedRouter is the default.
+      Uses newline-delimited JSON over stdio or a private Unix-domain socket. Clients must send
+      `initialize`, then the `initialized` notification, before thread and turn requests. `--mock`
+      selects the deterministic local model for protocol tests; TrustedRouter is the default.
 
     MCP server:
       Exposes the Codex-compatible `codex` and `codex-reply` tools over JSON-RPC 2.0
@@ -460,31 +443,6 @@ public struct QuillCodeCommandRunner: Sendable {
       Generates bounded local installation, config, auth, runtime, Git, terminal, MCP,
       state, connectivity, app-server, and task-inventory diagnostics without mutating state.
     """
-}
-
-/// Owns only app-server requests that may wait for a server-request response from the same input
-/// stream. Completed tasks remove themselves, so a long-lived client does not retain every direct
-/// MCP call until disconnect.
-private actor AppServerConcurrentRequestPool {
-    private var tasks: [UUID: Task<Void, Never>] = [:]
-
-    func submit(_ line: Data, to session: AppServerSession) {
-        let id = UUID()
-        tasks[id] = Task { [weak self] in
-            await session.receive(line)
-            await self?.remove(id)
-        }
-    }
-
-    func waitForAll() async {
-        while let task = tasks.values.first {
-            await task.value
-        }
-    }
-
-    private func remove(_ id: UUID) {
-        tasks.removeValue(forKey: id)
-    }
 }
 
 private actor CLIRunPersistence {

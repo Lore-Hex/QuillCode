@@ -8,6 +8,9 @@
   event/patch metadata and OS-sandbox `on-failure` escalation remain tracked parity work rather than
   being represented as complete.
 - SwiftPM package, docs, CI skeleton.
+- App-server transport parity includes stdio and private multi-client Unix-domain sockets with
+  independent connection sessions, bounded incremental JSONL framing, same-user stale-socket
+  recovery, race-safe cleanup, and executable crash/restart coverage. WebSocket transport remains.
 - Core models, mock agent, shell/file/git tools.
 - Auto safety policy and reviewer protocol.
 - Persistence and secret-store API.

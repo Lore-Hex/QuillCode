@@ -97,6 +97,12 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   turn views, explicit unsupported per-item paging, persisted
   post-rollback thread reads, zero-count rejection, persistence, clean EOF, and zero exit. This
   specifically guards against pipe readers that accidentally buffer until the client disconnects.
+- Real Unix app-server process smoke: create a `0600` socket at a short explicit path, keep two
+  clients connected concurrently, prove initialization state is connection-local, exercise split
+  JSONL writes and model discovery, force-kill the server, and restart on the stale socket without
+  deleting it externally. Focused tests also cover the default `0700` control directory, active
+  listener preservation, regular-file and symlink refusal, path bounds, cancellation, and exact
+  device/inode cleanup.
 - The app-server process smoke must also execute `thread/shellCommand` through the built binary and
   prove response-before-lifecycle ordering, configured login-shell display, source/cwd/action metadata,
   streamed and aggregated output, exit status, an empty durable history turn, and absence of historical
