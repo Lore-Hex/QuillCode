@@ -4,8 +4,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <poll.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -121,72 +123,133 @@ static int cquill_unix_unlink_identity(
     return unlink(path);
 }
 
-int cquill_loopback_open(unsigned short requestedPort, unsigned short *outBoundPort) {
-    if (outBoundPort == NULL) {
-        return -1;
-    }
-
-    int descriptor = socket(AF_INET, SOCK_STREAM, 0);
-    if (descriptor < 0) {
-        return -1;
-    }
-
-    int reuseAddress = 1;
-    (void)setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
-
-    struct sockaddr_in address;
-    memset(&address, 0, sizeof(address));
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    address.sin_port = htons(requestedPort);
-
-    if (bind(descriptor, (struct sockaddr *)&address, sizeof(address)) != 0 ||
-        listen(descriptor, 4) != 0) {
-        close(descriptor);
-        return -1;
-    }
-
+static int cquill_bound_port(int descriptor, unsigned short *outBoundPort) {
+    struct sockaddr_storage address;
     socklen_t addressLength = sizeof(address);
     if (getsockname(descriptor, (struct sockaddr *)&address, &addressLength) != 0) {
-        close(descriptor);
+        return -1;
+    }
+    if (address.ss_family == AF_INET) {
+        *outBoundPort = ntohs(((struct sockaddr_in *)&address)->sin_port);
+        return 0;
+    }
+    if (address.ss_family == AF_INET6) {
+        *outBoundPort = ntohs(((struct sockaddr_in6 *)&address)->sin6_port);
+        return 0;
+    }
+    return -1;
+}
+
+int cquill_tcp_open(
+    const char *numericHost,
+    unsigned short requestedPort,
+    unsigned short *outBoundPort
+) {
+    if (numericHost == NULL || numericHost[0] == '\0' || outBoundPort == NULL) {
         return -1;
     }
 
-    *outBoundPort = ntohs(address.sin_port);
+    char service[6];
+    if (snprintf(service, sizeof(service), "%hu", requestedPort) < 0) {
+        return -1;
+    }
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_NUMERICHOST | AI_PASSIVE;
+    struct addrinfo *addresses = NULL;
+    if (getaddrinfo(numericHost, service, &hints, &addresses) != 0) {
+        return -1;
+    }
+
+    int descriptor = -1;
+    for (struct addrinfo *candidate = addresses;
+         candidate != NULL;
+         candidate = candidate->ai_next) {
+        descriptor = socket(candidate->ai_family, candidate->ai_socktype, candidate->ai_protocol);
+        if (descriptor < 0) {
+            continue;
+        }
+        int reuseAddress = 1;
+        (void)setsockopt(
+            descriptor,
+            SOL_SOCKET,
+            SO_REUSEADDR,
+            &reuseAddress,
+            sizeof(reuseAddress)
+        );
+        if (bind(descriptor, candidate->ai_addr, candidate->ai_addrlen) == 0 &&
+            listen(descriptor, 16) == 0 &&
+            cquill_bound_port(descriptor, outBoundPort) == 0) {
+            break;
+        }
+        close(descriptor);
+        descriptor = -1;
+    }
+    freeaddrinfo(addresses);
+    return descriptor;
+}
+
+int cquill_loopback_open(unsigned short requestedPort, unsigned short *outBoundPort) {
+    return cquill_tcp_open("127.0.0.1", requestedPort, outBoundPort);
+}
+
+static void cquill_socket_disable_sigpipe(int descriptor) {
+#ifdef SO_NOSIGPIPE
+    int noSigPipe = 1;
+    (void)setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, sizeof(noSigPipe));
+#else
+    (void)descriptor;
+#endif
+}
+
+int cquill_tcp_connect(const char *numericHost, unsigned short port) {
+    if (numericHost == NULL || numericHost[0] == '\0' || port == 0) {
+        return -1;
+    }
+
+    char service[6];
+    if (snprintf(service, sizeof(service), "%hu", port) < 0) {
+        return -1;
+    }
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_NUMERICHOST;
+    struct addrinfo *addresses = NULL;
+    if (getaddrinfo(numericHost, service, &hints, &addresses) != 0) {
+        return -1;
+    }
+
+    int descriptor = -1;
+    for (struct addrinfo *candidate = addresses;
+         candidate != NULL;
+         candidate = candidate->ai_next) {
+        descriptor = socket(candidate->ai_family, candidate->ai_socktype, candidate->ai_protocol);
+        if (descriptor < 0) {
+            continue;
+        }
+        int result;
+        do {
+            result = connect(descriptor, candidate->ai_addr, candidate->ai_addrlen);
+        } while (result != 0 && errno == EINTR);
+        if (result == 0) {
+            break;
+        }
+        close(descriptor);
+        descriptor = -1;
+    }
+    freeaddrinfo(addresses);
+    if (descriptor >= 0) {
+        cquill_socket_disable_sigpipe(descriptor);
+    }
     return descriptor;
 }
 
 int cquill_loopback_connect(unsigned short port) {
-    if (port == 0) {
-        return -1;
-    }
-
-    int descriptor = socket(AF_INET, SOCK_STREAM, 0);
-    if (descriptor < 0) {
-        return -1;
-    }
-
-    struct sockaddr_in address;
-    memset(&address, 0, sizeof(address));
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    address.sin_port = htons(port);
-
-    int result;
-    do {
-        result = connect(descriptor, (struct sockaddr *)&address, sizeof(address));
-    } while (result != 0 && errno == EINTR);
-    if (result != 0) {
-        close(descriptor);
-        return -1;
-    }
-
-#ifdef SO_NOSIGPIPE
-    int noSigPipe = 1;
-    (void)setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, sizeof(noSigPipe));
-#endif
-
-    return descriptor;
+    return cquill_tcp_connect("127.0.0.1", port);
 }
 
 int cquill_unix_open(

@@ -37,6 +37,10 @@ struct AppServerRPCError: Codable, Sendable, Equatable {
     static let invalidRequest = AppServerRPCError(code: -32600, message: "Invalid request")
     static let notInitialized = AppServerRPCError(code: -32600, message: "Not initialized")
     static let alreadyInitialized = AppServerRPCError(code: -32600, message: "Already initialized")
+    static let overloaded = AppServerRPCError(
+        code: -32_001,
+        message: "Server overloaded; retry later."
+    )
 
     static func invalidRequest(_ reason: String) -> AppServerRPCError {
         AppServerRPCError(code: -32600, message: reason)

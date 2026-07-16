@@ -22,7 +22,8 @@ struct AppServerConnectionDriver: Sendable {
         do {
             for try await line in lines {
                 if Self.requestCanAwaitClientResponse(line) {
-                    await concurrentRequests.submit(line, to: session)
+                    let accepted = await concurrentRequests.submit(line, to: session)
+                    if !accepted { await Self.sendOverloadResponse(for: line, sink: sink) }
                 } else {
                     await session.receive(line)
                 }
@@ -45,20 +46,36 @@ struct AppServerConnectionDriver: Sendable {
         }
         return method == "mcpServer/tool/call"
     }
+
+    private static func sendOverloadResponse(
+        for line: Data,
+        sink: AppServerMessageSink
+    ) async {
+        guard case .request(let id, _, _) = try? AppServerInboundMessage(data: line),
+              let response = try? AppServerWireCodec.line(.error(
+                id: id,
+                error: AppServerRPCError.overloaded
+              ))
+        else { return }
+        await sink(response)
+    }
 }
 
 /// Owns only app-server requests that may wait for a server-request response from the same input
 /// connection. Completed tasks remove themselves, so a long-lived client does not retain every
 /// direct MCP call until disconnect.
 private actor AppServerConcurrentRequestPool {
+    private static let maximumConcurrentRequests = 128
     private var tasks: [UUID: Task<Void, Never>] = [:]
 
-    func submit(_ line: Data, to session: AppServerSession) {
+    func submit(_ line: Data, to session: AppServerSession) -> Bool {
+        guard tasks.count < Self.maximumConcurrentRequests else { return false }
         let id = UUID()
         tasks[id] = Task { [weak self] in
             await session.receive(line)
             await self?.remove(id)
         }
+        return true
     }
 
     func waitForAll() async {
