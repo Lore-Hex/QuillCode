@@ -43,13 +43,20 @@ struct QuillCodeTranscriptView: View {
     /// Which anchor jump is currently pending, so the scroll handler can target it once.
     @State private var pendingJumpAnchorID: String?
     /// Streaming autoscroll only pins to the bottom when the reader is already there; otherwise a
-    /// "Jump to latest" chip floats rather than yanking them down. `isPinnedToBottom` is derived from
-    /// the gap between a 1pt bottom sentinel and the viewport bottom, both measured through a named
-    /// coordinate space (GeometryReader + non-@Sendable `.onChange` — the macOS 14 floor rules out
-    /// `.onScrollGeometryChange`, and swift-tools 6.0's @Sendable rule rules out `.onPreferenceChange`).
+    /// "Jump to latest" chip floats rather than yanking them down. Whether the reader is AT the bottom
+    /// comes from the gap between a 1pt bottom sentinel and the viewport bottom; whether a WIDENING gap
+    /// was a deliberate scroll-up (vs. a chunk growing below them, or our own follow-scroll animation —
+    /// both of which widen that gap identically) comes from an orthogonal signal: the content's top
+    /// edge in the scroll space (the negated scroll offset), which only a scroll-up increases. Both are
+    /// measured through a named coordinate space (GeometryReader + non-@Sendable `.onChange` — the
+    /// macOS 14 floor rules out `.onScrollGeometryChange`, and swift-tools 6.0's @Sendable rule rules
+    /// out `.onPreferenceChange`).
     @State private var isPinnedToBottom = true
     @State private var viewportHeight: CGFloat = 0
     @State private var bottomSentinelMaxY: CGFloat = 0
+    /// Last sampled content-top offset; nil re-baselines the next sample (first appear + thread switch)
+    /// so a fresh transcript's opening offset is never mistaken for a scroll gesture.
+    @State private var lastContentTopMinY: CGFloat?
     private let bottomPinThreshold: CGFloat = 60
     private static let transcriptScrollSpace = "quillcode.transcript.scroll"
     private static let bottomSentinelID = "quillcode.transcript.bottom-sentinel"
@@ -181,6 +188,7 @@ struct QuillCodeTranscriptView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(22)
+                        .background(contentTopOffsetReader)
                     }
                     .coordinateSpace(.named(Self.transcriptScrollSpace))
                     .background(
@@ -188,7 +196,10 @@ struct QuillCodeTranscriptView: View {
                             Color.clear
                                 .onChange(of: geometry.size.height, initial: true) { _, height in
                                     viewportHeight = height
-                                    recomputePinned()
+                                    // A resize is never a scroll gesture: re-pin if the shorter/taller
+                                    // viewport put the end back within reach, but never strand an
+                                    // at-bottom reader.
+                                    applyPinned(unpinBeyondThreshold: false)
                                 }
                         }
                     )
@@ -205,8 +216,11 @@ struct QuillCodeTranscriptView: View {
                     .onChange(of: threadID) { _, _ in
                         // A different thread opens at ITS latest turn, never inheriting the previous
                         // thread's scroll-pin (codex review): otherwise switching away from a
-                        // scrolled-up thread strands the new one at the top behind a Jump chip.
+                        // scrolled-up thread strands the new one at the top behind a Jump chip. Drop
+                        // the content-offset baseline too, so the new transcript's opening offset is
+                        // re-baselined instead of read as a giant scroll-up.
                         isPinnedToBottom = true
+                        lastContentTopMinY = nil
                         scrollForReviewVisibility(review.isVisible, proxy: proxy)
                     }
                     .onChange(of: scrollContentSignature) { _, _ in
@@ -440,8 +454,9 @@ struct QuillCodeTranscriptView: View {
 
     /// A zero-height marker at the very end of the transcript. Its position within the scroll
     /// coordinate space, compared to the viewport height, is how we know whether the reader is at the
-    /// bottom (see ``recomputePinned``). LazyVStack won't lay it out while scrolled far up, which is
-    /// fine — `isPinnedToBottom` then correctly stays false until the reader scrolls back down.
+    /// bottom (see ``applyPinned(unpinBeyondThreshold:)``). LazyVStack won't lay it out while scrolled far
+    /// up, which is fine — `isPinnedToBottom` then correctly stays false until the reader scrolls back
+    /// down (the content-offset reader keeps un-pinning live meanwhile).
     private var bottomSentinel: some View {
         Color.clear
             .frame(height: 1)
@@ -454,17 +469,74 @@ struct QuillCodeTranscriptView: View {
                             initial: true
                         ) { _, maxY in
                             bottomSentinelMaxY = maxY
-                            recomputePinned()
+                            // The end-of-content moved (a chunk grew, or the follow-scroll ran). While
+                            // follow-scroll is live this may only RE-pin (end back within reach), never
+                            // un-pin an at-bottom reader mid-chunk (the content-offset signal owns
+                            // scroll-driven un-pinning). But when follow-scroll is SUPPRESSED (Find /
+                            // review), the viewport won't catch up, so a beyond-threshold growth must
+                            // un-pin here and surface the Jump chip.
+                            applyPinned(unpinBeyondThreshold: isFollowScrollSuppressed)
                         }
                 }
             )
     }
 
-    private func recomputePinned() {
-        let pinned = TranscriptScrollFollow.isPinnedToBottom(
+    /// Measures the transcript content's top edge in the scroll coordinate space — the (negated)
+    /// scroll offset — as the orthogonal "did the reader scroll up?" signal. Backed onto the CONTENT
+    /// (not a lazy child) so it keeps reporting even when the top is scrolled far off-screen: the
+    /// signal must be live the instant a reader drags up FROM the bottom, which a LazyVStack child
+    /// sentinel (unlaid-out while at the bottom) could not do.
+    private var contentTopOffsetReader: some View {
+        GeometryReader { geometry in
+            Color.clear
+                .onChange(
+                    of: geometry.frame(in: .named(Self.transcriptScrollSpace)).minY,
+                    initial: true
+                ) { _, minY in
+                    applyContentTopOffsetSample(minY)
+                }
+        }
+    }
+
+    /// Follow-scroll is suppressed (`scrollToTranscriptEnd` early-returns) while Find or the review pane
+    /// owns the scroll position. A chunk that grows past the threshold then will NOT auto-catch-up, so
+    /// the bottom-sentinel must un-pin (surface the Jump chip, honest state) rather than preserve a pin
+    /// the viewport no longer reflects — otherwise closing Find strands the reader behind with no chip
+    /// and the next chunk yanks them down.
+    private var isFollowScrollSuppressed: Bool {
+        isFindPresented || review.isVisible
+    }
+
+    /// Resolve the pin against a sentinel/viewport move that is NOT a user scroll (content growth,
+    /// follow-scroll, resize). Within threshold re-pins; beyond it, `unpinBeyondThreshold` decides
+    /// whether the reader has fallen behind (e.g. growth while follow-scroll is suppressed).
+    private func applyPinned(unpinBeyondThreshold: Bool) {
+        let pinned = TranscriptScrollFollow.resolvePinned(
+            current: isPinnedToBottom,
             bottomSentinelMaxY: bottomSentinelMaxY,
             viewportHeight: viewportHeight,
-            threshold: bottomPinThreshold
+            threshold: bottomPinThreshold,
+            unpinBeyondThreshold: unpinBeyondThreshold
+        )
+        guard pinned != isPinnedToBottom else { return }
+        quillCodeWithAnimation(.easeInOut(duration: 0.15), reduceMotion: reduceMotion) {
+            isPinnedToBottom = pinned
+        }
+    }
+
+    /// A new content-offset sample. Only a genuine scroll UP (top edge moved down past the epsilon
+    /// since the last sample) may un-pin; content growth and the follow-scroll animation never do.
+    /// A nil `lastContentTopMinY` (first appear / thread switch) baselines without classifying.
+    private func applyContentTopOffsetSample(_ minY: CGFloat) {
+        defer { lastContentTopMinY = minY }
+        guard let previous = lastContentTopMinY else { return }
+        let pinned = TranscriptScrollFollow.pinnedAfterScrollSample(
+            current: isPinnedToBottom,
+            bottomSentinelMaxY: bottomSentinelMaxY,
+            viewportHeight: viewportHeight,
+            threshold: bottomPinThreshold,
+            contentTopMinY: minY,
+            previousContentTopMinY: previous
         )
         guard pinned != isPinnedToBottom else { return }
         quillCodeWithAnimation(.easeInOut(duration: 0.15), reduceMotion: reduceMotion) {
