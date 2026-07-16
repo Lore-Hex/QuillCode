@@ -161,6 +161,40 @@ initialized, _ = read_until(lambda record: record.get("id") == 1)
 assert "result" in initialized and "jsonrpc" not in initialized, initialized
 send({"method": "initialized", "params": {}})
 
+send({"id": 206, "method": "permissionProfile/list", "params": {}})
+profiles, _ = read_until(lambda record: record.get("id") == 206)
+assert profiles["result"] == {
+    "data": [
+        {"id": ":read-only", "description": None, "allowed": True},
+        {"id": ":workspace", "description": None, "allowed": True},
+        {"id": ":danger-full-access", "description": None, "allowed": True},
+    ],
+    "nextCursor": None,
+}, profiles
+
+send({"id": 207, "method": "collaborationMode/list", "params": {}})
+collaboration_modes, _ = read_until(lambda record: record.get("id") == 207)
+assert collaboration_modes["result"] == {
+    "data": [
+        {
+            "name": "Plan",
+            "mode": "plan",
+            "model": None,
+            "reasoning_effort": "medium",
+        },
+        {
+            "name": "Default",
+            "mode": "default",
+            "model": None,
+            "reasoning_effort": None,
+        },
+    ],
+}, collaboration_modes
+
+send({"id": 208, "method": "configRequirements/read", "params": {}})
+config_requirements, _ = read_until(lambda record: record.get("id") == 208)
+assert config_requirements["result"] == {"requirements": None}, config_requirements
+
 send({"id": 2, "method": "model/list", "params": {"limit": 2}})
 models, _ = read_until(lambda record: record.get("id") == 2)
 assert len(models["result"]["data"]) == 2, models

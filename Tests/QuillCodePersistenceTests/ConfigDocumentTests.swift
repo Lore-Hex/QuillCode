@@ -84,6 +84,36 @@ final class ConfigDocumentTests: PersistenceTestCase {
         )
     }
 
+    func testHigherPrecedenceDocumentRecursivelyMergesTablesAndReplacesValues() {
+        var document = ConfigDocument(values: [
+            "scalar": .string("low"),
+            "list": .array([.string("low")]),
+            "nested": .object([
+                "retained": .bool(true),
+                "overridden": .integer(1)
+            ])
+        ])
+
+        document.merge(overridingWith: ConfigDocument(values: [
+            "scalar": .string("high"),
+            "list": .array([.string("high")]),
+            "nested": .object([
+                "overridden": .integer(2),
+                "added": .bool(true)
+            ])
+        ]))
+
+        XCTAssertEqual(document, ConfigDocument(values: [
+            "scalar": .string("high"),
+            "list": .array([.string("high")]),
+            "nested": .object([
+                "retained": .bool(true),
+                "overridden": .integer(2),
+                "added": .bool(true)
+            ])
+        ]))
+    }
+
     func testDeleteMissingPathDoesNotCreateParents() throws {
         var document = ConfigDocument()
         XCTAssertFalse(document.apply(ConfigDocumentEdit(
