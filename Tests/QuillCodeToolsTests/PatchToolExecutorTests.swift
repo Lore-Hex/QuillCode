@@ -65,9 +65,10 @@ final class PatchToolExecutorTests: XCTestCase {
         )
     }
 
-    func testWhitespaceDriftedContextAppliesViaTolerantRung() throws {
-        // Context lines whose indentation drifted (tabs vs spaces) fail strict apply but land via
-        // --ignore-whitespace.
+    func testWhitespaceDriftedContextIsRejectedToKeepRevertExact() throws {
+        // Whitespace-only context drift is DELIBERATELY not tolerated: an --ignore-whitespace apply
+        // could later be reverted to the wrong bytes (or silently discard a user's whitespace edit),
+        // so the ladder is recount-only and a whitespace-drifted patch must fail rather than apply.
         let root = try makeTempDirectory()
         let file = root.appendingPathComponent("config.txt")
         try "alpha\n\tindented line\nomega\n".write(to: file, atomically: true, encoding: .utf8)
@@ -84,9 +85,8 @@ final class PatchToolExecutorTests: XCTestCase {
 
         let result = PatchToolExecutor(workspaceRoot: root).apply(unifiedDiff: patch)
 
-        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
-        XCTAssertTrue(result.stdout.contains("tolerant match"), result.stdout)
-        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "alpha\n\tindented line\nOMEGA\n")
+        XCTAssertFalse(result.ok, "whitespace-drifted context must not apply under the exact-only ladder")
+        XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "alpha\n\tindented line\nomega\n")
     }
 
     func testTrulyInapplicablePatchStillFailsWithStrictDiagnostics() throws {

@@ -77,12 +77,19 @@ public struct PatchToolExecutor: Sendable {
         }
     }
 
-    /// The graduated tolerance ladder for applying a model-authored diff. Model patches are
-    /// frequently ALMOST right — hunk headers with miscounted line numbers, context lines with
-    /// whitespace drift — and a hard reject sends the agent into a re-read/regenerate spiral (or
-    /// worse, a fabricated "applied it"). Each rung stays a real `git apply` (path/symlink safety
-    /// is enforced by git on every rung, plus our own `unsafePath` pre-check), and the result
-    /// DISCLOSES which rung applied so a tolerant match is never silently passed off as exact.
+    /// The tolerance ladder for applying a model-authored diff. Model patches are frequently ALMOST
+    /// right — most commonly a hunk header whose line counts don't match the body it wrote — and a
+    /// hard reject sends the agent into a re-read/regenerate spiral (or worse, a fabricated "applied
+    /// it"). Each rung stays a real `git apply` (path/symlink safety is enforced by git on every rung,
+    /// plus our own `unsafePath` pre-check), and the result DISCLOSES which rung applied so a tolerant
+    /// match is never silently passed off as exact.
+    ///
+    /// Only EXACTNESS-PRESERVING tolerance is allowed: `--recount` recomputes the miscounted counts
+    /// from the body but still matches context/removed lines byte-for-byte, so the applied bytes are
+    /// exactly the patch's and the turn-revert path can faithfully reverse it. Whitespace-ignoring
+    /// (`--ignore-whitespace`) and reduced-context (`-C1`) rungs are deliberately NOT included: they
+    /// can apply — and revert — non-exact bytes, and would let a revert silently discard a user's
+    /// later whitespace-only edit, breaking the revert engine's exactness guarantee.
     struct ApplyMode {
         /// Human-readable disclosure for a non-strict rung; nil for the strict rung.
         var disclosure: String?
@@ -91,15 +98,7 @@ public struct PatchToolExecutor: Sendable {
 
     static let applyModes: [ApplyMode] = [
         ApplyMode(disclosure: nil, flags: ""),
-        ApplyMode(disclosure: "ignored whitespace drift", flags: "--ignore-whitespace"),
-        ApplyMode(
-            disclosure: "recounted hunk headers and ignored whitespace drift",
-            flags: "--recount --ignore-whitespace"
-        ),
-        ApplyMode(
-            disclosure: "matched with reduced context (-C1), recounted headers, ignored whitespace",
-            flags: "-C1 --recount --ignore-whitespace"
-        )
+        ApplyMode(disclosure: "recounted hunk headers", flags: "--recount")
     ]
 
     private func performApply(_ normalizedPatch: String) -> ToolResult {
