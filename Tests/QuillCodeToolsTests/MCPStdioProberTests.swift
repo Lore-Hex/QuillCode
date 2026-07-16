@@ -88,18 +88,26 @@ final class MCPStdioProberTests: XCTestCase {
         ))
         _ = try prober.probe(timeout: 1)
 
-        let initialize = try XCTUnwrap(
-            fixture.readRequests().first { $0["method"] as? String == "initialize" }
-        )
+        let requests = try fixture.readRequests()
+        let initialize = try XCTUnwrap(requests.first { $0["method"] as? String == "initialize" })
         let params = try XCTUnwrap(initialize["params"] as? [String: Any])
         let capabilities = try XCTUnwrap(params["capabilities"] as? [String: Any])
         let extensions = try XCTUnwrap(capabilities["extensions"] as? [String: Any])
+        let clientInfo = try XCTUnwrap(params["clientInfo"] as? [String: Any])
         XCTAssertEqual(params["protocolVersion"] as? String, "2025-06-18")
+        XCTAssertEqual(clientInfo["name"] as? String, "quillcode-mcp-client")
+        XCTAssertEqual(clientInfo["title"] as? String, "QuillCode")
+        XCTAssertEqual(clientInfo["version"] as? String, "0.1.0")
         XCTAssertNotNil(capabilities["elicitation"] as? [String: Any])
         XCTAssertNotNil(extensions["openai/form"] as? [String: Any])
+
+        let toolsList = try XCTUnwrap(requests.first { $0["method"] as? String == "tools/list" })
+        let toolsListParams = try XCTUnwrap(toolsList["params"] as? [String: Any])
+        let toolsListMetadata = try XCTUnwrap(toolsListParams["_meta"] as? [String: Any])
+        XCTAssertTrue((toolsListMetadata["progressToken"] as? String)?.hasPrefix("quillcode-") == true)
     }
 
-    func testCodecEncodesAndParsesContentLengthMessages() throws {
+    func testCodecEncodesAndParsesNewlineDelimitedMessages() throws {
         let first = try MCPStdioMessageCodec.encodeJSONObject([
             "jsonrpc": "2.0",
             "id": 1,
@@ -110,6 +118,9 @@ final class MCPStdioProberTests: XCTestCase {
             "id": 2,
             "result": ["tools": []]
         ])
+
+        XCTAssertEqual(first.last, 0x0A)
+        XCTAssertFalse(String(decoding: first, as: UTF8.self).contains("Content-Length"))
 
         var buffer = Data()
         buffer.append(first.prefix(8))
@@ -124,6 +135,35 @@ final class MCPStdioProberTests: XCTestCase {
         let secondMessage = try XCTUnwrap(MCPStdioMessageCodec.nextMessageData(from: &buffer))
         let secondObject = try MCPStdioMessageCodec.decodeJSONObject(secondMessage)
         XCTAssertEqual(secondObject["id"] as? Int, 2)
+        XCTAssertTrue(buffer.isEmpty)
+    }
+
+    func testCodecAcceptsLegacyContentLengthMessages() throws {
+        var buffer = try MCPStdioMessageCodec.encodeLegacyJSONObject([
+            "jsonrpc": "2.0",
+            "id": 7,
+            "result": ["ok": true]
+        ])
+
+        let message = try XCTUnwrap(MCPStdioMessageCodec.nextMessageData(from: &buffer))
+        let object = try MCPStdioMessageCodec.decodeJSONObject(message)
+
+        XCTAssertEqual(object["id"] as? Int, 7)
+        XCTAssertTrue(buffer.isEmpty)
+    }
+
+    func testCodecIgnoresBlankLinesBetweenMessages() throws {
+        var buffer = Data("\r\n\n".utf8)
+        buffer.append(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": 9,
+            "result": ["ok": true]
+        ]))
+
+        let message = try XCTUnwrap(MCPStdioMessageCodec.nextMessageData(from: &buffer))
+        let object = try MCPStdioMessageCodec.decodeJSONObject(message)
+
+        XCTAssertEqual(object["id"] as? Int, 9)
         XCTAssertTrue(buffer.isEmpty)
     }
 

@@ -81,7 +81,7 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         let definitionsText = try Self.toolsSourceText(named: "MCPToolDefinitions.swift")
 
         XCTAssertTrue(proberText.contains("public final class MCPStdioProber"), "MCP stdio session orchestration should remain in the prober.")
-        XCTAssertTrue(codecText.contains("public enum MCPStdioMessageCodec"), "MCP Content-Length framing should live in a focused codec.")
+        XCTAssertTrue(codecText.contains("public enum MCPStdioMessageCodec"), "MCP JSONL framing should live in a focused codec.")
         XCTAssertTrue(mapperText.contains("enum MCPStdioResultMapper"), "MCP result mapping should live in a focused mapper.")
         XCTAssertTrue(modelsText.contains("public struct MCPServerProbeResult"), "MCP probe result models should live outside the stdio prober.")
         XCTAssertTrue(modelsText.contains("public enum MCPProbeError"), "MCP probe errors should live with the public stdio models.")

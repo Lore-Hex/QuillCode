@@ -165,7 +165,9 @@ only the compatible account kind and auth mode; delegated keys never appear on t
 App-server clients can also use Codex-compatible `mcpServerStatus/list`,
 `config/mcpServer/reload`, `mcpServer/tool/call`, and `mcpServer/resource/read`. MCP configuration is
 read from global `mcp_servers` tables plus the selected thread workspace's `.codex/config.toml` and
-`.quillcode/config.toml`. Stdio and HTTP transports share the desktop's bounded MCP session runtime;
+`.quillcode/config.toml`. Stdio uses MCP's canonical newline-delimited JSON wire format while still
+accepting legacy `Content-Length` responses from early QuillCode servers. Stdio and HTTP transports
+share the desktop's bounded MCP session runtime;
 status preserves raw tool/resource metadata, while `toolsAndAuthOnly` skips the heavier resource and
 prompt inventory. Reload and disconnect terminate cached sessions. App-server MCP OAuth
 returns a real authorization URL, persists refreshable per-server credentials, emits asynchronous

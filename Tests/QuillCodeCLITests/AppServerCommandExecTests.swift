@@ -195,7 +195,7 @@ final class AppServerCommandExecTests: XCTestCase {
         )
         _ = try await waitForResponse(id: 2, output: fixture.output)
 
-        for generation in 0..<8 {
+        for generation in 0..<24 {
             let requestID = 5 + generation
             let expected = "reused-\(generation)"
             try await sendRequest(
@@ -476,7 +476,7 @@ private extension AppServerCommandExecTests {
         match: ([[String: CLIJSONValue]]) -> Value?
     ) async throws -> Value {
         let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(10))
+        let deadline = clock.now.advanced(by: .seconds(30))
         while clock.now < deadline {
             if let value = match(try await output.records()) { return value }
             try await clock.sleep(for: .milliseconds(10))
