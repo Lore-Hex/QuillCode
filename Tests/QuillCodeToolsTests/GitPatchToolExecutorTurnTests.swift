@@ -53,6 +53,27 @@ final class GitPatchToolExecutorTurnTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: a, encoding: .utf8), "newer\n")
     }
 
+    func testReverseAppliesATurnPatchThatOnlyMatchesUnderTheTolerantLadder() throws {
+        // Regression (codex review of the tolerant apply_patch ladder): a patch the FORWARD ladder
+        // accepted only via --recount (miscounted hunk headers) must still REVERSE, or the UI offers
+        // a turn-revert that cannot undo a successful apply_patch. A strict `git apply --reverse`
+        // rejects this patch ("corrupt patch"); the reverse tolerance ladder recounts and applies.
+        let root = try makeTempDirectory()
+        try initializeGitRepo(at: root)
+        let a = root.appendingPathComponent("a.txt")
+        try write("l1\nl2\nl3\n", to: a)
+        commitAll(root, message: "initial")
+
+        try write("l1\nl2new\nl3\n", to: a)
+        let patch = GitToolExecutor().diff(cwd: root).stdout
+        let miscounted = patch.replacingOccurrences(of: "@@ -1,3 +1,3 @@", with: "@@ -1,5 +1,5 @@")
+        XCTAssertNotEqual(miscounted, patch, "precondition: the hunk header was rewritten to a bad count")
+
+        let result = GitPatchToolExecutor().restoreTurnPatch(cwd: root, patches: [miscounted])
+        XCTAssertTrue(result.ok, "tolerant reverse should recount and apply: \(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(try String(contentsOf: a, encoding: .utf8), "l1\nl2\nl3\n")
+    }
+
     func testDeletesAFileTheTurnCreated() throws {
         let root = try makeTempDirectory()
         try initializeGitRepo(at: root)

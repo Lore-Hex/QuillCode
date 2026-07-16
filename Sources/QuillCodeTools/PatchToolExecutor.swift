@@ -77,6 +77,30 @@ public struct PatchToolExecutor: Sendable {
         }
     }
 
+    /// The tolerance ladder for applying a model-authored diff. Model patches are frequently ALMOST
+    /// right — most commonly a hunk header whose line counts don't match the body it wrote — and a
+    /// hard reject sends the agent into a re-read/regenerate spiral (or worse, a fabricated "applied
+    /// it"). Each rung stays a real `git apply` (path/symlink safety is enforced by git on every rung,
+    /// plus our own `unsafePath` pre-check), and the result DISCLOSES which rung applied so a tolerant
+    /// match is never silently passed off as exact.
+    ///
+    /// Only EXACTNESS-PRESERVING tolerance is allowed: `--recount` recomputes the miscounted counts
+    /// from the body but still matches context/removed lines byte-for-byte, so the applied bytes are
+    /// exactly the patch's and the turn-revert path can faithfully reverse it. Whitespace-ignoring
+    /// (`--ignore-whitespace`) and reduced-context (`-C1`) rungs are deliberately NOT included: they
+    /// can apply — and revert — non-exact bytes, and would let a revert silently discard a user's
+    /// later whitespace-only edit, breaking the revert engine's exactness guarantee.
+    struct ApplyMode {
+        /// Human-readable disclosure for a non-strict rung; nil for the strict rung.
+        var disclosure: String?
+        var flags: String
+    }
+
+    static let applyModes: [ApplyMode] = [
+        ApplyMode(disclosure: nil, flags: ""),
+        ApplyMode(disclosure: "recounted hunk headers", flags: "--recount")
+    ]
+
     private func performApply(_ normalizedPatch: String) -> ToolResult {
         let patchURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-\(UUID().uuidString).patch")
@@ -89,28 +113,51 @@ public struct PatchToolExecutor: Sendable {
         defer { try? FileManager.default.removeItem(at: patchURL) }
 
         let quoted = shellQuote(patchURL.path)
-        let check = shell.run(.init(command: "git apply --check \(quoted)", cwd: workspaceRoot, timeoutSeconds: 20))
-        guard check.ok else {
-            return ToolResult(
-                ok: false,
-                stdout: check.stdout,
-                stderr: check.stderr,
-                exitCode: check.exitCode,
-                error: Self.hunkFailureSummary(fromStderr: check.stderr) ?? check.error ?? "Patch check failed."
-            )
+        // The STRICT rung's diagnostics are the most precise ("patch failed: file:line"), so they
+        // are what the model sees if every rung fails.
+        var strictFailure: ToolResult?
+
+        for mode in Self.applyModes {
+            let flags = mode.flags.isEmpty ? "" : "\(mode.flags) "
+            let check = shell.run(.init(
+                command: "git apply --check \(flags)\(quoted)",
+                cwd: workspaceRoot,
+                timeoutSeconds: 20
+            ))
+            guard check.ok else {
+                if strictFailure == nil {
+                    strictFailure = ToolResult(
+                        ok: false,
+                        stdout: check.stdout,
+                        stderr: check.stderr,
+                        exitCode: check.exitCode,
+                        error: Self.hunkFailureSummary(fromStderr: check.stderr) ?? check.error ?? "Patch check failed."
+                    )
+                }
+                continue
+            }
+            let apply = shell.run(.init(
+                command: "git apply \(flags)\(quoted)",
+                cwd: workspaceRoot,
+                timeoutSeconds: 20
+            ))
+            if apply.ok {
+                let note = mode.disclosure.map { " (tolerant match: \($0))" } ?? ""
+                return ToolResult(
+                    ok: true,
+                    stdout: "Patch applied\(note).\n",
+                    stderr: apply.stderr,
+                    exitCode: apply.exitCode
+                )
+            }
+            // --check passed but apply failed (e.g. a concurrent change between the two): report
+            // this rung's failure rather than continuing to looser rungs against changed content.
+            var failed = apply
+            failed.error = Self.hunkFailureSummary(fromStderr: apply.stderr) ?? apply.error
+            return failed
         }
-        let apply = shell.run(.init(command: "git apply \(quoted)", cwd: workspaceRoot, timeoutSeconds: 20))
-        if apply.ok {
-            return ToolResult(
-                ok: true,
-                stdout: "Patch applied.\n",
-                stderr: apply.stderr,
-                exitCode: apply.exitCode
-            )
-        }
-        var failed = apply
-        failed.error = Self.hunkFailureSummary(fromStderr: apply.stderr) ?? apply.error
-        return failed
+
+        return strictFailure ?? ToolResult(ok: false, error: "Patch check failed.")
     }
 
     /// Lift git's specific hunk diagnostics (`error: patch failed: file:line`, `error: <file>: No such

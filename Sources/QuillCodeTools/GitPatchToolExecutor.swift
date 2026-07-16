@@ -68,7 +68,6 @@ public struct GitPatchToolExecutor: Sendable {
         }
         let snapshots = touchedPaths.map { FileSnapshot(cwd: cwd, path: $0) }
 
-        let arguments = ["apply", "--reverse", "--whitespace=nowarn"]
         for patch in ordered {
             let patchURL = FileManager.default.temporaryDirectory
                 .appendingPathComponent("quillcode-turn-\(UUID().uuidString).patch")
@@ -77,13 +76,36 @@ public struct GitPatchToolExecutor: Sendable {
             } catch {
                 return rollback(snapshots, after: ToolResult(ok: false, error: String(describing: GitToolError.temporaryPatchFailed(String(describing: error)))))
             }
-            let result = runner.runGit(arguments + [patchURL.path], cwd: cwd, timeoutSeconds: 30)
+            let result = reverseApplyWithTolerance(patchPath: patchURL.path, cwd: cwd)
             try? FileManager.default.removeItem(at: patchURL)
             guard result.ok else {
                 return rollback(snapshots, after: result)
             }
         }
         return ToolResult(ok: true, stdout: "Reverted this turn's edits.\n")
+    }
+
+    /// The reverse tolerance ladder — mirrors `PatchToolExecutor`'s FORWARD ladder (strict, then
+    /// `--recount`) so a turn patch the tolerant apply accepted via recounted headers can also be
+    /// UN-applied. Without this, its revert fails strictly ("corrupt patch"), offering an undo that
+    /// cannot undo. Strict-applied patches still reverse on the first rung, so this only engages for
+    /// recounted matches. Only EXACTNESS-PRESERVING tolerance is used (no `--ignore-whitespace`): the
+    /// reverse must still match the file byte-for-byte, so it fails (and rolls back) rather than
+    /// silently discarding a user's later whitespace-only edit. Each rung is an atomic `git apply`.
+    private static let reverseApplyLadders: [[String]] = [
+        ["apply", "--reverse", "--whitespace=nowarn"],
+        ["apply", "--reverse", "--whitespace=nowarn", "--recount"]
+    ]
+
+    private func reverseApplyWithTolerance(patchPath: String, cwd: URL) -> ToolResult {
+        var strictFailure: ToolResult?
+        for arguments in Self.reverseApplyLadders {
+            let result = runner.runGit(arguments + [patchPath], cwd: cwd, timeoutSeconds: 30)
+            if result.ok { return result }
+            // The STRICT rung's diagnostics are the most precise, so keep them for total failure.
+            if strictFailure == nil { strictFailure = result }
+        }
+        return strictFailure ?? ToolResult(ok: false, error: "Reverse apply failed.")
     }
 
     /// Rolls every touched file back to its pre-revert state after a failed patch, and
