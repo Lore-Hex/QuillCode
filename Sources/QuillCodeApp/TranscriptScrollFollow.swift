@@ -57,30 +57,48 @@ enum TranscriptScrollFollow {
         return unpinBeyondThreshold ? false : current
     }
 
+    /// Sub-pixel below which a content-offset change is layout jitter, not a scroll.
+    static let scrollEpsilon: CGFloat = 0.5
+
+    /// The result of classifying one content-offset sample: the resolved pin, and the baseline the
+    /// caller should carry into the next sample.
+    struct ScrollSampleOutcome: Equatable {
+        var pinned: Bool
+        var baseline: CGFloat
+    }
+
     /// Classify a content-offset sample, then resolve the pin. `contentTopMinY` is the transcript
     /// content's top edge in the scroll viewport's coordinate space — i.e. the (negated) scroll
     /// offset. It INCREASES only when the reader drags the content DOWN (scrolls up); appending a
     /// chunk at the bottom leaves the top put, and the follow-scroll animation drives it further
-    /// negative. So "the top moved down past `scrollEpsilon` since the last sample" is an orthogonal,
-    /// timing-free proxy for a deliberate scroll-up — unlike the sentinel gap, which a large chunk and
-    /// a scroll widen identically. This is what stops a big streamed chunk (or the follow animation's
-    /// own intermediate frames) from being misread as a scroll and dropping the follow.
+    /// negative. So "the top moved down past `scrollEpsilon`" is an orthogonal, timing-free proxy for a
+    /// deliberate scroll-up — unlike the sentinel gap, which a large chunk and a scroll widen
+    /// identically. This is what stops a big streamed chunk (or the follow animation's own intermediate
+    /// frames) from being misread as a scroll and dropping the follow.
+    ///
+    /// The baseline advances ONLY on a move that clears the epsilon (either direction). A slow scroll
+    /// arrives as many sub-epsilon samples: chasing the baseline every sample would stop the deltas
+    /// ever accumulating to a classified scroll-up, so a sub-epsilon sample keeps the old baseline and
+    /// lets the next sample measure the CUMULATIVE move. Jitter that never nets past the epsilon thus
+    /// never un-pins, but a genuine slow drag eventually does.
     static func pinnedAfterScrollSample(
         current: Bool,
         bottomSentinelMaxY: CGFloat,
         viewportHeight: CGFloat,
         threshold: CGFloat,
         contentTopMinY: CGFloat,
-        previousContentTopMinY: CGFloat,
-        scrollEpsilon: CGFloat = 0.5
-    ) -> Bool {
-        let isUserScrollUp = (contentTopMinY - previousContentTopMinY) > scrollEpsilon
-        return resolvePinned(
+        previousBaseline: CGFloat,
+        scrollEpsilon: CGFloat = TranscriptScrollFollow.scrollEpsilon
+    ) -> ScrollSampleOutcome {
+        let delta = contentTopMinY - previousBaseline
+        let moved = abs(delta) > scrollEpsilon
+        let pinned = resolvePinned(
             current: current,
             bottomSentinelMaxY: bottomSentinelMaxY,
             viewportHeight: viewportHeight,
             threshold: threshold,
-            unpinBeyondThreshold: isUserScrollUp
+            unpinBeyondThreshold: moved && delta > 0
         )
+        return ScrollSampleOutcome(pinned: pinned, baseline: moved ? contentTopMinY : previousBaseline)
     }
 }

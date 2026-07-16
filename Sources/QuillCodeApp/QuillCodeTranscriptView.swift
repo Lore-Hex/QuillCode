@@ -57,6 +57,11 @@ struct QuillCodeTranscriptView: View {
     /// Last sampled content-top offset; nil re-baselines the next sample (first appear + thread switch)
     /// so a fresh transcript's opening offset is never mistaken for a scroll gesture.
     @State private var lastContentTopMinY: CGFloat?
+    /// Total transcript content height. It grows on ANY content growth — a streamed chunk OR a
+    /// layout-only reflow (window narrows, text rewraps taller) that changes no content signature — but
+    /// is invariant to scrolling. Watching it lets a pinned reader stay caught up through reflows the
+    /// signature-driven follow would miss, without the feedback loop a scroll-position trigger risks.
+    @State private var contentHeight: CGFloat = 0
     private let bottomPinThreshold: CGFloat = 60
     private static let transcriptScrollSpace = "quillcode.transcript.scroll"
     private static let bottomSentinelID = "quillcode.transcript.bottom-sentinel"
@@ -224,6 +229,14 @@ struct QuillCodeTranscriptView: View {
                         scrollForReviewVisibility(review.isVisible, proxy: proxy)
                     }
                     .onChange(of: scrollContentSignature) { _, _ in
+                        scrollToTranscriptEnd(proxy, id: scrollAnchorID)
+                    }
+                    .onChange(of: contentHeight) { _, _ in
+                        // Layout-only growth (e.g. text reflow when the window narrows) changes no
+                        // content signature, so the signature-driven follow above won't fire. Keep a
+                        // pinned reader caught up to the bottom here too. scrollToTranscriptEnd no-ops
+                        // when un-pinned or suppressed, and contentHeight is scroll-invariant, so this
+                        // can't feedback-loop off the follow-scroll's own motion.
                         scrollToTranscriptEnd(proxy, id: scrollAnchorID)
                     }
                     .onChange(of: activeFindIndex) { _, _ in
@@ -495,6 +508,9 @@ struct QuillCodeTranscriptView: View {
                 ) { _, minY in
                     applyContentTopOffsetSample(minY)
                 }
+                .onChange(of: geometry.size.height, initial: true) { _, height in
+                    contentHeight = height
+                }
         }
     }
 
@@ -524,23 +540,28 @@ struct QuillCodeTranscriptView: View {
         }
     }
 
-    /// A new content-offset sample. Only a genuine scroll UP (top edge moved down past the epsilon
-    /// since the last sample) may un-pin; content growth and the follow-scroll animation never do.
-    /// A nil `lastContentTopMinY` (first appear / thread switch) baselines without classifying.
+    /// A new content-offset sample. Only a genuine scroll UP (top edge nets down past the epsilon since
+    /// the last committed baseline) may un-pin; content growth and the follow-scroll animation never
+    /// do. The baseline advances only on a supra-epsilon move, so a slow scroll delivered as many tiny
+    /// samples still accumulates to a scroll-up. A nil baseline (first appear / thread switch)
+    /// baselines without classifying.
     private func applyContentTopOffsetSample(_ minY: CGFloat) {
-        defer { lastContentTopMinY = minY }
-        guard let previous = lastContentTopMinY else { return }
-        let pinned = TranscriptScrollFollow.pinnedAfterScrollSample(
+        guard let previous = lastContentTopMinY else {
+            lastContentTopMinY = minY
+            return
+        }
+        let outcome = TranscriptScrollFollow.pinnedAfterScrollSample(
             current: isPinnedToBottom,
             bottomSentinelMaxY: bottomSentinelMaxY,
             viewportHeight: viewportHeight,
             threshold: bottomPinThreshold,
             contentTopMinY: minY,
-            previousContentTopMinY: previous
+            previousBaseline: previous
         )
-        guard pinned != isPinnedToBottom else { return }
+        lastContentTopMinY = outcome.baseline
+        guard outcome.pinned != isPinnedToBottom else { return }
         quillCodeWithAnimation(.easeInOut(duration: 0.15), reduceMotion: reduceMotion) {
-            isPinnedToBottom = pinned
+            isPinnedToBottom = outcome.pinned
         }
     }
 
