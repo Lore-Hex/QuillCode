@@ -1,5 +1,12 @@
 import Foundation
 
+enum MCPServerApprovalPolicy: String, CaseIterable, Sendable {
+    case untrusted
+    case onFailure = "on-failure"
+    case onRequest = "on-request"
+    case never
+}
+
 enum MCPServerToolInvocation: Sendable {
     case start(threadID: UUID, input: MCPServerRunInput)
     case reply(threadID: UUID, prompt: String)
@@ -23,7 +30,14 @@ enum MCPServerToolInvocation: Sendable {
         case MCPServerToolCatalog.runToolName:
             self = .start(threadID: UUID(), input: try MCPServerRunInput(arguments: object))
         case MCPServerToolCatalog.replyToolName:
-            let prompt = try Self.requiredString("prompt", in: object)
+            let supported = Set(["prompt", "threadId", "conversationId"])
+            let unknown = Set(object.keys).subtracting(supported)
+            guard unknown.isEmpty else {
+                throw MCPServerToolInputError.invalid(
+                    "unsupported codex-reply arguments: \(unknown.sorted().joined(separator: ", "))"
+                )
+            }
+            let prompt = try MCPServerToolArguments.requiredString("prompt", in: object)
             let rawID = object["threadId"]?.stringValue ?? object["conversationId"]?.stringValue
             guard let rawID, let threadID = UUID(uuidString: rawID) else {
                 throw MCPServerToolInputError.invalid(
@@ -35,21 +49,11 @@ enum MCPServerToolInvocation: Sendable {
             throw MCPServerToolInputError.invalid("Unknown tool '\(name)'")
         }
     }
-
-    private static func requiredString(
-        _ key: String,
-        in object: [String: CLIJSONValue]
-    ) throws -> String {
-        guard let value = object[key]?.stringValue else {
-            throw MCPServerToolInputError.invalid("\(key) must be a string")
-        }
-        return value
-    }
 }
 
 struct MCPServerRunInput: Sendable {
     var prompt: String
-    var approvalPolicy: String?
+    var approvalPolicy: MCPServerApprovalPolicy?
     var baseInstructions: String?
     var compactPrompt: String?
     var config: [String: CLIJSONValue]
@@ -69,17 +73,26 @@ struct MCPServerRunInput: Sendable {
                 "unsupported codex arguments: \(unknown.sorted().joined(separator: ", "))"
             )
         }
-        guard let prompt = arguments["prompt"]?.stringValue else {
-            throw MCPServerToolInputError.invalid("prompt must be a string")
+        self.prompt = try MCPServerToolArguments.requiredString("prompt", in: arguments)
+        if let rawPolicy = try MCPServerToolArguments.optionalString(
+            "approval-policy",
+            in: arguments
+        ) {
+            guard let policy = MCPServerApprovalPolicy(rawValue: rawPolicy) else {
+                throw MCPServerToolInputError.invalid("approval-policy is not supported")
+            }
+            self.approvalPolicy = policy
+        } else {
+            self.approvalPolicy = nil
         }
-        self.prompt = prompt
-        self.approvalPolicy = try Self.optionalString("approval-policy", in: arguments)
-        if let approvalPolicy,
-           !["untrusted", "on-failure", "on-request", "never"].contains(approvalPolicy) {
-            throw MCPServerToolInputError.invalid("approval-policy is not supported")
-        }
-        self.baseInstructions = try Self.optionalString("base-instructions", in: arguments)
-        self.compactPrompt = try Self.optionalString("compact-prompt", in: arguments)
+        self.baseInstructions = try MCPServerToolArguments.optionalString(
+            "base-instructions",
+            in: arguments
+        )
+        self.compactPrompt = try MCPServerToolArguments.optionalString(
+            "compact-prompt",
+            in: arguments
+        )
         if let value = arguments["config"], value != .null {
             guard let config = value.objectValue else {
                 throw MCPServerToolInputError.invalid("config must be an object")
@@ -88,10 +101,13 @@ struct MCPServerRunInput: Sendable {
         } else {
             self.config = [:]
         }
-        self.cwd = try Self.optionalString("cwd", in: arguments)
-        self.developerInstructions = try Self.optionalString("developer-instructions", in: arguments)
-        self.model = try Self.optionalString("model", in: arguments)
-        if let rawSandbox = try Self.optionalString("sandbox", in: arguments) {
+        self.cwd = try MCPServerToolArguments.optionalString("cwd", in: arguments)
+        self.developerInstructions = try MCPServerToolArguments.optionalString(
+            "developer-instructions",
+            in: arguments
+        )
+        self.model = try MCPServerToolArguments.optionalString("model", in: arguments)
+        if let rawSandbox = try MCPServerToolArguments.optionalString("sandbox", in: arguments) {
             guard let sandbox = CLISandboxMode(rawValue: rawSandbox) else {
                 throw MCPServerToolInputError.invalid("sandbox is not supported")
             }
@@ -100,8 +116,10 @@ struct MCPServerRunInput: Sendable {
             self.sandbox = nil
         }
     }
+}
 
-    private static func optionalString(
+private enum MCPServerToolArguments {
+    static func optionalString(
         _ key: String,
         in object: [String: CLIJSONValue]
     ) throws -> String? {
@@ -110,6 +128,19 @@ struct MCPServerRunInput: Sendable {
             throw MCPServerToolInputError.invalid("\(key) must be a string or null")
         }
         return string
+    }
+
+    static func requiredString(
+        _ key: String,
+        in object: [String: CLIJSONValue]
+    ) throws -> String {
+        guard let value = object[key]?.stringValue else {
+            throw MCPServerToolInputError.invalid("\(key) must be a string")
+        }
+        guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw MCPServerToolInputError.invalid("\(key) must not be empty")
+        }
+        return value
     }
 }
 

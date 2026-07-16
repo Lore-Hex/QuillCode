@@ -10,15 +10,19 @@ import XCTest
 final class MCPServerSessionTests: XCTestCase {
     func testInitializesListsToolsAndReturnsProtocolErrors() async throws {
         let fixture = try makeFixture(llm: MCPTestEchoLLM())
-        await fixture.initialize()
-        await fixture.send(id: .integer(2), method: "tools/list", params: .object([:]))
-        await fixture.send(id: .integer(3), method: "missing/method", params: .object([:]))
+        try await fixture.initialize()
+        try await fixture.send(id: .integer(2), method: "tools/list", params: .object([:]))
+        try await fixture.send(id: .integer(3), method: "missing/method", params: .object([:]))
 
         let initialized = try await fixture.waitForMessage { $0["id"] == .number(1) }
         XCTAssertEqual(initialized["jsonrpc"], .string("2.0"))
         XCTAssertEqual(
             initialized["result"]?.objectValue?["serverInfo"]?.objectValue?["name"],
             .string("quillcode-mcp-server")
+        )
+        XCTAssertEqual(
+            initialized["result"]?.objectValue?["protocolVersion"],
+            .string(MCPServerSession.protocolVersion)
         )
 
         let list = try await fixture.waitForMessage { $0["id"] == .number(2) }
@@ -33,10 +37,29 @@ final class MCPServerSessionTests: XCTestCase {
         await fixture.finish()
     }
 
+    func testInitializeRejectsIncompleteParametersWithoutAdvancingHandshake() async throws {
+        let fixture = try makeFixture(llm: MCPTestEchoLLM())
+        try await fixture.send(
+            id: .integer(1),
+            method: "initialize",
+            params: .object(["protocolVersion": .string("future-version")])
+        )
+        let invalid = try await fixture.waitForMessage { $0["id"] == .number(1) }
+        XCTAssertEqual(invalid["error"]?.objectValue?["code"], .number(-32602))
+
+        try await fixture.initialize(requestID: 2, protocolVersion: "future-version")
+        let initialized = try await fixture.waitForMessage { $0["id"] == .number(2) }
+        XCTAssertEqual(
+            initialized["result"]?.objectValue?["protocolVersion"],
+            .string(MCPServerSession.protocolVersion)
+        )
+        await fixture.finish()
+    }
+
     func testStartAndReplyPersistOneDurableThreadWithRuntimeSettings() async throws {
         let fixture = try makeFixture(llm: MCPTestEchoLLM())
-        await fixture.initialize()
-        await fixture.callTool(
+        try await fixture.initialize()
+        try await fixture.callTool(
             id: .string("start"),
             name: "codex",
             arguments: .object([
@@ -58,7 +81,7 @@ final class MCPServerSessionTests: XCTestCase {
         )
         let threadID = try XCTUnwrap(UUID(uuidString: threadIDText))
 
-        await fixture.callTool(
+        try await fixture.callTool(
             id: .string("reply"),
             name: "codex-reply",
             arguments: .object([
@@ -109,8 +132,8 @@ final class MCPServerSessionTests: XCTestCase {
             .say("File created.")
         ])
         let fixture = try makeFixture(llm: llm)
-        await fixture.initialize()
-        await fixture.callTool(
+        try await fixture.initialize()
+        try await fixture.callTool(
             id: .string("approval-call"),
             name: "codex",
             arguments: .object([
@@ -129,7 +152,10 @@ final class MCPServerSessionTests: XCTestCase {
             approval["params"]?.objectValue?["codex_elicitation"],
             .string("patch-approval")
         )
-        await fixture.respond(id: approvalID, result: .object(["decision": .string("approved")]))
+        try await fixture.respond(
+            id: approvalID,
+            result: .object(["decision": .string("approved")])
+        )
 
         let response = try await fixture.waitForMessage { $0["id"] == .string("approval-call") }
         XCTAssertEqual(response["result"]?.objectValue?["isError"], .bool(false))
@@ -140,11 +166,48 @@ final class MCPServerSessionTests: XCTestCase {
         await fixture.finish()
     }
 
+    func testNestedApprovalDenialCannotBeOverriddenByCompatibilityAction() async throws {
+        let llm = MCPTestScriptedLLM(actions: [
+            .tool(ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json(["path": "denied.txt", "content": "denied\n"])
+            )),
+            .say("Request handled.")
+        ])
+        let fixture = try makeFixture(llm: llm)
+        try await fixture.initialize()
+        try await fixture.callTool(
+            id: .string("conflicting-approval"),
+            name: "codex",
+            arguments: .object([
+                "prompt": .string("create denied.txt"),
+                "cwd": .string(fixture.workspace.path),
+                "approval-policy": .string("on-request"),
+                "sandbox": .string("workspace-write")
+            ])
+        )
+
+        let approval = try await fixture.waitForMessage { message in
+            message["method"] == .string("elicitation/create")
+        }
+        let approvalID = try XCTUnwrap(MCPServerRequestID(jsonValue: approval["id"]))
+        try await fixture.respond(id: approvalID, result: .object([
+            "action": .string("accept"),
+            "content": .object(["decision": .string("denied")])
+        ]))
+
+        _ = try await fixture.waitForMessage { $0["id"] == .string("conflicting-approval") }
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: fixture.workspace.appendingPathComponent("denied.txt").path
+        ))
+        await fixture.finish()
+    }
+
     func testCancelledNotificationCancelsActiveToolCallAndReturnsTypedError() async throws {
         let llm = MCPTestBlockingLLM()
         let fixture = try makeFixture(llm: llm)
-        await fixture.initialize()
-        await fixture.callTool(
+        try await fixture.initialize()
+        try await fixture.callTool(
             id: .string("cancel-me"),
             name: "codex",
             arguments: .object([
@@ -154,7 +217,7 @@ final class MCPServerSessionTests: XCTestCase {
             ])
         )
         await llm.waitUntilStarted()
-        await fixture.notify(
+        try await fixture.notify(
             method: "notifications/cancelled",
             params: .object(["requestId": .string("cancel-me"), "reason": .string("test")])
         )
@@ -167,11 +230,45 @@ final class MCPServerSessionTests: XCTestCase {
         await fixture.finish()
     }
 
+    func testDuplicateActiveRequestIDIsRejectedWithoutReplacingOriginalCall() async throws {
+        let llm = MCPTestBlockingLLM()
+        let fixture = try makeFixture(llm: llm)
+        try await fixture.initialize()
+        let arguments: CLIJSONValue = .object([
+            "prompt": .string("wait"),
+            "cwd": .string(fixture.workspace.path),
+            "approval-policy": .string("never")
+        ])
+        try await fixture.callTool(id: .string("same-id"), name: "codex", arguments: arguments)
+        await llm.waitUntilStarted()
+        try await fixture.callTool(id: .string("same-id"), name: "codex", arguments: arguments)
+
+        let duplicate = try await fixture.waitForMessage { message in
+            message["id"] == .string("same-id")
+                && message["error"]?.objectValue?["code"] == .number(-32600)
+        }
+        XCTAssertEqual(
+            duplicate["error"]?.objectValue?["message"],
+            .string("Request id is already active")
+        )
+
+        try await fixture.notify(
+            method: "notifications/cancelled",
+            params: .object(["requestId": .string("same-id")])
+        )
+        let cancelled = try await fixture.waitForMessage { message in
+            message["id"] == .string("same-id")
+                && message["result"]?.objectValue?["isError"] == .bool(true)
+        }
+        XCTAssertNotNil(cancelled["result"])
+        await fixture.finish()
+    }
+
     func testUnknownToolAndMissingReplyThreadAreMCPToolErrorsNotJSONRPCErrors() async throws {
         let fixture = try makeFixture(llm: MCPTestEchoLLM())
-        await fixture.initialize()
-        await fixture.callTool(id: .integer(8), name: "unknown", arguments: .object([:]))
-        await fixture.callTool(
+        try await fixture.initialize()
+        try await fixture.callTool(id: .integer(8), name: "unknown", arguments: .object([:]))
+        try await fixture.callTool(
             id: .integer(9),
             name: "codex-reply",
             arguments: .object([
@@ -225,43 +322,46 @@ private struct MCPServerTestFixture {
         )
     }
 
-    func initialize() async {
-        await send(id: .integer(1), method: "initialize", params: .object([
-            "protocolVersion": .string("2025-06-18"),
+    func initialize(
+        requestID: Int64 = 1,
+        protocolVersion: String = MCPServerSession.protocolVersion
+    ) async throws {
+        try await send(id: .integer(requestID), method: "initialize", params: .object([
+            "protocolVersion": .string(protocolVersion),
             "capabilities": .object([:]),
             "clientInfo": .object(["name": .string("tests"), "version": .string("1")])
         ]))
-        await notify(method: "notifications/initialized", params: .object([:]))
+        try await notify(method: "notifications/initialized", params: .object([:]))
     }
 
     func callTool(
         id: MCPServerRequestID,
         name: String,
         arguments: CLIJSONValue
-    ) async {
-        await send(id: id, method: "tools/call", params: .object([
+    ) async throws {
+        try await send(id: id, method: "tools/call", params: .object([
             "name": .string(name),
             "arguments": arguments
         ]))
     }
 
-    func send(id: MCPServerRequestID, method: String, params: CLIJSONValue) async {
-        await session.receive(try! MCPServerWireTestCodec.data(
+    func send(id: MCPServerRequestID, method: String, params: CLIJSONValue) async throws {
+        await session.receive(try MCPServerWireTestCodec.data(
             id: id,
             method: method,
             params: params
         ))
     }
 
-    func notify(method: String, params: CLIJSONValue) async {
-        await session.receive(try! MCPServerWireTestCodec.notificationData(
+    func notify(method: String, params: CLIJSONValue) async throws {
+        await session.receive(try MCPServerWireTestCodec.notificationData(
             method: method,
             params: params
         ))
     }
 
-    func respond(id: MCPServerRequestID, result: CLIJSONValue) async {
-        await session.receive(try! MCPServerWireTestCodec.responseData(id: id, result: result))
+    func respond(id: MCPServerRequestID, result: CLIJSONValue) async throws {
+        await session.receive(try MCPServerWireTestCodec.responseData(id: id, result: result))
     }
 
     func waitForMessage(

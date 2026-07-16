@@ -9,15 +9,13 @@ struct MCPServerProjectedEvent: Sendable {
 }
 
 struct MCPServerProgressProjector: Sendable {
-    private let threadID: UUID
     private let cwd: URL
     private var seenMessageIDs: Set<UUID>
     private var seenEventIDs: Set<UUID>
     private var assistantTextByID: [UUID: String]
-    private var activeTools: [ToolCall] = []
+    private var pendingTool: ToolCall?
 
-    init(threadID: UUID, cwd: URL, baseline: ChatThread) {
-        self.threadID = threadID
+    init(cwd: URL, baseline: ChatThread) {
         self.cwd = cwd
         self.seenMessageIDs = Set(baseline.messages.map(\.id))
         self.seenEventIDs = Set(baseline.events.map(\.id))
@@ -77,12 +75,16 @@ struct MCPServerProgressProjector: Sendable {
             let call = decode(ToolCall.self, event.payloadJSON)
                 ?? ToolCall(id: id, name: event.summary, argumentsJSON: "{}")
             let redacted = call.redactedForTranscript()
-            activeTools.append(redacted)
+            // AgentRunner executes one tool step at a time. Mirroring that invariant avoids an
+            // unnecessary FIFO and keeps malformed histories from pairing a stale call to a result.
+            pendingTool = redacted
             if redacted.name == ToolDefinition.shellRun.name {
                 return [MCPServerProjectedEvent(id: id, message: .object([
                     "type": .string("exec_command_begin"),
                     "call_id": .string(redacted.id),
-                    "command": .array([.string(shellCommand(redacted) ?? redacted.name)]),
+                    "command": .array([.string(Self.bounded(
+                        shellCommand(redacted) ?? redacted.name
+                    ))]),
                     "cwd": .string(cwd.path)
                 ]))]
             }
@@ -94,9 +96,9 @@ struct MCPServerProgressProjector: Sendable {
             ]))]
 
         case .toolCompleted, .toolFailed:
-            let call = activeTools.isEmpty
-                ? ToolCall(id: id, name: event.summary, argumentsJSON: "{}")
-                : activeTools.removeFirst()
+            let call = pendingTool
+                ?? ToolCall(id: id, name: event.summary, argumentsJSON: "{}")
+            pendingTool = nil
             let result = decode(ToolResult.self, event.payloadJSON)
             let output = Self.bounded(combinedOutput(result))
             if call.name == ToolDefinition.shellRun.name {
@@ -140,8 +142,8 @@ struct MCPServerProgressProjector: Sendable {
     }
 
     private func shellCommand(_ call: ToolCall) -> String? {
-        decodedJSON(call.argumentsJSON).objectValue?["cmd"]?.stringValue
-            ?? decodedJSON(call.argumentsJSON).objectValue?["command"]?.stringValue
+        let arguments = decodedJSON(call.argumentsJSON).objectValue
+        return arguments?["cmd"]?.stringValue ?? arguments?["command"]?.stringValue
     }
 
     private func combinedOutput(_ result: ToolResult?) -> String {
@@ -162,7 +164,15 @@ struct MCPServerProgressProjector: Sendable {
 
     private static func bounded(_ text: String, limit: Int = 32 * 1_024) -> String {
         guard text.utf8.count > limit else { return text }
-        let prefix = text.utf8.prefix(limit)
-        return String(decoding: prefix, as: UTF8.self) + "\n[output truncated]"
+        var prefix = ""
+        prefix.reserveCapacity(limit)
+        var byteCount = 0
+        for character in text {
+            let width = String(character).utf8.count
+            guard byteCount + width <= limit else { break }
+            prefix.append(character)
+            byteCount += width
+        }
+        return prefix + "\n[output truncated]"
     }
 }

@@ -28,7 +28,7 @@ extension MCPServerSession {
             appendInstructions(input, to: &thread)
             let settings = AppServerThreadSettings(
                 cwd: cwd,
-                approvalPolicy: .string(effective.approvalPolicy),
+                approvalPolicy: .string(effective.approvalPolicy.rawValue),
                 approvalsReviewer: effective.approvalsReviewer,
                 sandbox: effective.sandbox,
                 runtimeAppConfig: effective.appConfig,
@@ -65,7 +65,6 @@ extension MCPServerSession {
         requestID: MCPServerRequestID
     ) async throws -> String {
         progressProjectors[requestID] = MCPServerProgressProjector(
-            threadID: record.thread.id,
             cwd: record.settings.cwd,
             baseline: record.thread
         )
@@ -131,6 +130,16 @@ extension MCPServerSession {
             environment: environment
         )
         var runner = runtime.applyingInvocationPolicy(to: try runnerFactory(runtime))
+        if let compactPrompt = record.settings.compactPrompt?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ), !compactPrompt.isEmpty {
+            runner.compaction = AgentCompactionPolicy(compactor: ThreadCompactor.llmBacked(
+                llm: runner.llm,
+                catalog: [],
+                sessionModelID: record.thread.model,
+                customPrompt: compactPrompt
+            ))
+        }
         let configurations = try AppServerMCPConfigurationLoader.load(
             globalConfig: paths.configFile,
             projectRoot: record.settings.cwd,
@@ -241,11 +250,11 @@ extension MCPServerSession {
 
     private func mode(
         sandbox: CLISandboxMode,
-        approvalPolicy: String,
+        approvalPolicy: MCPServerApprovalPolicy,
         reviewer: String
     ) -> AgentMode {
         if sandbox == .readOnly { return .readOnly }
-        if approvalPolicy == "never" || reviewer != "user" { return .auto }
+        if approvalPolicy == .never || reviewer != "user" { return .auto }
         return .review
     }
 

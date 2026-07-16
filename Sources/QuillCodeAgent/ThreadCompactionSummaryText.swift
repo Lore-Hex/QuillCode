@@ -13,15 +13,19 @@ enum ThreadCompactionSummaryText {
     /// is capped, keeping the TAIL (the most recent, most relevant turns) when it overflows.
     static let maxTranscriptCharacters = 18_000
     static let maxMessageExcerptCharacters = 1_200
+    static let maxCustomPromptCharacters = 8_000
 
     static func prompt(
         sourceTitle: String,
         olderMessages: [ChatMessage],
-        recentMessages: [ChatMessage]
+        recentMessages: [ChatMessage],
+        customPrompt: String? = nil
     ) -> String {
         let transcript = boundedTranscript(olderMessages: olderMessages, recentMessages: recentMessages)
+        let instruction = boundedCustomPrompt(customPrompt)
+            ?? "Please compact this QuillCode coding-agent thread so the run can continue within its context window."
         return """
-        Please compact this QuillCode coding-agent thread so the run can continue within its context window.
+        \(instruction)
 
         Return exactly one QuillCode action JSON object and no markdown:
         {"type":"say","text":"..."}
@@ -39,6 +43,13 @@ enum ThreadCompactionSummaryText {
         Conversation to summarize:
         \(transcript)
         """
+    }
+
+    private static func boundedCustomPrompt(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(maxCustomPromptCharacters))
     }
 
     private static func boundedTranscript(

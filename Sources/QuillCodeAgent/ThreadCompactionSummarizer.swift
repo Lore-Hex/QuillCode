@@ -42,9 +42,11 @@ public struct DeterministicThreadCompactionSummarizer: ThreadCompactionSummarizi
 /// throw the compactor absorbs into the deterministic fallback.
 public struct LLMThreadCompactionSummarizer: ThreadCompactionSummarizing {
     public var llm: any LLMClient
+    public var customPrompt: String?
 
-    public init(llm: any LLMClient) {
+    public init(llm: any LLMClient, customPrompt: String? = nil) {
         self.llm = llm
+        self.customPrompt = customPrompt
     }
 
     public func summarize(
@@ -55,7 +57,8 @@ public struct LLMThreadCompactionSummarizer: ThreadCompactionSummarizing {
         let prompt = ThreadCompactionSummaryText.prompt(
             sourceTitle: sourceTitle,
             olderMessages: olderMessages,
-            recentMessages: recentMessages
+            recentMessages: recentMessages,
+            customPrompt: customPrompt
         )
         let action = try await llm.nextAction(
             thread: ChatThread(title: "Context compaction"),

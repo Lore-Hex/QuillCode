@@ -23,6 +23,7 @@ final class MCPServerToolCatalogTests: XCTestCase {
         let reply = try XCTUnwrap(tools[1].objectValue)
         let replySchema = try XCTUnwrap(reply["inputSchema"]?.objectValue)
         XCTAssertEqual(replySchema["required"], .array([.string("prompt")]))
+        XCTAssertEqual(replySchema["additionalProperties"], .bool(false))
         XCTAssertNotNil(replySchema["properties"]?.objectValue?["conversationId"])
     }
 
@@ -45,6 +46,14 @@ final class MCPServerToolCatalogTests: XCTestCase {
             "name": .string("codex"),
             "arguments": .object(["prompt": .string("go"), "unknown": .bool(true)])
         ])))
+        XCTAssertThrowsError(try MCPServerToolInvocation(params: .object([
+            "name": .string("codex-reply"),
+            "arguments": .object([
+                "threadId": .string(UUID().uuidString),
+                "prompt": .string("go"),
+                "unknown": .bool(true)
+            ])
+        ])))
 
         let id = UUID()
         let invocation = try MCPServerToolInvocation(params: .object([
@@ -55,5 +64,22 @@ final class MCPServerToolCatalogTests: XCTestCase {
             ])
         ]))
         XCTAssertEqual(invocation.threadID, id)
+    }
+
+    func testToolInputRejectsPromptsWithoutUserIntent() {
+        for (name, arguments) in [
+            ("codex", CLIJSONValue.object(["prompt": .string(" \n\t ")])),
+            ("codex-reply", CLIJSONValue.object([
+                "threadId": .string(UUID().uuidString),
+                "prompt": .string("")
+            ]))
+        ] {
+            XCTAssertThrowsError(try MCPServerToolInvocation(params: .object([
+                "name": .string(name),
+                "arguments": arguments
+            ]))) { error in
+                XCTAssertTrue(error.localizedDescription.contains("must not be empty"))
+            }
+        }
     }
 }

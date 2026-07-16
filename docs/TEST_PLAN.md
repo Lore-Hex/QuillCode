@@ -77,6 +77,12 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   MCP child with full/lightweight status, lossless tool call, resource read, and reload, thread start,
   turn start, incremental lifecycle output before EOF, persistence, clean EOF, and zero exit. This
   specifically guards against pipe readers that accidentally buffer until the client disconnects.
+- Real `quill-code mcp-server` process smoke with stdin kept open: strict JSON-RPC initialize,
+  exact two-tool discovery, a mock `whoami` run with begin/end/complete events, durable
+  `codex-reply`, persisted runtime/compaction metadata, no secret-shaped output, clean EOF, and
+  dependency teardown. Focused tests additionally cover malformed envelopes, `result: null`,
+  duplicate active IDs, cancellation, approval accept/deny conflict handling, Unicode-safe progress
+  bounds, empty prompts, config precedence, and custom compaction prompts.
 - App-server discovery contract tests against the generated Codex 0.142.5 shapes: deterministic
   model pagination and required fields, exact provider capabilities, explicit/environment/stored-key
   account presence without secret disclosure, persisted UTC token aggregation and streaks, local-only

@@ -1446,3 +1446,28 @@
   integration tests prove capability filtering and report delivery; real temporary-repository CLI tests
   prove scoped diffs, cancellation, failure, and no persistence; and `scripts/cli-review-smoke.sh` proves
   the built public command inside the aggregate smoke gate.
+
+## 2026-07-15: QuillCode exposes a Codex-compatible MCP tool bridge
+
+- **Wire boundary:** `quill-code mcp-server` owns strict newline-delimited JSON-RPC 2.0 and negotiates
+  the observed `2025-06-18` MCP protocol. The catalog intentionally contains only `codex` and
+  `codex-reply`; unknown fields fail instead of being silently ignored.
+- **Runtime boundary:** A start call resolves its cwd, model, sandbox, approval policy, allowlisted
+  config overrides, and optional instructions into one durable app-server thread record. Reply loads
+  that exact record, so model and policy do not drift between turns. Custom compaction guidance is
+  bounded and reaches the shared model-backed compactor without changing the main model selection.
+- **Safety boundary:** Review-mode tool calls use `elicitation/create`; malformed, contradictory,
+  cancelled, orphaned, or disconnected responses deny. Existing QuillCode hard safety and trusted
+  permission hooks run before the client approval hook. `on-failure` remains conservative user review
+  until an enforceable OS-sandbox failure-to-escalation retry exists.
+- **Lifecycle boundary:** Request IDs and active thread turns are unique while running, client
+  cancellation cooperatively stops work, progress persists incrementally, and EOF denies approval
+  waiters then awaits active turns and MCP dependency shutdown.
+- **Compatibility boundary:** Public tool names, input/output shapes, handshake, events, and approval
+  transport follow observed Codex behavior. QuillCode does not claim the full native event union, an
+  exact patch `FileChange` map, arbitrary Codex config keys, or replacement of its stable structured
+  tool contract by caller-provided base instructions.
+- **Verification:** Focused wire/catalog/config/session/approval/compaction tests exercise the typed
+  contract. `scripts/mcp-server-smoke.sh` drives the built process through initialize, discovery,
+  `whoami`, durable reply, event and persistence inspection, leak rejection, and clean EOF; aggregate
+  smoke records the step in its deterministic manifest.

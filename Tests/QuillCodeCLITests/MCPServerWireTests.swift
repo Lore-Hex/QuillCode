@@ -26,13 +26,22 @@ final class MCPServerWireTests: XCTestCase {
                 error: nil
             )
         )
+        XCTAssertEqual(
+            try MCPServerInboundMessage(data: Data(
+                #"{"jsonrpc":"2.0","id":8,"result":null}"#.utf8
+            )),
+            .response(id: .integer(8), result: .null, error: nil)
+        )
     }
 
     func testRejectsMissingOrWrongJSONRPCVersionAndInvalidEnvelope() {
         for text in [
             #"{"id":1,"method":"ping"}"#,
             #"{"jsonrpc":"1.0","id":1,"method":"ping"}"#,
-            #"{"jsonrpc":"2.0","id":1}"#
+            #"{"jsonrpc":"2.0","id":1}"#,
+            #"{"jsonrpc":"2.0","id":1,"method":"ping","result":{}}"#,
+            #"{"jsonrpc":"2.0","id":1,"result":{},"error":{"code":-1,"message":"x"}}"#,
+            #"{"jsonrpc":"2.0","id":null,"method":"ping"}"#
         ] {
             XCTAssertThrowsError(try MCPServerInboundMessage(data: Data(text.utf8)))
         }

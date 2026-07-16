@@ -29,6 +29,7 @@ struct MCPServerRPCError: Codable, Error, Sendable, Equatable {
 
     static let parseError = MCPServerRPCError(code: -32700, message: "Parse error")
     static let invalidRequest = MCPServerRPCError(code: -32600, message: "Invalid Request")
+    static let invalidParams = MCPServerRPCError(code: -32602, message: "Invalid params")
     static let notInitialized = MCPServerRPCError(code: -32002, message: "Server not initialized")
 
     static func methodNotFound(_ method: String) -> MCPServerRPCError {
@@ -49,6 +50,13 @@ enum MCPServerInboundMessage: Sendable, Equatable {
         let envelope = try JSONDecoder().decode(MCPServerInboundEnvelope.self, from: data)
         guard envelope.jsonrpc == "2.0" else { throw MCPServerWireError.invalidEnvelope }
         if let method = envelope.method {
+            guard !method.isEmpty,
+                  !envelope.containsResult,
+                  !envelope.containsError,
+                  !envelope.containsID || envelope.id != nil
+            else {
+                throw MCPServerWireError.invalidEnvelope
+            }
             let params = envelope.params ?? .object([:])
             if let id = envelope.id {
                 self = .request(id: id, method: method, params: params)
@@ -57,7 +65,9 @@ enum MCPServerInboundMessage: Sendable, Equatable {
             }
             return
         }
-        if let id = envelope.id, envelope.result != nil || envelope.error != nil {
+        if let id = envelope.id,
+           envelope.containsResult != envelope.containsError,
+           !envelope.containsError || envelope.error != nil {
             self = .response(id: id, result: envelope.result, error: envelope.error)
             return
         }
@@ -72,6 +82,33 @@ private struct MCPServerInboundEnvelope: Decodable {
     var params: CLIJSONValue?
     var result: CLIJSONValue?
     var error: MCPServerRPCError?
+    var containsID: Bool
+    var containsResult: Bool
+    var containsError: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case jsonrpc
+        case id
+        case method
+        case params
+        case result
+        case error
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        jsonrpc = try container.decodeIfPresent(String.self, forKey: .jsonrpc)
+        id = try container.decodeIfPresent(MCPServerRequestID.self, forKey: .id)
+        method = try container.decodeIfPresent(String.self, forKey: .method)
+        params = try container.decodeIfPresent(CLIJSONValue.self, forKey: .params)
+        containsID = container.contains(.id)
+        containsResult = container.contains(.result)
+        containsError = container.contains(.error)
+        result = containsResult
+            ? try container.decode(CLIJSONValue.self, forKey: .result)
+            : nil
+        error = try container.decodeIfPresent(MCPServerRPCError.self, forKey: .error)
+    }
 }
 
 enum MCPServerOutboundMessage: Encodable, Sendable {

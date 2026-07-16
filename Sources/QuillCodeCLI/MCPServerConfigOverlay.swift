@@ -5,7 +5,7 @@ struct MCPServerEffectiveRunConfiguration: Sendable {
     var appConfig: AppConfig
     var model: String
     var sandbox: CLISandboxMode
-    var approvalPolicy: String
+    var approvalPolicy: MCPServerApprovalPolicy
     var approvalsReviewer: String
 }
 
@@ -44,13 +44,20 @@ enum MCPServerConfigOverlay {
             }
         }
 
-        let approvalPolicy = input.approvalPolicy ?? configApproval ?? "on-request"
-        guard ["untrusted", "on-failure", "on-request", "never"].contains(approvalPolicy) else {
-            throw MCPServerToolInputError.invalid("approval_policy is not supported")
+        let approvalPolicy: MCPServerApprovalPolicy
+        if let explicit = input.approvalPolicy {
+            approvalPolicy = explicit
+        } else if let configApproval {
+            guard let configured = MCPServerApprovalPolicy(rawValue: configApproval) else {
+                throw MCPServerToolInputError.invalid("approval_policy is not supported")
+            }
+            approvalPolicy = configured
+        } else {
+            approvalPolicy = .onRequest
         }
         let hasExplicitApprovalPolicy = input.approvalPolicy != nil || configApproval != nil
         let reviewer: String
-        if approvalPolicy == "never" {
+        if approvalPolicy == .never {
             reviewer = "auto_review"
         } else if hasExplicitApprovalPolicy {
             reviewer = "user"

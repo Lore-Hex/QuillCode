@@ -138,9 +138,11 @@ extension MCPServerSession {
     ) -> AgentPermissionRequestDecision {
         if let error { return .deny(reason: "Approval request failed: \(error.message)") }
         let object = result?.objectValue
+        // Prefer explicit decision fields over compatibility action aliases. A client must
+        // never be able to override a nested denial with an unrelated top-level "accept" action.
         let action = object?["decision"]?.stringValue
-            ?? object?["action"]?.stringValue
             ?? object?["content"]?.objectValue?["decision"]?.stringValue
+            ?? object?["action"]?.stringValue
         switch action?.lowercased() {
         case "approved", "approved_for_session", "allow", "accept", "acceptforsession":
             return .allow

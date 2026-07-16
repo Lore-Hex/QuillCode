@@ -55,7 +55,9 @@ enum MCPServerToolCatalog {
                             + "`on-failure`, `on-request`, `never`."
                     ),
                     "type": .string("string"),
-                    "enum": .array(approvalPolicies.map(CLIJSONValue.string))
+                    "enum": .array(MCPServerApprovalPolicy.allCases.map {
+                        .string($0.rawValue)
+                    })
                 ]),
                 "base-instructions": .object([
                     "description": .string("The set of instructions to use instead of the default ones."),
@@ -127,11 +129,10 @@ enum MCPServerToolCatalog {
                     "type": .string("string")
                 ])
             ]),
-            "required": .array([.string("prompt")])
+            "required": .array([.string("prompt")]),
+            "additionalProperties": .bool(false)
         ]),
         "outputSchema": outputSchema
     ])
-
-    private static let approvalPolicies = ["untrusted", "on-failure", "on-request", "never"]
     private static let sandboxModes = ["read-only", "workspace-write", "danger-full-access"]
 }

@@ -25,6 +25,17 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   Codex manual, Non-interactive mode, and `openai/codex`
   `codex-rs/protocol/src/permissions.rs`, `codex-rs/exec/tests/suite/mcp_required_exit.rs` plus
   `codex-rs/mcp-server/src/connection_manager.rs`, audited 2026-07-15.
+- Codex 0.142.5 `mcp-server` is a distinct JSON-RPC 2.0 stdio surface for embedding a coding agent as
+  MCP tools. An isolated process probe negotiated protocol `2025-06-18`, advertised only `codex` and
+  `codex-reply`, returned text plus `{threadId, content}` structured output, streamed `codex/event`
+  notifications carrying request/thread metadata, and requested command or patch approval through
+  `elicitation/create`. The run tool accepts approval policy, base/compaction/developer instructions,
+  config overrides, cwd, model, prompt, and sandbox; reply accepts `threadId` (plus a deprecated
+  conversation alias) and prompt. QuillCode mirrors that public contract while keeping its stable
+  structured action/tool instructions intact. Exact Codex-native event variants, native patch
+  `FileChange` metadata, and OS-sandbox retry semantics remain separate compatibility work. Sources:
+  local `codex-cli 0.142.5` protocol probes and public `openai/codex` MCP server approval/message
+  runners, audited 2026-07-15.
 - Current Codex exec installs a one-shot Ctrl-C listener, sends `turn/interrupt`, waits for the
   interrupted turn acknowledgement, and exits 1. Its JSONL event processor emits neither
   `turn.completed` nor `turn.failed` for `TurnStatus::Interrupted`, and suppresses final-message output.

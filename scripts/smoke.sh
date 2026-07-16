@@ -11,6 +11,7 @@ STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 FINAL_DETAIL="interrupted"
 SWIFT_TESTS_STATUS="not-run"
 APP_SERVER_STATUS="not-run"
+MCP_SERVER_STATUS="not-run"
 CLI_DOCTOR_STATUS="not-run"
 CLI_REVIEW_STATUS="not-run"
 CLI_SHELL_STATUS="not-run"
@@ -51,6 +52,7 @@ write_manifest() {
     "$SMOKE_WORKSPACE" \
     "$SWIFT_TESTS_STATUS" \
     "$APP_SERVER_STATUS" \
+    "$MCP_SERVER_STATUS" \
     "$CLI_DOCTOR_STATUS" \
     "$CLI_REVIEW_STATUS" \
     "$CLI_SHELL_STATUS" \
@@ -83,6 +85,7 @@ from datetime import datetime, timezone
     smoke_workspace,
     swift_tests_status,
     app_server_status,
+    mcp_server_status,
     cli_doctor_status,
     cli_review_status,
     cli_shell_status,
@@ -175,6 +178,7 @@ manifest = {
     "steps": {
         "swiftTests": {"status": swift_tests_status},
         "appServer": {"status": app_server_status},
+        "mcpServer": {"status": mcp_server_status},
         "cliDoctor": {"status": cli_doctor_status},
         "cliReview": {"status": cli_review_status},
         "cliShell": {"status": cli_shell_status},
@@ -316,6 +320,12 @@ APP_SERVER_STATUS="running"
 FINAL_DETAIL="app-server protocol smoke failed"
 "$ROOT_DIR/scripts/app-server-smoke.sh"
 APP_SERVER_STATUS="passed"
+
+echo "==> Running Codex-compatible MCP server protocol smoke"
+MCP_SERVER_STATUS="running"
+FINAL_DETAIL="MCP server protocol smoke failed"
+QUILLCODE_SKIP_BUILD=1 "$ROOT_DIR/scripts/mcp-server-smoke.sh"
+MCP_SERVER_STATUS="passed"
 
 echo "==> Running mock CLI shell command"
 CLI_SHELL_STATUS="running"

@@ -8,6 +8,7 @@ typealias MCPServerMessageSink = @Sendable (String) async -> Void
 
 actor MCPServerSession {
     static let maximumMessageBytes = 4 * 1_024 * 1_024
+    static let protocolVersion = "2025-06-18"
 
     enum HandshakeState: Sendable, Equatable {
         case awaitingInitialize
@@ -151,10 +152,18 @@ actor MCPServerSession {
             ))
             return
         }
-        let protocolVersion = params.objectValue?["protocolVersion"]?.stringValue ?? "2025-06-18"
+        guard let object = params.objectValue,
+              object["protocolVersion"]?.stringValue != nil,
+              let clientInfo = object["clientInfo"]?.objectValue,
+              clientInfo["name"]?.stringValue != nil,
+              clientInfo["version"]?.stringValue != nil,
+              object["capabilities"]?.objectValue != nil else {
+            await send(.error(id: id, error: .invalidParams))
+            return
+        }
         handshake = .awaitingInitialized
         await send(.response(id: id, result: .object([
-            "protocolVersion": .string(protocolVersion),
+            "protocolVersion": .string(Self.protocolVersion),
             "capabilities": .object([
                 "tools": .object(["listChanged": .bool(true)])
             ]),
@@ -168,6 +177,13 @@ actor MCPServerSession {
     }
 
     private func startToolCall(id: MCPServerRequestID, params: CLIJSONValue) async {
+        guard activeCalls[id] == nil else {
+            await send(.error(
+                id: id,
+                error: MCPServerRPCError(code: -32600, message: "Request id is already active")
+            ))
+            return
+        }
         let invocation: MCPServerToolInvocation
         do {
             invocation = try MCPServerToolInvocation(params: params)
