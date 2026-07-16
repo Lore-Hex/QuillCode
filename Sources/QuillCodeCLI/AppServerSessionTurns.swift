@@ -111,6 +111,13 @@ extension AppServerSession {
             active.task?.cancel()
             return .object([:])
         }
+        if let active = activeReviews[threadID] {
+            guard turnID == active.id else {
+                throw AppServerRPCError.invalidParams("turnId does not match the active turn")
+            }
+            active.task?.cancel()
+            return .object([:])
+        }
         throw AppServerRPCError.invalidParams("thread has no active turn")
     }
 
@@ -254,16 +261,7 @@ extension AppServerSession {
             let message = "Could not persist the completed turn: \(error.localizedDescription)"
             completionStatus = "failed"
             completionError = message
-            await sendNotification("error", params: .object([
-                "error": .object([
-                    "message": .string(message),
-                    "additionalDetails": .null,
-                    "codexErrorInfo": .null
-                ]),
-                "willRetry": .bool(false),
-                "threadId": .string(AppServerThreadProjection.identifier(threadID)),
-                "turnId": .string(active.id)
-            ]))
+            await sendTurnError(message, threadID: threadID, turnID: active.id)
         }
         await send(notifications)
         await sendNotification("turn/completed", params: .object([
@@ -280,7 +278,7 @@ extension AppServerSession {
         await sendThreadStatus(threadID, active: false)
     }
 
-    private func sendUserLifecycle(
+    func sendUserLifecycle(
         _ message: ChatMessage,
         clientID: String?,
         threadID: UUID,
@@ -310,13 +308,26 @@ extension AppServerSession {
         ]))
     }
 
-    private func send(_ notifications: [AppServerProjectedNotification]) async {
+    func sendTurnError(_ message: String, threadID: UUID, turnID: String) async {
+        await sendNotification("error", params: .object([
+            "error": .object([
+                "message": .string(message),
+                "additionalDetails": .null,
+                "codexErrorInfo": .null
+            ]),
+            "willRetry": .bool(false),
+            "threadId": .string(AppServerThreadProjection.identifier(threadID)),
+            "turnId": .string(turnID)
+        ]))
+    }
+
+    func send(_ notifications: [AppServerProjectedNotification]) async {
         for notification in notifications {
             await sendNotification(notification.method, params: notification.params)
         }
     }
 
-    private func appendUserMessage(_ message: ChatMessage, to thread: inout ChatThread) {
+    func appendUserMessage(_ message: ChatMessage, to thread: inout ChatThread) {
         thread.messages.append(message)
         let summary = message.content.isEmpty
             ? "Attached \(message.attachments.count) image\(message.attachments.count == 1 ? "" : "s")"

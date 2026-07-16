@@ -68,12 +68,13 @@ enum AppServerThreadProjection {
         status: String,
         startedAt: Date?,
         completedAt: Date?,
-        error: String? = nil
+        error: String? = nil,
+        itemsView: String? = nil
     ) -> CLIJSONValue {
         .object([
             "id": .string(id),
             "items": .array(items),
-            "itemsView": .string(items.isEmpty ? "notLoaded" : "full"),
+            "itemsView": .string(itemsView ?? (items.isEmpty ? "notLoaded" : "full")),
             "status": .string(status),
             "error": error.map { .object(["message": .string($0), "additionalDetails": .null, "codexErrorInfo": .null]) } ?? .null,
             "startedAt": startedAt.map { .number($0.timeIntervalSince1970.rounded(.down)) } ?? .null,

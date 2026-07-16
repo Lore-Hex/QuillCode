@@ -590,6 +590,44 @@ for thread_name in os.listdir(os.path.join(home, "threads")):
         )
 assert found_skill_snapshot, "selected skill context was not persisted with the turn"
 
+send({"id": 65, "method": "review/start", "params": {
+    "threadId": thread_id,
+    "target": {"type": "uncommittedChanges"},
+}})
+review_response, review_records = read_until(lambda record: record.get("id") == 65)
+review_turn = review_response["result"]["turn"]
+assert review_response["result"]["reviewThreadId"] == thread_id, review_response
+assert review_turn["status"] == "inProgress", review_response
+assert review_turn["itemsView"] == "notLoaded", review_response
+assert review_turn["items"][0]["id"] == review_turn["id"], review_response
+review_idle, review_tail = read_until(
+    lambda record: (
+        record.get("method") == "thread/status/changed"
+        and record.get("params", {}).get("threadId") == thread_id
+        and record.get("params", {}).get("status", {}).get("type") == "idle"
+    )
+)
+review_records.extend(review_tail)
+review_completion = next(
+    record for record in review_records if record.get("method") == "turn/completed"
+)
+assert review_completion["params"]["turn"]["status"] == "completed", review_completion
+review_item_types = [
+    record.get("params", {}).get("item", {}).get("type")
+    for record in review_records
+    if record.get("method") in {"item/started", "item/completed"}
+]
+assert review_item_types.count("enteredReviewMode") == 2, review_item_types
+assert review_item_types.count("exitedReviewMode") == 2, review_item_types
+review_agent_items = [
+    item
+    for item in review_completion["params"]["turn"]["items"]
+    if item["type"] == "agentMessage"
+]
+assert len(review_agent_items) == 1, review_agent_items
+assert "No actionable findings" in review_agent_items[0]["text"], review_agent_items
+assert review_idle["params"]["threadId"] == thread_id, review_idle
+
 send({"id": 10, "method": "thread/compact/start", "params": {
     "threadId": thread_id,
 }})
