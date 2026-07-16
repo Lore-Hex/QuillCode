@@ -19,6 +19,7 @@ python3 - \
 import json
 import base64
 import os
+import stat
 import subprocess
 import sys
 
@@ -123,6 +124,15 @@ with open(os.path.join(home, "config.toml"), "w", encoding="utf-8") as config_fi
         "startup_timeout_sec = 5\n"
         "tool_timeout_sec = 5\n"
     )
+global_memory_root = os.path.join(home, "memories")
+global_memory_file = os.path.join(global_memory_root, "nested", "smoke.md")
+os.makedirs(os.path.dirname(global_memory_file), exist_ok=True)
+with open(global_memory_file, "w", encoding="utf-8") as memory_file:
+    memory_file.write("forget this global memory\n")
+project_memory = os.path.join(workspace, ".quillcode", "memories", "project.md")
+os.makedirs(os.path.dirname(project_memory), exist_ok=True)
+with open(project_memory, "w", encoding="utf-8") as memory_file:
+    memory_file.write("preserve this project memory\n")
 process = subprocess.Popen(
     [binary, "--home", home, "app-server", "--mock"],
     cwd=workspace,
@@ -194,6 +204,15 @@ assert collaboration_modes["result"] == {
 send({"id": 208, "method": "configRequirements/read", "params": {}})
 config_requirements, _ = read_until(lambda record: record.get("id") == 208)
 assert config_requirements["result"] == {"requirements": None}, config_requirements
+
+send({"id": 209, "method": "memory/reset"})
+memory_reset, _ = read_until(lambda record: record.get("id") == 209)
+assert memory_reset["result"] == {}, memory_reset
+assert os.path.isdir(global_memory_root), global_memory_root
+assert os.listdir(global_memory_root) == [], os.listdir(global_memory_root)
+assert stat.S_IMODE(os.stat(global_memory_root).st_mode) == 0o700
+with open(project_memory, encoding="utf-8") as memory_file:
+    assert memory_file.read() == "preserve this project memory\n"
 
 send({"id": 2, "method": "model/list", "params": {"limit": 2}})
 models, _ = read_until(lambda record: record.get("id") == 2)
