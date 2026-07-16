@@ -529,6 +529,8 @@ send({"id": 9, "method": "turn/start", "params": {
     "input": [
         {"type": "text", "text": "app-server smoke"},
         {"type": "image", "url": image_data_url, "detail": "high"},
+        {"type": "skill", "name": "smoke-review", "path": skill_manifest},
+        {"type": "mention", "name": "Smoke App", "path": "app://smoke-app"},
     ],
 }})
 turn_response, records = read_until(lambda record: record.get("id") == 9)
@@ -554,6 +556,12 @@ user_item = next(
     for item in completed["params"]["turn"]["items"]
     if item["type"] == "userMessage"
 )
+assert [item["type"] for item in user_item["content"]] == [
+    "text",
+    "localImage",
+    "skill",
+    "mention",
+], user_item
 managed_image = next(item for item in user_item["content"] if item["type"] == "localImage")
 assert managed_image["detail"] == "high", managed_image
 managed_path = os.path.realpath(managed_image["path"])
@@ -561,9 +569,26 @@ attachment_root = os.path.realpath(os.path.join(home, "attachments"))
 assert os.path.commonpath([managed_path, attachment_root]) == attachment_root, managed_image
 with open(managed_image["path"], "rb") as image_stream:
     assert image_stream.read() == image_bytes, managed_image
+skill_item = next(item for item in user_item["content"] if item["type"] == "skill")
+assert skill_item["type"] == "skill", skill_item
+assert skill_item["name"] == "smoke-review", skill_item
+assert os.path.samefile(skill_item["path"], skill_manifest), skill_item
+mention_item = next(item for item in user_item["content"] if item["type"] == "mention")
+assert mention_item == {
+    "type": "mention",
+    "name": "Smoke App",
+    "path": "app://smoke-app",
+}, mention_item
+found_skill_snapshot = False
 for thread_name in os.listdir(os.path.join(home, "threads")):
     with open(os.path.join(home, "threads", thread_name), "r", encoding="utf-8") as thread_file:
-        assert image_data_url not in thread_file.read(), thread_name
+        thread_contents = thread_file.read()
+        assert image_data_url not in thread_contents, thread_name
+        found_skill_snapshot = found_skill_snapshot or (
+            '"inputReferences"' in thread_contents
+            and "Updated by the app-server watcher smoke." in thread_contents
+        )
+assert found_skill_snapshot, "selected skill context was not persisted with the turn"
 
 send({"id": 10, "method": "thread/compact/start", "params": {
     "threadId": thread_id,

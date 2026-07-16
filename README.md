@@ -26,7 +26,8 @@ This initial repository contains the compile-stable foundation:
   model/provider discovery, non-secret account/local usage state, API-key and browser OAuth account
   login/cancel/logout, config reads/writes, local plugin
   marketplace and installed-state discovery, Open Agent Skills discovery with per-session extra
-  roots, binary-safe host filesystem read/write/metadata/directory/copy/remove and connection-scoped
+  roots, selected skill and mention turn inputs, binary-safe host filesystem
+  read/write/metadata/directory/copy/remove and connection-scoped
   watch methods, plus MCP status/reload/tool/resource methods backed by shared stdio and HTTP clients
 - Codex-compatible `quill-code mcp-server` JSON-RPC stdio bridge with the exact public `codex` and
   `codex-reply` tools, durable threads, streamed events, approvals, cancellation, and EOF cleanup
@@ -131,7 +132,9 @@ copy preserves symlinks while skipping special children, and watches emit sorted
 `fs/changed` notifications until unwatch or disconnect. These methods represent the connected
 app-server client's direct host authority; model-authored file tools still use QuillCode's workspace
 and safety boundaries. Input messages are capped at 1 MiB, local images are copied into managed
-storage, unsupported transports are rejected, and explicit danger-full-access uses the same honest
+storage, selected skills must exactly match an enabled bounded catalog entry and persist an immutable
+instruction snapshot, and mentions persist bounded structured identity without reading their path.
+Unsupported transports are rejected, and explicit danger-full-access uses the same honest
 unrestricted built-in host-tool scope as exec. Client EOF resolves pending approvals and filesystem
 watches instead of leaving work stranded.
 

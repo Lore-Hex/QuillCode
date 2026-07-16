@@ -297,6 +297,64 @@ final class AppServerSessionTests: XCTestCase {
         XCTAssertTrue(stored.messages.isEmpty)
     }
 
+    func testRichSkillAndMentionInputsPersistAndRoundTripThroughThreadRead() async throws {
+        let fixture = try await makeSession(llm: AppServerEchoLLM())
+        let skillDirectory = fixture.workspace
+            .appendingPathComponent(".agents", isDirectory: true)
+            .appendingPathComponent("skills", isDirectory: true)
+            .appendingPathComponent("review", isDirectory: true)
+        try FileManager.default.createDirectory(at: skillDirectory, withIntermediateDirectories: true)
+        let manifest = skillDirectory.appendingPathComponent("SKILL.md")
+        try """
+        ---
+        name: review
+        description: Review a change
+        ---
+        Inspect every changed file.
+        """.write(to: manifest, atomically: true, encoding: .utf8)
+        let threadID = try await startThread(in: fixture)
+
+        try await sendRequest(
+            id: 3,
+            method: "turn/start",
+            params: [
+                "threadId": threadID,
+                "input": [
+                    ["type": "text", "text": "Review this"],
+                    ["type": "skill", "name": "review", "path": manifest.path],
+                    ["type": "mention", "name": "Calendar", "path": "app://calendar"]
+                ]
+            ],
+            to: fixture.session
+        )
+        await fixture.session.waitForActiveTurns()
+        try await sendRequest(
+            id: 4,
+            method: "thread/read",
+            params: ["threadId": threadID, "includeTurns": true],
+            to: fixture.session
+        )
+
+        let stored = try XCTUnwrap(
+            JSONThreadStore(directory: fixture.home.appendingPathComponent("threads")).list().first
+        )
+        let message = try XCTUnwrap(stored.messages.first(where: { $0.role == .user }))
+        XCTAssertEqual(message.content, "Review this")
+        XCTAssertEqual(message.inputReferences.map(\.kind), [.skill, .mention])
+        XCTAssertTrue(message.inputReferences[0].context?.contains("Inspect every changed file.") == true)
+        XCTAssertNil(message.inputReferences[1].context)
+
+        let records = try await fixture.output.records()
+        let readContent = try XCTUnwrap(
+            result(for: 4, in: records)?["thread"]?.objectValue?["turns"]?.arrayValue?.first?
+                .objectValue?["items"]?.arrayValue?.first?.objectValue?["content"]?.arrayValue?
+                .compactMap(\.objectValue)
+        )
+        XCTAssertEqual(readContent.compactMap { $0["type"]?.stringValue }, ["text", "skill", "mention"])
+        XCTAssertEqual(readContent[1]["path"]?.stringValue, manifest.resolvingSymlinksInPath().path)
+        XCTAssertEqual(readContent[2]["path"]?.stringValue, "app://calendar")
+    }
+
     func testInvalidLaterInputRemovesEarlierManagedImage() async throws {
         let fixture = try await makeSession(llm: AppServerEchoLLM())
         let threadID = try await startThread(in: fixture)

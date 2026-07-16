@@ -66,6 +66,48 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertEqual(content[0]["text"] as? String, "[Attached image unavailable: secret.png]")
     }
 
+    func testRichInputAddsModelContextWithoutChangingVisibleTranscript() throws {
+        let message = ChatMessage(
+            role: .user,
+            content: "Review this change",
+            inputReferences: [
+                ChatInputReference(
+                    kind: .skill,
+                    name: "Review & verify",
+                    path: "/tmp/review<strict>/SKILL.md",
+                    context: "# Instructions\nInspect every changed file."
+                ),
+                ChatInputReference(
+                    kind: .mention,
+                    name: "Calendar",
+                    path: "app://calendar"
+                ),
+                ChatInputReference(
+                    kind: .skill,
+                    name: "Unavailable",
+                    path: "/tmp/unavailable/SKILL.md"
+                )
+            ]
+        )
+        let thread = ChatThread(messages: [message])
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: message.content,
+            tools: []
+        )
+        let user = try XCTUnwrap(messages.last { $0["role"] as? String == "user" })
+        let content = try XCTUnwrap(user["content"] as? String)
+
+        XCTAssertEqual(message.content, "Review this change")
+        XCTAssertTrue(content.hasPrefix("Review this change\n\n<skill>"))
+        XCTAssertTrue(content.contains("<name>Review &amp; verify</name>"))
+        XCTAssertTrue(content.contains("<path>/tmp/review&lt;strict&gt;/SKILL.md</path>"))
+        XCTAssertTrue(content.contains("Inspect every changed file."))
+        XCTAssertTrue(content.contains("[mention:Calendar](app://calendar)"))
+        XCTAssertFalse(content.contains("Unavailable"))
+    }
+
     func testManagedScreenshotToolFeedbackBecomesMultimodalContinuation() throws {
         let root = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("quillcode-prompt-screenshot-\(UUID().uuidString)")

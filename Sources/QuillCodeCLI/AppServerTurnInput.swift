@@ -5,12 +5,14 @@ import QuillCodePersistence
 struct AppServerTurnInput: Sendable {
     var text: String
     var attachments: [ChatAttachment]
+    var inputReferences: [ChatInputReference]
     var clientUserMessageID: String?
 
     init(
         params: AppServerParams,
         threadID: UUID,
-        attachmentStore: ImageAttachmentStore
+        attachmentStore: ImageAttachmentStore,
+        richInputResolver: AppServerRichTurnInputResolver
     ) throws {
         guard let items = try params.optionalArray("input"), !items.isEmpty else {
             throw AppServerRPCError.invalidParams("input must be a non-empty array")
@@ -18,6 +20,9 @@ struct AppServerTurnInput: Sendable {
 
         var textSegments: [String] = []
         var attachments: [ChatAttachment] = []
+        var inputReferences: [ChatInputReference] = []
+        var selectedSkillPaths = Set<String>()
+        var contextBytes = 0
         do {
             for (index, value) in items.enumerated() {
                 let item = try AppServerParams(value)
@@ -60,8 +65,24 @@ struct AppServerTurnInput: Sendable {
                             "input[\(index)] image is invalid: \(error.localizedDescription)"
                         )
                     }
-                case "skill", "mention":
-                    throw AppServerRPCError.invalidParams("\(type) input is not supported yet")
+                case "skill":
+                    let reference = try richInputResolver.skill(
+                        name: item.requiredString("name"),
+                        path: item.requiredString("path")
+                    )
+                    guard selectedSkillPaths.insert(reference.path).inserted else { continue }
+                    try Self.requireReferenceCapacity(inputReferences.count)
+                    contextBytes += reference.context?.utf8.count ?? 0
+                    guard contextBytes <= AppServerRichTurnInputResolver.maximumContextBytes else {
+                        throw AppServerRPCError.invalidParams("selected skill context exceeds the per-turn limit")
+                    }
+                    inputReferences.append(reference)
+                case "mention":
+                    try Self.requireReferenceCapacity(inputReferences.count)
+                    inputReferences.append(try richInputResolver.mention(
+                        name: item.requiredString("name"),
+                        path: item.requiredString("path")
+                    ))
                 default:
                     throw AppServerRPCError.invalidParams("input[\(index)] has unsupported type \(type)")
                 }
@@ -72,12 +93,15 @@ struct AppServerTurnInput: Sendable {
         }
 
         let text = textSegments.joined(separator: "\n\n")
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !attachments.isEmpty else {
-            throw AppServerRPCError.invalidParams("input must contain text or an image")
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                || !attachments.isEmpty
+                || !inputReferences.isEmpty else {
+            throw AppServerRPCError.invalidParams("input must contain text, an image, a skill, or a mention")
         }
 
         self.text = text
         self.attachments = attachments
+        self.inputReferences = inputReferences
         self.clientUserMessageID = try params.optionalString("clientUserMessageId")
     }
 
@@ -86,6 +110,7 @@ struct AppServerTurnInput: Sendable {
             role: .user,
             content: text,
             attachments: attachments,
+            inputReferences: inputReferences,
             turnID: turnID,
             clientMessageID: clientUserMessageID
         )
@@ -95,6 +120,14 @@ struct AppServerTurnInput: Sendable {
         guard count < ChatAttachment.maximumCountPerTurn else {
             throw AppServerRPCError.invalidParams(
                 "input supports at most \(ChatAttachment.maximumCountPerTurn) images"
+            )
+        }
+    }
+
+    private static func requireReferenceCapacity(_ count: Int) throws {
+        guard count < ChatInputReference.maximumCountPerMessage else {
+            throw AppServerRPCError.invalidParams(
+                "input supports at most \(ChatInputReference.maximumCountPerMessage) skill and mention items"
             )
         }
     }
