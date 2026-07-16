@@ -28,6 +28,8 @@ This initial repository contains the compile-stable foundation:
   marketplace and installed-state discovery, Open Agent Skills discovery with per-session extra
   roots, binary-safe host filesystem read/write/metadata/directory/copy/remove and connection-scoped
   watch methods, plus MCP status/reload/tool/resource methods backed by shared stdio and HTTP clients
+- Codex-compatible `quill-code mcp-server` JSON-RPC stdio bridge with the exact public `codex` and
+  `codex-reply` tools, durable threads, streamed events, approvals, cancellation, and EOF cleanup
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
 - Playwright mock UI harness (test-only; any `node_modules` lives under `E2E/playwright` and is ignored)
 - parity, roadmap, decision, and test-plan docs
@@ -50,13 +52,15 @@ git diff | swift run quill-code exec --mock "summarize these changes"
 swift run quill-code doctor --summary
 swift run quill-code review --uncommitted --mock
 swift run quill-code review --base main --mock
+swift run quill-code mcp-server --mock
 swift run quill-code auth status
 swift run quill-code-desktop
 cd E2E/playwright && npm install && npx playwright install chromium && npm test
 ```
 
-`./scripts/smoke.sh` runs the Swift tests, exercises the exec, doctor, and review CLI process contracts
-in temporary workspaces, verifies that file creation plus list/read follow-up works without dirtying
+`./scripts/smoke.sh` runs the Swift tests, exercises the exec, doctor, review, app-server, and MCP-server
+process contracts in temporary workspaces, verifies that file creation plus list/read follow-up works
+without dirtying
 the repo, runs native/packaged desktop smoke with the same create-then-read follow-through, and runs
 Playwright automatically when `E2E/playwright/node_modules` is present. Set
 `QUILLCODE_SMOKE_ARTIFACT_DIR` to preserve native smoke screenshots and a
@@ -94,6 +98,17 @@ with `--commit`. The command writes only the validated Markdown review report to
 to stderr, never persists a task transcript, and gives the reviewer only bounded file/search/Git-read
 tools plus the typed `host.review.submit` report sink. Shell execution, file mutation, Git mutation,
 Computer Use, subagents, hooks, skills, and project write tools are absent from that capability set.
+
+`quill-code mcp-server --mock` exposes QuillCode to MCP clients over strict newline-delimited
+JSON-RPC 2.0; omit `--mock` for TrustedRouter. After the standard `initialize` and
+`notifications/initialized` handshake, `tools/list` returns only the Codex-compatible `codex` and
+`codex-reply` tools. A `codex` call creates and persists a thread, applies supported model, cwd,
+sandbox, approval, config, instruction, and compaction overrides, then streams bounded
+`codex/event` notifications while the normal QuillCode agent executes. `codex-reply` continues the
+same durable thread by `threadId` (or the deprecated `conversationId` alias). Client cancellation
+cooperatively stops the active turn, approval requests fail closed on malformed responses or
+disconnect, and EOF waits for active turns before terminating MCP dependencies. The compatibility
+boundaries that remain are recorded explicitly in the [Parity Matrix](docs/CODEX_PARITY_MATRIX.md).
 
 `quill-code app-server --mock` starts the deterministic stdio app server; omit `--mock` for the live
 TrustedRouter runtime. The implemented core follows Codex's newline-delimited wire shape without a

@@ -91,6 +91,14 @@ public struct QuillCodeCommandRunner: Sendable {
                     input: input,
                     output: output
                 )
+            case .mcpServer(let request):
+                return await runMCPServer(
+                    request,
+                    environment: environment,
+                    currentDirectory: currentDirectory,
+                    input: input,
+                    output: output
+                )
             case .run(let request):
                 return await runAgent(
                     request,
@@ -184,6 +192,36 @@ public struct QuillCodeCommandRunner: Sendable {
             return 1
         } catch {
             await output.writeStandardErrorLine("quill-code app-server: \(error.localizedDescription)")
+            return 1
+        }
+    }
+
+    private func runMCPServer(
+        _ request: CLIMCPServerRequest,
+        environment: [String: String],
+        currentDirectory: URL,
+        input: any CLIInputReading,
+        output: any CLIOutputWriting
+    ) async -> Int32 {
+        do {
+            let session = try MCPServerSession(
+                request: request,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runnerFactory: runnerFactory,
+                sink: { line in await output.writeStandardOutput(line) }
+            )
+            for try await line in input.lines(maxLineBytes: MCPServerSession.maximumMessageBytes) {
+                await session.receive(line)
+            }
+            await session.finishInput()
+            await session.waitForActiveCalls()
+            return 0
+        } catch is CancellationError {
+            await output.writeStandardErrorLine("quill-code mcp-server: interrupted")
+            return 1
+        } catch {
+            await output.writeStandardErrorLine("quill-code mcp-server: \(error.localizedDescription)")
             return 1
         }
     }
@@ -358,6 +396,7 @@ public struct QuillCodeCommandRunner: Sendable {
       quill-code exec resume (--last | THREAD_ID) [OPTIONS] PROMPT
       quill-code review (--uncommitted | --base BRANCH | --commit SHA | PROMPT) [OPTIONS]
       quill-code app-server [--listen stdio://] [--mock | --live]
+      quill-code mcp-server [--mock | --live]
       quill-code [--home PATH] doctor [--json | --summary] [--all] [--no-color] [--ascii]
       quill-code [LEGACY OPTIONS] PROMPT
       quill-code [--home PATH] auth (status | set-key KEY | clear)
@@ -390,6 +429,10 @@ public struct QuillCodeCommandRunner: Sendable {
       Uses newline-delimited JSON over stdio. Clients must send `initialize`, then the
       `initialized` notification, before thread and turn requests. `--mock` selects the
       deterministic local model for protocol tests; TrustedRouter is the default.
+
+    MCP server:
+      Exposes the Codex-compatible `codex` and `codex-reply` tools over JSON-RPC 2.0
+      newline-delimited stdio. `--mock` selects the deterministic local model for protocol tests.
 
     Doctor:
       Generates bounded local installation, config, auth, runtime, Git, terminal, MCP,

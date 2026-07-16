@@ -10,6 +10,8 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
     var sandbox: CLISandboxMode
     var sessionID: UUID?
     var forkedFromID: UUID?
+    var runtimeAppConfig: AppConfig?
+    var compactPrompt: String?
 
     init(
         cwd: URL,
@@ -18,7 +20,9 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         approvalsReviewer: String = "user",
         sandbox: CLISandboxMode = .readOnly,
         sessionID: UUID? = nil,
-        forkedFromID: UUID? = nil
+        forkedFromID: UUID? = nil,
+        runtimeAppConfig: AppConfig? = nil,
+        compactPrompt: String? = nil
     ) {
         self.cwd = cwd.standardizedFileURL
         self.ephemeral = ephemeral
@@ -27,6 +31,8 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         self.sandbox = sandbox
         self.sessionID = sessionID
         self.forkedFromID = forkedFromID
+        self.runtimeAppConfig = runtimeAppConfig
+        self.compactPrompt = compactPrompt
     }
 }
 

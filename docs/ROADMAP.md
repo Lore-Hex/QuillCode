@@ -2,6 +2,11 @@
 
 ## Milestone 0: Compile-Stable Foundation
 
+- The public `quill-code mcp-server` bridge exposes the exact Codex `codex` and `codex-reply`
+  tool names over strict JSON-RPC stdio, runs the real QuillCode agent, persists durable replies,
+  projects bounded progress, handles approvals and cancellation, and cleans up on EOF. Exact native
+  event/patch metadata and OS-sandbox `on-failure` escalation remain tracked parity work rather than
+  being represented as complete.
 - SwiftPM package, docs, CI skeleton.
 - Core models, mock agent, shell/file/git tools.
 - Auto safety policy and reviewer protocol.

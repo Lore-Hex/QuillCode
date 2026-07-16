@@ -69,7 +69,7 @@ private enum CLIInputStreamError: LocalizedError {
     case readFailed
 
     var errorDescription: String? {
-        "Could not read the app-server input stream."
+        "Could not read the protocol input stream."
     }
 }
 

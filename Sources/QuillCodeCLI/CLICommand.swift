@@ -156,10 +156,33 @@ public struct CLIAppServerRequest: Sendable, Equatable {
     }
 }
 
+public struct CLIMCPServerRequest: Sendable, Equatable {
+    public var live: Bool
+    public var apiKey: String?
+    public var model: String?
+    public var baseURL: String?
+    public var home: URL?
+
+    public init(
+        live: Bool = true,
+        apiKey: String? = nil,
+        model: String? = nil,
+        baseURL: String? = nil,
+        home: URL? = nil
+    ) {
+        self.live = live
+        self.apiKey = apiKey
+        self.model = model
+        self.baseURL = baseURL
+        self.home = home
+    }
+}
+
 public enum CLICommand: Sendable, Equatable {
     case run(CLIRunRequest)
     case review(CLIReviewRequest)
     case appServer(CLIAppServerRequest)
+    case mcpServer(CLIMCPServerRequest)
     case auth(CLIAuthCommand, home: URL?)
     case doctor(CLIDoctorRequest)
     case help

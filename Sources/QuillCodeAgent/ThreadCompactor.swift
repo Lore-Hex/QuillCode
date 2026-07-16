@@ -57,7 +57,8 @@ public struct ThreadCompactor: Sendable {
         catalog: [ModelInfo],
         sessionModelID: String,
         keepRecentMessages: Int = 6,
-        perMessageTokenFloor: Int = 24_000
+        perMessageTokenFloor: Int = 24_000,
+        customPrompt: String? = nil
     ) -> ThreadCompactor {
         let cachingDisabled = disablingPromptCachingIfSupported(llm)
         let selection = AuxiliaryModelSelector.selection(models: catalog, sessionModelID: sessionModelID)
@@ -66,7 +67,10 @@ public struct ThreadCompactor: Sendable {
         return ThreadCompactor(
             keepRecentMessages: keepRecentMessages,
             perMessageTokenFloor: perMessageTokenFloor,
-            summarizer: LLMThreadCompactionSummarizer(llm: retargeted)
+            summarizer: LLMThreadCompactionSummarizer(
+                llm: retargeted,
+                customPrompt: customPrompt
+            )
         )
     }
 
@@ -233,7 +237,9 @@ public struct ThreadCompactor: Sendable {
         return truncatedAny
     }
 
-    static let truncationMarker = "[QuillCode compaction: earlier content of this message was truncated to fit the context window]\n"
+    static let truncationMarker =
+        "[QuillCode compaction: earlier content of this message was truncated "
+        + "to fit the context window]\n"
 
     /// The minimum number of older messages worth folding into a summary. Below this, compaction would
     /// not reduce the message count (1 message → 1 summary), so it reports `.noOlderTurns` instead —
