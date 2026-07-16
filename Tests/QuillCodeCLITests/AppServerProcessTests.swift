@@ -248,6 +248,8 @@ final class AppServerProcessTests: XCTestCase {
             params: ["processHandle": "kill"],
             to: fixture.session
         )
+        let killResponse = try await waitForResponse(id: 3, output: fixture.output)
+        XCTAssertNil(killResponse["error"], "process/kill should accept the running process")
 
         let records = try await waitForNotification("process/exited", output: fixture.output)
         XCTAssertNotNil(response(id: 3, in: records)["result"])
@@ -357,13 +359,12 @@ final class AppServerProcessTests: XCTestCase {
         id: Int,
         output: ProcessOutputCollector
     ) async throws -> [String: CLIJSONValue] {
-        for _ in 0..<400 {
-            if let record = try await output.records().first(where: { $0["id"]?.numberValue == Double(id) }) {
-                return record
-            }
-            try await Task.sleep(nanoseconds: 5_000_000)
+        try await waitForRecords(
+            output: output,
+            description: "response id \(id)"
+        ) { records in
+            records.first(where: { $0["id"]?.numberValue == Double(id) })
         }
-        throw ProcessTestError.timedOut
     }
 
     private func waitForNotification(
@@ -371,12 +372,28 @@ final class AppServerProcessTests: XCTestCase {
         count: Int = 1,
         output: ProcessOutputCollector
     ) async throws -> [[String: CLIJSONValue]] {
-        for _ in 0..<800 {
-            let records = try await output.records()
-            if records.filter({ $0["method"]?.stringValue == method }).count >= count { return records }
-            try await Task.sleep(nanoseconds: 5_000_000)
+        try await waitForRecords(
+            output: output,
+            description: "\(count) \(method) notification(s)"
+        ) { records in
+            records.filter { $0["method"]?.stringValue == method }.count >= count
+                ? records
+                : nil
         }
-        throw ProcessTestError.timedOut
+    }
+
+    private func waitForRecords<Value>(
+        output: ProcessOutputCollector,
+        description: String,
+        match: ([[String: CLIJSONValue]]) -> Value?
+    ) async throws -> Value {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(30))
+        while clock.now < deadline {
+            if let value = match(try await output.records()) { return value }
+            try await clock.sleep(for: .milliseconds(10))
+        }
+        throw ProcessTestError.timedOut(description)
     }
 
     private func sendRequest(
@@ -453,5 +470,5 @@ private struct ProcessEchoLLM: LLMClient {
 
 private enum ProcessTestError: Error {
     case invalidRecord
-    case timedOut
+    case timedOut(String)
 }
