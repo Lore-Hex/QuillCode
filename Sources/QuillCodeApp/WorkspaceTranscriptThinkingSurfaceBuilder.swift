@@ -51,6 +51,8 @@ struct WorkspaceTranscriptThinkingSurfaceBuilder: Sendable, Hashable {
             return "Queued: \(summary)"
         case .toolRunning:
             return "Running: \(summary)"
+        case .toolProgress:
+            return progressTraceLine(for: event)
         case .toolCompleted:
             return "Completed: \(summary)"
         case .toolFailed:
@@ -60,6 +62,19 @@ struct WorkspaceTranscriptThinkingSurfaceBuilder: Sendable, Hashable {
         case .approvalDecided:
             return "Safety decision: \(summary)"
         }
+    }
+
+    private static func progressTraceLine(for event: ThreadEvent) -> String {
+        guard let payloadJSON = event.payloadJSON,
+              let payload = try? JSONHelpers.decode(ToolProgressEventPayload.self, from: payloadJSON) else {
+            return "Running: \(event.summary)"
+        }
+        let message = payload.progress.message?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let fraction = payload.progress.fractionCompleted {
+            let percent = Int((fraction * 100).rounded())
+            return message.map { "Running: \($0) (\(percent)%)" } ?? "Running: \(percent)%"
+        }
+        return message.map { "Running: \($0)" } ?? "Running: \(event.summary)"
     }
 
     private static func displaySummary(for event: ThreadEvent) -> String {

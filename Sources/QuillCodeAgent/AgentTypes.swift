@@ -137,6 +137,18 @@ public struct AgentToolFeedback: Codable, Sendable, Hashable {
 public typealias AgentRunProgressHandler = @Sendable (ChatThread) async -> Void
 public typealias AgentToolExecutionOverride = @Sendable (ToolCall, URL) async -> ToolResult?
 
+public enum AgentStreamingToolExecutionEvent: Sendable, Hashable {
+    case progress(ToolExecutionProgress)
+    case result(ToolResult)
+}
+
+/// Optional streaming execution path for tools that can report progress before their final result.
+/// Returning nil leaves the call to the ordinary override/router path.
+public typealias AgentStreamingToolExecutionOverride = @Sendable (
+    ToolCall,
+    URL
+) -> AsyncThrowingStream<AgentStreamingToolExecutionEvent, Error>?
+
 /// Result of a tool that owns durable thread state in addition to ordinary tool output. Delegated
 /// runs use this boundary to attach child manifests to the parent thread while workers are running,
 /// without teaching the generic agent loop about the scheduler's persistence model.

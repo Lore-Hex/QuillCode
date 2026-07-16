@@ -31,6 +31,8 @@ struct WorkspaceToolCardEventReducer<State> {
             activeToolCardIndex = appendCard(&state, WorkspaceToolCardProjection.queuedCard(for: event))
         case .toolRunning:
             updateActiveToolCard(status: .running, stateLabel: "Running")
+        case .toolProgress:
+            updateActiveToolProgress(event)
         case .toolCompleted:
             updateActiveToolCard(status: .done, stateLabel: "Completed", outputJSON: event.payloadJSON)
         case .toolFailed:
@@ -42,6 +44,16 @@ struct WorkspaceToolCardEventReducer<State> {
         case .message, .messageFeedback, .reviewComment, .notice:
             return
         }
+    }
+
+    private mutating func updateActiveToolProgress(_ event: ThreadEvent) {
+        guard let index = activeToolCardIndex,
+              var currentCard = card(state, index),
+              WorkspaceToolCardProjection.updateProgressCard(&currentCard, event: event)
+        else {
+            return
+        }
+        replaceCard(&state, index, currentCard)
     }
 
     private mutating func updateActiveToolCard(

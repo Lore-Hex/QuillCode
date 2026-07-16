@@ -8,7 +8,8 @@ extension MCPHTTPProber {
         id: Int,
         method: String,
         params: [String: Any],
-        deadline: Date
+        deadline: Date,
+        progressObserver: MCPProgressObserver? = nil
     ) throws -> [String: Any] {
         let outcome = try postStreamable(body: body, deadline: deadline, allowAuthRetry: true)
         switch outcome {
@@ -18,7 +19,13 @@ extension MCPHTTPProber {
             defer { stream.cancel() }
             // A StreamableHTTP POST returns a fresh, per-request SSE stream, so a fresh parser.
             var parser = MCPSSEParser(maxEventBytes: MCPStdioMessageCodec.maxMessageBytes)
-            return try readMatchingResponse(fromSSE: stream, parser: &parser, id: id, deadline: deadline)
+            return try readMatchingResponse(
+                fromSSE: stream,
+                parser: &parser,
+                id: id,
+                deadline: deadline,
+                progressObserver: progressObserver
+            )
         }
     }
 

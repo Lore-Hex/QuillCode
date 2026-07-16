@@ -20,6 +20,7 @@ enum WorkspaceHTMLToolCardRenderer {
             <span data-testid="tool-card-status">\(escape(card.statusDisplayLabel))</span>
           </header>
           <p data-testid="tool-card-subtitle">\(escape(card.subtitle))</p>
+          \(renderProgress(card.progress, status: card.status))
           \(renderActions(card.actions))
           \(renderTopLevelCopyAction(for: card, copyID: copyID))
           \(renderArtifacts(card.artifacts))
@@ -28,6 +29,26 @@ enum WorkspaceHTMLToolCardRenderer {
           \(renderImagePreviews(card.artifacts))
           \(renderDetails(card, copyID: copyID))
         </article>
+        """
+    }
+
+    private static func renderProgress(_ progress: ToolProgressSurface?, status: ToolCardStatus) -> String {
+        guard let progress, status == .running else { return "" }
+        let valueAttributes: String
+        let width: String
+        if let fraction = progress.fractionCompleted {
+            let percent = Int((fraction * 100).rounded())
+            valueAttributes = #" aria-valuemin="0" aria-valuemax="100" aria-valuenow="\#(percent)""#
+            width = "\(percent)%"
+        } else {
+            valueAttributes = ""
+            width = "34%"
+        }
+        let label = progress.message ?? progress.percentLabel ?? "Tool in progress"
+        return """
+        <div class="tool-progress\(progress.fractionCompleted == nil ? " indeterminate" : "")" data-testid="tool-card-progress" role="progressbar" aria-label="\(escape(label))"\(valueAttributes)>
+          <span style="width: \(width)"></span>
+        </div>
         """
     }
 

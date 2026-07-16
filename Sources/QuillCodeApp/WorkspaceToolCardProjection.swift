@@ -95,11 +95,31 @@ enum WorkspaceToolCardProjection {
         ) ?? toolSubtitle(stateLabel: stateLabel, title: card.title, inputJSON: card.inputJSON)
         card.density = ToolCardState.defaultDensity(status: status, isExpanded: card.isExpanded)
         card.reviewState = ToolCardState.defaultReviewState(status: status)
+        card.progress = nil
         card.isExpanded = card.density == .expanded
         if let outputJSON {
             card.outputJSON = outputJSON
             card.artifacts = artifacts(from: outputJSON)
         }
+    }
+
+    @discardableResult
+    static func updateProgressCard(_ card: inout ToolCardState, event: ThreadEvent) -> Bool {
+        guard let payload = decode(ToolProgressEventPayload.self, event.payloadJSON),
+              payload.toolCallID == card.id
+        else {
+            return false
+        }
+        let progress = ToolProgressSurface(progress: payload.progress)
+        card.status = .running
+        card.progress = progress
+        card.subtitle = progress.message
+            ?? progress.percentLabel.map { "Running · \($0)" }
+            ?? "Running"
+        card.density = .peek
+        card.reviewState = .none
+        card.isExpanded = false
+        return true
     }
 
     private static func approvalActions(for request: ApprovalRequest) -> [ToolCardActionSurface]? {

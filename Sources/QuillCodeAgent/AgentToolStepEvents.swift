@@ -29,6 +29,33 @@ extension AgentRunner {
         await onProgress?(thread)
     }
 
+    func recordToolProgress(
+        _ progress: ToolExecutionProgress,
+        for call: ToolCall,
+        in thread: inout ChatThread,
+        onProgress: AgentRunProgressHandler?
+    ) async {
+        let payload = ToolProgressEventPayload(toolCallID: call.id, progress: progress)
+        let payloadJSON = try? JSONHelpers.encodePretty(payload)
+        let event = ThreadEvent(
+            kind: .toolProgress,
+            summary: progress.message ?? "\(call.name) in progress",
+            payloadJSON: payloadJSON
+        )
+
+        if let lastIndex = thread.events.indices.last,
+           thread.events[lastIndex].kind == .toolProgress,
+           let existingJSON = thread.events[lastIndex].payloadJSON,
+           let existing = try? JSONHelpers.decode(ToolProgressEventPayload.self, from: existingJSON),
+           existing.toolCallID == call.id {
+            thread.events[lastIndex] = event
+        } else {
+            thread.events.append(event)
+        }
+        thread.updatedAt = Date()
+        await onProgress?(thread)
+    }
+
     func appendResultEvent(
         for call: ToolCall,
         result: ToolResult,

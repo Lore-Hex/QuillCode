@@ -3,7 +3,12 @@ import Foundation
 extension MCPHTTPProber {
     // MARK: - HTTP+SSE fallback (2024-11-05)
 
-    func httpSSERequest(body: Data, id: Int, deadline: Date) throws -> [String: Any] {
+    func httpSSERequest(
+        body: Data,
+        id: Int,
+        deadline: Date,
+        progressObserver: MCPProgressObserver? = nil
+    ) throws -> [String: Any] {
         // Establish (once) the single long-lived server→client SSE stream and the POST endpoint.
         let messageEndpoint = try ensureSSEMessageEndpoint(deadline: deadline)
         guard let stream = sseStream else {
@@ -11,7 +16,13 @@ extension MCPHTTPProber {
         }
         // POST the request first; its JSON-RPC reply then arrives on the shared SSE stream.
         _ = try postMessage(to: messageEndpoint, body: body, expectResponse: true, deadline: deadline)
-        return try readMatchingResponse(fromSSE: stream, parser: &sseParser, id: id, deadline: deadline)
+        return try readMatchingResponse(
+            fromSSE: stream,
+            parser: &sseParser,
+            id: id,
+            deadline: deadline,
+            progressObserver: progressObserver
+        )
     }
 
     /// Open the persistent server→client SSE stream (once) and read its `endpoint` event to learn

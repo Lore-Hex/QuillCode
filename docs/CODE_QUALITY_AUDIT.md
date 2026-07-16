@@ -79,6 +79,19 @@ Validation:
 - `python3 scripts/grade-code-quality.py --root .` (all affected files and modules A+)
 - `git diff --check`
 
+## 2026-07-15 MCP Live Progress Architecture
+
+Overall grade after this slice: **A+ protocol boundary, A+ lifecycle integrity, A+ presentation evidence**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Shared domain model | A+ | One finite-unit progress value and exact tool-call payload serve transports, agent replay, CLI, HTML, and SwiftUI without renderer-specific state. |
+| Transport validation | A+ | Stdio and both HTTP transports share exact token, monotonicity, finite-value, message, and count bounds; JSON booleans cannot masquerade as numbers. |
+| Concurrency and cancellation | A+ | Per-session I/O remains serialized, stream tasks are cancellation-aware, observer mutation is locked, and missing or duplicate terminal results fail closed. |
+| Transcript integrity | A+ | Consecutive snapshots coalesce, unrelated tool IDs cannot update a card, terminal events publish immediately, and cancellation repairs active lifecycles. |
+| UI and accessibility | A+ | Determinate and indeterminate states share accessible progress semantics, stable tabular percentages, reduced text duplication, and immediate terminal cleanup. |
+| Regression evidence | A+ | Focused unit/transport/agent/UI suites plus composer-driven Playwright cover progress-to-result behavior over every implemented transport. |
+
 ## 2026-07-11 Managed Worktree Materialization Slice
 
 Overall grade after this slice: **A+ transactional architecture, A managed-worktree setup parity**.

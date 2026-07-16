@@ -156,6 +156,27 @@ actor CLIProgressReporter {
                     fields: ["name": .string(active.call.name), "status": .string("in_progress")]
                 )
             }
+        case .toolProgress:
+            guard let active = activeTools.first,
+                  let payload = decode(ToolProgressEventPayload.self, event.payloadJSON),
+                  payload.toolCallID == active.call.id else { return }
+            var fields: [String: CLIJSONValue] = [
+                "name": .string(active.call.name),
+                "status": .string("in_progress"),
+                "progress": .number(payload.progress.completed)
+            ]
+            if let total = payload.progress.total { fields["total"] = .number(total) }
+            if let message = payload.progress.message { fields["message"] = .string(message) }
+            if emitsJSONLines {
+                await emitItem(
+                    lifecycle: "item.updated",
+                    id: active.call.id,
+                    type: active.itemType,
+                    fields: fields
+                )
+            } else if let message = payload.progress.message {
+                await output.writeStandardErrorLine("  \(message)")
+            }
         case .toolCompleted, .toolFailed:
             let active = activeTools.isEmpty
                 ? ActiveTool(

@@ -12,7 +12,7 @@ struct WorkspaceAgentStatusBuilder: Sendable, Hashable {
         switch event?.kind {
         case .toolQueued:
             return TopBarAgentStatusLabel.queued
-        case .toolRunning:
+        case .toolRunning, .toolProgress:
             return TopBarAgentStatusLabel.running
         case .approvalRequested:
             return TopBarAgentStatusLabel.review

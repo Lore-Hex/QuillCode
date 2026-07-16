@@ -156,15 +156,93 @@ public final class MCPHTTPProber: @unchecked Sendable {
         guard !toolName.isEmpty else {
             throw MCPProbeError.invalidMessage("MCP tool name is required.")
         }
+        return try callToolResultLocked(
+            toolName: toolName,
+            arguments: arguments,
+            metadata: metadata,
+            timeout: timeout,
+            progressContext: nil,
+            progressObserver: nil
+        )
+    }
+
+    public func callToolEvents(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval = 30.0
+    ) -> AsyncThrowingStream<MCPClientToolEvent, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task.detached { [self] in
+                do {
+                    let progressContext = try MCPProgressRequestContext(metadata: metadata)
+                    let observer = MCPProgressObserver(token: progressContext.token) {
+                        continuation.yield(.progress($0))
+                    }
+                    let result = try performStreamingToolCall(
+                        toolName: toolName,
+                        arguments: arguments,
+                        metadata: metadata,
+                        timeout: timeout,
+                        progressContext: progressContext,
+                        progressObserver: observer
+                    )
+                    continuation.yield(.result(result))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private func performStreamingToolCall(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval,
+        progressContext: MCPProgressRequestContext,
+        progressObserver: MCPProgressObserver
+    ) throws -> MCPToolCallResult {
+        ioLock.lock()
+        defer { ioLock.unlock() }
+        return try callToolResultLocked(
+            toolName: toolName,
+            arguments: arguments,
+            metadata: metadata,
+            timeout: timeout,
+            progressContext: progressContext,
+            progressObserver: progressObserver
+        )
+    }
+
+    private func callToolResultLocked(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval,
+        progressContext: MCPProgressRequestContext?,
+        progressObserver: MCPProgressObserver?
+    ) throws -> MCPToolCallResult {
+        let toolName = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !toolName.isEmpty else {
+            throw MCPProbeError.invalidMessage("MCP tool name is required.")
+        }
         var params: [String: Any] = [
             "name": toolName,
             "arguments": (arguments ?? .object([:])).foundationObject
         ]
-        if let metadata { params["_meta"] = metadata.foundationObject }
+        if let progressContext {
+            params["_meta"] = MCPJSONValue.object(progressContext.metadata).foundationObject
+        } else if let metadata {
+            params["_meta"] = metadata.foundationObject
+        }
         let result = try request(
             method: "tools/call",
             params: params,
-            deadline: Date().addingTimeInterval(max(1, timeout))
+            deadline: Date().addingTimeInterval(max(1, timeout)),
+            progressObserver: progressObserver
         )
         return MCPStdioResultMapper.toolCallResult(from: result)
     }
@@ -235,7 +313,12 @@ public final class MCPHTTPProber: @unchecked Sendable {
 
     /// Send a JSON-RPC request and return its `result` object, dispatching to whichever transport
     /// is resolved (attempting StreamableHTTP first under `.automatic`).
-    private func request(method: String, params: [String: Any], deadline: Date) throws -> [String: Any] {
+    private func request(
+        method: String,
+        params: [String: Any],
+        deadline: Date,
+        progressObserver: MCPProgressObserver? = nil
+    ) throws -> [String: Any] {
         let id = nextID()
         let message: [String: Any] = [
             "jsonrpc": "2.0",
@@ -247,14 +330,31 @@ public final class MCPHTTPProber: @unchecked Sendable {
 
         switch effectiveTransport() {
         case .streamableHTTP:
-            return try streamableRequest(body: body, id: id, method: method, params: params, deadline: deadline)
+            return try streamableRequest(
+                body: body,
+                id: id,
+                method: method,
+                params: params,
+                deadline: deadline,
+                progressObserver: progressObserver
+            )
         case .httpSSE:
-            return try httpSSERequest(body: body, id: id, deadline: deadline)
+            return try httpSSERequest(
+                body: body,
+                id: id,
+                deadline: deadline,
+                progressObserver: progressObserver
+            )
         case nil:
             // Not yet resolved: try StreamableHTTP, fall back on the failover signal.
             do {
                 let result = try streamableRequest(
-                    body: body, id: id, method: method, params: params, deadline: deadline
+                    body: body,
+                    id: id,
+                    method: method,
+                    params: params,
+                    deadline: deadline,
+                    progressObserver: progressObserver
                 )
                 resolvedTransport = .streamableHTTP
                 return result
@@ -265,7 +365,12 @@ public final class MCPHTTPProber: @unchecked Sendable {
                 var retryMessage = message
                 retryMessage["id"] = retryID
                 let retryBody = try MCPStdioMessageCodec.jsonBody(retryMessage)
-                return try httpSSERequest(body: retryBody, id: retryID, deadline: deadline)
+                return try httpSSERequest(
+                    body: retryBody,
+                    id: retryID,
+                    deadline: deadline,
+                    progressObserver: progressObserver
+                )
             }
         }
     }

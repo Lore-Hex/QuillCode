@@ -11,7 +11,8 @@ extension MCPHTTPProber {
         fromSSE stream: MCPHTTPStream,
         parser: inout MCPSSEParser,
         id: Int,
-        deadline: Date
+        deadline: Date,
+        progressObserver: MCPProgressObserver? = nil
     ) throws -> [String: Any] {
         while Date() < deadline {
             guard let chunk = try readChunk(from: stream, deadline: deadline) else {
@@ -28,6 +29,7 @@ extension MCPHTTPProber {
                 if Self.messageMatchesID(object, id: id) {
                     return try Self.extractResult(from: object, matchingID: id)
                 }
+                progressObserver?.receive(object)
             }
         }
         throw MCPHTTPProberError.timeout

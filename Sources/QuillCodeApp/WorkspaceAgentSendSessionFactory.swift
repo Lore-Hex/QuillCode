@@ -22,6 +22,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let skillResolver: SkillResolver
     private let mcpToolDefinitions: [ToolDefinition]
     private let mcpToolExecutionOverride: AgentToolExecutionOverride?
+    private let mcpStreamingToolExecutionOverride: AgentStreamingToolExecutionOverride?
     private let sshRemoteShellExecutor: SSHRemoteShellExecutor
     private let permissionRules: (any PermissionRulesProviding)?
     private let workspaceRoot: URL
@@ -47,6 +48,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         pluginDataBaseDirectory: URL? = nil,
         mcpToolDefinitions: [ToolDefinition],
         mcpToolExecutionOverride: AgentToolExecutionOverride?,
+        mcpStreamingToolExecutionOverride: AgentStreamingToolExecutionOverride? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor,
         permissionRules: (any PermissionRulesProviding)? = nil,
         subagentThreadStore: SubagentThreadStore? = nil,
@@ -76,6 +78,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         )
         self.mcpToolDefinitions = mcpToolDefinitions
         self.mcpToolExecutionOverride = mcpToolExecutionOverride
+        self.mcpStreamingToolExecutionOverride = mcpStreamingToolExecutionOverride
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
         self.permissionRules = permissionRules
         self.subagentThreadStore = subagentThreadStore
@@ -177,6 +180,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             skillResolver: skillResolver,
             mcpToolDefinitions: mcpToolDefinitions,
             mcpToolExecutionOverride: mcpToolExecutionOverride,
+            mcpStreamingToolExecutionOverride: mcpStreamingToolExecutionOverride,
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             permissionRules: permissionRules,
             allowsSubagents: allowsSubagents

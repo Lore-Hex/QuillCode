@@ -20,6 +20,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     var skillResolver: SkillResolver? = nil
     var mcpToolDefinitions: [ToolDefinition]
     var mcpToolExecutionOverride: AgentToolExecutionOverride?
+    var mcpStreamingToolExecutionOverride: AgentStreamingToolExecutionOverride? = nil
     var sshRemoteShellExecutor: SSHRemoteShellExecutor
     /// Per-project persisted permission rules. When present, the run's safety reviewer is wrapped
     /// so saved allow/deny/ask rules compose with (never replace) the mode + intent review.
@@ -37,6 +38,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         activeRunner.baseToolDefinitions = baseToolDefinitions
         activeRunner.additionalToolDefinitions = additionalToolDefinitions
         activeRunner.toolExecutionOverride = toolExecutionOverride
+        activeRunner.streamingToolExecutionOverride = mcpStreamingToolExecutionOverride
         activeRunner.skillResolver = skillResolver
         if let computerUseToolFeedbackAttachmentProvider {
             activeRunner.toolFeedbackAttachmentProvider = computerUseToolFeedbackAttachmentProvider

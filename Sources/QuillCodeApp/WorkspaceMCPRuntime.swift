@@ -213,6 +213,18 @@ final class WorkspaceMCPRuntime: @unchecked Sendable {
         return Self.executionOverride(sessions: sessions, summaries: extensions.mcpServerProbeSummaries)
     }
 
+    func streamingExecutionOverride(
+        extensions: ExtensionsState
+    ) -> AgentStreamingToolExecutionOverride? {
+        let sessions = processes.compactMapValues { handle in
+            handle.process.isRunning ? handle.session : nil
+        }
+        return Self.streamingExecutionOverride(
+            sessions: sessions,
+            summaries: extensions.mcpServerProbeSummaries
+        )
+    }
+
     func execute(call: ToolCall, extensions: ExtensionsState) -> ToolResult? {
         let sessions = processes.compactMapValues { handle in
             handle.process.isRunning ? handle.session : nil

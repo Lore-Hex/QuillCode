@@ -136,7 +136,7 @@ struct MCPServerProgressProjector: Sendable {
                 "type": .string("approval_decided"),
                 "message": .string(Self.bounded(event.summary))
             ]))]
-        case .toolRunning, .reviewComment, .message, .messageFeedback:
+        case .toolRunning, .toolProgress, .reviewComment, .message, .messageFeedback:
             return []
         }
     }

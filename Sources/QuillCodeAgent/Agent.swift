@@ -20,6 +20,7 @@ public struct AgentRunner: Sendable {
     /// CLI runs stay workspace-relative; only explicit danger-full-access selects unrestricted.
     public var hostToolAccessScope: HostToolAccessScope
     public var toolExecutionOverride: AgentToolExecutionOverride?
+    public var streamingToolExecutionOverride: AgentStreamingToolExecutionOverride?
     /// Trusted standard-plugin lifecycle hooks. The desktop supplies validated adapters; the core
     /// agent owns ordering so rewrites precede safety review and post hooks also run after a held
     /// approval resumes.
@@ -72,6 +73,7 @@ public struct AgentRunner: Sendable {
         additionalToolDefinitions: [ToolDefinition] = [],
         hostToolAccessScope: HostToolAccessScope = .workspaceOnly,
         toolExecutionOverride: AgentToolExecutionOverride? = nil,
+        streamingToolExecutionOverride: AgentStreamingToolExecutionOverride? = nil,
         preToolUseHook: AgentPreToolUseHook? = nil,
         postToolUseHook: AgentPostToolUseHook? = nil,
         permissionRequestHook: AgentPermissionRequestHook? = nil,
@@ -94,6 +96,7 @@ public struct AgentRunner: Sendable {
         self.additionalToolDefinitions = additionalToolDefinitions
         self.hostToolAccessScope = hostToolAccessScope
         self.toolExecutionOverride = toolExecutionOverride
+        self.streamingToolExecutionOverride = streamingToolExecutionOverride
         self.preToolUseHook = preToolUseHook
         self.postToolUseHook = postToolUseHook
         self.permissionRequestHook = permissionRequestHook

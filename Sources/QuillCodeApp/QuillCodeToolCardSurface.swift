@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeCore
 
 public enum ToolCardStatus: String, Codable, Sendable, Hashable {
     case queued
@@ -98,6 +99,30 @@ public enum ToolCardDensity: String, Codable, Sendable, Hashable {
     case expanded
 }
 
+public struct ToolProgressSurface: Codable, Sendable, Hashable {
+    public var completed: Double
+    public var total: Double?
+    public var message: String?
+
+    public init(progress: ToolExecutionProgress) {
+        self.completed = progress.completed
+        self.total = progress.total
+        self.message = progress.message
+    }
+
+    public var fractionCompleted: Double? {
+        ToolExecutionProgress(
+            completed: completed,
+            total: total,
+            message: message
+        ).fractionCompleted
+    }
+
+    public var percentLabel: String? {
+        fractionCompleted.map { "\(Int(($0 * 100).rounded()))%" }
+    }
+}
+
 public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
     public var id: String
     public var title: String
@@ -106,6 +131,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
     public var executionContext: ExecutionContextSurface?
     public var inputJSON: String?
     public var outputJSON: String?
+    public var progress: ToolProgressSurface?
     public var artifacts: [ToolArtifactState]
     public var actions: [ToolCardActionSurface]
     public var isExpanded: Bool
@@ -120,6 +146,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         executionContext: ExecutionContextSurface? = nil,
         inputJSON: String? = nil,
         outputJSON: String? = nil,
+        progress: ToolProgressSurface? = nil,
         artifacts: [ToolArtifactState] = [],
         actions: [ToolCardActionSurface] = [],
         isExpanded: Bool = false,
@@ -133,6 +160,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.executionContext = executionContext
         self.inputJSON = inputJSON
         self.outputJSON = outputJSON
+        self.progress = progress
         self.artifacts = artifacts
         self.actions = actions
         self.isExpanded = isExpanded
@@ -152,6 +180,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         case executionContext
         case inputJSON
         case outputJSON
+        case progress
         case artifacts
         case actions
         case isExpanded
@@ -168,6 +197,7 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
         self.executionContext = try container.decodeIfPresent(ExecutionContextSurface.self, forKey: .executionContext)
         self.inputJSON = try container.decodeIfPresent(String.self, forKey: .inputJSON)
         self.outputJSON = try container.decodeIfPresent(String.self, forKey: .outputJSON)
+        self.progress = try container.decodeIfPresent(ToolProgressSurface.self, forKey: .progress)
         self.artifacts = try container.decodeIfPresent([ToolArtifactState].self, forKey: .artifacts) ?? []
         self.actions = try container.decodeIfPresent([ToolCardActionSurface].self, forKey: .actions) ?? []
         self.isExpanded = try container.decodeIfPresent(Bool.self, forKey: .isExpanded) ?? false

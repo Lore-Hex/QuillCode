@@ -25,6 +25,9 @@ struct QuillCodeToolCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             toolHeader
+            if let progress = card.progress, card.status == .running {
+                progressView(progress)
+            }
             if !card.actions.isEmpty {
                 QuillCodeToolCardActionRow(actions: card.actions, onAction: onAction)
             }
@@ -127,6 +130,41 @@ struct QuillCodeToolCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    private func progressView(_ progress: ToolProgressSurface) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            if let fraction = progress.fractionCompleted {
+                ProgressView(value: fraction)
+                    .tint(QuillCodePalette.blue)
+                    .accessibilityLabel(progress.message ?? "Tool progress")
+                    .accessibilityValue(progress.percentLabel ?? "")
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel(progress.message ?? "Tool in progress")
+            }
+            let secondaryMessage = progress.message.flatMap { message in
+                message == card.subtitle ? nil : message
+            }
+            if secondaryMessage != nil || progress.percentLabel != nil {
+                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                    if let secondaryMessage {
+                        Text(secondaryMessage)
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(QuillCodePalette.muted)
+                            .lineLimit(2)
+                    }
+                    Spacer(minLength: 4)
+                    if let percent = progress.percentLabel {
+                        Text(percent)
+                            .font(.caption2.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.blue)
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("quillcode-tool-card-progress")
     }
 
     private var adaptivePreviewColumns: [GridItem] {
