@@ -1587,8 +1587,10 @@
   clear progress immediately. Determinate values use stable tabular percentages, while unknown totals
   remain honestly indeterminate.
 - **Compatibility:** Existing synchronous MCP sessions keep their default adapter and do not invent
-  progress. App-server startup progress and server-initiated elicitation remain separate wire-contract
-  milestones rather than private notification names.
+  progress. App-server turns project matching nonempty messages through Codex's exact
+  `item/mcpToolCall/progress` schema; numeric-only MCP updates remain internal because that schema has
+  no numeric fields. App-server startup progress and server-initiated elicitation remain separate
+  wire-contract milestones rather than private notification names.
 - **Evidence:** Focused Core, Agent, App, stdio, and HTTP tests cover validation, ordering, mapping,
   replay, cancellation, and terminal publication. Playwright drives the composer through a live
   progress card and its completed state, plus an accessible indeterminate fixture.

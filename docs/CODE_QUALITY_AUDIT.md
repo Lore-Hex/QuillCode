@@ -16155,3 +16155,26 @@ Validation:
 - `npm test`
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-15 Codex App-Server MCP Progress Projection
+
+Overall grade after this slice: **A+ protocol fidelity, A+ execution composition, A+ correlation safety**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Protocol fidelity | A+ | In-turn MCP updates use the generated Codex 0.142.5 `item/mcpToolCall/progress` method and its exact four-field payload; no private numeric fields are invented. |
+| Execution architecture | A+ | The shared MCP adapter composes with any inherited streaming override and maps the registry's native MCP stream into the agent's typed progress/result stream. |
+| Correlation safety | A+ | Projection requires the exact active tool-call ID and an MCP route, preventing stale or non-MCP progress from updating an unrelated item. |
+| Failure semantics | A+ | Setup and transport failures remain ordinary terminal tool results; cancellation stays cancellation; standalone MCP calls retain their lossless synchronous response contract. |
+| Compatibility | A+ | Sessions without streaming support continue through the protocol default adapter and emit one terminal result without fabricated progress. |
+| Regression evidence | A+ | Fake-server integration proves message-free suppression, exact IDs, native lifecycle ordering, final result preservation, CLI execution compatibility, and the source parity gate. |
+
+Validation:
+
+- `swift test --filter AppServerMCPTests`
+- `swift test --filter CLIExecMCPRuntimeTests`
+- `swift test --filter ParityCLIExecGateTests`
+- `swift test` (4,440 tests; 2 skipped; 0 failures)
+- `npm test` (246 Playwright tests; 0 failures)
+- `python3 scripts/grade-code-quality.py`
+- `git diff --check`
