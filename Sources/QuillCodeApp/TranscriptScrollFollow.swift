@@ -33,18 +33,19 @@ enum TranscriptScrollFollow {
     }
 
     /// The pin transition for one geometry sample. Within `threshold` of the bottom ⇒ (re)pin,
-    /// whatever moved the sentinel there. Beyond it, only a genuine user scroll UP un-pins; content
-    /// growth and our own animated follow-scroll — both of which ALSO widen the sentinel gap — must
-    /// PRESERVE the prior state, so streaming keeps following an at-bottom reader through a large
-    /// chunk. The sentinel gap alone cannot tell a scroll from a growth (a big chunk widens it exactly
-    /// like a scroll would), so the caller supplies `isUserScrollUp` from the orthogonal content-offset
-    /// signal (see ``pinnedAfterScrollSample``).
+    /// whatever moved the sentinel there. Beyond it, the prior state is PRESERVED unless
+    /// `unpinBeyondThreshold` — so streaming keeps following an at-bottom reader through a large chunk
+    /// (content growth and our own animated follow-scroll both widen the sentinel gap exactly like a
+    /// scroll would, so the gap alone can't be trusted to un-pin). Callers set `unpinBeyondThreshold`
+    /// when the reader genuinely falls behind: a real scroll UP (from the orthogonal content-offset
+    /// signal, see ``pinnedAfterScrollSample``), or a growth that arrives while follow-scroll is
+    /// suppressed (Find / review open) so the viewport will NOT auto-catch-up.
     static func resolvePinned(
         current: Bool,
         bottomSentinelMaxY: CGFloat,
         viewportHeight: CGFloat,
         threshold: CGFloat,
-        isUserScrollUp: Bool
+        unpinBeyondThreshold: Bool
     ) -> Bool {
         if isPinnedToBottom(
             bottomSentinelMaxY: bottomSentinelMaxY,
@@ -53,7 +54,7 @@ enum TranscriptScrollFollow {
         ) {
             return true
         }
-        return isUserScrollUp ? false : current
+        return unpinBeyondThreshold ? false : current
     }
 
     /// Classify a content-offset sample, then resolve the pin. `contentTopMinY` is the transcript
@@ -79,7 +80,7 @@ enum TranscriptScrollFollow {
             bottomSentinelMaxY: bottomSentinelMaxY,
             viewportHeight: viewportHeight,
             threshold: threshold,
-            isUserScrollUp: isUserScrollUp
+            unpinBeyondThreshold: isUserScrollUp
         )
     }
 }

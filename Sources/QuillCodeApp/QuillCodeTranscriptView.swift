@@ -199,7 +199,7 @@ struct QuillCodeTranscriptView: View {
                                     // A resize is never a scroll gesture: re-pin if the shorter/taller
                                     // viewport put the end back within reach, but never strand an
                                     // at-bottom reader.
-                                    applyPinned(isUserScrollUp: false)
+                                    applyPinned(unpinBeyondThreshold: false)
                                 }
                         }
                     )
@@ -454,7 +454,7 @@ struct QuillCodeTranscriptView: View {
 
     /// A zero-height marker at the very end of the transcript. Its position within the scroll
     /// coordinate space, compared to the viewport height, is how we know whether the reader is at the
-    /// bottom (see ``applyPinned(isUserScrollUp:)``). LazyVStack won't lay it out while scrolled far
+    /// bottom (see ``applyPinned(unpinBeyondThreshold:)``). LazyVStack won't lay it out while scrolled far
     /// up, which is fine — `isPinnedToBottom` then correctly stays false until the reader scrolls back
     /// down (the content-offset reader keeps un-pinning live meanwhile).
     private var bottomSentinel: some View {
@@ -469,11 +469,13 @@ struct QuillCodeTranscriptView: View {
                             initial: true
                         ) { _, maxY in
                             bottomSentinelMaxY = maxY
-                            // The end-of-content moved (a chunk grew, or the follow-scroll ran). That
-                            // is never a user scroll, so it may only RE-pin (end back within reach) —
-                            // it must never un-pin an at-bottom reader mid-chunk. Un-pinning is owned
-                            // solely by the content-offset signal (``contentTopOffsetReader``).
-                            applyPinned(isUserScrollUp: false)
+                            // The end-of-content moved (a chunk grew, or the follow-scroll ran). While
+                            // follow-scroll is live this may only RE-pin (end back within reach), never
+                            // un-pin an at-bottom reader mid-chunk (the content-offset signal owns
+                            // scroll-driven un-pinning). But when follow-scroll is SUPPRESSED (Find /
+                            // review), the viewport won't catch up, so a beyond-threshold growth must
+                            // un-pin here and surface the Jump chip.
+                            applyPinned(unpinBeyondThreshold: isFollowScrollSuppressed)
                         }
                 }
             )
@@ -496,15 +498,25 @@ struct QuillCodeTranscriptView: View {
         }
     }
 
+    /// Follow-scroll is suppressed (`scrollToTranscriptEnd` early-returns) while Find or the review pane
+    /// owns the scroll position. A chunk that grows past the threshold then will NOT auto-catch-up, so
+    /// the bottom-sentinel must un-pin (surface the Jump chip, honest state) rather than preserve a pin
+    /// the viewport no longer reflects — otherwise closing Find strands the reader behind with no chip
+    /// and the next chunk yanks them down.
+    private var isFollowScrollSuppressed: Bool {
+        isFindPresented || review.isVisible
+    }
+
     /// Resolve the pin against a sentinel/viewport move that is NOT a user scroll (content growth,
-    /// follow-scroll, resize). Within threshold re-pins; otherwise the prior state is preserved.
-    private func applyPinned(isUserScrollUp: Bool) {
+    /// follow-scroll, resize). Within threshold re-pins; beyond it, `unpinBeyondThreshold` decides
+    /// whether the reader has fallen behind (e.g. growth while follow-scroll is suppressed).
+    private func applyPinned(unpinBeyondThreshold: Bool) {
         let pinned = TranscriptScrollFollow.resolvePinned(
             current: isPinnedToBottom,
             bottomSentinelMaxY: bottomSentinelMaxY,
             viewportHeight: viewportHeight,
             threshold: bottomPinThreshold,
-            isUserScrollUp: isUserScrollUp
+            unpinBeyondThreshold: unpinBeyondThreshold
         )
         guard pinned != isPinnedToBottom else { return }
         quillCodeWithAnimation(.easeInOut(duration: 0.15), reduceMotion: reduceMotion) {

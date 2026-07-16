@@ -49,24 +49,33 @@ final class TranscriptScrollFollowTests: XCTestCase {
 
     func testResolvePinnedWithinThresholdRepinsRegardlessOfScroll() {
         // Within threshold dominates: whatever moved the end back into reach, we (re)pin.
-        XCTAssertTrue(resolve(current: false, maxY: 500, isUserScrollUp: true))
-        XCTAssertTrue(resolve(current: false, maxY: 500, isUserScrollUp: false))
+        XCTAssertTrue(resolve(current: false, maxY: 500, unpinBeyondThreshold: true))
+        XCTAssertTrue(resolve(current: false, maxY: 500, unpinBeyondThreshold: false))
     }
 
-    func testResolvePinnedBeyondThresholdGrowthPreservesUserScrollUnpins() {
-        // Beyond threshold: content growth (isUserScrollUp=false) PRESERVES the prior state so an
-        // at-bottom reader keeps being followed through a big chunk; only a real scroll-up un-pins.
-        XCTAssertTrue(resolve(current: true, maxY: 800, isUserScrollUp: false))    // growth keeps pin
-        XCTAssertFalse(resolve(current: true, maxY: 800, isUserScrollUp: true))    // scroll-up un-pins
-        XCTAssertFalse(resolve(current: false, maxY: 800, isUserScrollUp: false))  // scrolled-up stays
-        XCTAssertFalse(resolve(current: false, maxY: 800, isUserScrollUp: true))
+    func testResolvePinnedBeyondThresholdGrowthPreservesUnlessFallingBehind() {
+        // Beyond threshold: a move that is NOT the reader falling behind (unpinBeyondThreshold=false —
+        // content growth we WILL follow) PRESERVES the prior state so an at-bottom reader keeps being
+        // followed through a big chunk; falling behind (a real scroll-up, OR growth while follow-scroll
+        // is suppressed by Find/review) un-pins.
+        XCTAssertTrue(resolve(current: true, maxY: 800, unpinBeyondThreshold: false))    // growth keeps pin
+        XCTAssertFalse(resolve(current: true, maxY: 800, unpinBeyondThreshold: true))    // falling behind un-pins
+        XCTAssertFalse(resolve(current: false, maxY: 800, unpinBeyondThreshold: false))  // scrolled-up stays
+        XCTAssertFalse(resolve(current: false, maxY: 800, unpinBeyondThreshold: true))
+    }
+
+    func testBeyondThresholdGrowthWhileFollowSuppressedUnpins() {
+        // The Find/review case (codex P2): an at-bottom reader, a chunk grows past the threshold, but
+        // follow-scroll is suppressed so the viewport can't catch up. The bottom-sentinel passes
+        // unpinBeyondThreshold=true here ⇒ un-pin, surfacing the Jump chip instead of a stale pin.
+        XCTAssertFalse(resolve(current: true, maxY: 800, unpinBeyondThreshold: true))
     }
 
     func testResizeNeverStrandsAtBottomReaderAndNeverRepinsScrolledUp() {
-        // The viewport-height (resize) path passes isUserScrollUp:false — it may re-pin within the
-        // threshold but never un-pins an at-bottom reader and never yanks a scrolled-up one down.
-        XCTAssertTrue(resolve(current: true, maxY: 800, isUserScrollUp: false))
-        XCTAssertFalse(resolve(current: false, maxY: 800, isUserScrollUp: false))
+        // The viewport-height (resize) path passes unpinBeyondThreshold:false — it may re-pin within
+        // the threshold but never un-pins an at-bottom reader and never yanks a scrolled-up one down.
+        XCTAssertTrue(resolve(current: true, maxY: 800, unpinBeyondThreshold: false))
+        XCTAssertFalse(resolve(current: false, maxY: 800, unpinBeyondThreshold: false))
     }
 
     // MARK: - pinnedAfterScrollSample (orthogonal content-offset direction)
@@ -118,13 +127,13 @@ final class TranscriptScrollFollowTests: XCTestCase {
         XCTAssertTrue(scrollSample(current: true, maxY: 800, topMinY: -99.7, previous: -100))
     }
 
-    private func resolve(current: Bool, maxY: CGFloat, isUserScrollUp: Bool) -> Bool {
+    private func resolve(current: Bool, maxY: CGFloat, unpinBeyondThreshold: Bool) -> Bool {
         TranscriptScrollFollow.resolvePinned(
             current: current,
             bottomSentinelMaxY: maxY,
             viewportHeight: 480,
             threshold: 60,
-            isUserScrollUp: isUserScrollUp
+            unpinBeyondThreshold: unpinBeyondThreshold
         )
     }
 
