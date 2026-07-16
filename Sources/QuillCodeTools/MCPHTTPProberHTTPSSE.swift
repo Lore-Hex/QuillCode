@@ -7,7 +7,8 @@ extension MCPHTTPProber {
         body: Data,
         id: Int,
         deadline: Date,
-        progressObserver: MCPProgressObserver? = nil
+        progressObserver: MCPProgressObserver? = nil,
+        elicitationHandler: MCPClientElicitationHandler? = nil
     ) throws -> [String: Any] {
         // Establish (once) the single long-lived server→client SSE stream and the POST endpoint.
         let messageEndpoint = try ensureSSEMessageEndpoint(deadline: deadline)
@@ -21,7 +22,9 @@ extension MCPHTTPProber {
             parser: &sseParser,
             id: id,
             deadline: deadline,
-            progressObserver: progressObserver
+            progressObserver: progressObserver,
+            elicitationHandler: elicitationHandler,
+            responseTransport: .httpSSE
         )
     }
 

@@ -12,10 +12,17 @@ public final class MCPStdioProber: @unchecked Sendable {
     private let ioLock = NSLock()
     private var readBuffer = Data()
     private var nextRequestID = 1
+    private var clientCapabilities = MCPClientCapabilities.none
 
     public init(standardInput: FileHandle, standardOutput: FileHandle) {
         self.standardInput = standardInput
         self.standardOutput = standardOutput
+    }
+
+    public func configure(clientCapabilities: MCPClientCapabilities) {
+        ioLock.lock()
+        self.clientCapabilities = clientCapabilities
+        ioLock.unlock()
     }
 
     public func probe(timeout: TimeInterval = 2.0) throws -> MCPServerProbeResult {
@@ -32,8 +39,8 @@ public final class MCPStdioProber: @unchecked Sendable {
         let deadline = Date().addingTimeInterval(timeout)
         let initializeID = nextID()
         try write(method: "initialize", id: initializeID, params: [
-            "protocolVersion": "2024-11-05",
-            "capabilities": [:],
+            "protocolVersion": "2025-06-18",
+            "capabilities": clientCapabilities.initializeObject,
             "clientInfo": [
                 "name": "QuillCode",
                 "version": "0.1.0"
@@ -141,6 +148,22 @@ public final class MCPStdioProber: @unchecked Sendable {
         metadata: MCPJSONValue?,
         timeout: TimeInterval = 10.0
     ) -> AsyncThrowingStream<MCPClientToolEvent, Error> {
+        callToolEvents(
+            toolName: toolName,
+            arguments: arguments,
+            metadata: metadata,
+            timeout: timeout,
+            elicitationHandler: nil
+        )
+    }
+
+    public func callToolEvents(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval = 10.0,
+        elicitationHandler: MCPClientElicitationHandler?
+    ) -> AsyncThrowingStream<MCPClientToolEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task.detached { [self] in
                 do {
@@ -151,7 +174,8 @@ public final class MCPStdioProber: @unchecked Sendable {
                         metadata: metadata,
                         timeout: timeout,
                         progressContext: progressContext,
-                        onProgress: { continuation.yield(.progress($0)) }
+                        onProgress: { continuation.yield(.progress($0)) },
+                        elicitationHandler: elicitationHandler
                     )
                     continuation.yield(.result(result))
                     continuation.finish()
@@ -169,7 +193,8 @@ public final class MCPStdioProber: @unchecked Sendable {
         metadata: MCPJSONValue?,
         timeout: TimeInterval,
         progressContext: MCPProgressRequestContext,
-        onProgress: @escaping @Sendable (ToolExecutionProgress) -> Void
+        onProgress: @escaping @Sendable (ToolExecutionProgress) -> Void,
+        elicitationHandler: MCPClientElicitationHandler?
     ) throws -> MCPToolCallResult {
         ioLock.lock()
         defer { ioLock.unlock() }
@@ -179,7 +204,8 @@ public final class MCPStdioProber: @unchecked Sendable {
             metadata: metadata,
             timeout: timeout,
             progressContext: progressContext,
-            onProgress: onProgress
+            onProgress: onProgress,
+            elicitationHandler: elicitationHandler
         )
     }
 
@@ -189,7 +215,8 @@ public final class MCPStdioProber: @unchecked Sendable {
         metadata: MCPJSONValue?,
         timeout: TimeInterval,
         progressContext: MCPProgressRequestContext?,
-        onProgress: ((ToolExecutionProgress) -> Void)?
+        onProgress: ((ToolExecutionProgress) -> Void)?,
+        elicitationHandler: MCPClientElicitationHandler? = nil
     ) throws -> MCPToolCallResult {
         let toolName = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !toolName.isEmpty else {
@@ -211,7 +238,8 @@ public final class MCPStdioProber: @unchecked Sendable {
             id: requestID,
             deadline: Date().addingTimeInterval(timeout),
             progressTracker: &tracker,
-            onProgress: onProgress
+            onProgress: onProgress,
+            elicitationHandler: elicitationHandler
         )
         return MCPStdioResultMapper.toolCallResult(from: try resultDictionary(from: response))
     }
@@ -313,14 +341,22 @@ public final class MCPStdioProber: @unchecked Sendable {
         id: Int,
         deadline: Date,
         progressTracker: inout MCPProgressTracker?,
-        onProgress: ((ToolExecutionProgress) -> Void)?
+        onProgress: ((ToolExecutionProgress) -> Void)?,
+        elicitationHandler: MCPClientElicitationHandler? = nil
     ) throws -> [String: Any] {
         while Date() < deadline {
             if Task.isCancelled { throw CancellationError() }
             if let message = try MCPStdioMessageCodec.nextMessageData(from: &readBuffer) {
                 let object = try MCPStdioMessageCodec.decodeJSONObject(message)
-                if matchesResponseID(object["id"], id: id) {
+                if object["method"] == nil, matchesResponseID(object["id"], id: id) {
                     return object
+                }
+                if try handleElicitationRequest(
+                    object,
+                    deadline: deadline,
+                    handler: elicitationHandler
+                ) {
+                    continue
                 }
                 if var tracker = progressTracker {
                     let progress = tracker.consume(object)
@@ -337,6 +373,48 @@ public final class MCPStdioProber: @unchecked Sendable {
             }
         }
         throw MCPProbeError.timeout("MCP server did not respond before the request timed out.")
+    }
+
+    private func handleElicitationRequest(
+        _ object: [String: Any],
+        deadline: Date,
+        handler: MCPClientElicitationHandler?
+    ) throws -> Bool {
+        guard let requestID = MCPServerElicitationEnvelope.requestIDIfRecognized(in: object) else {
+            return false
+        }
+
+        let response: MCPClientElicitationResponse
+        do {
+            let envelope = try MCPServerElicitationEnvelope.decode(from: object)
+            guard clientCapabilities.supports(envelope.request) else {
+                try writeResponse(id: requestID, response: .cancel())
+                return true
+            }
+            response = try MCPAsyncElicitationBridge.resolve(
+                envelope.request,
+                using: handler,
+                deadline: deadline
+            )
+        } catch is CancellationError {
+            try writeResponse(id: requestID, response: .cancel())
+            throw CancellationError()
+        } catch {
+            response = .cancel()
+        }
+        try writeResponse(id: requestID, response: response)
+        return true
+    }
+
+    private func writeResponse(
+        id: MCPJSONRPCRequestID,
+        response: MCPClientElicitationResponse
+    ) throws {
+        standardInput.write(try MCPStdioMessageCodec.encodeJSONObject([
+            "jsonrpc": "2.0",
+            "id": id.foundationObject,
+            "result": response.foundationObject
+        ]))
     }
 
     private func matchesResponseID(_ value: Any?, id: Int) -> Bool {

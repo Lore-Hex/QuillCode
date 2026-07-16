@@ -101,6 +101,7 @@ extension AppServerSession {
             guard turnID == active.id else {
                 throw AppServerRPCError.invalidParams("turnId does not match the active turn")
             }
+            await cancelPendingMCPElicitations(threadID: threadID, turnID: active.id)
             active.task?.cancel()
             return .object([:])
         }
@@ -248,6 +249,7 @@ extension AppServerSession {
         error: String?
     ) async {
         guard var active = activeTurns.removeValue(forKey: threadID) else { return }
+        await cancelPendingMCPElicitations(threadID: threadID, turnID: active.id)
         active.queuedSteering
             .flatMap(\.attachments)
             .forEach { try? attachmentStore.remove($0) }

@@ -65,7 +65,40 @@ private final class MCPStdioProbeFixture {
     }
 }
 
+private actor MCPElicitationRequestRecorder {
+    private(set) var requests: [MCPClientElicitationRequest] = []
+
+    func append(_ request: MCPClientElicitationRequest) {
+        requests.append(request)
+    }
+}
+
 final class MCPStdioProberTests: XCTestCase {
+    func testInitializeAdvertisesConfiguredElicitationCapabilities() throws {
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
+        try fixture.writeInitialize()
+        try fixture.writeTools([])
+        try fixture.finishWriting()
+
+        let prober = fixture.prober
+        prober.configure(clientCapabilities: .init(
+            supportsFormElicitation: true,
+            supportsOpenAIFormElicitation: true
+        ))
+        _ = try prober.probe(timeout: 1)
+
+        let initialize = try XCTUnwrap(
+            fixture.readRequests().first { $0["method"] as? String == "initialize" }
+        )
+        let params = try XCTUnwrap(initialize["params"] as? [String: Any])
+        let capabilities = try XCTUnwrap(params["capabilities"] as? [String: Any])
+        let extensions = try XCTUnwrap(capabilities["extensions"] as? [String: Any])
+        XCTAssertEqual(params["protocolVersion"] as? String, "2025-06-18")
+        XCTAssertNotNil(capabilities["elicitation"] as? [String: Any])
+        XCTAssertNotNil(extensions["openai/form"] as? [String: Any])
+    }
+
     func testCodecEncodesAndParsesContentLengthMessages() throws {
         let first = try MCPStdioMessageCodec.encodeJSONObject([
             "jsonrpc": "2.0",
@@ -372,6 +405,112 @@ final class MCPStdioProberTests: XCTestCase {
         let metadata = try XCTUnwrap(params["_meta"] as? [String: Any])
         XCTAssertEqual(metadata["requestID"] as? String, "request-2")
         XCTAssertTrue((metadata["progressToken"] as? String)?.hasPrefix("quillcode-") == true)
+    }
+
+    func testCallToolEventsRoundTripsFormElicitationBeforeResult() async throws {
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
+        try fixture.write([
+            "jsonrpc": "2.0",
+            "id": "elicit-1",
+            "method": "elicitation/create",
+            "params": [
+                "mode": "form",
+                "message": "Allow this action?",
+                "requestedSchema": [
+                    "type": "object",
+                    "properties": ["confirmed": ["type": "boolean"]],
+                    "required": ["confirmed"]
+                ],
+                "_meta": ["traceID": "trace-1", "progressToken": "progress-1"]
+            ]
+        ])
+        try fixture.write([
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": ["content": [["type": "text", "text": "accepted"]], "isError": false]
+        ])
+        try fixture.finishWriting()
+
+        let recorder = MCPElicitationRequestRecorder()
+        let prober = fixture.prober
+        prober.configure(clientCapabilities: .init(supportsFormElicitation: true))
+        var result: MCPToolCallResult?
+        for try await event in prober.callToolEvents(
+            toolName: "calendar_confirm",
+            arguments: .object([:]),
+            metadata: nil,
+            timeout: 1,
+            elicitationHandler: { request in
+                await recorder.append(request)
+                return .accept(
+                    content: .object(["confirmed": .bool(true)]),
+                    metadata: .object(["clientTrace": .string("client-1")])
+                )
+            }
+        ) {
+            if case .result(let value) = event { result = value }
+        }
+
+        let requests = await recorder.requests
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests[0].metadata, .object(["traceID": .string("trace-1")]))
+        XCTAssertEqual(result?.content.first?.objectValue?["text"], .string("accepted"))
+
+        let outgoing = try fixture.readRequests()
+        XCTAssertEqual(outgoing.first?["method"] as? String, "tools/call")
+        let response = try XCTUnwrap(outgoing.first { ($0["id"] as? String) == "elicit-1" })
+        let payload = try XCTUnwrap(response["result"] as? [String: Any])
+        let content = try XCTUnwrap(payload["content"] as? [String: Any])
+        let metadata = try XCTUnwrap(payload["_meta"] as? [String: Any])
+        XCTAssertEqual(payload["action"] as? String, "accept")
+        XCTAssertEqual(content["confirmed"] as? Bool, true)
+        XCTAssertEqual(metadata["clientTrace"] as? String, "client-1")
+    }
+
+    func testMalformedFormIsCancelledWithoutInvokingHandler() async throws {
+        let fixture = MCPStdioProbeFixture()
+        defer { fixture.close() }
+        try fixture.write([
+            "jsonrpc": "2.0",
+            "id": "bad-form",
+            "method": "elicitation/create",
+            "params": [
+                "message": "Malformed",
+                "requestedSchema": [
+                    "type": "object",
+                    "properties": ["value": ["type": "unsupported"]]
+                ]
+            ]
+        ])
+        try fixture.write([
+            "jsonrpc": "2.0",
+            "id": 1,
+            "result": ["content": [], "isError": false]
+        ])
+        try fixture.finishWriting()
+
+        let recorder = MCPElicitationRequestRecorder()
+        let prober = fixture.prober
+        prober.configure(clientCapabilities: .init(supportsFormElicitation: true))
+        for try await _ in prober.callToolEvents(
+            toolName: "calendar_confirm",
+            arguments: nil,
+            metadata: nil,
+            timeout: 1,
+            elicitationHandler: { request in
+                await recorder.append(request)
+                return .accept(content: .object([:]))
+            }
+        ) {}
+
+        let recorded = await recorder.requests
+        XCTAssertTrue(recorded.isEmpty)
+        let response = try XCTUnwrap(
+            fixture.readRequests().first { ($0["id"] as? String) == "bad-form" }
+        )
+        let payload = try XCTUnwrap(response["result"] as? [String: Any])
+        XCTAssertEqual(payload["action"] as? String, "cancel")
     }
 
     func testReadResourceSendsResourcesReadAndParsesTextContent() throws {

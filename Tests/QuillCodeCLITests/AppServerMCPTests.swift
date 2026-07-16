@@ -894,12 +894,291 @@ final class AppServerMCPTests: XCTestCase {
         })
     }
 
+    func testDirectToolCallRelaysStandardFormElicitationAndPreservesResponseMetadata() async throws {
+        let schema: MCPJSONValue = .object([
+            "type": .string("object"),
+            "properties": .object([
+                "nickname": .object([
+                    "type": .string("string"),
+                    "title": .string("Nickname")
+                ])
+            ]),
+            "required": .array([.string("nickname")])
+        ])
+        let request = MCPClientElicitationRequest.form(
+            message: "Choose a nickname",
+            requestedSchema: schema,
+            metadata: .object(["traceID": .string("trace-form")])
+        )
+        let launcher = FakeMCPLauncher(specifications: [
+            "fixture": .init(
+                probe: Self.dashProbe,
+                toolResult: MCPToolCallResult(
+                    content: [.object(["type": .string("text"), "text": .string("saved")])]
+                ),
+                elicitationRequest: request
+            )
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.fixture]
+            command = "fixture"
+            """,
+            launcher: launcher
+        )
+        let threadID = try await startThread(in: fixture)
+
+        let callData = try JSONSerialization.data(withJSONObject: [
+            "id": 3,
+            "method": "mcpServer/tool/call",
+            "params": [
+                "threadId": threadID,
+                "server": "fixture",
+                "tool": "search",
+                "arguments": ["query": "swift"]
+            ]
+        ], options: [.sortedKeys])
+        let callSession = fixture.session
+        let call = Task { await callSession.receive(callData) }
+        let outbound = try await fixture.output.waitForRequest(method: "mcpServer/elicitation/request")
+        let requestID = try XCTUnwrap(outbound["id"]?.stringValue)
+        let params = try XCTUnwrap(outbound["params"]?.objectValue)
+        XCTAssertEqual(params["threadId"]?.stringValue, threadID)
+        XCTAssertEqual(params["turnId"], .null)
+        XCTAssertEqual(params["serverName"]?.stringValue, "fixture")
+        XCTAssertEqual(params["mode"]?.stringValue, "form")
+        XCTAssertEqual(params["message"]?.stringValue, "Choose a nickname")
+        XCTAssertEqual(params["requestedSchema"], schema.cliJSONValue)
+        XCTAssertEqual(params["_meta"]?.objectValue?["traceID"]?.stringValue, "trace-form")
+
+        try await send([
+            "id": requestID,
+            "result": [
+                "action": "accept",
+                "content": ["nickname": "Quill"],
+                "_meta": ["receipt": "accepted"]
+            ]
+        ], to: fixture.session)
+        await call.value
+
+        let recorder = launcher.recorder(for: "fixture")
+        XCTAssertEqual(recorder.configuredCapabilities, [
+            MCPClientCapabilities(
+                supportsFormElicitation: true,
+                supportsOpenAIFormElicitation: false
+            )
+        ])
+        XCTAssertEqual(recorder.elicitations, [
+            .init(
+                request: request,
+                response: .accept(
+                    content: .object(["nickname": .string("Quill")]),
+                    metadata: .object(["receipt": .string("accepted")])
+                )
+            )
+        ])
+        let records = try await fixture.output.records()
+        let requestIndex = try XCTUnwrap(records.firstIndex { $0["id"]?.stringValue == requestID })
+        let resolvedIndex = try XCTUnwrap(records.firstIndex {
+            $0["method"]?.stringValue == "serverRequest/resolved"
+                && $0["params"]?.objectValue?["requestId"]?.stringValue == requestID
+        })
+        let resultIndex = try XCTUnwrap(records.firstIndex { $0["id"]?.numberValue == 3 })
+        XCTAssertLessThan(requestIndex, resolvedIndex)
+        XCTAssertLessThan(resolvedIndex, resultIndex)
+
+        await fixture.session.finishInput()
+    }
+
+    func testRichFormElicitationRequiresAndAdvertisesInitializeCapability() async throws {
+        let request = MCPClientElicitationRequest.openAIForm(
+            message: "Configure deployment",
+            requestedSchema: .object([
+                "type": .string("object"),
+                "layout": .object(["columns": .number(2)])
+            ]),
+            metadata: nil
+        )
+        let enabledLauncher = FakeMCPLauncher(specifications: [
+            "enabled": .init(probe: Self.dashProbe, elicitationRequest: request)
+        ])
+        let enabled = try await makeFixture(
+            config: """
+            [mcp_servers.fixture]
+            command = "enabled"
+            """,
+            launcher: enabledLauncher,
+            supportsOpenAIFormElicitation: true
+        )
+        let enabledThreadID = try await startThread(in: enabled)
+        let enabledCallData = try JSONSerialization.data(withJSONObject: [
+            "id": 3,
+            "method": "mcpServer/tool/call",
+            "params": [
+                "threadId": enabledThreadID,
+                "server": "fixture",
+                "tool": "search"
+            ]
+        ], options: [.sortedKeys])
+        let enabledSession = enabled.session
+        let enabledCall = Task { await enabledSession.receive(enabledCallData) }
+        let outbound = try await enabled.output.waitForRequest(method: "mcpServer/elicitation/request")
+        let requestID = try XCTUnwrap(outbound["id"]?.stringValue)
+        XCTAssertEqual(outbound["params"]?.objectValue?["mode"]?.stringValue, "openai/form")
+        try await send([
+            "id": requestID,
+            "result": ["action": "decline", "_meta": ["reason": "not now"]]
+        ], to: enabled.session)
+        await enabledCall.value
+        XCTAssertEqual(enabledLauncher.recorder(for: "enabled").configuredCapabilities, [
+            MCPClientCapabilities(
+                supportsFormElicitation: true,
+                supportsOpenAIFormElicitation: true
+            )
+        ])
+        XCTAssertEqual(enabledLauncher.recorder(for: "enabled").elicitations.first?.response, .decline(
+            metadata: .object(["reason": .string("not now")])
+        ))
+        await enabled.session.finishInput()
+
+        let disabledLauncher = FakeMCPLauncher(specifications: [
+            "disabled": .init(probe: Self.dashProbe, elicitationRequest: request)
+        ])
+        let disabled = try await makeFixture(
+            config: """
+            [mcp_servers.fixture]
+            command = "disabled"
+            """,
+            launcher: disabledLauncher
+        )
+        let disabledThreadID = try await startThread(in: disabled)
+        try await sendRequest(
+            id: 3,
+            method: "mcpServer/tool/call",
+            params: [
+                "threadId": disabledThreadID,
+                "server": "fixture",
+                "tool": "search"
+            ],
+            to: disabled.session
+        )
+        XCTAssertEqual(disabledLauncher.recorder(for: "disabled").elicitations.first?.response, .cancel())
+        let disabledRecords = try await disabled.output.records()
+        XCTAssertFalse(disabledRecords.contains {
+            $0["method"]?.stringValue == "mcpServer/elicitation/request"
+        })
+        await disabled.session.finishInput()
+    }
+
+    func testURLElicitationRelaysExactFieldsAndClientErrorDeclines() async throws {
+        let request = MCPClientElicitationRequest.url(
+            message: "Authorize access",
+            url: "https://auth.example.com/consent",
+            elicitationID: "consent-123",
+            metadata: .object(["provider": .string("example")])
+        )
+        let launcher = FakeMCPLauncher(specifications: [
+            "fixture": .init(probe: Self.dashProbe, elicitationRequest: request)
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.fixture]
+            command = "fixture"
+            """,
+            launcher: launcher
+        )
+        let threadID = try await startThread(in: fixture)
+        let callData = try JSONSerialization.data(withJSONObject: [
+            "id": 3,
+            "method": "mcpServer/tool/call",
+            "params": ["threadId": threadID, "server": "fixture", "tool": "search"]
+        ], options: [.sortedKeys])
+        let callSession = fixture.session
+        let call = Task { await callSession.receive(callData) }
+        let outbound = try await fixture.output.waitForRequest(method: "mcpServer/elicitation/request")
+        let requestID = try XCTUnwrap(outbound["id"]?.stringValue)
+        let params = try XCTUnwrap(outbound["params"]?.objectValue)
+        XCTAssertEqual(params["mode"]?.stringValue, "url")
+        XCTAssertEqual(params["url"]?.stringValue, "https://auth.example.com/consent")
+        XCTAssertEqual(params["elicitationId"]?.stringValue, "consent-123")
+        XCTAssertEqual(params["_meta"]?.objectValue?["provider"]?.stringValue, "example")
+        try await send([
+            "id": requestID,
+            "error": ["code": -32_603, "message": "client dismissed form"]
+        ], to: fixture.session)
+        await call.value
+        XCTAssertEqual(launcher.recorder(for: "fixture").elicitations.first?.response, .decline())
+        await fixture.session.finishInput()
+    }
+
+    func testInterruptCancelsTurnElicitationBeforeTurnCompletion() async throws {
+        let llm = AppServerMCPAgentLLM()
+        let request = MCPClientElicitationRequest.form(
+            message: "Choose a result",
+            requestedSchema: .object([
+                "type": .string("object"),
+                "properties": .object([:])
+            ]),
+            metadata: nil
+        )
+        let launcher = FakeMCPLauncher(specifications: [
+            "fixture": .init(probe: Self.dashProbe, elicitationRequest: request)
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.fixture]
+            command = "fixture"
+            enabled_tools = ["search"]
+            """,
+            launcher: launcher,
+            runnerFactory: { _ in AgentRunner(llm: llm) }
+        )
+        let threadID = try await startThread(in: fixture)
+        try await sendRequest(
+            id: 3,
+            method: "turn/start",
+            params: [
+                "threadId": threadID,
+                "input": [["type": "text", "text": "Search documentation"]]
+            ],
+            to: fixture.session
+        )
+        let outbound = try await fixture.output.waitForRequest(method: "mcpServer/elicitation/request")
+        let requestID = try XCTUnwrap(outbound["id"]?.stringValue)
+        let turnID = try XCTUnwrap(outbound["params"]?.objectValue?["turnId"]?.stringValue)
+        try await sendRequest(
+            id: 4,
+            method: "turn/interrupt",
+            params: ["threadId": threadID, "turnId": turnID],
+            to: fixture.session
+        )
+        await fixture.session.waitForActiveTurns()
+
+        XCTAssertEqual(launcher.recorder(for: "fixture").elicitations.first?.response, .cancel())
+        let records = try await fixture.output.records()
+        let resolvedIndex = try XCTUnwrap(records.firstIndex {
+            $0["method"]?.stringValue == "serverRequest/resolved"
+                && $0["params"]?.objectValue?["requestId"]?.stringValue == requestID
+        })
+        let completedIndex = try XCTUnwrap(records.firstIndex {
+            $0["method"]?.stringValue == "turn/completed"
+                && $0["params"]?.objectValue?["turn"]?.objectValue?["id"]?.stringValue == turnID
+        })
+        XCTAssertLessThan(resolvedIndex, completedIndex)
+        XCTAssertEqual(
+            records[completedIndex]["params"]?.objectValue?["turn"]?.objectValue?["status"]?.stringValue,
+            "interrupted"
+        )
+        await fixture.session.finishInput()
+    }
+
     private func makeFixture(
         config: String,
         launcher: FakeMCPLauncher,
         environment: [String: String] = [:],
         mcpOAuthLoginStarter: any AppServerMCPOAuthLoginStarting = MCPLoginTestDriver(),
         notificationOptOuts: [String] = [],
+        supportsOpenAIFormElicitation: Bool = false,
         runnerFactory: @escaping CLIAgentRunnerFactory = CLIRuntimeFactory.make
     ) async throws -> AppServerMCPFixture {
         let home = try temporaryDirectory(prefix: "app-server-mcp-home")
@@ -918,10 +1197,15 @@ final class AppServerMCPTests: XCTestCase {
         var initializeParams: [String: Any] = [
             "clientInfo": ["name": "MCPTests", "version": "1"]
         ]
+        var capabilities: [String: Any] = [:]
         if !notificationOptOuts.isEmpty {
-            initializeParams["capabilities"] = [
-                "optOutNotificationMethods": notificationOptOuts
-            ]
+            capabilities["optOutNotificationMethods"] = notificationOptOuts
+        }
+        if supportsOpenAIFormElicitation {
+            capabilities["mcpServerOpenaiFormElicitation"] = true
+        }
+        if !capabilities.isEmpty {
+            initializeParams["capabilities"] = capabilities
         }
         try await sendRequest(
             id: 1,

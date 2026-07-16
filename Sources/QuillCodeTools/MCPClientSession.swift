@@ -3,6 +3,7 @@ import QuillCodeCore
 
 /// Shared MCP session surface used by both the desktop workspace and app-server.
 public protocol MCPClientSession: Sendable {
+    func configure(clientCapabilities: MCPClientCapabilities)
     func probe(timeout: TimeInterval) throws -> MCPServerProbeResult
     func probe(detail: MCPProbeDetail, timeout: TimeInterval) throws -> MCPServerProbeResult
     func callTool(toolName: String, argumentsJSON: String, timeout: TimeInterval) throws -> ToolResult
@@ -18,12 +19,39 @@ public protocol MCPClientSession: Sendable {
         metadata: MCPJSONValue?,
         timeout: TimeInterval
     ) -> AsyncThrowingStream<MCPClientToolEvent, Error>
+    func callToolEvents(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval,
+        elicitationHandler: MCPClientElicitationHandler?
+    ) -> AsyncThrowingStream<MCPClientToolEvent, Error>
     func readResource(uri: String, timeout: TimeInterval) throws -> ToolResult
     func readResourceResult(uri: String, timeout: TimeInterval) throws -> MCPResourceReadResult
     func getPrompt(name: String, argumentsJSON: String, timeout: TimeInterval) throws -> ToolResult
 }
 
 public extension MCPClientSession {
+    func configure(clientCapabilities: MCPClientCapabilities) {
+        _ = clientCapabilities
+    }
+
+    func callToolEvents(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval,
+        elicitationHandler: MCPClientElicitationHandler?
+    ) -> AsyncThrowingStream<MCPClientToolEvent, Error> {
+        _ = elicitationHandler
+        return callToolEvents(
+            toolName: toolName,
+            arguments: arguments,
+            metadata: metadata,
+            timeout: timeout
+        )
+    }
+
     func callToolEvents(
         toolName: String,
         arguments: MCPJSONValue?,

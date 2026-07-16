@@ -36,7 +36,7 @@ public final class MCPHTTPProber: @unchecked Sendable {
     let authorization: any MCPRemoteAuthorizing
     let extraHeaders: [String: String]
     let mode: Mode
-    let protocolVersion = "2025-03-26"
+    let protocolVersion = "2025-06-18"
 
     let ioLock = NSLock()
     var nextRequestID = 1
@@ -50,6 +50,7 @@ public final class MCPHTTPProber: @unchecked Sendable {
     /// that carries partial frames across reads. All JSON-RPC replies arrive here.
     var sseStream: MCPHTTPStream?
     var sseParser = MCPSSEParser(maxEventBytes: MCPStdioMessageCodec.maxMessageBytes)
+    var clientCapabilities = MCPClientCapabilities.none
 
     enum ResolvedTransport: Equatable {
         case streamableHTTP
@@ -68,6 +69,12 @@ public final class MCPHTTPProber: @unchecked Sendable {
         self.authorization = authorization
         self.extraHeaders = extraHeaders
         self.mode = mode
+    }
+
+    public func configure(clientCapabilities: MCPClientCapabilities) {
+        ioLock.lock()
+        self.clientCapabilities = clientCapabilities
+        ioLock.unlock()
     }
 
     // MARK: - Public session surface (mirrors MCPStdioProber)
@@ -172,6 +179,22 @@ public final class MCPHTTPProber: @unchecked Sendable {
         metadata: MCPJSONValue?,
         timeout: TimeInterval = 30.0
     ) -> AsyncThrowingStream<MCPClientToolEvent, Error> {
+        callToolEvents(
+            toolName: toolName,
+            arguments: arguments,
+            metadata: metadata,
+            timeout: timeout,
+            elicitationHandler: nil
+        )
+    }
+
+    public func callToolEvents(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval = 30.0,
+        elicitationHandler: MCPClientElicitationHandler?
+    ) -> AsyncThrowingStream<MCPClientToolEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task.detached { [self] in
                 do {
@@ -185,7 +208,8 @@ public final class MCPHTTPProber: @unchecked Sendable {
                         metadata: metadata,
                         timeout: timeout,
                         progressContext: progressContext,
-                        progressObserver: observer
+                        progressObserver: observer,
+                        elicitationHandler: elicitationHandler
                     )
                     continuation.yield(.result(result))
                     continuation.finish()
@@ -203,7 +227,8 @@ public final class MCPHTTPProber: @unchecked Sendable {
         metadata: MCPJSONValue?,
         timeout: TimeInterval,
         progressContext: MCPProgressRequestContext,
-        progressObserver: MCPProgressObserver
+        progressObserver: MCPProgressObserver,
+        elicitationHandler: MCPClientElicitationHandler?
     ) throws -> MCPToolCallResult {
         ioLock.lock()
         defer { ioLock.unlock() }
@@ -213,7 +238,8 @@ public final class MCPHTTPProber: @unchecked Sendable {
             metadata: metadata,
             timeout: timeout,
             progressContext: progressContext,
-            progressObserver: progressObserver
+            progressObserver: progressObserver,
+            elicitationHandler: elicitationHandler
         )
     }
 
@@ -223,7 +249,8 @@ public final class MCPHTTPProber: @unchecked Sendable {
         metadata: MCPJSONValue?,
         timeout: TimeInterval,
         progressContext: MCPProgressRequestContext?,
-        progressObserver: MCPProgressObserver?
+        progressObserver: MCPProgressObserver?,
+        elicitationHandler: MCPClientElicitationHandler? = nil
     ) throws -> MCPToolCallResult {
         let toolName = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !toolName.isEmpty else {
@@ -242,7 +269,8 @@ public final class MCPHTTPProber: @unchecked Sendable {
             method: "tools/call",
             params: params,
             deadline: Date().addingTimeInterval(max(1, timeout)),
-            progressObserver: progressObserver
+            progressObserver: progressObserver,
+            elicitationHandler: elicitationHandler
         )
         return MCPStdioResultMapper.toolCallResult(from: result)
     }
@@ -305,7 +333,7 @@ public final class MCPHTTPProber: @unchecked Sendable {
     private func initialize(deadline: Date) throws -> [String: Any] {
         let params: [String: Any] = [
             "protocolVersion": protocolVersion,
-            "capabilities": [:],
+            "capabilities": clientCapabilities.initializeObject,
             "clientInfo": ["name": "QuillCode", "version": "0.1.0"]
         ]
         return try request(method: "initialize", params: params, deadline: deadline)
@@ -317,7 +345,8 @@ public final class MCPHTTPProber: @unchecked Sendable {
         method: String,
         params: [String: Any],
         deadline: Date,
-        progressObserver: MCPProgressObserver? = nil
+        progressObserver: MCPProgressObserver? = nil,
+        elicitationHandler: MCPClientElicitationHandler? = nil
     ) throws -> [String: Any] {
         let id = nextID()
         let message: [String: Any] = [
@@ -336,14 +365,16 @@ public final class MCPHTTPProber: @unchecked Sendable {
                 method: method,
                 params: params,
                 deadline: deadline,
-                progressObserver: progressObserver
+                progressObserver: progressObserver,
+                elicitationHandler: elicitationHandler
             )
         case .httpSSE:
             return try httpSSERequest(
                 body: body,
                 id: id,
                 deadline: deadline,
-                progressObserver: progressObserver
+                progressObserver: progressObserver,
+                elicitationHandler: elicitationHandler
             )
         case nil:
             // Not yet resolved: try StreamableHTTP, fall back on the failover signal.
@@ -354,7 +385,8 @@ public final class MCPHTTPProber: @unchecked Sendable {
                     method: method,
                     params: params,
                     deadline: deadline,
-                    progressObserver: progressObserver
+                    progressObserver: progressObserver,
+                    elicitationHandler: elicitationHandler
                 )
                 resolvedTransport = .streamableHTTP
                 return result
@@ -369,7 +401,8 @@ public final class MCPHTTPProber: @unchecked Sendable {
                     body: retryBody,
                     id: retryID,
                     deadline: deadline,
-                    progressObserver: progressObserver
+                    progressObserver: progressObserver,
+                    elicitationHandler: elicitationHandler
                 )
             }
         }

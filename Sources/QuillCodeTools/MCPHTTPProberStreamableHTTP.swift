@@ -9,7 +9,8 @@ extension MCPHTTPProber {
         method: String,
         params: [String: Any],
         deadline: Date,
-        progressObserver: MCPProgressObserver? = nil
+        progressObserver: MCPProgressObserver? = nil,
+        elicitationHandler: MCPClientElicitationHandler? = nil
     ) throws -> [String: Any] {
         let outcome = try postStreamable(body: body, deadline: deadline, allowAuthRetry: true)
         switch outcome {
@@ -24,7 +25,9 @@ extension MCPHTTPProber {
                 parser: &parser,
                 id: id,
                 deadline: deadline,
-                progressObserver: progressObserver
+                progressObserver: progressObserver,
+                elicitationHandler: elicitationHandler,
+                responseTransport: .streamableHTTP
             )
         }
     }

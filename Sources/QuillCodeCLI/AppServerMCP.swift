@@ -52,6 +52,9 @@ extension AppServerSession {
     func callMCPServerTool(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
         let params = try AppServerParams(raw)
         let threadID = try params.requiredString("threadId")
+        guard let projectedThreadID = UUID(uuidString: threadID) else {
+            throw AppServerRPCError.invalidRequest("invalid thread id: \(threadID)")
+        }
         let server = try params.requiredString("server")
         let tool = try params.requiredString("tool")
         let context = try await mcpContext(threadID: threadID)
@@ -61,13 +64,29 @@ extension AppServerSession {
         do {
             let arguments = try params.object["arguments"].map { try $0.mcpJSONValue }
             let metadata = try params.object["_meta"].map { try $0.mcpJSONValue }
-            let result = try await mcpRegistry.callTool(
+            let events = try await mcpRegistry.callToolEvents(
                 scope: context.scope,
                 configuration: configuration,
                 tool: tool,
                 arguments: arguments,
-                metadata: metadata
+                metadata: metadata,
+                elicitationHandler: { [weak self] request in
+                    guard let self else { return .cancel() }
+                    return await self.requestMCPElicitation(
+                        serverName: server,
+                        request: request,
+                        threadID: projectedThreadID,
+                        turnID: nil
+                    )
+                }
             )
+            var result: MCPToolCallResult?
+            for try await event in events {
+                if case .result(let final) = event { result = final }
+            }
+            guard let result else {
+                throw MCPProbeError.invalidMessage("MCP tool completed without a result.")
+            }
             var response: [String: CLIJSONValue] = [
                 "content": .array(result.content.map(\.cliJSONValue))
             ]
@@ -185,7 +204,7 @@ extension AppServerSession {
     }
 }
 
-private extension CLIJSONValue {
+extension CLIJSONValue {
     var mcpJSONValue: MCPJSONValue {
         get throws {
             switch self {
@@ -202,7 +221,7 @@ private extension CLIJSONValue {
     }
 }
 
-private extension MCPJSONValue {
+extension MCPJSONValue {
     var cliJSONValue: CLIJSONValue {
         switch self {
         case .object(let value): .object(value.mapValues(\.cliJSONValue))

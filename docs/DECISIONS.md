@@ -1614,3 +1614,28 @@
 - **Evidence:** Focused integration tests prove required failure before persistence, exact payloads
   and ordering, optional startup, opt-out behavior, reload cancellation, process termination, and no
   stale readiness. A source parity gate binds the focused implementation, tests, and matrix claim.
+
+## 2026-07-16: MCP elicitation is a bidirectional client capability
+
+- **Wire boundary:** Stdio, Streamable HTTP, and legacy HTTP+SSE normalize standard form, URL, and
+  OpenAI rich-form server requests into one bounded typed contract. Standard form schemas are
+  validated against the renderable MCP subset before reaching the app; rich forms remain bounded
+  opaque JSON owned by the negotiated extension. Transport-only `_meta.progressToken` never reaches
+  the user-facing request.
+- **Capability boundary:** App-server always advertises standard form elicitation to MCP servers.
+  It advertises `extensions["openai/form"]` only when the connected app declared
+  `capabilities.mcpServerOpenaiFormElicitation`. Unsupported or malformed requests receive `cancel`
+  instead of being surfaced as a form the client cannot render.
+- **Lifecycle boundary:** App-server emits the exact `mcpServer/elicitation/request` server request
+  with thread, nullable turn, server, mode, message, schema or URL fields, and bounded metadata.
+  Client `accept`, `decline`, or `cancel` content and metadata return losslessly to the MCP server.
+  Direct tool calls carry a null turn; ordinary agent calls carry their active turn. Interrupt and
+  disconnect cancel only the matching pending requests and emit `serverRequest/resolved` before a
+  turn can complete.
+- **Input-loop boundary:** A direct MCP call may wait for a client response, so the JSONL stdio reader
+  dispatches that request concurrently while continuing to process response messages. Other methods
+  retain input ordering. EOF cancels and joins the outstanding request before dependency teardown.
+- **Evidence:** Schema, bridge, stdio, both HTTP transport, fake-session app-server, interruption,
+  capability-gating, and malformed-response tests cover the typed boundaries. The real app-server
+  smoke drives a framed child MCP request through the JSONL client response and verifies capability
+  advertisement, metadata sanitization, resolved ordering, and the final accepted payload.

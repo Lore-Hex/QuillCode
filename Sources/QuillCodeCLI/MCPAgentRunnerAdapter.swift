@@ -12,11 +12,19 @@ struct MCPAgentRunnerAdapter: Sendable {
     private let scope: String
     private let configurations: [String: AppServerMCPServerConfiguration]
     private let catalog: MCPAgentToolCatalog
+    private let elicitationHandler: (@Sendable (
+        String,
+        MCPClientElicitationRequest
+    ) async -> MCPClientElicitationResponse)?
 
     static func prepare(
         registry: AppServerMCPRegistry,
         scope: String,
-        configurations: [String: AppServerMCPServerConfiguration]
+        configurations: [String: AppServerMCPServerConfiguration],
+        elicitationHandler: (@Sendable (
+            String,
+            MCPClientElicitationRequest
+        ) async -> MCPClientElicitationResponse)? = nil
     ) async throws -> Self {
         let catalog = try await registry.agentToolCatalog(
             scope: scope,
@@ -27,7 +35,8 @@ struct MCPAgentRunnerAdapter: Sendable {
             registry: registry,
             scope: scope,
             configurations: configurations,
-            catalog: catalog
+            catalog: catalog,
+            elicitationHandler: elicitationHandler
         )
     }
 
@@ -39,6 +48,7 @@ struct MCPAgentRunnerAdapter: Sendable {
         let registry = registry
         let scope = scope
         let configurations = configurations
+        let elicitationHandler = elicitationHandler
         configured.streamingToolExecutionOverride = { call, workspaceRoot in
             guard let route = catalog.route(forModelName: call.name) else {
                 return inheritedStreamingExecution?(call, workspaceRoot)
@@ -54,7 +64,8 @@ struct MCPAgentRunnerAdapter: Sendable {
                 scope: scope,
                 configuration: server,
                 route: route,
-                argumentsJSON: call.argumentsJSON
+                argumentsJSON: call.argumentsJSON,
+                elicitationHandler: elicitationHandler
             )
         }
         return configured
@@ -65,16 +76,29 @@ struct MCPAgentRunnerAdapter: Sendable {
         scope: String,
         configuration: AppServerMCPServerConfiguration,
         route: MCPAgentToolRoute,
-        argumentsJSON: String
+        argumentsJSON: String,
+        elicitationHandler: (@Sendable (
+            String,
+            MCPClientElicitationRequest
+        ) async -> MCPClientElicitationResponse)?
     ) -> AsyncThrowingStream<AgentStreamingToolExecutionEvent, Error> {
-        AsyncThrowingStream { continuation in
+        let scopedElicitationHandler: MCPClientElicitationHandler?
+        if let elicitationHandler {
+            scopedElicitationHandler = { request in
+                await elicitationHandler(route.serverName, request)
+            }
+        } else {
+            scopedElicitationHandler = nil
+        }
+        return AsyncThrowingStream<AgentStreamingToolExecutionEvent, Error> { continuation in
             let task = Task {
                 do {
                     let events = try await registry.agentToolEvents(
                         scope: scope,
                         configuration: configuration,
                         route: route,
-                        argumentsJSON: argumentsJSON
+                        argumentsJSON: argumentsJSON,
+                        elicitationHandler: scopedElicitationHandler
                     )
                     for try await event in events {
                         try Task.checkCancellation()
