@@ -152,7 +152,10 @@ def read_until(predicate, limit=200):
 
 send({"id": 1, "method": "initialize", "params": {
     "clientInfo": {"name": "quillcode-smoke", "version": "1"},
-    "capabilities": {"experimentalApi": True},
+    "capabilities": {
+        "experimentalApi": True,
+        "mcpServerOpenaiFormElicitation": True,
+    },
 }})
 initialized, _ = read_until(lambda record: record.get("id") == 1)
 assert "result" in initialized and "jsonrpc" not in initialized, initialized
@@ -516,7 +519,66 @@ mcp_call, _ = read_until(lambda record: record.get("id") == 61)
 assert mcp_call["result"]["content"][0]["text"] == "searched swift", mcp_call
 assert mcp_call["result"]["structuredContent"] == {"query": "swift", "matches": 1}, mcp_call
 assert mcp_call["result"]["isError"] is False, mcp_call
-assert mcp_call["result"]["_meta"]["request"] == {"requestID": "smoke-request"}, mcp_call
+mcp_request_meta = mcp_call["result"]["_meta"]["request"]
+assert mcp_request_meta["requestID"] == "smoke-request", mcp_call
+assert mcp_request_meta["progressToken"].startswith("quillcode-"), mcp_call
+
+send({"id": 611, "method": "mcpServer/tool/call", "params": {
+    "threadId": thread_id,
+    "server": "smoke-mcp",
+    "tool": "search",
+    "arguments": {"query": "elicit-form"},
+}})
+elicitation, _ = read_until(
+    lambda record: record.get("method") == "mcpServer/elicitation/request"
+)
+elicitation_id = elicitation["id"]
+assert isinstance(elicitation_id, str), elicitation
+assert elicitation["params"] == {
+    "threadId": thread_id,
+    "turnId": None,
+    "serverName": "smoke-mcp",
+    "mode": "form",
+    "message": "Choose a smoke-test label",
+    "requestedSchema": {
+        "type": "object",
+        "properties": {
+            "label": {"type": "string", "title": "Label"},
+        },
+        "required": ["label"],
+    },
+    "_meta": {"fixture": "stdio"},
+}, elicitation
+send({
+    "id": elicitation_id,
+    "result": {
+        "action": "accept",
+        "content": {"label": "real-stdio-roundtrip"},
+        "_meta": {"receipt": "smoke-accepted"},
+    },
+})
+resolved, _ = read_until(
+    lambda record: (
+        record.get("method") == "serverRequest/resolved"
+        and record.get("params", {}).get("requestId") == elicitation_id
+    )
+)
+assert resolved["params"] == {
+    "threadId": thread_id,
+    "requestId": elicitation_id,
+}, resolved
+mcp_elicitation_call, _ = read_until(lambda record: record.get("id") == 611)
+assert "result" in mcp_elicitation_call, mcp_elicitation_call
+elicitation_result = mcp_elicitation_call["result"]["structuredContent"]
+assert elicitation_result["elicitation"] == {
+    "action": "accept",
+    "content": {"label": "real-stdio-roundtrip"},
+    "_meta": {"receipt": "smoke-accepted"},
+}, mcp_elicitation_call
+assert elicitation_result["clientCapabilities"] == {
+    "elicitation": {},
+    "extensions": {"openai/form": {}},
+}, mcp_elicitation_call
 
 send({"id": 62, "method": "mcpServer/resource/read", "params": {
     "threadId": thread_id,

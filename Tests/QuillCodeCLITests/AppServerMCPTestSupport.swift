@@ -40,6 +40,22 @@ actor AppServerMCPOutputCollector {
         throw MCPProbeError.responseError("timed out waiting for \(method)")
     }
 
+    func waitForRequest(
+        method: String,
+        timeout: Duration = .seconds(3)
+    ) async throws -> [String: CLIJSONValue] {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if let match = try records().first(where: { record in
+                record["method"]?.stringValue == method && record["id"] != nil
+            }) {
+                return match
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        throw MCPProbeError.responseError("timed out waiting for \(method) request")
+    }
+
     func waitForMCPStartup(
         server: String,
         status: String,
@@ -71,6 +87,7 @@ struct FakeMCPServerSpecification: Sendable {
     var probe: MCPServerProbeResult
     var toolResult: MCPToolCallResult
     var toolProgress: [ToolExecutionProgress]
+    var elicitationRequest: MCPClientElicitationRequest?
     var resourceResult: MCPResourceReadResult
     var probeDelay: TimeInterval
 
@@ -78,12 +95,14 @@ struct FakeMCPServerSpecification: Sendable {
         probe: MCPServerProbeResult,
         toolResult: MCPToolCallResult = MCPToolCallResult(),
         toolProgress: [ToolExecutionProgress] = [],
+        elicitationRequest: MCPClientElicitationRequest? = nil,
         resourceResult: MCPResourceReadResult = MCPResourceReadResult(),
         probeDelay: TimeInterval = 0
     ) {
         self.probe = probe
         self.toolResult = toolResult
         self.toolProgress = toolProgress
+        self.elicitationRequest = elicitationRequest
         self.resourceResult = resourceResult
         self.probeDelay = probeDelay
     }
@@ -162,6 +181,10 @@ private final class FakeMCPClientSession: MCPClientSession, @unchecked Sendable 
         self.recorder = recorder
     }
 
+    func configure(clientCapabilities: MCPClientCapabilities) {
+        recorder.recordCapabilities(clientCapabilities)
+    }
+
     func probe(timeout: TimeInterval) throws -> MCPServerProbeResult {
         try probe(detail: .full, timeout: timeout)
     }
@@ -218,6 +241,51 @@ private final class FakeMCPClientSession: MCPClientSession, @unchecked Sendable 
         }
     }
 
+    func callToolEvents(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval,
+        elicitationHandler: MCPClientElicitationHandler?
+    ) -> AsyncThrowingStream<MCPClientToolEvent, Error> {
+        _ = timeout
+        recorder.recordToolCall(tool: toolName, arguments: arguments, metadata: metadata)
+        let request = specification.elicitationRequest
+        let progress = specification.toolProgress
+        let result = specification.toolResult
+        let capabilities = recorder.latestCapabilities ?? .none
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                if let request {
+                    let supported: Bool
+                    switch request {
+                    case .form, .url:
+                        supported = capabilities.supportsFormElicitation
+                    case .openAIForm:
+                        supported = capabilities.supportsOpenAIFormElicitation
+                    }
+                    let response: MCPClientElicitationResponse
+                    if supported, let elicitationHandler {
+                        response = await elicitationHandler(request)
+                    } else {
+                        response = .cancel()
+                    }
+                    recorder.recordElicitation(request: request, response: response)
+                }
+                guard !Task.isCancelled else {
+                    continuation.finish(throwing: CancellationError())
+                    return
+                }
+                for update in progress {
+                    continuation.yield(.progress(update))
+                }
+                continuation.yield(.result(result))
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     func readResource(uri: String, timeout: TimeInterval) throws -> ToolResult {
         _ = (uri, timeout)
         return ToolResult(ok: true)
@@ -242,15 +310,25 @@ final class FakeMCPRecorder: @unchecked Sendable {
         var metadata: MCPJSONValue?
     }
 
+    struct Elicitation: Sendable, Equatable {
+        var request: MCPClientElicitationRequest
+        var response: MCPClientElicitationResponse
+    }
+
     private let lock = NSLock()
     private var storedProbeDetails: [MCPProbeDetail] = []
     private var storedToolCalls: [ToolCall] = []
+    private var storedCapabilities: [MCPClientCapabilities] = []
+    private var storedElicitations: [Elicitation] = []
     private var storedResourceURIs: [String] = []
     private var storedLaunchCount = 0
     private var storedTerminationCount = 0
 
     var probeDetails: [MCPProbeDetail] { withLock { storedProbeDetails } }
     var toolCalls: [ToolCall] { withLock { storedToolCalls } }
+    var configuredCapabilities: [MCPClientCapabilities] { withLock { storedCapabilities } }
+    var latestCapabilities: MCPClientCapabilities? { withLock { storedCapabilities.last } }
+    var elicitations: [Elicitation] { withLock { storedElicitations } }
     var resourceURIs: [String] { withLock { storedResourceURIs } }
     var launchCount: Int { withLock { storedLaunchCount } }
     var terminationCount: Int { withLock { storedTerminationCount } }
@@ -259,6 +337,17 @@ final class FakeMCPRecorder: @unchecked Sendable {
 
     func recordToolCall(tool: String, arguments: MCPJSONValue?, metadata: MCPJSONValue?) {
         withLock { storedToolCalls.append(ToolCall(tool: tool, arguments: arguments, metadata: metadata)) }
+    }
+
+    func recordCapabilities(_ capabilities: MCPClientCapabilities) {
+        withLock { storedCapabilities.append(capabilities) }
+    }
+
+    func recordElicitation(
+        request: MCPClientElicitationRequest,
+        response: MCPClientElicitationResponse
+    ) {
+        withLock { storedElicitations.append(Elicitation(request: request, response: response)) }
     }
 
     func recordResource(_ uri: String) { withLock { storedResourceURIs.append(uri) } }

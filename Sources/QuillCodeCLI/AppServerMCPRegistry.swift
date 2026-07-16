@@ -32,6 +32,7 @@ actor AppServerMCPRegistry {
     private let secretStore: (any MCPSecretStore)?
     private let httpClient: any MCPHTTPClient
     private var entries: [Key: Entry] = [:]
+    private var clientCapabilities = MCPClientCapabilities.none
 
     init(
         launcher: any MCPClientLaunching = DefaultMCPClientLauncher(),
@@ -41,6 +42,12 @@ actor AppServerMCPRegistry {
         self.launcher = launcher
         self.secretStore = secretStore
         self.httpClient = httpClient
+    }
+
+    func configure(clientCapabilities: MCPClientCapabilities) {
+        guard self.clientCapabilities != clientCapabilities else { return }
+        terminateAll()
+        self.clientCapabilities = clientCapabilities
     }
 
     func statuses(
@@ -137,7 +144,8 @@ actor AppServerMCPRegistry {
         scope: String,
         configuration: AppServerMCPServerConfiguration,
         route: MCPAgentToolRoute,
-        argumentsJSON: String
+        argumentsJSON: String,
+        elicitationHandler: MCPClientElicitationHandler? = nil
     ) throws -> AsyncThrowingStream<MCPClientToolEvent, Error> {
         guard route.serverName == configuration.name,
               configuration.permitsTool(named: route.toolName)
@@ -160,7 +168,30 @@ actor AppServerMCPRegistry {
             toolName: route.toolName,
             arguments: arguments,
             metadata: nil,
-            timeout: configuration.toolTimeout
+            timeout: configuration.toolTimeout,
+            elicitationHandler: elicitationHandler
+        )
+    }
+
+    func callToolEvents(
+        scope: String,
+        configuration: AppServerMCPServerConfiguration,
+        tool: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        elicitationHandler: MCPClientElicitationHandler? = nil
+    ) throws -> AsyncThrowingStream<MCPClientToolEvent, Error> {
+        let session = try toolSession(
+            scope: scope,
+            configuration: configuration,
+            tool: tool
+        )
+        return session.callToolEvents(
+            toolName: tool,
+            arguments: arguments,
+            metadata: metadata,
+            timeout: configuration.toolTimeout,
+            elicitationHandler: elicitationHandler
         )
     }
 
@@ -171,11 +202,8 @@ actor AppServerMCPRegistry {
         arguments: MCPJSONValue?,
         metadata: MCPJSONValue?
     ) throws -> MCPToolCallResult {
-        guard configuration.permitsTool(named: tool) else {
-            throw MCPProbeError.responseError("MCP tool '\(tool)' is disabled for server '\(configuration.name)'.")
-        }
-        let entry = try probedEntry(scope: scope, configuration: configuration, detail: .toolsAndAuthOnly)
-        return try entry.launched.session.callToolResult(
+        let session = try toolSession(scope: scope, configuration: configuration, tool: tool)
+        return try session.callToolResult(
             toolName: tool,
             arguments: arguments,
             metadata: metadata,
@@ -244,6 +272,7 @@ actor AppServerMCPRegistry {
                 httpClient: httpClient
             )
         ) { _ in }
+        launched.session.configure(clientCapabilities: clientCapabilities)
         let entry = Entry(configuration: configuration, launched: launched)
         entries[key] = entry
         return entry
@@ -283,5 +312,22 @@ actor AppServerMCPRegistry {
                 ])
             ])
         }
+    }
+
+    private func toolSession(
+        scope: String,
+        configuration: AppServerMCPServerConfiguration,
+        tool: String
+    ) throws -> any MCPClientSession {
+        guard configuration.permitsTool(named: tool) else {
+            throw MCPProbeError.responseError(
+                "MCP tool '\(tool)' is disabled for server '\(configuration.name)'."
+            )
+        }
+        return try probedEntry(
+            scope: scope,
+            configuration: configuration,
+            detail: .toolsAndAuthOnly
+        ).launched.session
     }
 }

@@ -32,6 +32,8 @@ if pid_file:
     with open(pid_file, "w", encoding="utf-8") as handle:
         handle.write(str(os.getpid()))
 
+client_capabilities = {}
+
 while True:
     message = read_message()
     if message is None:
@@ -42,8 +44,9 @@ while True:
     method = message.get("method")
     params = message.get("params") or {}
     if method == "initialize":
+        client_capabilities = params.get("capabilities") or {}
         result = {
-            "protocolVersion": "2025-03-26",
+            "protocolVersion": "2025-06-18",
             "serverInfo": {"name": "Smoke MCP", "version": "1.0.0"},
             "capabilities": {"tools": {}, "resources": {}},
         }
@@ -71,12 +74,46 @@ while True:
         }]}
     elif method == "tools/call":
         query = (params.get("arguments") or {}).get("query", "")
+        elicitation_response = None
+        if query == "elicit-form":
+            if client_capabilities.get("elicitation") != {}:
+                raise RuntimeError("client did not advertise standard form elicitation")
+            elicitation_request_id = "smoke-elicitation-form"
+            send({
+                "jsonrpc": "2.0",
+                "id": elicitation_request_id,
+                "method": "elicitation/create",
+                "params": {
+                    "mode": "form",
+                    "message": "Choose a smoke-test label",
+                    "requestedSchema": {
+                        "type": "object",
+                        "properties": {
+                            "label": {"type": "string", "title": "Label"},
+                        },
+                        "required": ["label"],
+                    },
+                    "_meta": {
+                        "fixture": "stdio",
+                        "progressToken": "must-not-be-forwarded",
+                    },
+                },
+            })
+            elicitation_message = read_message()
+            if elicitation_message is None:
+                raise RuntimeError("client closed before answering elicitation")
+            if elicitation_message.get("id") != elicitation_request_id:
+                raise RuntimeError("client answered elicitation with the wrong request id")
+            elicitation_response = elicitation_message.get("result")
         result = {
             "content": [{"type": "text", "text": f"searched {query}"}],
             "structuredContent": {"query": query, "matches": 1},
             "isError": False,
             "_meta": {"fixture": True, "request": params.get("_meta")},
         }
+        if elicitation_response is not None:
+            result["structuredContent"]["elicitation"] = elicitation_response
+            result["structuredContent"]["clientCapabilities"] = client_capabilities
     elif method == "resources/read":
         result = {"contents": [{
             "uri": params.get("uri"),

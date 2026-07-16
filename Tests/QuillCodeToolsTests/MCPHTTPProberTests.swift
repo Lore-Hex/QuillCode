@@ -6,6 +6,38 @@ import XCTest
 final class MCPHTTPProberTests: XCTestCase {
     private let endpoint = URL(string: "https://mcp.example.com/mcp")!
 
+    func testInitializeAdvertisesConfiguredElicitationCapabilities() throws {
+        let client = MCPHTTPStubClient()
+        client.onStream { request in
+            let body = try XCTUnwrapMessage(request.body)
+            if body["method"] as? String == "notifications/initialized" {
+                return MCPHTTPStubStream(statusCode: 202, headerFields: [:], chunks: [.success(nil)])
+            }
+            let payload: [String: Any] = body["method"] as? String == "initialize"
+                ? ["protocolVersion": "2025-06-18", "serverInfo": ["name": "MCP"], "capabilities": [:]]
+                : ["tools": []]
+            return MCPHTTPStubStream.json(Self.result(id: body["id"], payload))
+        }
+
+        let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client)
+        prober.configure(clientCapabilities: .init(
+            supportsFormElicitation: true,
+            supportsOpenAIFormElicitation: true
+        ))
+        _ = try prober.probe(detail: .toolsAndAuthOnly, timeout: 2)
+
+        let request = try XCTUnwrap(
+            client.requests.first { $0.body.flatMap(Self.method) == "initialize" }
+        )
+        let body = try XCTUnwrapMessage(request.body)
+        let params = try XCTUnwrap(body["params"] as? [String: Any])
+        let capabilities = try XCTUnwrap(params["capabilities"] as? [String: Any])
+        let extensions = try XCTUnwrap(capabilities["extensions"] as? [String: Any])
+        XCTAssertEqual(params["protocolVersion"] as? String, "2025-06-18")
+        XCTAssertNotNil(capabilities["elicitation"] as? [String: Any])
+        XCTAssertNotNil(extensions["openai/form"] as? [String: Any])
+    }
+
     // MARK: StreamableHTTP with a JSON response body
 
     func testStreamableHTTPProbeParsesJSONResponses() throws {
@@ -249,6 +281,78 @@ final class MCPHTTPProberTests: XCTestCase {
         XCTAssertEqual(result?.content.first?.objectValue?["text"], .string("complete"))
     }
 
+    func testStreamableHTTPCallEventsRoundTripsOpenAIFormElicitation() async throws {
+        let client = MCPHTTPStubClient()
+        client.onStream { request in
+            let body = try XCTUnwrapMessage(request.body)
+            if body["method"] == nil {
+                return MCPHTTPStubStream(statusCode: 202, headerFields: [:], chunks: [.success(nil)])
+            }
+            return MCPHTTPStubStream.sse([
+                Self.sseMessage([
+                    "jsonrpc": "2.0",
+                    "id": "form-http-1",
+                    "method": "openai/form",
+                    "params": [
+                        "message": "Select a template",
+                        "requestedSchema": [
+                            "type": "object",
+                            "properties": [
+                                "template": ["type": "openai/imagePicker", "items": []]
+                            ]
+                        ]
+                    ]
+                ]),
+                Self.sseMessage(Self.result(id: body["id"], [
+                    "content": [["type": "text", "text": "selected"]],
+                    "isError": false
+                ]))
+            ], sessionID: "session-forms")
+        }
+
+        let recorder = HTTPMCPElicitationRequestRecorder()
+        let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client)
+        prober.configure(clientCapabilities: .init(
+            supportsFormElicitation: true,
+            supportsOpenAIFormElicitation: true
+        ))
+        var result: MCPToolCallResult?
+        for try await event in prober.callToolEvents(
+            toolName: "choose_template",
+            arguments: nil,
+            metadata: nil,
+            timeout: 2,
+            elicitationHandler: { request in
+                await recorder.append(request)
+                return .accept(
+                    content: .object(["template": .string("monthly-review")]),
+                    metadata: .object(["surface": .string("test")])
+                )
+            }
+        ) {
+            if case .result(let final) = event { result = final }
+        }
+
+        let requests = await recorder.requests
+        XCTAssertEqual(requests.count, 1)
+        guard case .openAIForm(let message, _, _) = requests.first else {
+            return XCTFail("expected OpenAI form request")
+        }
+        XCTAssertEqual(message, "Select a template")
+        XCTAssertEqual(result?.content.first?.objectValue?["text"], .string("selected"))
+
+        let response = try XCTUnwrap(client.requests.first { request in
+            guard let body = try? XCTUnwrapMessage(request.body) else { return false }
+            return body["id"] as? String == "form-http-1" && body["result"] != nil
+        })
+        let responseBody = try XCTUnwrapMessage(response.body)
+        let payload = try XCTUnwrap(responseBody["result"] as? [String: Any])
+        XCTAssertEqual(response.headers["Mcp-Session-Id"], "session-forms")
+        XCTAssertEqual(payload["action"] as? String, "accept")
+        XCTAssertEqual((payload["content"] as? [String: Any])?["template"] as? String, "monthly-review")
+        XCTAssertEqual((payload["_meta"] as? [String: Any])?["surface"] as? String, "test")
+    }
+
     // MARK: Failover from StreamableHTTP to HTTP+SSE
 
     func testFailsOverToHTTPSSEWhenStreamableRejected() throws {
@@ -340,6 +444,66 @@ final class MCPHTTPProberTests: XCTestCase {
                 isError: false
             ))
         ])
+    }
+
+    func testLegacyHTTPSSECallEventsRoundTripsFormElicitation() async throws {
+        let client = MCPHTTPStubClient()
+        let liveStream = MCPHTTPLiveStubStream()
+        liveStream.pushEvent(name: "endpoint", data: "/messages?session=elicitation")
+        client.onStream { _ in liveStream }
+        client.onPerform { request in
+            let body = try XCTUnwrapMessage(request.body)
+            if body["method"] as? String == "tools/call" {
+                liveStream.pushEvent(name: "message", data: Self.json([
+                    "jsonrpc": "2.0",
+                    "id": "legacy-form-1",
+                    "method": "elicitation/create",
+                    "params": [
+                        "message": "Confirm the action",
+                        "requestedSchema": [
+                            "type": "object",
+                            "properties": ["confirmed": ["type": "boolean"]],
+                            "required": ["confirmed"]
+                        ]
+                    ]
+                ]))
+            } else if body["id"] as? String == "legacy-form-1" {
+                liveStream.pushEvent(
+                    name: "message",
+                    data: Self.json(Self.result(id: 1, [
+                        "content": [["type": "text", "text": "legacy accepted"]],
+                        "isError": false
+                    ]))
+                )
+            }
+            return MCPHTTPResponse(statusCode: 202)
+        }
+
+        let recorder = HTTPMCPElicitationRequestRecorder()
+        let prober = MCPHTTPProber(endpoint: endpoint, httpClient: client, mode: .httpSSE)
+        prober.configure(clientCapabilities: .init(supportsFormElicitation: true))
+        var result: MCPToolCallResult?
+        for try await event in prober.callToolEvents(
+            toolName: "confirm",
+            arguments: nil,
+            metadata: nil,
+            timeout: 2,
+            elicitationHandler: { request in
+                await recorder.append(request)
+                return .accept(content: .object(["confirmed": .bool(true)]))
+            }
+        ) {
+            if case .result(let final) = event { result = final }
+        }
+
+        let requests = await recorder.requests
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(result?.content.first?.objectValue?["text"], .string("legacy accepted"))
+        let response = try XCTUnwrap(client.requests.first { request in
+            guard let body = try? XCTUnwrapMessage(request.body) else { return false }
+            return body["id"] as? String == "legacy-form-1" && body["result"] != nil
+        })
+        XCTAssertTrue(response.url.absoluteString.contains("/messages?session=elicitation"))
     }
 
     // MARK: 401 → refresh → retry once
@@ -507,6 +671,14 @@ final class MCPHTTPProberTests: XCTestCase {
 
     private static func method(_ body: Data) -> String? {
         (try? JSONSerialization.jsonObject(with: body) as? [String: Any])?["method"] as? String
+    }
+}
+
+private actor HTTPMCPElicitationRequestRecorder {
+    private(set) var requests: [MCPClientElicitationRequest] = []
+
+    func append(_ request: MCPClientElicitationRequest) {
+        requests.append(request)
     }
 }
 

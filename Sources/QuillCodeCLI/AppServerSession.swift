@@ -79,6 +79,7 @@ actor AppServerSession {
     var handshake = HandshakeState.awaitingInitialize
     var optedOutNotifications: Set<String> = []
     var experimentalAPIEnabled = false
+    var mcpServerOpenAIFormElicitationEnabled = false
     var activeTurns: [UUID: ActiveTurn] = [:]
     var activeCompactions: [UUID: ActiveCompaction] = [:]
     var activeReviews: [UUID: ActiveReview] = [:]
@@ -90,6 +91,7 @@ actor AppServerSession {
     var fuzzyFileSearchSessions: [String: AppServerFuzzyFileSearchSession] = [:]
     var nextServerRequestSequence: Int64 = 1
     var pendingApprovals: [AppServerRequestID: AppServerPendingApproval] = [:]
+    var pendingMCPElicitations: [AppServerRequestID: AppServerPendingMCPElicitation] = [:]
     var pendingAccountLogins: [String: AppServerPendingAccountLogin] = [:]
     var pendingMCPOAuthLogins: [UUID: AppServerPendingMCPOAuthLogin] = [:]
     var mcpStartupTasks: [UUID: Task<Void, Never>] = [:]
@@ -155,6 +157,9 @@ actor AppServerSession {
         case .notification(let method, let params):
             await handleNotification(method: method, params: params)
         case .response(let id, let result, let error):
+            if await resolveMCPElicitationResponse(id: id, result: result, error: error) {
+                return
+            }
             resolveApprovalResponse(id: id, result: result, error: error)
         }
     }
@@ -187,6 +192,7 @@ actor AppServerSession {
         cancelAllMCPServerStartups()
         await cancelAllFuzzyFileSearches()
         await terminateAllProcesses()
+        await resolveAllPendingMCPElicitations()
         await mcpRegistry.terminateAll()
         resolveAllPendingApprovals(
             with: .deny(reason: "The app-server client disconnected before answering the approval request.")
@@ -377,7 +383,19 @@ actor AppServerSession {
                     }
                     experimentalAPIEnabled = enabled
                 }
+                if let openAIForm = capabilityParams.object["mcpServerOpenaiFormElicitation"] {
+                    guard let enabled = openAIForm.boolValue else {
+                        throw AppServerRPCError.invalidParams(
+                            "capabilities.mcpServerOpenaiFormElicitation must be a boolean"
+                        )
+                    }
+                    mcpServerOpenAIFormElicitationEnabled = enabled
+                }
             }
+            await mcpRegistry.configure(clientCapabilities: .init(
+                supportsFormElicitation: true,
+                supportsOpenAIFormElicitation: mcpServerOpenAIFormElicitationEnabled
+            ))
             handshake = .awaitingInitialized
             await send(.response(id: id, result: .object([
                 "userAgent": .string("QuillCode/\(QuillCodeCommandRunner.version) (\(name); \(version))"),
@@ -446,7 +464,15 @@ actor AppServerSession {
             let mcpAdapter = try await MCPAgentRunnerAdapter.prepare(
                 registry: mcpRegistry,
                 scope: mcpContext.scope,
-                configurations: mcpContext.configurations
+                configurations: mcpContext.configurations,
+                elicitationHandler: { [weak self] serverName, request in
+                    guard let self else { return .cancel() }
+                    return await self.requestTurnMCPElicitation(
+                        serverName: serverName,
+                        request: request,
+                        threadID: record.thread.id
+                    )
+                }
             )
             runner = mcpAdapter.configure(runner)
             mcpRoutes = mcpAdapter.routesByModelName

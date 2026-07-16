@@ -140,6 +140,13 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - macOS Computer Use permission detection, permission-denied behavior, screenshot capture, and input primitives; Linux helper-backed screenshot/input routing and failure handling.
 - Worktree creation plus selected-project/thread handoff; managed worktree detached-HEAD creation under the default or configured app-owned root; staged/unstaged index preservation; bounded untracked and `.worktreeinclude` transfer; automatic ignored `AGENTS.override.md`; symlink skipping; overwrite rejection and rollback; Local/Worktree round trips that preserve staged, unstaged, and nonignored untracked state; exact preexisting destination-snapshot acceptance; committed-history Handoff in both directions; multiple-commit and history-only fast-forwards; destination-branch preservation; history rollback; dirty, ahead, and diverged destination refusal without mutation; ignored-file retention; **Create branch here** against a real detached Git worktree; unsafe/existing-branch refusal without mutation; persisted branch/root ownership; Create branch/Handoff availability transitions; agent/tool/terminal branch reconciliation; legacy location/root decoding; active-root and terminal-cwd switching; default recent-15 oldest-first cleanup; disabled/custom-limit settings; snapshot-before-removal; pinned/selected/running/Local/named-branch protection; cleanup re-enforcement after selection and run transitions; settings persistence; Playwright settings interaction; local env actions; MCP stdio server lifecycle; MCP readiness probes; and MCP tool routing through advertised `tools/call` allowlists.
 - Real and fixture-backed MCP progress interleaving over Content-Length stdio, per-request Streamable HTTP SSE, and shared legacy HTTP+SSE, including exact metadata on the wire, progress-before-result ordering, unrelated/stale notification rejection, cancellation, and final structured result preservation.
+- MCP server-initiated elicitation over Content-Length stdio, per-request Streamable HTTP, shared
+  legacy HTTP+SSE, fake app-server sessions, and the real JSONL app-server process. Cover standard
+  typed form validation, rich-form capability negotiation, URL fields, string/integer request IDs,
+  metadata sanitization and round trip, accept/decline/cancel, malformed requests and client
+  responses, deadlines, direct calls with null turns, agent calls with exact turns, interruption and
+  disconnect cancellation, `serverRequest/resolved` ordering, and continued stdin response handling
+  while the originating direct tool request remains open.
 
 ## Playwright E2E
 
