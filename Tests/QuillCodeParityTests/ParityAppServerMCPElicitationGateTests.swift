@@ -5,7 +5,10 @@ final class ParityAppServerMCPElicitationGateTests: QuillCodeParityTestCase {
         let root = Self.packageRoot()
         let contract = try text(root, "Sources/QuillCodeTools/MCPClientElicitation.swift")
         let schema = try text(root, "Sources/QuillCodeTools/MCPFormElicitationSchemaValidator.swift")
-        let stdio = try text(root, "Sources/QuillCodeTools/MCPStdioProber.swift")
+        let stdio = try [
+            text(root, "Sources/QuillCodeTools/MCPStdioProber.swift"),
+            text(root, "Sources/QuillCodeTools/MCPStdioProberEvents.swift")
+        ].joined(separator: "\n")
         let streamableHTTP = try text(root, "Sources/QuillCodeTools/MCPHTTPProberStreamableHTTP.swift")
         let legacyHTTP = try text(root, "Sources/QuillCodeTools/MCPHTTPProberHTTPSSE.swift")
         let appServer = try text(root, "Sources/QuillCodeCLI/AppServerMCPElicitation.swift")
