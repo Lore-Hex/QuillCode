@@ -19,6 +19,10 @@
   emits one non-steerable `contextCompaction` turn, persists progress transactionally,
   runs the normal compact hooks, and remains interruptible without mutating history
   after cancellation.
+- App-server `thread/rollback` now mirrors Codex's history-only contract. Stable persisted turn and
+  client-message identities keep steering grouped across relaunch, explicit names remain distinct
+  from generated desktop titles, active turns/compactions exclude rollback, and atomic persistence
+  never pretends to reverse workspace or account side effects.
 - `quill-code doctor` now provides the Codex-compatible support surface across installation, runtime,
   config, auth, Git, terminal, MCP, sandbox, state/task inventory, TrustedRouter reachability, and
   app-server checks. Collection is bounded and read-only, JSON is stable and redacted, and focused plus

@@ -23,7 +23,8 @@ extension AppServerSession {
             threadID: threadID,
             attachmentStore: attachmentStore
         )
-        let userMessage = input.message()
+        let turnID = UUID().uuidString.lowercased()
+        let userMessage = input.message(turnID: turnID)
         appendUserMessage(userMessage, to: &record.thread)
         do {
             try await repository.save(record)
@@ -32,7 +33,6 @@ extension AppServerSession {
             throw error
         }
 
-        let turnID = UUID().uuidString.lowercased()
         let userItem = AppServerThreadProjection.userMessageItem(
             userMessage,
             clientID: input.clientUserMessageID
@@ -176,7 +176,7 @@ extension AppServerSession {
                 }
 
                 let next = latest.queuedSteering.removeFirst()
-                let message = next.message()
+                let message = next.message(turnID: latest.id)
                 appendUserMessage(message, to: &latest.latestThread)
                 latest.currentInput = next
                 latest.currentUserMessage = message

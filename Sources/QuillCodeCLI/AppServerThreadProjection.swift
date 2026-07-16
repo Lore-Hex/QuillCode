@@ -31,7 +31,7 @@ enum AppServerThreadProjection {
             "agentNickname": .null,
             "agentRole": .null,
             "gitInfo": .null,
-            "name": value.title == "New chat" ? .null : .string(value.title),
+            "name": record.settings.name.map(CLIJSONValue.string) ?? .null,
             "turns": includeTurns ? .array(turns(value)) : .array([])
         ])
     }
@@ -101,7 +101,7 @@ enum AppServerThreadProjection {
         return .object([
             "type": .string("userMessage"),
             "id": .string(identifier(message.id)),
-            "clientId": clientID.map(CLIJSONValue.string) ?? .null,
+            "clientId": (clientID ?? message.clientMessageID).map(CLIJSONValue.string) ?? .null,
             "content": .array(content)
         ])
     }
@@ -126,29 +126,35 @@ enum AppServerThreadProjection {
 
     private static func turns(_ thread: ChatThread) -> [CLIJSONValue] {
         var result: [CLIJSONValue] = []
-        var currentUser: ChatMessage?
+        var currentTurnID: String?
+        var currentStartedAt: Date?
         var currentItems: [CLIJSONValue] = []
         var latestMessageDate: Date?
 
         func appendCurrent() {
-            guard let user = currentUser else { return }
-            let completedAt = latestMessageDate ?? user.createdAt
+            guard let turnID = currentTurnID, let startedAt = currentStartedAt else { return }
+            let completedAt = latestMessageDate ?? startedAt
             result.append(turn(
-                id: turnIdentifier(user.id),
+                id: turnID,
                 items: currentItems,
                 status: "completed",
-                startedAt: user.createdAt,
+                startedAt: startedAt,
                 completedAt: completedAt
             ))
         }
 
         for message in thread.messages where message.role == .user || message.role == .assistant {
             if message.role == .user {
-                appendCurrent()
-                currentUser = message
-                currentItems = [userMessageItem(message)]
+                let turnID = message.turnID ?? turnIdentifier(message.id)
+                if currentTurnID != turnID {
+                    appendCurrent()
+                    currentTurnID = turnID
+                    currentStartedAt = message.createdAt
+                    currentItems = []
+                }
+                currentItems.append(userMessageItem(message))
                 latestMessageDate = message.createdAt
-            } else if currentUser != nil {
+            } else if currentTurnID != nil {
                 currentItems.append(assistantMessageItem(message))
                 latestMessageDate = message.createdAt
             }

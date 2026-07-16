@@ -12,6 +12,7 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
     var forkedFromID: UUID?
     var runtimeAppConfig: AppConfig?
     var compactPrompt: String?
+    var name: String?
 
     init(
         cwd: URL,
@@ -22,7 +23,8 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         sessionID: UUID? = nil,
         forkedFromID: UUID? = nil,
         runtimeAppConfig: AppConfig? = nil,
-        compactPrompt: String? = nil
+        compactPrompt: String? = nil,
+        name: String? = nil
     ) {
         self.cwd = cwd.standardizedFileURL
         self.ephemeral = ephemeral
@@ -33,6 +35,7 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         self.forkedFromID = forkedFromID
         self.runtimeAppConfig = runtimeAppConfig
         self.compactPrompt = compactPrompt
+        self.name = name
     }
 }
 
@@ -64,6 +67,17 @@ actor AppServerThreadRepository {
 
     func save(_ record: AppServerThreadRecord) throws {
         try create(record)
+    }
+
+    /// Saves a history-only mutation without rewriting unchanged app-server metadata. This keeps
+    /// rollback to one atomic thread-file replacement and avoids a partial two-file transaction.
+    func saveThread(_ thread: ChatThread) throws {
+        if var record = ephemeral[thread.id] {
+            record.thread = thread
+            ephemeral[thread.id] = record
+        } else {
+            try threadStore.save(thread)
+        }
     }
 
     func load(_ id: UUID) throws -> AppServerThreadRecord {

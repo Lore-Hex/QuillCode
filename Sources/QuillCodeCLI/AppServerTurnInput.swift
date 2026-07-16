@@ -81,8 +81,14 @@ struct AppServerTurnInput: Sendable {
         self.clientUserMessageID = try params.optionalString("clientUserMessageId")
     }
 
-    func message() -> ChatMessage {
-        ChatMessage(role: .user, content: text, attachments: attachments)
+    func message(turnID: String) -> ChatMessage {
+        ChatMessage(
+            role: .user,
+            content: text,
+            attachments: attachments,
+            turnID: turnID,
+            clientMessageID: clientUserMessageID
+        )
     }
 
     private static func requireImageCapacity(_ count: Int) throws {
