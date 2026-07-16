@@ -60,8 +60,10 @@ struct QuillCodeComposerView: View {
 
             composerSurface
         }
-        .padding(12)
-        .background(QuillCodePalette.panel)
+        .padding(.horizontal, 12)
+        .padding(.top, 12)
+        .padding(.bottom, 14)
+        .background(QuillCodePalette.background)
         .onChange(of: draft) { _, newValue in
             activeSlashSuggestionIndex = 0
             activeModelCommandIndex = 0
@@ -137,15 +139,27 @@ struct QuillCodeComposerView: View {
 
             composerAccessoryBar
         }
-        .padding(8)
-        .background(QuillCodePalette.background.opacity(0.72))
+        .padding(10)
+        .background(QuillCodePalette.panel2)
         .overlay(
             RoundedRectangle(cornerRadius: QuillCodeMetrics.composerSurfaceRadius, style: .continuous)
                 .stroke(composerSurfaceStroke, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerSurfaceRadius, style: .continuous))
+        // A soft cyan focus glow, matching the harness's box-shadow ring on .composer-surface:focus-within.
+        .shadow(color: QuillCodePalette.blue.opacity(isComposerFocusRingActive ? 0.22 : 0), radius: 5)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Message composer")
+    }
+
+    /// The composer draws a cyan ring while the user is focused in it or a suggestion popover is open —
+    /// the two states that mean "this input is live". Mirrors .composer-surface:focus-within in the harness.
+    private var isComposerFocusRingActive: Bool {
+        isFocused.wrappedValue
+            || !modelCommandSuggestions.isEmpty
+            || modelCommandEmptyCopy != nil
+            || !slashSuggestions.isEmpty
+            || !fileMentionSuggestions.isEmpty
     }
 
     private var composerSurfaceStroke: Color {
@@ -153,9 +167,9 @@ struct QuillCodeComposerView: View {
             || modelCommandEmptyCopy != nil
             || !slashSuggestions.isEmpty
             || !fileMentionSuggestions.isEmpty {
-            return QuillCodePalette.blue.opacity(0.34)
+            return QuillCodePalette.blue.opacity(0.55)
         }
-        return Color.white.opacity(isFocused.wrappedValue ? 0.18 : 0.08)
+        return isFocused.wrappedValue ? QuillCodePalette.blue : QuillCodePalette.line
     }
 
     /// Catalog model suggestions for the `/model ` sub-search. Takes precedence over the general
@@ -228,6 +242,15 @@ struct QuillCodeComposerView: View {
             )
 
             Spacer(minLength: 8)
+
+            // Resolve the multiline field's Return-vs-newline ambiguity right where the eye lands after
+            // typing. Mirrors the suggestion popovers' own keyboard-hint idiom.
+            Text(composer.isSending ? "esc  stop" : "⏎ send   ⇧⏎ newline")
+                .font(.caption2)
+                .foregroundStyle(QuillCodePalette.faint)
+                .lineLimit(1)
+                .fixedSize()
+                .accessibilityHidden(true)
         }
         .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
         .accessibilityElement(children: .contain)

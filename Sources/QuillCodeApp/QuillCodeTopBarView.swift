@@ -33,7 +33,7 @@ struct QuillCodeTopBarView: View {
                     .accessibilityHidden(true)
             }
         }
-        .background(QuillCodePalette.background)
+        .background(QuillCodePalette.sidebar)
         .help(topBar.topBarHelpText)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(topBar.topBarAccessibilityLabel)

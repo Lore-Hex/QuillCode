@@ -113,3 +113,33 @@ struct QuillCodeTranscriptNewTurnsPill: View {
         .accessibilityHint("Scroll to the first new message")
     }
 }
+
+/// The floating "Jump to latest" chip shown while the reader has scrolled up during a live run, so
+/// streaming does not yank them down. Tapping it re-pins to the bottom. Mirrors the New-Turns pill's
+/// capsule chrome, but lives in a `.overlay(alignment: .bottom)` so it floats just above the composer
+/// and never collides with the top-aligned New-Turns pill.
+struct QuillCodeTranscriptJumpToLatestChip: View {
+    var onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.caption.weight(.bold))
+                Text("Jump to latest")
+                    .font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(Color.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(QuillCodePalette.blue)
+            .clipShape(Capsule())
+            .shadow(color: Color.black.opacity(0.25), radius: 8, y: 3)
+            .quillCodeCapsuleButtonTarget(minWidth: 120, alignment: .center)
+        }
+        .buttonStyle(QuillCodePressableButtonStyle())
+        .accessibilityIdentifier("quillcode-transcript-jump-to-latest")
+        .accessibilityLabel("Jump to latest")
+        .accessibilityHint("Scroll to the latest message")
+    }
+}

@@ -76,7 +76,7 @@ enum WorkspaceHTMLTopBarRenderer {
         return """
         <section class="topbar-token-budget" data-testid="top-bar-token-budget" data-tone="\(escape(tokenBudgetTone(budget)))" title="\(escape(budget.accessibilityLabel))" aria-label="\(escape(budget.accessibilityLabel))">
           <div class="topbar-token-budget-row">
-            <span class="topbar-token-budget-label">Tokens</span>
+            <span class="topbar-token-budget-label">Context</span>
             <strong data-testid="top-bar-token-budget-primary">\(escape(budget.primaryLabel))</strong>
           </div>
           <div class="topbar-token-budget-meter" aria-hidden="true">

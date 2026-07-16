@@ -72,6 +72,43 @@ enum WorkspaceToolDisplayNameBuilder {
         ToolDefinition.subagentsUpdate.name
     ]
 
+    /// The crisp transcript title for a tool CARD — a short imperative verb ("Read", "Edit", "Run") the
+    /// way Codex/Claude-Code label tool rows, with the target in the subtitle ("Read · main.py"). This
+    /// is a SEPARATE method from `displayName` on purpose: `displayName` returns the NOUN form ("Shell
+    /// command") that is composed into embedded grammar elsewhere — "Running Shell command" (top-bar
+    /// live work) and "approve Shell command to continue" (run notifications) — where a bare verb would
+    /// read "Running Run". Tense-neutral (not "Ran"/"Wrote") so the verb also reads correctly in the
+    /// card's accessibility label beside a non-done status ("Run, ready to run" — not "Ran, ready to
+    /// run"). The long tail falls through to `displayName` so no awkward verb is ever invented.
+    static func cardTitle(for toolName: String) -> String {
+        switch toolName {
+        case ToolDefinition.shellRun.name:
+            return "Run"
+        case ToolDefinition.fileRead.name:
+            return "Read"
+        case ToolDefinition.fileWrite.name:
+            return "Write"
+        case ToolDefinition.fileList.name:
+            return "List"
+        case ToolDefinition.fileSearch.name:
+            return "Search"
+        case ToolDefinition.applyPatch.name:
+            return "Edit"
+        case ToolDefinition.gitCommit.name:
+            return "Commit"
+        case ToolDefinition.gitPush.name:
+            return "Push"
+        case ToolDefinition.webSearch.name:
+            return "Search web"
+        case ToolDefinition.webFetch.name:
+            return "Fetch"
+        case ToolDefinition.memoryRemember.name:
+            return "Remember"
+        default:
+            return displayName(for: toolName)
+        }
+    }
+
     static func displayName(for toolName: String) -> String {
         switch toolName {
         case ToolDefinition.shellRun.name:

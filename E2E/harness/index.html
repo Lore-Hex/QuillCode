@@ -7,29 +7,39 @@
   <style>
     :root {
       color-scheme: dark;
-      --bg: #171717;
-      --panel: #212121;
-      --panel-2: #2f2f2f;
-      --line: #3d3d3d;
-      --text: #ececec;
-      --muted: #9b9b9b;
-      --blue: #3dc9e6;
-      --green: #3fb96b;
-      --red: #f0574c;
-      --yellow: #d9a441;
-      --purple: #c07cf5;
-      --radius-control: 7px;
-      --radius-card: 10px;
+      /* Refined dark ramp (Codex/Fable): a cool near-black base with clearly STEPPED elevation so the
+         sidebar, content, and cards read as distinct planes — not one flat murk — with hairlines that
+         are actually visible. Interactive accent stays cyan; agent = purple; add/remove = green/red. */
+      --bg: #0f1012;          /* app background — deepest plane */
+      --sidebar: #141518;     /* rail — a hair above bg */
+      --panel: #191b1f;       /* main content surface */
+      --panel-2: #212429;     /* elevated: cards, inputs, hover */
+      --panel-3: #2a2e34;     /* highest: nested chips, code blocks */
+      --line: #2b2f36;        /* hairline border, visible on panel */
+      --line-strong: #3a3f47; /* emphasized border (focus-adjacent, dividers) */
+      --text: #eceef0;        /* primary text */
+      --muted: #9aa1ab;       /* secondary text — cooler, higher contrast than before */
+      --faint: #6a7078;       /* tertiary / disabled */
+      --blue: #45c8e6;        /* cyan interactive accent */
+      --blue-soft: rgba(69, 200, 230, 0.13);
+      --user-bubble: #3a6f88;         /* own-message bubble: soft muted teal (not a gradient) */
+      --user-bubble-border: #5691a8;
+      --green: #46c07a;
+      --red: #ef5b52;
+      --yellow: #e0aa4d;
+      --purple: #c48af6;
+      --radius-control: 8px;
+      --radius-card: 12px;
       --ease-out: cubic-bezier(0.2, 0, 0, 1);
-      --shadow-border: 0 0 0 1px rgba(255, 255, 255, 0.08);
-      --shadow-border-hover: 0 0 0 1px rgba(255, 255, 255, 0.13);
-      --shadow-panel: 0 0 0 1px rgba(255,255,255,.09), 0 18px 54px rgba(0,0,0,.30);
-      --shadow-surface-hover: 0 0 0 1px rgba(255,255,255,.14), 0 12px 30px rgba(0,0,0,.18);
+      --shadow-border: 0 0 0 1px var(--line);
+      --shadow-border-hover: 0 0 0 1px var(--line-strong);
+      --shadow-panel: 0 0 0 1px var(--line), 0 20px 60px rgba(0,0,0,.42);
+      --shadow-surface-hover: 0 0 0 1px var(--line-strong), 0 14px 34px rgba(0,0,0,.30);
       --hit-target: 44px;
       --hit-target-clearance: 8px;
       --control-cluster-gap: 8px;
-      --workspace-sidebar-width: 296px;
-      --sidebar-visible-row-height: 26px;
+      --workspace-sidebar-width: 300px;
+      --sidebar-visible-row-height: 28px;
       --sidebar-visible-row-inset-y: 9px;
     }
     * { box-sizing: border-box; }
@@ -201,8 +211,8 @@
       gap: 8px;
       min-height: var(--hit-target);
       padding: 0 12px;
-      border-bottom: 1px solid rgba(255,255,255,.08);
-      background: linear-gradient(180deg, rgba(13, 19, 23, .98), rgba(9, 15, 18, .97));
+      border-bottom: 1px solid var(--line);
+      background: var(--sidebar);
     }
     .topbar-sidebar-slot {
       display: flex;
@@ -1339,15 +1349,16 @@
       min-height: 0;
     }
     .transcript {
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 10px;
-      background: rgba(33,33,33,.84);
+      border: none;
+      border-radius: var(--radius-card);
+      background: var(--panel);
       box-shadow: var(--shadow-border);
     }
     .sidebar {
       padding: 8px 16px 10px;
       overflow: auto;
-      border-right: 1px solid rgba(255,255,255,.07);
+      background: var(--sidebar);
+      border-right: 1px solid var(--line);
       display: flex;
       flex-direction: column;
     }
@@ -3196,13 +3207,47 @@
     }
     .message, .tool-card, .review-pane, .context-banner, .runtime-issue, .thinking {
       max-width: min(760px, 88%);
-      padding: 13px 15px;
-      border-radius: 10px;
-      line-height: 1.42;
+      padding: 12px 15px;
+      border-radius: var(--radius-card);
+      line-height: 1.5;
       box-shadow: var(--shadow-border);
     }
-    .message.user { align-self: flex-end; background: linear-gradient(135deg, #45bdec, #d16c5f); }
-    .message.assistant { align-self: flex-start; background: rgba(255,255,255,.1); }
+    /* Own message: a calm, on-brand accent-tinted bubble (not the old blue→salmon gradient), so
+       "mine vs the agent's" reads at a glance without shouting. Agent replies sit on a clean neutral
+       elevated surface. */
+    .message.user {
+      align-self: flex-end;
+      background: var(--user-bubble);
+      box-shadow: 0 0 0 1px var(--user-bubble-border);
+    }
+    /* Run-integrity stamp on a final answer the scanner could not vouch for. Mirrors
+       QuillCodeMessageIntegrityBadge in the native transcript. */
+    .message-integrity-badge {
+      display: inline-block;
+      margin-bottom: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      cursor: help;
+    }
+    .message-integrity-badge.unverified {
+      color: var(--yellow);
+      background: rgba(224, 170, 77, 0.14);
+      box-shadow: inset 0 0 0 1px rgba(224, 170, 77, 0.36);
+    }
+    .message-integrity-badge.red {
+      color: var(--red);
+      background: rgba(239, 91, 82, 0.14);
+      box-shadow: inset 0 0 0 1px rgba(239, 91, 82, 0.36);
+    }
+    .message-integrity-badge.verified {
+      color: var(--green);
+      background: rgba(70, 192, 122, 0.14);
+      box-shadow: inset 0 0 0 1px rgba(70, 192, 122, 0.36);
+    }
+    .message.assistant { align-self: flex-start; background: var(--panel-2); }
     .message { white-space: normal; }
     .thinking {
       align-self: flex-start;
@@ -3288,9 +3333,9 @@
       align-self: flex-start;
       width: min(760px, 92%);
       min-height: 74px;
-      background: rgba(0,0,0,.22);
-      border: 1px solid rgba(255,255,255,.10);
-      box-shadow: 0 12px 34px rgba(0,0,0,.18);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      box-shadow: 0 1px 2px rgba(0,0,0,.28);
       transition-property: transform, box-shadow, border-color;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
@@ -3298,8 +3343,8 @@
       overflow: hidden;
     }
     .tool-card:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 16px 38px rgba(0,0,0,.22);
+      border-color: var(--line-strong);
+      box-shadow: 0 4px 14px rgba(0,0,0,.30);
     }
     .tool-card.failed { border-color: rgba(255,93,82,.44); }
     .tool-card.review { border-color: rgba(63,185,107,.32); }
@@ -3679,13 +3724,13 @@
       gap: 8px;
       min-height: var(--hit-target);
       padding: 0 12px;
-      border-radius: 10px;
+      border-radius: var(--radius-control);
       cursor: pointer;
-      color: #8fe2ff;
-      background: rgba(61,201,230,.045);
-      box-shadow: var(--shadow-border);
+      color: var(--blue);
+      background: var(--blue-soft);
+      box-shadow: inset 0 0 0 1px rgba(69, 200, 230, 0.18);
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 650;
       user-select: none;
       transition-property: transform, background-color, color, box-shadow;
       transition-duration: 150ms;
@@ -3698,8 +3743,8 @@
       content: "";
     }
     .tool-details summary:hover {
-      background: rgba(61,201,230,.075);
-      box-shadow: var(--shadow-border-hover);
+      background: rgba(69, 200, 230, 0.19);
+      box-shadow: inset 0 0 0 1px rgba(69, 200, 230, 0.30);
     }
     .tool-details-summary-chevron {
       display: inline-grid;
@@ -4410,17 +4455,17 @@
       text-align: center;
     }
     .empty h1 {
-      margin: 0 0 10px;
+      margin: 0 0 8px;
       color: var(--text);
-      font-size: 28px;
-      line-height: 1.15;
-      letter-spacing: 0;
-      font-weight: 750;
+      font-size: 21px;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+      font-weight: 600;
     }
     .empty p {
       margin: 0;
-      font-size: 14px;
-      line-height: 1.35;
+      font-size: 13.5px;
+      line-height: 1.5;
       text-wrap: pretty;
     }
     .empty-starters {
@@ -4438,11 +4483,11 @@
       justify-content: center;
       align-items: stretch;
       border: 0;
-      border-radius: 14px;
-      padding: 10px 12px;
+      border-radius: var(--radius-card);
+      padding: 11px 13px;
       color: var(--text);
       text-align: left;
-      background: rgba(25, 41, 48, 0.64);
+      background: var(--panel-2);
       box-shadow: var(--shadow-border);
       cursor: pointer;
       transition-property: transform, background-color, box-shadow;
@@ -4450,7 +4495,7 @@
       transition-timing-function: var(--ease-out);
     }
     .empty-starter:hover {
-      background: rgba(35, 58, 68, 0.78);
+      background: var(--panel-3);
       box-shadow: var(--shadow-border-hover);
     }
     .empty-starter:active {
@@ -4479,17 +4524,17 @@
     }
     .composer {
       align-self: end;
-      padding: 12px;
-      background: rgba(25,41,48,.78);
+      padding: 12px 12px 14px;
+      background: transparent;
     }
     .composer-surface {
       display: grid;
       gap: 8px;
-      padding: 8px;
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 12px;
-      background: rgba(0,0,0,.18);
-      transition-property: border-color;
+      padding: 10px 10px 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-card);
+      background: var(--panel-2);
+      transition-property: border-color, box-shadow;
       transition-duration: 150ms;
       transition-timing-function: var(--ease-out);
     }
@@ -4528,7 +4573,8 @@
     .composer-plan-progress[data-state="complete"] .plan-progress-fill { background: var(--green, #52d173); }
     .composer-plan-progress[data-state="idle"] .plan-progress-fill { background: var(--muted, rgba(155,155,155,1)); }
     .composer-surface:focus-within {
-      border-color: rgba(255,255,255,.18);
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px var(--blue-soft);
     }
     .composer-followup-queue {
       display: flex;
@@ -6260,7 +6306,7 @@
       return `
         <section class="topbar-token-budget" data-testid="top-bar-token-budget" data-tone="${escapeHTML(tone)}" title="${escapeHTML(detailLabel)}" aria-label="${escapeHTML(detailLabel)}">
           <div class="topbar-token-budget-row">
-            <span class="topbar-token-budget-label">Tokens</span>
+            <span class="topbar-token-budget-label">Context</span>
             <strong data-testid="top-bar-token-budget-primary">${escapeHTML(budget.primaryLabel || '')}</strong>
           </div>
           <div class="topbar-token-budget-meter" aria-hidden="true">
@@ -9837,8 +9883,14 @@
         <div class="message-attachments" data-testid="message-attachments" aria-label="Attached images">
           ${(message.attachments || []).map(attachment => `<img data-testid="message-attachment" src="${escapeHTML(attachment.dataURL)}" alt="${escapeHTML(attachment.name)}">`).join('')}
         </div>` : '';
+      // Run-integrity stamp on a final answer the scanner could not vouch for (UNVERIFIED/RED);
+      // the scanner's one-line reason is the tooltip. Mirrors QuillCodeMessageIntegrityBadge.
+      const renderMessageIntegrityBadge = message => message && message.integrity
+        ? `<span class="message-integrity-badge ${escapeHTML(message.integrity.verdict)}" data-testid="message-integrity-badge" data-verdict="${escapeHTML(message.integrity.verdict)}" title="${escapeHTML(message.integrity.summary || '')}" aria-label="Run integrity: ${escapeHTML(message.integrity.badgeLabel || message.integrity.verdict.toUpperCase())}">${escapeHTML(message.integrity.badgeLabel || message.integrity.verdict.toUpperCase())}</span>`
+        : '';
       const renderMessage = (message, timelineID = '') => `
         <article class="message ${escapeHTML(message.role)}${activeClass(timelineID)}" data-testid="message" data-timeline-id="${escapeHTML(timelineID)}" aria-label="${escapeHTML(message.role + ': ' + message.text + ((message.attachments || []).length ? ` ${(message.attachments || []).length} attached images` : ''))}">
+          ${renderMessageIntegrityBadge(message)}
           ${renderMessageAttachments(message)}
           ${message.text ? `<p>${escapeHTML(message.text)}</p>` : ''}
           ${copyButton('message-copy', timelineID || message.id || `message-${message.text}`, 'Copy', draftButton(message) + revertButton(message) + retryButton(message))}
@@ -20967,7 +21019,7 @@
         state.runtimeIssue = makeRuntimeIssue({
           severity: 'warning',
           title: 'Model response was malformed',
-          message: "The selected model did not follow QuillCode's action schema. Try Nike 1.0, Socrates 1.0, or another coding model.",
+          message: "Nike 1.0 did not follow QuillCode's action schema. Try Socrates 1.0, or another coding model.",
           actionLabel: 'Switch model'
         }, 'Expected valid QuillCode action JSON but received an empty argument object.');
       } else if (/^\/status\b/i.test(text)) {

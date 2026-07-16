@@ -42,6 +42,17 @@ struct QuillCodeTranscriptView: View {
     @StateObject private var newTurnsStore = QuillCodeTranscriptNewTurnsStore()
     /// Which anchor jump is currently pending, so the scroll handler can target it once.
     @State private var pendingJumpAnchorID: String?
+    /// Streaming autoscroll only pins to the bottom when the reader is already there; otherwise a
+    /// "Jump to latest" chip floats rather than yanking them down. `isPinnedToBottom` is derived from
+    /// the gap between a 1pt bottom sentinel and the viewport bottom, both measured through a named
+    /// coordinate space (GeometryReader + non-@Sendable `.onChange` — the macOS 14 floor rules out
+    /// `.onScrollGeometryChange`, and swift-tools 6.0's @Sendable rule rules out `.onPreferenceChange`).
+    @State private var isPinnedToBottom = true
+    @State private var viewportHeight: CGFloat = 0
+    @State private var bottomSentinelMaxY: CGFloat = 0
+    private let bottomPinThreshold: CGFloat = 60
+    private static let transcriptScrollSpace = "quillcode.transcript.scroll"
+    private static let bottomSentinelID = "quillcode.transcript.bottom-sentinel"
 
     private var findMatches: [QuillCodeTranscriptFindMatch] {
         QuillCodeTranscriptFindMatch.matches(in: transcript, query: findQuery)
@@ -74,6 +85,11 @@ struct QuillCodeTranscriptView: View {
 
     private var scrollAnchorID: String? {
         transcript.thinking?.id ?? transcript.timelineItems.last?.id
+    }
+
+    /// Re-pins the follow-scroll per streamed chunk (see ``TranscriptScrollFollow/contentSignature``).
+    private var scrollContentSignature: String {
+        TranscriptScrollFollow.contentSignature(for: transcript)
     }
 
     var body: some View {
@@ -161,19 +177,40 @@ struct QuillCodeTranscriptView: View {
                                 QuillCodeThinkingView(thinking: thinking)
                                     .id(thinking.id)
                             }
+                            bottomSentinel
                         }
                         .frame(maxWidth: .infinity)
                         .padding(22)
                     }
-                    .defaultScrollAnchor(.bottom)
+                    .coordinateSpace(.named(Self.transcriptScrollSpace))
+                    .background(
+                        GeometryReader { geometry in
+                            Color.clear
+                                .onChange(of: geometry.size.height, initial: true) { _, height in
+                                    viewportHeight = height
+                                    recomputePinned()
+                                }
+                        }
+                    )
+                    .quillCodeInitialBottomAnchor()
                     .overlay(alignment: .top) {
                         newTurnsPillOverlay(proxy)
+                    }
+                    .overlay(alignment: .bottom) {
+                        jumpToLatestOverlay(proxy)
                     }
                     .onAppear {
                         scrollForReviewVisibility(review.isVisible, proxy: proxy)
                     }
-                    .onChange(of: scrollAnchorID) { _, id in
-                        scrollToTranscriptEnd(proxy, id: id)
+                    .onChange(of: threadID) { _, _ in
+                        // A different thread opens at ITS latest turn, never inheriting the previous
+                        // thread's scroll-pin (codex review): otherwise switching away from a
+                        // scrolled-up thread strands the new one at the top behind a Jump chip.
+                        isPinnedToBottom = true
+                        scrollForReviewVisibility(review.isVisible, proxy: proxy)
+                    }
+                    .onChange(of: scrollContentSignature) { _, _ in
+                        scrollToTranscriptEnd(proxy, id: scrollAnchorID)
                     }
                     .onChange(of: activeFindIndex) { _, _ in
                         scrollToActiveFindMatch(proxy)
@@ -258,12 +295,14 @@ struct QuillCodeTranscriptView: View {
         VStack(spacing: 14) {
             Text(transcript.emptyTitle)
                 .font(.title3.weight(.semibold))
+                .tracking(-0.3)
                 .foregroundStyle(QuillCodePalette.text)
             Text(transcript.emptySubtitle)
                 .font(.callout)
+                .lineSpacing(3)
                 .foregroundStyle(QuillCodePalette.muted)
             starterActions
-                .padding(.top, 2)
+                .padding(.top, 4)
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: 620)
@@ -287,23 +326,23 @@ struct QuillCodeTranscriptView: View {
                             .lineLimit(2)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 11)
                     .quillCodeFullRowButtonTarget(
                         minHeight: 72,
                         alignment: .center,
-                        radius: 14
+                        radius: QuillCodeMetrics.messageBubbleRadius
                     )
                     .quillCodeSurface(
-                        fill: QuillCodePalette.panel.opacity(0.62),
-                        radius: 14,
-                        stroke: Color.white.opacity(0.08),
+                        fill: QuillCodePalette.panel2,
+                        radius: QuillCodeMetrics.messageBubbleRadius,
+                        stroke: QuillCodePalette.line,
                         shadow: false
                     )
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .accessibilityLabel(Text(action.title))
-                .accessibilityHint(Text("Runs \(action.prompt)"))
+                .accessibilityHint(Text("Inserts \(action.prompt)"))
             }
         }
         .frame(maxWidth: 620)
@@ -370,8 +409,12 @@ struct QuillCodeTranscriptView: View {
         }
     }
 
-    private func scrollToTranscriptEnd(_ proxy: ScrollViewProxy, id: String?) {
+    private func scrollToTranscriptEnd(_ proxy: ScrollViewProxy, id: String?, force: Bool = false) {
         guard let id, !isFindPresented, !review.isVisible else { return }
+        // Only follow the stream when the reader is already at the bottom; `force` lets first-open and
+        // the Jump-to-latest tap override. This is what stops a streamed chunk from yanking a
+        // scrolled-up reader back down.
+        guard force || isPinnedToBottom else { return }
         // NOTE: this deliberately does NOT mark the thread seen. Marking seen here (it fires on
         // appear and on every scroll-anchor change, including on return to a grown thread) would
         // advance the watermark before the pill could ever evaluate — the exact bug that made the
@@ -395,6 +438,52 @@ struct QuillCodeTranscriptView: View {
         }
     }
 
+    /// A zero-height marker at the very end of the transcript. Its position within the scroll
+    /// coordinate space, compared to the viewport height, is how we know whether the reader is at the
+    /// bottom (see ``recomputePinned``). LazyVStack won't lay it out while scrolled far up, which is
+    /// fine — `isPinnedToBottom` then correctly stays false until the reader scrolls back down.
+    private var bottomSentinel: some View {
+        Color.clear
+            .frame(height: 1)
+            .id(Self.bottomSentinelID)
+            .background(
+                GeometryReader { geometry in
+                    Color.clear
+                        .onChange(
+                            of: geometry.frame(in: .named(Self.transcriptScrollSpace)).maxY,
+                            initial: true
+                        ) { _, maxY in
+                            bottomSentinelMaxY = maxY
+                            recomputePinned()
+                        }
+                }
+            )
+    }
+
+    private func recomputePinned() {
+        let pinned = TranscriptScrollFollow.isPinnedToBottom(
+            bottomSentinelMaxY: bottomSentinelMaxY,
+            viewportHeight: viewportHeight,
+            threshold: bottomPinThreshold
+        )
+        guard pinned != isPinnedToBottom else { return }
+        quillCodeWithAnimation(.easeInOut(duration: 0.15), reduceMotion: reduceMotion) {
+            isPinnedToBottom = pinned
+        }
+    }
+
+    @ViewBuilder
+    private func jumpToLatestOverlay(_ proxy: ScrollViewProxy) -> some View {
+        if !isPinnedToBottom {
+            QuillCodeTranscriptJumpToLatestChip {
+                isPinnedToBottom = true
+                scrollToTranscriptEnd(proxy, id: scrollAnchorID, force: true)
+            }
+            .padding(.bottom, 12)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
     private var starterActionColumns: [GridItem] {
         [
             GridItem(
@@ -402,5 +491,20 @@ struct QuillCodeTranscriptView: View {
                 spacing: QuillCodeMetrics.controlClusterSpacing
             )
         ]
+    }
+}
+
+private extension View {
+    /// Scope the bottom anchor to the INITIAL offset only (macOS 15+); on the macOS 14 floor this is a
+    /// no-op and first-open bottom position comes from the forced `.onAppear` scroll. The plain
+    /// `.defaultScrollAnchor(.bottom)` re-pinned to the bottom on EVERY content-size change — one of
+    /// the two causes of the streaming yank the conditional-pin logic removes.
+    @ViewBuilder
+    func quillCodeInitialBottomAnchor() -> some View {
+        if #available(macOS 15.0, *) {
+            self.defaultScrollAnchor(.bottom, for: .initialOffset)
+        } else {
+            self
+        }
     }
 }

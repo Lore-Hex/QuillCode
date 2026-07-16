@@ -109,6 +109,8 @@ struct QuillCodeComposerActionButton: View {
             .help("Stop the current run")
             .accessibilityIdentifier("quillcode-stop-button")
         } else {
+            // ⌘↵ always submits from anywhere in the composer, even if focus has drifted off the text
+            // field — a stable submit that doesn't depend on the multiline field's Return-vs-newline.
             Button(action: onSend) {
                 Image(systemName: "arrow.up")
                     .font(.headline.weight(.semibold))
@@ -122,7 +124,8 @@ struct QuillCodeComposerActionButton: View {
             .foregroundStyle(canSendDraft ? Color.white : QuillCodePalette.muted)
             .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
             .disabled(!canSendDraft)
-            .help("Send")
+            .keyboardShortcut(.return, modifiers: .command)
+            .help("Send  (⌘↵)")
             .accessibilityLabel("Send message")
             .accessibilityIdentifier("quillcode-send-button")
         }

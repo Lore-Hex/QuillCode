@@ -235,9 +235,12 @@ struct QuillCodeWorkspaceMainPaneView: View {
     }
 
     private func submitStarterAction(_ text: String) {
+        // Prefill + focus, don't auto-fire: an example prompt on a project the user hasn't described
+        // should be editable (tweak scope, switch mode, add an @file) before they press Return — the
+        // Codex/Claude-Code idiom. Auto-sending a canned prompt burns a turn with no chance to edit.
         draft = text
         DispatchQueue.main.async {
-            onSend()
+            isComposerFocused.wrappedValue = true
         }
     }
 
