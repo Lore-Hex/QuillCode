@@ -122,9 +122,31 @@ final class TranscriptScrollFollowTests: XCTestCase {
         XCTAssertTrue(scrollSample(current: true, maxY: 541, topMinY: -50, previous: -50))
     }
 
-    func testSubEpsilonOffsetJitterDoesNotUnpin() {
-        // 0.3pt of layout jitter must not be read as a scroll-up (epsilon 0.5).
-        XCTAssertTrue(scrollSample(current: true, maxY: 800, topMinY: -99.7, previous: -100))
+    func testSubEpsilonOffsetJitterDoesNotUnpinAndHoldsBaseline() {
+        // 0.3pt of layout jitter must not be read as a scroll-up (epsilon 0.5), and must NOT advance
+        // the baseline — otherwise a slow scroll delivered as tiny samples could never accumulate.
+        let o = outcome(current: true, maxY: 800, topMinY: -99.7, previous: -100)
+        XCTAssertTrue(o.pinned)
+        XCTAssertEqual(o.baseline, -100)
+    }
+
+    func testSlowScrollUpAccumulatesAcrossSubEpsilonSamplesToUnpin() {
+        // codex P2: a slow drag arrives as sub-epsilon samples. The baseline must NOT chase each one,
+        // so the cumulative move eventually crosses the epsilon and un-pins (rather than the reader
+        // being silently re-yanked by the next chunk).
+        let first = outcome(current: true, maxY: 800, topMinY: -99.7, previous: -100)   // +0.3 ignored
+        XCTAssertTrue(first.pinned)
+        XCTAssertEqual(first.baseline, -100)                                            // baseline held
+        let second = outcome(current: true, maxY: 800, topMinY: -99.4, previous: first.baseline)
+        XCTAssertFalse(second.pinned)                                                   // +0.6 from -100 un-pins
+        XCTAssertEqual(second.baseline, -99.4)                                          // now advances
+    }
+
+    func testDownwardMoveAdvancesBaselineWithoutUnpinning() {
+        // Scrolling toward the bottom (offset more negative) advances the baseline but never un-pins.
+        let o = outcome(current: true, maxY: 800, topMinY: -160, previous: -100)
+        XCTAssertTrue(o.pinned)
+        XCTAssertEqual(o.baseline, -160)
     }
 
     private func resolve(current: Bool, maxY: CGFloat, unpinBeyondThreshold: Bool) -> Bool {
@@ -138,13 +160,22 @@ final class TranscriptScrollFollowTests: XCTestCase {
     }
 
     private func scrollSample(current: Bool, maxY: CGFloat, topMinY: CGFloat, previous: CGFloat) -> Bool {
+        outcome(current: current, maxY: maxY, topMinY: topMinY, previous: previous).pinned
+    }
+
+    private func outcome(
+        current: Bool,
+        maxY: CGFloat,
+        topMinY: CGFloat,
+        previous: CGFloat
+    ) -> TranscriptScrollFollow.ScrollSampleOutcome {
         TranscriptScrollFollow.pinnedAfterScrollSample(
             current: current,
             bottomSentinelMaxY: maxY,
             viewportHeight: 480,
             threshold: 60,
             contentTopMinY: topMinY,
-            previousContentTopMinY: previous
+            previousBaseline: previous
         )
     }
 }
