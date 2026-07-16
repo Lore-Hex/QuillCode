@@ -320,6 +320,8 @@ actor AppServerSession {
             case "plugin/list": result = try listPlugins(params)
             case "plugin/installed": result = try listInstalledPlugins(params)
             case "plugin/read": result = try readPlugin(params)
+            case "plugin/install": result = try await installPlugin(params)
+            case "plugin/uninstall": result = try await uninstallPlugin(params)
             case "plugin/skill/read": result = try readRemotePluginSkill(params)
             case "skills/list": result = try listSkills(params)
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)

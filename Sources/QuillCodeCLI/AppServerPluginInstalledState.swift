@@ -16,6 +16,13 @@ enum AppServerInstalledPluginStateLoader {
         var result: [String: AppServerInstalledPluginState] = [:]
         var seenDirectories = Set<String>()
 
+        for package in CodexInstalledPluginStore.packages(in: home) {
+            result[package.pluginName] = AppServerInstalledPluginState(
+                version: package.metadata.version,
+                enabled: true
+            )
+        }
+
         for root in canonicalRoots(roots) {
             let directories = pluginDirectories(for: root, home: home)
             for directory in directories where seenDirectories.insert(directory.path).inserted {
