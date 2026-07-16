@@ -3,16 +3,70 @@ import QuillCodeCore
 
 enum AppServerThreadHistoryProjection {
     static func turns(_ record: AppServerThreadRecord) -> [CLIJSONValue] {
-        let slices = turnSlices(in: record.thread)
-        guard !slices.isEmpty else { return [] }
-
+        let userShellTurns = record.settings.userShellTurns ?? []
+        let standaloneShellTurnIDs = Set(userShellTurns.map(\.id))
+        let slices = turnSlices(
+            in: record.thread,
+            excludingTurnIDs: standaloneShellTurnIDs
+        )
         let eventSlices = turnEventSlices(thread: record.thread, turns: slices)
-        return zip(slices, eventSlices).map { slice, events in
-            projectedTurn(slice, events: events, record: record)
+        let conversationTurns = zip(slices, eventSlices).map { slice, events in
+            OrderedTurn(
+                id: slice.id,
+                value: projectedTurn(slice, events: events, record: record)
+            )
         }
+        let shellTurns = userShellTurns.map { turn in
+            OrderedTurn(
+                id: turn.id,
+                value: AppServerThreadProjection.turn(
+                    id: turn.id,
+                    items: [],
+                    status: "completed",
+                    startedAt: turn.startedAt,
+                    completedAt: turn.completedAt,
+                    itemsView: "full"
+                )
+            )
+        }
+        return orderedTurns(
+            conversation: conversationTurns,
+            userShell: shellTurns,
+            messages: record.thread.messages
+        )
     }
 
-    private static func turnSlices(in thread: ChatThread) -> [TurnSlice] {
+    private static func orderedTurns(
+        conversation: [OrderedTurn],
+        userShell: [OrderedTurn],
+        messages: [ChatMessage]
+    ) -> [CLIJSONValue] {
+        let conversationByID = Dictionary(uniqueKeysWithValues: conversation.map { ($0.id, $0) })
+        let shellByID = Dictionary(uniqueKeysWithValues: userShell.map { ($0.id, $0) })
+        var emitted: Set<String> = []
+        var result: [CLIJSONValue] = []
+
+        for message in messages {
+            let turnID = message.turnID ?? AppServerThreadProjection.turnIdentifier(message.id)
+            guard emitted.insert(turnID).inserted else { continue }
+            if let shell = shellByID[turnID] {
+                result.append(shell.value)
+            } else if message.role == .user, let turn = conversationByID[turnID] {
+                result.append(turn.value)
+            }
+        }
+
+        // Legacy or partially recovered records may have metadata without a transcript marker.
+        // Keep their original collection order rather than silently dropping visible history.
+        result.append(contentsOf: conversation.lazy.filter { emitted.insert($0.id).inserted }.map(\.value))
+        result.append(contentsOf: userShell.lazy.filter { emitted.insert($0.id).inserted }.map(\.value))
+        return result
+    }
+
+    private static func turnSlices(
+        in thread: ChatThread,
+        excludingTurnIDs: Set<String>
+    ) -> [TurnSlice] {
         var starts: [(index: Int, id: String)] = []
         for (index, message) in thread.messages.enumerated() where message.role == .user {
             let id = message.turnID ?? AppServerThreadProjection.turnIdentifier(message.id)
@@ -25,7 +79,10 @@ enum AppServerThreadHistoryProjection {
             let end = starts.indices.contains(offset + 1)
                 ? starts[offset + 1].index
                 : thread.messages.endIndex
-            let messages = Array(thread.messages[start.index..<end])
+            let messages = thread.messages[start.index..<end].filter { message in
+                guard let turnID = message.turnID else { return true }
+                return !excludingTurnIDs.contains(turnID)
+            }
             guard let firstUser = messages.first(where: { $0.role == .user }) else { return nil }
             return TurnSlice(
                 id: start.id,
@@ -151,4 +208,9 @@ private struct TurnSlice {
     let id: String
     let messages: [ChatMessage]
     let startedAt: Date
+}
+
+private struct OrderedTurn {
+    let id: String
+    let value: CLIJSONValue
 }

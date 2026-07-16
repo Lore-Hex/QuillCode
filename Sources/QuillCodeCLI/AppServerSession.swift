@@ -31,9 +31,38 @@ actor AppServerSession {
         var currentInput: AppServerTurnInput
         var currentUserMessage: ChatMessage
         var queuedSteering: [AppServerTurnInput]
+        var userShellMessages: [ChatMessage]
+        var consumedUserShellMessageCount: Int
         var persistenceFailure: String?
         var task: Task<Void, Never>?
         var projector: AppServerProgressProjector
+    }
+
+    struct UserShellLaunch: Sendable {
+        var threadID: UUID
+        var turnID: String
+        var itemID: String
+        var command: String
+        var cwd: URL
+        var shellExecutableURL: URL
+        var startsStandaloneTurn: Bool
+    }
+
+    struct ActiveUserShellTurn: Sendable {
+        var id: String
+        var startedAt: Date
+        var settings: AppServerThreadSettings
+        var latestThread: ChatThread
+        var pendingItemIDs: Set<String>
+        var lifecycleStarted: Bool
+        var interrupted: Bool
+        var persistenceFailure: String?
+    }
+
+    struct ActiveUserShellCommand: Sendable {
+        var launch: UserShellLaunch
+        var session: ShellStreamingSession?
+        var task: Task<Void, Never>?
     }
 
     struct ActiveCompaction: Sendable {
@@ -42,6 +71,7 @@ actor AppServerSession {
         var startedAt: Date
         var settings: AppServerThreadSettings
         var latestThread: ChatThread
+        var userShellMessages: [ChatMessage]
         var persistenceFailure: String?
         var runner: AgentRunner
         var task: Task<Void, Never>?
@@ -54,6 +84,7 @@ actor AppServerSession {
         var delivery: CodeReviewDelivery
         var settings: AppServerThreadSettings
         var latestThread: ChatThread
+        var userShellMessages: [ChatMessage]
         var userMessage: ChatMessage
         var baselineAssistantIDs: Set<UUID>
         var baselineEventIDs: Set<UUID>
@@ -84,6 +115,8 @@ actor AppServerSession {
     var activeCompactions: [UUID: ActiveCompaction] = [:]
     var activeReviews: [UUID: ActiveReview] = [:]
     var activeRollbacks: Set<UUID> = []
+    var activeUserShellTurns: [UUID: ActiveUserShellTurn] = [:]
+    var activeUserShellCommands: [String: ActiveUserShellCommand] = [:]
     var loadedThreadIDs: Set<UUID> = []
     var subscribedThreadIDs: Set<UUID> = []
     var outOfBandElicitationCounts: [UUID: UInt64] = [:]
@@ -171,6 +204,7 @@ actor AppServerSession {
         let tasks = activeTurns.values.compactMap(\.task)
             + activeCompactions.values.compactMap(\.task)
             + activeReviews.values.compactMap(\.task)
+            + activeUserShellCommands.values.compactMap(\.task)
         for task in tasks { await task.value }
         let fuzzyTasks = activeFuzzyFileSearches.values.map(\.task)
             + fuzzyFileSearchSessions.values.compactMap(\.queryTask)
@@ -184,6 +218,7 @@ actor AppServerSession {
             || activeCompactions[threadID] != nil
             || activeReviews[threadID] != nil
             || activeRollbacks.contains(threadID)
+            || activeUserShellTurns[threadID] != nil
     }
 
     func finishInput() async {
@@ -194,6 +229,7 @@ actor AppServerSession {
         cancelAllMCPServerOAuthLogins()
         cancelAllMCPServerStartups()
         await cancelAllFuzzyFileSearches()
+        cancelAllUserShellCommands()
         await terminateAllProcesses()
         await resolveAllPendingMCPElicitations()
         await mcpRegistry.terminateAll()
@@ -235,6 +271,7 @@ actor AppServerSession {
             var processToLaunch: String?
             var compactionToLaunch: UUID?
             var reviewToLaunch: UUID?
+            var userShellToLaunch: UserShellLaunch?
             var mcpStartupThreadToLaunch: UUID?
             var notificationsAfterResponse: [AppServerDeferredNotification] = []
             switch method {
@@ -311,6 +348,9 @@ actor AppServerSession {
             case "thread/turns/list": result = try await listThreadTurns(params)
             case "thread/turns/items/list":
                 throw AppServerRPCError.methodNotSupported(method)
+            case "thread/shellCommand":
+                userShellToLaunch = try await startUserShellCommand(params)
+                result = .object([:])
             case "thread/unsubscribe": result = try unsubscribeThread(params)
             case "thread/increment_elicitation": result = try await incrementThreadElicitation(params)
             case "thread/decrement_elicitation": result = try await decrementThreadElicitation(params)
@@ -360,6 +400,7 @@ actor AppServerSession {
             if let compactionToLaunch { launchThreadCompaction(compactionToLaunch) }
             if let turnToLaunch { launchTurn(turnToLaunch) }
             if let reviewToLaunch { launchReview(reviewToLaunch) }
+            if let userShellToLaunch { await launchUserShellCommand(userShellToLaunch) }
         } catch let error as AppServerRPCError {
             await send(.error(id: id, error: error))
         } catch {

@@ -33,6 +33,7 @@ extension AppServerSession {
             startedAt: Date(),
             settings: record.settings,
             latestThread: record.thread,
+            userShellMessages: [],
             persistenceFailure: nil,
             runner: configured.runner,
             task: nil
@@ -81,12 +82,28 @@ extension AppServerSession {
                 }
             )
             try Task.checkCancellation()
-            if let failure = activeCompactions[threadID]?.persistenceFailure {
+            guard var active = activeCompactions[threadID] else { return }
+            active.latestThread = mergingUserShellMessages(active.userShellMessages, into: thread)
+            activeCompactions[threadID] = active
+            try await repository.save(AppServerThreadRecord(
+                thread: active.latestThread,
+                settings: active.settings
+            ))
+            await waitForUserShellCommands(threadID: threadID, turnID: active.id)
+            try Task.checkCancellation()
+            guard let settled = activeCompactions[threadID] else { return }
+            if let failure = settled.persistenceFailure {
                 throw AppServerCompactionExecutionError.persistence(failure)
             }
-            try await repository.save(AppServerThreadRecord(thread: thread, settings: initial.settings))
-            await finishThreadCompaction(threadID, snapshot: thread, status: "completed", error: nil)
+            await finishThreadCompaction(
+                threadID,
+                snapshot: settled.latestThread,
+                status: "completed",
+                error: nil
+            )
         } catch is CancellationError {
+            cancelUserShellCommands(threadID: threadID, turnID: initial.id)
+            await waitForUserShellCommands(threadID: threadID, turnID: initial.id)
             let snapshot = activeCompactions[threadID]?.latestThread ?? initial.latestThread
             if let failure = activeCompactions[threadID]?.persistenceFailure {
                 await finishThreadCompaction(
@@ -104,6 +121,7 @@ extension AppServerSession {
                 )
             }
         } catch {
+            await waitForUserShellCommands(threadID: threadID, turnID: initial.id)
             let snapshot = activeCompactions[threadID]?.latestThread ?? initial.latestThread
             await finishThreadCompaction(
                 threadID,
@@ -116,10 +134,13 @@ extension AppServerSession {
 
     private func receiveCompactionProgress(threadID: UUID, snapshot: ChatThread) async {
         guard var active = activeCompactions[threadID] else { return }
-        active.latestThread = snapshot
+        active.latestThread = mergingUserShellMessages(active.userShellMessages, into: snapshot)
         activeCompactions[threadID] = active
         do {
-            try await repository.save(AppServerThreadRecord(thread: snapshot, settings: active.settings))
+            try await repository.save(AppServerThreadRecord(
+                thread: active.latestThread,
+                settings: active.settings
+            ))
         } catch {
             guard var failed = activeCompactions[threadID] else { return }
             failed.persistenceFailure = error.localizedDescription
@@ -135,6 +156,7 @@ extension AppServerSession {
         error: String?
     ) async {
         guard let active = activeCompactions.removeValue(forKey: threadID) else { return }
+        let snapshot = mergingUserShellMessages(active.userShellMessages, into: snapshot)
         let completedAt = Date()
         let item = contextCompactionItem(id: active.itemID)
         var completionStatus = status

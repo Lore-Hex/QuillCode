@@ -143,6 +143,109 @@ final class AppServerManualCompactionTests: XCTestCase {
         XCTAssertEqual(try store.load(threadUUID).messages, messagesBefore)
     }
 
+    func testUserShellCommandSharesActiveCompactionTurnAndSurvivesInterruption() async throws {
+        let summarizer = BlockingCompactionSummarizer()
+        let fixture = try await makeStartedFixture(compactor: ThreadCompactor(
+            keepRecentMessages: 2,
+            perMessageTokenFloor: 0,
+            summarizer: summarizer
+        ))
+        try await appendTurns(4, to: fixture)
+        let baseline = try await fixture.output.records().count
+
+        try await sendRequest(
+            id: 20,
+            method: "thread/compact/start",
+            params: ["threadId": fixture.threadID],
+            to: fixture.session
+        )
+        await summarizer.waitUntilStarted()
+        let activeRecords = Array(try await fixture.output.records().dropFirst(baseline))
+        let turnID = try XCTUnwrap(
+            try lifecycleParams(for: "turn/started", in: activeRecords)["turn"]?
+                .objectValue?["id"]?.stringValue
+        )
+
+        try await sendRequest(
+            id: 21,
+            method: "thread/shellCommand",
+            params: ["threadId": fixture.threadID, "command": "printf compaction-shell"],
+            to: fixture.session
+        )
+        let commandCompletion = try await waitForUserShellCompletion(
+            fixture: fixture,
+            after: baseline
+        )
+        XCTAssertEqual(commandCompletion["turnId"]?.stringValue, turnID)
+
+        try await sendRequest(
+            id: 22,
+            method: "turn/interrupt",
+            params: ["threadId": fixture.threadID, "turnId": turnID],
+            to: fixture.session
+        )
+        await fixture.session.waitForActiveTurns()
+
+        let records = Array(try await fixture.output.records().dropFirst(baseline))
+        XCTAssertEqual(result(for: 21, in: records), [:])
+        XCTAssertEqual(
+            try lifecycleParams(for: "turn/completed", in: records, takingLast: true)["turn"]?
+                .objectValue?["status"]?.stringValue,
+            "interrupted"
+        )
+        let stored = try threadStore(for: fixture).load(try XCTUnwrap(UUID(uuidString: fixture.threadID)))
+        XCTAssertTrue(stored.messages.contains {
+            $0.role == .tool && $0.content.contains("compaction-shell")
+        })
+    }
+
+    func testCompletedCompactionWaitsForAttachedUserShellCommand() async throws {
+        let summarizer = ControlledCompactionSummarizer()
+        let fixture = try await makeStartedFixture(compactor: ThreadCompactor(
+            keepRecentMessages: 2,
+            perMessageTokenFloor: 0,
+            summarizer: summarizer
+        ))
+        try await appendTurns(4, to: fixture)
+        let baseline = try await fixture.output.records().count
+
+        try await sendRequest(
+            id: 20,
+            method: "thread/compact/start",
+            params: ["threadId": fixture.threadID],
+            to: fixture.session
+        )
+        await summarizer.waitUntilStarted()
+        try await sendRequest(
+            id: 21,
+            method: "thread/shellCommand",
+            params: [
+                "threadId": fixture.threadID,
+                "command": "sleep 0.2; printf compaction-waited"
+            ],
+            to: fixture.session
+        )
+        await summarizer.release()
+        await fixture.session.waitForActiveTurns()
+
+        let records = Array(try await fixture.output.records().dropFirst(baseline))
+        let shellCompletionIndex = try XCTUnwrap(records.firstIndex { record in
+            record["method"]?.stringValue == "item/completed"
+                && record["params"]?.objectValue?["item"]?
+                    .objectValue?["source"]?.stringValue == "userShell"
+        })
+        let turnCompletionIndex = try XCTUnwrap(records.lastIndex {
+            $0["method"]?.stringValue == "turn/completed"
+        })
+        XCTAssertLessThan(shellCompletionIndex, turnCompletionIndex)
+        let stored = try threadStore(for: fixture).load(
+            try XCTUnwrap(UUID(uuidString: fixture.threadID))
+        )
+        XCTAssertTrue(stored.messages.contains {
+            $0.role == .tool && $0.content.contains("compaction-waited")
+        })
+    }
+
     func testReportsPersistenceFailureInsteadOfInterruption() async throws {
         let summarizer = ControlledCompactionSummarizer()
         let fixture = try await makeStartedFixture(compactor: ThreadCompactor(
@@ -287,6 +390,24 @@ final class AppServerManualCompactionTests: XCTestCase {
         return try XCTUnwrap(record?["params"]?.objectValue)
     }
 
+    private func waitForUserShellCompletion(
+        fixture: CompactionFixture,
+        after baseline: Int
+    ) async throws -> [String: CLIJSONValue] {
+        for _ in 0..<400 {
+            let records = Array(try await fixture.output.records().dropFirst(baseline))
+            if let params = records.first(where: { record in
+                record["method"]?.stringValue == "item/completed"
+                    && record["params"]?.objectValue?["item"]?
+                        .objectValue?["source"]?.stringValue == "userShell"
+            })?["params"]?.objectValue {
+                return params
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        throw CompactionTestError.missingUserShellCompletion
+    }
+
     private func threadStore(for fixture: CompactionFixture) -> JSONThreadStore {
         JSONThreadStore(directory: fixture.home.appendingPathComponent("threads"))
     }
@@ -340,6 +461,7 @@ private actor CompactionOutputCollector {
 
 private enum CompactionTestError: Error {
     case invalidRecord
+    case missingUserShellCompletion
 }
 
 private struct CompactionEchoLLM: LLMClient {

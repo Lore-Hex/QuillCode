@@ -1685,3 +1685,24 @@
   capability-gating, and malformed-response tests cover the typed boundaries. The real app-server
   smoke drives a framed child MCP request through the JSONL client response and verifies capability
   advertisement, metadata sanitization, resolved ordering, and the final accepted payload.
+
+## 2026-07-16: Direct user shell is a host escape hatch with hidden durable context
+
+- **Execution boundary:** `thread/shellCommand` bypasses model tool selection, approval, and thread
+  sandboxing because the connected user explicitly supplied the command. It still validates nonempty
+  input, uses only an executable absolute configured shell (falling back to `/bin/sh`), runs from the
+  durable thread cwd, caps retained output, and enforces the observed one-hour timeout.
+- **Lifecycle boundary:** The RPC response is emitted before work begins. Standalone requests own one
+  active turn, and overlapping standalone commands share it. Commands submitted during an ordinary
+  turn, review, or compaction reuse that turn. Every parent waits until attached commands finish;
+  interruption and EOF cancel and drain them before turn completion.
+- **Persistence boundary:** Shell output is durable model context, but direct command items are not
+  ordinary transcript history. Standalone turn metadata is stored separately and projected as an empty
+  turn for read/list/fork. Projection excludes its hidden tool message from adjacent conversation turns,
+  and rollback durably removes both metadata and hidden output in the same repository mutation.
+- **Reuse boundary:** Blocking and streaming shell execution accept the same selected-shell request.
+  Streaming accumulation retains only a bounded byte/line tail, so direct shell cannot create an
+  unbounded in-memory aggregate while still emitting live deltas.
+- **Evidence:** Focused tests cover selected shells, output caps, response ordering, concurrent commands,
+  model feedback, projection isolation, rollback, interruption, and slow-command overlap with ordinary,
+  review, and compaction turns. The built app-server JSONL smoke verifies the public process contract.

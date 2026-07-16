@@ -12,7 +12,7 @@ extension AppServerSession {
         if activeRollbacks.contains(threadID) {
             throw AppServerRPCError.invalidRequest("rollback already in progress for this thread")
         }
-        guard activeTurns[threadID] == nil, activeCompactions[threadID] == nil else {
+        guard !hasActiveOperation(for: threadID) else {
             throw AppServerRPCError.invalidRequest("Cannot rollback while a turn is in progress.")
         }
 
@@ -26,17 +26,34 @@ extension AppServerSession {
             throw AppServerRPCError.invalidRequest("thread not found: \(rawThreadID)")
         }
 
-        var thread = record.thread
-        ThreadHistoryRollback.apply(turnCount: turnCount, to: &thread)
+        var updated = record
+        let projectedTurns = AppServerThreadHistoryProjection.turns(record)
+        let selectedTurnIDs = Set(projectedTurns.suffix(Int(turnCount)).compactMap {
+            $0.objectValue?["id"]?.stringValue
+        })
+        let shellTurnIDs = Set((record.settings.userShellTurns ?? []).compactMap { turn in
+            selectedTurnIDs.contains(turn.id) ? turn.id : nil
+        })
+        let conversationTurnCount = selectedTurnIDs.count - shellTurnIDs.count
+        ThreadHistoryRollback.apply(
+            turnCount: UInt32(conversationTurnCount),
+            to: &updated.thread
+        )
+        if !shellTurnIDs.isEmpty {
+            updated.thread.messages.removeAll { message in
+                message.turnID.map(shellTurnIDs.contains) == true
+            }
+            updated.settings.userShellTurns?.removeAll { shellTurnIDs.contains($0.id) }
+            updated.thread.updatedAt = Date()
+        }
         do {
-            try await repository.saveThread(thread)
+            try await repository.save(updated)
         } catch {
             throw AppServerRPCError.internalError(
                 "failed to persist thread rollback: \(error.localizedDescription)"
             )
         }
 
-        let updated = AppServerThreadRecord(thread: thread, settings: record.settings)
         return .object([
             "thread": projectedThread(updated, includeTurns: true, isActive: false)
         ])

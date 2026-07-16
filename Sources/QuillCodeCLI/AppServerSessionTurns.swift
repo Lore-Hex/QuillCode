@@ -55,6 +55,8 @@ extension AppServerSession {
             currentInput: input,
             currentUserMessage: userMessage,
             queuedSteering: [],
+            userShellMessages: [],
+            consumedUserShellMessageCount: 0,
             persistenceFailure: nil,
             task: nil,
             projector: projector
@@ -103,13 +105,22 @@ extension AppServerSession {
                 throw AppServerRPCError.invalidParams("turnId does not match the active turn")
             }
             await cancelPendingMCPElicitations(threadID: threadID, turnID: active.id)
+            cancelUserShellCommands(threadID: threadID, turnID: active.id)
             active.task?.cancel()
+            return .object([:])
+        }
+        if let active = activeUserShellTurns[threadID] {
+            guard turnID == active.id else {
+                throw AppServerRPCError.invalidParams("turnId does not match the active turn")
+            }
+            cancelUserShellCommands(threadID: threadID, turnID: active.id)
             return .object([:])
         }
         if let active = activeCompactions[threadID] {
             guard turnID == active.id else {
                 throw AppServerRPCError.invalidParams("turnId does not match the active turn")
             }
+            cancelUserShellCommands(threadID: threadID, turnID: active.id)
             active.task?.cancel()
             return .object([:])
         }
@@ -117,6 +128,7 @@ extension AppServerSession {
             guard turnID == active.id else {
                 throw AppServerRPCError.invalidParams("turnId does not match the active turn")
             }
+            cancelUserShellCommands(threadID: threadID, turnID: active.id)
             active.task?.cancel()
             return .object([:])
         }
@@ -154,10 +166,16 @@ extension AppServerSession {
         do {
             while true {
                 try Task.checkCancellation()
-                guard let active = activeTurns[threadID] else { return }
+                guard var active = activeTurns[threadID] else { return }
                 if let failure = active.persistenceFailure {
                     throw AppServerTurnExecutionError.persistence(failure)
                 }
+                active.latestThread = mergingUserShellMessages(
+                    active.userShellMessages,
+                    into: active.latestThread
+                )
+                active.consumedUserShellMessageCount = active.userShellMessages.count
+                activeTurns[threadID] = active
                 let record = AppServerThreadRecord(thread: active.latestThread, settings: active.settings)
                 let configuredRunner = try await runner(for: record)
                 guard var configuredActive = activeTurns[threadID] else { return }
@@ -185,34 +203,60 @@ extension AppServerSession {
                 if let failure = latest.persistenceFailure {
                     throw AppServerTurnExecutionError.persistence(failure)
                 }
-                latest.latestThread = result.thread
-                activeTurns[threadID] = latest
-                try await repository.save(AppServerThreadRecord(thread: result.thread, settings: latest.settings))
-
-                guard !latest.queuedSteering.isEmpty else {
-                    await finishTurn(threadID, snapshot: result.thread, status: "completed", error: nil)
-                    return
-                }
-
-                let next = latest.queuedSteering.removeFirst()
-                let message = next.message(turnID: latest.id)
-                appendUserMessage(message, to: &latest.latestThread)
-                latest.currentInput = next
-                latest.currentUserMessage = message
-                latest.projector.addUserMessage(message, clientID: next.clientUserMessageID)
+                latest.latestThread = mergingUserShellMessages(
+                    latest.userShellMessages,
+                    into: result.thread
+                )
                 activeTurns[threadID] = latest
                 try await repository.save(AppServerThreadRecord(
                     thread: latest.latestThread,
                     settings: latest.settings
                 ))
+
+                await waitForUserShellCommands(threadID: threadID, turnID: latest.id)
+                try Task.checkCancellation()
+                guard let settled = activeTurns[threadID] else { return }
+                if let failure = settled.persistenceFailure {
+                    throw AppServerTurnExecutionError.persistence(failure)
+                }
+                if settled.userShellMessages.count > settled.consumedUserShellMessageCount {
+                    continue
+                }
+
+                guard !settled.queuedSteering.isEmpty else {
+                    await finishTurn(
+                        threadID,
+                        snapshot: settled.latestThread,
+                        status: "completed",
+                        error: nil
+                    )
+                    return
+                }
+
+                var steered = settled
+                let next = steered.queuedSteering.removeFirst()
+                let message = next.message(turnID: steered.id)
+                appendUserMessage(message, to: &steered.latestThread)
+                steered.currentInput = next
+                steered.currentUserMessage = message
+                steered.projector.addUserMessage(message, clientID: next.clientUserMessageID)
+                activeTurns[threadID] = steered
+                try await repository.save(AppServerThreadRecord(
+                    thread: steered.latestThread,
+                    settings: steered.settings
+                ))
                 await sendUserLifecycle(
                     message,
                     clientID: next.clientUserMessageID,
                     threadID: threadID,
-                    turnID: latest.id
+                    turnID: steered.id
                 )
             }
         } catch is CancellationError {
+            if let turnID = activeTurns[threadID]?.id {
+                cancelUserShellCommands(threadID: threadID, turnID: turnID)
+                await waitForUserShellCommands(threadID: threadID, turnID: turnID)
+            }
             let snapshot = activeTurns[threadID]?.latestThread ?? initial.latestThread
             if let failure = activeTurns[threadID]?.persistenceFailure {
                 await finishTurn(
@@ -225,6 +269,9 @@ extension AppServerSession {
                 await finishTurn(threadID, snapshot: snapshot, status: "interrupted", error: nil)
             }
         } catch {
+            if let turnID = activeTurns[threadID]?.id {
+                await waitForUserShellCommands(threadID: threadID, turnID: turnID)
+            }
             let snapshot = activeTurns[threadID]?.latestThread ?? initial.latestThread
             await finishTurn(
                 threadID,
@@ -237,11 +284,12 @@ extension AppServerSession {
 
     private func receiveTurnProgress(threadID: UUID, snapshot: ChatThread) async {
         guard var active = activeTurns[threadID] else { return }
-        active.latestThread = snapshot
-        let notifications = active.projector.project(snapshot)
+        let merged = mergingUserShellMessages(active.userShellMessages, into: snapshot)
+        active.latestThread = merged
+        let notifications = active.projector.project(merged)
         activeTurns[threadID] = active
         do {
-            try await repository.save(AppServerThreadRecord(thread: snapshot, settings: active.settings))
+            try await repository.save(AppServerThreadRecord(thread: merged, settings: active.settings))
         } catch {
             guard var failed = activeTurns[threadID] else { return }
             failed.persistenceFailure = error.localizedDescription
