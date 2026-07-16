@@ -84,6 +84,152 @@ final class AppServerThreadHistoryTests: XCTestCase {
         }
     }
 
+    func testThreadItemsListPagesFullItemsAcrossTurnFiltersAndDirections() async throws {
+        let fixture = try await makeFixture(llm: ThreadHistoryScriptedLLM(actions: [
+            .say("First answer"),
+            .say("Second answer")
+        ]))
+        try await initialize(fixture)
+        let threadID = try await startThread(fixture, requestID: 1)
+        let firstTurnID = try await runTurn(
+            fixture,
+            requestID: 2,
+            threadID: threadID,
+            text: "First question"
+        )
+        let secondTurnID = try await runTurn(
+            fixture,
+            requestID: 3,
+            threadID: threadID,
+            text: "Second question"
+        )
+
+        try await request(
+            fixture,
+            id: 4,
+            method: "thread/items/list",
+            params: ["threadId": threadID]
+        )
+        try await request(
+            fixture,
+            id: 5,
+            method: "thread/items/list",
+            params: ["threadId": threadID, "limit": 1]
+        )
+        var records = try await fixture.output.records()
+        let allItems = try XCTUnwrap(result(4, records)?["data"]?.arrayValue)
+        XCTAssertEqual(allItems.compactMap(entryTurnID), [
+            firstTurnID,
+            firstTurnID,
+            secondTurnID,
+            secondTurnID
+        ])
+        XCTAssertEqual(allItems.compactMap(entryItemType), [
+            "userMessage",
+            "agentMessage",
+            "userMessage",
+            "agentMessage"
+        ])
+        XCTAssertEqual(entryItem(allItems[0])?["content"]?.arrayValue?.first?
+            .objectValue?["text"]?.stringValue, "First question")
+        XCTAssertEqual(entryItem(allItems[1])?["text"]?.stringValue, "First answer")
+
+        let firstPage = try XCTUnwrap(result(5, records))
+        let firstEntry = try XCTUnwrap(firstPage["data"]?.arrayValue?.first)
+        let nextCursor = try XCTUnwrap(firstPage["nextCursor"]?.stringValue)
+        XCTAssertEqual(entryTurnID(firstEntry), firstTurnID)
+        XCTAssertNotNil(firstPage["backwardsCursor"]?.stringValue)
+
+        try await request(
+            fixture,
+            id: 6,
+            method: "thread/items/list",
+            params: ["threadId": threadID, "limit": 1, "cursor": nextCursor]
+        )
+        try await request(
+            fixture,
+            id: 7,
+            method: "thread/items/list",
+            params: [
+                "threadId": threadID,
+                "turnId": secondTurnID,
+                "cursor": nextCursor,
+                "limit": 100
+            ]
+        )
+        records = try await fixture.output.records()
+        let secondPage = try XCTUnwrap(result(6, records))
+        let secondEntry = try XCTUnwrap(secondPage["data"]?.arrayValue?.first)
+        XCTAssertEqual(entryTurnID(secondEntry), firstTurnID)
+        XCTAssertNotEqual(entryItemID(firstEntry), entryItemID(secondEntry))
+        let backwardsCursor = try XCTUnwrap(secondPage["backwardsCursor"]?.stringValue)
+        XCTAssertEqual(
+            result(7, records)?["data"]?.arrayValue?.compactMap(entryTurnID),
+            [secondTurnID, secondTurnID]
+        )
+
+        try await request(
+            fixture,
+            id: 8,
+            method: "thread/items/list",
+            params: [
+                "threadId": threadID,
+                "limit": 2,
+                "cursor": backwardsCursor,
+                "sortDirection": "desc"
+            ]
+        )
+        try await request(
+            fixture,
+            id: 9,
+            method: "thread/items/list",
+            params: ["threadId": threadID, "turnId": "missing-turn"]
+        )
+        try await request(
+            fixture,
+            id: 10,
+            method: "thread/items/list",
+            params: ["threadId": threadID, "sortDirection": "sideways"]
+        )
+        try await request(
+            fixture,
+            id: 11,
+            method: "thread/items/list",
+            params: ["threadId": threadID, "limit": -1]
+        )
+        try await request(
+            fixture,
+            id: 12,
+            method: "thread/items/list",
+            params: ["threadId": threadID, "cursor": "malformed"]
+        )
+        records = try await fixture.output.records()
+        XCTAssertEqual(
+            result(8, records)?["data"]?.arrayValue?.compactMap(entryItemID),
+            [entryItemID(secondEntry), entryItemID(firstEntry)].compactMap { $0 }
+        )
+        XCTAssertEqual(result(9, records)?["data"]?.arrayValue, [])
+        XCTAssertEqual(error(10, records)?["code"]?.numberValue, -32_600)
+        XCTAssertEqual(
+            error(10, records)?["message"]?.stringValue,
+            "Invalid request: unknown variant `sideways`, expected `asc` or `desc`"
+        )
+        XCTAssertEqual(error(11, records)?["code"]?.numberValue, -32_600)
+        XCTAssertEqual(error(12, records)?["code"]?.numberValue, -32_600)
+
+        let emptyThreadID = try await startThread(fixture, requestID: 13)
+        try await request(
+            fixture,
+            id: 14,
+            method: "thread/items/list",
+            params: ["threadId": emptyThreadID, "cursor": "ignored-while-empty"]
+        )
+        records = try await fixture.output.records()
+        XCTAssertEqual(result(14, records)?["data"]?.arrayValue, [])
+        XCTAssertEqual(result(14, records)?["nextCursor"], .null)
+        XCTAssertEqual(result(14, records)?["backwardsCursor"], .null)
+    }
+
     func testThreadSearchUsesTranscriptContentAndHonorsArchiveAndSourceFilters() async throws {
         let fixture = try await makeFixture(llm: ThreadHistoryEchoLLM())
         try await initialize(fixture)
@@ -583,11 +729,38 @@ final class AppServerThreadHistoryTests: XCTestCase {
         try await request(
             fixture,
             id: 4,
+            method: "thread/items/list",
+            params: ["threadId": threadID, "turnId": turnID]
+        )
+        let itemRecords = try await fixture.output.records()
+        let activeItems = try XCTUnwrap(result(4, itemRecords)?["data"]?.arrayValue)
+        XCTAssertEqual(activeItems.compactMap(entryTurnID), [turnID])
+        XCTAssertEqual(activeItems.compactMap(entryItemType), ["userMessage"])
+
+        try await request(
+            fixture,
+            id: 5,
             method: "turn/interrupt",
             params: ["threadId": threadID, "turnId": turnID]
         )
         await fixture.session.waitForActiveTurns()
     }
+}
+
+private func entryTurnID(_ value: CLIJSONValue) -> String? {
+    value.objectValue?["turnId"]?.stringValue
+}
+
+private func entryItem(_ value: CLIJSONValue) -> [String: CLIJSONValue]? {
+    value.objectValue?["item"]?.objectValue
+}
+
+private func entryItemID(_ value: CLIJSONValue) -> String? {
+    entryItem(value)?["id"]?.stringValue
+}
+
+private func entryItemType(_ value: CLIJSONValue) -> String? {
+    entryItem(value)?["type"]?.stringValue
 }
 
 private extension AppServerThreadHistoryTests {

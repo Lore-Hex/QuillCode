@@ -23,8 +23,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - App-server task discovery and history: transcript-content search rather than title matching,
   contextual snippets, archive/source/sort filters, connection-local loaded sets, zero/default/maximum
   limits, stable forward/backward anchor cursors, `summary`/`full`/`notLoaded` views, active-turn merge,
-  same-second event ordering, durable shell/reasoning/tool reconstruction after reconnect, malformed
-  requests, and explicit `thread/turns/items/list` non-support matching Codex 0.142.5.
+  same-second event ordering, durable shell/reasoning/tool reconstruction after reconnect, full
+  `thread/items/list` payloads, optional turn filtering, ascending/descending item pages, cursors reused
+  across filter changes, malformed anchors, empty history, and explicit legacy
+  `thread/turns/items/list` non-support.
 - App-server `gitDiffToRemote`: current upstream-tip SHA rather than HEAD or merge base; clean output;
   committed-ahead, staged, unstaged, untracked, ignored, binary, and diverged histories; tracked-before-
   untracked ordering; relative and absolute CWDs; missing/non-Git/no-upstream errors; unsafe paths;

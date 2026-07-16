@@ -1868,3 +1868,20 @@
 - **Evidence:** Real-Git actor tests cover clean, dirty, ahead, diverged, ignored, invalid, and bounded
   cases. The built JSONL smoke verifies tracked and untracked output against a real bare upstream, and
   a parity gate binds implementation, tests, smoke, research, and matrix status.
+
+## 2026-07-16: Item cursors are anchored before optional turn filtering
+
+- **Protocol boundary:** `thread/items/list` returns complete app-server item projections with their
+  containing turn IDs. It shares the existing durable/active history projection instead of inventing
+  a second transcript reconstruction path.
+- **Cursor boundary:** Opaque cursors identify a stable turn/item pair in the complete ordered stream.
+  Pagination locates that anchor before applying an optional turn filter, which keeps one cursor valid
+  across filtered and unfiltered requests as required by Codex.
+- **Integrity boundary:** Every projected turn and item must have a non-empty stable ID. Corrupt or
+  incomplete internal projections fail with an internal error instead of emitting an unpageable item.
+- **Compatibility boundary:** Current `thread/items/list` is implemented. The obsolete
+  `thread/turns/items/list` spelling remains an explicit `-32601` response rather than silently
+  changing meaning for old clients.
+- **Evidence:** Actor tests cover full payloads, active history, cross-filter cursors, both directions,
+  bounds, validation, and empty history. The built-process smoke pages and filters real persisted
+  items, while a parity gate binds runtime, tests, smoke, research, and matrix status.
