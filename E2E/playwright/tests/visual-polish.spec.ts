@@ -68,7 +68,7 @@ test('mock harness styles interactive accents with the defined cyan token, not a
 
   expect(audit.staleAccentRefs).toBe(0);
   expect(audit.primaryActionRule).toContain('var(--blue)');
-  expect(audit.resolvedBlue).toBe('rgb(61, 201, 230)');
+  expect(audit.resolvedBlue).toBe('rgb(69, 200, 230)');
 });
 
 test('mock harness keeps chat filters compact until explicitly disclosed', async ({ page }) => {
@@ -233,7 +233,7 @@ test('mock harness applies interface polish primitives', async ({ page }) => {
   expect(polish.emptyStarterTransitionProperty).toContain('transform');
   expect(polish.emptyStarterTransitionProperty).toContain('box-shadow');
   expect(polish.emptyStarterTransitionProperty).not.toContain('all');
-  expect(polish.emptyStarterRadius).toBe(14);
+  expect(polish.emptyStarterRadius).toBe(12);
 
   await expectHitTarget(page.getByTestId('top-bar-overflow-button'), 'top-bar overflow button');
   await expectHitTarget(page.getByTestId('empty-starter-action'), 'empty starter action');

@@ -63,12 +63,14 @@ struct QuillCodeTranscriptCopyButton: View {
     var copiedLabel: String
     var isCopied: Bool
     var action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
             Label(isCopied ? copiedLabel : label, systemImage: isCopied ? "checkmark" : "doc.on.doc")
                 .font(.caption2.weight(.semibold))
                 .lineLimit(1)
+                .contentTransition(.symbolEffect(.replace))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .quillCodeTextButtonTarget(minWidth: 64, radius: QuillCodeMetrics.minimumHitTarget / 2)
@@ -77,6 +79,7 @@ struct QuillCodeTranscriptCopyButton: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(QuillCodePressableButtonStyle())
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isCopied)
         .help(isCopied ? copiedLabel : label)
     }
 }

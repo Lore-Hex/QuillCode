@@ -51,7 +51,6 @@ struct QuillCodeTopBarIdentityView: View {
 
             if let tokenBudget = topBar.tokenBudget {
                 tokenBudgetView(tokenBudget)
-                    .help(tokenBudget.accessibilityLabel)
                     .accessibilityLabel(tokenBudget.accessibilityLabel)
                     .layoutPriority(1)
             } else if topBar.spendStatusLabel == nil,
@@ -93,50 +92,52 @@ struct QuillCodeTopBarIdentityView: View {
             )
     }
 
+    /// The context chip stays SHORT on purpose: "Context 70.4k / 200k" plus a small meter. Remaining,
+    /// percent, arrows, source, and quota periods all live in the tooltip — inlining them starved the
+    /// thread title and truncated every element at real window widths.
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("Tokens")
-                .font(.system(size: 14, weight: .semibold))
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Text("Context")
+                .font(.system(size: 12.5, weight: .semibold))
                 .foregroundStyle(QuillCodePalette.muted)
             Text(budget.primaryLabel)
-                .font(.system(size: 16.5, weight: .semibold).monospacedDigit())
+                .font(.system(size: 14, weight: .semibold).monospacedDigit())
                 .foregroundStyle(QuillCodePalette.text)
                 .lineLimit(1)
-                .minimumScaleFactor(0.95)
+                .fixedSize()
             tokenBudgetProgressBar(budget)
-                .frame(width: 92, height: 5)
+                .frame(width: 64, height: 4)
                 .alignmentGuide(.firstTextBaseline) { dimensions in
                     dimensions[VerticalAlignment.center]
                 }
-            Text(tokenBudgetRemainingLabel(budget))
-                .font(.system(size: 14, weight: .medium).monospacedDigit())
-                .foregroundStyle(QuillCodePalette.muted)
-                .lineLimit(1)
-                .minimumScaleFactor(0.95)
-
-            if let quotaLabel = tokenBudgetQuotaLabel(budget) {
-                Text(quotaLabel)
-                    .font(.system(size: 14, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(tokenBudgetTint(for: budget))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.95)
-            }
         }
         .padding(.horizontal, QuillCodeMetrics.topBarTokenBudgetHorizontalPadding)
         .padding(.vertical, QuillCodeMetrics.topBarTokenBudgetVerticalPadding)
-        .frame(
-            minWidth: QuillCodeMetrics.topBarTokenBudgetMinWidth,
-            maxWidth: QuillCodeMetrics.topBarTokenBudgetMaxWidth,
-            alignment: .leading
-        )
+        .fixedSize()
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(tokenBudgetTint(for: budget).opacity(0.055))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.white.opacity(0.075), lineWidth: 1)
+                        .stroke(QuillCodePalette.line, lineWidth: 1)
                 )
         )
+        .help(tokenBudgetHelp(budget))
+    }
+
+    /// Everything the slim chip no longer shows inline: full numbers, remaining, percent, source,
+    /// and local spend periods — one hover away.
+    private func tokenBudgetHelp(_ budget: TokenBudgetSurface) -> String {
+        var lines = [
+            "Context window for this conversation — \(budget.secondaryLabel).",
+            budget.detailLabel,
+            "This is how much the model can \"remember\" at once, not a spending limit. "
+            + "When it fills, the oldest messages are trimmed to make room."
+        ]
+        if let quotaSummaryLabel = budget.quotaSummaryLabel {
+            lines.insert("Local spend: \(quotaSummaryLabel)", at: 2)
+        }
+        return lines.joined(separator: "\n")
     }
 
     private func tokenBudgetProgressBar(_ budget: TokenBudgetSurface) -> some View {
@@ -149,20 +150,6 @@ struct QuillCodeTopBarIdentityView: View {
                     .frame(width: proxy.size.width * CGFloat(budget.progressPercent) / 100)
             }
         }
-    }
-
-    private func tokenBudgetRemainingLabel(_ budget: TokenBudgetSurface) -> String {
-        let compactParts = budget.secondaryLabel
-            .components(separatedBy: " · ")
-            .prefix(2)
-            .filter { !$0.isEmpty }
-        let compactLabel = compactParts.joined(separator: " · ")
-        return compactLabel.isEmpty ? budget.secondaryLabel : compactLabel
-    }
-
-    private func tokenBudgetQuotaLabel(_ budget: TokenBudgetSurface) -> String? {
-        let quotaSummary = budget.visibleQuotaLimits.prefix(3).map(\.compactLabel).joined(separator: " · ")
-        return quotaSummary.isEmpty ? nil : quotaSummary
     }
 
     private func tokenBudgetTint(for budget: TokenBudgetSurface) -> Color {

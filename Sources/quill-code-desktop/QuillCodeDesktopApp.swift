@@ -8,6 +8,13 @@ struct QuillCodeDesktopApp: App {
     @StateObject private var controller: QuillCodeDesktopController
 
     init() {
+        // QuillCode is a dark-themed appliance: pin the whole app (every window, sheet, popover, and
+        // system-drawn control) to the dark aqua appearance. Without this, system chrome — .roundedBorder
+        // text fields, sheet/popover backgrounds, menu text — follows the user's macOS appearance, so on a
+        // Light-mode Mac you get black text on our dark surfaces and "modal colors way off". One global
+        // pin fixes that class of contrast bugs everywhere at once.
+        NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
+
         if let windowRequest = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
             let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: windowRequest)
             let controller = workspaceRoot.makeController()
@@ -80,6 +87,7 @@ struct QuillCodeDesktopRootView: View {
 
     var body: some View {
         workspaceContent
+            .preferredColorScheme(.dark)
             .quillCodeDesktopCommandBindings(controller: controller)
             .fileImporter(
                 isPresented: $controller.isProjectImporterPresented,
@@ -88,12 +96,15 @@ struct QuillCodeDesktopRootView: View {
             ) { result in
                 controller.handleProjectImport(result)
             }
-            .fileImporter(
-                isPresented: $controller.isImageImporterPresented,
-                allowedContentTypes: [.png, .jpeg, .gif, .webP],
-                allowsMultipleSelection: true
-            ) { result in
-                controller.handleImageImport(result)
+            .background {
+                Color.clear
+                    .fileImporter(
+                        isPresented: $controller.isImageImporterPresented,
+                        allowedContentTypes: [.png, .jpeg, .gif, .webP],
+                        allowsMultipleSelection: true
+                    ) { result in
+                        controller.handleImageImport(result)
+                    }
             }
             .task {
                 await controller.refreshModelCatalog()

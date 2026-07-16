@@ -24,7 +24,7 @@ final class WorkspaceTokenBudgetSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(budget.limitTokens, 128_000)
         XCTAssertEqual(budget.remainingTokens, 127_153)
         XCTAssertEqual(budget.usedPercent, 1)
-        XCTAssertEqual(budget.primaryLabel, "847 / 128k tokens")
+        XCTAssertEqual(budget.primaryLabel, "847 / 128k")
         XCTAssertEqual(budget.secondaryLabel, "127.2k left · 1% · ↑500 ↓347 · provider reported")
         XCTAssertEqual(
             budget.detailLabel,
@@ -55,16 +55,20 @@ final class WorkspaceTokenBudgetSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(budget.usedTokens, 50)
         XCTAssertEqual(budget.limitTokens, 1_000)
         XCTAssertEqual(budget.remainingTokens, 950)
-        XCTAssertEqual(budget.primaryLabel, "50 / 1k tokens")
+        XCTAssertEqual(budget.primaryLabel, "50 / 1k")
         XCTAssertEqual(budget.secondaryLabel, "950 left · 5% · estimated")
         XCTAssertEqual(budget.sourceLabel, "Estimated")
     }
 
-    func testUsesFallbackBudgetWhenCatalogHasNoContextWindow() throws {
+    func testProviderUsageAgainstUnknownWindowShowsHonestUsageOnlyChip() throws {
+        // Daily-drive regression: provider-reported usage on a model whose window the catalog
+        // does not know was measured against the 32k fallback, inventing "58.4k / 32k · 183% ·
+        // 0 left". Unknown window + provider usage ⇒ usage-only chip: real numbers, no limit,
+        // no percent, empty progress bar.
         let thread = ChatThread(
             title: "Fallback",
             events: [
-                ModelTokenUsageEvent.event(usage: ModelTokenUsage(promptTokens: 12, completionTokens: 8))
+                ModelTokenUsageEvent.event(usage: ModelTokenUsage(promptTokens: 58_000, completionTokens: 400))
             ]
         )
 
@@ -76,9 +80,32 @@ final class WorkspaceTokenBudgetSurfaceBuilderTests: XCTestCase {
             ).surface()
         )
 
+        XCTAssertEqual(budget.usedTokens, 58_400)
+        XCTAssertEqual(budget.progressPercent, 0)
+        XCTAssertEqual(budget.primaryLabel, "58.4k")
+        XCTAssertEqual(budget.secondaryLabel, "↑58k ↓400 · window unknown")
+        XCTAssertTrue(budget.detailLabel.contains("context window is not in the catalog"), budget.detailLabel)
+    }
+
+    func testEstimateModeStillUsesFallbackBudgetWhenCatalogHasNoContextWindow() throws {
+        // With NO provider usage yet, the local character estimate against the conservative 32k
+        // fallback is unchanged — it is explicitly labeled Estimated.
+        let thread = ChatThread(
+            title: "Fallback",
+            messages: [ChatMessage(role: .user, content: String(repeating: "x", count: 400))]
+        )
+
+        let budget = try XCTUnwrap(
+            WorkspaceTokenBudgetSurfaceBuilder(
+                thread: thread,
+                selectedModelID: "missing/model",
+                modelCatalog: []
+            ).surface()
+        )
+
         XCTAssertEqual(budget.limitTokens, WorkspaceContextBannerBuilder.defaultTokenBudget)
-        XCTAssertEqual(budget.primaryLabel, "20 / 32k tokens")
-        XCTAssertEqual(budget.secondaryLabel, "32k left · 0% · ↑12 ↓8 · provider reported")
+        XCTAssertEqual(budget.sourceLabel, "Estimated")
+        XCTAssertTrue(budget.secondaryLabel.hasSuffix("estimated"), budget.secondaryLabel)
     }
 
     func testCarriesQuotaLimitsWhenRuntimeSuppliesThem() throws {

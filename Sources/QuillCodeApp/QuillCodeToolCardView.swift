@@ -115,11 +115,13 @@ struct QuillCodeToolCardView: View {
         }
         .padding(14)
         .frame(maxWidth: 760, minHeight: minimumHeight, alignment: .topLeading)
+        // Flat, not floating: a dozen stacked tool cards with per-card drop shadows read as lumpy,
+        // heavy chrome. The panel2 fill + hairline stroke already separate cards from the transcript.
         .quillCodeSurface(
-            fill: QuillCodePalette.panel,
+            fill: QuillCodePalette.panel2,
             radius: QuillCodeMetrics.toolCardRadius,
             stroke: cardStrokeColor,
-            shadow: true
+            shadow: false
         )
         .overlay(alignment: .leading) {
             if let executionContext = card.executionContext {
@@ -178,7 +180,9 @@ struct QuillCodeToolCardView: View {
 
     private var toolHeader: some View {
         HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
-            Image(systemName: iconName)
+            // Glyph = tool TYPE (terminal/read/edit/…); the circle's tint = run STATUS. So color still
+            // carries status while shape carries identity, and the trailing badge keeps the status word.
+            Image(systemName: toolGlyph)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(statusColor)
                 .quillCodeDecorativeIconFrame()
@@ -194,11 +198,14 @@ struct QuillCodeToolCardView: View {
                         QuillCodeExecutionContextChip(context: executionContext)
                     }
                 }
+                // The path/command is the most scannable value on a card: render it monospaced at
+                // near-primary brightness, one line, middle-truncated so a long path keeps its
+                // meaningful tail (the filename) instead of wrapping or hiding it.
                 Text(card.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(QuillCodePalette.text.opacity(0.85))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
             .frame(minWidth: 0, alignment: .leading)
 
@@ -244,8 +251,8 @@ struct QuillCodeToolCardView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
-        .background(QuillCodePalette.blue.opacity(isDetailsOpen ? 0.10 : 0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(QuillCodePalette.blue.opacity(isDetailsOpen ? 0.16 : 0.11))
+        .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
     }
 
     private var detailsContent: some View {
@@ -284,7 +291,7 @@ struct QuillCodeToolCardView: View {
     private var cardStrokeColor: Color {
         switch card.status {
         case .queued, .running, .done:
-            return Color.white.opacity(0.09)
+            return QuillCodePalette.line
         case .review:
             return card.needsReview
                 ? QuillCodePalette.yellow.opacity(0.24)
@@ -294,19 +301,8 @@ struct QuillCodeToolCardView: View {
         }
     }
 
-    private var iconName: String {
-        switch card.status {
-        case .queued:
-            return "clock"
-        case .running:
-            return "arrow.triangle.2.circlepath"
-        case .done:
-            return "checkmark.circle.fill"
-        case .failed:
-            return "xmark.octagon.fill"
-        case .review:
-            return card.needsReview ? "hand.raised.fill" : "play.circle.fill"
-        }
+    private var toolGlyph: String {
+        WorkspaceToolGlyphBuilder.symbolName(for: card.title)
     }
 
     private var statusBadgeIconName: String {
@@ -366,6 +362,6 @@ struct QuillCodeToolCardView: View {
     }
 
     private var displayTitle: String {
-        WorkspaceToolDisplayNameBuilder.displayName(for: card.title)
+        WorkspaceToolDisplayNameBuilder.cardTitle(for: card.title)
     }
 }

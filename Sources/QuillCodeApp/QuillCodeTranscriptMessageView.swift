@@ -22,15 +22,26 @@ struct QuillCodeMessageBubble: View {
                         QuillCodeMessageAttachmentGrid(attachments: message.attachments)
                     }
                     if !message.text.isEmpty {
-                        Text(message.text)
-                            .font(.body)
-                            .textSelection(.enabled)
+                        // Assistant replies render their markdown (bold, `code`, fenced blocks) the way
+                        // Codex/Claude Code do; the user's own words stay verbatim.
+                        if message.role == .assistant {
+                            QuillCodeMessageMarkdownView(text: message.text)
+                        } else {
+                            Text(message.text)
+                                .font(.body)
+                                .lineSpacing(6)
+                                .textSelection(.enabled)
+                        }
                     }
                 }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
+                    .padding(.horizontal, 15)
+                    .padding(.vertical, 12)
                     .background(background)
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: QuillCodeMetrics.messageBubbleRadius, style: .continuous)
+                            .stroke(borderColor, lineWidth: 1)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.messageBubbleRadius, style: .continuous))
                     .accessibilityLabel(message.accessibilityLabel)
                 HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
                     QuillCodeTranscriptCopyButton(
@@ -70,17 +81,18 @@ struct QuillCodeMessageBubble: View {
         message.role == .user ? .trailing : .leading
     }
 
+    // Own message: a calm, on-brand accent-tinted bubble (not the old blue→coral gradient) so "mine vs
+    // the agent's" reads at a glance without shouting; agent replies sit on a clean elevated surface.
+    // Mirrors .message.user / .message.assistant in E2E/harness/index.html.
     private var background: some ShapeStyle {
         message.role == .user
-            ? AnyShapeStyle(userBubbleGradient)
-            : AnyShapeStyle(QuillCodePalette.panel)
+            ? AnyShapeStyle(QuillCodePalette.userBubble)
+            : AnyShapeStyle(QuillCodePalette.panel2)
     }
 
-    private var userBubbleGradient: LinearGradient {
-        LinearGradient(
-            colors: [QuillCodePalette.blue, QuillCodePalette.coral],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
+    private var borderColor: Color {
+        message.role == .user
+            ? QuillCodePalette.userBubbleBorder
+            : QuillCodePalette.line
     }
 }

@@ -43,7 +43,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
             remainingTokens: 31_153,
             usedPercent: usedPercent,
             progressPercent: min(100, max(0, usedPercent)),
-            primaryLabel: "847 / 32k tokens",
+            primaryLabel: "847 / 32k",
             secondaryLabel: "31.2k left · \(max(0, usedPercent))% · provider reported",
             detailLabel: "Provider reported token budget: 847 used of 32,000 · 31,153 left · \(max(0, usedPercent))% used",
             sourceLabel: "Provider reported",
@@ -69,7 +69,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
 
         let decoded = try JSONDecoder().decode(TopBarSurface.self, from: JSONEncoder().encode(topBar))
 
-        XCTAssertEqual(decoded.tokenBudget?.primaryLabel, "847 / 32k tokens")
+        XCTAssertEqual(decoded.tokenBudget?.primaryLabel, "847 / 32k")
         XCTAssertEqual(decoded.tokenBudget?.remainingTokens, 31_153)
         XCTAssertEqual(decoded.tokenBudget?.sourceLabel, "Provider reported")
         XCTAssertTrue(decoded.tokenBudget?.visibleQuotaLimits.isEmpty == true)
@@ -161,7 +161,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         )
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget""#))
-        XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget-primary">847 / 32k tokens"#))
+        XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget-primary">847 / 32k"#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget-secondary">31.2k left · 3%"#))
         XCTAssertTrue(html.contains("Provider reported token budget: 847 used of 32,000 · 31,153 left · 3% used"))
         XCTAssertTrue(html.contains("topbar-token-budget"))
@@ -216,7 +216,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
             makeTopBar(
                 usageStatusLabel: "1.5k ctx · ↑1k ↓500",
                 tokenBudget: makeTokenBudget(),
-                spendStatusLabel: "Spend $0.0050 / $1.00",
+                spendStatusLabel: "$0.0050 / $1.00",
                 spendStatusDetail: "$0.0050 across 1 model call · fuse $1.00. Latest usage: 1.5k ctx · ↑1k ↓500"
             ),
             commands: []
@@ -224,7 +224,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="top-bar-token-budget""#))
         XCTAssertTrue(html.contains(#"data-testid="top-bar-spend""#))
-        XCTAssertTrue(html.contains("Spend $0.0050 / $1.00"))
+        XCTAssertTrue(html.contains("$0.0050 / $1.00"))
         XCTAssertTrue(html.contains("Latest usage: 1.5k ctx · ↑1k ↓500"))
         XCTAssertTrue(html.contains("topbar-spend-chip"))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-usage""#))

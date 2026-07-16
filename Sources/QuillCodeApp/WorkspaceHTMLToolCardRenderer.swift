@@ -4,7 +4,7 @@ enum WorkspaceHTMLToolCardRenderer {
     static func render(_ card: ToolCardState, timelineItemID: String? = nil) -> String {
         let timelineAttribute = timelineItemID.map { #" data-timeline-id="\#(escape($0))""# } ?? ""
         let toolNameAttribute = #" data-tool-name="\#(escape(card.title))""#
-        let displayTitle = WorkspaceToolDisplayNameBuilder.displayName(for: card.title)
+        let displayTitle = WorkspaceToolDisplayNameBuilder.cardTitle(for: card.title)
         let executionContextAttribute = card.executionContext
             .map { #" data-execution-context="\#(escape($0.kind.rawValue))""# } ?? ""
         let accessibilityContext = card.executionContext

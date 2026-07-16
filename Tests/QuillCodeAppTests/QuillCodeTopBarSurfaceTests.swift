@@ -520,10 +520,10 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         )
         XCTAssertTrue(topBar.showsActivityHairline)
 
-        topBar.spendStatusLabel = "Spend $0.0050 / $1.00"
+        topBar.spendStatusLabel = "$0.0050 / $1.00"
         XCTAssertEqual(
             topBar.topBarAccessibilityLabel,
-            "Project, Ready, Agent status: Running, branch: main ↑2, spend: Spend $0.0050 / $1.00, issue: Rate limited"
+            "Project, Ready, Agent status: Running, branch: main ↑2, spend: $0.0050 / $1.00, issue: Rate limited"
         )
         XCTAssertEqual(
             topBar.topBarHelpText,
@@ -536,14 +536,14 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
             remainingTokens: 31_958,
             usedPercent: 0,
             progressPercent: 0,
-            primaryLabel: "42 / 32k tokens",
+            primaryLabel: "42 / 32k",
             secondaryLabel: "32k left · 0% · estimated",
             detailLabel: "Estimated token budget: 42 used of 32,000 · 31,958 left · 0% used",
             sourceLabel: "Estimated"
         )
         XCTAssertEqual(
             topBar.topBarAccessibilityLabel,
-            "Project, Ready, Agent status: Running, branch: main ↑2, token budget: Estimated token budget: 42 used of 32,000 · 31,958 left · 0% used, spend: Spend $0.0050 / $1.00, issue: Rate limited"
+            "Project, Ready, Agent status: Running, branch: main ↑2, token budget: Estimated token budget: 42 used of 32,000 · 31,958 left · 0% used, spend: $0.0050 / $1.00, issue: Rate limited"
         )
         XCTAssertEqual(
             topBar.topBarHelpText,

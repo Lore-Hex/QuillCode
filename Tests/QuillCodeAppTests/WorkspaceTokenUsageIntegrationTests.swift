@@ -48,8 +48,9 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         let topBar = model.surface().topBar
 
         XCTAssertEqual(topBar.usageStatusLabel, "847 ctx · ↑500 ↓347")
-        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "847 / 32k tokens")
-        XCTAssertEqual(topBar.tokenBudget?.secondaryLabel, "31.2k left · 3% · ↑500 ↓347 · provider reported")
+        // Provider usage with no catalog window: the honest usage-only chip (no invented "/ 32k").
+        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "847")
+        XCTAssertEqual(topBar.tokenBudget?.secondaryLabel, "↑500 ↓347 · window unknown")
     }
 
     func testUsesTheMostRecentUsageEvent() {
@@ -61,7 +62,7 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         let topBar = model.surface().topBar
 
         XCTAssertEqual(topBar.usageStatusLabel, "1.5k ctx · ↑900 ↓600")
-        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "1.5k / 32k tokens")
+        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "1.5k")
     }
 
     func testNoUsageChipWithoutAUsageEvent() {
@@ -70,7 +71,7 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         let topBar = model.surface().topBar
 
         XCTAssertNil(topBar.usageStatusLabel)
-        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "0 / 32k tokens")
+        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "0 / 32k")
         XCTAssertEqual(topBar.tokenBudget?.secondaryLabel, "32k left · 0% · estimated")
     }
 
@@ -81,12 +82,12 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
             root: QuillCodeRootState(threads: [used, fresh], selectedThreadID: used.id)
         )
         XCTAssertEqual(model.surface().topBar.usageStatusLabel, "150 ctx · ↑100 ↓50")
-        XCTAssertEqual(model.surface().topBar.tokenBudget?.primaryLabel, "150 / 32k tokens")
+        XCTAssertEqual(model.surface().topBar.tokenBudget?.primaryLabel, "150")
 
         // Selecting the fresh thread shows no usage even though another thread has it.
         model.selectThread(fresh.id)
         XCTAssertNil(model.surface().topBar.usageStatusLabel)
-        XCTAssertEqual(model.surface().topBar.tokenBudget?.primaryLabel, "0 / 32k tokens")
+        XCTAssertEqual(model.surface().topBar.tokenBudget?.primaryLabel, "0 / 32k")
     }
 
     func testActivityShowsPricedRunReceiptsFromModelCatalog() throws {
@@ -119,14 +120,15 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         XCTAssertEqual(section.title, "Run Receipts")
         XCTAssertEqual(section.itemTestID, "activity-run-receipt")
         XCTAssertEqual(section.countLabel, "2 items")
-        XCTAssertEqual(topBar.spendStatusLabel, "Spend $0.0050 / $1.00")
+        XCTAssertEqual(topBar.spendStatusLabel, "$0.0050 / $1.00")
         XCTAssertEqual(
             topBar.spendStatusDetail,
             "$0.0050 across 1 model call · fuse $1.00. Latest usage: 1.5k ctx · ↑1k ↓500"
         )
         XCTAssertNil(topBar.usageStatusLabel)
-        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "1.5k / 32k tokens")
-        XCTAssertEqual(topBar.tokenBudget?.secondaryLabel, "30.5k left · 5% · ↑1k ↓500 · provider reported")
+        // acme/agent has prices but no context window in the catalog: honest usage-only chip.
+        XCTAssertEqual(topBar.tokenBudget?.primaryLabel, "1.5k")
+        XCTAssertEqual(topBar.tokenBudget?.secondaryLabel, "↑1k ↓500 · window unknown")
     }
 
     func testActivityRunReceiptsFlagSpendFuseCrossing() {

@@ -21,7 +21,7 @@ enum WorkspaceTopBarSpendStatusBuilder {
 
         let limitLabel = ledger.fuseUSD.map { " / \(RunSpendLedger.costLabel($0))" } ?? ""
         let unpricedSuffix = ledger.unpricedCallCount > 0 ? " + unpriced" : ""
-        let label = "Spend \(RunSpendLedger.costLabel(ledger.totalUSD))\(unpricedSuffix)\(limitLabel)"
+        let label = "\(RunSpendLedger.costLabel(ledger.totalUSD))\(unpricedSuffix)\(limitLabel)"
         let detail = detailText(thread: thread, ledger: ledger)
         return WorkspaceTopBarSpendStatus(label: label, detail: detail)
     }

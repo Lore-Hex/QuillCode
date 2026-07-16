@@ -21,16 +21,22 @@ final class ParityNativeTopBarChromeGateTests: QuillCodeParityTestCase {
             "static let topBarHeight: CGFloat = 40",
             "static let topBarHorizontalPadding: CGFloat = 8",
             "static let topBarNavigationLeadingPadding: CGFloat = 76",
-            "static let topBarTokenBudgetMinWidth: CGFloat = 360",
             "static let topBarTokenBudgetVerticalPadding: CGFloat = 3"
         ].forEach { Self.assertSource(designText, contains: $0) }
+        // The context chip stays SLIM: label + numbers + meter, hugging its content; remaining /
+        // percent / quota live in the tooltip. A fixed min-width or inline secondary text is what
+        // truncated the whole top bar at real window widths.
         [
-            "Text(\"Tokens\")",
-            "font(.system(size: 16.5, weight: .semibold).monospacedDigit())",
-            "font(.system(size: 14, weight: .medium).monospacedDigit())",
+            "Text(\"Context\")",
+            "font(.system(size: 14, weight: .semibold).monospacedDigit())",
+            ".fixedSize()",
+            "tokenBudgetHelp(budget)"
+        ].forEach { Self.assertSource(identityText, contains: $0) }
+        [
+            "topBarTokenBudgetMinWidth",
             "tokenBudgetRemainingLabel",
             "visibleQuotaLimits.prefix(3)"
-        ].forEach { Self.assertSource(identityText, contains: $0) }
+        ].forEach { Self.assertSource(identityText, excludes: $0) }
         assertTopBarCompositionAvoidsBusyChrome(topBarViewText)
     }
 
