@@ -4,6 +4,17 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 
 ## Current Research Inputs
 
+- Codex app-server 0.142.5 exposes `thread/search`, `thread/loaded/list`, and
+  `thread/turns/list`. Isolated JSONL probes show that search requires a non-whitespace term, searches
+  transcript text rather than a renamed title, returns the matching snippet, and accepts a zero limit
+  as a one-item page. Loaded threads are connection-local and appear after start. Turn history defaults
+  to descending `summary`, accepts `full` and `notLoaded`, and uses JSON anchor cursors shaped like
+  `{turnId, includeAnchor}` for reverse navigation. Empty collections ignore malformed cursors because
+  there is no anchor to resolve. Although generated schemas include `thread/turns/items/list`, the
+  0.142.5 runtime returns `-32601` with `thread/turns/items/list is not supported yet`; QuillCode
+  deliberately mirrors that explicit boundary. Sources: generated 0.142.5 schemas, local
+  `codex-cli 0.142.5` process probes, and public `openai/codex` thread processor source, audited
+  2026-07-16.
 - Codex app: projects, worktrees, automations, Git review, in-app browser, Computer Use, artifact previews.
 - Codex Review treats Unstaged, Staged, Commit, Branch, and Last turn as distinct scopes, with whole-diff Stage all/Revert all controls. QuillCode should preserve that information architecture while keeping historical comparisons read-only and deriving Last turn from auditable turn-owned edits instead of guessing from the current working tree.
 - Official managed-worktree behavior: new Worktree tasks start at detached HEAD from the selected branch, can carry current uncommitted changes, copy normally ignored files only when selected by `.worktreeinclude`, automatically copy ignored `AGENTS.override.md`, and keep a stable task/worktree association. Codex stores managed worktrees under `$CODEX_HOME/worktrees` by default, lets users choose another root, and automatically retains the 15 most recent managed tasks unless cleanup is disabled or the limit is changed. Handoff moves a task and its code between Local and that same worktree; managed cleanup saves restorable snapshots before deletion. Pinned, selected, still-running, Local, and permanent/named-branch worktrees are excluded from automatic removal, while reopening a task whose disposable worktree was removed offers restoration. Source: current Codex manual, Worktrees section (`environments/git-worktrees`).

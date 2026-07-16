@@ -26,6 +26,7 @@ extension AppServerSession {
             )
         }
 
+        loadedThreadIDs.insert(threadID)
         activeCompactions[threadID] = ActiveCompaction(
             id: UUID().uuidString.lowercased(),
             itemID: UUID().uuidString.lowercased(),

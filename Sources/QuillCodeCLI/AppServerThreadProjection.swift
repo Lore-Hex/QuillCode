@@ -32,7 +32,7 @@ enum AppServerThreadProjection {
             "agentRole": .null,
             "gitInfo": .null,
             "name": record.settings.name.map(CLIJSONValue.string) ?? .null,
-            "turns": includeTurns ? .array(turns(value)) : .array([])
+            "turns": includeTurns ? .array(AppServerThreadHistoryProjection.turns(record)) : .array([])
         ])
     }
 
@@ -130,45 +130,6 @@ enum AppServerThreadProjection {
 
     static func turnIdentifier(_ userMessageID: UUID) -> String {
         "turn_\(identifier(userMessageID))"
-    }
-
-    private static func turns(_ thread: ChatThread) -> [CLIJSONValue] {
-        var result: [CLIJSONValue] = []
-        var currentTurnID: String?
-        var currentStartedAt: Date?
-        var currentItems: [CLIJSONValue] = []
-        var latestMessageDate: Date?
-
-        func appendCurrent() {
-            guard let turnID = currentTurnID, let startedAt = currentStartedAt else { return }
-            let completedAt = latestMessageDate ?? startedAt
-            result.append(turn(
-                id: turnID,
-                items: currentItems,
-                status: "completed",
-                startedAt: startedAt,
-                completedAt: completedAt
-            ))
-        }
-
-        for message in thread.messages where message.role == .user || message.role == .assistant {
-            if message.role == .user {
-                let turnID = message.turnID ?? turnIdentifier(message.id)
-                if currentTurnID != turnID {
-                    appendCurrent()
-                    currentTurnID = turnID
-                    currentStartedAt = message.createdAt
-                    currentItems = []
-                }
-                currentItems.append(userMessageItem(message))
-                latestMessageDate = message.createdAt
-            } else if currentTurnID != nil {
-                currentItems.append(assistantMessageItem(message))
-                latestMessageDate = message.createdAt
-            }
-        }
-        appendCurrent()
-        return result
     }
 
     private static func preview(_ thread: ChatThread) -> String {

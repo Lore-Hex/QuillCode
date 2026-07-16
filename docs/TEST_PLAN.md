@@ -20,6 +20,11 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   strict initialize/initialized sequencing, notification opt-outs, thread cursors/settings/goals,
   turn input bounds, managed local-image copying, selected skill catalog authorization and immutable
   snapshots, bounded mention identity, rich-input projection/deduplication, and approval decisions.
+- App-server task discovery and history: transcript-content search rather than title matching,
+  contextual snippets, archive/source/sort filters, connection-local loaded sets, zero/default/maximum
+  limits, stable forward/backward anchor cursors, `summary`/`full`/`notLoaded` views, active-turn merge,
+  same-second event ordering, durable shell/reasoning/tool reconstruction after reconnect, malformed
+  requests, and explicit `thread/turns/items/list` non-support matching Codex 0.142.5.
 - App-server fuzzy search: Codex reference scores/indices, case-insensitive multi-root ordering, empty
   queries, result and traversal caps, cancellation-token replacement, live-session query generations,
   independent sessions, stop/missing-session behavior, experimental gating, and EOF cleanup.
@@ -84,7 +89,8 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   turn start with text/image/skill/mention inputs, exact rich-input wire projection and persisted skill
   context, inline `review/start` response ordering, entered/exited review-mode lifecycle, validated
   final report, no historical assistant-item replay, incremental lifecycle output before EOF,
-  response-only history rollback, persisted
+  response-only history rollback, content search, connection-local loaded discovery, paged historical
+  turn views, explicit unsupported per-item paging, persisted
   post-rollback thread reads, zero-count rejection, persistence, clean EOF, and zero exit. This
   specifically guards against pipe readers that accidentally buffer until the client disconnects.
 - Real `quill-code mcp-server` process smoke with stdin kept open: strict JSON-RPC initialize,

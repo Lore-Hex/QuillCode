@@ -46,6 +46,10 @@ struct AppServerRPCError: Codable, Sendable, Equatable {
         AppServerRPCError(code: -32601, message: "Method not found: \(method)")
     }
 
+    static func methodNotSupported(_ method: String) -> AppServerRPCError {
+        AppServerRPCError(code: -32601, message: "\(method) is not supported yet")
+    }
+
     static func invalidParams(_ reason: String) -> AppServerRPCError {
         AppServerRPCError(code: -32602, message: "Invalid params: \(reason)")
     }

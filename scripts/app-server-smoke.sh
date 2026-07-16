@@ -496,6 +496,13 @@ assert all(update["error"] is None for update in startup_updates), startup_updat
 assert all(update["failureReason"] is None for update in startup_updates), startup_updates
 assert startup_ready["params"] == startup_updates[-1], startup_ready
 
+send({"id": 801, "method": "thread/loaded/list", "params": {"limit": 0}})
+loaded_threads, _ = read_until(lambda record: record.get("id") == 801)
+assert loaded_threads["result"] == {
+    "data": [thread_id],
+    "nextCursor": None,
+}, loaded_threads
+
 send({"id": 60, "method": "mcpServerStatus/list", "params": {
     "threadId": thread_id,
     "detail": "full",
@@ -671,6 +678,58 @@ for thread_name in os.listdir(os.path.join(home, "threads")):
         )
 assert found_skill_snapshot, "selected skill context was not persisted with the turn"
 
+send({"id": 901, "method": "thread/search", "params": {
+    "searchTerm": "APP-SERVER SMOKE",
+}})
+thread_search, _ = read_until(lambda record: record.get("id") == 901)
+assert thread_search["result"]["nextCursor"] is None, thread_search
+assert thread_search["result"]["backwardsCursor"], thread_search
+assert thread_search["result"]["data"][0]["thread"]["id"] == thread_id, thread_search
+assert thread_search["result"]["data"][0]["snippet"] == "app-server smoke", thread_search
+
+send({"id": 902, "method": "thread/turns/list", "params": {
+    "threadId": thread_id,
+}})
+turn_summary, _ = read_until(lambda record: record.get("id") == 902)
+summary_turns = turn_summary["result"]["data"]
+assert len(summary_turns) == 1, turn_summary
+assert summary_turns[0]["itemsView"] == "summary", turn_summary
+assert [item["type"] for item in summary_turns[0]["items"]] == [
+    "userMessage", "agentMessage",
+], turn_summary
+
+send({"id": 903, "method": "thread/turns/list", "params": {
+    "threadId": thread_id,
+    "itemsView": "full",
+}})
+turn_full, _ = read_until(lambda record: record.get("id") == 903)
+full_turn = turn_full["result"]["data"][0]
+assert full_turn["id"] == turn_response["result"]["turn"]["id"], turn_full
+assert full_turn["itemsView"] == "full", turn_full
+assert [item["type"] for item in full_turn["items"]] == [
+    "userMessage", "agentMessage",
+], turn_full
+
+send({"id": 904, "method": "thread/turns/list", "params": {
+    "threadId": thread_id,
+    "itemsView": "notLoaded",
+}})
+turn_not_loaded, _ = read_until(lambda record: record.get("id") == 904)
+assert turn_not_loaded["result"]["data"][0]["items"] == [], turn_not_loaded
+assert turn_not_loaded["result"]["data"][0]["itemsView"] == "notLoaded", (
+    turn_not_loaded
+)
+
+send({"id": 905, "method": "thread/turns/items/list", "params": {
+    "threadId": thread_id,
+    "turnId": turn_response["result"]["turn"]["id"],
+}})
+turn_items_unsupported, _ = read_until(lambda record: record.get("id") == 905)
+assert turn_items_unsupported["error"] == {
+    "code": -32601,
+    "message": "thread/turns/items/list is not supported yet",
+}, turn_items_unsupported
+
 send({"id": 65, "method": "review/start", "params": {
     "threadId": thread_id,
     "target": {"type": "uncommittedChanges"},
@@ -765,6 +824,27 @@ read_until(
         and record.get("params", {}).get("status", {}).get("type") == "idle"
     )
 )
+
+send({"id": 111, "method": "thread/turns/list", "params": {
+    "threadId": thread_id,
+    "limit": 1,
+}})
+newest_turn_page, _ = read_until(lambda record: record.get("id") == 111)
+assert [turn["id"] for turn in newest_turn_page["result"]["data"]] == [
+    second_turn["result"]["turn"]["id"],
+], newest_turn_page
+history_cursor = newest_turn_page["result"]["nextCursor"]
+assert history_cursor, newest_turn_page
+send({"id": 112, "method": "thread/turns/list", "params": {
+    "threadId": thread_id,
+    "limit": 1,
+    "cursor": history_cursor,
+}})
+older_turn_page, _ = read_until(lambda record: record.get("id") == 112)
+assert [turn["id"] for turn in older_turn_page["result"]["data"]] == [
+    review_turn["id"],
+], older_turn_page
+assert older_turn_page["result"]["nextCursor"] is None, older_turn_page
 
 send({"id": 12, "method": "thread/rollback", "params": {
     "threadId": thread_id,
