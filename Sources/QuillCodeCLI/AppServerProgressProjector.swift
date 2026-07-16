@@ -14,7 +14,7 @@ struct AppServerProgressProjector: Sendable {
     private let cwd: URL
     private var seenEventIDs: Set<UUID>
     private var assistantTextByID: [UUID: String]
-    private var completedAssistantIDs: Set<UUID> = []
+    private var completedAssistantIDs: Set<UUID>
     private var activeTools: [ToolCall] = []
     private var mcpRoutes: [String: MCPAgentToolRoute] = [:]
     private(set) var items: [CLIJSONValue]
@@ -33,6 +33,7 @@ struct AppServerProgressProjector: Sendable {
         self.assistantTextByID = Dictionary(uniqueKeysWithValues: baseline.messages.compactMap { message in
             message.role == .assistant ? (message.id, message.content) : nil
         })
+        self.completedAssistantIDs = Set(baseline.messages.lazy.filter { $0.role == .assistant }.map(\.id))
         self.items = [userItem]
     }
 

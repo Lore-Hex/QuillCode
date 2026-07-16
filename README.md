@@ -22,7 +22,8 @@ This initial repository contains the compile-stable foundation:
 - Codex-compatible `quill-code review` for uncommitted changes, base-branch comparisons, individual
   commits, or custom criteria, backed by the same typed read-only reviewer as the desktop app
 - Codex-compatible `quill-code app-server` stdio JSONL core with strict initialization, durable
-  thread lifecycle, streamed turns, steering, interruption, managed local images, approvals,
+  thread lifecycle, streamed turns, steering, interruption, inline/detached `review/start`,
+  managed local images, approvals,
   model/provider discovery, non-secret account/local usage state, API-key and browser OAuth account
   login/cancel/logout, config reads/writes, local plugin
   marketplace and installed-state discovery, Open Agent Skills discovery with per-session extra
@@ -115,7 +116,8 @@ boundaries that remain are recorded explicitly in the [Parity Matrix](docs/CODEX
 TrustedRouter runtime. The implemented core follows Codex's newline-delimited wire shape without a
 `jsonrpc` marker: initialize/initialized, thread start/resume/fork/list/read/archive/name/delete/goal,
 history-only `thread/rollback`, turn start/steer/interrupt, response-first manual `thread/compact/start` with a non-steerable
-`contextCompaction` turn, item and assistant deltas, command/file approval requests, and durable
+`contextCompaction` turn, inline/detached `review/start`, item and assistant deltas,
+command/file approval requests, and durable
 transcript persistence. Manual compaction shares the desktop's summarizer, transactional persistence,
 `PreCompact`/`PostCompact` hooks, and interruption semantics. Clients can also list models, read provider capabilities, detect account
 presence without receiving credentials, read locally observed UTC token usage and explicitly local
@@ -137,6 +139,13 @@ instruction snapshot, and mentions persist bounded structured identity without r
 Unsupported transports are rejected, and explicit danger-full-access uses the same honest
 unrestricted built-in host-tool scope as exec. Client EOF resolves pending approvals and filesystem
 watches instead of leaving work stranded.
+
+`review/start` accepts Codex's uncommitted, base-branch, commit, and custom targets. Inline review
+uses the existing thread and emits `enteredReviewMode`/`exitedReviewMode`; detached review creates a
+durable fork and emits `thread/started` before the response. Both paths use the same capability-limited
+review engine as desktop and `quill-code review`: MCP, shell, mutation, hooks, skills, web, Computer
+Use, and subagents are absent, while only the validated structured report becomes the final assistant
+review. `turn/interrupt` cancels either form.
 
 `thread/rollback` removes complete persisted user turns, including all steering inputs grouped under
 the same turn ID, and survives app-server restart. It is rejected while a turn or compaction is active

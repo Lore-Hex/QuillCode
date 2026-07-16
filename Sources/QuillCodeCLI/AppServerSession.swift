@@ -2,6 +2,7 @@ import Foundation
 import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeReview
 import QuillCodeTools
 
 typealias AppServerMessageSink = @Sendable (String) async -> Void
@@ -46,6 +47,21 @@ actor AppServerSession {
         var task: Task<Void, Never>?
     }
 
+    struct ActiveReview: Sendable {
+        var id: String
+        var startedAt: Date
+        var request: WorkspaceCodeReviewRequest
+        var delivery: CodeReviewDelivery
+        var settings: AppServerThreadSettings
+        var latestThread: ChatThread
+        var userMessage: ChatMessage
+        var baselineAssistantIDs: Set<UUID>
+        var baselineEventIDs: Set<UUID>
+        var persistenceFailure: String?
+        var task: Task<Void, Never>?
+        var projector: AppServerProgressProjector
+    }
+
     let request: CLIAppServerRequest
     let environment: [String: String]
     let currentDirectory: URL
@@ -65,6 +81,7 @@ actor AppServerSession {
     var experimentalAPIEnabled = false
     var activeTurns: [UUID: ActiveTurn] = [:]
     var activeCompactions: [UUID: ActiveCompaction] = [:]
+    var activeReviews: [UUID: ActiveReview] = [:]
     var activeRollbacks: Set<UUID> = []
     var processSessions: [String: AppServerProcessSession] = [:]
     var processEventTasks: [String: Task<Void, Never>] = [:]
@@ -144,6 +161,7 @@ actor AppServerSession {
     func waitForActiveTurns() async {
         let tasks = activeTurns.values.compactMap(\.task)
             + activeCompactions.values.compactMap(\.task)
+            + activeReviews.values.compactMap(\.task)
         for task in tasks { await task.value }
         let fuzzyTasks = activeFuzzyFileSearches.values.map(\.task)
             + fuzzyFileSearchSessions.values.compactMap(\.queryTask)
@@ -153,6 +171,7 @@ actor AppServerSession {
     func hasActiveOperation(for threadID: UUID) -> Bool {
         activeTurns[threadID] != nil
             || activeCompactions[threadID] != nil
+            || activeReviews[threadID] != nil
             || activeRollbacks.contains(threadID)
     }
 
@@ -202,6 +221,7 @@ actor AppServerSession {
             var mcpOAuthLoginToLaunch: UUID?
             var processToLaunch: String?
             var compactionToLaunch: UUID?
+            var reviewToLaunch: UUID?
             switch method {
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
@@ -278,6 +298,10 @@ actor AppServerSession {
                 turnToLaunch = try threadID(from: AppServerParams(params))
             case "turn/steer": result = try await steerTurn(params)
             case "turn/interrupt": result = try await interruptTurn(params)
+            case "review/start":
+                let outcome = try await startReview(params)
+                result = outcome.result
+                reviewToLaunch = outcome.threadID
             default:
                 throw AppServerRPCError.methodNotFound(method)
             }
@@ -291,6 +315,7 @@ actor AppServerSession {
             if let processToLaunch { launchProcessEventStream(processToLaunch) }
             if let compactionToLaunch { launchThreadCompaction(compactionToLaunch) }
             if let turnToLaunch { launchTurn(turnToLaunch) }
+            if let reviewToLaunch { launchReview(reviewToLaunch) }
         } catch let error as AppServerRPCError {
             await send(.error(id: id, error: error))
         } catch {
@@ -375,7 +400,10 @@ actor AppServerSession {
         return paths.threadsDirectory.appendingPathComponent("\(id.uuidString).json")
     }
 
-    func runner(for record: AppServerThreadRecord) async throws -> AppServerConfiguredRunner {
+    func runner(
+        for record: AppServerThreadRecord,
+        includesMCP: Bool = true
+    ) async throws -> AppServerConfiguredRunner {
         let runRequest = CLIRunRequest(
             style: .exec,
             prompt: "",
@@ -397,13 +425,17 @@ actor AppServerSession {
             environment: environment
         )
         var runner = runtime.applyingInvocationPolicy(to: try runnerFactory(runtime))
-        let mcpContext = try mcpContext(for: record)
-        let mcpAdapter = try await MCPAgentRunnerAdapter.prepare(
-            registry: mcpRegistry,
-            scope: mcpContext.scope,
-            configurations: mcpContext.configurations
-        )
-        runner = mcpAdapter.configure(runner)
+        var mcpRoutes: [String: MCPAgentToolRoute] = [:]
+        if includesMCP {
+            let mcpContext = try mcpContext(for: record)
+            let mcpAdapter = try await MCPAgentRunnerAdapter.prepare(
+                registry: mcpRegistry,
+                scope: mcpContext.scope,
+                configurations: mcpContext.configurations
+            )
+            runner = mcpAdapter.configure(runner)
+            mcpRoutes = mcpAdapter.routesByModelName
+        }
         let inheritedHook = runner.permissionRequestHook
         runner.permissionRequestHook = { [weak self] call, reason, thread, workspaceRoot in
             var notices: [String] = []
@@ -437,7 +469,7 @@ actor AppServerSession {
         }
         return AppServerConfiguredRunner(
             runner: runner,
-            mcpRoutes: mcpAdapter.routesByModelName
+            mcpRoutes: mcpRoutes
         )
     }
 }

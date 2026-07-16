@@ -58,6 +58,14 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   under a capability-filtered read-only tool catalog. Custom instructions review the current
   uncommitted change set; they do not silently broaden into arbitrary shell execution. Source: current
   Codex manual and locally installed `codex-cli 0.142.5`, audited 2026-07-15.
+- Codex 0.142.5 app-server `review/start` takes a thread plus one uncommitted/base-branch/commit/custom
+  target and defaults to inline delivery. Inline review returns the source thread id, streams a normal
+  turn plus entered/exited review-mode items, and exposes the final review as an assistant item.
+  Detached review forks a durable child, emits `thread/started` before the response, and streams the
+  review there. Detached review cannot use an ephemeral/paginated parent. QuillCode maps this wire
+  contract to its existing typed, read-only review runner and never initializes MCP for the reviewer.
+  Sources: generated schemas, official app-server README, public `openai/codex` search results, and
+  isolated local `codex-cli 0.142.5` JSONL probes, audited 2026-07-15.
 - Current Codex app-server account mutation uses `account/login/start`, `account/login/cancel`, and
   `account/logout`, with asynchronous `account/login/completed` and `account/updated` notifications.
   API-key start returns `{type: "apiKey"}`; browser start returns a login ID and authorization URL;

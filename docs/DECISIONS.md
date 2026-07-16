@@ -1,5 +1,27 @@
 # QuillCode Decisions
 
+## 2026-07-15: App-server review reuses one capability-limited engine
+
+- **Wire contract:** `review/start` decodes Codex's uncommitted, base-branch, commit, and custom
+  targets plus inline/default or detached delivery. The response precedes inline lifecycle output;
+  detached review transactionally creates a persisted fork and emits `thread/started` before its
+  response. Review turns share one user-item/turn identity and remain interruptible through
+  `turn/interrupt`.
+- **Capability boundary:** App-server review calls the same `WorkspaceCodeReviewRunner` used by the
+  native and CLI workflows. MCP is not initialized, and shell, mutation, hooks, skills, web, Computer
+  Use, subagents, and ordinary extension tools are removed before the model runs.
+- **Transcript contract:** Intermediate reviewer prose is private investigation state. The visible
+  thread retains tool evidence but receives exactly one final assistant message built from the
+  validated `host.review.submit` report. Historical assistant items are marked completed when a new
+  projector starts, preventing a later turn from re-emitting earlier answers.
+- **Failure boundary:** Invalid targets do not mutate the parent; detached creation is complete before
+  notification; active parent operations are rejected; persistence failure cancels the run; and EOF
+  or explicit interruption drains the same actor-owned task lifecycle as ordinary turns.
+- **Evidence:** Focused actor tests cover inline ordering and review-mode items, detached fork
+  persistence, target validation, capability restriction, transcript hygiene after historical turns,
+  and interruption. The real app-server process smoke runs `review/start` over JSONL and verifies the
+  final report and idle transition.
+
 ## 2026-07-15: Rich turn input preserves identity and snapshots trusted skill context
 
 - **Wire contract:** App-server `turn/start` and `turn/steer` accept Codex 0.142.5 `skill` and
