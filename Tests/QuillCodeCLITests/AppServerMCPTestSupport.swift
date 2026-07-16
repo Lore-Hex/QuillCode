@@ -39,6 +39,32 @@ actor AppServerMCPOutputCollector {
         }
         throw MCPProbeError.responseError("timed out waiting for \(method)")
     }
+
+    func waitForMCPStartup(
+        server: String,
+        status: String,
+        timeout: Duration = .seconds(3)
+    ) async throws -> [String: CLIJSONValue] {
+        let method = "mcpServer/startupStatus/updated"
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if let match = try records().first(where: { record in
+                guard record["method"]?.stringValue == method,
+                      let params = record["params"]?.objectValue
+                else {
+                    return false
+                }
+                return params["name"]?.stringValue == server
+                    && params["status"]?.stringValue == status
+            }) {
+                return match["params"]?.objectValue ?? [:]
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        throw MCPProbeError.responseError(
+            "timed out waiting for \(server) MCP startup status \(status)"
+        )
+    }
 }
 
 struct FakeMCPServerSpecification: Sendable {
@@ -46,17 +72,20 @@ struct FakeMCPServerSpecification: Sendable {
     var toolResult: MCPToolCallResult
     var toolProgress: [ToolExecutionProgress]
     var resourceResult: MCPResourceReadResult
+    var probeDelay: TimeInterval
 
     init(
         probe: MCPServerProbeResult,
         toolResult: MCPToolCallResult = MCPToolCallResult(),
         toolProgress: [ToolExecutionProgress] = [],
-        resourceResult: MCPResourceReadResult = MCPResourceReadResult()
+        resourceResult: MCPResourceReadResult = MCPResourceReadResult(),
+        probeDelay: TimeInterval = 0
     ) {
         self.probe = probe
         self.toolResult = toolResult
         self.toolProgress = toolProgress
         self.resourceResult = resourceResult
+        self.probeDelay = probeDelay
     }
 }
 
@@ -139,6 +168,9 @@ private final class FakeMCPClientSession: MCPClientSession, @unchecked Sendable 
 
     func probe(detail: MCPProbeDetail, timeout: TimeInterval) throws -> MCPServerProbeResult {
         _ = timeout
+        if specification.probeDelay > 0 {
+            Thread.sleep(forTimeInterval: specification.probeDelay)
+        }
         recorder.recordProbe(detail)
         var result = specification.probe
         if detail == .toolsAndAuthOnly {

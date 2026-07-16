@@ -16178,3 +16178,28 @@ Validation:
 - `npm test` (246 Playwright tests; 0 failures)
 - `python3 scripts/grade-code-quality.py`
 - `git diff --check`
+
+## 2026-07-16 Codex App-Server MCP Startup Lifecycle
+
+Overall grade after this slice: **A+ protocol fidelity, A+ lifecycle ownership, A+ cancellation safety**.
+
+| Area | Grade | Notes |
+| --- | --- | --- |
+| Protocol fidelity | A+ | A typed startup-state boundary emits the exact Codex method, states, thread identity, nullable error, and current additive nullable failure reason. |
+| Ordering | A+ | Required dependencies finish before persistence/response; optional dependencies launch only after the successful lifecycle response. |
+| Architecture | A+ | Startup orchestration has one focused session extension, while process/session caching and teardown remain owned by the shared MCP registry. |
+| Cancellation | A+ | Reload and EOF cancel tracked work, registry teardown closes processes, and cancellation cannot be followed by stale readiness. |
+| Compatibility | A+ | Notification opt-out affects transport only, existing ready sessions avoid fabricated events, and CLI exec behavior remains on the shared registry contract. |
+| Regression evidence | A+ | Integration tests cover exact payload/order, required failure, optional success, opt-out, reload cancellation, and process termination; a focused parity gate protects the wiring and docs. |
+
+Validation:
+
+- `swift test --filter AppServerMCPTests` (18 tests, 0 failures)
+- `swift test --filter AppServerSessionTests` (18 tests, 0 failures)
+- `swift test --filter CLIExecMCPRuntimeTests` (9 tests, 0 failures)
+- `swift test --filter ParityAppServerMCPStartupGateTests` (1 test, 0 failures)
+- `swift test` (4,445 tests, 2 skipped, 0 failures)
+- `npm test` from `E2E/playwright` (246 tests, 0 failures)
+- `scripts/app-server-smoke.sh` (real executable protocol smoke passed)
+- `python3 scripts/grade-code-quality.py --root .` (all modules A+)
+- `git diff --check`

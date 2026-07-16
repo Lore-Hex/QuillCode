@@ -279,6 +279,9 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesMCPSupportTypes",
             "testMCPStdioProberDelegatesCodecAndResultMapping"
         ]),
+        Suite(fileName: "ParityAppServerMCPStartupGateTests.swift", testNames: [
+            "testMCPStartupLifecycleStaysWiredThroughProtocolTestsAndDocs"
+        ]),
         Suite(fileName: "ParityAutomationCoreModelGateTests.swift", testNames: [
             "testAutomationModelsLiveOutsideGeneralDomainModels"
         ]),

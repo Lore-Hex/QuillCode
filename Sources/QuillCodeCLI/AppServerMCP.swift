@@ -44,6 +44,7 @@ extension AppServerSession {
         method: String = "config/mcpServer/reload"
     ) async throws -> CLIJSONValue {
         try AppServerDiscoveryParams.requireEmpty(raw, method: method)
+        cancelAllMCPServerStartups()
         await mcpRegistry.reload()
         return .object([:])
     }
@@ -131,14 +132,6 @@ extension AppServerSession {
         try loadMCPContext(
             scope: "thread:\(record.thread.id.uuidString.lowercased())",
             projectRoot: record.settings.cwd
-        )
-    }
-
-    func validateRequiredMCPServers(for record: AppServerThreadRecord) async throws {
-        let context = try mcpContext(for: record)
-        try await mcpRegistry.validateRequiredServers(
-            scope: context.scope,
-            configurations: context.configurations
         )
     }
 

@@ -111,8 +111,12 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   resources/templates/server info/auth status, global plus thread-project config precedence,
   stdio and HTTP launch configuration, environment/header/bearer resolution without wire leakage,
   enabled/disabled tool filters, lossless arguments/content/structured content/error/metadata,
-  resource contents, reload, stale-config replacement, EOF teardown, unknown-thread errors, and an
-  explicit OAuth deferral until a genuine authorization URL/completion flow exists.
+  resource contents, reload, stale-config replacement, EOF teardown, unknown-thread errors, genuine
+  OAuth authorization URL/completion ordering, and exact thread-scoped
+  `mcpServer/startupStatus/updated` payloads. Startup coverage proves required `starting`/terminal
+  transitions precede the lifecycle response, optional transitions follow it, current nullable
+  `failureReason` compatibility, notification opt-out without execution suppression, reload
+  cancellation without stale readiness, and required failure before thread persistence.
 - App-server config mutation conformance: strict nested TOML round trips, unknown-key preservation,
   all TOML offset/local date-time, local-date, local-time, infinity, and NaN values, dotted and quoted paths,
   scalar-parent replacement, recursive table upsert with array replacement, null deletion, atomic

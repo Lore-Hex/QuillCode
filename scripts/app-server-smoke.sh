@@ -473,6 +473,25 @@ send({"id": 8, "method": "thread/start", "params": {
 started, _ = read_until(lambda record: record.get("id") == 8)
 thread_id = started["result"]["thread"]["id"]
 session_id = started["result"]["thread"]["sessionId"]
+startup_ready, startup_records = read_until(
+    lambda record: (
+        record.get("method") == "mcpServer/startupStatus/updated"
+        and record.get("params", {}).get("status") == "ready"
+    )
+)
+startup_updates = [
+    record["params"]
+    for record in startup_records
+    if record.get("method") == "mcpServer/startupStatus/updated"
+]
+assert [update["status"] for update in startup_updates] == ["starting", "ready"], (
+    startup_updates
+)
+assert all(update["threadId"] == thread_id for update in startup_updates), startup_updates
+assert all(update["name"] == "smoke-mcp" for update in startup_updates), startup_updates
+assert all(update["error"] is None for update in startup_updates), startup_updates
+assert all(update["failureReason"] is None for update in startup_updates), startup_updates
+assert startup_ready["params"] == startup_updates[-1], startup_ready
 
 send({"id": 60, "method": "mcpServerStatus/list", "params": {
     "threadId": thread_id,
