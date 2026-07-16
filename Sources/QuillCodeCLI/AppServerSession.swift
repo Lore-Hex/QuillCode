@@ -63,6 +63,7 @@ actor AppServerSession {
         var launch: UserShellLaunch
         var session: ShellStreamingSession?
         var task: Task<Void, Never>?
+        var terminationRequested: Bool
     }
 
     struct ActiveCompaction: Sendable {
@@ -377,6 +378,12 @@ actor AppServerSession {
             case "thread/shellCommand":
                 userShellToLaunch = try await startUserShellCommand(params)
                 result = .object([:])
+            case "thread/backgroundTerminals/clean":
+                result = try await cleanBackgroundTerminals(params)
+            case "thread/backgroundTerminals/list":
+                result = try await listBackgroundTerminals(params)
+            case "thread/backgroundTerminals/terminate":
+                result = try await terminateBackgroundTerminal(params)
             case "thread/unsubscribe": result = try unsubscribeThread(params)
             case "thread/increment_elicitation": result = try await incrementThreadElicitation(params)
             case "thread/decrement_elicitation": result = try await decrementThreadElicitation(params)

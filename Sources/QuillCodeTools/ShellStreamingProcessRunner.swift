@@ -26,6 +26,12 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         self.continuation = continuation
     }
 
+    var processIdentifier: Int32? {
+        lock.lock()
+        defer { lock.unlock() }
+        return process?.processIdentifier
+    }
+
     func start() {
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             run()

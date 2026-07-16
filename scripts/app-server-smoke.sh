@@ -22,6 +22,7 @@ import os
 import stat
 import subprocess
 import sys
+import time
 
 binary, home, workspace, mcp_fixture = [
     os.path.normpath(os.path.abspath(path)) for path in sys.argv[1:]
@@ -1154,14 +1155,75 @@ assert shell_turn_completed["params"]["turn"]["id"] == shell_turn_id, shell_turn
 assert shell_turn_completed["params"]["turn"]["status"] == "completed", shell_turn_completed
 assert shell_turn_completed["params"]["turn"]["items"] == [], shell_turn_completed
 
-send({"id": 160, "method": "thread/read", "params": {
+send({"id": 211, "method": "thread/shellCommand", "params": {
     "threadId": thread_id,
-    "includeTurns": True,
+    "command": "exec sleep 30",
 }})
-shell_history, _ = read_until(lambda record: record.get("id") == 160)
-shell_turns = shell_history["result"]["thread"]["turns"]
-assert len(shell_turns) == 2, shell_history
-assert shell_turns[-1]["id"] == shell_turn_id, shell_history
+background_shell_response, _ = read_until(lambda record: record.get("id") == 211)
+assert background_shell_response == {"id": 211, "result": {}}, background_shell_response
+
+background_terminal = None
+for request_id in range(212, 232):
+    send({"id": request_id, "method": "thread/backgroundTerminals/list", "params": {
+        "threadId": thread_id,
+    }})
+    background_list, _ = read_until(lambda record: record.get("id") == request_id)
+    terminals = background_list["result"]["data"]
+    if terminals:
+        background_terminal = terminals[0]
+        break
+    time.sleep(0.01)
+assert background_terminal is not None, "background shell never became listable"
+background_process_id = background_terminal["processId"]
+assert background_terminal["command"] == "exec sleep 30", background_terminal
+assert os.path.realpath(background_terminal["cwd"]) == os.path.realpath(workspace), (
+    background_terminal
+)
+assert background_terminal["osPid"] == int(background_process_id), background_terminal
+assert background_terminal["cpuPercent"] is None, background_terminal
+assert background_terminal["rssKb"] is None, background_terminal
+
+send({"id": 232, "method": "thread/backgroundTerminals/terminate", "params": {
+    "threadId": thread_id,
+    "processId": background_process_id,
+}})
+background_terminate, _ = read_until(lambda record: record.get("id") == 232)
+assert background_terminate["result"] == {"terminated": True}, background_terminate
+send({"id": 233, "method": "thread/backgroundTerminals/terminate", "params": {
+    "threadId": thread_id,
+    "processId": background_process_id,
+}})
+background_terminate_again, _ = read_until(lambda record: record.get("id") == 233)
+assert background_terminate_again["result"] == {"terminated": False}, (
+    background_terminate_again
+)
+send({"id": 234, "method": "thread/backgroundTerminals/list", "params": {
+    "threadId": thread_id,
+}})
+background_after_terminate, _ = read_until(lambda record: record.get("id") == 234)
+assert background_after_terminate["result"] == {"data": [], "nextCursor": None}, (
+    background_after_terminate
+)
+send({"id": 235, "method": "thread/backgroundTerminals/clean", "params": {
+    "threadId": thread_id,
+}})
+background_clean, _ = read_until(lambda record: record.get("id") == 235)
+assert background_clean["result"] == {}, background_clean
+
+shell_history = None
+shell_turns = []
+for request_id in range(240, 260):
+    send({"id": request_id, "method": "thread/read", "params": {
+        "threadId": thread_id,
+        "includeTurns": True,
+    }})
+    shell_history, _ = read_until(lambda record: record.get("id") == request_id)
+    shell_turns = shell_history["result"]["thread"]["turns"]
+    if len(shell_turns) == 3:
+        break
+    time.sleep(0.01)
+assert len(shell_turns) == 3, shell_history
+assert shell_turns[-2]["id"] == shell_turn_id, shell_history
 assert shell_turns[-1]["items"] == [], shell_history
 assert all(
     item.get("type") != "commandExecution"
