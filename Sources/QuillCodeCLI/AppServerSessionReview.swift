@@ -55,7 +55,7 @@ extension AppServerSession {
         } else {
             try await repository.save(updated)
         }
-        loadedThreadIDs.insert(reviewThreadID)
+        markThreadLoaded(reviewThreadID, subscription: .ifNew)
 
         let userItem = AppServerThreadProjection.userMessageItem(userMessage)
         let projector = AppServerProgressProjector(

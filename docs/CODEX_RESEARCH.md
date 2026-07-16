@@ -15,6 +15,21 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   deliberately mirrors that explicit boundary. Sources: generated 0.142.5 schemas, local
   `codex-cli 0.142.5` process probes, and public `openai/codex` thread processor source, audited
   2026-07-16.
+- Codex app-server 0.142.5 treats task loading, detailed-event subscription, transient elicitation
+  pause state, and durable task settings as separate concerns. `thread/unsubscribe` returns
+  `unsubscribed`, `notSubscribed`, or `notLoaded`, keeps the task in `thread/loaded/list`, suppresses
+  detailed `turn/*` and `item/*` notifications while leaving task-level notifications visible, and
+  `thread/resume` subscribes again. `thread/increment_elicitation` and
+  `thread/decrement_elicitation` maintain a connection-local count plus `paused` boolean and reject a
+  decrement at zero. `thread/metadata/update` patches omitted/string/null Git fields independently.
+  `thread/settings/update` persists model, effort, cwd, approval, sandbox/profile, personality,
+  service-tier, summary, and collaboration settings; emits `thread/settings/updated` only when state
+  changes and only after the RPC response; treats most explicit nulls as no-ops while
+  `serviceTier: null` selects `default`; and rejects a direct sandbox policy combined with a named
+  permissions profile. `thread/memoryMode/set` persists enabled/disabled mode; disabled mode removes
+  durable notes from model context without deleting them. Sources: generated 0.142.5 schemas and
+  isolated local `codex-cli 0.142.5` success, error, null-semantics, notification-order, unsubscribe,
+  and reconnect probes, audited 2026-07-16.
 - Codex app: projects, worktrees, automations, Git review, in-app browser, Computer Use, artifact previews.
 - Codex Review treats Unstaged, Staged, Commit, Branch, and Last turn as distinct scopes, with whole-diff Stage all/Revert all controls. QuillCode should preserve that information architecture while keeping historical comparisons read-only and deriving Last turn from auditable turn-owned edits instead of guessing from the current working tree.
 - Official managed-worktree behavior: new Worktree tasks start at detached HEAD from the selected branch, can carry current uncommitted changes, copy normally ignored files only when selected by `.worktreeinclude`, automatically copy ignored `AGENTS.override.md`, and keep a stable task/worktree association. Codex stores managed worktrees under `$CODEX_HOME/worktrees` by default, lets users choose another root, and automatically retains the 15 most recent managed tasks unless cleanup is disabled or the limit is changed. Handoff moves a task and its code between Local and that same worktree; managed cleanup saves restorable snapshots before deletion. Pinned, selected, still-running, Local, and permanent/named-branch worktrees are excluded from automatic removal, while reopening a task whose disposable worktree was removed offers restoration. Source: current Codex manual, Worktrees section (`environments/git-worktrees`).

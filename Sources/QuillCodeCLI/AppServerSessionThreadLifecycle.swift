@@ -25,7 +25,7 @@ extension AppServerSession {
         let record = AppServerThreadRecord(thread: thread, settings: settings)
         try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
-        loadedThreadIDs.insert(record.thread.id)
+        markThreadLoaded(record.thread.id, subscription: .always)
         await notifyThreadStarted(record)
         return AppServerThreadLifecycleOutcome(
             result: startOrResumeResponse(record, includeTurns: false, isActive: false),
@@ -45,7 +45,7 @@ extension AppServerSession {
         record.thread.updatedAt = Date()
         try await validateRequiredMCPServers(for: record)
         try await repository.save(record)
-        loadedThreadIDs.insert(record.thread.id)
+        markThreadLoaded(record.thread.id, subscription: .always)
         return AppServerThreadLifecycleOutcome(
             result: startOrResumeResponse(record, includeTurns: true, isActive: hasActiveOperation(for: id)),
             threadID: record.thread.id
@@ -68,7 +68,7 @@ extension AppServerSession {
         let record = AppServerThreadRecord(thread: thread, settings: settings)
         try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
-        loadedThreadIDs.insert(record.thread.id)
+        markThreadLoaded(record.thread.id, subscription: .always)
         await notifyThreadStarted(record)
         return AppServerThreadLifecycleOutcome(
             result: startOrResumeResponse(record, includeTurns: true, isActive: false),
@@ -102,6 +102,8 @@ extension AppServerSession {
         _ = try await loadRecord(id)
         try await repository.delete(id)
         loadedThreadIDs.remove(id)
+        subscribedThreadIDs.remove(id)
+        outOfBandElicitationCounts[id] = nil
         await sendNotification(
             "thread/deleted",
             params: .object(["threadId": .string(AppServerThreadProjection.identifier(id))])

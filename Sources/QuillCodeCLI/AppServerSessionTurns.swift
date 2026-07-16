@@ -33,7 +33,7 @@ extension AppServerSession {
             input.attachments.forEach { try? attachmentStore.remove($0) }
             throw error
         }
-        loadedThreadIDs.insert(threadID)
+        markThreadLoaded(threadID, subscription: .ifNew)
 
         let userItem = AppServerThreadProjection.userMessageItem(
             userMessage,
@@ -163,15 +163,23 @@ extension AppServerSession {
                 guard var configuredActive = activeTurns[threadID] else { return }
                 configuredActive.projector.registerMCPRoutes(configuredRunner.mcpRoutes)
                 activeTurns[threadID] = configuredActive
-                let result = try await configuredRunner.runner.send(
+                let durableMemories = active.latestThread.memories
+                var modelThread = active.latestThread
+                if active.settings.effectiveMemoryMode == .disabled {
+                    modelThread.memories = []
+                }
+                var result = try await configuredRunner.runner.send(
                     active.currentInput.text,
-                    in: active.latestThread,
+                    in: modelThread,
                     workspaceRoot: active.settings.cwd,
                     recordUserMessage: false,
                     onProgress: { [weak self] snapshot in
                         await self?.receiveTurnProgress(threadID: threadID, snapshot: snapshot)
                     }
                 )
+                if active.settings.effectiveMemoryMode == .disabled {
+                    result.thread.memories = durableMemories
+                }
                 try Task.checkCancellation()
                 guard var latest = activeTurns[threadID] else { return }
                 if let failure = latest.persistenceFailure {
