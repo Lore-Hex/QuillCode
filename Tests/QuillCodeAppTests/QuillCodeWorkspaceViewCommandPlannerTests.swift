@@ -12,6 +12,7 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
         XCTAssertEqual(planner.action(for: command("search")), .presentSearch)
         XCTAssertEqual(planner.action(for: command("find-in-chat")), .presentFind)
         XCTAssertEqual(planner.action(for: command("add-project")), .requestAddProject)
+        XCTAssertEqual(planner.action(for: command("add-ssh-project")), .presentSSHConnection)
         XCTAssertEqual(planner.action(for: command("command-palette")), .presentCommandPalette)
         XCTAssertEqual(planner.action(for: command("keyboard-shortcuts")), .presentKeyboardShortcuts)
         XCTAssertEqual(planner.action(for: command("thread-new-worktree")), .presentNewWorktreeTask)
@@ -64,7 +65,6 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
         let slashCommand = try XCTUnwrap(SlashCommandCatalog.commandPaletteCommands().first)
         let newChatCommand = command("new-chat")
         let memoryCommand = command("memory-add")
-        let sshCommand = command("add-ssh-project")
         let sessionCommand = command("open-browser-session")
         let genericCommand = command("git-status")
 
@@ -79,10 +79,6 @@ final class QuillCodeWorkspaceViewCommandPlannerTests: XCTestCase {
         XCTAssertEqual(
             planner.action(for: memoryCommand),
             .dispatch(command: memoryCommand, focusesComposer: true)
-        )
-        XCTAssertEqual(
-            planner.action(for: sshCommand),
-            .dispatch(command: sshCommand, focusesComposer: true)
         )
         XCTAssertEqual(
             planner.action(for: sessionCommand),

@@ -1526,3 +1526,26 @@
   `/v1/credits` authorization and redaction, stale retention, retry policy, deterministic formatting,
   command routing, and refresh coordination. Playwright covers the distinct top-bar balance and the
   eager Settings refresh transition without introducing balance state into unauthenticated fixtures.
+
+## 2026-07-15: SSH projects are discovered and verified before registration
+
+- **Single setup surface:** Sidebar, command-palette, and Settings entry points open the same native
+  connection dialog. `/ssh user@host:/path` remains available for keyboard-first compatibility, but
+  the visible product flow does not prefill a command and make the user repair it.
+- **Discovery boundary:** QuillCode reads only regular OpenSSH config files through bounded recursive
+  `Include` expansion with cycle, depth, file-count, byte-count, pattern-count, alias-count, and
+  directory-entry limits. Only concrete `Host` aliases become rows. Effective display metadata comes
+  from `ssh -G -F`, while persisted project metadata keeps the alias so OpenSSH still applies
+  `ProxyJump`, `IdentityFile`, `Match`, and related settings at execution time.
+- **Registration boundary:** Destination and folder are separate validated fields. URL credentials,
+  embedded paths, query/fragment data, option-like hosts, relative folders, and invalid ports are
+  rejected. A cancellable noninteractive SSH probe must enter the requested folder and return a
+  marker plus an absolute `pwd` before the project can be persisted or selected.
+- **Async and UX boundary:** Discovery and probe results are generation-bound to one presentation.
+  Closing the sheet cancels active work and ignores late results; failures remain in place with a
+  retryable error. Search, host rows, segmented mode selection, fields, close, cancel, refresh, and
+  submit controls use the shared native hit-target contracts.
+- **Evidence:** Core parsing, config scanner, effective-resolution, probe, draft, coordinator, project
+  engine, desktop integration, rendered AppKit-hosted SwiftUI, source hit-target audit, and Playwright
+  tests cover success, invalid input, bounds, cycles, missing files, failure/retry, cancellation, and
+  post-registration terminal/Git/review/tool routing.

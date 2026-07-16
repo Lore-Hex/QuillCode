@@ -260,5 +260,31 @@ final class AppConfigCompatibilityTests: XCTestCase {
 
         XCTAssertNil(ProjectConnection.parseSSH("not a remote"))
         XCTAssertNil(ProjectConnection.parseSSH("host:relative/path"))
+        XCTAssertNil(ProjectConnection.parseSSH("ssh://user:password@example.com/opt/app"))
+        XCTAssertNil(ProjectConnection.parseSSH("-oProxyCommand=bad:/srv/build"))
+    }
+
+    func testProjectConnectionParsesDestinationOnlyAddresses() throws {
+        let compact = try XCTUnwrap(ProjectConnection.parseSSHDestination(
+            "quill@feather.local:2202",
+            path: "~/QuillCode"
+        ))
+        XCTAssertEqual(compact.host, "feather.local")
+        XCTAssertEqual(compact.user, "quill")
+        XCTAssertEqual(compact.port, 2202)
+        XCTAssertEqual(compact.path, "~/QuillCode")
+        XCTAssertEqual(compact.displayLabel, "ssh://quill@feather.local:2202/~/QuillCode")
+
+        let urlAddress = try XCTUnwrap(ProjectConnection.parseSSHDestination(
+            "ssh://deploy@build.example:2222",
+            path: "/srv/build"
+        ))
+        XCTAssertEqual(urlAddress.displayLabel, "ssh://deploy@build.example:2222/srv/build")
+        XCTAssertEqual(urlAddress.replacingPath(with: "~/next").displayLabel, "ssh://deploy@build.example:2222/~/next")
+
+        XCTAssertNil(ProjectConnection.parseSSHDestination("not an address", path: "/srv/build"))
+        XCTAssertNil(ProjectConnection.parseSSHDestination("-oProxyCommand=bad", path: "/srv/build"))
+        XCTAssertNil(ProjectConnection.parseSSHDestination("host:70000", path: "/srv/build"))
+        XCTAssertNil(ProjectConnection.parseSSHDestination("ssh://host/embedded/path", path: "/srv/build"))
     }
 }

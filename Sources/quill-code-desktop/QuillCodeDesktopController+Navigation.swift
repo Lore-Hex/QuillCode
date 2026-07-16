@@ -1,5 +1,7 @@
 import Foundation
 import QuillCodeApp
+import QuillCodeCore
+import QuillCodeTools
 
 @MainActor
 extension QuillCodeDesktopController {
@@ -113,6 +115,27 @@ extension QuillCodeDesktopController {
 
     func requestAddProject() {
         isProjectImporterPresented = true
+    }
+
+    func discoverSSHHosts() async -> SSHHostDiscoveryResult {
+        await sshHostDiscovery.discover()
+    }
+
+    func registerSSHProject(
+        _ request: WorkspaceSSHProjectRequest
+    ) async -> WorkspaceSSHProjectRegistrationResult {
+        let probe = await sshRemoteProjectProbe.run(connection: request.connection)
+        guard probe.isReachable else {
+            return .failure(message: probe.errorMessage ?? "Could not connect to the SSH project.")
+        }
+        let connection = request.connection.replacingPath(
+            with: probe.resolvedPath ?? request.connection.path
+        )
+        guard let projectID = model.addSSHProject(connection: connection, name: request.name) else {
+            return .failure(message: "QuillCode could not save the SSH project.")
+        }
+        refresh()
+        return .success(projectID: projectID)
     }
 
     func handleProjectImport(_ result: Result<[URL], Error>) {

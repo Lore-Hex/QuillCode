@@ -29,6 +29,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var subagentTranscript: WorkspaceSubagentTranscriptSurface?
     @StateObject private var worktreeDialogs = QuillCodeWorktreeDialogCoordinator()
     @StateObject private var agentImportDialog = QuillCodeAgentImportDialogCoordinator()
+    @StateObject private var sshConnectionDialog = QuillCodeSSHConnectionDialogCoordinator()
     @FocusState private var isComposerFocused: Bool
 
     public init(
@@ -58,6 +59,12 @@ public struct QuillCodeWorkspaceView: View {
         onOpenBrowserSession: (() -> Void)? = nil,
         onAddBrowserComment: @escaping (String) -> Void,
         onAddProjectRequested: @escaping () -> Void,
+        onDiscoverSSHHosts: @escaping () async -> SSHHostDiscoveryResult = {
+            SSHHostDiscoveryResult(hosts: [], configPath: "~/.ssh/config")
+        },
+        onRegisterSSHProject: @escaping (WorkspaceSSHProjectRequest) async -> WorkspaceSSHProjectRegistrationResult = { _ in
+            .failure(message: "SSH project registration is unavailable on this host.")
+        },
         onSelectThread: @escaping (UUID) -> Void,
         onThreadAction: @escaping (WorkspaceThreadRowMutation) -> Void,
         onRenameThread: @escaping (UUID, String) -> Void,
@@ -132,6 +139,8 @@ public struct QuillCodeWorkspaceView: View {
             onOpenBrowserSession: onOpenBrowserSession,
             onAddBrowserComment: onAddBrowserComment,
             onAddProjectRequested: onAddProjectRequested,
+            onDiscoverSSHHosts: onDiscoverSSHHosts,
+            onRegisterSSHProject: onRegisterSSHProject,
             onSelectThread: onSelectThread,
             onThreadAction: onThreadAction,
             onRenameThread: onRenameThread,
@@ -196,6 +205,7 @@ public struct QuillCodeWorkspaceView: View {
                         commands: surface.commands,
                         onSelectProject: actions.onSelectProject,
                         onAddProjectRequested: actions.onAddProjectRequested,
+                        onAddSSHProjectRequested: presentSSHConnection,
                         onProjectAction: handleProjectAction,
                         onMoveProjectBefore: actions.onMoveProjectBefore,
                         onMoveProjectToBottom: actions.onMoveProjectToBottom,
@@ -254,6 +264,7 @@ public struct QuillCodeWorkspaceView: View {
         .frame(minWidth: 980, minHeight: 640)
         .background(QuillCodePalette.background)
         .foregroundStyle(QuillCodePalette.text)
+        .environment(\.colorScheme, .dark)
         .dynamicTypeSize(surface.chrome.textScale.dynamicTypeSize)
         .overlay {
             if let digest = surface.attentionDigest {
@@ -288,10 +299,14 @@ public struct QuillCodeWorkspaceView: View {
             subagentTranscript: $subagentTranscript,
             agentImportDialog: agentImportDialog,
             agentImportActions: actions.agentImport,
+            sshConnectionDialog: sshConnectionDialog,
             onSelectThread: actions.onSelectThread,
             onSaveSettings: actions.onSaveSettings,
             onSaveKeyboardShortcuts: actions.onSaveKeyboardShortcuts,
             onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,
+            onRetrySSHHosts: retrySSHHostDiscovery,
+            onRegisterSSHProject: actions.onRegisterSSHProject,
+            onPresentSSHConnection: presentSSHConnection,
             onDismissCodeReview: actions.onDismissCodeReview,
             onRunCodeReview: actions.onRunCodeReview,
             onCommand: handleCommand,
@@ -384,6 +399,8 @@ public struct QuillCodeWorkspaceView: View {
             isFindPresented = true
         case .requestAddProject:
             actions.onAddProjectRequested()
+        case .presentSSHConnection:
+            presentSSHConnection()
         case .presentCommandPalette:
             commandQuery = ""
             isCommandPalettePresented = true
@@ -444,6 +461,14 @@ public struct QuillCodeWorkspaceView: View {
 
     private func retryWorktreeChoices(for sheet: QuillCodeWorktreeSheet) {
         worktreeDialogs.retryChoices(for: sheet, loadChoices: actions.onListWorktreeChoices)
+    }
+
+    private func presentSSHConnection() {
+        sshConnectionDialog.present(loadHosts: actions.onDiscoverSSHHosts)
+    }
+
+    private func retrySSHHostDiscovery() {
+        sshConnectionDialog.retry(loadHosts: actions.onDiscoverSSHHosts)
     }
 
     private func retryWorktreePrunePreview() {

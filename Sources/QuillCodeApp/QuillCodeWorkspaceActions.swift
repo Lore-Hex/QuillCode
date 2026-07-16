@@ -19,6 +19,8 @@ public struct QuillCodeWorkspaceActions {
     let onOpenBrowserSession: (() -> Void)?
     let onAddBrowserComment: (String) -> Void
     let onAddProjectRequested: () -> Void
+    let onDiscoverSSHHosts: () async -> SSHHostDiscoveryResult
+    let onRegisterSSHProject: (WorkspaceSSHProjectRequest) async -> WorkspaceSSHProjectRegistrationResult
     let onSelectThread: (UUID) -> Void
     let onThreadAction: (WorkspaceThreadRowMutation) -> Void
     let onRenameThread: (UUID, String) -> Void
@@ -80,6 +82,12 @@ public struct QuillCodeWorkspaceActions {
         onOpenBrowserSession: (() -> Void)? = nil,
         onAddBrowserComment: @escaping (String) -> Void,
         onAddProjectRequested: @escaping () -> Void,
+        onDiscoverSSHHosts: @escaping () async -> SSHHostDiscoveryResult = {
+            SSHHostDiscoveryResult(hosts: [], configPath: "~/.ssh/config")
+        },
+        onRegisterSSHProject: @escaping (WorkspaceSSHProjectRequest) async -> WorkspaceSSHProjectRegistrationResult = { _ in
+            .failure(message: "SSH project registration is unavailable on this host.")
+        },
         onSelectThread: @escaping (UUID) -> Void,
         onThreadAction: @escaping (WorkspaceThreadRowMutation) -> Void,
         onRenameThread: @escaping (UUID, String) -> Void,
@@ -142,6 +150,8 @@ public struct QuillCodeWorkspaceActions {
         self.onOpenBrowserSession = onOpenBrowserSession
         self.onAddBrowserComment = onAddBrowserComment
         self.onAddProjectRequested = onAddProjectRequested
+        self.onDiscoverSSHHosts = onDiscoverSSHHosts
+        self.onRegisterSSHProject = onRegisterSSHProject
         self.onSelectThread = onSelectThread
         self.onThreadAction = onThreadAction
         self.onRenameThread = onRenameThread

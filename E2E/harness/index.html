@@ -5495,6 +5495,22 @@
         selectedCandidateIDs: [],
         result: null
       },
+      sshConnection: {
+        isOpen: false,
+        mode: 'configured',
+        query: '',
+        hosts: [
+          { id: 'feather.local', alias: 'feather.local', resolvedAddress: 'quill@feather.local' },
+          { id: 'production', alias: 'production', resolvedAddress: 'deploy@prod.example.com:2222' }
+        ],
+        selectedHostID: 'feather.local',
+        manualAddress: '',
+        remotePath: '~',
+        projectName: '',
+        isConnecting: false,
+        errorMessage: '',
+        generation: 0
+      },
       lastOpenedURL: null,
       search: {
         isOpen: false,
@@ -6315,6 +6331,7 @@
           <div class="sidebar-section-title">
             <h2>${escapeHTML(state.projects.title)}</h2>
             <small data-testid="project-count" aria-label="${escapeHTML(projectListAccessibilitySummary())}">${escapeHTML(projectCountLabel())}</small>
+            <button class="sidebar-icon-button hit-target-icon" type="button" data-testid="add-ssh-project-button" aria-label="Connect over SSH" data-command-id="add-ssh-project">⇄</button>
             <button class="sidebar-icon-button hit-target-icon" type="button" data-testid="add-project-button" aria-label="Open project" data-command-id="add-project">+</button>
           </div>
           ${projectsContent}
@@ -8941,6 +8958,11 @@
         closeCodeReviewDialog();
         return true;
       }
+      if (state.sshConnection.isOpen) {
+        event.preventDefault();
+        closeSSHConnection();
+        return true;
+      }
       if (state.settings.isOpen) {
         event.preventDefault();
         state.settings.isOpen = false;
@@ -10435,6 +10457,7 @@
           ${renderCodeReviewDialog()}
           ${state.settings.isOpen ? renderSettingsPanel() : ''}
           ${state.agentImport.isOpen ? renderAgentImportPanel() : ''}
+          ${state.sshConnection.isOpen ? renderSSHConnectionPanel() : ''}
           ${state.search.isOpen ? renderSearchPanel() : ''}
           ${state.commandPalette.isOpen ? renderCommandPalette() : ''}
           ${state.copiedTranscriptItemID === 'conversation' ? '<div class="copy-toast" data-testid="conversation-copied-toast" role="status">Conversation copied</div>' : ''}
@@ -10747,6 +10770,9 @@
         });
       });
       document.querySelector('[data-testid="add-project-button"]').addEventListener('click', event => {
+        runCommand(event.currentTarget.getAttribute('data-command-id'));
+      });
+      document.querySelector('[data-testid="add-ssh-project-button"]').addEventListener('click', event => {
         runCommand(event.currentTarget.getAttribute('data-command-id'));
       });
       document.querySelectorAll('[data-testid="top-bar"] [data-command-id]').forEach(button => {
@@ -11164,6 +11190,43 @@
         }, 400);
       });
       document.querySelector('[data-testid="agent-import-open"]')?.addEventListener('click', openAgentImport);
+      document.querySelector('[data-testid="ssh-settings-open"]')?.addEventListener('click', openSSHConnection);
+      document.querySelector('[data-testid="ssh-connection-panel"]')?.addEventListener('click', event => {
+        if (event.target === event.currentTarget) closeSSHConnection();
+      });
+      document.querySelector('[data-testid="ssh-connection-close"]')?.addEventListener('click', closeSSHConnection);
+      document.querySelector('[data-testid="ssh-connection-cancel"]')?.addEventListener('click', closeSSHConnection);
+      document.querySelector('[data-testid="ssh-connection-mode"]')?.addEventListener('change', event => {
+        state.sshConnection.mode = event.currentTarget.value;
+        state.sshConnection.errorMessage = '';
+        render();
+      });
+      document.querySelector('[data-testid="ssh-host-search"]')?.addEventListener('input', event => {
+        state.sshConnection.query = event.currentTarget.value;
+        render();
+        const input = document.querySelector('[data-testid="ssh-host-search"]');
+        input?.focus();
+        input?.setSelectionRange(input.value.length, input.value.length);
+      });
+      document.querySelectorAll('[data-testid="ssh-host-option"]').forEach(button => {
+        button.addEventListener('click', event => {
+          state.sshConnection.selectedHostID = event.currentTarget.dataset.hostId;
+          state.sshConnection.errorMessage = '';
+          render();
+        });
+      });
+      document.querySelector('[data-testid="ssh-connection-form"]')?.addEventListener('input', event => {
+        const form = event.currentTarget;
+        state.sshConnection.manualAddress = form.elements.namedItem('manualAddress')?.value || '';
+        state.sshConnection.remotePath = form.elements.namedItem('remotePath')?.value || '';
+        state.sshConnection.projectName = form.elements.namedItem('projectName')?.value || '';
+        const submit = document.querySelector('[data-testid="ssh-connection-submit"]');
+        if (submit) submit.disabled = !sshConnectionRequest() || state.sshConnection.isConnecting;
+      });
+      document.querySelector('[data-testid="ssh-connection-form"]')?.addEventListener('submit', event => {
+        event.preventDefault();
+        connectSSHProject();
+      });
       document.querySelector('[data-testid="agent-import-panel"]')?.addEventListener('click', event => {
         if (event.target !== event.currentTarget || state.agentImport.phase === 'importing') return;
         closeAgentImport();
@@ -12283,6 +12346,75 @@
         </div>`;
     }
 
+    function renderSSHConnectionPanel() {
+      const dialog = state.sshConnection;
+      const query = dialog.query.trim().toLowerCase();
+      const hosts = dialog.hosts.filter(host => (
+        !query
+        || host.alias.toLowerCase().includes(query)
+        || host.resolvedAddress.toLowerCase().includes(query)
+      ));
+      const hostRows = hosts.length
+        ? hosts.map(host => `
+            <button
+              class="dialog-choice hit-target-row ${dialog.selectedHostID === host.id ? 'selected' : ''}"
+              type="button"
+              data-testid="ssh-host-option"
+              data-host-id="${escapeHTML(host.id)}"
+              aria-pressed="${dialog.selectedHostID === host.id}"
+            >
+              <strong>${escapeHTML(host.alias)}</strong>
+              <span>${escapeHTML(host.resolvedAddress)}</span>
+            </button>`).join('')
+        : '<div class="dialog-choice-status" data-testid="ssh-host-empty">No matching SSH hosts.</div>';
+      const hostSource = dialog.mode === 'configured'
+        ? `
+            <label>
+              Search SSH hosts
+              <input class="hit-target-text-entry" name="hostSearch" data-testid="ssh-host-search" aria-label="Search SSH hosts" value="${escapeHTML(dialog.query)}" autofocus>
+            </label>
+            <div class="dialog-choice-list" data-testid="ssh-host-list">${hostRows}</div>
+            <small>~/.ssh/config</small>`
+        : `
+            <label>
+              SSH address
+              <input class="hit-target-text-entry" name="manualAddress" data-testid="ssh-manual-address" aria-label="SSH address" placeholder="user@host" value="${escapeHTML(dialog.manualAddress)}" autofocus>
+            </label>`;
+      return `
+        <div class="search-panel" data-testid="ssh-connection-panel">
+          <form class="search-card" data-testid="ssh-connection-form" role="dialog" aria-modal="true" aria-label="Connect over SSH">
+            <header>
+              <div>
+                <h2>Connect over SSH</h2>
+                <p>Choose a configured host or enter one manually. QuillCode checks the remote folder before adding it.</p>
+              </div>
+              <button type="button" class="hit-target-text" data-testid="ssh-connection-close">Close</button>
+            </header>
+            <label>
+              Host source
+              <select class="hit-target-text-entry" name="mode" data-testid="ssh-connection-mode" aria-label="Host source" ${dialog.isConnecting ? 'disabled' : ''}>
+                <option value="configured" ${dialog.mode === 'configured' ? 'selected' : ''}>SSH config</option>
+                <option value="manual" ${dialog.mode === 'manual' ? 'selected' : ''}>Manual</option>
+              </select>
+            </label>
+            ${hostSource}
+            <label>
+              Remote project folder
+              <input class="hit-target-text-entry" name="remotePath" data-testid="ssh-remote-path" aria-label="Remote project folder" placeholder="~/project" value="${escapeHTML(dialog.remotePath)}" ${dialog.isConnecting ? 'disabled' : ''}>
+            </label>
+            <label>
+              Project name
+              <input class="hit-target-text-entry" name="projectName" data-testid="ssh-project-name" aria-label="Project name" placeholder="Optional" value="${escapeHTML(dialog.projectName)}" ${dialog.isConnecting ? 'disabled' : ''}>
+            </label>
+            ${dialog.errorMessage ? `<p class="dialog-choice-status" data-testid="ssh-connection-error" role="alert">${escapeHTML(dialog.errorMessage)}</p>` : ''}
+            <div class="settings-actions">
+              <button type="button" class="hit-target-text" data-testid="ssh-connection-cancel">Cancel</button>
+              <button type="submit" class="hit-target-form-action" data-testid="ssh-connection-submit" ${sshConnectionRequest() && !dialog.isConnecting ? '' : 'disabled'}>${dialog.isConnecting ? 'Connecting...' : 'Connect'}</button>
+            </div>
+          </form>
+        </div>`;
+    }
+
     function renderSettingsPanel() {
       return `
         <div class="settings-panel" data-testid="settings-panel">
@@ -12313,6 +12445,15 @@
             ${renderManagedWorktreeSettingsCard()}
             ${renderComputerUseSettingsCard()}
             ${renderComputerUseApprovalSettingsCard()}
+            <section class="permission-card" data-testid="ssh-connections-settings">
+              <header>
+                <div>
+                  <h3>SSH Connections</h3>
+                  <p>Open a project on a host from ~/.ssh/config or enter an address manually.</p>
+                </div>
+                <button class="hit-target-text" type="button" data-testid="ssh-settings-open">Add remote</button>
+              </header>
+            </section>
             ${renderAgentImportSettingsCard()}
             ${state.runtimeIssue ? renderRuntimeIssue(state.runtimeIssue, { showDiagnostics: true }) : ''}
             <label>
@@ -15400,19 +15541,93 @@
       render();
     }
 
-    function addSSHProject(address) {
-      const previousLocation = currentWorkspaceLocation();
-      const match = String(address).trim().match(/^(?:ssh:\/\/)?(?:(?<user>[^@/:]+)@)?(?<host>[^/:]+)(?::(?<port>\d+))?[:/](?<path>\/?[^\s]*)$/);
-      if (!match?.groups?.host || !match.groups.path) {
-        addMessage('assistant', 'Use SSH format user@host:/path or ssh://user@host/path.');
-        return;
+    function openSSHConnection() {
+      state.settings.isOpen = false;
+      state.commandPalette.isOpen = false;
+      state.sshConnection = {
+        ...state.sshConnection,
+        isOpen: true,
+        mode: state.sshConnection.hosts.length ? 'configured' : 'manual',
+        query: '',
+        selectedHostID: state.sshConnection.hosts[0]?.id || null,
+        manualAddress: '',
+        remotePath: '~',
+        projectName: '',
+        isConnecting: false,
+        errorMessage: '',
+        generation: state.sshConnection.generation + 1
+      };
+      render();
+      document.querySelector(
+        state.sshConnection.mode === 'configured'
+          ? '[data-testid="ssh-host-search"]'
+          : '[data-testid="ssh-manual-address"]'
+      )?.focus();
+    }
+
+    function closeSSHConnection() {
+      state.sshConnection.isOpen = false;
+      state.sshConnection.isConnecting = false;
+      state.sshConnection.generation += 1;
+      render();
+    }
+
+    function sshConnectionRequest() {
+      const remotePath = state.sshConnection.remotePath.trim();
+      if (!(remotePath === '~' || remotePath.startsWith('~/') || remotePath.startsWith('/'))) return null;
+      if (state.sshConnection.mode === 'configured') {
+        const host = state.sshConnection.hosts.find(candidate => candidate.id === state.sshConnection.selectedHostID);
+        if (!host) return null;
+        return {
+          host: host.alias,
+          user: null,
+          port: null,
+          remotePath,
+          name: state.sshConnection.projectName.trim() || null
+        };
       }
-      const host = match.groups.host;
-      const remotePath = match.groups.path.startsWith('/') ? match.groups.path : `/${match.groups.path}`;
-      const label = `ssh://${match.groups.user ? `${match.groups.user}@` : ''}${host}${match.groups.port ? `:${match.groups.port}` : ''}${remotePath}`;
+
+      const address = state.sshConnection.manualAddress.trim();
+      if (!address) return null;
+      if (address.startsWith('ssh://')) {
+        try {
+          const parsed = new URL(address);
+          if (!parsed.hostname || (parsed.pathname && parsed.pathname !== '/') || parsed.password || parsed.search || parsed.hash) return null;
+          const port = parsed.port ? Number(parsed.port) : null;
+          if (port !== null && (port < 1 || port > 65535)) return null;
+          return {
+            host: parsed.hostname,
+            user: parsed.username || null,
+            port,
+            remotePath,
+            name: state.sshConnection.projectName.trim() || null
+          };
+        } catch {
+          return null;
+        }
+      }
+      const match = address.match(/^(?:(?<user>[^@/:\s]+)@)?(?<host>[^/:\s]+)(?::(?<port>\d+))?$/);
+      if (!match?.groups?.host) return null;
+      const port = match.groups.port ? Number(match.groups.port) : null;
+      if (port !== null && (port < 1 || port > 65535)) return null;
+      return {
+        host: match.groups.host,
+        user: match.groups.user || null,
+        port,
+        remotePath,
+        name: state.sshConnection.projectName.trim() || null
+      };
+    }
+
+    function addSSHProjectConnection(connection) {
+      const previousLocation = currentWorkspaceLocation();
+      const host = connection.host;
+      const remotePath = connection.remotePath;
+      const labelPath = remotePath.startsWith('/') ? remotePath : `/${remotePath}`;
+      const label = `ssh://${connection.user ? `${connection.user}@` : ''}${host}${connection.port ? `:${connection.port}` : ''}${labelPath}`;
       const project = {
         id: `project-${state.nextProjectIndex++}`,
-        name: `${host} · ${remotePath.split('/').filter(Boolean).pop() || 'remote'}`,
+        name: connection.name || `${host} · ${remotePath.split('/').filter(Boolean).pop() || 'remote'}`,
         path: label,
         connectionKindLabel: 'SSH Remote',
         isRemote: true,
@@ -15428,9 +15643,47 @@
       state.terminal.cwdLabel = label;
       state.terminal.environment = {};
       state.topBar.subtitle = `${project.name} - ${state.topBar.modeLabel} - ${state.topBar.modelLabel}`;
-      addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Terminal commands, read-only git status/diff, and project context refresh run through SSH; file tools and mutating git actions remain local-only for now.`);
+      addMessage('assistant', `Added SSH Remote ${project.name} at ${label}. Shell, file, git, review, and terminal actions use SSH.`);
       recordWorkspaceNavigation(previousLocation);
       render();
+    }
+
+    function addSSHProject(address) {
+      const match = String(address).trim().match(/^(?:ssh:\/\/)?(?:(?<user>[^@/:]+)@)?(?<host>[^/:]+)(?::(?<port>\d+))?[:/](?<path>\/?[^\s]*)$/);
+      if (!match?.groups?.host || !match.groups.path) {
+        addMessage('assistant', 'Use SSH format user@host:/path or ssh://user@host/path.');
+        return;
+      }
+      addSSHProjectConnection({
+        host: match.groups.host,
+        user: match.groups.user || null,
+        port: match.groups.port ? Number(match.groups.port) : null,
+        remotePath: match.groups.path.startsWith('/') ? match.groups.path : `/${match.groups.path}`,
+        name: null
+      });
+    }
+
+    function connectSSHProject() {
+      const request = sshConnectionRequest();
+      if (!request || state.sshConnection.isConnecting) return;
+      state.sshConnection.isConnecting = true;
+      state.sshConnection.errorMessage = '';
+      const generation = state.sshConnection.generation;
+      render();
+      const configuredDelay = Number(window.__quillCodeSSHProbeDelayMS);
+      const delayMS = Number.isFinite(configuredDelay) ? Math.max(0, configuredDelay) : 40;
+      window.setTimeout(() => {
+        if (!state.sshConnection.isOpen || state.sshConnection.generation !== generation) return;
+        state.sshConnection.isConnecting = false;
+        if (window.__quillCodeFailNextSSHProbe) {
+          window.__quillCodeFailNextSSHProbe = false;
+          state.sshConnection.errorMessage = 'Permission denied. Check the SSH host and try again.';
+          render();
+          return;
+        }
+        state.sshConnection.isOpen = false;
+        addSSHProjectConnection(request);
+      }, delayMS);
     }
 
     function selectProject(projectID, options = {}) {
@@ -17219,9 +17472,7 @@
         return;
       }
       if (commandID === 'add-ssh-project') {
-        state.composer.draft = '/ssh user@host:/absolute/path';
-        state.composer.canSend = true;
-        render();
+        openSSHConnection();
         return;
       }
       if (commandID === 'project-new-chat') {

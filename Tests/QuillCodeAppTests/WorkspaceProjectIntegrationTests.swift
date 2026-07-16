@@ -1,9 +1,25 @@
 import XCTest
 import QuillCodePersistence
+import QuillCodeCore
 @testable import QuillCodeApp
 
 @MainActor
 final class WorkspaceProjectIntegrationTests: XCTestCase {
+    func testTypedSSHProjectRegistrationSelectsAndPersistsRemote() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
+        let model = QuillCodeWorkspaceModel(projectStore: projectStore)
+        let connection = ProjectConnection.ssh(path: "/srv/app", host: "production")
+
+        let projectID = try XCTUnwrap(model.addSSHProject(connection: connection, name: "Remote App"))
+
+        XCTAssertEqual(model.root.selectedProjectID, projectID)
+        XCTAssertEqual(model.selectedProject?.connection, connection)
+        XCTAssertEqual(try projectStore.load().first?.connection, connection)
+    }
+
     func testModelPersistsProjectRegistryChanges() throws {
         let root = try makeTempDirectory()
         let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))

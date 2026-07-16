@@ -128,6 +128,8 @@ struct QuillCodeDesktopRootView: View {
             onOpenBrowserSession: controller.openBrowserSession,
             onAddBrowserComment: controller.addBrowserComment,
             onAddProjectRequested: controller.requestAddProject,
+            onDiscoverSSHHosts: controller.discoverSSHHosts,
+            onRegisterSSHProject: controller.registerSSHProject,
             onSelectThread: controller.selectThread,
             onThreadAction: controller.runThreadAction,
             onRenameThread: controller.renameThread,

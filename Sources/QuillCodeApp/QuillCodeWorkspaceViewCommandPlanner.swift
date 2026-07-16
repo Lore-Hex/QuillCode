@@ -5,6 +5,7 @@ enum WorkspaceViewCommandAction: Hashable, Sendable {
     case presentSearch
     case presentFind
     case requestAddProject
+    case presentSSHConnection
     case presentCommandPalette
     case presentKeyboardShortcuts
     case presentSidebarSavedSearch
@@ -46,6 +47,8 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
             return .presentFind
         case "add-project":
             return .requestAddProject
+        case "add-ssh-project":
+            return .presentSSHConnection
         case "command-palette":
             return .presentCommandPalette
         case "keyboard-shortcuts":
@@ -109,7 +112,6 @@ struct WorkspaceViewCommandPlanner: Sendable, Hashable {
         SlashCommandCatalog.insertText(forCommandPaletteID: command.id) != nil
             || command.id == "new-chat"
             || command.id == "memory-add"
-            || command.id == "add-ssh-project"
             || command.id == "project-rename"
             || command.id == "thread-rename"
     }
