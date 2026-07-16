@@ -31,4 +31,55 @@ enum TranscriptScrollFollow {
     ) -> Bool {
         (bottomSentinelMaxY - viewportHeight) <= threshold
     }
+
+    /// The pin transition for one geometry sample. Within `threshold` of the bottom ⇒ (re)pin,
+    /// whatever moved the sentinel there. Beyond it, only a genuine user scroll UP un-pins; content
+    /// growth and our own animated follow-scroll — both of which ALSO widen the sentinel gap — must
+    /// PRESERVE the prior state, so streaming keeps following an at-bottom reader through a large
+    /// chunk. The sentinel gap alone cannot tell a scroll from a growth (a big chunk widens it exactly
+    /// like a scroll would), so the caller supplies `isUserScrollUp` from the orthogonal content-offset
+    /// signal (see ``pinnedAfterScrollSample``).
+    static func resolvePinned(
+        current: Bool,
+        bottomSentinelMaxY: CGFloat,
+        viewportHeight: CGFloat,
+        threshold: CGFloat,
+        isUserScrollUp: Bool
+    ) -> Bool {
+        if isPinnedToBottom(
+            bottomSentinelMaxY: bottomSentinelMaxY,
+            viewportHeight: viewportHeight,
+            threshold: threshold
+        ) {
+            return true
+        }
+        return isUserScrollUp ? false : current
+    }
+
+    /// Classify a content-offset sample, then resolve the pin. `contentTopMinY` is the transcript
+    /// content's top edge in the scroll viewport's coordinate space — i.e. the (negated) scroll
+    /// offset. It INCREASES only when the reader drags the content DOWN (scrolls up); appending a
+    /// chunk at the bottom leaves the top put, and the follow-scroll animation drives it further
+    /// negative. So "the top moved down past `scrollEpsilon` since the last sample" is an orthogonal,
+    /// timing-free proxy for a deliberate scroll-up — unlike the sentinel gap, which a large chunk and
+    /// a scroll widen identically. This is what stops a big streamed chunk (or the follow animation's
+    /// own intermediate frames) from being misread as a scroll and dropping the follow.
+    static func pinnedAfterScrollSample(
+        current: Bool,
+        bottomSentinelMaxY: CGFloat,
+        viewportHeight: CGFloat,
+        threshold: CGFloat,
+        contentTopMinY: CGFloat,
+        previousContentTopMinY: CGFloat,
+        scrollEpsilon: CGFloat = 0.5
+    ) -> Bool {
+        let isUserScrollUp = (contentTopMinY - previousContentTopMinY) > scrollEpsilon
+        return resolvePinned(
+            current: current,
+            bottomSentinelMaxY: bottomSentinelMaxY,
+            viewportHeight: viewportHeight,
+            threshold: threshold,
+            isUserScrollUp: isUserScrollUp
+        )
+    }
 }
