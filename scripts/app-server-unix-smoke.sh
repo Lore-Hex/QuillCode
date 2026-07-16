@@ -87,16 +87,21 @@ class UnixClient:
         self.socket.sendall(payload[midpoint:])
 
     def receive(self):
-        while True:
-            newline = self.buffer.find(b"\n")
-            if newline >= 0:
-                record = bytes(self.buffer[:newline])
-                del self.buffer[:newline + 1]
-                return json.loads(record)
-            chunk = self.socket.recv(4096)
-            if not chunk:
-                raise AssertionError("app-server closed the Unix client before responding")
-            self.buffer.extend(chunk)
+        try:
+            while True:
+                newline = self.buffer.find(b"\n")
+                if newline >= 0:
+                    record = bytes(self.buffer[:newline])
+                    del self.buffer[:newline + 1]
+                    return json.loads(record)
+                chunk = self.socket.recv(4096)
+                if not chunk:
+                    raise AssertionError("app-server closed the Unix client before responding")
+                self.buffer.extend(chunk)
+        except TimeoutError as error:
+            raise AssertionError(
+                f"app-server did not respond before the protocol deadline: {server_failure()}"
+            ) from error
 
     def close(self):
         self.socket.close()
@@ -114,6 +119,7 @@ def connect_client(timeout=10):
         client.settimeout(1)
         try:
             client.connect(socket_path)
+            client.settimeout(timeout)
             return UnixClient(client)
         except OSError as error:
             last_error = error
