@@ -3,49 +3,15 @@ import QuillCodeTools
 
 extension AppServerSession {
     func readPlugin(_ value: CLIJSONValue) throws -> CLIJSONValue {
-        let params = try AppServerParams(value)
-        let marketplacePath = try params.optionalString("marketplacePath")
-        let remoteMarketplaceName = try params.optionalString("remoteMarketplaceName")
-        let requestedPluginName = try params.requiredString("pluginName")
-        guard let pluginName = normalizedPluginIdentifier(requestedPluginName) else {
-            throw AppServerRPCError.invalidRequest("pluginName must be a bounded identifier")
-        }
-
-        guard (marketplacePath == nil) != (remoteMarketplaceName == nil) else {
-            throw AppServerRPCError.invalidRequest(
-                "plugin/read requires exactly one of marketplacePath or remoteMarketplaceName"
-            )
-        }
-        if let remoteMarketplaceName {
-            guard isBoundedPluginText(remoteMarketplaceName) else {
-                throw AppServerRPCError.invalidRequest("invalid remote plugin identifier")
-            }
+        let request = try pluginSourceRequest(value, method: "plugin/read")
+        if let remoteMarketplaceName = request.remoteMarketplaceName {
             throw AppServerRPCError.invalidRequest(
                 "remote plugin read is not available for marketplace \(remoteMarketplaceName)"
             )
         }
-
-        guard let path = marketplacePath,
-              path.utf8.count <= Self.maximumPluginPathBytes,
-              NSString(string: path).isAbsolutePath
-        else {
-            throw AppServerRPCError.invalidRequest(
-                "marketplacePath must be a bounded absolute path and pluginName a bounded identifier"
-            )
-        }
-
-        let pathURL = URL(fileURLWithPath: path, isDirectory: false).standardizedFileURL
-        let discovery = CodexPluginMarketplaceCatalogLoader.load(at: pathURL)
-        if let error = discovery.errors.first {
-            throw AppServerRPCError.invalidRequest(
-                "failed to read plugin details: \(error.message)"
-            )
-        }
-        guard let marketplace = discovery.marketplaces.first,
-              let entry = marketplace.plugins.first(where: { $0.name == pluginName })
-        else {
-            throw AppServerRPCError.invalidRequest("plugin `\(pluginName)` was not found")
-        }
+        let selection = try localPluginSelection(request, operation: "read")
+        let marketplace = selection.marketplace
+        let entry = selection.entry
         guard entry.package != nil,
               let detail = CodexPluginPackageDetailLoader.load(
                 at: entry.source.localPath,
@@ -53,7 +19,7 @@ extension AppServerSession {
               )
         else {
             throw AppServerRPCError.invalidRequest(
-                "plugin `\(pluginName)` has a missing or invalid plugin.json"
+                "plugin `\(request.pluginName)` has a missing or invalid plugin.json"
             )
         }
 
@@ -158,8 +124,4 @@ extension AppServerSession {
         return .object(value)
     }
 
-    private func isBoundedPluginText(_ value: String) -> Bool {
-        let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !value.isEmpty && value.utf8.count <= 4_096 && !value.contains("\0")
-    }
 }

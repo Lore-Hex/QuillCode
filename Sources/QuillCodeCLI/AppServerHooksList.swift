@@ -34,8 +34,13 @@ extension AppServerSession {
         let global = GlobalHookConfigurationLoader.load(from: paths.hookConfigurationPaths)
         let globalTrust = ProjectHookTrustFileStore(directory: paths.hookTrustDirectory)
             .load(forWorkspaceRoot: paths.home)
+        let installedPluginMarketplaces = CodexInstalledPluginStore.marketplaceDirectories(
+            in: paths.home
+        )
         let userPlugins = CodexPluginHookConfigurationLoader.discover(
-            packageDirectories: [paths.home.appendingPathComponent("plugins", isDirectory: true)],
+            packageDirectories: [
+                paths.home.appendingPathComponent("plugins", isDirectory: true)
+            ] + installedPluginMarketplaces,
             scopeRoot: paths.home,
             trustScope: .user
         )

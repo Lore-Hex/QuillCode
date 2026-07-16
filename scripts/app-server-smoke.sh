@@ -497,6 +497,61 @@ assert detail["hooks"] == [{
 assert [app["id"] for app in detail["apps"]] == ["smoke-app"], plugin_read
 assert detail["mcpServers"] == ["smoke-mcp"], plugin_read
 
+send({"id": 47, "method": "plugin/install", "params": {
+    "marketplacePath": os.path.join(marketplace_directory, "marketplace.json"),
+    "pluginName": "smoke-tools",
+}})
+plugin_install, records = read_until(lambda record: record.get("id") == 47)
+assert plugin_install["result"]["authPolicy"] == "ON_INSTALL", plugin_install
+assert [app["id"] for app in plugin_install["result"]["appsNeedingAuth"]] == [
+    "smoke-app"
+], plugin_install
+assert any(record.get("method") == "skills/changed" for record in records), records
+installed_cache_root = os.path.join(
+    home, "plugins", "cache", "smoke-marketplace", "smoke-tools"
+)
+assert os.path.isfile(
+    os.path.join(installed_cache_root, ".codex-plugin", "plugin.json")
+), installed_cache_root
+
+send({"id": 48, "method": "skills/list", "params": {
+    "cwds": [workspace],
+    "forceReload": True,
+}})
+installed_skills, _ = read_until(lambda record: record.get("id") == 48)
+installed_skill_names = {
+    skill["name"]
+    for entry in installed_skills["result"]["data"]
+    for skill in entry["skills"]
+}
+assert "smoke-plugin-skill" in installed_skill_names, installed_skills
+
+send({"id": 49, "method": "plugin/uninstall", "params": {
+    "pluginId": "smoke-tools@smoke-marketplace",
+}})
+plugin_uninstall, records = read_until(lambda record: record.get("id") == 49)
+assert plugin_uninstall["result"] == {}, plugin_uninstall
+assert any(record.get("method") == "skills/changed" for record in records), records
+assert not os.path.exists(installed_cache_root), installed_cache_root
+
+send({"id": 54, "method": "plugin/uninstall", "params": {
+    "pluginId": "smoke-tools@smoke-marketplace",
+}})
+plugin_uninstall_again, _ = read_until(lambda record: record.get("id") == 54)
+assert plugin_uninstall_again["result"] == {}, plugin_uninstall_again
+
+send({"id": 55, "method": "skills/list", "params": {
+    "cwds": [workspace],
+    "forceReload": True,
+}})
+remaining_skills, _ = read_until(lambda record: record.get("id") == 55)
+remaining_skill_names = {
+    skill["name"]
+    for entry in remaining_skills["result"]["data"]
+    for skill in entry["skills"]
+}
+assert "smoke-plugin-skill" not in remaining_skill_names, remaining_skills
+
 send({"id": 46, "method": "plugin/skill/read", "params": {
     "remoteMarketplaceName": "remote",
     "remotePluginId": "smoke-plugin",

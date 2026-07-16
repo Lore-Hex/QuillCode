@@ -531,6 +531,172 @@ final class AppServerPluginDiscoveryTests: XCTestCase {
         XCTAssertTrue(invalidPathMessage?.contains("unsupported marketplace path") == true)
     }
 
+    func testPluginInstallActivatesGlobalPackageAndUninstallIsIdempotent() async throws {
+        let fixture = try await makeFixture()
+        try writeMarketplace(
+            #"{"name":"team-tools","plugins":[{"name":"review-kit","source":"./catalog/review-kit","policy":{"installation":"AVAILABLE","authentication":"ON_INSTALL"}}]}"#,
+            in: fixture.workspace
+        )
+        try writePackage(
+            #"{"name":"review-kit","version":"1.2.3"}"#,
+            at: "catalog/review-kit",
+            in: fixture.workspace
+        )
+        try write(
+            "---\nname: review-installed\ndescription: Review installed changes\n---\n",
+            to: "catalog/review-kit/skills/review-installed/SKILL.md",
+            in: fixture.workspace
+        )
+        try write(
+            #"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo reviewed"}]}]}}"#,
+            to: "catalog/review-kit/hooks/hooks.json",
+            in: fixture.workspace
+        )
+        try write(
+            #"{"apps":{"github":{"id":"github","name":"GitHub","category":"Developer Tools"}}}"#,
+            to: "catalog/review-kit/.app.json",
+            in: fixture.workspace
+        )
+        let marketplacePath = fixture.workspace.appendingPathComponent(
+            ".agents/plugins/marketplace.json"
+        ).path
+
+        try await fixture.request(
+            id: 90,
+            method: "plugin/install",
+            params: [
+                "marketplacePath": marketplacePath,
+                "pluginName": "review-kit"
+            ]
+        )
+
+        let installResult = try await fixture.result(id: 90)
+        let install = try XCTUnwrap(installResult)
+        XCTAssertEqual(install["authPolicy"], .string("ON_INSTALL"))
+        XCTAssertEqual(
+            install["appsNeedingAuth"]?.arrayValue?.first?.objectValue,
+            [
+                "id": .string("github"),
+                "name": .string("github"),
+                "description": .null,
+                "installUrl": .null,
+                "category": .string("Developer Tools")
+            ]
+        )
+        let installedRoot = fixture.home.appendingPathComponent(
+            "plugins/cache/team-tools/review-kit",
+            isDirectory: true
+        )
+        XCTAssertTrue(FileManager.default.fileExists(atPath: installedRoot.path))
+
+        try await fixture.request(
+            id: 91,
+            method: "plugin/list",
+            params: ["cwds": [fixture.workspace.path]]
+        )
+        let listResult = try await fixture.result(id: 91)
+        let listed = try XCTUnwrap(
+            listResult?["marketplaces"]?.arrayValue?.first?
+                .objectValue?["plugins"]?.arrayValue?.first?.objectValue
+        )
+        XCTAssertEqual(listed["installed"], .bool(true))
+        XCTAssertEqual(listed["localVersion"], .string("1.2.3"))
+
+        try await fixture.request(
+            id: 92,
+            method: "skills/list",
+            params: ["cwds": [fixture.workspace.path], "forceReload": true]
+        )
+        let skillsResult = try await fixture.result(id: 92)
+        let skillNames = try XCTUnwrap(
+            skillsResult?["data"]?.arrayValue?.first?
+                .objectValue?["skills"]?.arrayValue
+        ).compactMap { $0.objectValue?["name"]?.stringValue }
+        XCTAssertTrue(skillNames.contains("review-installed"))
+
+        try await fixture.request(
+            id: 93,
+            method: "hooks/list",
+            params: ["cwds": [fixture.workspace.path]]
+        )
+        let hooksResult = try await fixture.result(id: 93)
+        let hooks = try XCTUnwrap(
+            hooksResult?["data"]?.arrayValue?.first?
+                .objectValue?["hooks"]?.arrayValue
+        ).compactMap(\.objectValue)
+        XCTAssertTrue(hooks.contains { $0["pluginId"] == .string("review-kit") })
+
+        try await fixture.request(
+            id: 94,
+            method: "plugin/uninstall",
+            params: ["pluginId": "review-kit@team-tools"]
+        )
+        let firstUninstall = try await fixture.result(id: 94)
+        XCTAssertEqual(firstUninstall, [:])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: installedRoot.path))
+
+        try await fixture.request(
+            id: 95,
+            method: "plugin/uninstall",
+            params: ["pluginId": "review-kit@team-tools"]
+        )
+        let secondUninstall = try await fixture.result(id: 95)
+        XCTAssertEqual(secondUninstall, [:])
+
+        try await fixture.request(
+            id: 96,
+            method: "skills/list",
+            params: ["cwds": [fixture.workspace.path], "forceReload": true]
+        )
+        let remainingSkillsResult = try await fixture.result(id: 96)
+        let remainingSkills = try XCTUnwrap(
+            remainingSkillsResult?["data"]?.arrayValue?.first?
+                .objectValue?["skills"]?.arrayValue
+        ).compactMap { $0.objectValue?["name"]?.stringValue }
+        XCTAssertFalse(remainingSkills.contains("review-installed"))
+    }
+
+    func testPluginMutationValidatesPolicySourcesAndPluginIDs() async throws {
+        let fixture = try await makeFixture()
+        try writeMarketplace(
+            #"{"name":"team-tools","plugins":[{"name":"blocked","source":"./catalog/blocked","policy":{"installation":"NOT_AVAILABLE"}}]}"#,
+            in: fixture.workspace
+        )
+        try writePackage(
+            #"{"name":"blocked","version":"1.0.0"}"#,
+            at: "catalog/blocked",
+            in: fixture.workspace
+        )
+        let marketplacePath = fixture.workspace.appendingPathComponent(
+            ".agents/plugins/marketplace.json"
+        ).path
+
+        try await fixture.request(
+            id: 97,
+            method: "plugin/install",
+            params: ["remoteMarketplaceName": "remote", "pluginName": "blocked"]
+        )
+        try await fixture.request(
+            id: 98,
+            method: "plugin/install",
+            params: ["marketplacePath": marketplacePath, "pluginName": "blocked"]
+        )
+        try await fixture.request(
+            id: 99,
+            method: "plugin/uninstall",
+            params: ["pluginId": "not-a-local-plugin-id"]
+        )
+
+        for id in 97...99 {
+            let errorCode = try await fixture.errorCode(id: id)
+            XCTAssertEqual(errorCode, -32_600)
+        }
+        let remoteError = try await fixture.errorMessage(id: 97)
+        let unavailableError = try await fixture.errorMessage(id: 98)
+        XCTAssertTrue(remoteError?.contains("remote plugin install is not available") == true)
+        XCTAssertTrue(unavailableError?.contains("not available for install") == true)
+    }
+
     private func makeFixture() async throws -> PluginDiscoveryFixture {
         let home = try temporaryDirectory(prefix: "plugin-home")
         let workspace = try temporaryDirectory(prefix: "plugin-workspace")
