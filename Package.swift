@@ -12,6 +12,7 @@ let package = Package(
         .library(name: "QuillCodeSafety", targets: ["QuillCodeSafety"]),
         .library(name: "QuillCodeTools", targets: ["QuillCodeTools"]),
         .library(name: "QuillCodePersistence", targets: ["QuillCodePersistence"]),
+        .library(name: "QuillCodeHooks", targets: ["QuillCodeHooks"]),
         .library(name: "QuillComputerUseKit", targets: ["QuillComputerUseKit"]),
         .library(name: "QuillCodePlatform", targets: ["QuillCodePlatform"]),
         .library(name: "QuillCodePlatformUI", targets: ["QuillCodePlatformUI"]),
@@ -54,6 +55,15 @@ let package = Package(
                 .product(name: "TOML", package: "swift-toml")
             ]
         ),
+        .target(
+            name: "QuillCodeHooks",
+            dependencies: [
+                "QuillCodeCore",
+                "QuillCodeTools",
+                "QuillCodePersistence",
+                .product(name: "TOMLDecoder", package: "TOMLDecoder")
+            ]
+        ),
         .target(name: "QuillComputerUseKit", dependencies: ["QuillCodeCore"]),
         .target(name: "QuillCodePlatformUI", dependencies: ["QuillCodeTools"]),
         .target(
@@ -84,10 +94,10 @@ let package = Package(
                 "QuillCodeReview",
                 "QuillCodeTools",
                 "QuillCodePersistence",
+                "QuillCodeHooks",
                 "QuillCodeSafety",
                 "QuillComputerUseKit",
-                "QuillCodePlatformUI",
-                .product(name: "TOMLDecoder", package: "TOMLDecoder")
+                "QuillCodePlatformUI"
             ]
         ),
         .target(
@@ -97,6 +107,7 @@ let package = Package(
                 "QuillCodeSafety",
                 "QuillCodeTools",
                 "QuillCodePersistence",
+                "QuillCodeHooks",
                 "QuillCodeAgent",
                 "QuillCodeReview",
                 "QuillCodePlatform",
@@ -127,6 +138,10 @@ let package = Package(
         .testTarget(name: "QuillCodeSafetyTests", dependencies: ["QuillCodeSafety"]),
         .testTarget(name: "QuillCodeToolsTests", dependencies: ["QuillCodeTools"]),
         .testTarget(name: "QuillCodePersistenceTests", dependencies: ["QuillCodePersistence", "QuillCodeSafety"]),
+        .testTarget(
+            name: "QuillCodeHooksTests",
+            dependencies: ["QuillCodeHooks", "QuillCodeCore", "QuillCodePersistence"]
+        ),
         .testTarget(name: "QuillComputerUseKitTests", dependencies: ["QuillComputerUseKit"]),
         .testTarget(
             name: "QuillCodePlatformTests",
@@ -151,7 +166,7 @@ let package = Package(
         ),
         .testTarget(
             name: "QuillCodeAppTests",
-            dependencies: ["QuillCodeApp", "QuillCodeAgent", "QuillCodeReview"]
+            dependencies: ["QuillCodeApp", "QuillCodeAgent", "QuillCodeReview", "QuillCodeHooks"]
         ),
         .testTarget(
             name: "QuillCodeDesktopTests",

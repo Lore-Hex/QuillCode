@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodeHooks
 import QuillCodeTools
 
 struct CodexPluginPackage: Sendable, Hashable {
@@ -150,14 +151,13 @@ enum CodexPluginPackageLoader {
     ) -> [ProjectPluginHook] {
         let reference = payload.hooks ?? defaultHooksRelativePath
         guard let configURL = resolveFile(reference, inside: packageRoot, maxBytes: maxManifestBytes),
-              let data = try? Data(contentsOf: configURL),
-              let configuration = CodexHookConfigurationDecoder.decodeJSON(data)
+              let data = try? Data(contentsOf: configURL)
         else { return [] }
 
         let configPath = relativePath(of: configURL, inside: projectRoot)
         let packageRootRelativePath = relativePath(of: packageRoot, inside: projectRoot)
-        return CodexHookDefinitionBuilder.definitions(
-            from: configuration,
+        return CodexHookDefinitionLoader.definitions(
+            fromJSON: data,
             source: CodexHookDefinitionSource(
                 idPrefix: "plugin_hook:\(pluginID)",
                 ownerID: "plugin:\(pluginID)",
