@@ -178,7 +178,11 @@ public extension QuillCodeWorkspaceModel {
                     agentStatus: topBarState.agentStatus
                 ).surface()
             ),
-            contextBanner: WorkspaceContextBannerBuilder(thread: thread).banner(),
+            contextBanner: WorkspaceContextBannerBuilder(
+                thread: thread,
+                selectedModelID: topBarState.model,
+                modelCatalog: root.modelCatalog
+            ).banner(),
             sideConversation: sideConversationSurface(),
             codeReviewRequest: codeReviewRequest,
             review: review,

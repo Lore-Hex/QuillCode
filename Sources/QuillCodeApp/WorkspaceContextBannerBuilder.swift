@@ -5,12 +5,21 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
     static let defaultWarningThresholdPercent = 80
 
     var thread: ChatThread?
+    var selectedModelID: String = ""
+    var modelCatalog: [ModelInfo] = []
     var tokenBudget: Int = Self.defaultTokenBudget
     var warningThresholdPercent: Int = Self.defaultWarningThresholdPercent
 
     func banner() -> ContextBannerSurface? {
         guard let thread, !thread.messages.isEmpty else { return nil }
-        let usedPercent = contextUsedPercent(for: thread)
+        // Provider-reported usage against a model whose window the catalog does not know is not a
+        // percentage of anything — the top-bar token chip drops to a usage-only "window unknown"
+        // chip in exactly this case (see WorkspaceTokenBudgetSurfaceBuilder). The banner must agree:
+        // never fabricate "Context limit reached (100%)" from the 32k estimate fallback here. (The
+        // no-provider-usage estimate heuristic below keeps that conservative fallback, as before.)
+        let windowTokens = contextWindowTokens()
+        if Self.latestProviderUsage(for: thread) != nil, windowTokens == nil { return nil }
+        let usedPercent = contextUsedPercent(for: thread, windowTokens: windowTokens)
         guard usedPercent >= effectiveWarningThresholdPercent else { return nil }
         let hasProviderUsage = Self.latestProviderUsage(for: thread) != nil
         let progress = Self.contextSummaryProgress(for: thread)
@@ -35,8 +44,28 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
     }
 
     func contextUsedPercent(for thread: ChatThread) -> Int {
-        let tokens = max(1, Self.latestProviderUsage(for: thread)?.contextTokens ?? Self.estimatedContextTokens(for: thread))
-        return min(100, Int((Double(tokens) / Double(effectiveTokenBudget) * 100).rounded()))
+        contextUsedPercent(for: thread, windowTokens: contextWindowTokens())
+    }
+
+    private func contextUsedPercent(for thread: ChatThread, windowTokens: Int?) -> Int {
+        let usage = Self.latestProviderUsage(for: thread)
+        let tokens = max(1, usage?.contextTokens ?? Self.estimatedContextTokens(for: thread))
+        // Provider-reported usage is a percentage of the model's REAL window when the catalog knows
+        // it (so the banner and the top-bar chip agree); the local character estimate — and any
+        // unknown-window fallback — uses the injected conservative budget (32k by default).
+        let budget = usage == nil ? effectiveTokenBudget : (windowTokens ?? effectiveTokenBudget)
+        return min(100, Int((Double(tokens) / Double(budget) * 100).rounded()))
+    }
+
+    /// The catalog-reported context window for the thread's model (falling back to the top-bar
+    /// selection), or nil when the catalog does not know it — resolved through the SAME helper the
+    /// token-budget chip uses, so the chip and the banner can never disagree about the window.
+    private func contextWindowTokens() -> Int? {
+        WorkspaceTokenBudgetSurfaceBuilder.modelContextWindowTokens(
+            threadModel: thread?.model,
+            selectedModelID: selectedModelID,
+            modelCatalog: modelCatalog
+        )
     }
 
     static func estimatedContextTokens(for thread: ChatThread) -> Int {
