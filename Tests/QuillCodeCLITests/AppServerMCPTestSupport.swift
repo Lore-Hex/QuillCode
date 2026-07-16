@@ -44,15 +44,18 @@ actor AppServerMCPOutputCollector {
 struct FakeMCPServerSpecification: Sendable {
     var probe: MCPServerProbeResult
     var toolResult: MCPToolCallResult
+    var toolProgress: [ToolExecutionProgress]
     var resourceResult: MCPResourceReadResult
 
     init(
         probe: MCPServerProbeResult,
         toolResult: MCPToolCallResult = MCPToolCallResult(),
+        toolProgress: [ToolExecutionProgress] = [],
         resourceResult: MCPResourceReadResult = MCPResourceReadResult()
     ) {
         self.probe = probe
         self.toolResult = toolResult
+        self.toolProgress = toolProgress
         self.resourceResult = resourceResult
     }
 }
@@ -162,6 +165,25 @@ private final class FakeMCPClientSession: MCPClientSession, @unchecked Sendable 
         _ = timeout
         recorder.recordToolCall(tool: toolName, arguments: arguments, metadata: metadata)
         return specification.toolResult
+    }
+
+    func callToolEvents(
+        toolName: String,
+        arguments: MCPJSONValue?,
+        metadata: MCPJSONValue?,
+        timeout: TimeInterval
+    ) -> AsyncThrowingStream<MCPClientToolEvent, Error> {
+        _ = timeout
+        recorder.recordToolCall(tool: toolName, arguments: arguments, metadata: metadata)
+        let progress = specification.toolProgress
+        let result = specification.toolResult
+        return AsyncThrowingStream { continuation in
+            for update in progress {
+                continuation.yield(.progress(update))
+            }
+            continuation.yield(.result(result))
+            continuation.finish()
+        }
     }
 
     func readResource(uri: String, timeout: TimeInterval) throws -> ToolResult {

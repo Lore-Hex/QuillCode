@@ -145,7 +145,25 @@ struct AppServerProgressProjector: Sendable {
             ])
             upsert(item, id: id)
             return [started(item, at: event.createdAt), completed(item, at: event.createdAt)]
-        case .toolRunning, .toolProgress, .approvalRequested, .approvalDecided,
+        case .toolProgress:
+            guard let payload = decode(ToolProgressEventPayload.self, event.payloadJSON),
+                  let call = activeTools.first(where: { $0.id == payload.toolCallID }),
+                  mcpRoutes[call.name] != nil,
+                  let message = payload.progress.message?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !message.isEmpty
+            else {
+                return []
+            }
+            return [AppServerProjectedNotification(
+                method: "item/mcpToolCall/progress",
+                params: .object([
+                    "threadId": .string(threadID),
+                    "turnId": .string(turnID),
+                    "itemId": .string(call.id),
+                    "message": .string(message)
+                ])
+            )]
+        case .toolRunning, .approvalRequested, .approvalDecided,
              .reviewComment, .message, .messageFeedback:
             return []
         }

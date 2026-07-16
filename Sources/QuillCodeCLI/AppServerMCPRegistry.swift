@@ -121,42 +121,35 @@ actor AppServerMCPRegistry {
         return MCPAgentToolCatalog(servers: servers)
     }
 
-    func executeAgentTool(
+    func agentToolEvents(
         scope: String,
         configuration: AppServerMCPServerConfiguration,
         route: MCPAgentToolRoute,
         argumentsJSON: String
-    ) -> ToolResult {
-        do {
-            guard route.serverName == configuration.name,
-                  configuration.permitsTool(named: route.toolName)
-            else {
-                throw MCPProbeError.responseError(
-                    "MCP tool '\(route.serverName)/\(route.toolName)' is not enabled."
-                )
-            }
-            let trimmed = argumentsJSON.trimmingCharacters(in: .whitespacesAndNewlines)
-            let arguments = try MCPJSONValue(jsonData: Data((trimmed.isEmpty ? "{}" : trimmed).utf8))
-            guard arguments.objectValue != nil else {
-                throw MCPProbeError.invalidMessage("MCP tool arguments must be a JSON object.")
-            }
-            let entry = try probedEntry(
-                scope: scope,
-                configuration: configuration,
-                detail: .toolsAndAuthOnly
-            )
-            return try entry.launched.session.callToolResult(
-                toolName: route.toolName,
-                arguments: arguments,
-                metadata: nil,
-                timeout: configuration.toolTimeout
-            ).agentToolResult()
-        } catch {
-            return ToolResult(
-                ok: false,
-                error: "MCP tool '\(route.serverName)/\(route.toolName)' failed: \(error.localizedDescription)"
+    ) throws -> AsyncThrowingStream<MCPClientToolEvent, Error> {
+        guard route.serverName == configuration.name,
+              configuration.permitsTool(named: route.toolName)
+        else {
+            throw MCPProbeError.responseError(
+                "MCP tool '\(route.serverName)/\(route.toolName)' is not enabled."
             )
         }
+        let trimmed = argumentsJSON.trimmingCharacters(in: .whitespacesAndNewlines)
+        let arguments = try MCPJSONValue(jsonData: Data((trimmed.isEmpty ? "{}" : trimmed).utf8))
+        guard arguments.objectValue != nil else {
+            throw MCPProbeError.invalidMessage("MCP tool arguments must be a JSON object.")
+        }
+        let entry = try probedEntry(
+            scope: scope,
+            configuration: configuration,
+            detail: .toolsAndAuthOnly
+        )
+        return entry.launched.session.callToolEvents(
+            toolName: route.toolName,
+            arguments: arguments,
+            metadata: nil,
+            timeout: configuration.toolTimeout
+        )
     }
 
     func callTool(

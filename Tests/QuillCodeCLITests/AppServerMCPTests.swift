@@ -315,7 +315,11 @@ final class AppServerMCPTests: XCTestCase {
                     content: [.object(["type": .string("text"), "text": .string("searched swift")])],
                     structuredContent: .object(["matches": .number(1)]),
                     isError: false
-                )
+                ),
+                toolProgress: [
+                    ToolExecutionProgress(completed: 1, total: 2),
+                    ToolExecutionProgress(completed: 2, total: 2, message: "Indexing documentation")
+                ]
             )
         ])
         let fixture = try await makeFixture(
@@ -359,6 +363,75 @@ final class AppServerMCPTests: XCTestCase {
             mcpItem?["result"]?.objectValue?["content"]?.arrayValue?.first?.objectValue?["text"]?.stringValue,
             "searched swift"
         )
+
+        let progress = records.filter { $0["method"]?.stringValue == "item/mcpToolCall/progress" }
+        XCTAssertEqual(progress.count, 1, "Message-free MCP progress has no Codex wire representation")
+        let progressParams = try XCTUnwrap(progress.first?["params"]?.objectValue)
+        let itemID = try XCTUnwrap(progressParams["itemId"]?.stringValue)
+        let turnID = try XCTUnwrap(progressParams["turnId"]?.stringValue)
+        XCTAssertEqual(progressParams["threadId"]?.stringValue, threadID)
+        XCTAssertEqual(progressParams["message"]?.stringValue, "Indexing documentation")
+
+        let startedIndex = try XCTUnwrap(records.firstIndex { record in
+            record["method"]?.stringValue == "item/started"
+                && record["params"]?.objectValue?["turnId"]?.stringValue == turnID
+                && record["params"]?.objectValue?["item"]?.objectValue?["id"]?.stringValue == itemID
+        })
+        let progressIndex = try XCTUnwrap(records.firstIndex { record in
+            record["method"]?.stringValue == "item/mcpToolCall/progress"
+                && record["params"]?.objectValue?["itemId"]?.stringValue == itemID
+        })
+        let completedIndex = try XCTUnwrap(records.firstIndex { record in
+            record["method"]?.stringValue == "item/completed"
+                && record["params"]?.objectValue?["turnId"]?.stringValue == turnID
+                && record["params"]?.objectValue?["item"]?.objectValue?["id"]?.stringValue == itemID
+        })
+        XCTAssertLessThan(startedIndex, progressIndex)
+        XCTAssertLessThan(progressIndex, completedIndex)
+
+        await fixture.session.finishInput()
+    }
+
+    func testMCPProgressNotificationOptOutDoesNotSuppressExecutionOrCompletion() async throws {
+        let llm = AppServerMCPAgentLLM()
+        let launcher = FakeMCPLauncher(specifications: [
+            "fixture": .init(
+                probe: Self.dashProbe,
+                toolResult: MCPToolCallResult(
+                    content: [.object(["type": .string("text"), "text": .string("done")])]
+                ),
+                toolProgress: [
+                    ToolExecutionProgress(completed: 1, total: 1, message: "Finishing search")
+                ]
+            )
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.fixture]
+            command = "fixture"
+            enabled_tools = ["search"]
+            """,
+            launcher: launcher,
+            notificationOptOuts: ["item/mcpToolCall/progress"],
+            runnerFactory: { _ in AgentRunner(llm: llm) }
+        )
+        let threadID = try await startThread(in: fixture)
+
+        try await startAndWaitTurn(
+            id: 3,
+            threadID: threadID,
+            text: "Search the documentation",
+            in: fixture
+        )
+
+        let records = try await fixture.output.records()
+        XCTAssertFalse(records.contains { $0["method"]?.stringValue == "item/mcpToolCall/progress" })
+        XCTAssertTrue(records.contains { record in
+            record["method"]?.stringValue == "item/completed"
+                && record["params"]?.objectValue?["item"]?.objectValue?["type"]?.stringValue
+                    == "mcpToolCall"
+        })
+        XCTAssertEqual(launcher.recorder(for: "fixture").toolCalls.count, 1)
 
         await fixture.session.finishInput()
     }
@@ -638,6 +711,7 @@ final class AppServerMCPTests: XCTestCase {
         launcher: FakeMCPLauncher,
         environment: [String: String] = [:],
         mcpOAuthLoginStarter: any AppServerMCPOAuthLoginStarting = MCPLoginTestDriver(),
+        notificationOptOuts: [String] = [],
         runnerFactory: @escaping CLIAgentRunnerFactory = CLIRuntimeFactory.make
     ) async throws -> AppServerMCPFixture {
         let home = try temporaryDirectory(prefix: "app-server-mcp-home")
@@ -653,10 +727,18 @@ final class AppServerMCPTests: XCTestCase {
             mcpOAuthLoginStarter: mcpOAuthLoginStarter,
             sink: { line in await output.append(line) }
         )
+        var initializeParams: [String: Any] = [
+            "clientInfo": ["name": "MCPTests", "version": "1"]
+        ]
+        if !notificationOptOuts.isEmpty {
+            initializeParams["capabilities"] = [
+                "optOutNotificationMethods": notificationOptOuts
+            ]
+        }
         try await sendRequest(
             id: 1,
             method: "initialize",
-            params: ["clientInfo": ["name": "MCPTests", "version": "1"]],
+            params: initializeParams,
             to: session
         )
         try await sendNotification(method: "initialized", params: [:], to: session)

@@ -63,8 +63,9 @@ final class ParityCLIExecGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(mcpAdapter, containsAll: [
             "agentToolCatalog",
-            "executeAgentTool",
-            "inheritedExecution?(call, workspaceRoot)"
+            "agentToolEvents",
+            "streamingToolExecutionOverride",
+            "inheritedStreamingExecution?(call, workspaceRoot)"
         ])
         Self.assertSource(interrupts, containsAll: [
             "ProcessCLIInterruptSource",
