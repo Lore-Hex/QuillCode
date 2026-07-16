@@ -139,6 +139,11 @@ watches instead of leaving work stranded.
 the same turn ID, and survives app-server restart. It is rejected while a turn or compaction is active
 and deliberately does not undo workspace files, commands, account state, or recorded token spend.
 
+`fuzzyFileSearch` provides bounded, case-insensitive multi-root file and directory matching with
+Codex-compatible scores, character indices, and deterministic ordering. Experimental clients can
+keep an indexed search alive with `fuzzyFileSearch/sessionStart`, `sessionUpdate`, and `sessionStop`;
+query edits cancel stale generations, and stop or disconnect suppresses late notifications.
+
 Account clients can start API-key or browser-based TrustedRouter sign-in through
 `account/login/start`, cancel an outstanding browser flow through `account/login/cancel`, and clear
 the managed credential through `account/logout`. Responses are emitted before the matching

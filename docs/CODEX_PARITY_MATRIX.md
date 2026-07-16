@@ -45,6 +45,8 @@
 ## Current Parity Notes
 
 - The app server exposes Codex-compatible response-first `thread/compact/start`.
+- The app server exposes Codex-compatible one-shot and live-session fuzzy file search with bounded
+  shared indexing, exact wire fields, match scores/indices, cancellation, and disconnect cleanup.
   It emits a non-steerable `contextCompaction` turn, reuses the desktop's
   live/mock compaction policy and compact hooks, persists progress transactionally,
   rejects concurrent turns, and can be interrupted without mutating history after

@@ -34,6 +34,8 @@ description: Review the smoke-test workspace.
 
 # Smoke review
 """)
+with open(os.path.join(workspace, "alpha-search.txt"), "w", encoding="utf-8") as file:
+    file.write("fuzzy search smoke\n")
 extra_skill_root = os.path.join(home, "extra-skills")
 os.makedirs(os.path.join(extra_skill_root, "smoke-advisor"), exist_ok=True)
 with open(
@@ -161,6 +163,37 @@ models, _ = read_until(lambda record: record.get("id") == 2)
 assert len(models["result"]["data"]) == 2, models
 assert models["result"]["data"][0]["isDefault"] is True, models
 assert models["result"]["nextCursor"], models
+
+send({"id": 200, "method": "fuzzyFileSearch", "params": {
+    "query": "alps",
+    "roots": [workspace],
+}})
+search, _ = read_until(lambda record: record.get("id") == 200)
+assert search["result"]["files"][0]["path"] == "alpha-search.txt", search
+assert search["result"]["files"][0]["match_type"] == "file", search
+assert search["result"]["files"][0]["indices"] == [0, 1, 2, 6], search
+
+send({"id": 202, "method": "fuzzyFileSearch/sessionStart", "params": {
+    "sessionId": "smoke-search",
+    "roots": [workspace],
+}})
+search_start, _ = read_until(lambda record: record.get("id") == 202)
+assert search_start["result"] == {}, search_start
+send({"id": 203, "method": "fuzzyFileSearch/sessionUpdate", "params": {
+    "sessionId": "smoke-search",
+    "query": "ALPS",
+}})
+search_complete, search_records = read_until(
+    lambda record: record.get("method") == "fuzzyFileSearch/sessionCompleted"
+)
+search_update = next(
+    record for record in search_records
+    if record.get("method") == "fuzzyFileSearch/sessionUpdated"
+)
+assert search_update["params"]["sessionId"] == "smoke-search", search_update
+assert search_update["params"]["query"] == "ALPS", search_update
+assert search_update["params"]["files"][0]["path"] == "alpha-search.txt", search_update
+assert search_complete["params"] == {"sessionId": "smoke-search"}, search_complete
 
 send({"id": 201, "method": "process/spawn", "params": {
     "command": ["/bin/sh", "-c", "printf process-smoke"],

@@ -116,7 +116,7 @@ extension AppServerSession {
         return session
     }
 
-    private func requireExperimentalAPI(for method: String) throws {
+    func requireExperimentalAPI(for method: String) throws {
         guard experimentalAPIEnabled else {
             throw AppServerRPCError.invalidRequest(
                 "\(method) requires capabilities.experimentalApi: true"
