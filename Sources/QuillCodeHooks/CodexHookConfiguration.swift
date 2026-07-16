@@ -5,6 +5,7 @@ import TOMLDecoder
 
 struct CodexHookConfiguration: Decodable {
     var hooks: [String: [CodexHookGroup]]
+    var hookStates: [String: HookConfigurationState]
     var hooksFeatureOverride: Bool?
     var allowManagedHooksOnly: Bool?
 
@@ -17,7 +18,9 @@ struct CodexHookConfiguration: Decodable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        hooks = try container.decodeIfPresent(CodexHookTable.self, forKey: .hooks)?.events ?? [:]
+        let hookTable = try container.decodeIfPresent(CodexHookTable.self, forKey: .hooks)
+        hooks = hookTable?.events ?? [:]
+        hookStates = hookTable?.states ?? [:]
         let features = try container.decodeIfPresent(CodexHookFeatures.self, forKey: .features)
         hooksFeatureOverride = features?.hooks ?? features?.legacyHooks
         allowManagedHooksOnly = try container.decodeIfPresent(Bool.self, forKey: .allowManagedHooksOnly)
@@ -39,16 +42,54 @@ private struct CodexHookFeatures: Decodable {
 /// Decode only array-shaped event entries so managed requirements remain forward compatible.
 private struct CodexHookTable: Decodable {
     var events: [String: [CodexHookGroup]]
+    var states: [String: HookConfigurationState]
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: DynamicCodingKey.self)
         var events: [String: [CodexHookGroup]] = [:]
+        var states: [String: HookConfigurationState] = [:]
         for key in container.allKeys {
+            if key.stringValue == "state",
+               let stateContainer = try? container.nestedContainer(
+                keyedBy: DynamicCodingKey.self,
+                forKey: key
+               ) {
+                for stateKey in stateContainer.allKeys {
+                    guard let state = try? stateContainer.decode(
+                        CodexHookState.self,
+                        forKey: stateKey
+                    ) else { continue }
+                    states[stateKey.stringValue] = HookConfigurationState(
+                        enabled: state.enabled,
+                        trustedHash: state.trustedHash
+                    )
+                }
+                continue
+            }
             if let groups = try? container.decode([CodexHookGroup].self, forKey: key) {
                 events[key.stringValue] = groups
             }
         }
         self.events = events
+        self.states = states
+    }
+}
+
+private struct CodexHookState: Decodable {
+    var enabled: Bool?
+    var trustedHash: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case enabled
+        case trustedHash
+        case trustedHashSnake = "trusted_hash"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
+        trustedHash = try container.decodeIfPresent(String.self, forKey: .trustedHash)
+            ?? container.decodeIfPresent(String.self, forKey: .trustedHashSnake)
     }
 }
 
@@ -129,6 +170,10 @@ public struct CodexHookDefinitionSource: Sendable, Hashable {
     public var relativePath: String
     public var pluginRootRelativePath: String?
     public var trustScope: ProjectHookTrustScope?
+    public var sourcePath: URL?
+    public var catalogSource: HookCatalogSource
+    public var keyPrefix: String?
+    public var pluginIdentifier: String?
 
     public init(
         idPrefix: String,
@@ -136,7 +181,11 @@ public struct CodexHookDefinitionSource: Sendable, Hashable {
         ownerName: String,
         relativePath: String,
         pluginRootRelativePath: String?,
-        trustScope: ProjectHookTrustScope? = nil
+        trustScope: ProjectHookTrustScope? = nil,
+        sourcePath: URL? = nil,
+        catalogSource: HookCatalogSource = .unknown,
+        keyPrefix: String? = nil,
+        pluginIdentifier: String? = nil
     ) {
         self.idPrefix = idPrefix
         self.ownerID = ownerID
@@ -144,6 +193,10 @@ public struct CodexHookDefinitionSource: Sendable, Hashable {
         self.relativePath = relativePath
         self.pluginRootRelativePath = pluginRootRelativePath
         self.trustScope = trustScope
+        self.sourcePath = sourcePath
+        self.catalogSource = catalogSource
+        self.keyPrefix = keyPrefix
+        self.pluginIdentifier = pluginIdentifier
     }
 }
 
@@ -155,8 +208,26 @@ public enum CodexHookDefinitionLoader {
         source: CodexHookDefinitionSource,
         limit: Int
     ) -> [ProjectPluginHook] {
-        guard let configuration = CodexHookConfigurationDecoder.decodeJSON(data) else { return [] }
-        return CodexHookDefinitionBuilder.definitions(
+        catalogDefinitions(fromJSON: data, source: source, limit: limit).map(\.hook)
+    }
+
+    public static func catalogDefinitions(
+        fromJSON data: Data,
+        source: CodexHookDefinitionSource,
+        limit: Int
+    ) -> [HookCatalogDefinition] {
+        (try? validatedCatalogDefinitions(fromJSON: data, source: source, limit: limit)) ?? []
+    }
+
+    /// Decodes and builds catalog entries while preserving malformed-document errors for
+    /// discovery surfaces that need to report a precise warning to the user.
+    public static func validatedCatalogDefinitions(
+        fromJSON data: Data,
+        source: CodexHookDefinitionSource,
+        limit: Int
+    ) throws -> [HookCatalogDefinition] {
+        let configuration = try CodexHookConfigurationDecoder.decodeJSONThrowing(data)
+        return CodexHookDefinitionBuilder.catalogDefinitions(
             from: configuration,
             source: source,
             limit: limit
@@ -173,8 +244,16 @@ enum CodexHookDefinitionBuilder {
         source: CodexHookDefinitionSource,
         limit: Int
     ) -> [ProjectPluginHook] {
+        catalogDefinitions(from: configuration, source: source, limit: limit).map(\.hook)
+    }
+
+    static func catalogDefinitions(
+        from configuration: CodexHookConfiguration,
+        source: CodexHookDefinitionSource,
+        limit: Int
+    ) -> [HookCatalogDefinition] {
         guard limit > 0 else { return [] }
-        var definitions: [ProjectPluginHook] = []
+        var definitions: [HookCatalogDefinition] = []
         for event in configuration.hooks.keys.sorted() {
             guard let eventID = normalizedIdentifier(event),
                   let groups = configuration.hooks[event]
@@ -193,7 +272,7 @@ enum CodexHookDefinitionBuilder {
                     let statusMessage = normalizedOptionalText(handler.statusMessage, maxLength: 240)
                     let timeoutSeconds = normalizedTimeout(handler.timeout)
                     let isAsync = handler.isAsync ?? false
-                    definitions.append(ProjectPluginHook(
+                    let hook = ProjectPluginHook(
                         id: "\(source.idPrefix).\(eventID).\(groupIndex).\(handlerIndex)",
                         pluginID: source.ownerID,
                         pluginName: source.ownerName,
@@ -227,6 +306,16 @@ enum CodexHookDefinitionBuilder {
                             command: command,
                             isAsync: isAsync
                         )
+                    )
+                    let sourcePath = source.sourcePath
+                        ?? URL(fileURLWithPath: source.relativePath).standardizedFileURL
+                    let keyPrefix = source.keyPrefix ?? sourcePath.path
+                    definitions.append(HookCatalogDefinition(
+                        hook: hook,
+                        key: "\(keyPrefix):\(eventKeyLabel(event)):\(groupIndex):\(handlerIndex)",
+                        sourcePath: sourcePath,
+                        source: source.catalogSource,
+                        pluginID: source.pluginIdentifier
                     ))
                 }
                 if definitions.count == limit { break }
@@ -234,6 +323,13 @@ enum CodexHookDefinitionBuilder {
             if definitions.count == limit { break }
         }
         return definitions
+    }
+
+    private static func eventKeyLabel(_ event: String) -> String {
+        event.reduce(into: "") { result, character in
+            if character.isUppercase, !result.isEmpty { result.append("_") }
+            result.append(character.lowercased())
+        }
     }
 
     private static func supportStatus(

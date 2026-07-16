@@ -29,19 +29,46 @@ struct CodexHookDocument: Sendable, Hashable {
 }
 
 struct CodexHookDocumentLoadResult: Sendable, Hashable {
-    var hooks: [ProjectPluginHook] = []
-    var warnings: [String] = []
+    var definitions: [HookCatalogDefinition] = []
+    var hookStates: [String: HookConfigurationState] = [:]
+    var diagnostics: [HookConfigurationDiagnostic] = []
     var hooksFeatureOverride: Bool?
     var allowManagedHooksOnly: Bool?
+
+    var hooks: [ProjectPluginHook] {
+        definitions.map(\.hook)
+    }
+
+    var warnings: [String] {
+        diagnostics.map(\.description)
+    }
 }
 
 public struct HookConfigurationDiscovery: Sendable, Hashable {
     public var hooks: [ProjectPluginHook]
     public var warnings: [String]
+    public var definitions: [HookCatalogDefinition]
+    public var hookStates: [String: HookConfigurationState]
+    public var diagnostics: [HookConfigurationDiagnostic]
+    public var hooksFeatureOverride: Bool?
+    public var allowManagedHooksOnly: Bool?
 
-    public init(hooks: [ProjectPluginHook] = [], warnings: [String] = []) {
+    public init(
+        hooks: [ProjectPluginHook] = [],
+        warnings: [String] = [],
+        definitions: [HookCatalogDefinition] = [],
+        hookStates: [String: HookConfigurationState] = [:],
+        diagnostics: [HookConfigurationDiagnostic] = [],
+        hooksFeatureOverride: Bool? = nil,
+        allowManagedHooksOnly: Bool? = nil
+    ) {
         self.hooks = hooks
         self.warnings = warnings
+        self.definitions = definitions
+        self.hookStates = hookStates
+        self.diagnostics = diagnostics
+        self.hooksFeatureOverride = hooksFeatureOverride
+        self.allowManagedHooksOnly = allowManagedHooksOnly
     }
 }
 
@@ -60,8 +87,8 @@ enum CodexHookDocumentLoader {
             switch loadDocument(document) {
             case .missing:
                 continue
-            case .failure(let warning):
-                result.warnings.append(warning)
+            case .failure(let diagnostic):
+                result.diagnostics.append(diagnostic)
                 continue
             case .success(let loaded):
                 data = loaded
@@ -70,18 +97,26 @@ enum CodexHookDocumentLoader {
             do {
                 configuration = try decode(data, format: document.format)
             } catch {
-                result.warnings.append(
-                    "failed to parse hooks config \(documentURL(document).path): \(error.localizedDescription)"
-                )
+                result.diagnostics.append(HookConfigurationDiagnostic(
+                    path: documentURL(document).path,
+                    message: "failed to parse hooks config: \(error.localizedDescription)"
+                ))
                 continue
             }
-            let remaining = max(0, maxHooks - result.hooks.count)
+            let remaining = max(0, maxHooks - result.definitions.count)
             if remaining > 0 {
-                result.hooks.append(contentsOf: CodexHookDefinitionBuilder.definitions(
+                var source = document.source
+                let sourcePath = documentURL(document)
+                source.sourcePath = sourcePath
+                source.keyPrefix = source.keyPrefix ?? sourcePath.path
+                result.definitions.append(contentsOf: CodexHookDefinitionBuilder.catalogDefinitions(
                     from: configuration,
-                    source: document.source,
+                    source: source,
                     limit: remaining
                 ))
+            }
+            for (key, state) in configuration.hookStates {
+                result.hookStates[key] = state
             }
             if document.readsActivationPolicy {
                 if let override = configuration.hooksFeatureOverride {
@@ -110,17 +145,23 @@ enum CodexHookDocumentLoader {
     private enum DocumentReadResult {
         case missing
         case success(Data)
-        case failure(String)
+        case failure(HookConfigurationDiagnostic)
     }
 
     private static func loadDocument(_ document: CodexHookDocument) -> DocumentReadResult {
         let root = document.root.standardizedFileURL.resolvingSymlinksInPath()
         let candidate = documentURL(document)
         if (try? FileManager.default.destinationOfSymbolicLink(atPath: candidate.path)) != nil {
-            return .failure("refusing symlinked hooks config: \(candidate.path)")
+            return .failure(HookConfigurationDiagnostic(
+                path: candidate.path,
+                message: "refusing symlinked hooks config"
+            ))
         }
         guard WorkspaceBoundary.isWithin(candidate, root: root) else {
-            return .failure("refusing hooks config outside its source root: \(candidate.path)")
+            return .failure(HookConfigurationDiagnostic(
+                path: candidate.path,
+                message: "refusing hooks config outside its source root"
+            ))
         }
         guard FileManager.default.fileExists(atPath: candidate.path) else { return .missing }
 
@@ -130,31 +171,45 @@ enum CodexHookDocumentLoader {
                 forKeys: [.isRegularFileKey, .fileSizeKey]
             )
         } catch {
-            return .failure("failed to inspect hooks config \(candidate.path): \(error.localizedDescription)")
+            return .failure(HookConfigurationDiagnostic(
+                path: candidate.path,
+                message: "failed to inspect hooks config: \(error.localizedDescription)"
+            ))
         }
         guard values.isRegularFile == true else {
-            return .failure("hooks config is not a regular file: \(candidate.path)")
+            return .failure(HookConfigurationDiagnostic(
+                path: candidate.path,
+                message: "hooks config is not a regular file"
+            ))
         }
         guard let fileSize = values.fileSize, fileSize <= maxDocumentBytes else {
-            return .failure(
-                "hooks config exceeds the \(maxDocumentBytes)-byte limit: \(candidate.path)"
-            )
+            return .failure(HookConfigurationDiagnostic(
+                path: candidate.path,
+                message: "hooks config exceeds the \(maxDocumentBytes)-byte limit"
+            ))
         }
 
         let resolved = candidate.resolvingSymlinksInPath()
         guard WorkspaceBoundary.isWithin(resolved, root: root) else {
-            return .failure("refusing hooks config outside its source root: \(candidate.path)")
+            return .failure(HookConfigurationDiagnostic(
+                path: candidate.path,
+                message: "refusing hooks config outside its source root"
+            ))
         }
         do {
             let data = try Data(contentsOf: resolved, options: [.mappedIfSafe])
             guard data.count <= maxDocumentBytes else {
-                return .failure(
-                    "hooks config exceeds the \(maxDocumentBytes)-byte limit: \(candidate.path)"
-                )
+                return .failure(HookConfigurationDiagnostic(
+                    path: candidate.path,
+                    message: "hooks config exceeds the \(maxDocumentBytes)-byte limit"
+                ))
             }
             return .success(data)
         } catch {
-            return .failure("failed to read hooks config \(candidate.path): \(error.localizedDescription)")
+            return .failure(HookConfigurationDiagnostic(
+                path: candidate.path,
+                message: "failed to read hooks config: \(error.localizedDescription)"
+            ))
         }
     }
 
@@ -180,7 +235,15 @@ public enum ProjectHookConfigurationLoader {
             documents(for: projectRoot),
             maxHooks: maxHooks
         )
-        return HookConfigurationDiscovery(hooks: result.hooks, warnings: result.warnings)
+        return HookConfigurationDiscovery(
+            hooks: result.hooks,
+            warnings: result.warnings,
+            definitions: result.definitions,
+            hookStates: result.hookStates,
+            diagnostics: result.diagnostics,
+            hooksFeatureOverride: result.hooksFeatureOverride,
+            allowManagedHooksOnly: result.allowManagedHooksOnly
+        )
     }
 
     private static func documents(for projectRoot: URL) -> [CodexHookDocument] {
@@ -198,7 +261,8 @@ public enum ProjectHookConfigurationLoader {
                 fileName: ".quillcode/config.toml",
                 sourceID: "quillcode-config",
                 ownerName: "Project config hooks",
-                format: .toml
+                format: .toml,
+                readsActivationPolicy: true
             ),
             document(
                 root: root,
@@ -212,7 +276,8 @@ public enum ProjectHookConfigurationLoader {
                 fileName: ".codex/config.toml",
                 sourceID: "codex-config",
                 ownerName: "Codex project config hooks",
-                format: .toml
+                format: .toml,
+                readsActivationPolicy: true
             )
         ]
     }
@@ -222,7 +287,8 @@ public enum ProjectHookConfigurationLoader {
         fileName: String,
         sourceID: String,
         ownerName: String,
-        format: CodexHookDocumentFormat
+        format: CodexHookDocumentFormat,
+        readsActivationPolicy: Bool = false
     ) -> CodexHookDocument {
         CodexHookDocument(
             root: root,
@@ -234,8 +300,10 @@ public enum ProjectHookConfigurationLoader {
                 ownerName: ownerName,
                 relativePath: fileName,
                 pluginRootRelativePath: nil,
-                trustScope: .workspace
-            )
+                trustScope: .workspace,
+                catalogSource: .project
+            ),
+            readsActivationPolicy: readsActivationPolicy
         )
     }
 }

@@ -121,6 +121,9 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
     func testStandardHooksShareOneBoundedJSONAndTOMLDefinitionPipeline() throws {
         let decoderText = try Self.hooksSourceText(named: "CodexHookConfiguration.swift")
         let pluginLoaderText = try Self.appSourceText(named: "CodexPluginPackageLoader.swift")
+        let sharedPluginLoaderText = try Self.hooksSourceText(
+            named: "CodexPluginHookConfigurationLoader.swift"
+        )
         let configLoaderText = try Self.hooksSourceText(named: "ProjectHookConfigurationLoader.swift")
         let globalLoaderText = try Self.hooksSourceText(named: "GlobalHookConfigurationLoader.swift")
         let modelHooksText = try Self.appSourceText(named: "WorkspaceModelHooks.swift")
@@ -138,9 +141,14 @@ final class ParityMCPGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(decoderText.contains("decodeTOML"))
         XCTAssertTrue(decoderText.contains("command_windows"))
         XCTAssertTrue(decoderText.contains("status_message"))
-        XCTAssertTrue(pluginLoaderText.contains("CodexHookDefinitionLoader.definitions"))
+        XCTAssertTrue(pluginLoaderText.contains("CodexPluginHookConfigurationLoader.loadPackage"))
         XCTAssertFalse(pluginLoaderText.contains("CodexHookConfigurationDecoder"))
         XCTAssertFalse(pluginLoaderText.contains("CodexHookDefinitionBuilder"))
+        XCTAssertTrue(
+            sharedPluginLoaderText.contains("CodexHookDefinitionLoader.validatedCatalogDefinitions")
+        )
+        XCTAssertFalse(sharedPluginLoaderText.contains("CodexHookConfigurationDecoder"))
+        XCTAssertFalse(sharedPluginLoaderText.contains("CodexHookDefinitionBuilder"))
         XCTAssertTrue(configLoaderText.contains(".quillcode/hooks.json"))
         XCTAssertTrue(configLoaderText.contains(".quillcode/config.toml"))
         XCTAssertTrue(configLoaderText.contains(".codex/hooks.json"))

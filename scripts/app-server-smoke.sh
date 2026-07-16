@@ -23,7 +23,9 @@ import stat
 import subprocess
 import sys
 
-binary, home, workspace, mcp_fixture = sys.argv[1:]
+binary, home, workspace, mcp_fixture = [
+    os.path.normpath(os.path.abspath(path)) for path in sys.argv[1:]
+]
 skill_directory = os.path.join(workspace, ".agents", "skills", "smoke-review")
 os.makedirs(skill_directory, exist_ok=True)
 skill_manifest = os.path.join(skill_directory, "SKILL.md")
@@ -117,12 +119,18 @@ with open(
 ) as manifest:
     json.dump({"name": "smoke-tools", "version": "2.0.0"}, manifest)
 with open(os.path.join(home, "config.toml"), "w", encoding="utf-8") as config_file:
+    hook_sentinel = os.path.join(workspace, "hooks-list-must-not-execute")
     config_file.write(
         "[mcp_servers.smoke-mcp]\n"
         f"command = {json.dumps(sys.executable)}\n"
         f"args = [{json.dumps(mcp_fixture)}]\n"
         "startup_timeout_sec = 5\n"
         "tool_timeout_sec = 5\n"
+        "\n[[hooks.Stop]]\n"
+        "\n[[hooks.Stop.hooks]]\n"
+        'type = "command"\n'
+        f"command = {json.dumps('touch ' + hook_sentinel)}\n"
+        'statusMessage = "Smoke hook"\n'
     )
 global_memory_root = os.path.join(home, "memories")
 global_memory_file = os.path.join(global_memory_root, "nested", "smoke.md")
@@ -204,6 +212,29 @@ assert collaboration_modes["result"] == {
 send({"id": 208, "method": "configRequirements/read", "params": {}})
 config_requirements, _ = read_until(lambda record: record.get("id") == 208)
 assert config_requirements["result"] == {"requirements": None}, config_requirements
+
+send({"id": 210, "method": "hooks/list", "params": {}})
+hooks_list, _ = read_until(lambda record: record.get("id") == 210)
+hook_entry = hooks_list["result"]["data"][0]
+assert hook_entry["cwd"] == workspace, hooks_list
+assert hook_entry["warnings"] == [], hooks_list
+assert hook_entry["errors"] == [], hooks_list
+assert len(hook_entry["hooks"]) == 1, hooks_list
+hook = hook_entry["hooks"][0]
+assert hook["eventName"] == "Stop", hook
+assert hook["handlerType"] == "command", hook
+assert hook["matcher"] is None, hook
+assert hook["command"] == "touch " + hook_sentinel, hook
+assert hook["statusMessage"] == "Smoke hook", hook
+assert hook["sourcePath"] == os.path.join(home, "config.toml"), hook
+assert hook["source"] == "user", hook
+assert hook["pluginId"] is None, hook
+assert hook["displayOrder"] == 0, hook
+assert hook["enabled"] is True, hook
+assert hook["isManaged"] is False, hook
+assert hook["trustStatus"] == "untrusted", hook
+assert len(hook["currentHash"]) == 64, hook
+assert not os.path.exists(hook_sentinel), hook_sentinel
 
 send({"id": 209, "method": "memory/reset"})
 memory_reset, _ = read_until(lambda record: record.get("id") == 209)

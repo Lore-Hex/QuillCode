@@ -4,20 +4,32 @@ import QuillCodePersistence
 
 public struct WorkspaceGlobalHookConfiguration: Sendable, Hashable {
     public var hooks: [ProjectPluginHook]
+    public var definitions: [HookCatalogDefinition]
+    public var hookStates: [String: HookConfigurationState]
     public var hooksEnabled: Bool
+    public var hooksFeatureIsManaged: Bool
     public var managedOnly: Bool
     public var warnings: [String]
+    public var diagnostics: [HookConfigurationDiagnostic]
 
     public init(
         hooks: [ProjectPluginHook] = [],
+        definitions: [HookCatalogDefinition] = [],
+        hookStates: [String: HookConfigurationState] = [:],
         hooksEnabled: Bool = true,
+        hooksFeatureIsManaged: Bool = false,
         managedOnly: Bool = false,
-        warnings: [String] = []
+        warnings: [String] = [],
+        diagnostics: [HookConfigurationDiagnostic] = []
     ) {
         self.hooks = hooks
+        self.definitions = definitions
+        self.hookStates = hookStates
         self.hooksEnabled = hooksEnabled
+        self.hooksFeatureIsManaged = hooksFeatureIsManaged
         self.managedOnly = managedOnly
         self.warnings = warnings
+        self.diagnostics = diagnostics
     }
 
     public func resolvingTrust(_ trust: ProjectHookTrustLoadResult) -> WorkspaceGlobalHookConfiguration {
@@ -45,14 +57,21 @@ public enum GlobalHookConfigurationLoader {
             ?? ordinary.hooksFeatureOverride
             ?? true
         let managedOnly = managed.allowManagedHooksOnly ?? false
-        let merged = ordinary.hooks + managed.hooks
+        let mergedDefinitions = ordinary.definitions + managed.definitions
+        let selectedDefinitions = mergedDefinitions.filter { !managedOnly || $0.hook.isManaged }
+        var hookStates = ordinary.hookStates
+        for (key, state) in managed.hookStates {
+            hookStates[key] = state
+        }
         return WorkspaceGlobalHookConfiguration(
-            hooks: hooksEnabled
-                ? merged.filter { !managedOnly || $0.isManaged }
-                : [],
+            hooks: hooksEnabled ? selectedDefinitions.map(\.hook) : [],
+            definitions: selectedDefinitions,
+            hookStates: hookStates,
             hooksEnabled: hooksEnabled,
+            hooksFeatureIsManaged: managed.hooksFeatureOverride != nil,
             managedOnly: managedOnly,
-            warnings: ordinary.warnings + managed.warnings
+            warnings: ordinary.warnings + managed.warnings,
+            diagnostics: ordinary.diagnostics + managed.diagnostics
         )
     }
 
@@ -64,6 +83,7 @@ public enum GlobalHookConfigurationLoader {
             name: "Codex system hooks",
             displayPrefix: "/etc/codex",
             trustScope: .managed,
+            catalogSource: .system,
             to: &documents
         )
         appendLayer(
@@ -72,6 +92,7 @@ public enum GlobalHookConfigurationLoader {
             name: "QuillCode system hooks",
             displayPrefix: "/etc/quillcode",
             trustScope: .managed,
+            catalogSource: .system,
             to: &documents
         )
         appendLayer(
@@ -80,6 +101,7 @@ public enum GlobalHookConfigurationLoader {
             name: "Codex user hooks",
             displayPrefix: "~/.codex",
             trustScope: .user,
+            catalogSource: .user,
             to: &documents
         )
         appendLayer(
@@ -88,6 +110,7 @@ public enum GlobalHookConfigurationLoader {
             name: "QuillCode user hooks",
             displayPrefix: "~/.quillcode",
             trustScope: .user,
+            catalogSource: .user,
             to: &documents
         )
         return documents
@@ -106,7 +129,8 @@ public enum GlobalHookConfigurationLoader {
                     ownerName: "Managed requirements",
                     relativePath: file.path,
                     pluginRootRelativePath: nil,
-                    trustScope: .managed
+                    trustScope: .managed,
+                    catalogSource: .cloudRequirements
                 ),
                 readsActivationPolicy: true
             )
@@ -119,6 +143,7 @@ public enum GlobalHookConfigurationLoader {
         name: String,
         displayPrefix: String,
         trustScope: ProjectHookTrustScope,
+        catalogSource: HookCatalogSource,
         to documents: inout [CodexHookDocument]
     ) {
         guard let root else { return }
@@ -130,6 +155,7 @@ public enum GlobalHookConfigurationLoader {
             displayPath: "\(displayPrefix)/hooks.json",
             format: .json,
             trustScope: trustScope,
+            catalogSource: catalogSource,
             readsActivationPolicy: false
         ))
         documents.append(document(
@@ -140,6 +166,7 @@ public enum GlobalHookConfigurationLoader {
             displayPath: "\(displayPrefix)/config.toml",
             format: .toml,
             trustScope: trustScope,
+            catalogSource: catalogSource,
             readsActivationPolicy: true
         ))
     }
@@ -152,6 +179,7 @@ public enum GlobalHookConfigurationLoader {
         displayPath: String,
         format: CodexHookDocumentFormat,
         trustScope: ProjectHookTrustScope,
+        catalogSource: HookCatalogSource,
         readsActivationPolicy: Bool
     ) -> CodexHookDocument {
         CodexHookDocument(
@@ -164,7 +192,8 @@ public enum GlobalHookConfigurationLoader {
                 ownerName: ownerName,
                 relativePath: displayPath,
                 pluginRootRelativePath: nil,
-                trustScope: trustScope
+                trustScope: trustScope,
+                catalogSource: catalogSource
             ),
             readsActivationPolicy: readsActivationPolicy
         )

@@ -290,6 +290,253 @@ final class AppServerDiscoveryTests: XCTestCase {
         XCTAssertEqual(entries[1]["errors"]?.arrayValue?.first?.objectValue?["path"]?.stringValue, missing)
     }
 
+    func testHooksListDefaultsToSessionCWDAndReturnsExactDataOnlyShape() async throws {
+        let fixture = try await makeSession()
+        let sentinel = fixture.workspace.appendingPathComponent("must-not-execute")
+        let config = fixture.workspace.appendingPathComponent(".quillcode/config.toml")
+        try writeFile(
+            """
+            [[hooks.PreToolUse]]
+            matcher = "shell.run"
+
+            [[hooks.PreToolUse.hooks]]
+            type = "command"
+            command = "touch \(sentinel.path)"
+            timeout = 18
+            statusMessage = "Checking shell"
+            """,
+            to: config
+        )
+
+        try await fixture.request(id: 1, method: "hooks/list")
+
+        let records = try await fixture.output.records()
+        let entries = try XCTUnwrap(
+            result(for: 1, in: records)?["data"]?.arrayValue?.compactMap(\.objectValue)
+        )
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertEqual(entries[0]["cwd"]?.stringValue, fixture.workspace.path)
+        XCTAssertEqual(entries[0]["warnings"]?.arrayValue, [])
+        XCTAssertEqual(entries[0]["errors"]?.arrayValue, [])
+        let hook = try XCTUnwrap(entries[0]["hooks"]?.arrayValue?.first?.objectValue)
+        XCTAssertEqual(Set(hook.keys), Set([
+            "key", "eventName", "handlerType", "matcher", "command", "timeoutSec",
+            "statusMessage", "sourcePath", "source", "pluginId", "displayOrder",
+            "enabled", "isManaged", "currentHash", "trustStatus"
+        ]))
+        XCTAssertEqual(hook["eventName"]?.stringValue, "PreToolUse")
+        XCTAssertEqual(hook["handlerType"]?.stringValue, "command")
+        XCTAssertEqual(hook["matcher"]?.stringValue, "shell.run")
+        XCTAssertEqual(hook["command"]?.stringValue, "touch \(sentinel.path)")
+        XCTAssertEqual(hook["timeoutSec"]?.numberValue, 18)
+        XCTAssertEqual(hook["statusMessage"]?.stringValue, "Checking shell")
+        XCTAssertEqual(hook["sourcePath"]?.stringValue, config.path)
+        XCTAssertEqual(hook["source"]?.stringValue, "project")
+        XCTAssertEqual(hook["pluginId"], .null)
+        XCTAssertEqual(hook["displayOrder"]?.numberValue, 0)
+        XCTAssertEqual(hook["enabled"]?.boolValue, true)
+        XCTAssertEqual(hook["isManaged"]?.boolValue, false)
+        XCTAssertEqual(hook["trustStatus"]?.stringValue, "untrusted")
+        XCTAssertEqual(hook["currentHash"]?.stringValue?.count, 64)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sentinel.path))
+    }
+
+    func testHooksListReflectsBatchWrittenEnabledAndTrustState() async throws {
+        let fixture = try await makeSession()
+        try writeFile(
+            """
+            [[hooks.Stop]]
+
+            [[hooks.Stop.hooks]]
+            type = "command"
+            command = "printf state"
+            """,
+            to: fixture.configFile
+        )
+        try await fixture.request(id: 1, method: "hooks/list")
+        var records = try await fixture.output.records()
+        let initialHook = try XCTUnwrap(
+            result(for: 1, in: records)?["data"]?.arrayValue?.first?
+                .objectValue?["hooks"]?.arrayValue?.first?.objectValue
+        )
+        let key = try XCTUnwrap(initialHook["key"]?.stringValue)
+        let hash = try XCTUnwrap(initialHook["currentHash"]?.stringValue)
+        let quotedKey = key.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
+        try await fixture.request(
+            id: 2,
+            method: "config/batchWrite",
+            params: [
+                "edits": [
+                    [
+                        "keyPath": "hooks.state.\"\(quotedKey)\".enabled",
+                        "value": false,
+                        "mergeStrategy": "upsert"
+                    ],
+                    [
+                        "keyPath": "hooks.state.\"\(quotedKey)\".trusted_hash",
+                        "value": hash,
+                        "mergeStrategy": "upsert"
+                    ]
+                ]
+            ]
+        )
+        try await fixture.request(id: 3, method: "hooks/list")
+
+        records = try await fixture.output.records()
+        let trusted = try XCTUnwrap(
+            result(for: 3, in: records)?["data"]?.arrayValue?.first?
+                .objectValue?["hooks"]?.arrayValue?.first?.objectValue
+        )
+        XCTAssertEqual(trusted["enabled"]?.boolValue, false)
+        XCTAssertEqual(trusted["trustStatus"]?.stringValue, "trusted")
+
+        try await fixture.request(
+            id: 4,
+            method: "config/value/write",
+            params: [
+                "keyPath": "hooks.state.\"\(quotedKey)\".trusted_hash",
+                "value": String(repeating: "0", count: 64),
+                "mergeStrategy": "replace"
+            ]
+        )
+        try await fixture.request(id: 5, method: "hooks/list")
+        records = try await fixture.output.records()
+        XCTAssertEqual(
+            result(for: 5, in: records)?["data"]?.arrayValue?.first?
+                .objectValue?["hooks"]?.arrayValue?.first?
+                .objectValue?["trustStatus"]?.stringValue,
+            "modified"
+        )
+    }
+
+    func testHooksListUsesPrimaryCheckoutForLinkedWorktreeAndProjectFeatureOverride() async throws {
+        let fixture = try await makeSession()
+        let primary = fixture.workspace.appendingPathComponent("primary", isDirectory: true)
+        let worktree = fixture.workspace.appendingPathComponent("feature", isDirectory: true)
+        let gitDirectory = primary.appendingPathComponent(".git/worktrees/feature", isDirectory: true)
+        try FileManager.default.createDirectory(at: gitDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: worktree, withIntermediateDirectories: true)
+        try "gitdir: ../primary/.git/worktrees/feature\n".write(
+            to: worktree.appendingPathComponent(".git"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "../..\n".write(
+            to: gitDirectory.appendingPathComponent("commondir"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let projectConfig = primary.appendingPathComponent(".quillcode/config.toml")
+        try writeFile(
+            """
+            [features]
+            hooks = true
+
+            [[hooks.Stop]]
+
+            [[hooks.Stop.hooks]]
+            type = "command"
+            command = "printf primary"
+            """,
+            to: projectConfig
+        )
+        try writeFile("[features]\nhooks = false\n", to: fixture.configFile)
+
+        try await fixture.request(
+            id: 1,
+            method: "hooks/list",
+            params: ["cwds": [worktree.path]]
+        )
+
+        let records = try await fixture.output.records()
+        let entry = try XCTUnwrap(
+            result(for: 1, in: records)?["data"]?.arrayValue?.first?.objectValue
+        )
+        XCTAssertEqual(entry["cwd"]?.stringValue, worktree.path)
+        let hook = try XCTUnwrap(entry["hooks"]?.arrayValue?.first?.objectValue)
+        XCTAssertEqual(hook["command"]?.stringValue, "printf primary")
+        XCTAssertEqual(hook["sourcePath"]?.stringValue, projectConfig.path)
+    }
+
+    func testHooksListReturnsPluginWarningsAndPerCWDLoadErrors() async throws {
+        let fixture = try await makeSession()
+        let packages = fixture.workspace.appendingPathComponent(".quillcode/plugins", isDirectory: true)
+        let valid = packages.appendingPathComponent("valid", isDirectory: true)
+        try writeFile(
+            #"{"name":"valid","hooks":"hooks/hooks.json"}"#,
+            to: valid.appendingPathComponent(".codex-plugin/plugin.json")
+        )
+        try writeFile(
+            #"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"printf plugin"}]}]}}"#,
+            to: valid.appendingPathComponent("hooks/hooks.json")
+        )
+        let malformed = packages.appendingPathComponent("malformed", isDirectory: true)
+        try writeFile(
+            #"{"name":"malformed","hooks":"hooks/hooks.json"}"#,
+            to: malformed.appendingPathComponent(".codex-plugin/plugin.json")
+        )
+        try writeFile("not json", to: malformed.appendingPathComponent("hooks/hooks.json"))
+        let invalidConfig = fixture.workspace.appendingPathComponent("invalid", isDirectory: true)
+        try FileManager.default.createDirectory(at: invalidConfig, withIntermediateDirectories: true)
+        try writeFile(
+            "not TOML",
+            to: invalidConfig.appendingPathComponent(".quillcode/config.toml")
+        )
+        let missing = fixture.workspace.appendingPathComponent("missing")
+
+        try await fixture.request(
+            id: 1,
+            method: "hooks/list",
+            params: ["cwds": [fixture.workspace.path, invalidConfig.path, missing.path]]
+        )
+
+        let records = try await fixture.output.records()
+        let entries = try XCTUnwrap(
+            result(for: 1, in: records)?["data"]?.arrayValue?.compactMap(\.objectValue)
+        )
+        XCTAssertEqual(entries.count, 3)
+        let plugin = try XCTUnwrap(entries[0]["hooks"]?.arrayValue?.first?.objectValue)
+        XCTAssertEqual(plugin["pluginId"]?.stringValue, "valid")
+        XCTAssertEqual(plugin["source"]?.stringValue, "plugin")
+        XCTAssertTrue(entries[0]["warnings"]?.arrayValue?.contains(where: {
+            $0.stringValue?.contains("failed to parse plugin hooks") == true
+        }) == true)
+        XCTAssertTrue(entries[1]["errors"]?.arrayValue?.contains(where: {
+            $0.objectValue?["path"]?.stringValue?.hasSuffix(".quillcode/config.toml") == true
+        }) == true)
+        XCTAssertEqual(entries[2]["hooks"]?.arrayValue, [])
+        XCTAssertEqual(entries[2]["errors"]?.arrayValue?.first?.objectValue?["path"]?.stringValue, missing.path)
+    }
+
+    func testHooksListManagedOnlyPolicySuppressesExcludedPluginRowsAndWarnings() async throws {
+        let fixture = try await makeSession()
+        try writeFile(
+            "allow_managed_hooks_only = true\n",
+            to: fixture.workspace.appendingPathComponent(".quillcode/config.toml")
+        )
+        let plugin = fixture.workspace.appendingPathComponent(
+            ".quillcode/plugins/malformed",
+            isDirectory: true
+        )
+        try writeFile(
+            #"{"name":"malformed","hooks":"hooks/hooks.json"}"#,
+            to: plugin.appendingPathComponent(".codex-plugin/plugin.json")
+        )
+        try writeFile("not json", to: plugin.appendingPathComponent("hooks/hooks.json"))
+
+        try await fixture.request(id: 1, method: "hooks/list")
+
+        let records = try await fixture.output.records()
+        let entry = try XCTUnwrap(
+            result(for: 1, in: records)?["data"]?.arrayValue?.first?.objectValue
+        )
+        XCTAssertEqual(entry["hooks"]?.arrayValue, [])
+        XCTAssertEqual(entry["warnings"]?.arrayValue, [])
+        XCTAssertEqual(entry["errors"]?.arrayValue, [])
+    }
+
     func testSkillsListCachesUntilForcedReload() async throws {
         let fixture = try await makeSession()
         let skillRoot = fixture.workspace.appendingPathComponent(".agents/skills", isDirectory: true)
@@ -530,6 +777,14 @@ final class AppServerDiscoveryTests: XCTestCase {
             )
         }
         return manifest
+    }
+
+    private func writeFile(_ value: String, to destination: URL) throws {
+        try FileManager.default.createDirectory(
+            at: destination.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try value.write(to: destination, atomically: true, encoding: .utf8)
     }
 
     private func makeSession(
