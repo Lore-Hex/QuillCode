@@ -15,6 +15,7 @@ final class AppServerProcessSession: @unchecked Sendable {
     private var process: Process?
     private var inputHandle: FileHandle?
     private var outputHandles: [FileHandle] = []
+    private var parentOnlyHandles: [FileHandle] = []
     private var masterFileDescriptor: Int32 = -1
     private var stdinClosed = false
     private var finished = false
@@ -184,7 +185,8 @@ final class AppServerProcessSession: @unchecked Sendable {
         process.standardError = slaveHandle
         lock.appServerWithLock {
             inputHandle = masterHandle
-            outputHandles = [masterHandle, slaveHandle]
+            outputHandles = [masterHandle]
+            parentOnlyHandles = [slaveHandle]
             masterFileDescriptor = master
         }
     }
@@ -202,16 +204,22 @@ final class AppServerProcessSession: @unchecked Sendable {
                 standardOutput.fileHandleForReading,
                 standardError.fileHandleForReading
             ]
+            parentOnlyHandles = [
+                standardInput.fileHandleForReading,
+                standardOutput.fileHandleForWriting,
+                standardError.fileHandleForWriting
+            ]
         }
     }
 
     private func closeParentOnlyDescriptorsAfterStart() {
-        if request.usesPTY {
-            let slave = lock.appServerWithLock {
-                outputHandles.count > 1 ? outputHandles.removeLast() : nil
-            }
-            try? slave?.close()
-        } else if !request.streamsStdin {
+        let handles = lock.appServerWithLock { () -> [FileHandle] in
+            defer { parentOnlyHandles.removeAll(keepingCapacity: false) }
+            return parentOnlyHandles
+        }
+        for handle in handles { try? handle.close() }
+
+        if !request.usesPTY, !request.streamsStdin {
             let input = lock.appServerWithLock { () -> FileHandle? in
                 stdinClosed = true
                 defer { inputHandle = nil }
@@ -340,6 +348,7 @@ final class AppServerProcessSession: @unchecked Sendable {
             self.process = nil
             inputHandle = nil
             outputHandles = []
+            parentOnlyHandles = []
             masterFileDescriptor = -1
             return result
         }
@@ -354,10 +363,11 @@ final class AppServerProcessSession: @unchecked Sendable {
                 process = nil
                 inputHandle = nil
                 outputHandles = []
+                parentOnlyHandles = []
                 masterFileDescriptor = -1
                 finished = true
             }
-            return Array(Set(outputHandles + [inputHandle].compactMap { $0 }))
+            return Array(Set(outputHandles + parentOnlyHandles + [inputHandle].compactMap { $0 }))
         }
         for handle in handles { try? handle.close() }
         continuation.finish()
