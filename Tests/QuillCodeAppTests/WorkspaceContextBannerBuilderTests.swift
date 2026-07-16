@@ -161,8 +161,12 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
     }
 
     func testProviderUsageOverridesCharacterEstimate() throws {
+        // Provider-reported usage (25 tokens) is the numerator, not the tiny character estimate of
+        // "short". Measured against the model's KNOWN 25-token window ⇒ 100%. (Unknown window +
+        // provider usage is a separate case that suppresses the banner — see the test below.)
         let usage = ModelTokenUsage(promptTokens: 25, completionTokens: 0, totalTokens: 25)
         let thread = ChatThread(
+            model: "trustedrouter/fast",
             messages: [
                 .init(role: .user, content: "short")
             ],
@@ -172,7 +176,8 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
         )
         let builder = WorkspaceContextBannerBuilder(
             thread: thread,
-            tokenBudget: 25,
+            selectedModelID: "trustedrouter/fast",
+            modelCatalog: [model(id: "trustedrouter/fast", contextWindowTokens: 25)],
             warningThresholdPercent: 100
         )
 
@@ -185,6 +190,70 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
             banner.subtitle,
             "Provider-reported token usage is near the limit. Compact the thread, start fresh, or fork with latest, summarized, or full visible context."
         )
+    }
+
+    func testBannerSuppressedForUnknownWindowWithProviderUsage() {
+        // The asymmetry the top-bar usage-only chip exposed: provider-reported usage against a model
+        // whose window the catalog does not know must NOT fabricate "Context limit reached" from the
+        // 32k estimate fallback (58.4k / 32k ⇒ clamped 100%). Unknown window + provider usage ⇒ no
+        // banner, matching the usage-only chip. This FAILS against the pre-fix builder (it fires).
+        let thread = ChatThread(
+            title: "Fallback",
+            messages: [.init(role: .user, content: "short")],
+            events: [
+                ModelTokenUsageEvent.event(usage: ModelTokenUsage(promptTokens: 58_000, completionTokens: 400))
+            ]
+        )
+        let builder = WorkspaceContextBannerBuilder(
+            thread: thread,
+            selectedModelID: "missing/model",
+            modelCatalog: []
+        )
+
+        XCTAssertNil(builder.banner())
+    }
+
+    func testBannerUsesRealWindowForProviderUsageNotThe32kFallback() {
+        // Provider usage of 58.4k tokens against a KNOWN 200k window is 29% — nowhere near the limit.
+        // The pre-fix code measured it against the 32k fallback (183% ⇒ clamped 100% ⇒ false alarm);
+        // the banner must use the real window so it agrees with the top-bar chip and stays silent.
+        let thread = ChatThread(
+            model: "trustedrouter/fast",
+            messages: [.init(role: .user, content: "short")],
+            events: [
+                ModelTokenUsageEvent.event(usage: ModelTokenUsage(promptTokens: 58_000, completionTokens: 400))
+            ]
+        )
+        let builder = WorkspaceContextBannerBuilder(
+            thread: thread,
+            selectedModelID: "trustedrouter/fast",
+            modelCatalog: [model(id: "trustedrouter/fast", contextWindowTokens: 200_000)]
+        )
+
+        XCTAssertEqual(builder.contextUsedPercent(for: thread), 29)
+        XCTAssertNil(builder.banner())
+    }
+
+    func testBannerFiresForProviderUsageNearRealWindow() throws {
+        // The real window is respected in BOTH directions: usage genuinely near the known window
+        // still warns (guards against the fix simply muting provider-usage banners).
+        let thread = ChatThread(
+            model: "trustedrouter/fast",
+            messages: [.init(role: .user, content: "short")],
+            events: [
+                ModelTokenUsageEvent.event(usage: ModelTokenUsage(promptTokens: 190_000, completionTokens: 0, totalTokens: 190_000))
+            ]
+        )
+        let builder = WorkspaceContextBannerBuilder(
+            thread: thread,
+            selectedModelID: "trustedrouter/fast",
+            modelCatalog: [model(id: "trustedrouter/fast", contextWindowTokens: 200_000)]
+        )
+
+        let banner = try XCTUnwrap(builder.banner())
+
+        XCTAssertEqual(builder.contextUsedPercent(for: thread), 95)
+        XCTAssertEqual(banner.title, "Approaching context limit (95% used)")
     }
 
     func testCustomBudgetAndThresholdSupportSmallDeterministicTests() throws {
@@ -217,5 +286,15 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
 
         XCTAssertEqual(builder.contextUsedPercent(for: thread), 100)
         XCTAssertEqual(banner.title, "Context limit reached (100% used)")
+    }
+
+    private func model(id: String, contextWindowTokens: Int) -> ModelInfo {
+        ModelInfo(
+            id: id,
+            provider: "TrustedRouter",
+            displayName: "Nike 1.0",
+            category: "Recommended",
+            capabilities: ModelCapabilities(contextWindowTokens: contextWindowTokens)
+        )
     }
 }
