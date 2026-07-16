@@ -14,10 +14,12 @@ struct AppServerProcessSpawnRequest: Sendable, Equatable {
     var outputBytesCap: Int?
     var timeoutMilliseconds: Int64?
     var terminalSize: AppServerProcessTerminalSize?
+    var sandboxPolicy: AppServerSandboxPolicy?
 
     init(
         params value: CLIJSONValue,
-        inheritedEnvironment: [String: String]
+        inheritedEnvironment: [String: String],
+        sandboxPolicy: AppServerSandboxPolicy? = nil
     ) throws {
         let params = try AppServerParams(value)
         command = try Self.command(from: params)
@@ -43,6 +45,7 @@ struct AppServerProcessSpawnRequest: Sendable, Equatable {
         if terminalSize != nil, !usesPTY {
             throw AppServerRPCError.invalidParams("process/spawn size requires tty: true")
         }
+        self.sandboxPolicy = sandboxPolicy
     }
 
     private static func command(from params: AppServerParams) throws -> [String] {
@@ -133,18 +136,29 @@ struct AppServerProcessSpawnRequest: Sendable, Equatable {
 
     static func terminalSize(
         from params: AppServerParams,
-        required: Bool
+        required: Bool,
+        errorPrefix: String = "process"
     ) throws -> AppServerProcessTerminalSize? {
         guard let value = params.object["size"] else {
-            if required { throw AppServerRPCError.invalidParams("size is required") }
+            if required {
+                throw terminalSizeError("\(errorPrefix) size is required", prefix: errorPrefix)
+            }
             return nil
         }
         if value == .null {
-            if required { throw AppServerRPCError.invalidParams("size must be an object") }
+            if required {
+                throw terminalSizeError(
+                    "\(errorPrefix) size must be an object",
+                    prefix: errorPrefix
+                )
+            }
             return nil
         }
         guard let object = value.objectValue else {
-            throw AppServerRPCError.invalidParams("size must be an object")
+            throw terminalSizeError(
+                "\(errorPrefix) size must be an object",
+                prefix: errorPrefix
+            )
         }
         let size = try AppServerParams(.object(object))
         guard let rows = size.object["rows"].flatMap(integer(from:)),
@@ -154,11 +168,22 @@ struct AppServerProcessSpawnRequest: Sendable, Equatable {
               rows <= Int64(UInt16.max),
               columns <= Int64(UInt16.max)
         else {
-            throw AppServerRPCError.invalidParams(
-                "process size rows and cols must be integers greater than 0 and at most \(UInt16.max)"
+            throw terminalSizeError(
+                "\(errorPrefix) size rows and cols must be integers greater than 0 "
+                    + "and at most \(UInt16.max)",
+                prefix: errorPrefix
             )
         }
         return AppServerProcessTerminalSize(rows: UInt16(rows), columns: UInt16(columns))
+    }
+
+    private static func terminalSizeError(
+        _ message: String,
+        prefix: String
+    ) -> AppServerRPCError {
+        prefix == "command/exec"
+            ? AppServerCommandExecError.invalidParams(message)
+            : AppServerRPCError.invalidParams(message)
     }
 }
 

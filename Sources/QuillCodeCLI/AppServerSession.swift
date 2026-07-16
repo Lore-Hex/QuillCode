@@ -122,6 +122,8 @@ actor AppServerSession {
     var outOfBandElicitationCounts: [UUID: UInt64] = [:]
     var processSessions: [String: AppServerProcessSession] = [:]
     var processEventTasks: [String: Task<Void, Never>] = [:]
+    var commandExecSessions: [String: AppServerActiveCommandExec] = [:]
+    var commandExecEventTasks: [String: Task<Void, Never>] = [:]
     var activeFuzzyFileSearches: [UUID: AppServerActiveFuzzyFileSearch] = [:]
     var fuzzyFileSearchTokens: [String: UUID] = [:]
     var fuzzyFileSearchSessions: [String: AppServerFuzzyFileSearchSession] = [:]
@@ -230,6 +232,7 @@ actor AppServerSession {
         cancelAllMCPServerStartups()
         await cancelAllFuzzyFileSearches()
         cancelAllUserShellCommands()
+        await terminateAllCommandExecProcesses()
         await terminateAllProcesses()
         await resolveAllPendingMCPElicitations()
         await mcpRegistry.terminateAll()
@@ -255,6 +258,17 @@ actor AppServerSession {
         if method == "fuzzyFileSearch" {
             do {
                 try startFuzzyFileSearchRequest(id: id, params: params)
+            } catch let error as AppServerRPCError {
+                await send(.error(id: id, error: error))
+            } catch {
+                await send(.error(id: id, error: .internalError(error.localizedDescription)))
+            }
+            return
+        }
+
+        if method == "command/exec" {
+            do {
+                try startCommandExec(id: id, params: params)
             } catch let error as AppServerRPCError {
                 await send(.error(id: id, error: error))
             } catch {
@@ -326,6 +340,9 @@ actor AppServerSession {
             case "process/writeStdin": result = try writeProcessStdin(params)
             case "process/resizePty": result = try resizeProcessPTY(params)
             case "process/kill": result = try killProcess(params)
+            case "command/exec/write": result = try writeCommandExec(params)
+            case "command/exec/resize": result = try resizeCommandExec(params)
+            case "command/exec/terminate": result = try terminateCommandExec(params)
             case "fuzzyFileSearch/sessionStart": result = try startFuzzyFileSearchSession(params)
             case "fuzzyFileSearch/sessionUpdate": result = try updateFuzzyFileSearchSession(params)
             case "fuzzyFileSearch/sessionStop": result = try stopFuzzyFileSearchSession(params)

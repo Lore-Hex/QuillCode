@@ -45,6 +45,16 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   0.142.5 schemas, public `openai/codex` thread processor/user-shell task/integration tests, and
   isolated local lifecycle, active-task, history, rollback, unsubscribe, and background-terminal
   probes, audited 2026-07-16.
+- Codex app-server 0.142.5 experimental `command/exec` runs an argv vector outside any thread and
+  defers its response until process exit and output drain. A client process ID is optional for
+  buffered compatibility but required by PTY, stdin streaming, output streaming, and every follow-up
+  operation. `tty` implies both streams; output deltas are base64, connection-scoped, emitted before
+  the response, and omitted from final stdout/stderr. IDs may be reused after exit, EOF terminates
+  active processes without a late response, and timeout exits 124. Relative cwd joins the server cwd;
+  environment values override inheritance while null removes a variable. Explicit sandbox policy and
+  named permission profile are mutually exclusive. Sources: generated 0.142.5 schemas, public
+  `openai/codex` command-exec processor/manager/integration tests, and QuillCode executable protocol
+  probes, audited 2026-07-16.
 - Codex app: projects, worktrees, automations, Git review, in-app browser, Computer Use, artifact previews.
 - Codex Review treats Unstaged, Staged, Commit, Branch, and Last turn as distinct scopes, with whole-diff Stage all/Revert all controls. QuillCode should preserve that information architecture while keeping historical comparisons read-only and deriving Last turn from auditable turn-owned edits instead of guessing from the current working tree.
 - Official managed-worktree behavior: new Worktree tasks start at detached HEAD from the selected branch, can carry current uncommitted changes, copy normally ignored files only when selected by `.worktreeinclude`, automatically copy ignored `AGENTS.override.md`, and keep a stable task/worktree association. Codex stores managed worktrees under `$CODEX_HOME/worktrees` by default, lets users choose another root, and automatically retains the 15 most recent managed tasks unless cleanup is disabled or the limit is changed. Handoff moves a task and its code between Local and that same worktree; managed cleanup saves restorable snapshots before deletion. Pinned, selected, still-running, Local, and permanent/named-branch worktrees are excluded from automatic removal, while reopening a task whose disposable worktree was removed offers restoration. Source: current Codex manual, Worktrees section (`environments/git-worktrees`).

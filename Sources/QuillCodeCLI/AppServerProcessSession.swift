@@ -39,14 +39,10 @@ final class AppServerProcessSession: @unchecked Sendable {
     }
 
     func start() throws {
-        let executable = try AppServerProcessSupport.resolveExecutable(
-            request.command[0],
-            cwd: request.cwd,
-            environment: request.environment
-        )
+        let launch = try AppServerProcessSandbox.launch(for: request)
         let process = Process()
-        process.executableURL = executable
-        process.arguments = Array(request.command.dropFirst())
+        process.executableURL = launch.executable
+        process.arguments = launch.arguments
         process.currentDirectoryURL = request.cwd
         process.environment = request.environment
 
