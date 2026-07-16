@@ -224,6 +224,18 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   manual app-server transport section and public `openai/codex` `app-server-transport` transport,
   websocket, Unix-socket, and auth implementations, audited 2026-07-16.
 
+- Current Codex app-server experimental `thread/items/list` pages complete stored `ThreadItem`
+  payloads without resuming a thread. The request requires `threadId`, accepts nullable `turnId` and
+  cursor, defaults to ascending order and 25 items, and clamps a requested page to 1...100. Each
+  response entry carries its containing `turnId`; `nextCursor` continues after the page and
+  `backwardsCursor` includes the page head when the client reverses direction. Cursors belong to the
+  complete item stream rather than a turn-filtered substream, so clients may reuse one cursor with or
+  without `turnId`. Stores without item pagination return `-32601` and exact message
+  `thread/items/list is not supported yet`. QuillCode's local JSON store can provide the contract and
+  retains the older `thread/turns/items/list` spelling only as an explicit unsupported compatibility
+  boundary. Sources: official app-server README, generated v2 schemas, request processor, and remote
+  thread-store tests at public `openai/codex` commit `3151954`, audited 2026-07-16.
+
 ## Product Translation
 
 - QuillCode should feel like a fast native coding workspace.

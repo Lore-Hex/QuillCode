@@ -1003,6 +1003,50 @@ assert [turn["id"] for turn in older_turn_page["result"]["data"]] == [
 ], older_turn_page
 assert older_turn_page["result"]["nextCursor"] is None, older_turn_page
 
+send({"id": 113, "method": "thread/items/list", "params": {
+    "threadId": thread_id,
+    "limit": 1,
+    "sortDirection": "asc",
+}})
+first_item_page, _ = read_until(lambda record: record.get("id") == 113)
+first_items = first_item_page["result"]["data"]
+assert len(first_items) == 1, first_item_page
+assert first_items[0]["turnId"] == review_turn["id"], first_item_page
+assert first_items[0]["item"]["id"], first_item_page
+assert first_items[0]["item"]["type"], first_item_page
+item_cursor = first_item_page["result"]["nextCursor"]
+assert item_cursor, first_item_page
+
+send({"id": 114, "method": "thread/items/list", "params": {
+    "threadId": thread_id,
+    "cursor": item_cursor,
+    "limit": 1,
+}})
+second_item_page, _ = read_until(lambda record: record.get("id") == 114)
+second_items = second_item_page["result"]["data"]
+assert len(second_items) == 1, second_item_page
+assert second_items[0]["turnId"] == review_turn["id"], second_item_page
+assert second_items[0]["item"]["id"] != first_items[0]["item"]["id"], second_item_page
+assert second_item_page["result"]["backwardsCursor"], second_item_page
+
+send({"id": 115, "method": "thread/items/list", "params": {
+    "threadId": thread_id,
+    "turnId": second_turn["result"]["turn"]["id"],
+    "cursor": item_cursor,
+    "limit": 100,
+}})
+filtered_item_page, _ = read_until(lambda record: record.get("id") == 115)
+filtered_items = filtered_item_page["result"]["data"]
+assert len(filtered_items) >= 2, filtered_item_page
+assert all(
+    item["turnId"] == second_turn["result"]["turn"]["id"]
+    for item in filtered_items
+), filtered_item_page
+assert {item["item"]["type"] for item in filtered_items}.issuperset({
+    "userMessage",
+    "agentMessage",
+}), filtered_item_page
+
 send({"id": 12, "method": "thread/rollback", "params": {
     "threadId": thread_id,
     "numTurns": 1,

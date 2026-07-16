@@ -18,6 +18,26 @@ enum AppServerThreadPagination {
         anchorDescription: String,
         identifier: (Element) -> String
     ) throws -> AppServerAnchoredPage<Element> {
+        try filteredAnchoredPage(
+            orderedValues,
+            cursor: cursor,
+            requestedLimit: requestedLimit,
+            cursorIDKey: cursorIDKey,
+            anchorDescription: anchorDescription,
+            identifier: identifier,
+            isIncluded: { _ in true }
+        )
+    }
+
+    static func filteredAnchoredPage<Element>(
+        _ orderedValues: [Element],
+        cursor: String?,
+        requestedLimit: Int?,
+        cursorIDKey: String,
+        anchorDescription: String,
+        identifier: (Element) -> String,
+        isIncluded: (Element) -> Bool
+    ) throws -> AppServerAnchoredPage<Element> {
         let limit = try boundedLimit(requestedLimit)
         guard !orderedValues.isEmpty else {
             return AppServerAnchoredPage(data: [], nextCursor: nil, backwardsCursor: nil)
@@ -39,7 +59,7 @@ enum AppServerThreadPagination {
         guard startIndex < orderedValues.count else {
             return AppServerAnchoredPage(data: [], nextCursor: nil, backwardsCursor: nil)
         }
-        let remaining = orderedValues[startIndex...]
+        let remaining = orderedValues[startIndex...].filter(isIncluded)
         let data = Array(remaining.prefix(limit))
         let hasMore = remaining.count > data.count
         let backwardsCursor = try data.first.map {
