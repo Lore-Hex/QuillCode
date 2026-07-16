@@ -427,7 +427,8 @@ final class AppServerThreadControlTests: XCTestCase {
         )
         let updated = try await fixture.session.threadSettings(
             from: AppServerParams(.object(["ephemeral": .bool(true)])),
-            base: base
+            base: base,
+            requirements: nil
         )
         XCTAssertEqual(updated.runtimeAppConfig, base.runtimeAppConfig)
         XCTAssertEqual(updated.compactPrompt, base.compactPrompt)

@@ -15,7 +15,11 @@ extension AppServerSession {
         try rejectUnsupportedValues(["effort", "personality", "serviceTier", "summary"], in: params)
 
         var record = try await loadRecord(threadID)
-        record.settings = try threadSettings(from: params, base: record.settings)
+        record.settings = try threadSettings(
+            from: params,
+            base: record.settings,
+            requirements: try managedRequirements()
+        )
         record.thread.model = try model(from: params, fallback: record.thread.model)
         record.thread.mode = mode(for: record.settings)
         let input = try AppServerTurnInput(

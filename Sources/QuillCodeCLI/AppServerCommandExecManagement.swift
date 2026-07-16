@@ -1,11 +1,17 @@
 import Foundation
+import QuillCodePersistence
 
 extension AppServerSession {
     func startCommandExec(id: AppServerRequestID, params value: CLIJSONValue) throws {
         try requireExperimentalAPI(for: "command/exec")
         let params = try AppServerParams(value)
         let cwd = try resolvedCWD(try params.optionalString("cwd"), fallback: currentDirectory)
-        let sandboxPolicy = try commandExecSandboxPolicy(from: params, cwd: cwd)
+        let requirements = try managedRequirements()
+        let sandboxPolicy = try commandExecSandboxPolicy(
+            from: params,
+            cwd: cwd,
+            requirements: requirements
+        )
         let request = try AppServerCommandExecRequest(
             params: value,
             cwd: cwd,
@@ -109,16 +115,22 @@ extension AppServerSession {
     ) {
         commandExecEventTasks[registryKey] = Task { [weak self] in
             for await event in session.events {
-                await self?.receiveCommandExecEvent(event, registryKey: registryKey)
+                await self?.receiveCommandExecEvent(
+                    event,
+                    registryKey: registryKey,
+                    originatingSession: session
+                )
             }
         }
     }
 
     private func receiveCommandExecEvent(
         _ event: AppServerProcessEvent,
-        registryKey: String
+        registryKey: String,
+        originatingSession: AppServerProcessSession
     ) async {
-        guard let active = commandExecSessions[registryKey] else { return }
+        guard let active = commandExecSessions[registryKey],
+              active.session === originatingSession else { return }
         switch event {
         case .output(let stream, let data, let capReached):
             guard !inputFinished, let processID = active.processID else { return }
@@ -171,7 +183,8 @@ extension AppServerSession {
 
     private func commandExecSandboxPolicy(
         from params: AppServerParams,
-        cwd: URL
+        cwd: URL,
+        requirements: ManagedRequirements?
     ) throws -> AppServerSandboxPolicy {
         let sandboxValue = params.object["sandboxPolicy"]
         let permissionProfileValue = params.object["permissionProfile"]
@@ -184,40 +197,73 @@ extension AppServerSession {
 
         if let sandboxValue, sandboxValue != .null {
             let policy = try AppServerSandboxPolicyParser.parse(sandboxValue)
+            try validateManagedSandboxMode(policy.mode, against: requirements)
             return try normalizedCommandExecPolicy(policy, workspaceRoot: currentDirectory)
         }
         if let permissionProfile = try params.optionalString("permissionProfile") {
-            return try commandExecPermissionProfile(permissionProfile, cwd: cwd)
-        }
-
-        switch appConfig.mode {
-        case .readOnly, .plan:
-            return AppServerSandboxPolicy(mode: .readOnly)
-        case .review, .auto:
-            return AppServerSandboxPolicy(
-                mode: .workspaceWrite,
-                writableRoots: [currentDirectory.path]
+            return try commandExecPermissionProfile(
+                permissionProfile,
+                cwd: cwd,
+                requirements: requirements
             )
         }
+
+        let preferredProfile: String
+        switch appConfig.mode {
+        case .readOnly, .plan: preferredProfile = ":read-only"
+        case .review, .auto: preferredProfile = ":workspace"
+        }
+        if let requirements {
+            let preferredMode = try permissionProfileMode(preferredProfile)
+            if requirements.allowsPermissionProfile(
+                preferredProfile,
+                sandboxMode: Self.sandboxModeIdentifier(preferredMode)
+            ) {
+                return try commandExecPermissionProfile(
+                    preferredProfile,
+                    cwd: cwd,
+                    requirements: requirements
+                )
+            }
+            if let requiredProfile = requirements.effectiveDefaultPermissions {
+                return try commandExecPermissionProfile(
+                    requiredProfile,
+                    cwd: cwd,
+                    requirements: requirements
+                )
+            }
+            return try commandExecPermissionProfile(
+                ":read-only",
+                cwd: cwd,
+                requirements: requirements
+            )
+        }
+        return try commandExecPermissionProfile(
+            preferredProfile,
+            cwd: cwd,
+            requirements: nil
+        )
     }
 
     private func commandExecPermissionProfile(
         _ identifier: String,
-        cwd: URL
+        cwd: URL,
+        requirements: ManagedRequirements?
     ) throws -> AppServerSandboxPolicy {
-        switch identifier {
-        case ":read-only":
-            return AppServerSandboxPolicy(mode: .readOnly)
-        case ":workspace":
-            return AppServerSandboxPolicy(mode: .workspaceWrite, writableRoots: [cwd.path])
-        case ":danger-full-access":
-            return AppServerSandboxPolicy(mode: .dangerFullAccess)
-        default:
+        let mode: CLISandboxMode
+        do {
+            mode = try permissionProfileMode(identifier)
+        } catch {
             throw AppServerRPCError.invalidRequest(
                 "invalid permission profile: failed to load configuration: default_permissions "
                     + "refers to unknown built-in profile `\(identifier)`"
             )
         }
+        try validateManagedPermissionProfile(identifier, mode: mode, against: requirements)
+        return AppServerSandboxPolicy(
+            mode: mode,
+            writableRoots: mode == .workspaceWrite ? [cwd.path] : []
+        )
     }
 
     private func normalizedCommandExecPolicy(

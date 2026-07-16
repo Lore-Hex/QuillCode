@@ -14,7 +14,12 @@ extension AppServerSession {
             ["config", "personality", "serviceName", "serviceTier", "sessionStartSource", "threadSource"],
             in: params
         )
-        var settings = try threadSettings(from: params, base: defaultThreadSettings())
+        let requirements = try managedRequirements()
+        var settings = try threadSettings(
+            from: params,
+            base: try defaultThreadSettings(requirements: requirements),
+            requirements: requirements
+        )
         var thread = ChatThread(
             mode: mode(for: settings),
             model: try model(from: params, fallback: request.model ?? appConfig.defaultModel)
@@ -39,7 +44,12 @@ extension AppServerSession {
         try rejectUnsupportedValues(["config", "personality", "serviceTier"], in: params)
         let id = try threadID(from: params)
         var record = try await loadRecord(id)
-        record.settings = try threadSettings(from: params, base: record.settings)
+        let requirements = try managedRequirements()
+        record.settings = try threadSettings(
+            from: params,
+            base: record.settings,
+            requirements: requirements
+        )
         record.thread.model = try model(from: params, fallback: record.thread.model)
         try appendInstructions(from: params, to: &record.thread)
         record.thread.updatedAt = Date()
@@ -62,7 +72,12 @@ extension AppServerSession {
         thread.model = try model(from: params, fallback: thread.model)
         try appendInstructions(from: params, to: &thread)
 
-        var settings = try threadSettings(from: params, base: source.settings)
+        let requirements = try managedRequirements()
+        var settings = try threadSettings(
+            from: params,
+            base: source.settings,
+            requirements: requirements
+        )
         settings.sessionID = source.settings.sessionID ?? sourceID
         settings.forkedFromID = sourceID
         let record = AppServerThreadRecord(thread: thread, settings: settings)

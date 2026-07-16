@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodePersistence
 
 extension AppServerSession {
     func validateTrustedRouterProvider(in params: AppServerParams) throws {
@@ -49,29 +50,67 @@ extension AppServerSession {
 
     func threadSettings(
         from params: AppServerParams,
-        base: AppServerThreadSettings?
+        base: AppServerThreadSettings?,
+        requirements: ManagedRequirements?
     ) throws -> AppServerThreadSettings {
         let cwd = try resolvedCWD(
             try params.optionalString("cwd"),
             fallback: base?.cwd ?? currentDirectory
         )
-        let sandbox = try sandboxMode(params.object["sandbox"] ?? params.object["sandboxPolicy"])
-            ?? base?.sandbox
-            ?? .readOnly
+        let sandboxValue = params.object["sandbox"] ?? params.object["sandboxPolicy"]
+        let permissionsValue = params.object["permissions"]
+        if sandboxValue != nil, sandboxValue != .null,
+           permissionsValue != nil, permissionsValue != .null {
+            throw AppServerRPCError.invalidRequest(
+                "`permissions` cannot be combined with `sandbox`"
+            )
+        }
+
+        var sandbox = base?.sandbox ?? .readOnly
+        var sandboxPolicy = base?.sandboxPolicy
+        var permissionProfileID = base?.permissionProfileID
+        var permissionProfileIsExplicit = base?.permissionProfileIsExplicit
+        if let permissionsValue, permissionsValue != .null {
+            guard let identifier = permissionsValue.stringValue else {
+                throw AppServerRPCError.invalidParams("permissions must be a string or null")
+            }
+            sandbox = try permissionProfileMode(identifier)
+            try validateManagedPermissionProfile(identifier, mode: sandbox, against: requirements)
+            sandboxPolicy = AppServerSandboxPolicy(mode: sandbox)
+            permissionProfileID = identifier
+            permissionProfileIsExplicit = true
+        } else if let sandboxValue, sandboxValue != .null {
+            sandbox = try sandboxMode(sandboxValue) ?? sandbox
+            try validateManagedSandboxMode(sandbox, against: requirements)
+            sandboxPolicy = nil
+            permissionProfileID = nil
+            permissionProfileIsExplicit = nil
+        }
+        if let permissionProfileID {
+            try validateManagedPermissionProfile(
+                permissionProfileID,
+                mode: sandbox,
+                against: requirements
+            )
+        } else {
+            try validateManagedSandboxMode(sandbox, against: requirements)
+        }
         let approvalPolicy = try approvalPolicy(params.object["approvalPolicy"])
             ?? base?.approvalPolicy
             ?? .string("on-request")
-        let reviewer = try params.optionalString("approvalsReviewer")
+        try validateManagedApprovalPolicy(approvalPolicy, against: requirements)
+        let requestedReviewer = try params.optionalString("approvalsReviewer")
             ?? base?.approvalsReviewer
             ?? "user"
-        guard ["user", "auto_review", "guardian_subagent"].contains(reviewer) else {
+        guard ["user", "auto_review", "guardian_subagent"].contains(requestedReviewer) else {
             throw AppServerRPCError.invalidParams("approvalsReviewer is not supported")
         }
+        try validateManagedApprovalsReviewer(requestedReviewer, against: requirements)
         return AppServerThreadSettings(
             cwd: cwd,
             ephemeral: try params.optionalBool("ephemeral") ?? base?.ephemeral ?? false,
             approvalPolicy: approvalPolicy,
-            approvalsReviewer: reviewer,
+            approvalsReviewer: requestedReviewer,
             sandbox: sandbox,
             sessionID: base?.sessionID,
             forkedFromID: base?.forkedFromID,
@@ -84,9 +123,9 @@ extension AppServerSession {
             serviceTier: base?.serviceTier,
             collaborationMode: base?.collaborationMode,
             memoryMode: base?.memoryMode,
-            sandboxPolicy: base?.sandboxPolicy,
-            permissionProfileID: base?.permissionProfileID,
-            permissionProfileIsExplicit: base?.permissionProfileIsExplicit,
+            sandboxPolicy: sandboxPolicy,
+            permissionProfileID: permissionProfileID,
+            permissionProfileIsExplicit: permissionProfileIsExplicit,
             userShellTurns: base?.userShellTurns
         )
     }
@@ -169,7 +208,9 @@ extension AppServerSession {
         return .review
     }
 
-    func defaultThreadSettings() -> AppServerThreadSettings {
+    func defaultThreadSettings(
+        requirements: ManagedRequirements?
+    ) throws -> AppServerThreadSettings {
         let access: (sandbox: CLISandboxMode, reviewer: String)
         switch appConfig.mode {
         case .auto:
@@ -179,14 +220,50 @@ extension AppServerSession {
         case .readOnly, .plan:
             access = (.readOnly, "user")
         }
+        let approvalPolicy = requirements?.allowedApprovalPolicies?.first
+            .map { Self.appServerApprovalPolicy($0) } ?? .string("on-request")
+        let reviewer = requirements?.allowedApprovalsReviewers?.first ?? access.reviewer
+
+        let permissionProfileID: String?
+        let sandbox: CLISandboxMode
+        if let managedDefault = requirements?.effectiveDefaultPermissions {
+            permissionProfileID = managedDefault
+            sandbox = try permissionProfileMode(managedDefault)
+        } else if requirements?.allowsPermissionProfile(
+            Self.permissionProfileIdentifier(access.sandbox),
+            sandboxMode: Self.sandboxModeIdentifier(access.sandbox)
+        ) != false {
+            permissionProfileID = nil
+            sandbox = access.sandbox
+        } else {
+            permissionProfileID = ":read-only"
+            sandbox = .readOnly
+        }
         return AppServerThreadSettings(
             cwd: currentDirectory,
             ephemeral: false,
-            approvalPolicy: .string("on-request"),
-            approvalsReviewer: access.reviewer,
-            sandbox: access.sandbox,
-            forkedFromID: nil
+            approvalPolicy: approvalPolicy,
+            approvalsReviewer: reviewer,
+            sandbox: sandbox,
+            forkedFromID: nil,
+            sandboxPolicy: permissionProfileID.map { _ in AppServerSandboxPolicy(mode: sandbox) },
+            permissionProfileID: permissionProfileID,
+            permissionProfileIsExplicit: permissionProfileID == nil ? nil : true
         )
+    }
+
+    private static func appServerApprovalPolicy(_ policy: ManagedApprovalPolicy) -> CLIJSONValue {
+        switch policy {
+        case .named(let name): .string(name)
+        case .granular(let policy):
+            .object(["granular": .object([
+                "sandbox_approval": .bool(policy.sandboxApproval),
+                "rules": .bool(policy.rules),
+                "mcp_elicitations": .bool(policy.mcpElicitations),
+                "skill_approval": .bool(policy.skillApproval),
+                "request_permissions": .bool(policy.requestPermissions)
+            ])])
+        }
     }
 
     func appendInstructions(from params: AppServerParams, to thread: inout ChatThread) throws {
