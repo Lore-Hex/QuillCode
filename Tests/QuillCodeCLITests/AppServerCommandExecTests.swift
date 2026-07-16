@@ -195,7 +195,7 @@ final class AppServerCommandExecTests: XCTestCase {
         )
         _ = try await waitForResponse(id: 2, output: fixture.output)
 
-        for generation in 0..<8 {
+        for generation in 0..<24 {
             let requestID = 5 + generation
             let expected = "reused-\(generation)"
             try await sendRequest(

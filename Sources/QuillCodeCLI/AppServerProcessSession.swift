@@ -7,9 +7,16 @@ final class AppServerProcessSession: @unchecked Sendable {
     private static let readChunkBytes = 64 * 1_024
     private static let outputDrainMilliseconds = 500
     private static let terminationGraceMilliseconds = 1_000
+    private static let completionQueue = DispatchQueue(
+        label: "com.lorehex.quillcode.app-server-process-completion",
+        qos: .userInitiated,
+        attributes: .concurrent
+    )
 
     private let request: AppServerProcessSpawnRequest
     private let continuation: AsyncStream<AppServerProcessEvent>.Continuation
+    // An instant child exit must not finalize before its pipe readers are installed.
+    private let launchReady = DispatchSemaphore(value: 0)
     private let lock = NSLock()
     private let readers = DispatchGroup()
     private var process: Process?
@@ -55,19 +62,25 @@ final class AppServerProcessSession: @unchecked Sendable {
         lock.appServerWithLock {
             self.process = process
         }
+        process.terminationHandler = { [weak self] terminatedProcess in
+            Self.completionQueue.async { [weak self] in
+                guard let self else { return }
+                self.launchReady.wait()
+                self.finish(terminatedProcess)
+            }
+        }
         do {
             try process.run()
         } catch {
             cleanUpFailedStart()
+            launchReady.signal()
             throw AppServerRPCError.internalError("failed to spawn process: \(error.localizedDescription)")
         }
 
         closeParentOnlyDescriptorsAfterStart()
         startReaders()
         scheduleTimeoutIfNeeded()
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            self?.waitForExit()
-        }
+        launchReady.signal()
     }
 
     func writeStdin(_ data: Data, closeStdin: Bool) throws {
@@ -314,9 +327,7 @@ final class AppServerProcessSession: @unchecked Sendable {
         }
     }
 
-    private func waitForExit() {
-        guard let process = lock.appServerWithLock({ process }) else { return }
-        process.waitUntilExit()
+    private func finish(_ process: Process) {
         if readers.wait(timeout: .now() + .milliseconds(Self.outputDrainMilliseconds)) == .timedOut {
             let handles = lock.appServerWithLock { outputHandles }
             for handle in handles { try? handle.close() }
