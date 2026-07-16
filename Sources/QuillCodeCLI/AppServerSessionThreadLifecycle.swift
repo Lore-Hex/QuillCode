@@ -1,8 +1,13 @@
 import Foundation
 import QuillCodeCore
 
+struct AppServerThreadLifecycleOutcome: Sendable {
+    var result: CLIJSONValue
+    var threadID: UUID
+}
+
 extension AppServerSession {
-    func startThread(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
+    func startThread(_ raw: CLIJSONValue) async throws -> AppServerThreadLifecycleOutcome {
         let params = try AppServerParams(raw)
         try validateTrustedRouterProvider(in: params)
         try rejectUnsupportedValues(
@@ -21,10 +26,13 @@ extension AppServerSession {
         try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
         await notifyThreadStarted(record)
-        return startOrResumeResponse(record, includeTurns: false, isActive: false)
+        return AppServerThreadLifecycleOutcome(
+            result: startOrResumeResponse(record, includeTurns: false, isActive: false),
+            threadID: record.thread.id
+        )
     }
 
-    func resumeThread(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
+    func resumeThread(_ raw: CLIJSONValue) async throws -> AppServerThreadLifecycleOutcome {
         let params = try AppServerParams(raw)
         try validateTrustedRouterProvider(in: params)
         try rejectUnsupportedValues(["config", "personality", "serviceTier"], in: params)
@@ -36,10 +44,13 @@ extension AppServerSession {
         record.thread.updatedAt = Date()
         try await validateRequiredMCPServers(for: record)
         try await repository.save(record)
-        return startOrResumeResponse(record, includeTurns: true, isActive: hasActiveOperation(for: id))
+        return AppServerThreadLifecycleOutcome(
+            result: startOrResumeResponse(record, includeTurns: true, isActive: hasActiveOperation(for: id)),
+            threadID: record.thread.id
+        )
     }
 
-    func forkThread(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
+    func forkThread(_ raw: CLIJSONValue) async throws -> AppServerThreadLifecycleOutcome {
         let params = try AppServerParams(raw)
         try validateTrustedRouterProvider(in: params)
         try rejectUnsupportedValues(["config", "serviceTier", "threadSource"], in: params)
@@ -56,7 +67,10 @@ extension AppServerSession {
         try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
         await notifyThreadStarted(record)
-        return startOrResumeResponse(record, includeTurns: true, isActive: false)
+        return AppServerThreadLifecycleOutcome(
+            result: startOrResumeResponse(record, includeTurns: true, isActive: false),
+            threadID: record.thread.id
+        )
     }
 
     func setThreadArchived(_ raw: CLIJSONValue, archived: Bool) async throws -> CLIJSONValue {

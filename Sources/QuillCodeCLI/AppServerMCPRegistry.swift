@@ -70,23 +70,6 @@ actor AppServerMCPRegistry {
         }
     }
 
-    func validateRequiredServers(
-        scope: String,
-        configurations: [String: AppServerMCPServerConfiguration]
-    ) throws {
-        removeStaleEntries(scope: scope, configurations: configurations)
-        var failures: [String] = []
-        for configuration in configurations.values.filter(\.required).sorted(by: { $0.name < $1.name }) {
-            do {
-                _ = try probedEntry(scope: scope, configuration: configuration, detail: .toolsAndAuthOnly)
-            } catch {
-                remove(scope: scope, server: configuration.name)
-                failures.append("\(configuration.name): \(error.localizedDescription)")
-            }
-        }
-        guard failures.isEmpty else { throw AppServerMCPRequiredServersError(failures: failures) }
-    }
-
     func agentToolCatalog(
         scope: String,
         configurations: [String: AppServerMCPServerConfiguration]
@@ -119,6 +102,35 @@ actor AppServerMCPRegistry {
             throw AppServerMCPRequiredServersError(failures: requiredFailures)
         }
         return MCPAgentToolCatalog(servers: servers)
+    }
+
+    func isServerReady(
+        scope: String,
+        configuration: AppServerMCPServerConfiguration,
+        detail: MCPProbeDetail
+    ) -> Bool {
+        let key = Key(scope: scope, server: configuration.name)
+        guard let entry = entries[key],
+              entry.configuration == configuration,
+              entry.launched.process.isRunning,
+              entry.probe != nil
+        else {
+            return false
+        }
+        return entry.detail == detail || entry.detail == .full
+    }
+
+    func prepareServer(
+        scope: String,
+        configuration: AppServerMCPServerConfiguration,
+        detail: MCPProbeDetail
+    ) throws {
+        do {
+            _ = try probedEntry(scope: scope, configuration: configuration, detail: detail)
+        } catch {
+            remove(scope: scope, server: configuration.name)
+            throw error
+        }
     }
 
     func agentToolEvents(

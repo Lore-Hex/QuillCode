@@ -250,11 +250,199 @@ final class AppServerMCPTests: XCTestCase {
                 "required MCP servers failed to initialize: required-fixture"
             ) == true
         )
+        let startup = records.compactMap { record -> [String: CLIJSONValue]? in
+            guard record["method"]?.stringValue == "mcpServer/startupStatus/updated" else { return nil }
+            return record["params"]?.objectValue
+        }
+        XCTAssertEqual(startup.compactMap { $0["status"]?.stringValue }, ["starting", "failed"])
+        XCTAssertEqual(startup.first?["name"]?.stringValue, "required-fixture")
+        XCTAssertEqual(startup.first?["error"], .null)
+        XCTAssertEqual(startup.first?["failureReason"], .null)
+        XCTAssertTrue(startup.last?["error"]?.stringValue?.contains("no fake MCP server named missing") == true)
+        XCTAssertEqual(startup.last?["failureReason"], .null)
+        XCTAssertEqual(startup.first?["threadId"], startup.last?["threadId"])
         let threadFiles = try FileManager.default.contentsOfDirectory(
             at: fixture.home.appendingPathComponent("threads", isDirectory: true),
             includingPropertiesForKeys: nil
         )
         XCTAssertTrue(threadFiles.isEmpty)
+
+        await fixture.session.finishInput()
+    }
+
+    func testThreadStartEmitsRequiredBeforeResponseAndOptionalAfterResponse() async throws {
+        let launcher = FakeMCPLauncher(specifications: [
+            "required": .init(probe: Self.namedProbe("Required MCP")),
+            "optional": .init(probe: Self.namedProbe("Optional MCP"))
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.required-server]
+            command = "required"
+            required = true
+
+            [mcp_servers.optional-server]
+            command = "optional"
+            """,
+            launcher: launcher
+        )
+
+        try await sendRequest(
+            id: 2,
+            method: "thread/start",
+            params: ["cwd": fixture.workspace.path, "model": "trustedrouter/fast"],
+            to: fixture.session
+        )
+        _ = try await fixture.output.waitForMCPStartup(server: "optional-server", status: "ready")
+
+        let records = try await fixture.output.records()
+        let responseIndex = try XCTUnwrap(records.firstIndex { $0["id"]?.numberValue == 2 })
+        let response = try XCTUnwrap(result(for: 2, in: records))
+        let threadID = try XCTUnwrap(response["thread"]?.objectValue?["id"]?.stringValue)
+        let startup = records.enumerated().compactMap { index, record -> (Int, [String: CLIJSONValue])? in
+            guard record["method"]?.stringValue == "mcpServer/startupStatus/updated",
+                  let params = record["params"]?.objectValue
+            else {
+                return nil
+            }
+            return (index, params)
+        }
+        XCTAssertEqual(startup.map { $0.1["name"]?.stringValue }, [
+            "required-server", "required-server", "optional-server", "optional-server"
+        ])
+        XCTAssertEqual(startup.map { $0.1["status"]?.stringValue }, [
+            "starting", "ready", "starting", "ready"
+        ])
+        XCTAssertTrue(startup.allSatisfy { $0.1["threadId"]?.stringValue == threadID })
+        XCTAssertTrue(startup.allSatisfy { $0.1["error"] == .null })
+        XCTAssertTrue(startup.allSatisfy { $0.1["failureReason"] == .null })
+        XCTAssertTrue(startup.allSatisfy {
+            Set($0.1.keys) == Set(["threadId", "name", "status", "error", "failureReason"])
+        })
+        XCTAssertLessThan(startup[0].0, responseIndex)
+        XCTAssertLessThan(startup[1].0, responseIndex)
+        XCTAssertLessThan(responseIndex, startup[2].0)
+        XCTAssertLessThan(startup[2].0, startup[3].0)
+        XCTAssertEqual(launcher.recorder(for: "required").launchCount, 1)
+        XCTAssertEqual(launcher.recorder(for: "optional").launchCount, 1)
+
+        await fixture.session.finishInput()
+    }
+
+    func testMCPStartupNotificationOptOutStillStartsOptionalServers() async throws {
+        let launcher = FakeMCPLauncher(specifications: [
+            "optional": .init(probe: Self.namedProbe("Optional MCP"))
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.optional-server]
+            command = "optional"
+            """,
+            launcher: launcher,
+            notificationOptOuts: ["mcpServer/startupStatus/updated"]
+        )
+
+        _ = try await startThread(in: fixture)
+        await fixture.session.waitForActiveTurns()
+
+        let records = try await fixture.output.records()
+        XCTAssertFalse(records.contains {
+            $0["method"]?.stringValue == "mcpServer/startupStatus/updated"
+        })
+        XCTAssertEqual(launcher.recorder(for: "optional").launchCount, 1)
+        XCTAssertEqual(launcher.recorder(for: "optional").probeDetails, [.toolsAndAuthOnly])
+
+        await fixture.session.finishInput()
+    }
+
+    func testOptionalMCPFailureEmitsAfterSuccessfulThreadResponse() async throws {
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.optional-broken]
+            command = "missing"
+            """,
+            launcher: FakeMCPLauncher(specifications: [:])
+        )
+
+        try await sendRequest(
+            id: 2,
+            method: "thread/start",
+            params: ["cwd": fixture.workspace.path, "model": "trustedrouter/fast"],
+            to: fixture.session
+        )
+        let failed = try await fixture.output.waitForMCPStartup(
+            server: "optional-broken",
+            status: "failed"
+        )
+
+        let records = try await fixture.output.records()
+        let responseIndex = try XCTUnwrap(records.firstIndex { $0["id"]?.numberValue == 2 })
+        let response = try XCTUnwrap(result(for: 2, in: records))
+        let threadID = try XCTUnwrap(response["thread"]?.objectValue?["id"]?.stringValue)
+        let startup = records.enumerated().compactMap { index, record -> (Int, [String: CLIJSONValue])? in
+            guard record["method"]?.stringValue == "mcpServer/startupStatus/updated",
+                  record["params"]?.objectValue?["name"]?.stringValue == "optional-broken",
+                  let params = record["params"]?.objectValue
+            else {
+                return nil
+            }
+            return (index, params)
+        }
+        XCTAssertEqual(startup.map { $0.1["status"]?.stringValue }, ["starting", "failed"])
+        XCTAssertTrue(startup.allSatisfy { responseIndex < $0.0 })
+        XCTAssertTrue(startup.allSatisfy { $0.1["threadId"]?.stringValue == threadID })
+        XCTAssertEqual(failed["failureReason"], .null)
+        XCTAssertTrue(failed["error"]?.stringValue?.contains("no fake MCP server named missing") == true)
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: fixture.home
+                    .appendingPathComponent("threads", isDirectory: true)
+                    .appendingPathComponent("\(threadID).json")
+                    .path
+            )
+        )
+
+        await fixture.session.finishInput()
+    }
+
+    func testReloadCancelsInFlightOptionalMCPStartup() async throws {
+        let launcher = FakeMCPLauncher(specifications: [
+            "optional": .init(
+                probe: Self.namedProbe("Optional MCP"),
+                probeDelay: 0.5
+            )
+        ])
+        let fixture = try await makeFixture(
+            config: """
+            [mcp_servers.optional-server]
+            command = "optional"
+            """,
+            launcher: launcher
+        )
+
+        _ = try await startThread(in: fixture)
+        _ = try await fixture.output.waitForMCPStartup(server: "optional-server", status: "starting")
+        try await sendRequest(
+            id: 3,
+            method: "config/mcpServer/reload",
+            params: [:],
+            to: fixture.session
+        )
+        _ = try await fixture.output.waitForMCPStartup(server: "optional-server", status: "cancelled")
+
+        let records = try await fixture.output.records()
+        let startupStatuses = records.compactMap { record -> String? in
+            guard record["method"]?.stringValue == "mcpServer/startupStatus/updated",
+                  record["params"]?.objectValue?["name"]?.stringValue == "optional-server"
+            else {
+                return nil
+            }
+            return record["params"]?.objectValue?["status"]?.stringValue
+        }
+        XCTAssertEqual(startupStatuses, ["starting", "cancelled"])
+        XCTAssertEqual(result(for: 3, in: records), [:])
+        XCTAssertEqual(launcher.recorder(for: "optional").launchCount, 1)
+        XCTAssertEqual(launcher.recorder(for: "optional").terminationCount, 1)
 
         await fixture.session.finishInput()
     }

@@ -92,6 +92,7 @@ actor AppServerSession {
     var pendingApprovals: [AppServerRequestID: AppServerPendingApproval] = [:]
     var pendingAccountLogins: [String: AppServerPendingAccountLogin] = [:]
     var pendingMCPOAuthLogins: [UUID: AppServerPendingMCPOAuthLogin] = [:]
+    var mcpStartupTasks: [UUID: Task<Void, Never>] = [:]
     var cachedModelCatalog: TrustedRouterModelCatalog?
     var cachedSkillSnapshots: [String: SkillCatalogSnapshot] = [:]
     var skillExtraRoots: [URL] = []
@@ -166,6 +167,8 @@ actor AppServerSession {
         let fuzzyTasks = activeFuzzyFileSearches.values.map(\.task)
             + fuzzyFileSearchSessions.values.compactMap(\.queryTask)
         for task in fuzzyTasks { await task.value }
+        let startupTasks = Array(mcpStartupTasks.values)
+        for task in startupTasks { await task.value }
     }
 
     func hasActiveOperation(for threadID: UUID) -> Bool {
@@ -181,6 +184,7 @@ actor AppServerSession {
         cancelAllFileWatches()
         cancelAllAccountLogins()
         cancelAllMCPServerOAuthLogins()
+        cancelAllMCPServerStartups()
         await cancelAllFuzzyFileSearches()
         await terminateAllProcesses()
         await mcpRegistry.terminateAll()
@@ -222,6 +226,7 @@ actor AppServerSession {
             var processToLaunch: String?
             var compactionToLaunch: UUID?
             var reviewToLaunch: UUID?
+            var mcpStartupThreadToLaunch: UUID?
             switch method {
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
@@ -277,9 +282,18 @@ actor AppServerSession {
             case "fuzzyFileSearch/sessionStart": result = try startFuzzyFileSearchSession(params)
             case "fuzzyFileSearch/sessionUpdate": result = try updateFuzzyFileSearchSession(params)
             case "fuzzyFileSearch/sessionStop": result = try stopFuzzyFileSearchSession(params)
-            case "thread/start": result = try await startThread(params)
-            case "thread/resume": result = try await resumeThread(params)
-            case "thread/fork": result = try await forkThread(params)
+            case "thread/start":
+                let outcome = try await startThread(params)
+                result = outcome.result
+                mcpStartupThreadToLaunch = outcome.threadID
+            case "thread/resume":
+                let outcome = try await resumeThread(params)
+                result = outcome.result
+                mcpStartupThreadToLaunch = outcome.threadID
+            case "thread/fork":
+                let outcome = try await forkThread(params)
+                result = outcome.result
+                mcpStartupThreadToLaunch = outcome.threadID
             case "thread/list": result = try await listThreads(params)
             case "thread/read": result = try await readThread(params)
             case "thread/archive": result = try await setThreadArchived(params, archived: true)
@@ -313,6 +327,7 @@ actor AppServerSession {
                 launchMCPServerOAuthLogin(mcpOAuthLoginToLaunch)
             }
             if let processToLaunch { launchProcessEventStream(processToLaunch) }
+            if let mcpStartupThreadToLaunch { launchOptionalMCPServerStartups(for: mcpStartupThreadToLaunch) }
             if let compactionToLaunch { launchThreadCompaction(compactionToLaunch) }
             if let turnToLaunch { launchTurn(turnToLaunch) }
             if let reviewToLaunch { launchReview(reviewToLaunch) }

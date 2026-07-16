@@ -1594,3 +1594,23 @@
 - **Evidence:** Focused Core, Agent, App, stdio, and HTTP tests cover validation, ordering, mapping,
   replay, cancellation, and terminal publication. Playwright drives the composer through a live
   progress card and its completed state, plus an accessible indeterminate fixture.
+
+## 2026-07-16: App-server MCP startup has a response-aware lifecycle
+
+- **Protocol boundary:** QuillCode emits Codex's exact thread-scoped
+  `mcpServer/startupStatus/updated` method with typed `starting`, `ready`, `failed`, or `cancelled`
+  state, nullable bounded error, and the current additive nullable `failureReason`. It does not
+  invent app-global startup notifications or conflate server startup with per-tool progress.
+- **Ordering boundary:** Required servers emit startup transitions and reach readiness before a new,
+  resumed, or forked thread can persist or respond. Optional servers start only after the successful
+  lifecycle response, preserving responsive thread creation while retaining observable readiness.
+- **Cancellation boundary:** Reload cancels in-flight optional startup before clearing the shared
+  registry. EOF cancels startup and suppresses output to the closed channel. A cancelled startup can
+  never publish a later ready state, and every launched process still terminates through the registry.
+- **Compatibility boundary:** Notification opt-outs suppress only wire output, never initialization.
+  Already-ready scoped servers do not fabricate duplicate transitions. The additive failure-reason
+  field remains null until the transport preserves a typed reauthentication failure instead of
+  inferring one from user-facing text.
+- **Evidence:** Focused integration tests prove required failure before persistence, exact payloads
+  and ordering, optional startup, opt-out behavior, reload cancellation, process termination, and no
+  stale readiness. A source parity gate binds the focused implementation, tests, and matrix claim.
