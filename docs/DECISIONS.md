@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-07-15: App-server fuzzy search is bounded, cancellable, and connection-scoped
+
+- **Wire contract:** Stable `fuzzyFileSearch` and experimental `fuzzyFileSearch/sessionStart`,
+  `sessionUpdate`, and `sessionStop` mirror Codex 0.142.5 field names, result ordering, match indices,
+  empty-query behavior, missing-session errors, and updated/completed notifications.
+- **Shared traversal:** Search reuses `WorkspaceFileIndexer` rather than adding another filesystem
+  crawler. It inherits hidden/build-directory exclusions and deterministic paths, then applies explicit
+  root, query, entry, and result caps before projecting the Codex response shape.
+- **Concurrency contract:** One-shot requests run outside the session actor so a repeated cancellation
+  token can supersede work without blocking input. Live sessions build one index, cancel stale query
+  generations, and re-check generation after every notification await. Stop and EOF cancel and drain
+  all work, preventing late notifications or detached connection-owned tasks.
+- **Evidence:** Focused tests pin Codex's reference scores and indices, case-insensitive matching,
+  response shape and ordering, cancellation response completion, query clearing, stop behavior,
+  capability gating, and exact errors. The real JSONL process smoke exercises one-shot and live search.
+
 ## 2026-07-15: Doctor diagnostics are bounded, read-only, and redacted at every boundary
 
 - **Compatibility contract:** `quill-code doctor` follows the observable Codex 0.142.5 command and

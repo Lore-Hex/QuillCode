@@ -68,6 +68,9 @@ actor AppServerSession {
     var activeRollbacks: Set<UUID> = []
     var processSessions: [String: AppServerProcessSession] = [:]
     var processEventTasks: [String: Task<Void, Never>] = [:]
+    var activeFuzzyFileSearches: [UUID: AppServerActiveFuzzyFileSearch] = [:]
+    var fuzzyFileSearchTokens: [String: UUID] = [:]
+    var fuzzyFileSearchSessions: [String: AppServerFuzzyFileSearchSession] = [:]
     var nextServerRequestSequence: Int64 = 1
     var pendingApprovals: [AppServerRequestID: AppServerPendingApproval] = [:]
     var pendingAccountLogins: [String: AppServerPendingAccountLogin] = [:]
@@ -142,6 +145,9 @@ actor AppServerSession {
         let tasks = activeTurns.values.compactMap(\.task)
             + activeCompactions.values.compactMap(\.task)
         for task in tasks { await task.value }
+        let fuzzyTasks = activeFuzzyFileSearches.values.map(\.task)
+            + fuzzyFileSearchSessions.values.compactMap(\.queryTask)
+        for task in fuzzyTasks { await task.value }
     }
 
     func hasActiveOperation(for threadID: UUID) -> Bool {
@@ -156,6 +162,7 @@ actor AppServerSession {
         cancelAllFileWatches()
         cancelAllAccountLogins()
         cancelAllMCPServerOAuthLogins()
+        await cancelAllFuzzyFileSearches()
         await terminateAllProcesses()
         await mcpRegistry.terminateAll()
         resolveAllPendingApprovals(
@@ -174,6 +181,17 @@ actor AppServerSession {
         }
         guard handshake == .ready else {
             await send(.error(id: id, error: .notInitialized))
+            return
+        }
+
+        if method == "fuzzyFileSearch" {
+            do {
+                try startFuzzyFileSearchRequest(id: id, params: params)
+            } catch let error as AppServerRPCError {
+                await send(.error(id: id, error: error))
+            } catch {
+                await send(.error(id: id, error: .internalError(error.localizedDescription)))
+            }
             return
         }
 
@@ -236,6 +254,9 @@ actor AppServerSession {
             case "process/writeStdin": result = try writeProcessStdin(params)
             case "process/resizePty": result = try resizeProcessPTY(params)
             case "process/kill": result = try killProcess(params)
+            case "fuzzyFileSearch/sessionStart": result = try startFuzzyFileSearchSession(params)
+            case "fuzzyFileSearch/sessionUpdate": result = try updateFuzzyFileSearchSession(params)
+            case "fuzzyFileSearch/sessionStop": result = try stopFuzzyFileSearchSession(params)
             case "thread/start": result = try await startThread(params)
             case "thread/resume": result = try await resumeThread(params)
             case "thread/fork": result = try await forkThread(params)

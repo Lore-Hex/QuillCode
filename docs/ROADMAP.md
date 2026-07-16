@@ -23,6 +23,10 @@
   client-message identities keep steering grouped across relaunch, explicit names remain distinct
   from generated desktop titles, active turns/compactions exclude rollback, and atomic persistence
   never pretends to reverse workspace or account side effects.
+- App-server fuzzy file search now mirrors Codex's stable one-shot request and experimental live
+  session lifecycle. Multi-root traversal is bounded and shared with composer indexing; scores,
+  indices, deterministic ordering, cancellation tokens, query generations, updated/completed
+  notifications, stop, and EOF cleanup have focused and real-process coverage.
 - `quill-code doctor` now provides the Codex-compatible support surface across installation, runtime,
   config, auth, Git, terminal, MCP, sandbox, state/task inventory, TrustedRouter reachability, and
   app-server checks. Collection is bounded and read-only, JSON is stable and redacted, and focused plus

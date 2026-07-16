@@ -19,6 +19,9 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - App-server wire and state reducers: string/integer IDs, invalid JSON versus invalid envelopes,
   strict initialize/initialized sequencing, notification opt-outs, thread cursors/settings/goals,
   turn input bounds, managed local-image copying, projection deduplication, and approval decisions.
+- App-server fuzzy search: Codex reference scores/indices, case-insensitive multi-root ordering, empty
+  queries, result and traversal caps, cancellation-token replacement, live-session query generations,
+  independent sessions, stop/missing-session behavior, experimental gating, and EOF cleanup.
 - App-server account lifecycle: API-key and browser start response shapes, response-before-notification
   ordering, profile persistence, credential non-disclosure, exchange and save failure, cancel/not-found
   status, exactly-once completion, logout with managed versus external credentials, notification
