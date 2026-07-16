@@ -95,6 +95,38 @@ final class UnixDomainSocketTests: XCTestCase {
         }
     }
 
+    func testBlockedReadsDoNotStarveAdditionalAccepts() async throws {
+        try await withTemporarySocket { socketURL in
+            let listener = try UnixDomainSocketListener(socketURL: socketURL)
+            var clients: [UnixDomainSocketConnection] = []
+            var servers: [UnixDomainSocketConnection] = []
+            var reads: [Task<Data?, Error>] = []
+            defer {
+                reads.forEach { $0.cancel() }
+                clients.forEach { $0.close() }
+                servers.forEach { $0.close() }
+                listener.close()
+            }
+
+            for _ in 0..<24 {
+                let accept = Task { try await listener.accept() }
+                let client = try UnixDomainSocketConnection.connect(to: socketURL)
+                let server = try await accept.value
+                clients.append(client)
+                servers.append(server)
+                reads.append(Task { try await server.receive() })
+            }
+
+            for (index, client) in clients.enumerated() {
+                try await client.send(Data("client-\(index)".utf8))
+            }
+            for (index, read) in reads.enumerated() {
+                let received = try await read.value
+                XCTAssertEqual(received, Data("client-\(index)".utf8))
+            }
+        }
+    }
+
     func testRegularFileCannotBeReplaced() async throws {
         try await withTemporarySocket { socketURL in
             let original = Data("keep me".utf8)

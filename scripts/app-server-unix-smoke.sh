@@ -157,14 +157,19 @@ try:
     initialize(first, 1)
     assert_model_list(first, 2)
 
-    second = connect_client()
-    second.send({"id": 10, "method": "model/list", "params": {"limit": 1}})
-    uninitialized = second.receive()
-    assert uninitialized.get("id") == 10 and "error" in uninitialized, uninitialized
-    initialize(second, 11)
-    assert_model_list(second, 12)
+    additional = [connect_client() for _ in range(8)]
+    for index, client in enumerate(additional):
+        request_id = 10 + (index * 10)
+        client.send({"id": request_id, "method": "model/list", "params": {"limit": 1}})
+    for index, client in enumerate(additional):
+        request_id = 10 + (index * 10)
+        uninitialized = client.receive()
+        assert uninitialized.get("id") == request_id and "error" in uninitialized, uninitialized
+        initialize(client, request_id + 1)
+        assert_model_list(client, request_id + 2)
     first.close()
-    second.close()
+    for client in additional:
+        client.close()
 
     stop_server(force=True)
     assert os.path.exists(socket_path), "forced exit should leave a stale socket"

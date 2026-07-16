@@ -23,6 +23,7 @@ final class ParityAppServerUnixTransportGateTests: QuillCodeParityTestCase {
         Self.assertSource(platform, containsAll: [
             "UnixDomainSocketListener",
             "UnixDomainSocketConnection",
+            "UnixDomainSocketBlockingIO",
             "ManagedSocketDescriptor",
             "withTaskCancellationHandler"
         ])
@@ -46,6 +47,7 @@ final class ParityAppServerUnixTransportGateTests: QuillCodeParityTestCase {
             "testActiveListenerCannotBeReplaced",
             "testClosePreservesPathReplacedAfterBind",
             "testRegularFileCannotBeReplaced",
+            "testBlockedReadsDoNotStarveAdditionalAccepts",
             "testSimultaneousStartsLeaveOneReachableWinner",
             "testStaleOwnedSocketIsRecovered"
         ])
@@ -56,7 +58,8 @@ final class ParityAppServerUnixTransportGateTests: QuillCodeParityTestCase {
         Self.assertSource(smoke, containsAll: [
             "socket.AF_UNIX",
             "forced exit should leave a stale socket",
-            "assert uninitialized.get(\"id\") == 10"
+            "additional = [connect_client() for _ in range(8)]",
+            "assert uninitialized.get(\"id\") == request_id"
         ])
         Self.assertSource(aggregateSmoke, contains: "app-server-unix-smoke.sh")
         Self.assertSource(parity, contains: "App-server Unix transport")

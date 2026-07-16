@@ -69,10 +69,10 @@ public final class UnixDomainSocketListener: @unchecked Sendable {
 
     public func accept() async throws -> UnixDomainSocketConnection {
         try await withTaskCancellationHandler {
-            try await Task.detached(priority: .userInitiated) { [descriptor] in
+            try await UnixDomainSocketBlockingIO.run { [descriptor] in
                 let listener = try descriptor.acquire()
                 defer { descriptor.release() }
-                while !Task.isCancelled {
+                while true {
                     let accepted = cquill_loopback_accept(
                         listener,
                         Self.pollMilliseconds
@@ -87,8 +87,7 @@ public final class UnixDomainSocketListener: @unchecked Sendable {
                     if descriptor.isClosing { throw UnixDomainSocketError.cancelled }
                     throw UnixDomainSocketError.acceptFailed
                 }
-                throw UnixDomainSocketError.cancelled
-            }.value
+            }
         } onCancel: {
             descriptor.close()
         }
@@ -147,11 +146,11 @@ public final class UnixDomainSocketConnection: @unchecked Sendable {
     public func receive(maxBytes: Int = 64 * 1_024) async throws -> Data? {
         precondition(maxBytes > 0)
         return try await withTaskCancellationHandler {
-            try await Task.detached(priority: .userInitiated) { [descriptor] in
+            try await UnixDomainSocketBlockingIO.run { [descriptor] in
                 let socket = try descriptor.acquire()
                 defer { descriptor.release() }
                 var bytes = [UInt8](repeating: 0, count: maxBytes)
-                while !Task.isCancelled {
+                while true {
                     let count = bytes.withUnsafeMutableBytes { buffer in
                         cquill_socket_receive(
                             socket,
@@ -169,8 +168,7 @@ public final class UnixDomainSocketConnection: @unchecked Sendable {
                     if descriptor.isClosing { throw UnixDomainSocketError.cancelled }
                     throw UnixDomainSocketError.readFailed
                 }
-                throw UnixDomainSocketError.cancelled
-            }.value
+            }
         } onCancel: {
             descriptor.close()
         }
@@ -179,7 +177,7 @@ public final class UnixDomainSocketConnection: @unchecked Sendable {
     public func send(_ data: Data) async throws {
         guard !data.isEmpty else { return }
         try await withTaskCancellationHandler {
-            try await Task.detached(priority: .userInitiated) { [descriptor] in
+            try await UnixDomainSocketBlockingIO.run { [descriptor] in
                 let socket = try descriptor.acquire()
                 defer { descriptor.release() }
                 let result = data.withUnsafeBytes { bytes in
@@ -189,7 +187,7 @@ public final class UnixDomainSocketConnection: @unchecked Sendable {
                     if descriptor.isClosing { throw UnixDomainSocketError.cancelled }
                     throw UnixDomainSocketError.writeFailed
                 }
-            }.value
+            }
         } onCancel: {
             descriptor.close()
         }
@@ -197,6 +195,28 @@ public final class UnixDomainSocketConnection: @unchecked Sendable {
 
     public func close() {
         descriptor.close()
+    }
+}
+
+private enum UnixDomainSocketBlockingIO {
+    private static let queue = DispatchQueue(
+        label: "com.lorehex.QuillCode.unix-domain-socket",
+        qos: .userInitiated,
+        attributes: .concurrent
+    )
+
+    static func run<Value: Sendable>(
+        _ operation: @escaping @Sendable () throws -> Value
+    ) async throws -> Value {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                do {
+                    continuation.resume(returning: try operation())
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
     }
 }
 
