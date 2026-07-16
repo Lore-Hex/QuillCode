@@ -95,6 +95,11 @@ public struct ThreadCompactor: Sendable {
         }
 
         let (summaryText, usedModel) = await summaryText(for: thread.title, partition: partition)
+        // The summarizer's ordinary failures intentionally fall back to deterministic text, but a
+        // cancelled caller must not splice that fallback into durable history. There is no suspension
+        // between this check and the splice, so cancellation observed while awaiting the summarizer
+        // leaves the thread untouched and lets the owning operation report interruption.
+        guard !Task.isCancelled else { return .noOlderTurns }
         let summaryMessage = ChatMessage(role: .assistant, content: summaryText)
 
         // Splice: [leading system messages] + [summary] + [preserved recent tail].

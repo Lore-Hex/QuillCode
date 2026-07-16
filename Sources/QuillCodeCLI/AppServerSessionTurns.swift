@@ -6,7 +6,7 @@ extension AppServerSession {
     func startTurn(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
         let params = try AppServerParams(raw)
         let threadID = try threadID(from: params)
-        guard activeTurns[threadID] == nil else {
+        guard !hasActiveOperation(for: threadID) else {
             throw AppServerRPCError.invalidParams("thread already has an active turn")
         }
         if let outputSchema = params.object["outputSchema"], outputSchema != .null {
@@ -71,6 +71,9 @@ extension AppServerSession {
     func steerTurn(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
         let params = try AppServerParams(raw)
         let threadID = try threadID(from: params)
+        if activeCompactions[threadID] != nil {
+            throw AppServerRPCError.invalidRequest("active compaction turn is not steerable")
+        }
         guard var active = activeTurns[threadID] else {
             throw AppServerRPCError.invalidParams("thread has no active turn")
         }
@@ -91,14 +94,22 @@ extension AppServerSession {
     func interruptTurn(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
         let params = try AppServerParams(raw)
         let threadID = try threadID(from: params)
-        guard let active = activeTurns[threadID] else {
-            throw AppServerRPCError.invalidParams("thread has no active turn")
+        let turnID = try params.requiredString("turnId")
+        if let active = activeTurns[threadID] {
+            guard turnID == active.id else {
+                throw AppServerRPCError.invalidParams("turnId does not match the active turn")
+            }
+            active.task?.cancel()
+            return .object([:])
         }
-        guard try params.requiredString("turnId") == active.id else {
-            throw AppServerRPCError.invalidParams("turnId does not match the active turn")
+        if let active = activeCompactions[threadID] {
+            guard turnID == active.id else {
+                throw AppServerRPCError.invalidParams("turnId does not match the active turn")
+            }
+            active.task?.cancel()
+            return .object([:])
         }
-        active.task?.cancel()
-        return .object([:])
+        throw AppServerRPCError.invalidParams("thread has no active turn")
     }
 
     func launchTurn(_ threadID: UUID) {
@@ -287,7 +298,7 @@ extension AppServerSession {
         await sendNotification("item/completed", params: .object(completed))
     }
 
-    private func sendThreadStatus(_ threadID: UUID, active: Bool) async {
+    func sendThreadStatus(_ threadID: UUID, active: Bool) async {
         let status: CLIJSONValue = active
             ? .object(["type": .string("active"), "activeFlags": .array([])])
             : .object(["type": .string("idle")])

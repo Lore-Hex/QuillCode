@@ -81,12 +81,18 @@ public enum CLIRuntimeFactory {
                 safety: AutoSafetyReviewer(client: safety),
                 webSearch: webSearch,
                 maxToolSteps: appConfig.maxToolSteps,
-                enablesImmediateActionPreflight: true
+                enablesImmediateActionPreflight: true,
+                compaction: AgentCompactionPolicy(compactor: ThreadCompactor.llmBacked(
+                    llm: llm,
+                    catalog: [],
+                    sessionModelID: model
+                ))
             )
         } else {
             runner = AgentRunner(
                 maxToolSteps: appConfig.maxToolSteps,
-                enablesImmediateActionPreflight: true
+                enablesImmediateActionPreflight: true,
+                compaction: AgentCompactionPolicy(compactor: ThreadCompactor())
             )
         }
         let skillLocations = request.home == nil
