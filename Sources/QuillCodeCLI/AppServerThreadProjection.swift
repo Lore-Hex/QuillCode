@@ -98,6 +98,13 @@ enum AppServerThreadProjection {
                 "detail": .string(attachment.detail.rawValue)
             ])
         })
+        content.append(contentsOf: message.inputReferences.map { reference in
+            .object([
+                "type": .string(reference.kind.rawValue),
+                "name": .string(reference.name),
+                "path": .string(reference.path)
+            ])
+        })
         return .object([
             "type": .string("userMessage"),
             "id": .string(identifier(message.id)),

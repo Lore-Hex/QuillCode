@@ -27,6 +27,11 @@
   session lifecycle. Multi-root traversal is bounded and shared with composer indexing; scores,
   indices, deterministic ordering, cancellation tokens, query generations, updated/completed
   notifications, stop, and EOF cleanup have focused and real-process coverage.
+- App-server turns now accept Codex `skill` and `mention` input items. Selected skills resolve only
+  against the enabled bounded catalog, persist immutable instruction snapshots, and remain separate
+  from visible message text; mentions preserve bounded structured identity without reading paths or
+  claiming a remote connector runtime. Focused, persistence, prompt, and real-process tests cover the
+  contract.
 - `quill-code doctor` now provides the Codex-compatible support surface across installation, runtime,
   config, auth, Git, terminal, MCP, sandbox, state/task inventory, TrustedRouter reachability, and
   app-server checks. Collection is bounded and read-only, JSON is stable and redacted, and focused plus

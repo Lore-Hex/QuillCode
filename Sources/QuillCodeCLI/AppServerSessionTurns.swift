@@ -21,7 +21,8 @@ extension AppServerSession {
         let input = try AppServerTurnInput(
             params: params,
             threadID: threadID,
-            attachmentStore: attachmentStore
+            attachmentStore: attachmentStore,
+            richInputResolver: richTurnInputResolver(cwd: record.settings.cwd)
         )
         let turnID = UUID().uuidString.lowercased()
         let userMessage = input.message(turnID: turnID)
@@ -84,7 +85,8 @@ extension AppServerSession {
         let input = try AppServerTurnInput(
             params: params,
             threadID: threadID,
-            attachmentStore: attachmentStore
+            attachmentStore: attachmentStore,
+            richInputResolver: richTurnInputResolver(cwd: active.settings.cwd)
         )
         active.queuedSteering.append(input)
         activeTurns[threadID] = active

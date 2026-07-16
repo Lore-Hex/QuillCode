@@ -361,7 +361,10 @@ public struct TrustedRouterPromptBuilder: Sendable {
         case .user:
             return [
                 "role": "user",
-                "content": multimodalContent(text: message.content, attachments: message.attachments)
+                "content": multimodalContent(
+                    text: modelText(for: message),
+                    attachments: message.attachments
+                )
             ]
         case .assistant:
             return Self.chatMessage(role: "assistant", content: message.content)
@@ -375,6 +378,35 @@ public struct TrustedRouterPromptBuilder: Sendable {
                 "content": multimodalContent(text: text, attachments: message.attachments)
             ]
         }
+    }
+
+    private func modelText(for message: ChatMessage) -> String {
+        var fragments = message.content.isEmpty ? [] : [message.content]
+        fragments.append(contentsOf: message.inputReferences.compactMap { reference in
+            switch reference.kind {
+            case .skill:
+                guard let context = reference.context, !context.isEmpty else { return nil }
+                return """
+                <skill>
+                <name>\(Self.xmlEscaped(reference.name))</name>
+                <path>\(Self.xmlEscaped(reference.path))</path>
+                \(context)
+                </skill>
+                """
+            case .mention:
+                return "[mention:\(reference.name)](\(reference.path))"
+            }
+        })
+        return fragments.joined(separator: "\n\n")
+    }
+
+    private static func xmlEscaped(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&apos;")
     }
 
     private func multimodalContent(text: String, attachments: [ChatAttachment]) -> Any {

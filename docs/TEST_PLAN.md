@@ -18,7 +18,8 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   mismatched/duplicate task detection, and finite scan caps.
 - App-server wire and state reducers: string/integer IDs, invalid JSON versus invalid envelopes,
   strict initialize/initialized sequencing, notification opt-outs, thread cursors/settings/goals,
-  turn input bounds, managed local-image copying, projection deduplication, and approval decisions.
+  turn input bounds, managed local-image copying, selected skill catalog authorization and immutable
+  snapshots, bounded mention identity, rich-input projection/deduplication, and approval decisions.
 - App-server fuzzy search: Codex reference scores/indices, case-insensitive multi-root ordering, empty
   queries, result and traversal caps, cancellation-token replacement, live-session query generations,
   independent sessions, stop/missing-session behavior, experimental gating, and EOF cleanup.
@@ -78,7 +79,8 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   watched manifest invalidation without forced reload, binary filesystem
   create/write/read/metadata/list/copy/watch/unwatch/remove round trips, a real Content-Length-framed
   MCP child with full/lightweight status, lossless tool call, resource read, and reload, thread start,
-  turn start, incremental lifecycle output before EOF, response-only history rollback, persisted
+  turn start with text/image/skill/mention inputs, exact rich-input wire projection and persisted skill
+  context, incremental lifecycle output before EOF, response-only history rollback, persisted
   post-rollback thread reads, zero-count rejection, persistence, clean EOF, and zero exit. This
   specifically guards against pipe readers that accidentally buffer until the client disconnects.
 - Real `quill-code mcp-server` process smoke with stdin kept open: strict JSON-RPC initialize,

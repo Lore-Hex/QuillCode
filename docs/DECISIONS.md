@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-07-15: Rich turn input preserves identity and snapshots trusted skill context
+
+- **Wire contract:** App-server `turn/start` and `turn/steer` accept Codex 0.142.5 `skill` and
+  `mention` items and project them unchanged as structured user-message content. Visible transcript
+  text remains separate from model-only context.
+- **Skill trust boundary:** A selected path must exactly identify an enabled entry from the same
+  bounded `SkillResolver` catalog used by `skills/list` and `host.skill.load`. Arbitrary, disabled,
+  non-regular, oversized, and non-UTF-8 files fail closed without being read. The bounded manifest is
+  snapshotted with the message so later file edits cannot rewrite prior model history.
+- **Mention boundary:** Mention names and paths are bounded single-line metadata. Their path is never
+  opened as a file; QuillCode preserves connector identity without claiming the deferred remote app
+  runtime is available.
+- **Evidence:** Focused tests cover projection, persistence migration, immutable snapshots, duplicate
+  selection, disabled/arbitrary paths, control characters, and reference caps. A real app-server
+  process sends text, image, skill, and mention items together and verifies exact wire and disk state.
+
 ## 2026-07-15: App-server fuzzy search is bounded, cancellable, and connection-scoped
 
 - **Wire contract:** Stable `fuzzyFileSearch` and experimental `fuzzyFileSearch/sessionStart`,

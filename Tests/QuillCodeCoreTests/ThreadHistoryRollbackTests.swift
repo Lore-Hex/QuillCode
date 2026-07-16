@@ -93,6 +93,14 @@ final class ThreadHistoryRollbackTests: XCTestCase {
         let message = ChatMessage(
             role: .user,
             content: "steer",
+            inputReferences: [
+                ChatInputReference(
+                    kind: .skill,
+                    name: "review",
+                    path: "/tmp/review/SKILL.md",
+                    context: "Review carefully."
+                )
+            ],
             turnID: "turn-a",
             clientMessageID: "client-a"
         )
@@ -112,6 +120,7 @@ final class ThreadHistoryRollbackTests: XCTestCase {
         let legacyDecoded = try JSONDecoder().decode(ChatMessage.self, from: Data(legacy.utf8))
         XCTAssertNil(legacyDecoded.turnID)
         XCTAssertNil(legacyDecoded.clientMessageID)
+        XCTAssertEqual(legacyDecoded.inputReferences, [])
     }
 
     private func message(
