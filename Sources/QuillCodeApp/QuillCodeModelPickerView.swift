@@ -33,27 +33,31 @@ struct QuillCodeModelPickerView: View {
 
     var body: some View {
         Button {
+            guard !topBar.modelIsLocked else { return }
             isPresented.toggle()
         } label: {
             HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                Image(systemName: "diamond")
+                Image(systemName: topBar.modelIsLocked ? "lock.fill" : "diamond")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 Text(topBar.modelLabel)
                     .font(.callout.weight(.semibold))
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(QuillCodePalette.muted)
+                if !topBar.modelIsLocked {
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                }
             }
             .foregroundStyle(QuillCodePalette.text)
             .padding(.horizontal, 8)
             .quillCodeTextButtonTarget(minWidth: 56, radius: 8)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
-        .help("Choose model")
-        .accessibilityLabel("Model, \(topBar.modelLabel)")
+        .disabled(topBar.modelIsLocked)
+        .help(topBar.modelIsLocked ? "Model locked: incognito chats always use the E2E encrypted route" : "Choose model")
+        .accessibilityLabel(topBar.modelIsLocked ? "Model locked, \(topBar.modelLabel)" : "Model, \(topBar.modelLabel)")
         .accessibilityIdentifier("quillcode-model-picker-button")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
             popoverBody

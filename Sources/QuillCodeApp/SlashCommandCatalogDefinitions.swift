@@ -25,6 +25,12 @@ extension SlashCommandCatalog {
             aliases: ["new-chat", "newchat"]
         ),
         slashDefinition(
+            "/incognito",
+            "New incognito chat",
+            "Start a private chat that is never saved and always uses the end-to-end encrypted route.",
+            aliases: ["incognito-chat", "private-chat"]
+        ),
+        slashDefinition(
             "/side question",
             "Ask without interrupting",
             "Open an ephemeral full-context conversation while the main task keeps running.",

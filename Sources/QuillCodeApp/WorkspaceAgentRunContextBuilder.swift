@@ -26,6 +26,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     /// so saved allow/deny/ask rules compose with (never replace) the mode + intent review.
     var permissionRules: (any PermissionRulesProviding)? = nil
     var allowsSubagents: Bool = true
+    /// Incognito runs must not expose tools that persist conversation-derived content: the model
+    /// could otherwise autonomously write distilled incognito-chat content to durable memory.
+    var threadIsIncognito: Bool = false
 
     /// Configures a per-send runner. `modelID` pins THIS run's LLM client to the selected model —
     /// the thread's model — so `/model`, the top-bar picker, and the `/model` popup all take effect
@@ -150,7 +153,10 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     private var memoryToolDefinitions: [ToolDefinition] {
-        globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
+        // No memory.remember in incognito: the user-typed /remember stays available (explicit,
+        // bookmark-like), but the MODEL must not be able to persist incognito content on its own.
+        if threadIsIncognito { return [] }
+        return globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
     }
 
     private var activityToolExecutionOverride: AgentToolExecutionOverride {

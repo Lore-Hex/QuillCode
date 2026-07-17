@@ -4,6 +4,36 @@ import QuillCodePersistence
 @testable import QuillCodeApp
 
 final class WorkspaceThreadPersistenceTests: XCTestCase {
+    func testIncognitoThreadIsNeverWrittenToTheStore() throws {
+        // The incognito privacy promise at the persistence boundary: save, saveOrThrow, batch save,
+        // and mutate must all leave the store untouched for an incognito thread — nothing with the
+        // thread's id (or its content) may reach disk.
+        let directory = try makeQuillCodeTestDirectory()
+        let store = JSONThreadStore(directory: directory)
+        let incognito = ChatThread(
+            title: "Incognito",
+            messages: [.init(role: .user, content: "private question")],
+            runtimeContext: .incognito
+        )
+        var threads = [incognito]
+        let persistence = WorkspaceThreadPersistence(store: store)
+
+        persistence.save(incognito)
+        try persistence.saveOrThrow(incognito)
+        persistence.save([incognito])
+        persistence.mutate(incognito.id, threads: &threads) { thread in
+            thread.title = "Mutated incognito"
+        }
+
+        XCTAssertEqual(threads[0].title, "Mutated incognito", "in-memory mutation still applies")
+        XCTAssertThrowsError(try store.load(incognito.id), "the store must have no record of the thread")
+        let contents = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        XCTAssertFalse(
+            contents.contains { $0.contains(incognito.id.uuidString) },
+            "no file named for the incognito thread may exist: \(contents)"
+        )
+    }
+
     func testMutateUpdatesTimestampAndPersistsChangedThread() throws {
         let directory = try makeQuillCodeTestDirectory()
         let store = JSONThreadStore(directory: directory)

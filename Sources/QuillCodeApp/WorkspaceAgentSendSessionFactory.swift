@@ -108,7 +108,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             runner: configuredRunner(
                 modelID: thread.model,
                 threadID: thread.id,
-                allowsSubagents: permitsSubagents
+                allowsSubagents: permitsSubagents,
+                threadIsIncognito: thread.runtimeContext.isIncognito
             ),
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
@@ -164,7 +165,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     func configuredRunner(
         modelID: String?,
         threadID: UUID? = nil,
-        allowsSubagents: Bool = true
+        allowsSubagents: Bool = true,
+        threadIsIncognito: Bool = false
     ) -> AgentRunner {
         var runner = WorkspaceAgentRunContextBuilder(
             selectedProject: selectedProject,
@@ -183,7 +185,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             mcpStreamingToolExecutionOverride: mcpStreamingToolExecutionOverride,
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             permissionRules: permissionRules,
-            allowsSubagents: allowsSubagents
+            allowsSubagents: allowsSubagents,
+            threadIsIncognito: threadIsIncognito
         ).configuredRunner(from: baseRunner, modelID: modelID)
         // Attach the (opt-in) per-workspace LSP coordinator so writes get diagnostics-after-write +
         // format-on-save and the host.lsp.* tools work. The coordinator is cached per workspace so the

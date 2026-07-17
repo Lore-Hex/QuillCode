@@ -20,6 +20,21 @@ extension QuillCodeWorkspaceModel {
         return insertCreatedThread(thread, selectedProjectID: effectiveProjectID, saveThread: false)
     }
 
+    /// Starts an incognito chat: a session-only thread (never persisted, excluded from the sidebar)
+    /// pinned to the end-to-end-encrypted TrustedRouter route. Deliberately does NOT reuse
+    /// `threadCreationContext` — incognito threads carry no workspace instructions/memories and
+    /// ignore the configured default model.
+    @discardableResult
+    public func newIncognitoChat(projectID: UUID? = nil) -> UUID {
+        _ = returnFromSideConversation()
+        let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
+        let thread = WorkspaceThreadCreationEngine.incognitoThread(
+            projectID: effectiveProjectID,
+            mode: root.config.mode
+        )
+        return insertCreatedThread(thread, selectedProjectID: effectiveProjectID, saveThread: false)
+    }
+
     @discardableResult
     public func forkFromLast() -> UUID? {
         forkThread(strategy: .latestTurn)

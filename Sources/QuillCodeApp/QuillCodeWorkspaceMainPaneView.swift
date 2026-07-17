@@ -47,6 +47,9 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
+                if surface.isIncognito {
+                    QuillCodeIncognitoBannerView()
+                }
                 if let sideConversation = surface.sideConversation {
                     QuillCodeSideConversationView(
                         sideConversation: sideConversation,

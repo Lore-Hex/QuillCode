@@ -15,6 +15,13 @@ extension QuillCodeWorkspaceModel {
             setLastError("Image attachments are unavailable in this runtime.")
             return
         }
+        // Importing copies image BYTES into ~/.quillcode/attachments/<threadID>/ immediately — a
+        // durable artifact an ephemeral thread would leave behind forever (nothing sweeps it once the
+        // thread evaporates). Until orphan cleanup exists, refuse honestly instead of leaking.
+        if selectedThread?.runtimeContext.isEphemeral == true {
+            setLastError("Images can't be attached in incognito or side conversations: attachments are saved to disk.")
+            return
+        }
 
         let remaining = ChatAttachment.maximumCountPerTurn - composer.attachments.count
         guard remaining > 0 else {

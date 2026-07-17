@@ -249,9 +249,25 @@ public struct TrustedRouterPromptBuilder: Sendable {
         messages.append(Self.chatMessage(role: "system", content: Self.goalPrompt(goal)))
     }
 
+    static let incognitoBoundaryPrompt = """
+    You are in an incognito chat. This conversation is session-only: it is never saved to disk, it
+    is excluded from thread history, and it is routed through the end-to-end encrypted model route.
+
+    Do not write conversation-derived content anywhere durable unless the user explicitly asks:
+    no memory notes, no scheduled follow-ups, no subagents (their transcripts persist). File and
+    shell tools remain available under the thread's normal permissions when the user requests work,
+    but prefer answering in-conversation over creating artifacts.
+    """
+
     private func appendRuntimeBoundary(from thread: ChatThread, to messages: inout [[String: Any]]) {
-        guard case .sideConversation = thread.runtimeContext else { return }
-        messages.append(Self.chatMessage(role: "system", content: Self.sideConversationBoundaryPrompt))
+        switch thread.runtimeContext {
+        case .sideConversation:
+            messages.append(Self.chatMessage(role: "system", content: Self.sideConversationBoundaryPrompt))
+        case .incognito:
+            messages.append(Self.chatMessage(role: "system", content: Self.incognitoBoundaryPrompt))
+        case .standard:
+            break
+        }
     }
 
     private func appendModeGuidance(from thread: ChatThread, to messages: inout [[String: Any]]) {

@@ -76,8 +76,10 @@ enum WorkspaceHTMLTranscriptRenderer {
                   testID: "model-picker-button",
                   hitTargetKind: .capsule,
                   classes: ["composer-model-button"],
-                  ariaLabel: "Model: \(topBar.modelLabel)"
-              ))>◇ <span data-testid="model-pill">\(escape(topBar.modelLabel))</span></button>
+                  ariaLabel: topBar.modelIsLocked
+                      ? "Model locked: \(topBar.modelLabel)"
+                      : "Model: \(topBar.modelLabel)"
+              ))\(topBar.modelIsLocked ? " disabled" : "")>\(topBar.modelIsLocked ? "🔒" : "◇") <span data-testid="model-pill">\(escape(topBar.modelLabel))</span></button>
               <button\(WorkspaceHTMLPrimitives.buttonAttributes(
                   testID: "mode-picker-button",
                   hitTargetKind: .capsule,

@@ -8,6 +8,7 @@ public enum WorkspaceHTMLRenderer {
           <div class="\(workspaceGridClass(for: surface))">
             \(sidebarHTML(for: surface))
             <main class="transcript" data-testid="transcript">
+              \(incognitoBannerHTML(for: surface))
               \(sideConversationHTML(for: surface))
               \(WorkspaceHTMLSecondaryPaneRenderer.renderAutomations(surface.automations))
               \(WorkspaceHTMLTranscriptRenderer.render(
@@ -26,6 +27,18 @@ public enum WorkspaceHTMLRenderer {
             </main>
           </div>
           \(attentionDigestHTML(for: surface))
+        </section>
+        """
+    }
+
+    /// The persistent incognito banner (control-free), mirroring the native
+    /// `QuillCodeIncognitoBannerView` and the harness's `.incognito-banner`.
+    private static func incognitoBannerHTML(for surface: WorkspaceSurface) -> String {
+        guard surface.isIncognito else { return "" }
+        return """
+        <section class="incognito-banner" data-testid="incognito-banner" aria-label="Incognito chat: not saved, end-to-end encrypted">
+          <strong data-testid="incognito-banner-title">Incognito chat</strong>
+          <span data-testid="incognito-banner-detail">Not saved · E2E encrypted</span>
         </section>
         """
     }

@@ -46,6 +46,12 @@ enum WorkspaceThreadCommandCatalog {
                 keywords: ["thread", "conversation"]
             ),
             WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.newIncognitoChat.rawValue,
+                title: "New incognito chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "conversation", "incognito", "private", "ephemeral", "e2e", "encrypted", "not saved"]
+            ),
+            WorkspaceCommandSurface(
                 id: "thread-new-worktree",
                 title: "New worktree task",
                 category: WorkspaceCommandPalette.threadCategory,

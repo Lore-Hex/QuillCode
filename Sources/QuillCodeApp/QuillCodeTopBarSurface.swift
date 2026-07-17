@@ -11,6 +11,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var memorySources: [String]
     public var modelLabel: String
     public var selectedModelID: String
+    /// True when the selected thread's model is pinned for its lifetime (incognito chats pin the
+    /// E2E-encrypted route). Renderers show a locked, non-interactive model chip instead of a picker.
+    public var modelIsLocked: Bool
     public var modelCategories: [ModelCategorySurface]
     public var modelCatalogSource: ModelCatalogSource?
     public var modelCatalogStatusLabel: String
@@ -67,6 +70,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         memorySources: [String],
         modelLabel: String,
         selectedModelID: String,
+        modelIsLocked: Bool = false,
         modelCategories: [ModelCategorySurface],
         modelCatalogSource: ModelCatalogSource? = .bundled,
         modelCatalogStatusLabel: String = ModelCatalogStatus.bundled.statusLabel(),
@@ -103,6 +107,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.memorySources = memorySources
         self.modelLabel = modelLabel
         self.selectedModelID = selectedModelID
+        self.modelIsLocked = modelIsLocked
         self.modelCategories = modelCategories
         self.modelCatalogSource = modelCatalogSource
         self.modelCatalogStatusLabel = modelCatalogStatusLabel

@@ -66,6 +66,8 @@ enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case attentionOpen
     case attentionAcknowledge
     case attentionDismiss
+    // Appended at the end (never mid-enum — discriminant shifts corrupt incremental builds).
+    case newIncognitoChat
 }
 
 struct WorkspaceCommandActionPlanner: Sendable, Hashable {
@@ -80,6 +82,8 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
             return .presentCodeReview
         case .newChat:
             return .newChat
+        case .newIncognitoChat:
+            return .newIncognitoChat
         case .quickChat:
             return .quickChat
         case .workspaceBack:

@@ -7,9 +7,20 @@ import Foundation
 public enum ThreadRuntimeContext: Sendable, Hashable {
     case standard
     case sideConversation(parentThreadID: UUID)
+    // NOTE: append new cases at the end only — inserting mid-enum shifts case discriminants and
+    // corrupts incremental builds of already-compiled modules.
+    case incognito
 
     public var isEphemeral: Bool {
         if case .sideConversation = self { return true }
+        if case .incognito = self { return true }
+        return false
+    }
+
+    /// Incognito threads are the strictest ephemeral flavor: nothing about them may reach disk, and
+    /// their model is pinned to the end-to-end-encrypted TrustedRouter route for the thread's lifetime.
+    public var isIncognito: Bool {
+        if case .incognito = self { return true }
         return false
     }
 
