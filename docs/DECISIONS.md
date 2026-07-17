@@ -2097,3 +2097,20 @@
   long-lived remote shells, proves output arrives before completion, verifies null OS PIDs, terminates
   one, cleans the other, asserts both operations reuse the established WebSocket, and locks the pending
   response registry against duplicate or prematurely reused request IDs.
+
+## 2026-07-17: MCP patch approvals expose path-keyed file-change metadata
+
+- **Compatibility boundary:** `quill-code mcp-server` keeps the existing `elicitation/create`
+  approval request and raw `codex_changes.arguments` payload, but patch approvals now also include a
+  bounded path-keyed `codex_file_changes` map and the same map at `codex_changes.changes`.
+- **Scope boundary:** The map is derived only from the already-redacted pending tool call before any
+  approval response can execute work. `host.file.write` reports one `write` entry, while
+  `host.apply_patch` reuses the shared patch path parser and classifies touched files as `create`,
+  `delete`, or `modify` from unified-diff headers. The projection never reads or mutates the
+  workspace, caps paths/counts, and excludes `/dev/null`.
+- **Failure boundary:** Unknown future file-changing tools retain patch-approval behavior but produce
+  an empty compatibility map instead of fabricating paths. Clients that only understand the previous
+  raw-arguments payload continue to work unchanged.
+- **Evidence:** `MCPServerSessionTests` now assert path-keyed metadata for both `host.file.write` and
+  `host.apply_patch` approval requests, including create/modify classification and non-execution after
+  denial.

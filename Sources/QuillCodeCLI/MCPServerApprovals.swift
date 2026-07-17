@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeTools
 
 struct MCPServerPendingApproval {
     var originatingRequestID: MCPServerRequestID
@@ -113,10 +114,13 @@ extension MCPServerSession {
         ]
         if isPatch {
             params["codex_reason"] = reason.isEmpty ? .null : .string(reason)
+            let fileChanges = codexFileChanges(for: redacted)
             params["codex_changes"] = .object([
                 "tool": .string(redacted.name),
-                "arguments": decodedArguments(redacted.argumentsJSON)
+                "arguments": decodedArguments(redacted.argumentsJSON),
+                "changes": fileChanges
             ])
+            params["codex_file_changes"] = fileChanges
         } else {
             let command = shellCommand(redacted) ?? "\(redacted.name) \(redacted.argumentsJSON)"
             params["codex_command"] = .array([.string(String(command.prefix(8_192)))])
@@ -182,6 +186,68 @@ extension MCPServerSession {
         return call.name.hasPrefix("host.git.") && ![
             "host.git.status", "host.git.diff", "host.git.log", "host.git.branch.list"
         ].contains(call.name)
+    }
+
+    private func codexFileChanges(for call: ToolCall) -> CLIJSONValue {
+        let arguments = decodedArguments(call.argumentsJSON).objectValue ?? [:]
+        switch call.name {
+        case "host.file.write":
+            guard let path = boundedPath(arguments["path"]?.stringValue) else { return .object([:]) }
+            return .object([
+                path: .object([
+                    "path": .string(path),
+                    "kind": .string("write")
+                ])
+            ])
+        case "host.apply_patch":
+            let patch = arguments["patch"]?.stringValue ?? ""
+            return .object(fileChangesFromPatch(patch))
+        default:
+            return .object([:])
+        }
+    }
+
+    private func fileChangesFromPatch(_ patch: String) -> [String: CLIJSONValue] {
+        let paths = PatchToolExecutor.targetPaths(in: patch)
+            .compactMap(boundedPath)
+            .prefix(128)
+        var changes: [String: CLIJSONValue] = [:]
+        for path in paths {
+            changes[path] = .object([
+                "path": .string(path),
+                "kind": .string(patchChangeKind(path: path, in: patch))
+            ])
+        }
+        return changes
+    }
+
+    private func patchChangeKind(path: String, in patch: String) -> String {
+        var sawOld = false
+        var sawNew = false
+        for line in patch.components(separatedBy: .newlines) {
+            if line.hasPrefix("--- "), patchHeaderLine(line, references: path) {
+                sawOld = !line.contains("/dev/null")
+            }
+            if line.hasPrefix("+++ "), patchHeaderLine(line, references: path) {
+                sawNew = !line.contains("/dev/null")
+            }
+        }
+        if sawNew && !sawOld { return "create" }
+        if sawOld && !sawNew { return "delete" }
+        return "modify"
+    }
+
+    private func patchHeaderLine(_ line: String, references path: String) -> Bool {
+        let raw = line.dropFirst(4)
+        let token = String(raw).split(separator: "\t").first.map(String.init) ?? String(raw)
+        return token == path || token == "a/\(path)" || token == "b/\(path)" || token == "/dev/null"
+    }
+
+    private func boundedPath(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let path = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else { return nil }
+        return String(path.prefix(1_024))
     }
 }
 
