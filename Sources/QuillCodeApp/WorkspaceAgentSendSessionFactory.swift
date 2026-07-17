@@ -113,7 +113,10 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             ),
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
-            runHooks: runHooks,
+            // Run hooks receive the raw prompt / last assistant message on stdin and execute
+            // arbitrary user-configured shell — an automatic hook could persist incognito content
+            // despite the "never saved" contract. Incognito sessions run without them.
+            runHooks: thread.runtimeContext.isIncognito ? [] : runHooks,
             pluginLifecycleHooks: pluginLifecycleHooks,
             lifecycle: lifecycle ?? .primary(sessionStartHookCoordinator),
             pluginDataBaseDirectory: pluginDataBaseDirectory,

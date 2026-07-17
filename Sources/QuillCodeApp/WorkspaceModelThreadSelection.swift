@@ -15,9 +15,27 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
+    /// Destroys the selected incognito thread when the user navigates away (new chat, thread or
+    /// project selection): removes it from memory, finishes its runs, clears its draft, and prunes it
+    /// from navigation history so Workspace Back can never resurrect the "never saved" conversation.
+    @discardableResult
+    func discardIncognitoThreadOnExit() -> Bool {
+        guard let current = selectedThread, current.runtimeContext.isIncognito else { return false }
+        root.threads.removeAll { $0.id == current.id }
+        sessionStartHookCoordinator.remove(threadID: current.id)
+        agentRuns.finish(threadID: current.id)
+        threadDrafts = ComposerDraftStore.cleared(current.id, drafts: threadDrafts)
+        navigationHistory.pruneEntries(withThreadID: current.id)
+        if root.selectedThreadID == current.id {
+            root.selectedThreadID = nil
+        }
+        return true
+    }
+
     public func selectThread(_ id: UUID, recordsNavigation: Bool = true) {
         if id != root.selectedThreadID {
             _ = returnFromSideConversation()
+            _ = discardIncognitoThreadOnExit()
         }
         guard let thread = root.threads.first(where: { $0.id == id }) else { return }
         let previousLocation = currentNavigationLocation

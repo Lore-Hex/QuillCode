@@ -61,6 +61,7 @@ extension QuillCodeWorkspaceModel {
 
     public func selectProject(_ id: UUID?, recordsNavigation: Bool = true) {
         _ = returnFromSideConversation()
+        _ = discardIncognitoThreadOnExit()
         guard let selection = WorkspaceProjectEngine.selectionAfterSelectingProject(
             id,
             projects: root.projects,

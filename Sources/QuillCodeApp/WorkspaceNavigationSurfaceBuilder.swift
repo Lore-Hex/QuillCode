@@ -62,7 +62,10 @@ struct WorkspaceNavigationSurfaceBuilder {
     /// the pure model clamps/defaults to the first row when nil or stale — it is NOT the workspace's
     /// selected thread, so moving the cursor never advances a watermark.
     private func attentionSection() -> AttentionSectionSurface {
-        let model = AttentionModel.build(from: threads, selectedThreadID: attentionCursorID)
+        // Ephemeral threads (incognito, side conversations) never surface in the sidebar — a RED or
+        // UNVERIFIED run-integrity verdict must not pull the supposedly-hidden thread into Attention.
+        let durableThreads = threads.filter { !$0.runtimeContext.isEphemeral }
+        let model = AttentionModel.build(from: durableThreads, selectedThreadID: attentionCursorID)
         return AttentionSectionSurface(model: model)
     }
 

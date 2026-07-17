@@ -60,9 +60,23 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         if activeRunner.maxToolSteps == AgentRunner.defaultMaxToolSteps {
             activeRunner.maxToolSteps = config.maxToolSteps
         }
+        // EVERY model-backed auxiliary must respect the incognito E2E pin, not just the primary
+        // client below: the auto-mode safety reviewer otherwise ships recentMessages + userMessage to
+        // the GLM/Kimi reviewer models, and the LLM compaction summarizer ships older turns to the
+        // auxiliary model on context pressure. Swap both to their model-free forms — static safety
+        // policy (auto approvals degrade to the conservative static verdicts) and the deterministic
+        // compaction summarizer — so the ONLY provider traffic an incognito run produces is the
+        // pinned E2E route.
+        if threadIsIncognito {
+            activeRunner.safety = AutoSafetyReviewer()
+            if var compaction = activeRunner.compaction {
+                compaction.compactor.summarizer = DeterministicThreadCompactionSummarizer()
+                activeRunner.compaction = compaction
+            }
+        }
         if let permissionRules {
             activeRunner.safety = PermissionRuleGatedSafetyReviewer(
-                base: runner.safety,
+                base: activeRunner.safety,
                 rules: permissionRules
             )
         }
@@ -144,6 +158,11 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     private var computerUseToolDefinitions: [ToolDefinition] {
+        // Computer-use screenshots and workflow-recording PNGs are written under the DURABLE
+        // per-thread attachment directory with no cleanup once an ephemeral thread evaporates —
+        // the same orphaned-artifact leak addComposerImages refuses. Gate the tools for incognito
+        // until temp-dir routing / the orphan sweep exists.
+        if threadIsIncognito { return [] }
         guard let computerUseBackend else { return [] }
         var definitions = ToolDefinition.computerUseDefinitions
         if computerUseBackend is any WorkflowRecordingBackend {

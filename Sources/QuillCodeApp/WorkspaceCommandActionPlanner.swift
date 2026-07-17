@@ -244,7 +244,9 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
         case .disconnectAll:
             return .disconnectAll
         case .sideConversationReturn:
-            guard selectedThread?.runtimeContext.isEphemeral == true else { return nil }
+            // Only side conversations have a parent to return to — incognito is ephemeral too, but
+            // "Return to main chat" there would silently no-op.
+            guard selectedThread?.runtimeContext.sideConversationParentThreadID != nil else { return nil }
             return .sideConversationReturn
         case .attentionNext:
             return .attentionNext

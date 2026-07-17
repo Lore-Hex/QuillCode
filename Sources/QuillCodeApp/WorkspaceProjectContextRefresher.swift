@@ -175,6 +175,11 @@ enum WorkspaceProjectContextRefresher {
         globalMemories: [MemoryNote],
         scope: ThreadContextSyncScope
     ) {
+        // Incognito threads deliberately carry NO workspace instructions/memories — the factory's
+        // empty arrays are the intended state, and the per-send sync must not refill them from the
+        // project/global context (private questions shouldn't be colored by durable workspace notes,
+        // and nothing about the workspace should ride along to the provider).
+        guard !thread.runtimeContext.isIncognito else { return }
         let snapshot = contextSource(
             projectID: thread.projectID ?? fallbackProjectID,
             projects: projects,

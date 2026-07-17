@@ -6,6 +6,7 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func newChat(projectID: UUID? = nil) -> UUID {
         _ = returnFromSideConversation()
+        _ = discardIncognitoThreadOnExit()
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
         refreshProjectMetadata(effectiveProjectID)
         let context = WorkspaceProjectContextRefresher.threadCreationContext(
@@ -27,6 +28,8 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func newIncognitoChat(projectID: UUID? = nil) -> UUID {
         _ = returnFromSideConversation()
+        // Starting incognito from incognito replaces the old session entirely.
+        _ = discardIncognitoThreadOnExit()
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
         let thread = WorkspaceThreadCreationEngine.incognitoThread(
             projectID: effectiveProjectID,
@@ -40,9 +43,20 @@ extension QuillCodeWorkspaceModel {
         forkThread(strategy: .latestTurn)
     }
 
+    /// Fork/compact/duplicate all create a DURABLE (saveThread: true) copy of the source transcript —
+    /// which would silently break an ephemeral thread's "never saved" promise. The palette disables
+    /// these commands for ephemeral threads, but typed /fork, /compact, and /duplicate bypass
+    /// isEnabled and land here, so the guard must live at the model level.
+    private func refuseDurableContinuation(of source: ChatThread, action: String) -> Bool {
+        guard source.runtimeContext.isEphemeral else { return false }
+        setLastError("Can't \(action) an incognito or side conversation: it would save the private transcript.")
+        return true
+    }
+
     @discardableResult
     func forkThread(strategy: WorkspaceThreadForkStrategy) -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
+        guard !refuseDurableContinuation(of: source, action: "fork") else { return nil }
         let projectID = knownProjectID(source.projectID)
         let fork = WorkspaceThreadCreationEngine.forkThread(
             from: source,
@@ -55,6 +69,7 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func compactContext() -> UUID? {
         guard let source = selectedThread, !source.messages.isEmpty else { return nil }
+        guard !refuseDurableContinuation(of: source, action: "compact") else { return nil }
         let projectID = knownProjectID(source.projectID)
         let compacted = WorkspaceThreadCreationEngine.compactThread(
             from: source,
@@ -71,6 +86,7 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func duplicateThread(_ id: UUID) -> UUID? {
         guard let source = root.threads.first(where: { $0.id == id }) else { return nil }
+        guard !refuseDurableContinuation(of: source, action: "duplicate") else { return nil }
         let projectID = knownProjectID(source.projectID)
         let duplicate = WorkspaceThreadCreationEngine.duplicateThread(
             source,
