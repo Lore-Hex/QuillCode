@@ -503,6 +503,37 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertTrue(secondThread.messages.isEmpty)
     }
 
+    func testBackgroundRunFailureLeavesADurableNoticeOnItsOwnThread() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowThrowingLLMClient()))
+        let failingThreadID = model.newChat()
+
+        model.setDraft("do the risky thing")
+        let task = Task {
+            await model.submitComposer(workspaceRoot: root)
+        }
+        try await waitUntil(timeoutSeconds: 1) {
+            model.composer.isSending
+        }
+        // Navigate away BEFORE the run fails — this is exactly the case finishAgentRun drops (the
+        // failing thread is no longer selected, so lastError never even gets set). The durable notice
+        // is what lets the user see, on returning, that this background run failed.
+        let otherThreadID = model.newChat()
+        await task.value
+
+        XCTAssertEqual(model.root.selectedThreadID, otherThreadID)
+        let failed = try XCTUnwrap(model.root.threads.first { $0.id == failingThreadID })
+        XCTAssertTrue(
+            failed.events.contains { $0.kind == .notice && $0.summary.hasPrefix("Run stopped after an error") },
+            "a background run that failed must leave a durable notice on its own thread"
+        )
+        let other = try XCTUnwrap(model.root.threads.first { $0.id == otherThreadID })
+        XCTAssertFalse(
+            other.events.contains { $0.kind == .notice && $0.summary.hasPrefix("Run stopped after an error") },
+            "the failure notice belongs to the run's thread, not whichever thread is selected now"
+        )
+    }
+
     func testTwoThreadsRunConcurrentlyAndKeepIndependentPresentationState() async throws {
         let root = try makeTempDirectory()
         let gate = ConcurrentPromptGate()
@@ -689,6 +720,19 @@ private struct SlowLLMClient: LLMClient {
         try await Task.sleep(nanoseconds: 5_000_000_000)
         return .say("late response")
     }
+}
+
+/// Blocks briefly (long enough for a test to navigate away, making the run a background one) and then
+/// throws, driving the `.failed` outcome path for a non-selected thread.
+private struct SlowThrowingLLMClient: LLMClient {
+    func nextAction(thread _: ChatThread, userMessage _: String, tools _: [ToolDefinition]) async throws -> AgentAction {
+        try await Task.sleep(nanoseconds: 200_000_000)
+        throw BackgroundRunFailure.boom
+    }
+}
+
+private enum BackgroundRunFailure: Error {
+    case boom
 }
 
 private enum DelayedStreamingSayLLMError: Error {

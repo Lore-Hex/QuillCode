@@ -372,6 +372,18 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func finishFailedSend(_ error: any Error, runThreadID: UUID) {
+        // A terminal run failure must leave a DURABLE trace on its own thread. A background run that
+        // failed while the user was on another thread otherwise vanishes silently: finishAgentRun
+        // drops the failure for a non-selected thread, and lastError is session-only. Record it as a
+        // persisted `.notice` (mutateThread saves, guarded so ephemeral/incognito threads never
+        // persist) so the failure survives reload and shows in Activity. A no-op if the thread is
+        // already gone (a discarded incognito session whose run failed late).
+        mutateThread(runThreadID) { thread in
+            thread.events.append(ThreadEvent(
+                kind: .notice,
+                summary: WorkspaceRunFailureNoticePlanner.noticeSummary(for: error)
+            ))
+        }
         let terminal = WorkspaceAgentSendTerminalPlanner.failed(error, composer: composer)
         finishAgentRun(threadID: runThreadID, lifecycle: terminal.lifecycle)
     }
