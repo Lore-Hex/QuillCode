@@ -47,6 +47,193 @@ final class AppServerEnvironmentSessionTests: XCTestCase {
         await registry.closeAll()
     }
 
+    func testEnvironmentStatusUsesCodexCompatibleStatesWithoutUnknownIDError() async throws {
+        let client = AppServerFakeExecServerClient()
+        let factory = AppServerFakeExecServerFactory(clients: [client])
+        let registry = makeRegistry(factory: factory)
+        _ = try await registry.add(registration(id: "remote"))
+        try await waitUntil { await client.connectionSnapshot() == .ready }
+        let fixture = try makeSession(llm: EnvironmentEchoLLM(), registry: registry)
+        try await initialize(fixture.session)
+
+        try await sendRequest(
+            id: 2,
+            method: "environment/status",
+            params: ["environmentId": "local"],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 3,
+            method: "environment/status",
+            params: ["environmentId": "remote"],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 4,
+            method: "environment/status",
+            params: ["environmentId": "missing"],
+            to: fixture.session
+        )
+
+        let records = try await fixture.output.records()
+        XCTAssertEqual(result(for: 2, in: records), [
+            "error": .null,
+            "status": .string("ready")
+        ])
+        XCTAssertEqual(result(for: 3, in: records), [
+            "error": .null,
+            "status": .string("ready")
+        ])
+        XCTAssertEqual(result(for: 4, in: records), [
+            "status": .string("unknown"),
+            "error": .string("unknown environment id `missing`")
+        ])
+        XCTAssertNil(errorCode(for: 4, in: records))
+        await registry.closeAll()
+    }
+
+    func testSelectedThreadsReceiveFutureConnectionTransitionsWithoutReplay() async throws {
+        let client = AppServerFakeExecServerClient()
+        let factory = AppServerFakeExecServerFactory(clients: [client])
+        let registry = makeRegistry(factory: factory)
+        _ = try await registry.add(registration(id: "remote"))
+        try await waitUntil { await client.connectionSnapshot() == .ready }
+        let fixture = try makeSession(llm: EnvironmentEchoLLM(), registry: registry)
+        try await initialize(fixture.session)
+
+        for requestID in 2...3 {
+            try await sendRequest(
+                id: requestID,
+                method: "thread/start",
+                params: threadParameters(
+                    environments: [["environmentId": "remote", "cwd": "/workspace"]],
+                    workspace: fixture.workspace
+                ),
+                to: fixture.session
+            )
+        }
+        var records = try await fixture.output.records()
+        let threadIDs = try [2, 3].map { requestID in
+            try XCTUnwrap(
+                result(for: requestID, in: records)?["thread"]?.objectValue?["id"]?.stringValue
+            )
+        }
+        XCTAssertFalse(records.contains {
+            $0["method"]?.stringValue == "thread/environment/connected"
+        })
+
+        await client.emitConnectionState(.disconnected)
+        try await waitUntil {
+            let output = try? await fixture.output.records()
+            return output?.filter {
+                $0["method"]?.stringValue == "thread/environment/disconnected"
+            }.count == 2
+        }
+        records = try await fixture.output.records()
+        let disconnected = records.filter {
+            $0["method"]?.stringValue == "thread/environment/disconnected"
+        }
+        XCTAssertEqual(
+            Set(disconnected.compactMap {
+                $0["params"]?.objectValue?["threadId"]?.stringValue
+            }),
+            Set(threadIDs)
+        )
+        XCTAssertTrue(disconnected.allSatisfy {
+            $0["params"]?.objectValue?["environmentId"] == .string("remote")
+        })
+
+        try await sendRequest(
+            id: 4,
+            method: "thread/unsubscribe",
+            params: ["threadId": threadIDs[1]],
+            to: fixture.session
+        )
+        await client.emitConnectionState(.connected)
+        try await waitUntil {
+            let output = try? await fixture.output.records()
+            return output?.contains {
+                $0["method"]?.stringValue == "thread/environment/connected"
+            } == true
+        }
+        records = try await fixture.output.records()
+        let connected = records.filter {
+            $0["method"]?.stringValue == "thread/environment/connected"
+        }
+        XCTAssertEqual(connected.count, 1)
+        XCTAssertEqual(
+            connected.first?["params"]?.objectValue?["threadId"]?.stringValue,
+            threadIDs[0]
+        )
+        await registry.closeAll()
+    }
+
+    func testSelectedThreadReceivesInitialConnectionFailureWithoutStatusRecovery() async throws {
+        let client = AppServerFakeExecServerClient(
+            connectDelay: .milliseconds(75),
+            connectError: .disconnected("initial connection failed")
+        )
+        let factory = AppServerFakeExecServerFactory(clients: [client])
+        let registry = makeRegistry(factory: factory)
+        let fixture = try makeSession(llm: EnvironmentEchoLLM(), registry: registry)
+        try await initialize(fixture.session)
+
+        try await sendRequest(
+            id: 2,
+            method: "environment/add",
+            params: [
+                "environmentId": "remote",
+                "execServerUrl": "ws://remote.example"
+            ],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 3,
+            method: "thread/start",
+            params: threadParameters(
+                environments: [["environmentId": "remote", "cwd": "/workspace"]],
+                workspace: fixture.workspace
+            ),
+            to: fixture.session
+        )
+
+        var records = try await fixture.output.records()
+        let threadID = try XCTUnwrap(
+            result(for: 3, in: records)?["thread"]?.objectValue?["id"]?.stringValue
+        )
+        try await waitUntil {
+            let output = try? await fixture.output.records()
+            return output?.contains {
+                $0["method"]?.stringValue == "thread/environment/disconnected"
+            } == true
+        }
+        try await sendRequest(
+            id: 4,
+            method: "environment/status",
+            params: ["environmentId": "remote"],
+            to: fixture.session
+        )
+
+        records = try await fixture.output.records()
+        let disconnected = try XCTUnwrap(records.first {
+            $0["method"]?.stringValue == "thread/environment/disconnected"
+        })
+        XCTAssertEqual(disconnected["params"]?.objectValue?["threadId"]?.stringValue, threadID)
+        XCTAssertEqual(
+            disconnected["params"]?.objectValue?["environmentId"],
+            .string("remote")
+        )
+        XCTAssertFalse(records.contains {
+            $0["method"]?.stringValue == "thread/environment/connected"
+        })
+        let status = try XCTUnwrap(result(for: 4, in: records))
+        XCTAssertEqual(status["status"], .string("disconnected"))
+        XCTAssertTrue(status["error"]?.stringValue?.contains("initial connection failed") == true)
+        let snapshot = await client.snapshot()
+        XCTAssertEqual(snapshot.connectCount, 1)
+        await registry.closeAll()
+    }
+
     func testThreadEnvironmentSelectionPersistsAndEmptyArrayDisablesAccess() async throws {
         let client = AppServerFakeExecServerClient(info: remoteInfo)
         let factory = AppServerFakeExecServerFactory(clients: [client])
@@ -651,7 +838,6 @@ final class AppServerEnvironmentSessionTests: XCTestCase {
         AppServerEnvironmentRegistry(
             localCWD: URL(fileURLWithPath: "/tmp"),
             environment: [:],
-            monitorInterval: .milliseconds(5),
             clientFactory: { factory.make(websocketURL: $0, connectTimeout: $1) }
         )
     }
@@ -759,7 +945,7 @@ final class AppServerEnvironmentSessionTests: XCTestCase {
     ) async throws {
         for _ in 0..<200 {
             if await condition() { return }
-            try await Task.sleep(for: .milliseconds(10))
+            try await Task.sleep(for: .milliseconds(5))
         }
         XCTFail("Timed out waiting for environment lifecycle notification")
     }
@@ -773,69 +959,4 @@ final class AppServerEnvironmentSessionTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: url) }
         return url
     }
-}
-
-private struct EnvironmentSessionFixture {
-    var session: AppServerSession
-    var output: EnvironmentSessionOutputCollector
-    var workspace: URL
-}
-
-private actor EnvironmentSessionOutputCollector {
-    private var lines: [String] = []
-
-    func append(_ line: String) {
-        lines.append(line)
-    }
-
-    func records() throws -> [[String: CLIJSONValue]] {
-        try lines.map { line in
-            guard let value = try CLIJSONCodec.decode(line).objectValue else {
-                throw EnvironmentSessionTestError.invalidRecord
-            }
-            return value
-        }
-    }
-}
-
-private struct EnvironmentEchoLLM: LLMClient {
-    func nextAction(
-        thread: ChatThread,
-        userMessage: String,
-        tools: [ToolDefinition]
-    ) -> AgentAction {
-        .say(userMessage)
-    }
-}
-
-private actor EnvironmentScriptedLLM: LLMClient {
-    struct Observation: Sendable {
-        var messages: [ChatMessage]
-        var toolNames: Set<String>
-    }
-
-    private var actions: [AgentAction]
-    private var captured: [Observation] = []
-
-    init(actions: [AgentAction]) {
-        self.actions = actions
-    }
-
-    func nextAction(
-        thread: ChatThread,
-        userMessage: String,
-        tools: [ToolDefinition]
-    ) -> AgentAction {
-        captured.append(.init(messages: thread.messages, toolNames: Set(tools.map(\.name))))
-        guard !actions.isEmpty else { return .say("No scripted action remains.") }
-        return actions.removeFirst()
-    }
-
-    func observations() -> [Observation] {
-        captured
-    }
-}
-
-private enum EnvironmentSessionTestError: Error {
-    case invalidRecord
 }

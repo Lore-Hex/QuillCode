@@ -91,10 +91,21 @@ struct AppServerRemoteDirectoryEntry: Sendable, Equatable {
     var isFile: Bool
 }
 
+enum AppServerEnvironmentConnectionState: Sendable, Equatable {
+    case connected
+    case disconnected
+}
+
+struct AppServerExecServerConnectionObservation: Sendable, Equatable {
+    var state: AppServerEnvironmentConnectionState
+    var observedAt: ContinuousClock.Instant
+}
+
 protocol AppServerExecServerClient: Sendable {
     func connect() async throws
     /// Reports the current environment state without opening or resuming a connection.
     func connectionSnapshot() async -> AppServerEnvironmentConnectionSnapshot
+    func connectionEvents() async -> AsyncStream<AppServerExecServerConnectionObservation>
     func environmentInfo() async throws -> AppServerEnvironmentInfo
     func runProcess(_ request: AppServerRemoteProcessRequest) async throws -> AppServerRemoteProcessResult
     func readFile(at pathURI: String) async throws -> Data
