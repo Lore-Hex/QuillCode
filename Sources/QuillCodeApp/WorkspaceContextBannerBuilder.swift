@@ -95,13 +95,17 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
     static func contextSummaryProgress(for thread: ChatThread) -> ContextBannerProgressSurface? {
         for event in thread.events.reversed() where event.kind == .notice {
             switch event.summary {
-            case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .compact):
+            // The local (E2E) start variants share this presentation — the copy here never names a
+            // provider, so it stays true whether the summary runs on-device or via the aux model.
+            case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .compact),
+                 WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .compact, isLocal: true):
                 return ContextBannerProgressSurface(
                     activeCommandID: "compact-context",
                     title: "Compacting context",
                     detail: "Preparing a durable continuation summary before starting the compacted thread."
                 )
-            case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .forkSummary):
+            case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .forkSummary),
+                 WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .forkSummary, isLocal: true):
                 return ContextBannerProgressSurface(
                     activeCommandID: WorkspaceThreadForkStrategy.summarizedContext.commandID,
                     title: "Summarizing fork",

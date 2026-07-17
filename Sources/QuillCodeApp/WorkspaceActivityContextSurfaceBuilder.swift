@@ -58,6 +58,21 @@ enum WorkspaceActivityContextSurfaceBuilder {
                 detail: "Asking TrustedRouter for a fork-ready summary.",
                 statusLabel: ActivityStatusLabel.running
             )
+        // The local (E2E) start variants need their OWN copy: the two above promise a TrustedRouter
+        // call that an E2E-routed summary never makes, and this notice persists in Activity next to
+        // the "never reached an auxiliary model" finish notice.
+        case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .compact, isLocal: true):
+            return NoticePresentation(
+                title: "Compacting context",
+                detail: "Summarizing on-device to keep this end-to-end-encrypted chat private.",
+                statusLabel: ActivityStatusLabel.running
+            )
+        case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .forkSummary, isLocal: true):
+            return NoticePresentation(
+                title: "Summarizing fork context",
+                detail: "Summarizing on-device to keep this end-to-end-encrypted chat private.",
+                statusLabel: ActivityStatusLabel.running
+            )
         case WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
             outcome: WorkspaceContextSummaryOutcome(summaryOverride: "", source: .model),
             purpose: .compact

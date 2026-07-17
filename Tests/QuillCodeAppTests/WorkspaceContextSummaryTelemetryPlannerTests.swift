@@ -91,6 +91,19 @@ final class WorkspaceContextSummaryTelemetryPlannerTests: XCTestCase {
         XCTAssertNil(telemetry.errorDescription, "nothing failed, so there is no fallback reason to report")
     }
 
+    func testLocalStartNoticeDoesNotPromiseATrustedRouterCall() {
+        for purpose in [WorkspaceContextSummaryPurpose.compact, .forkSummary] {
+            let local = WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: purpose, isLocal: true)
+            XCTAssertFalse(local.contains("TrustedRouter"), "an E2E summary never calls it: \(local)")
+            XCTAssertTrue(local.contains("locally"), local)
+            // The default (non-local) copy is unchanged, so existing notices keep matching.
+            XCTAssertTrue(
+                WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: purpose)
+                    .contains("with TrustedRouter")
+            )
+        }
+    }
+
     func testE2EPrivateSourceNoticeCopyExplainsPrivacyNotFailure() {
         for (purpose, expected) in [
             (WorkspaceContextSummaryPurpose.compact, "Summarized locally to keep this end-to-end-encrypted chat private"),

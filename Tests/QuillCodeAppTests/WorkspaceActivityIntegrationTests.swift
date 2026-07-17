@@ -149,6 +149,15 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
             title: "E2E thread",
             messages: [.init(role: .user, content: "compact this")],
             events: [
+                // The REAL sequence starts with a start notice. It persists forever alongside the
+                // finish notice, so it must not claim a TrustedRouter call that never happens.
+                .init(
+                    kind: .notice,
+                    summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(
+                        purpose: .compact,
+                        isLocal: true
+                    )
+                ),
                 .init(
                     kind: .notice,
                     summary: WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
@@ -171,13 +180,18 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         let activity = model.surface().activity
 
         XCTAssertEqual(activity.contextItems.map(\.title), [
+            "Compacting context",
             "Compacted privately",
             "Context compacted privately"
-        ], "the source notice must still render — an unmatched summary string would drop it entirely")
+        ], "every notice must still render — an unmatched summary string would drop it entirely")
         XCTAssertEqual(
             activity.contextItems.map(\.statusLabel),
-            ["Done", "Done"],
+            ["Running", "Done", "Done"],
             "a deliberate private summary is done, not the 'Checked' degraded-fallback state"
+        )
+        XCTAssertFalse(
+            activity.contextItems.contains { $0.detail.contains("TrustedRouter") },
+            "an E2E thread never calls the auxiliary model — no row may claim it asked TrustedRouter"
         )
         let continuationDetail = try XCTUnwrap(activity.contextItems.last).detail
         XCTAssertTrue(

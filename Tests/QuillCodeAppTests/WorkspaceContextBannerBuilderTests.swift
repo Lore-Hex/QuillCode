@@ -99,7 +99,11 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
                     events: [
                         ThreadEvent(
                             kind: .notice,
-                            summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: purpose)
+                            // Mirror the real sequence: an E2E summary announces itself as local.
+                            summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(
+                                purpose: purpose,
+                                isLocal: source == .e2eDeterministic
+                            )
                         ),
                         ThreadEvent(
                             kind: .notice,

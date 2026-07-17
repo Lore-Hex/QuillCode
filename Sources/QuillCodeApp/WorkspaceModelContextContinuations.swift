@@ -259,8 +259,7 @@ extension QuillCodeWorkspaceModel {
         // goes through. Incognito threads never reach here (the isEphemeral belt guard in
         // preparedContextContinuation returns first), so this covers a REGULAR thread that selected
         // "E2E Encrypted" from the Private category or via `/model e2e`.
-        let routesE2EOnly = TrustedRouterDefaults.canonicalModelID(source.model)
-            == TrustedRouterDefaults.e2eModel
+        let routesE2EOnly = summarizesLocallyForPrivacy(source)
         let generator: any WorkspaceContextSummaryGenerating = routesE2EOnly
             ? DeterministicWorkspaceContextSummaryGenerator()
             : contextSummaryGenerator
@@ -314,10 +313,24 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func recordContextSummaryStart(sourceID: UUID, purpose: WorkspaceContextSummaryPurpose) {
+        // Announce the summary the way it will ACTUALLY run: an E2E-routed thread never calls the
+        // auxiliary model, so promising "with TrustedRouter" here would leave a permanent, false
+        // claim sitting next to the local-summary finish notice.
+        let isLocal = contextSummarySourceThread(sourceID).map(summarizesLocallyForPrivacy) ?? false
         recordContextSummarySourceNotice(
             sourceID: sourceID,
-            summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: purpose)
+            summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(
+                purpose: purpose,
+                isLocal: isLocal
+            )
         )
+    }
+
+    /// True when the thread's effective route is the E2E model, so every auxiliary summary step must
+    /// stay on-device. The single source of truth for both the start notice and the generator choice
+    /// — split them and the copy starts lying about what the summary path did.
+    private func summarizesLocallyForPrivacy(_ thread: ChatThread) -> Bool {
+        TrustedRouterDefaults.canonicalModelID(thread.model) == TrustedRouterDefaults.e2eModel
     }
 
     private func recordContextSummaryFinished(
