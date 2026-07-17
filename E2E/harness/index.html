@@ -8201,9 +8201,77 @@
       const path = artifactFilePath(value);
       const content = path ? state.mockFiles[path] : null;
       if (typeof content !== 'string' || content.length > 64 * 1024) return null;
-      if (artifactPathExtension(value) !== 'svg') return null;
-      const dimensions = svgDimensions(content);
+      const extension = artifactPathExtension(value);
+      const dimensions = extension === 'svg'
+        ? svgDimensions(content)
+        : extension === 'bmp'
+          ? bmpDimensions(content)
+          : extension === 'webp'
+            ? webpDimensions(content)
+            : null;
       return dimensions ? `${dimensions.width} x ${dimensions.height} px` : null;
+    }
+
+    function bmpDimensions(content) {
+      if (content.length < 26 || asciiAt(content, 0, 2) !== 'BM') return null;
+      const dibHeaderSize = littleEndianUInt32(content, 14);
+      if (dibHeaderSize === 12) {
+        return validDimensions(littleEndianUInt16(content, 18), littleEndianUInt16(content, 20));
+      }
+      if (dibHeaderSize < 40) return null;
+      const width = littleEndianInt32(content, 18);
+      const height = littleEndianInt32(content, 22);
+      return width > 0 && height !== 0 ? validDimensions(width, Math.abs(height)) : null;
+    }
+
+    function webpDimensions(content) {
+      if (content.length < 20 || asciiAt(content, 0, 4) !== 'RIFF' || asciiAt(content, 8, 4) !== 'WEBP') {
+        return null;
+      }
+      let offset = 12;
+      while (offset + 8 <= content.length) {
+        const chunkType = asciiAt(content, offset, 4);
+        const chunkSize = littleEndianUInt32(content, offset + 4);
+        const payloadOffset = offset + 8;
+        if (payloadOffset > content.length) return null;
+        if (chunkType === 'VP8X') {
+          if (chunkSize < 10 || payloadOffset + 10 > content.length) return null;
+          return validDimensions(
+            littleEndianUInt24(content, payloadOffset + 4) + 1,
+            littleEndianUInt24(content, payloadOffset + 7) + 1
+          );
+        }
+        if (chunkType === 'VP8L') {
+          if (chunkSize < 5 || payloadOffset + 5 > content.length || byteAt(content, payloadOffset) !== 0x2F) {
+            return null;
+          }
+          const b0 = byteAt(content, payloadOffset + 1);
+          const b1 = byteAt(content, payloadOffset + 2);
+          const b2 = byteAt(content, payloadOffset + 3);
+          const b3 = byteAt(content, payloadOffset + 4);
+          return validDimensions(
+            1 + b0 + ((b1 & 0x3F) << 8),
+            1 + ((b1 & 0xC0) >> 6) + (b2 << 2) + ((b3 & 0x0F) << 10)
+          );
+        }
+        if (chunkType === 'VP8 ') {
+          if (
+            chunkSize < 10
+            || payloadOffset + 10 > content.length
+            || byteAt(content, payloadOffset + 3) !== 0x9D
+            || byteAt(content, payloadOffset + 4) !== 0x01
+            || byteAt(content, payloadOffset + 5) !== 0x2A
+          ) {
+            return null;
+          }
+          return validDimensions(
+            littleEndianUInt16(content, payloadOffset + 6) & 0x3FFF,
+            littleEndianUInt16(content, payloadOffset + 8) & 0x3FFF
+          );
+        }
+        offset = payloadOffset + chunkSize + (chunkSize % 2);
+      }
+      return null;
     }
 
     function svgDimensions(content) {
@@ -8235,6 +8303,85 @@
       const match = tag.match(new RegExp(`${name}\\s*=\\s*["']([^"']+)["']`, 'i'))
         || tag.match(new RegExp(`${name}\\s*=\\s*([^\\s>]+)`, 'i'));
       return match ? String(match[1] || '').trim() || null : null;
+    }
+
+    function validDimensions(width, height) {
+      return width > 0 && height > 0 ? { width, height } : null;
+    }
+
+    function asciiAt(content, offset, length) {
+      if (offset < 0 || length < 0 || offset + length > content.length) return null;
+      return content.slice(offset, offset + length);
+    }
+
+    function byteAt(content, offset) {
+      return content.charCodeAt(offset) & 0xFF;
+    }
+
+    function littleEndianUInt16(content, offset) {
+      return byteAt(content, offset) | (byteAt(content, offset + 1) << 8);
+    }
+
+    function littleEndianUInt24(content, offset) {
+      return byteAt(content, offset) | (byteAt(content, offset + 1) << 8) | (byteAt(content, offset + 2) << 16);
+    }
+
+    function littleEndianUInt32(content, offset) {
+      return (byteAt(content, offset)
+        | (byteAt(content, offset + 1) << 8)
+        | (byteAt(content, offset + 2) << 16)
+        | (byteAt(content, offset + 3) << 24)) >>> 0;
+    }
+
+    function littleEndianInt32(content, offset) {
+      return littleEndianUInt32(content, offset) | 0;
+    }
+
+    function binaryString(bytes) {
+      return String.fromCharCode(...bytes);
+    }
+
+    function littleEndianBytes(value) {
+      return [
+        value & 0xFF,
+        (value >> 8) & 0xFF,
+        (value >> 16) & 0xFF,
+        (value >> 24) & 0xFF
+      ];
+    }
+
+    function littleEndian24Bytes(value) {
+      return [
+        value & 0xFF,
+        (value >> 8) & 0xFF,
+        (value >> 16) & 0xFF
+      ];
+    }
+
+    function mockBMPHeader(width, height) {
+      return binaryString([
+        ...Array.from('BM').map(character => character.charCodeAt(0)),
+        ...littleEndianBytes(54),
+        0, 0, 0, 0,
+        ...littleEndianBytes(54),
+        ...littleEndianBytes(40),
+        ...littleEndianBytes(width),
+        ...littleEndianBytes(height),
+        1, 0, 24, 0,
+        ...Array(24).fill(0)
+      ]);
+    }
+
+    function mockWebPVP8XHeader(width, height) {
+      return binaryString([
+        ...Array.from('RIFF').map(character => character.charCodeAt(0)),
+        ...littleEndianBytes(30),
+        ...Array.from('WEBPVP8X').map(character => character.charCodeAt(0)),
+        ...littleEndianBytes(10),
+        0, 0, 0, 0,
+        ...littleEndian24Bytes(width - 1),
+        ...littleEndian24Bytes(height - 1)
+      ]);
     }
 
     const documentPreviewKinds = new Map([
@@ -22133,6 +22280,19 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `logo.svg`.');
+      } else if (text.toLowerCase().includes('bitmap') && text.toLowerCase().includes('artifact')) {
+        const bmpPath = '/mock/QuillCode/artifacts/diagram.bmp';
+        const webpPath = '/mock/QuillCode/artifacts/preview.webp';
+        state.mockFiles[bmpPath] = mockBMPHeader(640, 360);
+        state.mockFiles[webpPath] = mockWebPVP8XHeader(512, 288);
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path: 'artifacts', contentType: 'generated image headers' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${bmpPath} and ${webpPath}\n`, artifacts: [bmpPath, webpPath] }, null, 2)
+        });
+        addMessage('assistant', 'Created bitmap image artifacts.');
       } else if (fileWriteRequest) {
         const { path, content } = fileWriteRequest;
         if (isRemoteProject) {

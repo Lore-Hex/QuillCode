@@ -29,6 +29,8 @@ enum ToolArtifactImageMetadataReader {
         pngDimensions(from: data)
             ?? gifDimensions(from: data)
             ?? jpegDimensions(from: data)
+            ?? bmpDimensions(from: data)
+            ?? webpDimensions(from: data)
             ?? svgDimensions(from: data)
     }
 
@@ -116,6 +118,81 @@ enum ToolArtifactImageMetadataReader {
         }
     }
 
+    private static func bmpDimensions(from data: Data) -> ToolArtifactImageDimensions? {
+        guard data.count >= 26,
+              data[0] == 0x42,
+              data[1] == 0x4D
+        else {
+            return nil
+        }
+
+        let dibHeaderSize = littleEndianUInt32(data, at: 14)
+        if dibHeaderSize == 12, data.count >= 26 {
+            return dimensions(width: littleEndianUInt16(data, at: 18), height: littleEndianUInt16(data, at: 20))
+        }
+
+        guard dibHeaderSize >= 40, data.count >= 26 else {
+            return nil
+        }
+        let width = littleEndianInt32(data, at: 18)
+        let height = littleEndianInt32(data, at: 22)
+        guard width > 0, height != 0 else { return nil }
+        return dimensions(width: UInt32(width), height: UInt32(abs(Int64(height))))
+    }
+
+    private static func webpDimensions(from data: Data) -> ToolArtifactImageDimensions? {
+        guard data.count >= 20,
+              asciiString(data, at: 0, length: 4) == "RIFF",
+              asciiString(data, at: 8, length: 4) == "WEBP"
+        else {
+            return nil
+        }
+
+        var offset = 12
+        while offset + 8 <= data.count {
+            let chunkType = asciiString(data, at: offset, length: 4)
+            let chunkSize = Int(littleEndianUInt32(data, at: offset + 4))
+            let payloadOffset = offset + 8
+            guard payloadOffset <= data.count else { return nil }
+
+            switch chunkType {
+            case "VP8X":
+                guard chunkSize >= 10, payloadOffset + 10 <= data.count else { return nil }
+                let width = littleEndianUInt24(data, at: payloadOffset + 4) + 1
+                let height = littleEndianUInt24(data, at: payloadOffset + 7) + 1
+                return dimensions(width: width, height: height)
+            case "VP8L":
+                guard chunkSize >= 5, payloadOffset + 5 <= data.count, data[payloadOffset] == 0x2F else {
+                    return nil
+                }
+                let b0 = UInt32(data[payloadOffset + 1])
+                let b1 = UInt32(data[payloadOffset + 2])
+                let b2 = UInt32(data[payloadOffset + 3])
+                let b3 = UInt32(data[payloadOffset + 4])
+                let width = 1 + b0 + ((b1 & 0x3F) << 8)
+                let height = 1 + ((b1 & 0xC0) >> 6) + (b2 << 2) + ((b3 & 0x0F) << 10)
+                return dimensions(width: width, height: height)
+            case "VP8 ":
+                guard chunkSize >= 10,
+                      payloadOffset + 10 <= data.count,
+                      data[payloadOffset + 3] == 0x9D,
+                      data[payloadOffset + 4] == 0x01,
+                      data[payloadOffset + 5] == 0x2A
+                else {
+                    return nil
+                }
+                let width = UInt32(littleEndianUInt16(data, at: payloadOffset + 6) & 0x3FFF)
+                let height = UInt32(littleEndianUInt16(data, at: payloadOffset + 8) & 0x3FFF)
+                return dimensions(width: width, height: height)
+            default:
+                let paddedSize = chunkSize + (chunkSize % 2)
+                guard paddedSize >= chunkSize, payloadOffset + paddedSize > offset else { return nil }
+                offset = payloadOffset + paddedSize
+            }
+        }
+        return nil
+    }
+
     private static func svgDimensions(from data: Data) -> ToolArtifactImageDimensions? {
         guard let text = String(data: data, encoding: .utf8),
               let svgStart = text.range(of: "<svg", options: [.caseInsensitive])
@@ -199,5 +276,27 @@ enum ToolArtifactImageMetadataReader {
 
     private static func littleEndianUInt16(_ data: Data, at offset: Int) -> UInt32 {
         UInt32(data[offset]) | UInt32(data[offset + 1]) << 8
+    }
+
+    private static func littleEndianUInt24(_ data: Data, at offset: Int) -> UInt32 {
+        UInt32(data[offset]) | UInt32(data[offset + 1]) << 8 | UInt32(data[offset + 2]) << 16
+    }
+
+    private static func littleEndianUInt32(_ data: Data, at offset: Int) -> UInt32 {
+        UInt32(data[offset])
+            | UInt32(data[offset + 1]) << 8
+            | UInt32(data[offset + 2]) << 16
+            | UInt32(data[offset + 3]) << 24
+    }
+
+    private static func littleEndianInt32(_ data: Data, at offset: Int) -> Int32 {
+        Int32(bitPattern: littleEndianUInt32(data, at: offset))
+    }
+
+    private static func asciiString(_ data: Data, at offset: Int, length: Int) -> String? {
+        guard offset >= 0, length >= 0, offset + length <= data.count else {
+            return nil
+        }
+        return String(bytes: data[offset..<offset + length], encoding: .ascii)
     }
 }

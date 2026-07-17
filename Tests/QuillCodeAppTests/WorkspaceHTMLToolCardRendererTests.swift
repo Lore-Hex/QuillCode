@@ -167,11 +167,19 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let root = try makeTempDirectory()
         let screenshot = root.appendingPathComponent("screenshot.png")
         let logo = root.appendingPathComponent("logo.svg")
+        let diagram = root.appendingPathComponent("diagram.bmp")
+        let preview = root.appendingPathComponent("preview.webp")
         try pngHeader(width: 1024, height: 768).write(to: screenshot)
         try #"<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg"></svg>"#
             .write(to: logo, atomically: true, encoding: .utf8)
+        try bmpHeader(width: 640, height: 360).write(to: diagram)
+        try webpVP8XHeader(width: 512, height: 288).write(to: preview)
         let call = ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}")
-        let result = ToolResult(ok: true, stdout: "captured screenshot\n", artifacts: [screenshot.path, logo.path])
+        let result = ToolResult(
+            ok: true,
+            stdout: "captured screenshot\n",
+            artifacts: [screenshot.path, logo.path, diagram.path, preview.path]
+        )
         let thread = ChatThread(
             title: "Screenshot",
             events: [
@@ -196,6 +204,8 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
 
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · PNG · 1024 x 768 px"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · SVG · 320 x 180 px"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · BMP · 640 x 360 px"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · WEBP · 512 x 288 px"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-label">logo.svg"#))
     }
 
@@ -439,6 +449,47 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
             0x08, 0x02, 0x00, 0x00, 0x00
         ])
         return Data(bytes)
+    }
+
+    private func bmpHeader(width: Int32, height: Int32) -> Data {
+        var bytes = Array("BM".utf8)
+        bytes.append(contentsOf: littleEndianBytes(UInt32(54)))
+        bytes.append(contentsOf: [0, 0, 0, 0])
+        bytes.append(contentsOf: littleEndianBytes(UInt32(54)))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(40)))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(bitPattern: width)))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(bitPattern: height)))
+        bytes.append(contentsOf: [1, 0, 24, 0])
+        bytes.append(contentsOf: Array(repeating: UInt8(0), count: 24))
+        return Data(bytes)
+    }
+
+    private func webpVP8XHeader(width: UInt32, height: UInt32) -> Data {
+        var bytes = Array("RIFF".utf8)
+        bytes.append(contentsOf: littleEndianBytes(UInt32(30)))
+        bytes.append(contentsOf: Array("WEBPVP8X".utf8))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(10)))
+        bytes.append(contentsOf: [0, 0, 0, 0])
+        bytes.append(contentsOf: littleEndian24Bytes(width - 1))
+        bytes.append(contentsOf: littleEndian24Bytes(height - 1))
+        return Data(bytes)
+    }
+
+    private func littleEndianBytes(_ value: UInt32) -> [UInt8] {
+        [
+            UInt8(value & 0xFF),
+            UInt8((value >> 8) & 0xFF),
+            UInt8((value >> 16) & 0xFF),
+            UInt8((value >> 24) & 0xFF)
+        ]
+    }
+
+    private func littleEndian24Bytes(_ value: UInt32) -> [UInt8] {
+        [
+            UInt8(value & 0xFF),
+            UInt8((value >> 8) & 0xFF),
+            UInt8((value >> 16) & 0xFF)
+        ]
     }
 
     private func pdfFixture(title: String, pageCount: Int) -> String {

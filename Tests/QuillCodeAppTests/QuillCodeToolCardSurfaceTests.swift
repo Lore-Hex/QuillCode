@@ -46,25 +46,37 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         let directory = try makeQuillCodeTestDirectory()
         let pngFile = directory.appendingPathComponent("screenshot.png")
         let svgFile = directory.appendingPathComponent("logo.svg")
+        let bmpFile = directory.appendingPathComponent("diagram.bmp")
+        let webpFile = directory.appendingPathComponent("mock.webp")
         try pngHeader(width: 1280, height: 720).write(to: pngFile)
         try """
         <svg width="320px" height="180px" viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
           <rect width="320" height="180"/>
         </svg>
         """.write(to: svgFile, atomically: true, encoding: .utf8)
+        try bmpHeader(width: 640, height: 360).write(to: bmpFile)
+        try webpVP8XHeader(width: 512, height: 288).write(to: webpFile)
 
         let imageFile = ToolArtifactState(value: pngFile.path)
         let svgArtifact = ToolArtifactState(value: svgFile.path)
+        let bmpArtifact = ToolArtifactState(value: bmpFile.path)
+        let webpArtifact = ToolArtifactState(value: webpFile.path)
 
         XCTAssertEqual(imageFile.imagePreview?.dimensionsLabel, "1280 x 720 px")
         XCTAssertEqual(imageFile.imagePreview?.typeLine, "Image · PNG · 1280 x 720 px")
         XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: gifHeader(width: 320, height: 240))?.label, "320 x 240 px")
         XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: jpegHeader(width: 640, height: 480))?.label, "640 x 480 px")
+        XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: bmpHeader(width: 800, height: -600))?.label, "800 x 600 px")
+        XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: webpVP8XHeader(width: 512, height: 288))?.label, "512 x 288 px")
+        XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: webpVP8LHeader(width: 257, height: 129))?.label, "257 x 129 px")
+        XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: webpVP8Header(width: 320, height: 180))?.label, "320 x 180 px")
         XCTAssertTrue(svgArtifact.isImagePreview)
         XCTAssertNil(svgArtifact.documentPreview)
         XCTAssertEqual(svgArtifact.imagePreview?.extensionLabel, "SVG")
         XCTAssertEqual(svgArtifact.imagePreview?.dimensionsLabel, "320 x 180 px")
         XCTAssertEqual(svgArtifact.imagePreview?.typeLine, "Image · SVG · 320 x 180 px")
+        XCTAssertEqual(bmpArtifact.imagePreview?.typeLine, "Image · BMP · 640 x 360 px")
+        XCTAssertEqual(webpArtifact.imagePreview?.typeLine, "Image · WEBP · 512 x 288 px")
         XCTAssertEqual(
             ToolArtifactImageMetadataReader.dimensions(from: Data(#"<svg viewBox="0 0 1024 768"></svg>"#.utf8))?.label,
             "1024 x 768 px"
@@ -316,12 +328,81 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         ])
     }
 
+    private func bmpHeader(width: Int32, height: Int32) -> Data {
+        var bytes = Array("BM".utf8)
+        bytes.append(contentsOf: littleEndianBytes(UInt32(54)))
+        bytes.append(contentsOf: [0, 0, 0, 0])
+        bytes.append(contentsOf: littleEndianBytes(UInt32(54)))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(40)))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(bitPattern: width)))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(bitPattern: height)))
+        bytes.append(contentsOf: [1, 0, 24, 0])
+        bytes.append(contentsOf: Array(repeating: UInt8(0), count: 24))
+        return Data(bytes)
+    }
+
+    private func webpVP8XHeader(width: UInt32, height: UInt32) -> Data {
+        var bytes = Array("RIFF".utf8)
+        bytes.append(contentsOf: littleEndianBytes(UInt32(30)))
+        bytes.append(contentsOf: Array("WEBPVP8X".utf8))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(10)))
+        bytes.append(contentsOf: [0, 0, 0, 0])
+        bytes.append(contentsOf: littleEndian24Bytes(width - 1))
+        bytes.append(contentsOf: littleEndian24Bytes(height - 1))
+        return Data(bytes)
+    }
+
+    private func webpVP8LHeader(width: UInt32, height: UInt32) -> Data {
+        let packedWidth = width - 1
+        let packedHeight = height - 1
+        var bytes = Array("RIFF".utf8)
+        bytes.append(contentsOf: littleEndianBytes(UInt32(25)))
+        bytes.append(contentsOf: Array("WEBPVP8L".utf8))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(5)))
+        bytes.append(0x2F)
+        bytes.append(UInt8(packedWidth & 0xFF))
+        bytes.append(UInt8(((packedWidth >> 8) & 0x3F) | ((packedHeight & 0x03) << 6)))
+        bytes.append(UInt8((packedHeight >> 2) & 0xFF))
+        bytes.append(UInt8((packedHeight >> 10) & 0x0F))
+        return Data(bytes)
+    }
+
+    private func webpVP8Header(width: UInt16, height: UInt16) -> Data {
+        var bytes = Array("RIFF".utf8)
+        bytes.append(contentsOf: littleEndianBytes(UInt32(30)))
+        bytes.append(contentsOf: Array("WEBPVP8 ".utf8))
+        bytes.append(contentsOf: littleEndianBytes(UInt32(10)))
+        bytes.append(contentsOf: [0, 0, 0, 0x9D, 0x01, 0x2A])
+        bytes.append(UInt8(width & 0x00FF))
+        bytes.append(UInt8(width >> 8))
+        bytes.append(UInt8(height & 0x00FF))
+        bytes.append(UInt8(height >> 8))
+        return Data(bytes)
+    }
+
     private func bigEndianBytes(_ value: UInt32) -> [UInt8] {
         [
             UInt8((value >> 24) & 0xFF),
             UInt8((value >> 16) & 0xFF),
             UInt8((value >> 8) & 0xFF),
             UInt8(value & 0xFF)
+        ]
+    }
+
+    private func littleEndianBytes(_ value: UInt32) -> [UInt8] {
+        [
+            UInt8(value & 0xFF),
+            UInt8((value >> 8) & 0xFF),
+            UInt8((value >> 16) & 0xFF),
+            UInt8((value >> 24) & 0xFF)
+        ]
+    }
+
+    private func littleEndian24Bytes(_ value: UInt32) -> [UInt8] {
+        [
+            UInt8(value & 0xFF),
+            UInt8((value >> 8) & 0xFF),
+            UInt8((value >> 16) & 0xFF)
         ]
     }
 
