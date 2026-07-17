@@ -49,13 +49,13 @@ struct QuillCodeDesktopComposerCoordinator {
         // Intercept REGARDLESS of attachments: with an attachment present the submission planner
         // treats "/confidential" as an agent prompt and would send the private text (and image) over
         // the current durable thread's non-E2E route — refuse, keeping the attachment, since
-        // attachments aren't available inside confidential anyway.
+        // attachments aren't available inside confidential chats anyway.
         if WorkspaceConfidentialSlash.isConfidentialCommand(prompt) {
             if model.composer.attachments.isEmpty {
                 draft = ""
                 model.newConfidentialChat()
             } else {
-                model.setLastError("Remove the attached image to start a confidential chat: attachments aren't available in confidential.")
+                model.setLastError("Remove the attached image to start a confidential chat: attachments aren't available in confidential chats.")
             }
             refresh()
             return

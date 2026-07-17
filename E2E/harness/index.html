@@ -6537,7 +6537,7 @@
       { usage: '/status', title: 'Show status', detail: 'Summarize the active project, mode, model, and loaded context.', insertText: '/status', aliases: [] },
       { usage: '/goal objective', title: 'Follow a goal', detail: 'Attach a durable objective to this chat; use status, complete, block, resume, or clear to manage it.', insertText: '/goal ', aliases: ['goal status', 'goal complete', 'goal block', 'goal resume', 'goal clear'] },
       { usage: '/new', title: 'New chat', detail: 'Start a fresh thread in the selected project.', insertText: '/new', aliases: ['new-chat', 'newchat'] },
-      { usage: '/confidential', title: 'New confidential chat', detail: 'Start a private chat that is never saved and always uses the end-to-end encrypted route.', insertText: '/confidential', aliases: ['confidential-chat', 'private-chat'] },
+      { usage: '/confidential', title: 'New confidential chat', detail: 'Start a private chat that is never saved and always uses the end-to-end encrypted route.', insertText: '/confidential', aliases: ['confidential-chat', 'private-chat', 'incognito', 'incognito-chat'] },
       { usage: '/side question', title: 'Ask a side question', detail: 'Open an ephemeral conversation with this chat as reference while the main task keeps its place.', insertText: '/side ', aliases: ['btw'] },
       { usage: '/clear', title: 'Clear chat', detail: 'Reset this thread transcript and queued follow-ups without deleting the chat.', insertText: '/clear', aliases: ['clear-chat', 'reset-chat'] },
       { usage: '/undo', title: 'Undo latest edit', detail: 'Reverse the latest revertable file edits from the current thread.', insertText: '/undo', aliases: ['revert', 'revert-latest', 'undo-edit'] },
@@ -20935,7 +20935,7 @@
       // /confidential dispatches BEFORE the shared instant-command path: runInstantSlashCommand would
       // ensureThread + record the slash text into a DURABLE transcript first — the opposite of the
       // command's promise (mirrors the native slash path, which never touches the durable thread).
-      if (!attachments.length && /^\/(confidential|confidential-chat|private-chat)\b/i.test(text)) {
+      if (!attachments.length && /^\/(confidential|confidential-chat|private-chat|incognito|incognito-chat)\b/i.test(text)) {
         state.composer.draft = '';
         state.composer.canSend = false;
         state.composer.slashActiveIndex = 0;

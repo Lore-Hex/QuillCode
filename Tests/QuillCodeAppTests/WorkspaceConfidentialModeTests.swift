@@ -41,7 +41,7 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
         XCTAssertEqual(model.root.allSidebarItems.map(\.id), [existing.id])
     }
 
-    func testSetModelIsANoOpInsideAnConfidentialChat() throws {
+    func testSetModelIsANoOpInsideAConfidentialChat() throws {
         let model = model(threads: [], selectedThreadID: nil)
         let defaultModelBefore = model.root.config.defaultModel
         _ = model.newConfidentialChat()
@@ -176,6 +176,10 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
         XCTAssertEqual(SlashCommandParser.parse("/confidential"), .workspaceCommand("new-confidential-chat"))
         XCTAssertEqual(SlashCommandParser.parse("/confidential-chat"), .workspaceCommand("new-confidential-chat"))
         XCTAssertEqual(SlashCommandParser.parse("/private-chat"), .workspaceCommand("new-confidential-chat"))
+        // The pre-rename names stay working on the PARSER path too (not just the composer intercept):
+        // both dispatch sites share WorkspaceConfidentialSlash.aliases, and this pins that they stay shared.
+        XCTAssertEqual(SlashCommandParser.parse("/incognito"), .workspaceCommand("new-confidential-chat"))
+        XCTAssertEqual(SlashCommandParser.parse("/incognito-chat"), .workspaceCommand("new-confidential-chat"))
     }
 
     func testSideConversationReturnCommandIsHiddenInsideConfidential() throws {
@@ -328,7 +332,7 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
         XCTAssertTrue(model.discardedEphemeralSpendThreads.isEmpty)
     }
 
-    func testArchivingAnConfidentialThreadIsRefused() throws {
+    func testArchivingAConfidentialThreadIsRefused() throws {
         let model = model(threads: [], selectedThreadID: nil)
         let confidentialID = model.newConfidentialChat()
 
@@ -403,7 +407,7 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
         XCTAssertEqual(model.root.threads.count, 1)
     }
 
-    func testRenamingAnConfidentialThreadIsRefused() throws {
+    func testRenamingAConfidentialThreadIsRefused() throws {
         let model = model(threads: [], selectedThreadID: nil)
         let confidentialID = model.newConfidentialChat()
 
@@ -413,7 +417,7 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
         XCTAssertNotNil(model.lastError)
     }
 
-    func testNotificationTitleIsFixedEvenIfAnConfidentialTitleWasMutated() throws {
+    func testNotificationTitleIsFixedEvenIfAConfidentialTitleWasMutated() throws {
         // Defense in depth: even if some path mutates the title, notifications never carry it.
         var thread = WorkspaceThreadCreationEngine.confidentialThread(projectID: nil, mode: .auto)
         thread.title = "secret project title"

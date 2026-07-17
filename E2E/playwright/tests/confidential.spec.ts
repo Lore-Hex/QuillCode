@@ -34,9 +34,26 @@ test('confidential: /confidential shows the banner, pins + locks the E2E model, 
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
   await expect(page.getByTestId('sidebar-thread-row').filter({ hasText: 'Confidential' })).toHaveCount(0);
 
-  // Chatting works normally inside confidential.
+  // Chatting works normally inside a confidential chat.
   await sendComposerPrompt(page, 'answer privately please');
   await expect(page.getByTestId('message').filter({ hasText: 'answer privately please' })).toBeVisible();
+});
+
+test('confidential: the legacy /incognito alias still starts a confidential chat', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  // The pre-rename command must keep working, mirroring native exactly: the alias surfaces the
+  // /confidential suggestion, the first Enter COMPLETES it into the composer, and the second Enter
+  // dispatches it — never sending the text as a prompt into a durable thread.
+  const message = page.getByLabel('Message');
+  await message.fill('/incognito');
+  await message.press('Enter');
+  await expect(message).toHaveValue('/confidential');
+  await message.press('Enter');
+
+  await expect(page.getByTestId('confidential-banner')).toBeVisible();
+  await expect(page.getByTestId('model-picker-button')).toContainText('E2E Encrypted');
+  await expect(page.getByTestId('message').filter({ hasText: '/incognito' })).toHaveCount(0);
 });
 
 test('confidential: starting a new chat destroys the confidential thread and restores the model', async ({ page }) => {
