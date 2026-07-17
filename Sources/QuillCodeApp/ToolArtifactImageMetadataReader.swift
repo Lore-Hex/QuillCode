@@ -29,6 +29,7 @@ enum ToolArtifactImageMetadataReader {
         pngDimensions(from: data)
             ?? gifDimensions(from: data)
             ?? jpegDimensions(from: data)
+            ?? svgDimensions(from: data)
     }
 
     private static func localFileURL(for value: String, kind: ToolArtifactKind) -> URL? {
@@ -115,9 +116,74 @@ enum ToolArtifactImageMetadataReader {
         }
     }
 
+    private static func svgDimensions(from data: Data) -> ToolArtifactImageDimensions? {
+        guard let text = String(data: data, encoding: .utf8),
+              let svgStart = text.range(of: "<svg", options: [.caseInsensitive])
+        else {
+            return nil
+        }
+        let searchText = String(text[svgStart.lowerBound...].prefix(4096))
+        guard let tagEnd = searchText.firstIndex(of: ">") else {
+            return nil
+        }
+        let svgTag = String(searchText[..<tagEnd])
+        if let width = svgLengthAttribute("width", in: svgTag),
+           let height = svgLengthAttribute("height", in: svgTag) {
+            return dimensions(width: UInt32(width), height: UInt32(height))
+        }
+        guard let viewBox = svgAttribute("viewBox", in: svgTag) ?? svgAttribute("viewbox", in: svgTag) else {
+            return nil
+        }
+        let values = viewBox
+            .replacingOccurrences(of: ",", with: " ")
+            .split(whereSeparator: \.isWhitespace)
+            .compactMap { Double($0) }
+        guard values.count == 4 else { return nil }
+        return roundedDimensions(width: values[2], height: values[3])
+    }
+
+    private static func svgLengthAttribute(_ name: String, in text: String) -> Int? {
+        guard let value = svgAttribute(name, in: text) else { return nil }
+        let numericPrefix = value.prefix { character in
+            character.isNumber || character == "."
+        }
+        guard let doubleValue = Double(numericPrefix), doubleValue > 0 else {
+            return nil
+        }
+        return Int(doubleValue.rounded())
+    }
+
+    private static func svgAttribute(_ name: String, in text: String) -> String? {
+        let quotedPattern = #"\#(name)\s*=\s*["']([^"']+)["']"#
+        if let value = firstRegexCapture(pattern: quotedPattern, in: text) {
+            return value
+        }
+        return firstRegexCapture(pattern: #"\#(name)\s*=\s*([^\s>]+)"#, in: text)
+    }
+
+    private static func firstRegexCapture(pattern: String, in text: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        guard let match = regex.firstMatch(in: text, range: range),
+              match.numberOfRanges > 1,
+              let captureRange = Range(match.range(at: 1), in: text)
+        else {
+            return nil
+        }
+        let value = String(text[captureRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
     private static func dimensions(width: UInt32, height: UInt32) -> ToolArtifactImageDimensions? {
         guard width > 0, height > 0 else { return nil }
         return ToolArtifactImageDimensions(width: Int(width), height: Int(height))
+    }
+
+    private static func roundedDimensions(width: Double, height: Double) -> ToolArtifactImageDimensions? {
+        guard width > 0, height > 0 else { return nil }
+        return ToolArtifactImageDimensions(width: Int(width.rounded()), height: Int(height.rounded()))
     }
 
     private static func bigEndianUInt16(_ data: Data, at offset: Int) -> UInt16 {

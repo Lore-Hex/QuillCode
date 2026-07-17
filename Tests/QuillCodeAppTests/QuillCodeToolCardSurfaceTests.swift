@@ -45,14 +45,30 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
     func testLocalImageArtifactReadsBoundedHeaderDimensions() throws {
         let directory = try makeQuillCodeTestDirectory()
         let pngFile = directory.appendingPathComponent("screenshot.png")
+        let svgFile = directory.appendingPathComponent("logo.svg")
         try pngHeader(width: 1280, height: 720).write(to: pngFile)
+        try """
+        <svg width="320px" height="180px" viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
+          <rect width="320" height="180"/>
+        </svg>
+        """.write(to: svgFile, atomically: true, encoding: .utf8)
 
         let imageFile = ToolArtifactState(value: pngFile.path)
+        let svgArtifact = ToolArtifactState(value: svgFile.path)
 
         XCTAssertEqual(imageFile.imagePreview?.dimensionsLabel, "1280 x 720 px")
         XCTAssertEqual(imageFile.imagePreview?.typeLine, "Image · PNG · 1280 x 720 px")
         XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: gifHeader(width: 320, height: 240))?.label, "320 x 240 px")
         XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: jpegHeader(width: 640, height: 480))?.label, "640 x 480 px")
+        XCTAssertTrue(svgArtifact.isImagePreview)
+        XCTAssertNil(svgArtifact.documentPreview)
+        XCTAssertEqual(svgArtifact.imagePreview?.extensionLabel, "SVG")
+        XCTAssertEqual(svgArtifact.imagePreview?.dimensionsLabel, "320 x 180 px")
+        XCTAssertEqual(svgArtifact.imagePreview?.typeLine, "Image · SVG · 320 x 180 px")
+        XCTAssertEqual(
+            ToolArtifactImageMetadataReader.dimensions(from: Data(#"<svg viewBox="0 0 1024 768"></svg>"#.utf8))?.label,
+            "1024 x 768 px"
+        )
 
         let urlImage = ToolArtifactState(value: "https://example.com/screenshot.png")
         XCTAssertNil(urlImage.imagePreview?.dimensionsLabel)

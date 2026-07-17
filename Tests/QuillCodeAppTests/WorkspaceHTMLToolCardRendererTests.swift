@@ -166,9 +166,12 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
     func testHTMLRendererIncludesLocalImageDimensionsWhenReadable() throws {
         let root = try makeTempDirectory()
         let screenshot = root.appendingPathComponent("screenshot.png")
+        let logo = root.appendingPathComponent("logo.svg")
         try pngHeader(width: 1024, height: 768).write(to: screenshot)
+        try #"<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg"></svg>"#
+            .write(to: logo, atomically: true, encoding: .utf8)
         let call = ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}")
-        let result = ToolResult(ok: true, stdout: "captured screenshot\n", artifacts: [screenshot.path])
+        let result = ToolResult(ok: true, stdout: "captured screenshot\n", artifacts: [screenshot.path, logo.path])
         let thread = ChatThread(
             title: "Screenshot",
             events: [
@@ -192,6 +195,8 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let html = WorkspaceHTMLRenderer.render(model.surface())
 
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · PNG · 1024 x 768 px"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · SVG · 320 x 180 px"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-label">logo.svg"#))
     }
 
     func testHTMLRendererIncludesDocumentArtifactPreview() throws {
