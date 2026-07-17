@@ -64,6 +64,9 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
     public var capturedAt: String?
     public var viewportLabel: String?
     public var windowCount: Int?
+    public var actionCount: Int?
+    public var frameCount: Int?
+    public var eventCount: Int?
     public var screenshotURL: String?
 
     public var metadataLines: [String] {
@@ -71,6 +74,9 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
             appLabel.map { "App: \($0)" },
             viewportLabel.map { "Viewport: \($0)" },
             windowCount.map { "\($0) window\($0 == 1 ? "" : "s")" },
+            actionCount.map { "\($0) action\($0 == 1 ? "" : "s")" },
+            frameCount.map { "\($0) frame\($0 == 1 ? "" : "s")" },
+            eventCount.map { "\($0) event\($0 == 1 ? "" : "s")" },
             capturedAt.map { "Captured: \($0)" }
         ].compactMap { $0 }
     }
@@ -82,6 +88,9 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
             || capturedAt != nil
             || viewportLabel != nil
             || windowCount != nil
+            || actionCount != nil
+            || frameCount != nil
+            || eventCount != nil
             || screenshotURL != nil
     }
 
@@ -92,6 +101,9 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
         capturedAt: String? = nil,
         viewportLabel: String? = nil,
         windowCount: Int? = nil,
+        actionCount: Int? = nil,
+        frameCount: Int? = nil,
+        eventCount: Int? = nil,
         screenshotURL: String? = nil
     ) {
         self.title = title
@@ -100,6 +112,9 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
         self.capturedAt = capturedAt
         self.viewportLabel = viewportLabel
         self.windowCount = windowCount
+        self.actionCount = actionCount
+        self.frameCount = frameCount
+        self.eventCount = eventCount
         self.screenshotURL = screenshotURL
     }
 }

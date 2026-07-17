@@ -220,6 +220,9 @@ test('mock harness renders appshot artifact previews from tool cards', async ({ 
     'App: QuillCode',
     'Viewport: 1440 x 1000',
     '1 window',
+    '2 actions',
+    '2 frames',
+    '3 events',
     'Captured: 2026-06-21T12:00:00Z'
   ]);
   await expect(page.getByTestId('tool-card-appshot-preview-image')).toHaveAttribute(

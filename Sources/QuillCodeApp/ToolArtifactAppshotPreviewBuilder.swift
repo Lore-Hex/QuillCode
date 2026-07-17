@@ -17,6 +17,9 @@ enum ToolArtifactAppshotPreviewBuilder {
             capturedAt: nestedString(in: root, keys: ["capturedAt", "createdAt", "timestamp"]),
             viewportLabel: viewportLabel(from: root),
             windowCount: (root["windows"] as? [Any])?.count,
+            actionCount: firstArrayCount(in: root, keys: ["actions", "steps", "commands"]),
+            frameCount: firstArrayCount(in: root, keys: ["frames", "screenshots", "captures"]),
+            eventCount: firstArrayCount(in: root, keys: ["events", "timeline"]),
             screenshotURL: screenshotURL(from: root, relativeTo: fileURL.deletingLastPathComponent())
         )
         return preview.hasDisplayContent ? preview : nil
@@ -70,6 +73,15 @@ enum ToolArtifactAppshotPreviewBuilder {
             }
             if let url = resolvedImageFileURL(from: candidate, relativeTo: directory) {
                 return url.absoluteString
+            }
+        }
+        return nil
+    }
+
+    private static func firstArrayCount(in root: [String: Any], keys: [String]) -> Int? {
+        for key in keys {
+            if let array = root[key] as? [Any], !array.isEmpty {
+                return array.count
             }
         }
         return nil

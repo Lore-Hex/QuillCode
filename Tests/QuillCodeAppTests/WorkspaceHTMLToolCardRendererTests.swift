@@ -351,6 +351,9 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
           "screenshotPath": "checkout.png",
           "viewport": {"width": 1440, "height": 1000},
           "windows": [{"title": "Checkout"}],
+          "actions": [{"type": "click"}, {"type": "type"}],
+          "frames": [{"screenshot": "checkout-start.png"}, {"screenshot": "checkout.png"}],
+          "events": [{"name": "navigation"}, {"name": "form-fill"}, {"name": "capture"}],
           "capturedAt": "2026-06-21T12:00:00Z"
         }
         """.write(to: appshot, atomically: true, encoding: .utf8)
@@ -388,6 +391,9 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">App: QuillCode"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">Viewport: 1440 x 1000"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">1 window"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">2 actions"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">2 frames"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">3 events"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">Captured: 2026-06-21T12:00:00Z"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-image""#))
         XCTAssertTrue(html.contains(#"src="\#(appshots.appendingPathComponent("checkout.png").standardizedFileURL.absoluteString)""#))

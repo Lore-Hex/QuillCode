@@ -8266,12 +8266,18 @@
         capturedAt: appshotString(root, ['capturedAt', 'createdAt', 'timestamp']),
         viewportLabel: appshotViewportLabel(root),
         windowCount: Array.isArray(root.windows) ? root.windows.length : null,
+        actionCount: appshotFirstArrayCount(root, ['actions', 'steps', 'commands']),
+        frameCount: appshotFirstArrayCount(root, ['frames', 'screenshots', 'captures']),
+        eventCount: appshotFirstArrayCount(root, ['events', 'timeline']),
         screenshotURL: appshotScreenshotURL(root, path)
       };
       preview.metadataLines = [
         preview.appLabel ? `App: ${preview.appLabel}` : null,
         preview.viewportLabel ? `Viewport: ${preview.viewportLabel}` : null,
         Number.isInteger(preview.windowCount) ? `${preview.windowCount} window${preview.windowCount === 1 ? '' : 's'}` : null,
+        Number.isInteger(preview.actionCount) ? `${preview.actionCount} action${preview.actionCount === 1 ? '' : 's'}` : null,
+        Number.isInteger(preview.frameCount) ? `${preview.frameCount} frame${preview.frameCount === 1 ? '' : 's'}` : null,
+        Number.isInteger(preview.eventCount) ? `${preview.eventCount} event${preview.eventCount === 1 ? '' : 's'}` : null,
         preview.capturedAt ? `Captured: ${preview.capturedAt}` : null
       ].filter(Boolean);
       const hasDisplayContent = [
@@ -8281,7 +8287,10 @@
         preview.capturedAt,
         preview.viewportLabel,
         preview.screenshotURL,
-        Number.isInteger(preview.windowCount) ? String(preview.windowCount) : null
+        Number.isInteger(preview.windowCount) ? String(preview.windowCount) : null,
+        Number.isInteger(preview.actionCount) ? String(preview.actionCount) : null,
+        Number.isInteger(preview.frameCount) ? String(preview.frameCount) : null,
+        Number.isInteger(preview.eventCount) ? String(preview.eventCount) : null
       ].some(Boolean);
       return hasDisplayContent ? preview : null;
     }
@@ -8519,6 +8528,13 @@
         const value = appshotStringValue(root[key], ['path', 'url', 'file', 'imagePath']);
         const url = appshotImageURL(value, appshotPath);
         if (url) return url;
+      }
+      return null;
+    }
+
+    function appshotFirstArrayCount(root, keys) {
+      for (const key of keys) {
+        if (Array.isArray(root[key]) && root[key].length > 0) return root[key].length;
       }
       return null;
     }
@@ -22037,6 +22053,19 @@
           viewport: { width: 1440, height: 1000 },
           windows: [
             { title: 'Checkout', app: 'QuillCode' }
+          ],
+          actions: [
+            { type: 'click', target: 'Email' },
+            { type: 'type', text: 'user@example.com' }
+          ],
+          frames: [
+            { screenshot: 'checkout-start.png' },
+            { screenshot: 'checkout.png' }
+          ],
+          events: [
+            { name: 'navigation' },
+            { name: 'form-fill' },
+            { name: 'capture' }
           ],
           capturedAt: '2026-06-21T12:00:00Z'
         }, null, 2);
