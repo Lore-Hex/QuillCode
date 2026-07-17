@@ -11,235 +11,21 @@ if [[ "${QUILLCODE_SKIP_BUILD:-0}" != "1" ]]; then
   swift build --product quill-code >/dev/null
 fi
 
-python3 - \
+PYTHONPATH="$ROOT_DIR/scripts/fixtures${PYTHONPATH:+:$PYTHONPATH}" \
+  python3 - \
   "$ROOT_DIR/.build/debug/quill-code" \
   "$SMOKE_ROOT/home" \
   "$SMOKE_ROOT/workspace" <<'PY'
-import base64
-import hashlib
 import json
 import os
 import select
-import socket
-import struct
 import subprocess
 import sys
-import threading
 import time
 
+from app_server_environment_exec_server import ExecServer
+
 binary, home, workspace = [os.path.abspath(path) for path in sys.argv[1:]]
-
-
-def receive_exact(connection, count):
-    data = bytearray()
-    while len(data) < count:
-        chunk = connection.recv(count - len(data))
-        if not chunk:
-            raise EOFError("WebSocket peer closed")
-        data.extend(chunk)
-    return bytes(data)
-
-
-def receive_http_request(connection):
-    data = bytearray()
-    while b"\r\n\r\n" not in data:
-        data.extend(connection.recv(4096))
-        if len(data) > 64 * 1024:
-            raise AssertionError("oversized WebSocket upgrade request")
-    return bytes(data)
-
-
-def receive_text_frame(connection):
-    first, second = receive_exact(connection, 2)
-    opcode = first & 0x0F
-    length = second & 0x7F
-    if length == 126:
-        length = struct.unpack("!H", receive_exact(connection, 2))[0]
-    elif length == 127:
-        length = struct.unpack("!Q", receive_exact(connection, 8))[0]
-    mask = receive_exact(connection, 4) if second & 0x80 else None
-    payload = bytearray(receive_exact(connection, length))
-    if mask is not None:
-        for index in range(len(payload)):
-            payload[index] ^= mask[index % 4]
-    if opcode == 8:
-        return None
-    if opcode == 9:
-        send_frame(connection, 10, payload)
-        return receive_text_frame(connection)
-    if opcode != 1 or first & 0x80 == 0:
-        raise AssertionError(f"expected one complete text frame, got opcode {opcode}")
-    return payload.decode("utf-8")
-
-
-def send_frame(connection, opcode, payload):
-    payload = bytes(payload)
-    if len(payload) <= 125:
-        header = bytes([0x80 | opcode, len(payload)])
-    elif len(payload) <= 0xFFFF:
-        header = bytes([0x80 | opcode, 126]) + struct.pack("!H", len(payload))
-    else:
-        header = bytes([0x80 | opcode, 127]) + struct.pack("!Q", len(payload))
-    connection.sendall(header + payload)
-
-
-def send_json(connection, value):
-    send_frame(
-        connection,
-        1,
-        json.dumps(value, separators=(",", ":")).encode("utf-8"),
-    )
-
-
-class ExecServer:
-    def __init__(self):
-        self.listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.listener.bind(("127.0.0.1", 0))
-        self.listener.listen(1)
-        self.port = self.listener.getsockname()[1]
-        self.connection = None
-        self.error = None
-        self.methods = []
-        self.process_starts = []
-        self.process_reads = {}
-        self.thread = threading.Thread(target=self._run, daemon=True)
-
-    def start(self):
-        self.thread.start()
-
-    def close(self):
-        if self.connection is not None:
-            try:
-                self.connection.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass
-            self.connection.close()
-        self.listener.close()
-        self.thread.join(timeout=5)
-        if self.thread.is_alive():
-            raise AssertionError("exec-server fixture did not stop")
-        if self.error is not None:
-            raise self.error
-
-    def _run(self):
-        try:
-            self.connection, _ = self.listener.accept()
-            self.connection.settimeout(15)
-            request = receive_http_request(self.connection).decode("latin-1")
-            headers = {}
-            for line in request.split("\r\n")[1:]:
-                if ":" in line:
-                    key, value = line.split(":", 1)
-                    headers[key.strip().lower()] = value.strip()
-            key = headers.get("sec-websocket-key")
-            if not key:
-                raise AssertionError("missing WebSocket key")
-            digest = hashlib.sha1(
-                (key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode("ascii")
-            ).digest()
-            accept = base64.b64encode(digest).decode("ascii")
-            self.connection.sendall(
-                (
-                    "HTTP/1.1 101 Switching Protocols\r\n"
-                    "Upgrade: websocket\r\n"
-                    "Connection: Upgrade\r\n"
-                    f"Sec-WebSocket-Accept: {accept}\r\n\r\n"
-                ).encode("ascii")
-            )
-            while True:
-                text = receive_text_frame(self.connection)
-                if text is None:
-                    return
-                message = json.loads(text)
-                method = message.get("method")
-                self.methods.append(method)
-                if "id" not in message:
-                    continue
-                result = self._result(method, message.get("params", {}))
-                send_json(self.connection, {"id": message["id"], "result": result})
-        except (EOFError, OSError):
-            return
-        except BaseException as error:
-            self.error = error
-
-    def _result(self, method, params):
-        if method == "initialize":
-            assert params == {
-                "clientName": "quillcode-environment",
-                "resumeSessionId": None,
-            }, params
-            return {"sessionId": "environment-smoke-session"}
-        if method == "environment/info":
-            return {
-                "shell": {"name": "zsh", "path": "/bin/zsh"},
-                "cwd": "file:///workspace",
-            }
-        if method == "environment/status":
-            return {"status": "ready", "error": None}
-        if method == "fs/canonicalize":
-            return {"path": params["path"]}
-        if method == "process/start":
-            self.process_starts.append(params)
-            self.process_reads[params["processId"]] = 0
-            return {"processId": params["processId"]}
-        if method == "process/read":
-            process_id = params["processId"]
-            read_index = self.process_reads[process_id]
-            self.process_reads[process_id] += 1
-            if read_index == 0:
-                assert params["afterSeq"] is None, params
-                return {
-                    "chunks": [{
-                        "seq": 1,
-                        "stream": "stdout",
-                        "chunk": base64.b64encode(b"remote-shell\n").decode("ascii"),
-                    }],
-                    "nextSeq": 2,
-                    "exited": False,
-                    "closed": False,
-                }
-            if read_index == 1:
-                assert params["afterSeq"] == 1, params
-                return {
-                    "chunks": [],
-                    "nextSeq": 3,
-                    "exited": True,
-                    "exitCode": 0,
-                    "closed": False,
-                    "failure": None,
-                    "sandboxDenied": False,
-                }
-            if read_index == 2:
-                assert params["afterSeq"] == 2, params
-                return {
-                    "chunks": [{
-                        "seq": 3,
-                        "stream": "stdout",
-                        "chunk": base64.b64encode(b"late-output\n").decode("ascii"),
-                    }],
-                    "nextSeq": 4,
-                    "exited": True,
-                    "exitCode": 0,
-                    "closed": False,
-                    "failure": None,
-                    "sandboxDenied": False,
-                }
-            assert read_index == 3, read_index
-            assert params["afterSeq"] == 3, params
-            return {
-                "chunks": [],
-                "nextSeq": 5,
-                "exited": True,
-                "exitCode": 0,
-                "closed": True,
-                "failure": None,
-                "sandboxDenied": False,
-            }
-        if method == "process/terminate":
-            return {}
-        raise AssertionError(f"unexpected exec-server method: {method}")
-
 
 server = ExecServer()
 server.start()
@@ -317,14 +103,23 @@ try:
         "cwd": "file:///workspace",
     }, info
     send({
-        "id": 9,
+        "id": 4,
         "method": "environment/status",
         "params": {"environmentId": "remote"},
     })
-    assert response(9)["result"] == {"status": "ready", "error": None}
+    assert response(4)["result"] == {"status": "ready", "error": None}
+    send({
+        "id": 5,
+        "method": "environment/status",
+        "params": {"environmentId": "missing"},
+    })
+    assert response(5)["result"] == {
+        "status": "unknown",
+        "error": "unknown environment id `missing`",
+    }
 
     send({
-        "id": 4,
+        "id": 6,
         "method": "thread/start",
         "params": {
             "cwd": workspace,
@@ -333,15 +128,19 @@ try:
             "environments": [{"environmentId": "remote", "cwd": "/workspace"}],
         },
     })
-    thread_id = response(4)["result"]["thread"]["id"]
+    thread_id = response(6)["result"]["thread"]["id"]
+    assert not any(
+        record.get("method") == "thread/environment/connected"
+        for record in records
+    ), "already-connected state was replayed to a newly selected thread"
     local_sentinel = os.path.join(workspace, "must-not-run-locally")
     remote_command = f"touch {local_sentinel}; printf remote-shell"
     send({
-        "id": 5,
+        "id": 7,
         "method": "thread/shellCommand",
         "params": {"threadId": thread_id, "command": remote_command},
     })
-    assert response(5)["result"] == {}
+    assert response(7)["result"] == {}
     completed = read_until(
         lambda record: record.get("method") == "item/completed"
     )
@@ -356,8 +155,46 @@ try:
     assert start["argv"] == ["/bin/zsh", "-lc", remote_command], start
     assert start["cwd"] == "file:///workspace", start
 
+    server.disconnect_client()
+    disconnected = read_until(
+        lambda record: record.get("method") == "thread/environment/disconnected"
+    )
+    assert disconnected["params"] == {
+        "threadId": thread_id,
+        "environmentId": "remote",
+    }, disconnected
+
     send({
-        "id": 6,
+        "id": 8,
+        "method": "environment/info",
+        "params": {"environmentId": "remote"},
+    })
+    assert response(8)["result"] == info
+    connected = next((
+        record for record in records
+        if record.get("method") == "thread/environment/connected"
+        and record.get("params", {}).get("threadId") == thread_id
+    ), None)
+    if connected is None:
+        connected = read_until(
+            lambda record: (
+                record.get("method") == "thread/environment/connected"
+                and record.get("params", {}).get("threadId") == thread_id
+            )
+        )
+    assert connected["params"] == {
+        "threadId": thread_id,
+        "environmentId": "remote",
+    }, connected
+    send({
+        "id": 9,
+        "method": "environment/status",
+        "params": {"environmentId": "remote"},
+    })
+    assert response(9)["result"] == {"status": "ready", "error": None}
+
+    send({
+        "id": 10,
         "method": "thread/start",
         "params": {
             "cwd": workspace,
@@ -366,17 +203,17 @@ try:
             "environments": [],
         },
     })
-    disabled_thread_id = response(6)["result"]["thread"]["id"]
+    disabled_thread_id = response(10)["result"]["thread"]["id"]
     disabled_sentinel = os.path.join(workspace, "disabled-must-not-run")
     send({
-        "id": 7,
+        "id": 11,
         "method": "thread/shellCommand",
         "params": {
             "threadId": disabled_thread_id,
             "command": f"touch {disabled_sentinel}",
         },
     })
-    disabled = response(7)
+    disabled = response(11)
     assert disabled["error"]["code"] == -32600, disabled
     assert disabled["error"]["message"] == (
         "environment access is disabled for this thread"
@@ -385,7 +222,7 @@ try:
     assert len(server.process_starts) == 1, server.process_starts
 
     send({
-        "id": 8,
+        "id": 12,
         "method": "thread/start",
         "params": {
             "cwd": workspace,
@@ -394,7 +231,7 @@ try:
             "environments": [{"environmentId": "missing", "cwd": "/workspace"}],
         },
     })
-    missing = response(8)
+    missing = response(12)
     assert missing["error"]["code"] == -32600, missing
     assert "unknown turn environment id `missing`" in missing["error"]["message"], missing
 finally:
@@ -415,8 +252,10 @@ finally:
 assert server.methods[:2] == ["initialize", "initialized"], (
     server.methods
 )
-assert server.methods.count("environment/info") >= 2, server.methods
-assert "environment/status" in server.methods, server.methods
+assert server.methods.count("initialize") == 2, server.methods
+assert server.methods.count("initialized") == 2, server.methods
+assert server.methods.count("environment/status") == 2, server.methods
+assert server.methods.count("environment/info") >= 3, server.methods
 PY
 
 echo "app-server environment smoke passed"

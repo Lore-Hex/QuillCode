@@ -2036,19 +2036,27 @@
 ## 2026-07-16: App-server execution environments fail closed across every host path
 
 - **Registry boundary:** One process-scoped registry serves every stdio, TCP WebSocket, and Unix
-  WebSocket client. `environment/add` mutates it immediately and connects lazily; replacement closes
-  the old client, `environment/info` surfaces connection errors, and transport shutdown closes all
-  remaining clients.
+  WebSocket client. `environment/add` mutates it immediately, acknowledges without waiting, and starts
+  connection in the background; replacement closes the old client, `environment/info` may recover a
+  connection, and transport shutdown closes all remaining clients. Observation-only
+  `environment/status` returns ready, pending, disconnected-with-error, or unknown-with-error without
+  creating or recovering transport state.
 - **Selection boundary:** Omitted environment arrays preserve the prior/default target, an empty array
   disables host access, and a nonempty array validates and selects its first entry. Selection persists
   with thread settings across start, resume, fork, and turn-level updates. Unknown IDs and malformed
   CWDs fail before a turn or direct command can dispatch.
 - **Transport boundary:** Remote clients use a text-frame WebSocket, initialize/initialized handshake,
-  resumable session ID, serialized request ownership, bounded responses, and per-request deadlines.
+  resumable session ID, a persistent receive loop, request-ID-routed concurrent response ownership,
+  bounded responses, and per-request deadlines. The receive loop observes closure even while idle; a
+  ready status probe uses only the existing connection and has its own ten-second deadline.
   Process reads convert the exclusive `nextSeq` into the inclusive `afterSeq` cursor and continue
   through exit until output streams close, retaining late output without duplication or gaps. A failed
   request resets the connection but is never replayed; only a later independent request may reconnect.
   Cancellation terminates an acknowledged remote process.
+- **Lifecycle boundary:** Registry subscriptions compare source-observation instants rather than task
+  delivery order, so a queued old transition cannot become a replay for a new subscriber. Every
+  subscribed thread whose first selected environment matches receives future connected/disconnected
+  notifications; current state, unselected threads, and unsubscribed threads stay silent.
 - **Execution boundary:** Selected remote turns replace local shell/file/patch routing with the
   exec-server adapter and target-native workspace paths. Canonical containment blocks symlink escapes,
   existing files require a prior read before write/patch, temporary stdin and patch files are cleaned,
@@ -2058,18 +2066,13 @@
   creating lifecycle state. Remote commands retain the one-hour user-shell timeout and execute only
   through exec-server; disabled access returns `-32600`. Neither path can silently execute on the
   app-server host.
-- **Lifecycle boundary:** `environment/status` probes only an existing socket and never reconnects it;
-  one process-scoped monitor fans state changes out to selected threads without per-thread polling.
-  Pending-to-ready emits connected, ready-to-disconnected emits disconnected, selecting an already
-  ready environment does not replay state, and selection changes, deletion, or client teardown remove
-  subscriptions. Status probes have their own short deadline so a stalled health check cannot block
-  ordinary tool traffic indefinitely.
 - **Deferred boundary:** Remote sandbox-profile forwarding, Windows remote search, and live remote
   output/background-terminal process projection remain explicit partial-parity work rather than
   fabricated local behavior.
 - **Evidence:** Registry, target-path, tool-router, session, direct-shell, and real URLSession WebSocket
-  tests cover selection, replacement, status, connection transitions, no-replay fan-out, cleanup,
-  concurrency, reconnection, multi-read cursors, late output, context, path, and no-fallback behavior.
-  A built `quill-code app-server` smoke talks to a raw
-  loopback exec-server, verifies multi-read remote output, and uses local filesystem sentinels to prove
-  remote and disabled commands never ran locally.
+  tests cover status shapes, source-ordered future transitions, idle disconnect, selected-thread
+  fanout, selection, replacement, concurrency, reconnection, multi-read cursors, late output, context,
+  path, and no-fallback behavior. A built `quill-code app-server` smoke talks to a raw loopback
+  exec-server, forces a disconnect and resumable reconnect, verifies lifecycle methods and multi-read
+  remote output, and uses local filesystem sentinels to prove remote and disabled commands never ran
+  locally.

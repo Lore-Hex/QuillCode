@@ -59,7 +59,7 @@ final class AppServerEnvironmentRegistryTests: XCTestCase {
         await registry.closeAll()
     }
 
-    func testAddIsLazyAndInfoSurfacesRemoteConnectionFailure() async throws {
+    func testAddConnectsInBackgroundAndInfoSurfacesRemoteConnectionFailure() async throws {
         let client = AppServerFakeExecServerClient(
             connectError: .disconnected("offline"),
             infoError: .disconnected("offline")
@@ -86,6 +86,43 @@ final class AppServerEnvironmentRegistryTests: XCTestCase {
             XCTAssertTrue(error.message.contains("failed to get info for environment `cloud`"))
             XCTAssertTrue(error.message.contains("offline"))
         }
+    }
+
+    func testConnectionEventsAreFutureOnlyAndIgnoreReplacedClient() async throws {
+        let first = AppServerFakeExecServerClient()
+        let second = AppServerFakeExecServerClient()
+        let factory = AppServerFakeExecServerFactory(clients: [first, second])
+        let registry = registry(factory: factory)
+        let recorder = ConnectionEventRecorder()
+        let threadID = UUID()
+
+        _ = try await registry.add(registration(id: "remote", url: "ws://first.example"))
+        try await waitUntil { await first.connectionSnapshot() == .ready }
+        try await registry.subscribe(
+            token: UUID(),
+            threadID: threadID,
+            environmentID: "remote"
+        ) { event in
+            await recorder.append(event)
+        }
+
+        await first.emitConnectionState(.disconnected)
+        try await waitUntil { await recorder.count == 1 }
+        _ = try await registry.add(registration(id: "remote", url: "ws://second.example"))
+        try await waitUntil { await second.connectionSnapshot() == .ready }
+        try await waitUntil { await recorder.count == 2 }
+        await first.emitConnectionState(.connected)
+        await second.emitConnectionState(.disconnected)
+        try await waitUntil { await recorder.count == 3 }
+        let events = await recorder.events
+        XCTAssertEqual(
+            events.map(\.connected),
+            [false, true, false]
+        )
+        XCTAssertTrue(events.allSatisfy {
+            $0.threadID == threadID && $0.environmentID == "remote"
+        })
+        await registry.closeAll()
     }
 
     func testReplacingEnvironmentClosesOldClientAndResolvesNewClient() async throws {
@@ -145,7 +182,6 @@ final class AppServerEnvironmentRegistryTests: XCTestCase {
         AppServerEnvironmentRegistry(
             localCWD: URL(fileURLWithPath: "/tmp"),
             environment: [:],
-            monitorInterval: .milliseconds(5),
             clientFactory: { factory.make(websocketURL: $0, connectTimeout: $1) }
         )
     }
@@ -185,5 +221,15 @@ final class AppServerEnvironmentRegistryTests: XCTestCase {
             try await Task.sleep(for: .milliseconds(5))
         }
         XCTFail("Timed out waiting for asynchronous registry cleanup")
+    }
+}
+
+private actor ConnectionEventRecorder {
+    private(set) var events: [AppServerEnvironmentRegistry.ConnectionEvent] = []
+
+    var count: Int { events.count }
+
+    func append(_ event: AppServerEnvironmentRegistry.ConnectionEvent) {
+        events.append(event)
     }
 }
