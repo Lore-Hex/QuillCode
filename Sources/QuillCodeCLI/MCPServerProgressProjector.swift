@@ -136,9 +136,44 @@ struct MCPServerProgressProjector: Sendable {
                 "type": .string("approval_decided"),
                 "message": .string(Self.bounded(event.summary))
             ]))]
-        case .toolRunning, .toolProgress, .reviewComment, .message, .messageFeedback:
+        case .toolRunning:
+            guard let call = pendingTool else { return [] }
+            return [MCPServerProjectedEvent(id: id, message: .object([
+                "type": .string("item_running"),
+                "call_id": .string(call.id),
+                "tool": .string(call.name),
+                "message": .string(Self.bounded(event.summary))
+            ]))]
+        case .toolProgress:
+            guard let payload = decode(ToolProgressEventPayload.self, event.payloadJSON) else {
+                return []
+            }
+            return [MCPServerProjectedEvent(id: id, message: .object(progressMessage(
+                payload,
+                fallbackSummary: event.summary
+            )))]
+        case .reviewComment, .message, .messageFeedback:
             return []
         }
+    }
+
+    private func progressMessage(
+        _ payload: ToolProgressEventPayload,
+        fallbackSummary: String
+    ) -> [String: CLIJSONValue] {
+        let progress = payload.progress
+        var message: [String: CLIJSONValue] = [
+            "type": .string("item_progress"),
+            "call_id": .string(payload.toolCallID),
+            "completed": Self.finiteNumber(progress.completed) ?? .null,
+            "total": progress.total.flatMap(Self.finiteNumber) ?? .null,
+            "fraction": progress.fractionCompleted.flatMap(Self.finiteNumber) ?? .null,
+            "message": .string(Self.bounded(progress.message ?? fallbackSummary))
+        ]
+        if let call = pendingTool, call.id == payload.toolCallID {
+            message["tool"] = .string(call.name)
+        }
+        return message
     }
 
     private func shellCommand(_ call: ToolCall) -> String? {
@@ -174,5 +209,9 @@ struct MCPServerProgressProjector: Sendable {
             byteCount += width
         }
         return prefix + "\n[output truncated]"
+    }
+
+    private static func finiteNumber(_ value: Double) -> CLIJSONValue? {
+        value.isFinite ? .number(value) : nil
     }
 }
