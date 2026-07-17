@@ -33,16 +33,19 @@ private enum WorkspaceContextSummarySecrets {
     private static let redactionRules: [(pattern: String, replacement: String)] = [
         (#"-----BEGIN [A-Z ]*PRIVATE KEY-----"#, "[redacted]"),
         (#"sk-[A-Za-z0-9_-]{12,}"#, "[redacted]"),
-        // URL-embedded credentials — keep the scheme and host, drop user:pass.
-        (#"([A-Za-z][A-Za-z0-9+.-]*://)[^\s:/@]+:[^\s/@]+@"#, "$1[redacted]@"),
+        // URL-embedded credentials — keep the scheme and host, drop user:pass. The user is a simple
+        // token (no slash), but the PASSWORD may contain "/" unencoded (redis:// / postgres:// dumps),
+        // so it accepts anything up to the "@" that precedes the host.
+        (#"([A-Za-z][A-Za-z0-9+.-]*://)[^\s:/@]+:[^\s@]+@"#, "$1[redacted]@"),
         // Authorization: Bearer <token> / a bare "Bearer <token>".
         (#"(?i)(bearer)\s+[A-Za-z0-9._~+/=-]{8,}"#, "$1 [redacted]"),
         // Bare JWTs: three base64url segments, header begins "eyJ".
         (#"eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+"#, "[redacted]"),
         // Provider tokens with recognizable prefixes.
-        (#"gh[pousr]_[A-Za-z0-9]{20,}"#, "[redacted]"),   // GitHub personal/OAuth/user/server/refresh
-        (#"AKIA[0-9A-Z]{16}"#, "[redacted]"),             // AWS access key id
-        (#"xox[baprs]-[A-Za-z0-9-]{10,}"#, "[redacted]"), // Slack bot/user/app/refresh/legacy
+        (#"gh[pousr]_[A-Za-z0-9]{20,}"#, "[redacted]"),      // GitHub personal/OAuth/user/server/refresh
+        (#"github_pat_[A-Za-z0-9_]{22,}"#, "[redacted]"),    // GitHub fine-grained PAT (current default)
+        (#"(?:AKIA|ASIA)[0-9A-Z]{16}"#, "[redacted]"),       // AWS access key id (long-term / temp STS)
+        (#"(?:xox[baprse]|xapp)-[A-Za-z0-9-]{10,}"#, "[redacted]"), // Slack bot/user/app/refresh/legacy/socket
         // Generic key=value secrets in query strings / opaque params — keep the key, drop the value.
         (#"(?i)(password|passwd|pwd|token|api[_-]?key|apikey|secret|access[_-]?token)=[^\s&"']+"#, "$1=[redacted]")
     ]

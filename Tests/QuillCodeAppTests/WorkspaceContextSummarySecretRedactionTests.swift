@@ -35,16 +35,34 @@ final class WorkspaceContextSummarySecretRedactionTests: XCTestCase {
         XCTAssertTrue(out.contains("https://[redacted]@db.internal.example/v1"), out)
     }
 
+    func testRedactsURLPasswordContainingASlash() {
+        // Unencoded connection-string passwords routinely contain "/"; the redactor must still reach
+        // the "@" that ends the userinfo instead of leaking the password fragment.
+        let out = redact("redis://cacheuser:p/w+ratio/2@redis.internal:6379 refused")
+        XCTAssertFalse(out.contains("p/w+ratio/2"), out)
+        XCTAssertTrue(out.contains("redis://[redacted]@redis.internal:6379"), out)
+    }
+
+    func testDoesNotRedactAHostPortWithNoCredentials() {
+        // No user:pass@, so the URL rule must leave a plain host:port/path untouched.
+        let benign = "listening on https://service.internal:8080/health"
+        XCTAssertEqual(redact(benign), benign)
+    }
+
     func testRedactsProviderPrefixedTokens() {
         // Each is assembled from a prefix + body so the committed source never holds a complete
         // provider-token literal (GitHub push protection blocks those), while the runtime string that
         // the redactor sees is byte-identical to a real token.
         let body = "0123456789abcdefABCDEF0123456789xyzQ"
         let cases = [
-            "ghp_" + body,                        // GitHub personal
-            "gho_" + body,                        // GitHub OAuth
-            "AKIA" + "ABCDEFGHIJ012345",          // AWS access key id
-            "xoxb" + "-1234567890-abcdefABCDEF0987" // Slack
+            "ghp_" + body,                          // GitHub personal
+            "gho_" + body,                          // GitHub OAuth
+            "github" + "_pat_" + body + "1122334455", // GitHub fine-grained PAT (current default)
+            "AKIA" + "ABCDEFGHIJ012345",            // AWS access key id (long-term)
+            "ASIA" + "ABCDEFGHIJ012345",            // AWS temp STS key
+            "xoxb" + "-1234567890-abcdefABCDEF0987", // Slack bot
+            "xoxe" + "-1234567890-abcdefABCDEF0987", // Slack refresh
+            "xapp" + "-1-A0123456789-abcdefABCDEF"   // Slack app-level (socket mode)
         ]
         for secret in cases {
             let out = redact("provider error with \(secret) here")
