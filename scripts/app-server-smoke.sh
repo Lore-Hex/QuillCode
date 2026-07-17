@@ -1376,4 +1376,6 @@ stderr = process.stderr.read()
 assert status == 0, (status, stderr)
 PY
 
+QUILLCODE_SKIP_BUILD=1 "$ROOT_DIR/scripts/app-server-marketplace-smoke.sh"
+
 echo "quill-code app-server smoke passed"
