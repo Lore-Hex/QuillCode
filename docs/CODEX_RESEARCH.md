@@ -4,6 +4,18 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 
 ## Current Research Inputs
 
+- Codex app-server 0.142.5 exposes `externalAgentConfig/detect`,
+  `externalAgentConfig/import`, and `externalAgentConfig/import/readHistories`. Detection defaults to
+  no home scan, accepts bounded repository CWDs plus explicit `includeHome`, and reports CONFIG,
+  MCP_SERVER_CONFIG, HOOKS, SKILLS, COMMANDS, SUBAGENTS, AGENTS_MD, PLUGINS, and recent SESSIONS.
+  Import first returns an opaque UUID, then emits one `externalAgentConfig/import/progress` event per
+  requested item and one grouped `externalAgentConfig/import/completed` event; completion order is
+  CONFIG, SKILLS, AGENTS_MD, PLUGINS, MCP_SERVER_CONFIG, SUBAGENTS, HOOKS, COMMANDS, SESSIONS.
+  History returns newest-first flattened successes and failures. QuillCode maps this protocol to its
+  bounded Claude Code adapter, revalidates client selections, excludes credentials, imports sessions
+  as durable tasks, serializes mutations, and refreshes config/skills/MCP state after completion.
+  Sources: generated 0.142.5 schemas, isolated local JSONL probes, and public `openai/codex`
+  external-agent-migration source, audited 2026-07-16.
 - Codex app-server 0.142.5 `thread/inject_items` accepts one nonempty list of raw Responses API
   `ResponseItem` values and returns `{}` without a notification. The items are persisted as model-only
   history: before the first turn they follow standard context and precede the first user prompt; later

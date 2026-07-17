@@ -106,6 +106,7 @@ actor AppServerSession {
     let runnerFactory: CLIAgentRunnerFactory
     let accountLoginStarter: any AppServerAccountLoginStarting
     let mcpOAuthLoginStarter: any AppServerMCPOAuthLoginStarting
+    let externalAgentConfigService: ClaudeCodeExternalAgentConfigService
     let sink: AppServerMessageSink
 
     var handshake = HandshakeState.awaitingInitialize
@@ -134,6 +135,7 @@ actor AppServerSession {
     var pendingAccountLogins: [String: AppServerPendingAccountLogin] = [:]
     var pendingMCPOAuthLogins: [UUID: AppServerPendingMCPOAuthLogin] = [:]
     var mcpStartupTasks: [UUID: Task<Void, Never>] = [:]
+    var activeExternalAgentConfigImports: [UUID: Task<Void, Never>] = [:]
     var cachedModelCatalog: TrustedRouterModelCatalog?
     var cachedSkillSnapshots: [String: SkillCatalogSnapshot] = [:]
     var skillExtraRoots: [URL] = []
@@ -178,6 +180,13 @@ actor AppServerSession {
         self.accountLoginStarter = accountLoginStarter
         self.mcpOAuthLoginStarter = mcpOAuthLoginStarter
             ?? DefaultAppServerMCPOAuthLoginStarter(httpClient: mcpHTTPClient)
+        let sourceHome = environment["HOME"].map { URL(fileURLWithPath: $0) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        self.externalAgentConfigService = ClaudeCodeExternalAgentConfigService(
+            sourceHomeDirectory: sourceHome,
+            destinationPaths: paths,
+            appConfig: appConfig
+        )
         self.sink = sink
     }
 
@@ -217,6 +226,8 @@ actor AppServerSession {
         for task in fuzzyTasks { await task.value }
         let startupTasks = Array(mcpStartupTasks.values)
         for task in startupTasks { await task.value }
+        let importTasks = Array(activeExternalAgentConfigImports.values)
+        for task in importTasks { await task.value }
     }
 
     func hasActiveOperation(for threadID: UUID) -> Bool {
@@ -234,6 +245,7 @@ actor AppServerSession {
         cancelAllAccountLogins()
         cancelAllMCPServerOAuthLogins()
         cancelAllMCPServerStartups()
+        cancelAllExternalAgentConfigImports()
         await cancelAllFuzzyFileSearches()
         cancelAllUserShellCommands()
         await terminateAllCommandExecProcesses()
@@ -291,6 +303,7 @@ actor AppServerSession {
             var reviewToLaunch: UUID?
             var userShellToLaunch: UserShellLaunch?
             var mcpStartupThreadToLaunch: UUID?
+            var externalAgentConfigImportToLaunch: AppServerExternalAgentConfigImportLaunch?
             var notificationsAfterResponse: [AppServerDeferredNotification] = []
             switch method {
             case "model/list": result = try await listModels(params)
@@ -316,6 +329,13 @@ actor AppServerSession {
             case "config/batchWrite": result = try await writeConfigBatch(params)
             case "gitDiffToRemote": result = try gitDiffToRemote(params)
             case "memory/reset": result = try resetMemory()
+            case "externalAgentConfig/detect": result = try await detectExternalAgentConfig(params)
+            case "externalAgentConfig/import/readHistories":
+                result = try await readExternalAgentConfigImportHistories(params)
+            case "externalAgentConfig/import":
+                let launch = try prepareExternalAgentConfigImport(params)
+                externalAgentConfigImportToLaunch = launch
+                result = .object(["importId": .string(launch.importID.uuidString.lowercased())])
             case "hooks/list": result = try listHooks(params)
             case "marketplace/add": result = try await addMarketplace(params)
             case "marketplace/remove": result = try await removeMarketplace(params)
@@ -437,6 +457,9 @@ actor AppServerSession {
             }
             if let processToLaunch { launchProcessEventStream(processToLaunch) }
             if let mcpStartupThreadToLaunch { launchOptionalMCPServerStartups(for: mcpStartupThreadToLaunch) }
+            if let externalAgentConfigImportToLaunch {
+                launchExternalAgentConfigImport(externalAgentConfigImportToLaunch)
+            }
             if let compactionToLaunch { launchThreadCompaction(compactionToLaunch) }
             if let turnToLaunch { launchTurn(turnToLaunch) }
             if let reviewToLaunch { launchReview(reviewToLaunch) }

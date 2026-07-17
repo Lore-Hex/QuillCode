@@ -1,5 +1,28 @@
 # QuillCode Decisions
 
+## 2026-07-16: App-server agent migration revalidates and serializes every item
+
+- **Wire contract:** `externalAgentConfig/detect`, `externalAgentConfig/import`, and
+  `externalAgentConfig/import/readHistories` preserve the Codex 0.142.5 request, response, progress,
+  completion, grouping, and nullability shapes. Import returns its ID before any progress event.
+- **Authority boundary:** A client may choose only a subset of freshly detected details. Every import
+  re-detects its source and destination and rejects an item, session path, scope, or detail that is no
+  longer present. Descriptions never grant file authority.
+- **Mutation boundary:** Imports are serialized so concurrent requests cannot lose config updates.
+  Writes are additive, directory publication is no-overwrite and rollback-safe, hook/MCP/session
+  subsets cannot broaden an empty or partial selection, and runtime config, skills, and MCP state
+  refresh only after the import settles.
+- **Security:** Source and destination files are bounded regular files beneath revalidated roots.
+  Symlinks fail closed, static MCP secrets and Claude environment values are excluded, inherited
+  variable names may remain, and private import history uses a bounded owner-only file.
+- **Durability:** Recent sessions become ordinary durable QuillCode projects and tasks with Claude
+  provenance. Missing session working directories fall back to the app-server workspace; history and
+  provenance suppress duplicate imports across restart and crash recovery.
+- **Evidence:** Persistence and actor tests cover scope, ordering, partial failure, selective import,
+  concurrent config updates, secret exclusion, forged paths, session persistence, history reload,
+  symlink rejection, and EOF cancellation. The real JSONL smoke and parity gate bind the public
+  process, tests, and documentation together.
+
 ## 2026-07-16: Injected response items use a durable model-only timeline
 
 - **Visibility boundary:** `thread/inject_items` never fabricates `ChatMessage` or `ThreadEvent`
