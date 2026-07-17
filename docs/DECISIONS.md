@@ -2017,3 +2017,18 @@
 - **Evidence:** Core history and retry-state tests, agent exact-replay/circuit-breaker tests, native
   persistence tests, command-routing tests, and Playwright lifecycle coverage prove denial, reopen,
   exact re-review, successful execution, durable consumption, and refusal of a second execution.
+
+## 2026-07-16: Guardian denial approval reuses durable Auto review
+
+- **Protocol boundary:** `thread/approveGuardianDeniedAction` accepts the current Codex Guardian event
+  shape and acknowledges non-denied status without work. Started and completed Auto-review state uses
+  the current dedicated notification methods instead of being inferred from generic tool cards.
+- **Authority boundary:** The client event is never executable input. Its review, turn, target item,
+  and normalized action must match one available durable denial exactly. QuillCode reconstructs the
+  command, patch, or MCP call only from private persisted history and retains the original user text.
+- **Execution boundary:** A matched denial goes through the existing exact one-shot retry primitive,
+  receives a fresh Auto review, and persists the consumed receipt before dispatch. Forged, stale,
+  redacted, context-changed, concurrent, or replayed requests fail closed.
+- **Evidence:** A full actor test proves validation, response ordering, fresh review, exact shell side
+  effect, durable consumption, and replay rejection. The built JSONL smoke proves the public method
+  rejects an unknown review deterministically, and a parity gate binds all implementation evidence.

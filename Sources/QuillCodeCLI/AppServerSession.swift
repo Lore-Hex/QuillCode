@@ -94,6 +94,18 @@ actor AppServerSession {
         var projector: AppServerProgressProjector
     }
 
+    struct ActiveGuardianRetry: Sendable {
+        var denialRequestID: String
+        var turnID: String
+        var settings: AppServerThreadSettings
+        var latestThread: ChatThread
+        var userMessage: String
+        var persistenceFailure: String?
+        var task: Task<Void, Never>?
+        var projector: AppServerProgressProjector
+        var configuredRunner: AppServerConfiguredRunner?
+    }
+
     let request: CLIAppServerRequest
     let environment: [String: String]
     let currentDirectory: URL
@@ -117,6 +129,7 @@ actor AppServerSession {
     var activeTurns: [UUID: ActiveTurn] = [:]
     var activeCompactions: [UUID: ActiveCompaction] = [:]
     var activeReviews: [UUID: ActiveReview] = [:]
+    var activeGuardianRetries: [UUID: ActiveGuardianRetry] = [:]
     var activeRollbacks: Set<UUID> = []
     var activeUserShellTurns: [UUID: ActiveUserShellTurn] = [:]
     var activeUserShellCommands: [String: ActiveUserShellCommand] = [:]
@@ -222,6 +235,7 @@ actor AppServerSession {
         let tasks = activeTurns.values.compactMap(\.task)
             + activeCompactions.values.compactMap(\.task)
             + activeReviews.values.compactMap(\.task)
+            + activeGuardianRetries.values.compactMap(\.task)
             + activeUserShellCommands.values.compactMap(\.task)
         for task in tasks { await task.value }
         let fuzzyTasks = activeFuzzyFileSearches.values.map(\.task)
@@ -237,6 +251,7 @@ actor AppServerSession {
         activeTurns[threadID] != nil
             || activeCompactions[threadID] != nil
             || activeReviews[threadID] != nil
+            || activeGuardianRetries[threadID] != nil
             || activeRollbacks.contains(threadID)
             || activeUserShellTurns[threadID] != nil
     }
@@ -249,6 +264,7 @@ actor AppServerSession {
         cancelAllMCPServerOAuthLogins()
         cancelAllMCPServerStartups()
         cancelAllExternalAgentConfigImports()
+        cancelAllGuardianRetries()
         await cancelAllFuzzyFileSearches()
         cancelAllUserShellCommands()
         await terminateAllCommandExecProcesses()
@@ -304,6 +320,7 @@ actor AppServerSession {
             var processToLaunch: String?
             var compactionToLaunch: UUID?
             var reviewToLaunch: UUID?
+            var guardianRetryToLaunch: UUID?
             var userShellToLaunch: UserShellLaunch?
             var mcpStartupThreadToLaunch: UUID?
             var externalAgentConfigImportToLaunch: AppServerExternalAgentConfigImportLaunch?
@@ -439,6 +456,9 @@ actor AppServerSession {
                 compactionToLaunch = try await startThreadCompaction(params)
                 result = .object([:])
             case "thread/rollback": result = try await rollbackThread(params)
+            case "thread/approveGuardianDeniedAction":
+                guardianRetryToLaunch = try await prepareGuardianDenialApproval(params)
+                result = .object([:])
             case "turn/start":
                 result = try await startTurn(params)
                 turnToLaunch = try threadID(from: AppServerParams(params))
@@ -469,6 +489,7 @@ actor AppServerSession {
             if let compactionToLaunch { launchThreadCompaction(compactionToLaunch) }
             if let turnToLaunch { launchTurn(turnToLaunch) }
             if let reviewToLaunch { launchReview(reviewToLaunch) }
+            if let guardianRetryToLaunch { launchGuardianRetry(guardianRetryToLaunch) }
             if let userShellToLaunch { await launchUserShellCommand(userShellToLaunch) }
         } catch let error as AppServerRPCError {
             await send(.error(id: id, error: error))

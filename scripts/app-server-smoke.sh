@@ -811,6 +811,27 @@ assert all(update["error"] is None for update in startup_updates), startup_updat
 assert all(update["failureReason"] is None for update in startup_updates), startup_updates
 assert startup_ready["params"] == startup_updates[-1], startup_ready
 
+send({"id": 804, "method": "thread/approveGuardianDeniedAction", "params": {
+    "threadId": thread_id,
+    "event": {
+        "id": "missing-guardian-review",
+        "target_item_id": "missing-tool-call",
+        "turn_id": "missing-turn",
+        "status": "denied",
+        "action": {
+            "type": "command",
+            "source": "shell",
+            "command": "pwd",
+            "cwd": workspace,
+        },
+    },
+}})
+missing_guardian, _ = read_until(lambda record: record.get("id") == 804)
+assert missing_guardian["error"] == {
+    "code": -32600,
+    "message": "Guardian denial is no longer available",
+}, missing_guardian
+
 send({"id": 801, "method": "thread/loaded/list", "params": {"limit": 0}})
 loaded_threads, _ = read_until(lambda record: record.get("id") == 801)
 assert loaded_threads["result"] == {
