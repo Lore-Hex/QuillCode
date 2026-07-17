@@ -5,6 +5,7 @@ enum SlashWorkspaceCommandParser {
         switch normalizedName(name) {
         case "stop", "cancel", "abort",
              "retry", "rerun", "again",
+             "approve", "approvals", "denials",
              "disconnect", "disconnect-all",
              "back", "previous", "prev",
              "forward", "next",
@@ -39,6 +40,8 @@ enum SlashWorkspaceCommandParser {
             return .workspaceCommand("stop-all")
         case "retry", "rerun", "again":
             return .workspaceCommand("retry-last-turn")
+        case "approve", "approvals", "denials":
+            return .workspaceCommand(WorkspaceCommandAction.autoReviewDenials.rawValue)
         case "disconnect", "disconnect-all":
             return .workspaceCommand("disconnect-all")
         case "back", "previous", "prev":

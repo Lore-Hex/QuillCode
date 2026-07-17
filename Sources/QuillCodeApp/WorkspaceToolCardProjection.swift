@@ -62,16 +62,7 @@ enum WorkspaceToolCardProjection {
     static func updateApprovalCard(_ card: inout ToolCardState, decisionJSON: String?) {
         let decision = decode(ApprovalDecision.self, decisionJSON)
         let stateLabel: String
-        switch decision?.verdict {
-        case .approve:
-            stateLabel = "Approved"
-        case .deny:
-            stateLabel = "Skipped"
-        case .clarify:
-            stateLabel = "Needs detail"
-        case .none:
-            stateLabel = "Updated"
-        }
+        stateLabel = decision?.reviewOutcome.displayLabel ?? "Updated"
         card.status = .done
         card.subtitle = toolSubtitle(stateLabel: stateLabel, title: card.title, inputJSON: card.inputJSON)
         card.outputJSON = decisionJSON

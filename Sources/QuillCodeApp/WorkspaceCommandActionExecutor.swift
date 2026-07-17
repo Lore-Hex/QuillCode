@@ -20,6 +20,12 @@ extension QuillCodeWorkspaceModel {
         case .presentCodeReview:
             presentCodeReview()
             return codeReviewRequest != nil
+        case .presentAutoReviewDenials:
+            isAutoReviewDenialsPresented = true
+            return true
+        case .dismissAutoReviewDenials:
+            isAutoReviewDenialsPresented = false
+            return true
         case .newChat:
             _ = newChat()
             return true

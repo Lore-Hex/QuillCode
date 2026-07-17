@@ -12,6 +12,9 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     func runWorkspaceCommandPlan(_ plan: WorkspaceCommandPlan, workspaceRoot: URL) -> Bool {
         switch plan {
+        case .retryAutoReviewDenial(let requestID):
+            Task { await retryAutoReviewDenial(requestID: requestID, workspaceRoot: workspaceRoot) }
+            return true
         case .localEnvironmentAction(let actionID):
             return runLocalEnvironmentAction(actionID, workspaceRoot: workspaceRoot)
         case .editMemory(let id):

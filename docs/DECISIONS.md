@@ -1995,3 +1995,25 @@
   App tests prove artifact finalization, safe fallback, cwd/timeout forwarding, and no fallback after
   ambiguous execution. The remote parity source gate binds the client, pool, workspace wiring, tests,
   research, and matrix claim.
+
+## 2026-07-16: Auto-review denials are durable and exactly retryable once
+
+- **History boundary:** Every completed review records a typed outcome, bounded rationale, reviewer
+  provenance, risk, authorization source, and a canonical redacted action identity. The Denials
+  surface reconstructs its newest ten entries from durable thread events instead of maintaining a
+  second mutable history store.
+- **Retry boundary:** A denied action may be retried once only when its turn, workspace, safety mode,
+  tool name, and canonical arguments still match. Retry creates fresh request and tool-call IDs and
+  passes through Auto review again; it never converts a denial into approval or edits the call.
+- **Privacy boundary:** Calls whose arguments could not be retained safely are visible as denials but
+  are not replayable. The retry receipt is persisted before execution so a crash or relaunch cannot
+  dispatch the same denied mutation twice.
+- **Interaction boundary:** `/approve`, `/approvals`, and `/denials` open one calm control surface and
+  do not add a user message or model turn. Available, reviewing, consumed, unavailable, and
+  context-changed states are explicit, and a reviewer denial remains a denial after retry.
+- **Circuit-breaker boundary:** Auto review pauses after three consecutive denials or ten denials in
+  the newest fifty completed reviews. A non-denial resets the consecutive count; timeouts do not
+  masquerade as safety denials.
+- **Evidence:** Core history and retry-state tests, agent exact-replay/circuit-breaker tests, native
+  persistence tests, command-routing tests, and Playwright lifecycle coverage prove denial, reopen,
+  exact re-review, successful execution, durable consumption, and refusal of a second execution.

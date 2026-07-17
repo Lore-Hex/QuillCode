@@ -80,18 +80,20 @@ extension AgentRunner {
         _ review: SafetyReview,
         for call: ToolCall,
         definition: ToolDefinition?,
+        reviewAttempt: ApprovalReviewAttempt = .initial,
+        workspaceRoot: URL,
         to thread: inout ChatThread,
         onProgress: AgentRunProgressHandler?
     ) async -> AgentPendingApproval {
         let text: String
-        let request = ApprovalRequest(
-            toolCall: call.redactedForTranscript(),
-            toolDefinition: definition,
-            reason: review.rationale,
-            recommendedVerdict: review.verdict,
-            reviewTelemetry: review.reviewTelemetry
+        let request = makeApprovalRequest(
+            review,
+            for: call,
+            definition: definition,
+            reviewAttempt: reviewAttempt,
+            workspaceRoot: workspaceRoot,
+            thread: thread
         )
-        let requestJSON = try? JSONHelpers.encodePretty(request)
         switch review.verdict {
         case .clarify:
             text = "I need a little more detail before running \(call.name): \(review.rationale)"
@@ -100,16 +102,106 @@ extension AgentRunner {
         case .approve:
             preconditionFailure("Approved reviews do not create approval requests")
         }
-        thread.events.append(.init(
-            kind: .approvalRequested,
+        appendApprovalRequest(
+            request,
             summary: "\(review.verdict.rawValue): \(review.rationale)",
-            payloadJSON: requestJSON
-        ))
+            to: &thread
+        )
         thread.messages.append(.init(role: .assistant, content: text))
         thread.events.append(.init(kind: .message, summary: text))
         thread.updatedAt = Date()
         await onProgress?(thread)
         return AgentPendingApproval(request: request, heldToolCall: call)
+    }
+
+    func appendDeniedAutoReview(
+        _ review: SafetyReview,
+        for call: ToolCall,
+        definition: ToolDefinition?,
+        reviewAttempt: ApprovalReviewAttempt,
+        workspaceRoot: URL,
+        to thread: inout ChatThread,
+        onProgress: AgentRunProgressHandler?
+    ) async -> ToolResult {
+        let request = makeApprovalRequest(
+            review,
+            for: call,
+            definition: definition,
+            reviewAttempt: reviewAttempt,
+            workspaceRoot: workspaceRoot,
+            thread: thread
+        )
+        appendApprovalRequest(request, summary: "Auto review: denied \(call.name)", to: &thread)
+        appendApprovalDecision(review, requestID: request.id, to: &thread)
+        thread.updatedAt = Date()
+        await onProgress?(thread)
+
+        return ToolResult(
+            ok: false,
+            error: """
+            Auto review denied this exact action: \(review.rationale)
+            Do not retry, disguise, split, or circumvent the denied action. Choose a materially safer \
+            alternative that still serves the request. If none exists, explain the blocker and ask the user.
+            """
+        )
+    }
+
+    func makeApprovalRequest(
+        _ review: SafetyReview,
+        for call: ToolCall,
+        definition: ToolDefinition?,
+        reviewAttempt: ApprovalReviewAttempt,
+        workspaceRoot: URL,
+        thread: ChatThread
+    ) -> ApprovalRequest {
+        let presentedCall = call.redactedForTranscript()
+        return ApprovalRequest(
+            toolCall: presentedCall,
+            toolDefinition: definition,
+            reason: review.rationale,
+            recommendedVerdict: review.verdict,
+            reviewTelemetry: review.reviewTelemetry,
+            actionIdentity: ApprovalActionIdentity.make(
+                executableCall: call,
+                presentedCall: presentedCall,
+                thread: thread,
+                workspaceRoot: workspaceRoot
+            ),
+            reviewAttempt: reviewAttempt
+        )
+    }
+
+    func appendApprovalRequest(
+        _ request: ApprovalRequest,
+        summary: String,
+        to thread: inout ChatThread
+    ) {
+        thread.events.append(.init(
+            kind: .approvalRequested,
+            summary: summary,
+            payloadJSON: try? JSONHelpers.encodePretty(request)
+        ))
+        thread.updatedAt = Date()
+    }
+
+    func appendApprovalDecision(
+        _ review: SafetyReview,
+        requestID: String,
+        to thread: inout ChatThread
+    ) {
+        let decision = ApprovalDecision(
+            requestID: requestID,
+            verdict: review.verdict,
+            rationale: review.rationale,
+            reviewTelemetry: review.reviewTelemetry,
+            reviewOutcome: review.reviewOutcome
+        )
+        thread.events.append(.init(
+            kind: .approvalDecided,
+            summary: "\(review.reviewOutcome.displayLabel.lowercased()): \(review.rationale)",
+            payloadJSON: try? JSONHelpers.encodePretty(decision)
+        ))
+        thread.updatedAt = Date()
     }
 
     private func toolResultSummary(

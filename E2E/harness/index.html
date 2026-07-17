@@ -913,7 +913,8 @@
     }
     .settings-panel,
     .search-panel,
-    .code-review-panel {
+    .code-review-panel,
+    .auto-review-denials-panel {
       position: fixed;
       inset: 0;
       display: grid;
@@ -925,7 +926,8 @@
     }
     .settings-card,
     .search-card,
-    .code-review-card {
+    .code-review-card,
+    .auto-review-denials-card {
       width: min(520px, 100%);
       min-width: 0;
       max-width: 100%;
@@ -999,6 +1001,60 @@
       justify-content: flex-end;
       gap: var(--hit-target-clearance);
     }
+    .auto-review-denials-card { width: min(620px, 100%); }
+    .auto-review-denials-card > header,
+    .auto-review-denial > header,
+    .auto-review-denial > footer {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .auto-review-denials-card h2,
+    .auto-review-denials-card p { margin: 0; }
+    .auto-review-denials-card > header p,
+    .auto-review-denial p,
+    .auto-review-denial-metadata {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+      text-wrap: pretty;
+    }
+    .auto-review-denials-list { display: grid; gap: 10px; }
+    .auto-review-denial {
+      display: grid;
+      gap: 9px;
+      padding: 14px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--panel-2);
+      box-shadow: var(--shadow-border);
+    }
+    .auto-review-denial > header span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .auto-review-denial > footer { align-items: center; }
+    .auto-review-denial-metadata {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .auto-review-denial-retry {
+      min-height: var(--hit-target);
+      padding: 0 12px;
+      border: 0;
+      border-radius: 8px;
+      color: var(--text);
+      background: rgba(61,201,230,.14);
+      box-shadow: var(--shadow-border);
+      transition-property: transform, background-color, opacity;
+      transition-duration: 150ms;
+      transition-timing-function: var(--ease-out);
+    }
+    .auto-review-denial-retry:not(:disabled):active { transform: scale(.96); }
+    .auto-review-denial-retry:disabled { cursor: default; opacity: .55; }
     .settings-card h2, .settings-card p { margin: 0; }
     .settings-card > *,
     .permission-card > * { min-width: 0; }
@@ -5258,6 +5314,11 @@
         reference: '',
         instructions: ''
       },
+      autoReviewDenials: {
+        isOpen: false,
+        retryingRequestID: null,
+        items: []
+      },
       codeReviewRun: null,
       mockGitReviewChangeScope: 'unstaged',
       mockLastTurnHasPartialProvenance: false,
@@ -5693,6 +5754,7 @@
         { id: 'compact-context', title: 'Compact context', shortcut: '', category: 'Thread', keywords: ['thread', 'context', 'summarize', 'compact'], isEnabled: false },
         { id: 'sidebar-saved-search-create', title: 'Create sidebar search', shortcut: '', category: 'Thread', keywords: ['thread', 'chat', 'sidebar', 'filter'], isEnabled: true },
         { id: 'retry-last-turn', title: 'Retry last turn', shortcut: 'Cmd+Shift+R', category: 'Control', keywords: ['retry', 'rerun', 'again', 'failed'], isEnabled: false },
+        { id: 'auto-review-denials', title: 'Auto-review Denials', shortcut: '', category: 'Control', keywords: ['approve', 'auto review', 'denied', 'safety', 'retry exact action'], isEnabled: false },
         { id: 'workspace-back', title: 'Back', shortcut: 'Cmd+[', category: 'Navigation', keywords: ['history', 'previous', 'navigation', 'thread', 'project'], isEnabled: false },
         { id: 'workspace-forward', title: 'Forward', shortcut: 'Cmd+]', category: 'Navigation', keywords: ['history', 'next', 'navigation', 'thread', 'project'], isEnabled: false },
         { id: 'search', title: 'Search', shortcut: 'Cmd+G', category: 'Navigation', keywords: ['find', 'threads', 'chat'], isEnabled: true },
@@ -6512,6 +6574,7 @@
       { usage: '/browser [target]', title: 'Open browser', detail: 'Open a URL, localhost app, or project file in the browser preview; omit target to show or hide the panel.', insertText: '/browser ', aliases: ['preview'] },
       { usage: '/session [target]', title: 'Open browser session', detail: 'Open a visible browser session for a URL, localhost app, or project file; omit target to use the current browser tab.', insertText: '/session ', aliases: ['browser session', 'browser-session', 'sign in browser'] },
       { usage: '/review', title: 'Code review', detail: 'Choose a scope and run a dedicated read-only model reviewer.', insertText: '/review', aliases: ['code review', 'review changes', 'find bugs'] },
+      { usage: '/approve', title: 'Auto-review denials', detail: 'Review recent Auto denials and retry one exact action through safety review.', insertText: '/approve', aliases: ['approvals', 'denials'] },
       { usage: '/diff', title: 'Review diff', detail: 'Show the working-tree git diff in the review pane.', insertText: '/diff', aliases: ['changes', 'git diff', 'review diff'] },
       { usage: '/git-status', title: 'Git status', detail: 'Show the git status of the selected project.', insertText: '/git-status', aliases: ['gitstatus', 'git status'] },
       { usage: '/git fetch', title: 'Fetch latest refs', detail: 'Fetch from the selected project remote without changing the working tree.', insertText: '/git fetch', aliases: ['git fetch origin', 'fetch'] },
@@ -8729,6 +8792,7 @@
         command.id === 'terminal-clear' ? { ...command, isEnabled: state.terminal.entries.length > 0 && !state.terminal.isRunning } :
         command.id === 'git-status' ? { ...command, isEnabled: hasProject } :
         command.id === 'code-review' ? { ...command, isEnabled: hasProject && !state.composer.isSending } :
+        command.id === 'auto-review-denials' ? { ...command, isEnabled: hasThread && !state.composer.isSending } :
         command.id === 'git-diff' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-fetch' ? { ...command, isEnabled: hasProject } :
         command.id === 'git-pull' ? { ...command, isEnabled: hasProject } :
@@ -9081,6 +9145,12 @@
         closeCodeReviewDialog();
         return true;
       }
+      if (state.autoReviewDenials.isOpen) {
+        event.preventDefault();
+        state.autoReviewDenials.isOpen = false;
+        render();
+        return true;
+      }
       if (state.sshConnection.isOpen) {
         event.preventDefault();
         closeSSHConnection();
@@ -9361,6 +9431,89 @@
         state.codeReviewDialog.instructions = event.currentTarget.value;
         refreshCodeReviewValidation();
       });
+    }
+
+    function renderAutoReviewDenialsDialog() {
+      if (!state.autoReviewDenials.isOpen) return '';
+      const rows = state.autoReviewDenials.items.map(item => {
+        const retrying = state.autoReviewDenials.retryingRequestID === item.requestID;
+        const stateLabels = {
+          available: 'Retry available',
+          consumed: 'Retry used',
+          unavailable: 'Cannot replay safely',
+          context_changed: 'Context changed'
+        };
+        const canRetry = item.retryState === 'available' && !state.autoReviewDenials.retryingRequestID;
+        return `
+          <article class="auto-review-denial" data-testid="auto-review-denial" data-request-id="${escapeHTML(item.requestID)}" data-retry-state="${escapeHTML(item.retryState)}">
+            <header><strong>${escapeHTML(item.toolName)}</strong><span>${escapeHTML(stateLabels[item.retryState] || 'Unavailable')}</span></header>
+            <p>${escapeHTML(item.actionSummary)}</p>
+            <p>${escapeHTML(item.reason)}</p>
+            <footer>
+              <div class="auto-review-denial-metadata">
+                ${item.riskLabel ? `<span>${escapeHTML(item.riskLabel)} risk</span>` : ''}
+                ${item.authorizationLabel ? `<span>${escapeHTML(item.authorizationLabel)}</span>` : ''}
+              </div>
+              <button
+                type="button"
+                class="auto-review-denial-retry hit-target-text"
+                data-testid="auto-review-denial-retry"
+                data-command-id="auto-review-denial-retry:${escapeHTML(item.requestID)}"
+                data-request-id="${escapeHTML(item.requestID)}"
+                ${canRetry ? '' : 'disabled'}>${retrying ? 'Reviewing' : item.retryState === 'consumed' ? 'Retry used' : 'Review and retry'}</button>
+            </footer>
+          </article>`;
+      }).join('');
+      return `
+        <div class="auto-review-denials-panel" data-testid="auto-review-denials-dialog" role="dialog" aria-modal="true" aria-labelledby="auto-review-denials-title">
+          <section class="auto-review-denials-card">
+            <header>
+              <div>
+                <h2 id="auto-review-denials-title">Auto-review Denials</h2>
+                <p>Retry one exact action. Auto will review it again before anything runs.</p>
+              </div>
+              <button type="button" class="hit-target-text" data-testid="auto-review-denials-close" data-command-id="auto-review-denials-dismiss">Done</button>
+            </header>
+            <div class="auto-review-denials-list" data-testid="auto-review-denials-list">
+              ${rows || '<p data-testid="auto-review-denials-empty">No recent denials</p>'}
+            </div>
+          </section>
+        </div>`;
+    }
+
+    function bindAutoReviewDenialsHandlers() {
+      const panel = document.querySelector('[data-testid="auto-review-denials-dialog"]');
+      if (!panel) return;
+      panel.addEventListener('click', event => {
+        if (event.target === panel) runCommand('auto-review-denials-dismiss');
+      });
+      panel.querySelectorAll('[data-command-id]').forEach(button => {
+        button.addEventListener('click', event => {
+          runCommand(event.currentTarget.getAttribute('data-command-id'));
+        });
+      });
+    }
+
+    function retryAutoReviewDenial(requestID) {
+      const item = state.autoReviewDenials.items.find(candidate => candidate.requestID === requestID);
+      if (!item || item.retryState !== 'available' || state.autoReviewDenials.retryingRequestID) return;
+      state.autoReviewDenials.retryingRequestID = requestID;
+      render();
+      window.setTimeout(() => {
+        const current = state.autoReviewDenials.items.find(candidate => candidate.requestID === requestID);
+        if (!current || current.retryState !== 'available') return;
+        current.retryState = 'consumed';
+        state.autoReviewDenials.retryingRequestID = null;
+        addToolCard({
+          title: current.toolCallName,
+          subtitle: `Completed · ${current.actionSummary}`,
+          status: 'done',
+          inputJSON: current.inputJSON,
+          outputJSON: JSON.stringify({ ok: true, stdout: 'mock-user\n', stderr: '', exitCode: 0 }, null, 2)
+        });
+        addMessage('assistant', 'The exact action passed Auto review and completed. Output: mock-user.');
+        render();
+      }, 120);
     }
 
     function codeReviewFindingCount(review) {
@@ -10606,6 +10759,7 @@
             ${state.activity.isVisible ? renderActivityPane() : ''}
           </div>
           ${renderCodeReviewDialog()}
+          ${renderAutoReviewDenialsDialog()}
           ${state.settings.isOpen ? renderSettingsPanel() : ''}
           ${state.agentImport.isOpen ? renderAgentImportPanel() : ''}
           ${state.sshConnection.isOpen ? renderSSHConnectionPanel() : ''}
@@ -10621,6 +10775,7 @@
 
       normalizeInteractionTargetContracts(document.getElementById('app'));
       bindCodeReviewDialogHandlers();
+      bindAutoReviewDenialsHandlers();
       restoreTranscriptScroll(scrollSnapshot);
 
       const form = document.querySelector('[data-testid="composer"]');
@@ -16897,6 +17052,8 @@
       'find-in-chat',
       'copy-conversation',
       'code-review',
+      'auto-review-denials',
+      'auto-review-denials-dismiss',
       'export-conversation-markdown',
       'fork-from-last',
       'fork-full-context',
@@ -17024,6 +17181,7 @@
       'mcp-stop:',
       'memory-delete:',
       'memory-edit:',
+      'auto-review-denial-retry:',
       'sidebar-filter:',
       'sidebar-saved-search:',
       'sidebar-saved-search-delete:',
@@ -17109,6 +17267,10 @@
       if (commandID === 'attention-acknowledge') { attentionAcknowledgeSelected(); return; }
       if (commandID === 'attention-dismiss') { attentionDismissSelected(); return; }
       if (commandID === 'attention-digest-close') { closeAttentionDigest(); return; }
+      if (commandID?.startsWith('auto-review-denial-retry:')) {
+        retryAutoReviewDenial(commandID.slice('auto-review-denial-retry:'.length));
+        return;
+      }
       if (commandID?.startsWith('subagent-approval:')) {
         const parts = commandID.split(':');
         const action = parts[1];
@@ -17141,6 +17303,17 @@
       }
       if (commandID === 'command-palette') {
         openCommandPalette();
+        return;
+      }
+      if (commandID === 'auto-review-denials') {
+        state.commandPalette.isOpen = false;
+        state.autoReviewDenials.isOpen = true;
+        render();
+        return;
+      }
+      if (commandID === 'auto-review-denials-dismiss') {
+        state.autoReviewDenials.isOpen = false;
+        render();
         return;
       }
       if (commandID?.startsWith(slashCommandPalettePrefix)) {
@@ -20685,6 +20858,7 @@
       }
       if (!attachments.length && openBrowserSessionFromSlash(text)) return;
       if (!attachments.length && openCodeReviewFromSlash(text)) return;
+      if (!attachments.length && openAutoReviewDenialsFromSlash(text)) return;
       if (!attachments.length && runInstantViewSlashCommand(text)) return;
       startMockAgentTurn(text, attachments);
     }
@@ -20699,6 +20873,19 @@
       state.composer.historySavedDraft = null;
       state.runtimeIssue = null;
       runCommand('code-review');
+      return true;
+    }
+
+    function openAutoReviewDenialsFromSlash(text) {
+      if (!/^\/(approve|approvals|denials)\b/i.test(text)) return false;
+      if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
+      state.composer.draft = '';
+      state.composer.canSend = false;
+      state.composer.slashActiveIndex = 0;
+      state.composer.historyRecallIndex = null;
+      state.composer.historySavedDraft = null;
+      state.runtimeIssue = null;
+      runCommand('auto-review-denials');
       return true;
     }
 
@@ -20916,6 +21103,30 @@
         addMessage('assistant', 'Queued a background turn on another chat.');
       } else if (isOnlyNegatedActionRequest(text)) {
         addMessage('assistant', "Okay, I won't take that action.");
+      } else if (text.toLowerCase().includes('trigger auto review denial')) {
+        const requestID = `approval-auto-${state.nextTimelineIndex++}`;
+        const inputJSON = JSON.stringify({ cmd: 'whoami' }, null, 2);
+        addToolCard({
+          title: 'host.shell.run',
+          subtitle: 'Denied · whoami',
+          status: 'done',
+          inputJSON,
+          outputJSON: null,
+          actions: []
+        });
+        state.autoReviewDenials.items.unshift({
+          requestID,
+          toolName: 'Shell command',
+          toolCallName: 'host.shell.run',
+          actionSummary: 'Shell command · whoami',
+          inputJSON,
+          reason: 'Auto review could not verify that this command matched the current request.',
+          riskLabel: 'Low',
+          authorizationLabel: 'No request found',
+          retryState: 'available'
+        });
+        state.autoReviewDenials.items = state.autoReviewDenials.items.slice(0, 10);
+        addMessage('assistant', 'Auto review denied the shell command, so nothing ran. Open /approve to inspect or retry the exact action.');
       } else if (text.toLowerCase().includes('stream mcp progress')) {
         const card = addToolCard({
           title: 'host.mcp.call',
