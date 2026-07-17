@@ -169,6 +169,12 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
         XCTAssertFalse(notification.body.contains(secret))
     }
 
+    func testSlashIncognitoParsesToTheNewIncognitoChatCommand() {
+        XCTAssertEqual(SlashCommandParser.parse("/incognito"), .workspaceCommand("new-incognito-chat"))
+        XCTAssertEqual(SlashCommandParser.parse("/incognito-chat"), .workspaceCommand("new-incognito-chat"))
+        XCTAssertEqual(SlashCommandParser.parse("/private-chat"), .workspaceCommand("new-incognito-chat"))
+    }
+
     func testSideConversationReturnCommandIsHiddenInsideIncognito() throws {
         let model = model(threads: [], selectedThreadID: nil)
         _ = model.newIncognitoChat()
@@ -187,6 +193,90 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
             selectedThread: model.selectedThread
         )
         XCTAssertNil(planner.effect(for: .sideConversationReturn))
+    }
+
+    func testSavingSettingsDoesNotOverwriteTheIncognitoModelPin() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        _ = model.newIncognitoChat()
+        var config = model.root.config
+        config.defaultModel = TrustedRouterDefaults.zeusModel
+
+        model.applySettings(config: config, trustedRouterAPIKeyConfigured: true)
+
+        XCTAssertEqual(
+            try XCTUnwrap(model.selectedThread).model,
+            TrustedRouterDefaults.e2eModel,
+            "a Settings save (even unrelated) must not retarget the pinned E2E route"
+        )
+        XCTAssertEqual(model.root.config.defaultModel, TrustedRouterDefaults.zeusModel)
+    }
+
+    func testAgentRunSnapshotCannotResurrectADiscardedIncognitoThread() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        let incognitoID = model.newIncognitoChat()
+        let snapshot = try XCTUnwrap(model.selectedThread)
+
+        _ = model.newChat()
+        XCTAssertFalse(model.root.threads.contains { $0.id == incognitoID })
+
+        // A racing in-flight send's progress callback delivers the run's own thread snapshot; the
+        // destroyed ephemeral thread must NOT be upserted back into memory.
+        model.updateThreadFromAgentRun(snapshot)
+
+        XCTAssertFalse(model.root.threads.contains { $0.id == incognitoID })
+    }
+
+    func testUnarchivingAThreadDiscardsTheSelectedIncognitoThread() throws {
+        let archived = ChatThread(title: "Archived work", isArchived: true)
+        let model = model(threads: [archived], selectedThreadID: nil)
+        let incognitoID = model.newIncognitoChat()
+
+        XCTAssertTrue(model.unarchiveThread(archived.id))
+
+        XCTAssertEqual(model.root.selectedThreadID, archived.id)
+        XCTAssertFalse(
+            model.root.threads.contains { $0.id == incognitoID },
+            "unarchive selects directly (not via selectThread); the incognito discard must still run"
+        )
+    }
+
+    func testDiscardClearsTheWorkspaceErrorSurface() {
+        let model = model(threads: [], selectedThreadID: nil)
+        _ = model.newIncognitoChat()
+        model.setLastError("TrustedRouter streaming request failed with HTTP 402")
+
+        _ = model.newChat()
+
+        XCTAssertNil(
+            model.lastError,
+            "an incognito run's failure must not linger as a runtime-issue card in the next chat"
+        )
+    }
+
+    func testSettingsEngineSyncPreservesIncognitoModel() {
+        var thread = WorkspaceThreadCreationEngine.incognitoThread(projectID: nil, mode: .auto)
+        var config = AppConfig()
+        config.defaultModel = TrustedRouterDefaults.zeusModel
+        config.mode = .review
+
+        WorkspaceConfigurationEngine.syncThread(&thread, to: config)
+
+        XCTAssertEqual(thread.model, TrustedRouterDefaults.e2eModel, "the pin survives")
+        XCTAssertEqual(thread.mode, .review, "non-model settings still apply")
+    }
+
+    func testModelLabelFallsBackToBundledDisplayNameForFeaturePinnedRoutes() {
+        // The LIVE catalog may not list trustedrouter/e2e; the locked chip must show the bundled
+        // display name, never a raw route id.
+        let label = WorkspaceModelCatalogSurfaceBuilder(
+            catalog: [],
+            selectedModelID: TrustedRouterDefaults.e2eModel,
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentModelIDs: []
+        ).modelLabel()
+
+        XCTAssertTrue(label.contains(TrustedRouterDefaults.e2eModelDisplayName), label)
     }
 
     private func model(threads: [ChatThread], selectedThreadID: UUID?) -> QuillCodeWorkspaceModel {

@@ -59,6 +59,23 @@ test('incognito: starting a new chat destroys the incognito thread and restores 
   await expect(page.getByTestId('sidebar-thread-row').filter({ hasText: 'Incognito' })).toHaveCount(0);
 });
 
+test('incognito: opening incognito twice replaces the session and still restores the original model', async ({ page }) => {
+  await page.goto(harnessURL());
+  await sendComposerPrompt(page, 'seed thread');
+  const modelBefore = (await page.getByTestId('model-picker-button').textContent())?.trim() || '';
+
+  await openIncognito(page);
+  await openIncognito(page);
+
+  // Leaving the SECOND incognito session must restore the pre-incognito model — not the pinned
+  // E2E label the first session's exit state was overwritten with.
+  const message = page.getByLabel('Message');
+  await message.fill('/new');
+  await message.press('Enter');
+  await expect(page.getByTestId('incognito-banner')).toHaveCount(0);
+  await expect(page.getByTestId('model-picker-button')).toHaveText(modelBefore);
+});
+
 test('incognito: the palette command opens it and selecting another thread discards it', async ({ page }) => {
   await page.goto(harnessURL());
   await sendComposerPrompt(page, 'durable work item');

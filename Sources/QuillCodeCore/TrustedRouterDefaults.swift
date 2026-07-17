@@ -123,7 +123,10 @@ public enum TrustedRouterDefaults {
         prometheusModel: prometheusModelDisplayName,
         socratesModel: socratesModelDisplayName,
         aristotleModel: aristotleModelDisplayName,
-        platoModel: platoModelDisplayName
+        platoModel: platoModelDisplayName,
+        // Display-only (NOT in recommendedModelIDs): the incognito-pinned E2E route must render its
+        // human name in the locked model chip even when the live catalog omits the route.
+        e2eModel: e2eModelDisplayName
     ]
 
     public static let recommendedSummaries: [String: String] = [

@@ -113,7 +113,8 @@ public extension QuillCodeWorkspaceModel {
         ).configuredCodeReviewRunner(
             modelID: reviewModel,
             threadID: targetThreadID,
-            reportCollector: collector
+            reportCollector: collector,
+            threadIsIncognito: targetThread.runtimeContext.isIncognito
         )
         let reviewThread = scratchReviewThread(from: targetThread, model: reviewModel)
         let prompt = WorkspaceCodeReviewPromptBuilder(request: request).prompt()

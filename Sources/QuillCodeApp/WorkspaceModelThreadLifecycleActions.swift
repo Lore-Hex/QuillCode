@@ -66,6 +66,11 @@ extension QuillCodeWorkspaceModel {
                 WorkspaceThreadLifecycleEngine.unarchiveThread(id, threads: &$0)
             }) else { return false }
 
+            // Unarchive selects the restored thread directly (not via selectThread), so the outgoing
+            // incognito discard must run here too — otherwise Workspace Back could resurrect it.
+            if root.selectedThreadID != id {
+                _ = discardIncognitoThreadOnExit()
+            }
             applyThreadDraftSelection(to: id)
             root.selectedThreadID = id
             root.selectedProjectID = knownProjectID(result.projectID)

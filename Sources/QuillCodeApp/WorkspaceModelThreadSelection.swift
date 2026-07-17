@@ -26,6 +26,10 @@ extension QuillCodeWorkspaceModel {
         agentRuns.finish(threadID: current.id)
         threadDrafts = ComposerDraftStore.cleared(current.id, drafts: threadDrafts)
         navigationHistory.pruneEntries(withThreadID: current.id)
+        // The workspace-scoped error surface (runtimeIssueSurface derives from lastError) must not
+        // carry the private session's failures into the next chat — a run-failed card from an
+        // incognito send otherwise lingers, provider error text included, in the new thread.
+        setLastError(nil)
         if root.selectedThreadID == current.id {
             root.selectedThreadID = nil
         }

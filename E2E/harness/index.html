@@ -15495,6 +15495,10 @@
     // E2E-encrypted route. Never listed in the sidebar (isEphemeral), never snapshotted back.
     function newIncognitoChat() {
       returnFromSideConversation({ render: false });
+      // Starting incognito from incognito replaces the old session entirely (mirrors native) —
+      // and restores the pre-incognito model label first, so it is never overwritten with the
+      // pinned "E2E Encrypted" and lost for the eventual return to a normal chat.
+      exitIncognito();
       markTranscriptSeen();
       saveSelectedThreadSnapshot();
       stashComposerDraft(state.sidebar.selectedThreadID);

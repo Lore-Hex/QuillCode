@@ -27,7 +27,14 @@ struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
 
     func modelLabel() -> String {
         guard let model = catalog.first(where: { $0.id == selectedModelID }) else {
-            return TrustedRouterDefaults.canonicalModelID(selectedModelID)
+            let canonicalID = TrustedRouterDefaults.canonicalModelID(selectedModelID)
+            // Feature-pinned routes (incognito's trustedrouter/e2e) may be missing from the LIVE
+            // catalog; fall back to the bundled entry's display name before showing a raw route id
+            // in the locked model chip.
+            if let bundled = TrustedRouterDefaults.bundledModelCatalog.first(where: { $0.id == canonicalID }) {
+                return TrustedRouterDefaults.displayLabel(for: bundled)
+            }
+            return canonicalID
         }
         return TrustedRouterDefaults.displayLabel(for: model)
     }

@@ -55,6 +55,14 @@ extension QuillCodeWorkspaceModel {
 
     func updateThreadFromAgentRun(_ thread: ChatThread) {
         var thread = thread
+        // A destroyed ephemeral thread must STAY destroyed: an in-flight send's progress callbacks
+        // carry the run's own thread snapshot, and upserting it would resurrect an incognito/side
+        // conversation the user already navigated away from (the UI promised it was gone). The
+        // navigation path cancels the owning task; this guard covers the callbacks that race it.
+        if thread.runtimeContext.isEphemeral,
+           !root.threads.contains(where: { $0.id == thread.id }) {
+            return
+        }
         // Agent sessions operate on a send-start thread snapshot. Composer drafts are UI/model-owned
         // state, so progress and completion snapshots must never resurrect a draft that was sent,
         // cleared, or edited while the run was active.

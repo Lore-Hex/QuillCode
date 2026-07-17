@@ -210,32 +210,38 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         } else {
             runner.threadToolExecutionOverride = nil
         }
-        let pluginToolHooks = ProjectPluginToolHookExecutor(
-            hooks: hooks,
-            pluginDataBaseDirectory: pluginDataBaseDirectory,
-            selectedProject: selectedProject,
-            sshRemoteShellExecutor: sshRemoteShellExecutor
-        )
-        if let preToolUseHook = pluginToolHooks.preToolUseHook {
-            runner.preToolUseHook = preToolUseHook
-        }
-        if let postToolUseHook = pluginToolHooks.postToolUseHook {
-            runner.postToolUseHook = postToolUseHook
-        }
-        if let permissionRequestHook = pluginToolHooks.permissionRequestHook {
-            runner.permissionRequestHook = permissionRequestHook
-        }
-        let pluginCompactionHooks = ProjectPluginCompactionHookExecutor(
-            hooks: hooks,
-            pluginDataBaseDirectory: pluginDataBaseDirectory,
-            selectedProject: selectedProject,
-            sshRemoteShellExecutor: sshRemoteShellExecutor
-        )
-        if let preCompactHook = pluginCompactionHooks.preCompactHook {
-            runner.preCompactHook = preCompactHook
-        }
-        if let postCompactHook = pluginCompactionHooks.postCompactHook {
-            runner.postCompactHook = postCompactHook
+        // Plugin tool/compaction hooks execute user-configured shell with tool inputs/results (and
+        // compaction summaries) on stdin — external processes that commonly log what they receive.
+        // Incognito runs skip them entirely, like run hooks: "never saved" must hold against every
+        // configured egress, not just QuillCode-owned files.
+        if !threadIsIncognito {
+            let pluginToolHooks = ProjectPluginToolHookExecutor(
+                hooks: hooks,
+                pluginDataBaseDirectory: pluginDataBaseDirectory,
+                selectedProject: selectedProject,
+                sshRemoteShellExecutor: sshRemoteShellExecutor
+            )
+            if let preToolUseHook = pluginToolHooks.preToolUseHook {
+                runner.preToolUseHook = preToolUseHook
+            }
+            if let postToolUseHook = pluginToolHooks.postToolUseHook {
+                runner.postToolUseHook = postToolUseHook
+            }
+            if let permissionRequestHook = pluginToolHooks.permissionRequestHook {
+                runner.permissionRequestHook = permissionRequestHook
+            }
+            let pluginCompactionHooks = ProjectPluginCompactionHookExecutor(
+                hooks: hooks,
+                pluginDataBaseDirectory: pluginDataBaseDirectory,
+                selectedProject: selectedProject,
+                sshRemoteShellExecutor: sshRemoteShellExecutor
+            )
+            if let preCompactHook = pluginCompactionHooks.preCompactHook {
+                runner.preCompactHook = preCompactHook
+            }
+            if let postCompactHook = pluginCompactionHooks.postCompactHook {
+                runner.postCompactHook = postCompactHook
+            }
         }
         return runner
     }
@@ -247,12 +253,17 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     func configuredCodeReviewRunner(
         modelID: String,
         threadID: UUID,
-        reportCollector: WorkspaceCodeReviewReportCollector
+        reportCollector: WorkspaceCodeReviewReportCollector,
+        threadIsIncognito: Bool = false
     ) -> AgentRunner {
+        // A code review started from an incognito chat must honor the same E2E pin as the chat
+        // itself: force the reviewer onto the E2E route (ignoring the configured review model) and
+        // carry the incognito flag so its safety/compaction auxiliaries stay model-free too.
         let reviewer = configuredRunner(
-            modelID: modelID,
+            modelID: threadIsIncognito ? TrustedRouterDefaults.e2eModel : modelID,
             threadID: threadID,
-            allowsSubagents: false
+            allowsSubagents: false,
+            threadIsIncognito: threadIsIncognito
         )
         return WorkspaceCodeReviewRunner.configure(
             reviewer,
