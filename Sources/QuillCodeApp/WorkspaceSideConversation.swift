@@ -76,6 +76,11 @@ public extension QuillCodeWorkspaceModel {
         }
 
         applyThreadDraftSelection(to: parentThreadID, removing: side.id)
+        // A side conversation runs on the parent's priced (non-E2E) model and accrues real token
+        // usage. It is ephemeral and about to be destroyed, so — exactly like incognito discard,
+        // /clear, and /delete — keep a content-free spend receipt or its spend would vanish from the
+        // period ledger and cycling side conversations could launder unbounded spend past the limits.
+        retainEphemeralSpendReceipt(for: side)
         root.threads.removeAll { $0.id == side.id }
         sessionStartHookCoordinator.remove(threadID: side.id)
         agentRuns.finish(threadID: side.id)

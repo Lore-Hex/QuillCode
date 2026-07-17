@@ -252,7 +252,19 @@ extension QuillCodeWorkspaceModel {
     ) async -> WorkspaceContextSummaryOutcome {
         // Summaries/compaction are auxiliary housekeeping: route them to a cheap catalog model
         // instead of the thread's flagship model. The thread's own model is never touched here.
-        let selection = contextSummaryGenerator.isModelBacked
+        // BUT a thread routed to the E2E-encrypted model must keep this auxiliary traffic on the E2E
+        // route too — the cheap catalog aux model is never E2E, so summarize DETERMINISTICALLY (no
+        // egress) rather than shipping the transcript to it. This mirrors `requiresE2EOnlyTraffic` in
+        // WorkspaceAgentRunContextBuilder, which the standalone /compact and /fork summary path never
+        // goes through. Incognito threads never reach here (the isEphemeral belt guard in
+        // preparedContextContinuation returns first), so this covers a REGULAR thread that selected
+        // "E2E Encrypted" from the Private category or via `/model e2e`.
+        let routesE2EOnly = TrustedRouterDefaults.canonicalModelID(source.model)
+            == TrustedRouterDefaults.e2eModel
+        let generator: any WorkspaceContextSummaryGenerating = routesE2EOnly
+            ? DeterministicWorkspaceContextSummaryGenerator()
+            : contextSummaryGenerator
+        let selection = generator.isModelBacked
             ? AuxiliaryModelSelector.selection(models: root.modelCatalog, sessionModelID: source.model)
             : nil
         let request = WorkspaceContextSummaryRequest(
@@ -263,8 +275,8 @@ extension QuillCodeWorkspaceModel {
         )
         do {
             return WorkspaceContextSummaryOutcome(
-                summaryOverride: try await contextSummaryGenerator.summary(for: request),
-                source: .model,
+                summaryOverride: try await generator.summary(for: request),
+                source: generator.isModelBacked ? .model : .deterministicFallback,
                 modelSelection: selection
             )
         } catch {

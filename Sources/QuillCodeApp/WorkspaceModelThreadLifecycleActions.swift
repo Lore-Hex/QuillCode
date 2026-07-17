@@ -145,6 +145,11 @@ extension QuillCodeWorkspaceModel {
         // /clear wipes the transcript (and its usage events); keep the ephemeral spend receipt first.
         if let originalThread {
             retainEphemeralSpendReceipt(for: originalThread)
+            // Match /delete: an ephemeral thread stays put after /clear, so its private run's failure
+            // would otherwise linger as a runtime-issue card. Clear the workspace-scoped error too.
+            if originalThread.runtimeContext.isEphemeral && root.selectedThreadID == id {
+                setLastError(nil)
+            }
         }
         let attachments = originalThread.map(Self.allImageAttachmentsForCleanup) ?? []
         guard let result = updateThreadLifecycle({

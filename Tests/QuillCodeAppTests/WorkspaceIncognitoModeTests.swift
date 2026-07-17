@@ -626,10 +626,94 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
         XCTAssertNil(model.lastError, "a deleted incognito run's failure must not linger into the next chat")
     }
 
+    func testRegularThreadOnE2EModelCompactsDeterministicallyWithoutEgress() async throws {
+        // A REGULAR (non-incognito) thread can select the E2E route from the Private category or via
+        // `/model e2e`. Its /compact must NOT ship the transcript to the cheap non-E2E auxiliary
+        // summary model — it must summarize DETERMINISTICALLY, honoring the "E2E route ⇒ no non-E2E
+        // egress" invariant that the standalone summary path bypasses.
+        let source = ChatThread(
+            title: "E2E work",
+            model: TrustedRouterDefaults.e2eModel,
+            messages: [
+                .init(role: .user, content: "old private question"),
+                .init(role: .assistant, content: "old private answer"),
+                .init(role: .user, content: "latest request"),
+                .init(role: .assistant, content: "latest answer")
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+            contextSummaryGenerator: ModelBackedSummaryGeneratorStub(summary: "LEAKED-MODEL-SUMMARY")
+        )
+
+        let compactCandidate = await model.compactContextWithConfiguredSummary(sourceID: source.id)
+        let compactID = try XCTUnwrap(compactCandidate)
+        let compacted = try XCTUnwrap(model.root.threads.first { $0.id == compactID })
+
+        XCTAssertFalse(
+            compacted.messages.contains { $0.content.contains("LEAKED-MODEL-SUMMARY") },
+            "an E2E-routed thread must never reach the non-E2E model-backed summarizer"
+        )
+        XCTAssertTrue(
+            compacted.events.last?.payloadJSON?.contains(#""source" : "deterministic_fallback""#) == true,
+            "the summary must be recorded as deterministic (no auxiliary-model egress)"
+        )
+    }
+
+    func testReturningFromSideConversationRetainsContentFreeSpendReceipt() throws {
+        // A side conversation is ephemeral and runs on the parent's priced (non-E2E) model. Destroying
+        // it on /return must keep a content-free spend receipt — exactly like incognito discard/clear/
+        // delete — or its usage vanishes from the period ledger and cycling side chats launders spend.
+        let parent = ChatThread(title: "Parent", messages: [.init(role: .user, content: "work")])
+        let model = model(threads: [parent], selectedThreadID: parent.id)
+        let sideID = try XCTUnwrap(model.startSideConversation(prompt: "quick q"))
+        model.mutateThread(sideID) { thread in
+            thread.messages.append(.init(role: .user, content: "expensive side question"))
+            thread.events.append(ModelTokenUsageEvent.event(
+                usage: ModelTokenUsage(promptTokens: 2_000, completionTokens: 1_000),
+                modelID: parent.model
+            ))
+        }
+
+        XCTAssertTrue(model.returnFromSideConversation())
+
+        let receipt = try XCTUnwrap(
+            model.discardedEphemeralSpendThreads.first,
+            "a destroyed side conversation's spend must still count against period limits"
+        )
+        XCTAssertTrue(receipt.messages.isEmpty, "receipts carry usage only — never conversation content")
+        XCTAssertEqual(
+            ModelTokenUsageEvent.usage(from: try XCTUnwrap(receipt.events.first))?.contextTokens,
+            3_000
+        )
+    }
+
+    func testClearingASelectedIncognitoThreadClearsTheErrorSurface() {
+        let model = model(threads: [], selectedThreadID: nil)
+        let incognitoID = model.newIncognitoChat()
+        model.setLastError("TrustedRouter streaming request failed with HTTP 402")
+
+        _ = model.clearThread(incognitoID)
+
+        XCTAssertNil(model.lastError, "a cleared incognito run's failure must not linger in the still-private session")
+    }
+
     private func model(threads: [ChatThread], selectedThreadID: UUID?) -> QuillCodeWorkspaceModel {
         QuillCodeWorkspaceModel(root: QuillCodeRootState(
             threads: threads,
             selectedThreadID: selectedThreadID
         ))
+    }
+}
+
+/// Model-backed summary spy: `isModelBacked` is true, so it stands in for the production LLM
+/// summarizer. If the E2E-routing guard ever fails, its fixed sentinel summary lands in the
+/// compacted thread — the test asserts it never does.
+private struct ModelBackedSummaryGeneratorStub: WorkspaceContextSummaryGenerating {
+    var isModelBacked: Bool { true }
+    var summary: String
+
+    func summary(for request: WorkspaceContextSummaryRequest) async throws -> String {
+        summary
     }
 }
