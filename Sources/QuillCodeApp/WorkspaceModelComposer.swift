@@ -375,9 +375,9 @@ extension QuillCodeWorkspaceModel {
         // A terminal run failure must leave a DURABLE trace on its own thread. A background run that
         // failed while the user was on another thread otherwise vanishes silently: finishAgentRun
         // drops the failure for a non-selected thread, and lastError is session-only. Record it as a
-        // persisted `.notice` (mutateThread saves, guarded so ephemeral/incognito threads never
+        // persisted `.notice` (mutateThread saves, guarded so ephemeral/confidential threads never
         // persist) so the failure survives reload and shows in Activity. A no-op if the thread is
-        // already gone (a discarded incognito session whose run failed late).
+        // already gone (a discarded confidential session whose run failed late).
         mutateThread(runThreadID) { thread in
             thread.events.append(ThreadEvent(
                 kind: .notice,

@@ -56,7 +56,7 @@ struct QuillCodeModelPickerView: View {
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(topBar.modelIsLocked)
-        .help(topBar.modelIsLocked ? "Model locked: incognito chats always use the E2E encrypted route" : "Choose model")
+        .help(topBar.modelIsLocked ? "Model locked: confidential chats always use the E2E encrypted route" : "Choose model")
         .accessibilityLabel(topBar.modelIsLocked ? "Model locked, \(topBar.modelLabel)" : "Model, \(topBar.modelLabel)")
         .accessibilityIdentifier("quillcode-model-picker-button")
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {

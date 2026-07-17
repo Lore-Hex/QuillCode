@@ -110,10 +110,10 @@ final class QuillCodeDesktopController: ObservableObject {
             ) else { return }
             automationNotifier.deliver(notification)
         }
-        // Destroying an ephemeral (incognito) thread must cancel its OWNING send task, not just the
+        // Destroying an ephemeral (confidential) thread must cancel its OWNING send task, not just the
         // model's run-registry entry — otherwise provider calls and tools keep executing after the
         // UI promised the session was gone. (The side-conversation cancel helper doesn't cover
-        // incognito: it keys off the side-conversation parent.)
+        // confidential: it keys off the side-conversation parent.)
         workspaceModel.onEphemeralThreadDiscarded = { [tasks] threadID in
             tasks.cancel(.send(threadID))
             // A current-thread code review occupies its own task slot; its reviewer provider call

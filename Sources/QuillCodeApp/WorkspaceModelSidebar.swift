@@ -139,10 +139,10 @@ extension QuillCodeWorkspaceModel {
 
         sidebarSelection = result.nextSelection
         root.threads = result.threads
-        // Bulk actions can move the selection off an incognito thread without going through
+        // Bulk actions can move the selection off a confidential thread without going through
         // selectThread; discard it like every other exit path.
         if root.selectedThreadID != result.selectedThreadID {
-            _ = discardIncognitoThreadOnExit()
+            _ = discardConfidentialThreadOnExit()
         }
         applyThreadDraftSelection(to: result.selectedThreadID)
         for thread in result.removedThreads {

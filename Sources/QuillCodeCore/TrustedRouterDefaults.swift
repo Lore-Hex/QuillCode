@@ -8,7 +8,7 @@ public enum TrustedRouterDefaults {
     public static let aristotleModel = "trustedrouter/aristotle"
     public static let platoModel = "trustedrouter/plato"
     /// The end-to-end-encrypted route: inference runs inside the attested TrustedRouter enclave and
-    /// prompts are never visible to the provider. Incognito threads are pinned to it.
+    /// prompts are never visible to the provider. Confidential threads are pinned to it.
     public static let e2eModel = "trustedrouter/e2e"
     public static let defaultModel = fastModel
     public static let defaultAPIBaseURL = "https://api.trustedrouter.com/v1"
@@ -124,7 +124,7 @@ public enum TrustedRouterDefaults {
         socratesModel: socratesModelDisplayName,
         aristotleModel: aristotleModelDisplayName,
         platoModel: platoModelDisplayName,
-        // Display-only (NOT in recommendedModelIDs): the incognito-pinned E2E route must render its
+        // Display-only (NOT in recommendedModelIDs): the confidential-pinned E2E route must render its
         // human name in the locked model chip even when the live catalog omits the route.
         e2eModel: e2eModelDisplayName
     ]

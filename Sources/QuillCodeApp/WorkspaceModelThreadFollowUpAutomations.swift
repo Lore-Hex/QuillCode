@@ -14,7 +14,7 @@ extension QuillCodeWorkspaceModel {
         // Automations persist to automations.json with a chat-derived title AND would dangle: an
         // ephemeral thread won't exist after relaunch, so the follow-up could never fire anyway.
         if thread.runtimeContext.isEphemeral {
-            setLastError("Follow-ups can't be scheduled for incognito or side conversations: they aren't saved.")
+            setLastError("Follow-ups can't be scheduled for confidential or side conversations: they aren't saved.")
             return nil
         }
         let mutation = WorkspaceAutomationStateReducer.createThreadFollowUp(

@@ -16,10 +16,10 @@ extension QuillCodeWorkspaceModel {
         // payloads to disk (subagent-threads/, subagent-sessions/, subagent-approval-payloads/) — a
         // durable copy of content derived from this conversation. The model-invoked path is already
         // gated (permitsSubagents keys off isEphemeral); this slash path must refuse too, or an
-        // incognito/side chat quietly breaks its "never saved" promise via orphaned worker files.
+        // confidential/side chat quietly breaks its "never saved" promise via orphaned worker files.
         if let thread = root.threads.first(where: { $0.id == threadID }),
            thread.runtimeContext.isEphemeral {
-            setLastError("Subagents are unavailable in incognito and side conversations: worker transcripts are saved to disk.")
+            setLastError("Subagents are unavailable in confidential and side conversations: worker transcripts are saved to disk.")
             return
         }
         mutateThread(threadID) { thread in

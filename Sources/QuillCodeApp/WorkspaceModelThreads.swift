@@ -6,7 +6,7 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func newChat(projectID: UUID? = nil) -> UUID {
         _ = returnFromSideConversation()
-        _ = discardIncognitoThreadOnExit()
+        _ = discardConfidentialThreadOnExit()
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
         refreshProjectMetadata(effectiveProjectID)
         let context = WorkspaceProjectContextRefresher.threadCreationContext(
@@ -21,17 +21,17 @@ extension QuillCodeWorkspaceModel {
         return insertCreatedThread(thread, selectedProjectID: effectiveProjectID, saveThread: false)
     }
 
-    /// Starts an incognito chat: a session-only thread (never persisted, excluded from the sidebar)
+    /// Starts a confidential chat: a session-only thread (never persisted, excluded from the sidebar)
     /// pinned to the end-to-end-encrypted TrustedRouter route. Deliberately does NOT reuse
-    /// `threadCreationContext` — incognito threads carry no workspace instructions/memories and
+    /// `threadCreationContext` — confidential threads carry no workspace instructions/memories and
     /// ignore the configured default model.
     @discardableResult
-    public func newIncognitoChat(projectID: UUID? = nil) -> UUID {
+    public func newConfidentialChat(projectID: UUID? = nil) -> UUID {
         _ = returnFromSideConversation()
-        // Starting incognito from incognito replaces the old session entirely.
-        _ = discardIncognitoThreadOnExit()
+        // Starting confidential from confidential replaces the old session entirely.
+        _ = discardConfidentialThreadOnExit()
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
-        let thread = WorkspaceThreadCreationEngine.incognitoThread(
+        let thread = WorkspaceThreadCreationEngine.confidentialThread(
             projectID: effectiveProjectID,
             mode: root.config.mode
         )
@@ -50,7 +50,7 @@ extension QuillCodeWorkspaceModel {
     /// must live at the model level.
     func refuseDurableContinuation(of source: ChatThread, action: String) -> Bool {
         guard source.runtimeContext.isEphemeral else { return false }
-        setLastError("Can't \(action) an incognito or side conversation: it would save the private transcript.")
+        setLastError("Can't \(action) a confidential or side conversation: it would save the private transcript.")
         return true
     }
 

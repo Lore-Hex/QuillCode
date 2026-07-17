@@ -29,8 +29,8 @@ extension QuillCodeWorkspaceModel {
         case .newChat:
             _ = newChat()
             return true
-        case .newIncognitoChat:
-            _ = newIncognitoChat()
+        case .newConfidentialChat:
+            _ = newConfidentialChat()
             return true
         case .quickChat:
             _ = startQuickChat()

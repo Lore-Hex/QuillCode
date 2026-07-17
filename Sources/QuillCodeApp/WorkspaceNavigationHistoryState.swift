@@ -75,7 +75,7 @@ public struct WorkspaceNavigationHistoryState: Codable, Sendable, Hashable {
     }
 
     /// Removes every entry referencing `threadID` and collapses the adjacent duplicates that removal
-    /// creates. Used when a session-only (incognito) thread is destroyed: Back/Forward must never be
+    /// creates. Used when a session-only (confidential) thread is destroyed: Back/Forward must never be
     /// able to resurrect a conversation the UI promised was gone.
     public mutating func pruneEntries(withThreadID threadID: UUID) {
         guard entries.contains(where: { $0.threadID == threadID }) else { return }

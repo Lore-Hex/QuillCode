@@ -25,7 +25,7 @@ extension QuillCodeWorkspaceModel {
             threads: root.threads
            ) {
             if root.selectedThreadID != selection.threadID {
-                _ = discardIncognitoThreadOnExit()
+                _ = discardConfidentialThreadOnExit()
             }
             root.selectedProjectID = selection.projectID
             root.selectedThreadID = selection.threadID

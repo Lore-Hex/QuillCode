@@ -4,33 +4,33 @@ import QuillCodePersistence
 @testable import QuillCodeApp
 
 final class WorkspaceThreadPersistenceTests: XCTestCase {
-    func testIncognitoThreadIsNeverWrittenToTheStore() throws {
-        // The incognito privacy promise at the persistence boundary: save, saveOrThrow, batch save,
-        // and mutate must all leave the store untouched for an incognito thread — nothing with the
+    func testConfidentialThreadIsNeverWrittenToTheStore() throws {
+        // The confidential privacy promise at the persistence boundary: save, saveOrThrow, batch save,
+        // and mutate must all leave the store untouched for a confidential thread — nothing with the
         // thread's id (or its content) may reach disk.
         let directory = try makeQuillCodeTestDirectory()
         let store = JSONThreadStore(directory: directory)
-        let incognito = ChatThread(
-            title: "Incognito",
+        let confidential = ChatThread(
+            title: "Confidential",
             messages: [.init(role: .user, content: "private question")],
-            runtimeContext: .incognito
+            runtimeContext: .confidential
         )
-        var threads = [incognito]
+        var threads = [confidential]
         let persistence = WorkspaceThreadPersistence(store: store)
 
-        persistence.save(incognito)
-        try persistence.saveOrThrow(incognito)
-        persistence.save([incognito])
-        persistence.mutate(incognito.id, threads: &threads) { thread in
-            thread.title = "Mutated incognito"
+        persistence.save(confidential)
+        try persistence.saveOrThrow(confidential)
+        persistence.save([confidential])
+        persistence.mutate(confidential.id, threads: &threads) { thread in
+            thread.title = "Mutated confidential"
         }
 
-        XCTAssertEqual(threads[0].title, "Mutated incognito", "in-memory mutation still applies")
-        XCTAssertThrowsError(try store.load(incognito.id), "the store must have no record of the thread")
+        XCTAssertEqual(threads[0].title, "Mutated confidential", "in-memory mutation still applies")
+        XCTAssertThrowsError(try store.load(confidential.id), "the store must have no record of the thread")
         let contents = try FileManager.default.contentsOfDirectory(atPath: directory.path)
         XCTAssertFalse(
-            contents.contains { $0.contains(incognito.id.uuidString) },
-            "no file named for the incognito thread may exist: \(contents)"
+            contents.contains { $0.contains(confidential.id.uuidString) },
+            "no file named for the confidential thread may exist: \(contents)"
         )
     }
 

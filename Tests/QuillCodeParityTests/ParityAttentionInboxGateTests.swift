@@ -180,7 +180,7 @@ final class ParityAttentionInboxGateTests: QuillCodeParityTestCase {
         Self.assertSource(setCursorBody, excludes: "selectThread(")
 
         // The surface builds the Attention cursor from attentionCursorID, not the workspace selection
-        // (and only from durable threads — ephemeral incognito/side chats never surface in Attention).
+        // (and only from durable threads — ephemeral confidential/side chats never surface in Attention).
         let builder = try Self.appSourceText(named: "WorkspaceNavigationSurfaceBuilder.swift")
         Self.assertSource(builder, contains: "AttentionModel.build(from: durableThreads, selectedThreadID: attentionCursorID)")
 

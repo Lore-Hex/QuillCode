@@ -87,4 +87,29 @@ final class WorkspaceStatusTextBuilderTests: XCTestCase {
         XCTAssertEqual(WorkspaceStatusTextBuilder.subtitleModelLabel("anthropic/claude-opus-4.1"), "anthropic/claude-opus-4.1")
         XCTAssertEqual(WorkspaceStatusTextBuilder.statusModelLabel("anthropic/claude-opus-4.1"), "anthropic/claude-opus-4.1")
     }
+
+    /// The E2E route is deliberately NOT a recommended model (it must never be suggested), but it has
+    /// a display name — the top bar must say "E2E Encrypted" like the composer chip does, not leak the
+    /// raw route id into a confidential chat's subtitle.
+    func testModelLabelsUseDisplayOnlyNamesForTheE2ERoute() {
+        XCTAssertEqual(
+            WorkspaceStatusTextBuilder.subtitleModelLabel(TrustedRouterDefaults.e2eModel),
+            TrustedRouterDefaults.e2eModelDisplayName
+        )
+        XCTAssertEqual(
+            WorkspaceStatusTextBuilder.statusModelLabel(TrustedRouterDefaults.e2eModel),
+            "\(TrustedRouterDefaults.e2eModelDisplayName) (\(TrustedRouterDefaults.e2eModel))"
+        )
+        XCTAssertEqual(
+            WorkspaceStatusTextBuilder.subtitleModelLabel("e2e"),
+            TrustedRouterDefaults.e2eModelDisplayName,
+            "aliases resolve to the display name too"
+        )
+
+        let confidential = WorkspaceThreadCreationEngine.confidentialThread(projectID: nil, mode: .auto)
+        XCTAssertEqual(
+            WorkspaceStatusTextBuilder.topBarSubtitle(projectName: "QuillCode", thread: confidential),
+            "QuillCode - Auto - \(TrustedRouterDefaults.e2eModelDisplayName)"
+        )
+    }
 }

@@ -2355,7 +2355,10 @@
       grid-row: 2;
       min-height: 0;
       height: 100%;
-      padding: 22px;
+      /* Readable measure: side padding grows past 860px content width so the whole conversation
+         column (including align-self: flex-end user bubbles) centers in the pane instead of
+         running edge-to-edge at wide windows. Mirrors the native transcript's 860pt column. */
+      padding: 22px max(22px, calc((100% - 860px) / 2));
       overflow: auto;
       display: flex;
       flex-direction: column;
@@ -2363,7 +2366,8 @@
     }
     .find-bar + .timeline { grid-row: 2; }
     .transcript > .timeline:first-child { grid-row: 1 / 3; }
-    .timeline:has(.empty) { justify-content: flex-end; }
+    /* Center the empty-state hero in the void (bottom-anchoring left a dead area above). */
+    .timeline:has(.empty) { justify-content: center; }
     .side-conversation-banner {
       display: flex;
       align-items: center;
@@ -2374,7 +2378,7 @@
       border-radius: 10px;
       background: rgba(180, 145, 255, .07);
     }
-    .incognito-banner {
+    .confidential-banner {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -2383,8 +2387,8 @@
       background: var(--panel2);
       font-size: 13px;
     }
-    .incognito-banner strong { color: var(--text); font-weight: 700; }
-    .incognito-banner span { color: var(--muted); }
+    .confidential-banner strong { color: var(--text); font-weight: 700; }
+    .confidential-banner span { color: var(--muted); }
     .side-conversation-banner-copy {
       min-width: 0;
       display: grid;
@@ -5724,7 +5728,7 @@
       },
       commands: [
         { id: 'new-chat', title: 'New chat', shortcut: 'Cmd+N', category: 'Thread', keywords: ['thread', 'conversation'], isEnabled: true },
-        { id: 'new-incognito-chat', title: 'New incognito chat', shortcut: '', category: 'Thread', keywords: ['thread', 'conversation', 'incognito', 'private', 'ephemeral', 'e2e', 'encrypted', 'not saved'], isEnabled: true },
+        { id: 'new-confidential-chat', title: 'New confidential chat', shortcut: '', category: 'Thread', keywords: ['thread', 'conversation', 'confidential', 'private', 'ephemeral', 'e2e', 'encrypted', 'not saved'], isEnabled: true },
         { id: 'quick-chat', title: 'Quick chat', shortcut: 'Cmd+Option+N', category: 'Thread', keywords: ['quick', 'side', 'chat', 'task', 'question'], isEnabled: true },
         { id: 'side-conversation-return', title: 'Return to main chat', shortcut: '', category: 'Thread', keywords: ['side', 'conversation', 'return', 'back', 'btw'], isEnabled: false },
         { id: 'thread-new-worktree', title: 'New worktree task', shortcut: '', category: 'Thread', keywords: ['thread', 'worktree', 'branch', 'isolated', 'fork', 'parallel'], isEnabled: true },
@@ -6533,7 +6537,7 @@
       { usage: '/status', title: 'Show status', detail: 'Summarize the active project, mode, model, and loaded context.', insertText: '/status', aliases: [] },
       { usage: '/goal objective', title: 'Follow a goal', detail: 'Attach a durable objective to this chat; use status, complete, block, resume, or clear to manage it.', insertText: '/goal ', aliases: ['goal status', 'goal complete', 'goal block', 'goal resume', 'goal clear'] },
       { usage: '/new', title: 'New chat', detail: 'Start a fresh thread in the selected project.', insertText: '/new', aliases: ['new-chat', 'newchat'] },
-      { usage: '/incognito', title: 'New incognito chat', detail: 'Start a private chat that is never saved and always uses the end-to-end encrypted route.', insertText: '/incognito', aliases: ['incognito-chat', 'private-chat'] },
+      { usage: '/confidential', title: 'New confidential chat', detail: 'Start a private chat that is never saved and always uses the end-to-end encrypted route.', insertText: '/confidential', aliases: ['confidential-chat', 'private-chat', 'incognito', 'incognito-chat'] },
       { usage: '/side question', title: 'Ask a side question', detail: 'Open an ephemeral conversation with this chat as reference while the main task keeps its place.', insertText: '/side ', aliases: ['btw'] },
       { usage: '/clear', title: 'Clear chat', detail: 'Reset this thread transcript and queued follow-ups without deleting the chat.', insertText: '/clear', aliases: ['clear-chat', 'reset-chat'] },
       { usage: '/undo', title: 'Undo latest edit', detail: 'Reverse the latest revertable file edits from the current thread.', insertText: '/undo', aliases: ['revert', 'revert-latest', 'undo-edit'] },
@@ -10732,7 +10736,7 @@
                 ${state.find.isOpen ? renderFindBar(findMatches) : ''}
 	              ${state.automations.isVisible ? renderAutomationsPane() : ''}
 	              ${hasTimelineContent ? renderTranscriptJumpBar() : ''}
-	              <div class="timeline" data-testid="timeline">${incognitoIsActive() ? renderIncognitoBanner() : ''}${renderSideConversationBanner()}${renderNewTurnsPill()}${timeline}</div>
+	              <div class="timeline" data-testid="timeline">${confidentialIsActive() ? renderConfidentialBanner() : ''}${renderSideConversationBanner()}${renderNewTurnsPill()}${timeline}</div>
 	              ${state.browser.isVisible ? renderBrowserPane() : ''}
 	              ${state.extensions.isVisible ? renderExtensionsPane() : ''}
 	              ${state.memories.isVisible ? renderMemoriesPane() : ''}
@@ -10758,7 +10762,7 @@
                     <button type="button" class="hit-target-icon" data-testid="attach-images-button" aria-label="Attach images" title="Attach images">▧</button>
                     <input type="file" data-testid="image-file-input" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
                     <div class="model-picker-wrap">
-                      <button class="composer-model-button hit-target-capsule" type="button" ${incognitoIsActive() ? 'disabled ' : ''}aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="${incognitoIsActive() ? 'Model locked: ' : 'Model: '}${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${incognitoIsActive() ? '🔒 ' : ''}${escapeHTML(state.topBar.modelLabel)}</button>
+                      <button class="composer-model-button hit-target-capsule" type="button" ${confidentialIsActive() ? 'disabled ' : ''}aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="${confidentialIsActive() ? 'Model locked: ' : 'Model: '}${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${confidentialIsActive() ? '🔒 ' : ''}${escapeHTML(state.topBar.modelLabel)}</button>
                       ${modelBrowser}
                     </div>
                     <button type="button" class="mode-pill-button hit-target-capsule" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Auto safety mode: ${escapeHTML(state.topBar.modeLabel)}">
@@ -13992,13 +13996,13 @@
           aria-label="${escapeHTML(pill.label)}">${escapeHTML(pill.label)}</button>`;
     }
 
-    // The persistent incognito banner (control-free), mirroring the native
-    // QuillCodeIncognitoBannerView and the DOM renderer's .incognito-banner.
-    function renderIncognitoBanner() {
+    // The persistent confidential banner (control-free), mirroring the native
+    // QuillCodeConfidentialBannerView and the DOM renderer's .confidential-banner.
+    function renderConfidentialBanner() {
       return `
-        <section class="incognito-banner" data-testid="incognito-banner" aria-label="Incognito chat: not saved, end-to-end encrypted">
-          <strong data-testid="incognito-banner-title">Incognito chat</strong>
-          <span data-testid="incognito-banner-detail">Not saved · E2E encrypted</span>
+        <section class="confidential-banner" data-testid="confidential-banner" aria-label="Confidential chat: not saved, end-to-end encrypted">
+          <strong data-testid="confidential-banner-title">Confidential chat</strong>
+          <span data-testid="confidential-banner-detail">Not saved · E2E encrypted</span>
         </section>`;
     }
 
@@ -15626,46 +15630,46 @@
       return true;
     }
 
-    // Leaving an incognito chat destroys it entirely: the thread is session-only, so navigating away
+    // Leaving a confidential chat destroys it entirely: the thread is session-only, so navigating away
     // (New Chat, selecting another thread) drops it from the item list and restores the model label
-    // that the incognito pin displaced. Mirrors the native ephemeral-thread discard semantics.
-    function exitIncognito() {
+    // that the confidential pin displaced. Mirrors the native ephemeral-thread discard semantics.
+    function exitConfidential() {
       const current = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
-      if (!current || !current.isIncognito) return false;
+      if (!current || !current.isConfidential) return false;
       state.sidebar.items = state.sidebar.items.filter(item => item.id !== current.id);
       state.sidebar.selectedThreadID = null;
-      if (state.incognitoPreviousModelLabel) {
-        state.topBar.modelLabel = state.incognitoPreviousModelLabel;
-        state.incognitoPreviousModelLabel = null;
+      if (state.confidentialPreviousModelLabel) {
+        state.topBar.modelLabel = state.confidentialPreviousModelLabel;
+        state.confidentialPreviousModelLabel = null;
       }
       return true;
     }
 
-    function incognitoIsActive() {
+    function confidentialIsActive() {
       const current = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
-      return Boolean(current?.isIncognito);
+      return Boolean(current?.isConfidential);
     }
 
-    // Mirrors QuillCodeWorkspaceModel.newIncognitoChat(): a session-only thread pinned to the
+    // Mirrors QuillCodeWorkspaceModel.newConfidentialChat(): a session-only thread pinned to the
     // E2E-encrypted route. Never listed in the sidebar (isEphemeral), never snapshotted back.
-    function newIncognitoChat() {
+    function newConfidentialChat() {
       returnFromSideConversation({ render: false });
-      // Starting incognito from incognito replaces the old session entirely (mirrors native) —
-      // and restores the pre-incognito model label first, so it is never overwritten with the
+      // Starting confidential from confidential replaces the old session entirely (mirrors native) —
+      // and restores the pre-confidential model label first, so it is never overwritten with the
       // pinned "E2E Encrypted" and lost for the eventual return to a normal chat.
-      exitIncognito();
+      exitConfidential();
       markTranscriptSeen();
       saveSelectedThreadSnapshot();
       stashComposerDraft(state.sidebar.selectedThreadID);
-      const threadID = `incognito-${crypto.randomUUID()}`;
+      const threadID = `confidential-${crypto.randomUUID()}`;
       const thread = {
         id: threadID,
-        title: 'Incognito',
+        title: 'Confidential',
         isSelected: true,
         isPinned: false,
         isArchived: false,
         isEphemeral: true,
-        isIncognito: true,
+        isConfidential: true,
         runStatusLabel: null,
         updatedAt: new Date().toISOString(),
         snapshot: { messages: [], toolCards: [], timelineItems: [], review: emptyReviewSurface() }
@@ -15679,16 +15683,16 @@
       state.composer.attachments = [];
       state.composer.canSend = false;
       state.composer.isSending = false;
-      state.incognitoPreviousModelLabel = state.topBar.modelLabel;
+      state.confidentialPreviousModelLabel = state.topBar.modelLabel;
       state.topBar.modelLabel = 'E2E Encrypted';
-      state.topBar.primaryTitle = 'Incognito';
+      state.topBar.primaryTitle = 'Confidential';
       state.topBar.agentStatus = 'Idle';
       updateDynamicCommands();
       render();
     }
 
     function newChat() {
-      exitIncognito();
+      exitConfidential();
       returnFromSideConversation({ render: false });
       const previousLocation = currentWorkspaceLocation();
       // The user has seen the outgoing thread up to its current end before starting a new chat;
@@ -17175,7 +17179,7 @@
       'increase-font-size',
       'memory-add',
       'new-chat',
-      'new-incognito-chat',
+      'new-confidential-chat',
       'next-task',
       'open-browser-session',
       'previous-task',
@@ -17534,8 +17538,8 @@
         newChat();
         return;
       }
-      if (commandID === 'new-incognito-chat') {
-        newIncognitoChat();
+      if (commandID === 'new-confidential-chat') {
+        newConfidentialChat();
         return;
       }
       if (commandID === 'quick-chat') {
@@ -20581,9 +20585,9 @@
       if (state.sideConversation && threadID !== state.sideConversation.sideThreadID) {
         returnFromSideConversation({ render: false });
       }
-      // Switching away from an incognito chat destroys it (session-only, like the native discard).
+      // Switching away from a confidential chat destroys it (session-only, like the native discard).
       if (threadID !== state.sidebar.selectedThreadID) {
-        exitIncognito();
+        exitConfidential();
       }
       const selected = state.sidebar.items.find(item => item.id === threadID);
       if (!selected) return;
@@ -20928,14 +20932,14 @@
       const text = String(value).trim();
       const attachments = clonedPlainObject(state.composer.attachments || [], []);
       if (!text && !attachments.length) return;
-      // /incognito dispatches BEFORE the shared instant-command path: runInstantSlashCommand would
+      // /confidential dispatches BEFORE the shared instant-command path: runInstantSlashCommand would
       // ensureThread + record the slash text into a DURABLE transcript first — the opposite of the
       // command's promise (mirrors the native slash path, which never touches the durable thread).
-      if (!attachments.length && /^\/(incognito|incognito-chat|private-chat)\b/i.test(text)) {
+      if (!attachments.length && /^\/(confidential|confidential-chat|private-chat|incognito|incognito-chat)\b/i.test(text)) {
         state.composer.draft = '';
         state.composer.canSend = false;
         state.composer.slashActiveIndex = 0;
-        newIncognitoChat();
+        newConfidentialChat();
         return;
       }
       if (!attachments.length && runInstantStopSlashCommand(text)) return;

@@ -13,6 +13,55 @@ import {
 import { openSidebarFilterMenu } from './sidebar-test-helpers';
 import { expectNoHorizontalOverflow } from './visual-polish-helpers';
 
+test('mock harness centers a readable conversation column at wide widths', async ({ browser }) => {
+  const page = await browser.newPage({
+    viewport: { width: 1680, height: 1000 },
+    deviceScaleFactor: 1
+  });
+  await page.goto(harnessURL());
+
+  // Empty state: the hero centers in the transcript void rather than hugging the composer.
+  const emptyLayout = await computedStyleProperties(page, '.timeline', ['justify-content']);
+  expect(emptyLayout['justify-content'], 'empty-state hero is vertically centered').toBe('center');
+
+  await page.getByLabel('Message').fill('run whoami');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(page.getByTestId('tool-card')).toHaveAttribute('data-status', 'done');
+
+  // The conversation column caps at 860px and centers: at 1680px the timeline's side padding must
+  // grow well past the base 22px, and content (including the trailing user bubble) stays inside
+  // the centered column instead of running edge-to-edge.
+  const timeline = await elementRect(page, '.timeline');
+  const padding = await computedStyleProperties(page, '.timeline', ['padding-left', 'padding-right']);
+  const paddingLeft = Number.parseFloat(padding['padding-left']);
+  const paddingRight = Number.parseFloat(padding['padding-right']);
+  const expectedPadding = Math.max(22, (timeline.width - 860) / 2);
+  expect(paddingLeft, 'side padding centers the 860px column').toBeCloseTo(expectedPadding, 0);
+  expect(paddingRight, 'padding is symmetric').toBeCloseTo(paddingLeft, 0);
+
+  const userMessage = await elementRect(page, '.message.user');
+  expect(
+    userMessage.right,
+    'the trailing user bubble pins to the centered column edge, not the pane edge'
+  ).toBeLessThanOrEqual(timeline.right - paddingRight + 1);
+  expect(userMessage.right).toBeGreaterThan(timeline.left + paddingLeft);
+
+  await page.close();
+});
+
+test('mock harness keeps the base gutter at narrow widths', async ({ browser }) => {
+  const page = await browser.newPage({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 1
+  });
+  await page.goto(harnessURL());
+
+  const padding = await computedStyleProperties(page, '.timeline', ['padding-left']);
+  expect(Number.parseFloat(padding['padding-left']), 'no centering below the 860px cap').toBe(22);
+
+  await page.close();
+});
+
 test('mock harness avoids horizontal clipping in key desktop and mobile flows', async ({ browser }) => {
   const viewports = [
     { name: 'desktop', width: 1440, height: 1000 },

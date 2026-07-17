@@ -53,17 +53,30 @@ struct WorkspaceStatusTextBuilder {
     }
 
     static func subtitleModelLabel(_ modelID: String) -> String {
-        guard let recommended = recommendedModelDisplay(for: modelID) else {
-            return TrustedRouterDefaults.canonicalModelID(modelID)
+        if let recommended = recommendedModelDisplay(for: modelID) {
+            return recommended.displayName
         }
-        return recommended.displayName
+        // Display-only names (e.g. the E2E-encrypted route) are deliberately NOT recommended models,
+        // but the top bar must still say "E2E Encrypted" — the composer chip already does, and the
+        // raw route id reading "trustedrouter/e2e" next to it looks like a bug. Arbitrary catalog
+        // models keep their informative canonical id.
+        let canonical = TrustedRouterDefaults.canonicalModelID(modelID)
+        if let displayName = TrustedRouterDefaults.recommendedDisplayNames[canonical] {
+            return displayName
+        }
+        return canonical
     }
 
     static func statusModelLabel(_ modelID: String) -> String {
-        guard let recommended = recommendedModelDisplay(for: modelID) else {
-            return TrustedRouterDefaults.canonicalModelID(modelID)
+        if let recommended = recommendedModelDisplay(for: modelID) {
+            return "\(recommended.displayName) (\(TrustedRouterDefaults.preferredDisplayModelID(recommended.modelID)))"
         }
-        return "\(recommended.displayName) (\(TrustedRouterDefaults.preferredDisplayModelID(recommended.modelID)))"
+        // Same display-only fallback as the subtitle, keeping the id visible for /status auditing.
+        let canonical = TrustedRouterDefaults.canonicalModelID(modelID)
+        if let displayName = TrustedRouterDefaults.recommendedDisplayNames[canonical] {
+            return "\(displayName) (\(canonical))"
+        }
+        return canonical
     }
 
     private static func recommendedModelDisplay(for modelID: String) -> (modelID: String, displayName: String)? {

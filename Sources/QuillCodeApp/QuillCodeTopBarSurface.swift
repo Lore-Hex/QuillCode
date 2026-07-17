@@ -38,7 +38,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var memorySources: [String]
     public var modelLabel: String
     public var selectedModelID: String
-    /// True when the selected thread's model is pinned for its lifetime (incognito chats pin the
+    /// True when the selected thread's model is pinned for its lifetime (confidential chats pin the
     /// E2E-encrypted route). Renderers show a locked, non-interactive model chip instead of a picker.
     @QuillCodeDefaultFalse public var modelIsLocked: Bool
     public var modelCategories: [ModelCategorySurface]
