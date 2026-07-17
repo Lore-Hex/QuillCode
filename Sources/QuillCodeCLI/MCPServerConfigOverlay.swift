@@ -83,16 +83,28 @@ enum MCPServerConfigOverlay {
             "base_url": "apiBaseURL",
             "max_tool_steps": "maxToolSteps",
             "run_spend_fuse_usd": "runSpendFuseUSD",
+            "run_spend_period_limits": "runSpendPeriodLimits",
             "favorite_models": "favoriteModels",
             "browser_allowed_domains": "browserAllowedDomains",
             "browser_blocked_domains": "browserBlockedDomains",
+            "computer_use_approved_bundle_identifiers": "computerUseApprovedBundleIdentifiers",
+            "computer_use_approved_app_names": "computerUseApprovedAppNames",
+            "notification_preferences": "notificationPreferences",
+            "managed_worktrees": "managedWorktrees",
+            "keyboard_shortcuts": "keyboardShortcuts",
             "skill_configuration": "skillConfiguration",
-            "default_personality": "defaultPersonality"
+            "default_personality": "defaultPersonality",
+            "review_model": "reviewModel",
+            "review_delivery": "reviewDelivery",
+            "auth_mode": "authMode"
         ]
         let allowed = Set([
             "apiBaseURL", "maxToolSteps", "runSpendFuseUSD", "favoriteModels",
             "browserAllowedDomains", "browserBlockedDomains", "skillConfiguration",
-            "defaultPersonality", "mode"
+            "defaultPersonality", "mode", "runSpendPeriodLimits",
+            "computerUseApprovedBundleIdentifiers", "computerUseApprovedAppNames",
+            "notificationPreferences", "managedWorktrees", "keyboardShortcuts",
+            "reviewModel", "reviewDelivery", "authMode"
         ])
         var normalized: [String: CLIJSONValue] = [:]
         for (key, value) in overrides {

@@ -1635,7 +1635,10 @@
   the observed `2025-06-18` MCP protocol. The catalog intentionally contains only `codex` and
   `codex-reply`; unknown fields fail instead of being silently ignored.
 - **Runtime boundary:** A start call resolves its cwd, model, sandbox, approval policy, allowlisted
-  config overrides, and optional instructions into one durable app-server thread record. Reply loads
+  config overrides, and optional instructions into one durable app-server thread record. The
+  allowlist accepts bounded Codex-style aliases for invocation-local review, spend, browser,
+  Computer Use, notification, worktree, shortcut, skill, auth-mode, and API-base preferences while
+  still rejecting unknown keys, account state, and direct developer-override toggles. Reply loads
   that exact record, so model and policy do not drift between turns. Custom compaction guidance is
   bounded and reaches the shared model-backed compactor without changing the main model selection.
 - **Safety boundary:** Review-mode tool calls use `elicitation/create`; malformed, contradictory,
@@ -1646,9 +1649,9 @@
   cancellation cooperatively stops work, progress persists incrementally, and EOF denies approval
   waiters then awaits active turns and MCP dependency shutdown.
 - **Compatibility boundary:** Public tool names, input/output shapes, handshake, events, and approval
-  transport follow observed Codex behavior. QuillCode does not claim the full native event union, an
-  exact patch `FileChange` map, arbitrary Codex config keys, or replacement of its stable structured
-  tool contract by caller-provided base instructions.
+  transport follow observed Codex behavior. QuillCode does not claim the full native event union,
+  arbitrary Codex config keys, or replacement of its stable structured tool contract by
+  caller-provided base instructions.
 - **Verification:** Focused wire/catalog/config/session/approval/compaction tests exercise the typed
   contract. `scripts/mcp-server-smoke.sh` drives the built process through initialize, discovery,
   `whoami`, durable reply, event and persistence inspection, leak rejection, and clean EOF; aggregate

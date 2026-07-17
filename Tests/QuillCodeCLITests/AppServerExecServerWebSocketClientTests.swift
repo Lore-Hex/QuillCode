@@ -238,11 +238,11 @@ final class AppServerExecServerWebSocketClientTests: AppServerExecServerWebSocke
             let peer = try await Self.acceptPeer(connection)
             let initialize = try await peer.readJSON()
             XCTAssertEqual(initialize["method"]?.stringValue, "initialize")
-            try await Task.sleep(for: .milliseconds(150))
+            try await Task.sleep(for: .seconds(1))
         }
         let client = AppServerExecServerWebSocketClient(
             websocketURL: "ws://127.0.0.1:\(listener.port)",
-            connectTimeout: 0.02
+            connectTimeout: 0.2
         )
 
         do {
@@ -250,7 +250,7 @@ final class AppServerExecServerWebSocketClientTests: AppServerExecServerWebSocke
                 _ = try await client.environmentInfo()
                 XCTFail("The initialize handshake must honor connectTimeout")
             } catch let error as AppServerExecServerError {
-                XCTAssertEqual(error, .timedOut(operation: "response", seconds: 0.02))
+                XCTAssertEqual(error, .timedOut(operation: "response", seconds: 0.2))
             }
             try await server.value
         } catch {
