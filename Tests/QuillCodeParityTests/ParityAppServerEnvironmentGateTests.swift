@@ -8,6 +8,10 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             root,
             "Sources/QuillCodeCLI/AppServerEnvironmentRegistry.swift"
         )
+        let sessionEnvironments = try text(
+            root,
+            "Sources/QuillCodeCLI/AppServerSessionEnvironments.swift"
+        )
         let connectionClient = try text(
             root,
             "Sources/QuillCodeCLI/AppServerExecServerWebSocketClient.swift"
@@ -37,6 +41,10 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "Tests/QuillCodeCLITests/AppServerExecServerWebSocketClientTests.swift"
         )
         let smoke = try text(root, "scripts/app-server-environment-smoke.sh")
+        let smokeServer = try text(
+            root,
+            "scripts/fixtures/app_server_environment_exec_server.py"
+        )
         let aggregateSmoke = try text(root, "scripts/smoke.sh")
         let parity = try Self.docsText(named: "CODEX_PARITY_MATRIX.md")
         let research = try Self.docsText(named: "CODEX_RESEARCH.md")
@@ -49,17 +57,28 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "environmentRegistry"
         ])
         Self.assertSource(registry, containsAll: [
-            "Registration is intentionally lazy",
+            "Registration acknowledges immediately",
+            "func status(",
+            "observation.observedAt > subscription.startedAt",
             "unknown environment id",
             "unknown turn environment id",
             "ConnectionEvent",
             "connectionSnapshot",
             "closeAll"
         ])
+        Self.assertSource(sessionEnvironments, containsAll: [
+            "thread/environment/connected",
+            "thread/environment/disconnected",
+            "synchronizeEnvironmentSubscription",
+            "subscribedThreadIDs.contains(event.threadID)"
+        ])
         Self.assertSource(connectionClient, containsAll: [
             "resumeSessionId",
             "method: \"initialize\"",
-            "method: \"initialized\""
+            "method: \"initialized\"",
+            "method: \"environment/status\"",
+            "startReader(",
+            "readerDidFail("
         ])
         Self.assertSource(fileSystemClient, containsAll: [
             "fs/readFile",
@@ -86,6 +105,9 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "environment access is disabled for this thread"
         ])
         Self.assertSource(sessionTests, containsAll: [
+            "testEnvironmentStatusUsesCodexCompatibleStatesWithoutUnknownIDError",
+            "testSelectedThreadsReceiveFutureConnectionTransitionsWithoutReplay",
+            "testSelectedThreadReceivesInitialConnectionFailureWithoutStatusRecovery",
             "testSelectedRemoteEnvironmentRoutesAgentToolAndKeepsContextTransient",
             "testDirectUserShellUsesSelectedRemoteEnvironment",
             "testDirectUserShellRejectsDisabledEnvironmentWithoutDispatch"
@@ -93,16 +115,32 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
         Self.assertSource(
             transportTests,
             containsAll: [
-                "testConcurrentRPCsAreSerializedAndReconnectResumesSession",
-                "testConnectionSnapshotProbesExistingSocketAndNeverReconnects",
+                "testConcurrentRPCsRouteResponsesAndReconnectResumesSession",
+                "testStatusProbeUsesExistingConnectionAndIdleClosePublishesFutureTransitions",
                 "testProcessReadsAdvanceWithLastObservedSequenceWithoutSkippingOutput"
             ]
         )
         Self.assertSource(smoke, containsAll: [
+            "import time",
+            "environment/status",
+            "thread/environment/connected",
+            "thread/environment/disconnected",
+            "disconnect_client",
             "remote command ran on the local host",
             "disabled command ran locally",
             "late-output",
             "app-server environment smoke passed"
+        ])
+        Self.assertSource(smokeServer, containsAll: [
+            "class ExecServer:",
+            "resumeSessionId",
+            "environment/status",
+            "process/start",
+            "process/read",
+            "send_frame(connection, 8, b\"\")",
+            "_wait_for_connection_change",
+            "timeout=15",
+            "late-output"
         ])
         Self.assertSource(aggregateSmoke, contains: "app-server-environment-smoke.sh")
         Self.assertSource(parity, contains: "App-server execution environments")

@@ -72,7 +72,8 @@ extension AppServerSession {
     private func receiveEnvironmentConnectionEvent(
         _ event: AppServerEnvironmentRegistry.ConnectionEvent
     ) async {
-        guard environmentSubscriptions[event.threadID]?.environmentID == event.environmentID else {
+        guard subscribedThreadIDs.contains(event.threadID),
+              environmentSubscriptions[event.threadID]?.environmentID == event.environmentID else {
             return
         }
         await sendNotification(

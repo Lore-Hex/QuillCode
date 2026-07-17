@@ -274,7 +274,7 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
         await client.close()
     }
 
-    func testConcurrentRPCsAreSerializedAndReconnectResumesSession() async throws {
+    func testConcurrentRPCsRouteResponsesAndReconnectResumesSession() async throws {
         let listener = try TCPSocketListener(host: "127.0.0.1", port: 0)
         let requestCount = 24
         let server = Task.detached { @Sendable [listener, requestCount] in
@@ -312,6 +312,7 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
             websocketURL: "ws://127.0.0.1:\(listener.port)",
             connectTimeout: 2
         )
+        let connectionEvents = await client.connectionEvents()
 
         do {
             let values = try await withThrowingTaskGroup(
@@ -326,15 +327,70 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
                 return values
             }
             XCTAssertEqual(values, Array(repeating: Self.info, count: requestCount))
+            var eventIterator = connectionEvents.makeAsyncIterator()
+            let connectedEvent = await eventIterator.next()
+            let disconnectedEvent = await eventIterator.next()
+            XCTAssertEqual(connectedEvent?.state, .connected)
+            XCTAssertEqual(disconnectedEvent?.state, .disconnected)
 
-            do {
-                _ = try await client.environmentInfo()
-                XCTFail("The first request after transport closure must fail without replay")
-            } catch {
-                // A failed request resets the transport; the next request may reconnect safely.
-            }
+            // The transport observed closure before this operation was dispatched, so reconnecting
+            // is safe. Requests lost after dispatch still fail without replay.
             let reconnectedInfo = try await client.environmentInfo()
             XCTAssertEqual(reconnectedInfo, Self.info)
+            try await server.value
+        } catch {
+            server.cancel()
+            listener.close()
+            await client.close()
+            throw error
+        }
+        listener.close()
+        await client.close()
+    }
+
+    func testStatusProbeUsesExistingConnectionAndIdleClosePublishesFutureTransitions() async throws {
+        let listener = try TCPSocketListener(host: "127.0.0.1", port: 0)
+        let server = Task.detached { @Sendable [listener] in
+            let connection = try await listener.accept()
+            defer { connection.close() }
+            let peer = try await Self.acceptPeer(connection)
+            try await peer.completeHandshake(sessionID: "status-session")
+            let status = try await peer.readJSON()
+            XCTAssertEqual(status["method"]?.stringValue, "environment/status")
+            try await peer.respond(to: status, result: .object([
+                "status": .string("ready")
+            ]))
+            try await peer.writer.sendClose()
+        }
+        let client = AppServerExecServerWebSocketClient(
+            websocketURL: "ws://127.0.0.1:\(listener.port)",
+            connectTimeout: 2
+        )
+        let allEvents = await client.connectionEvents()
+
+        do {
+            let pendingStatus = await client.connectionSnapshot()
+            XCTAssertEqual(pendingStatus, .pending)
+            try await client.connect()
+            let futureEvents = await client.connectionEvents()
+            let readyStatus = await client.connectionSnapshot()
+            XCTAssertEqual(readyStatus, .ready)
+
+            var allIterator = allEvents.makeAsyncIterator()
+            let connectedEvent = await allIterator.next()
+            let disconnectedEvent = await allIterator.next()
+            XCTAssertEqual(connectedEvent?.state, .connected)
+            XCTAssertEqual(disconnectedEvent?.state, .disconnected)
+            var futureIterator = futureEvents.makeAsyncIterator()
+            let futureDisconnectedEvent = await futureIterator.next()
+            XCTAssertEqual(
+                futureDisconnectedEvent?.state,
+                .disconnected,
+                "Subscribing after connect must not replay current state"
+            )
+            let disconnectedStatus = await client.connectionSnapshot()
+            XCTAssertEqual(disconnectedStatus.status, .disconnected)
+            XCTAssertFalse(disconnectedStatus.error?.isEmpty ?? true)
             try await server.value
         } catch {
             server.cancel()

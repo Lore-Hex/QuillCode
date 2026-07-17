@@ -14,9 +14,17 @@ actor AppServerEnvironmentRegistry {
 
     typealias ConnectionEventHandler = @Sendable (ConnectionEvent) async -> Void
 
+    private struct Subscription: Sendable {
+        var threadID: UUID
+        var environmentID: String
+        var startedAt: ContinuousClock.Instant
+        var handler: ConnectionEventHandler
+    }
+
     private struct RemoteEntry: Sendable {
         var registrationID: UUID
         var client: any AppServerExecServerClient
+        var eventTask: Task<Void, Never>
     }
 
     private enum Entry: Sendable {
@@ -24,27 +32,15 @@ actor AppServerEnvironmentRegistry {
         case remote(RemoteEntry)
     }
 
-    private struct Subscription: Sendable {
-        var threadID: UUID
-        var environmentID: String
-        var handler: ConnectionEventHandler
-    }
-
     private static let defaultConnectTimeout: TimeInterval = 10
 
     private var entries: [String: Entry]
-    private var snapshots: [String: AppServerEnvironmentConnectionSnapshot] = [
-        "local": .ready
-    ]
     private var subscriptions: [UUID: Subscription] = [:]
-    private var monitorTasks: [String: Task<Void, Never>] = [:]
     private let clientFactory: AppServerExecServerClientFactory
-    private let monitorInterval: Duration
 
     init(
         localCWD: URL,
         environment: [String: String],
-        monitorInterval: Duration = .seconds(1),
         clientFactory: @escaping AppServerExecServerClientFactory = {
             AppServerExecServerWebSocketClient(
                 websocketURL: $0,
@@ -62,29 +58,36 @@ actor AppServerEnvironmentRegistry {
         )
         self.entries = ["local": .local(local)]
         self.clientFactory = clientFactory
-        self.monitorInterval = monitorInterval
     }
 
     func add(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
         let params = try Self.registrationParams(raw)
         let client = clientFactory(params.execServerURL, params.connectTimeout)
         let registrationID = UUID()
-        let previous = entries.updateValue(
-            .remote(.init(registrationID: registrationID, client: client)),
-            forKey: params.environmentID
-        )
-        snapshots[params.environmentID] = .pending
-        restartMonitor(
-            environmentID: params.environmentID,
+        let events = await client.connectionEvents()
+        let eventTask = Task { [weak self] in
+            for await observation in events {
+                guard !Task.isCancelled else { return }
+                await self?.publishConnectionEvent(
+                    environmentID: params.environmentID,
+                    registrationID: registrationID,
+                    observation: observation
+                )
+            }
+        }
+        let entry = RemoteEntry(
             registrationID: registrationID,
-            client: client
+            client: client,
+            eventTask: eventTask
         )
-        if case .remote(let previousEntry) = previous {
-            Task { await previousEntry.client.close() }
+        let previous = entries.updateValue(.remote(entry), forKey: params.environmentID)
+        if case .remote(let previousRemote) = previous {
+            previousRemote.eventTask.cancel()
+            Task { await previousRemote.client.close() }
         }
         Task {
-            // Registration is intentionally lazy, matching Codex: environment/add acknowledges the
-            // registry mutation immediately and environment/info surfaces connection failures.
+            // Registration acknowledges immediately while initial connection proceeds in the
+            // background. Later requests may recover a disconnected transport, but status never does.
             try? await client.connect()
         }
         return .object([:])
@@ -105,13 +108,8 @@ actor AppServerEnvironmentRegistry {
             let snapshot = await remote.client.connectionSnapshot()
             guard case .remote(let current) = entries[environmentID],
                   current.registrationID == remote.registrationID else {
-                return (snapshots[environmentID] ?? .pending).rpcValue
+                return AppServerEnvironmentConnectionSnapshot.pending.rpcValue
             }
-            await record(
-                snapshot,
-                environmentID: environmentID,
-                registrationID: remote.registrationID
-            )
             return snapshot.rpcValue
         }
     }
@@ -166,6 +164,7 @@ actor AppServerEnvironmentRegistry {
         subscriptions[token] = Subscription(
             threadID: threadID,
             environmentID: environmentID,
+            startedAt: ContinuousClock.now,
             handler: handler
         )
     }
@@ -183,67 +182,39 @@ actor AppServerEnvironmentRegistry {
     }
 
     func closeAll() async {
-        monitorTasks.values.forEach { $0.cancel() }
-        monitorTasks.removeAll()
-        subscriptions.removeAll()
-        let clients = entries.values.compactMap { entry -> (any AppServerExecServerClient)? in
+        let remotes = entries.values.compactMap { entry -> RemoteEntry? in
             guard case .remote(let remote) = entry else { return nil }
-            return remote.client
+            return remote
         }
-        for client in clients { await client.close() }
+        subscriptions.removeAll()
+        for remote in remotes {
+            remote.eventTask.cancel()
+            await remote.client.close()
+        }
     }
 
-    private func restartMonitor(
+    private func publishConnectionEvent(
         environmentID: String,
         registrationID: UUID,
-        client: any AppServerExecServerClient
-    ) {
-        monitorTasks[environmentID]?.cancel()
-        monitorTasks[environmentID] = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                let snapshot = await client.connectionSnapshot()
-                await self.record(
-                    snapshot,
-                    environmentID: environmentID,
-                    registrationID: registrationID
-                )
-                do {
-                    try await Task.sleep(for: self.monitorInterval)
-                } catch {
-                    return
-                }
-            }
-        }
-    }
-
-    private func record(
-        _ snapshot: AppServerEnvironmentConnectionSnapshot,
-        environmentID: String,
-        registrationID: UUID
+        observation: AppServerExecServerConnectionObservation
     ) async {
         guard case .remote(let current) = entries[environmentID],
               current.registrationID == registrationID else {
             return
         }
-        let previous = snapshots.updateValue(snapshot, forKey: environmentID)
-        guard let previous,
-              previous.isConnected != snapshot.isConnected else {
-            return
+        let matchingSubscriptions = subscriptions.values.filter { subscription in
+            subscription.environmentID == environmentID
+                && observation.observedAt > subscription.startedAt
         }
-        let eventSubscriptions = subscriptions.values.filter {
-            $0.environmentID == environmentID
-        }
-        let connected = snapshot.isConnected
-        for subscription in eventSubscriptions {
-            guard case .remote(let current) = entries[environmentID],
-                  current.registrationID == registrationID else {
+        for subscription in matchingSubscriptions {
+            guard case .remote(let latest) = entries[environmentID],
+                  latest.registrationID == registrationID else {
                 return
             }
             await subscription.handler(ConnectionEvent(
                 threadID: subscription.threadID,
                 environmentID: environmentID,
-                connected: connected
+                connected: observation.state == .connected
             ))
         }
     }
@@ -279,7 +250,7 @@ actor AppServerEnvironmentRegistry {
         let timeout = try connectTimeout(in: object)
         return RegistrationParams(
             environmentID: environmentID,
-            execServerURL: execServerURL,
+            execServerURL: normalizedURL,
             connectTimeout: timeout
         )
     }

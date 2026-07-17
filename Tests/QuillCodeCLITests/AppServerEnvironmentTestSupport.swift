@@ -1,5 +1,7 @@
 import Foundation
+import QuillCodeAgent
 @testable import QuillCodeCLI
+import QuillCodeCore
 
 actor AppServerFakeExecServerClient: AppServerExecServerClient {
     struct Snapshot: Sendable, Equatable {
@@ -10,9 +12,9 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
     }
 
     private var info: AppServerEnvironmentInfo
-    private var connectDelay: Duration?
     private var infoDelay: Duration?
     private var processDelay: Duration?
+    private var connectDelay: Duration?
     private var connectError: AppServerExecServerError?
     private var infoError: AppServerExecServerError?
     private var processResults: [AppServerRemoteProcessResult]
@@ -25,15 +27,19 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
     private var processRequests: [AppServerRemoteProcessRequest] = []
     private var removedURIs: [String] = []
     private var currentConnectionSnapshot: AppServerEnvironmentConnectionSnapshot = .pending
+    private var connected = false
+    private var lastPublishedConnectionState: AppServerEnvironmentConnectionState?
+    private var connectionEventContinuations:
+        [UUID: AsyncStream<AppServerExecServerConnectionObservation>.Continuation] = [:]
 
     init(
         info: AppServerEnvironmentInfo = .init(
             shell: .init(name: "zsh", path: "/bin/zsh"),
             cwd: "file:///workspace"
         ),
-        connectDelay: Duration? = nil,
         infoDelay: Duration? = nil,
         processDelay: Duration? = nil,
+        connectDelay: Duration? = nil,
         connectError: AppServerExecServerError? = nil,
         infoError: AppServerExecServerError? = nil,
         processResults: [AppServerRemoteProcessResult] = [],
@@ -43,9 +49,9 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         directoryEntries: [String: [AppServerRemoteDirectoryEntry]] = [:]
     ) {
         self.info = info
-        self.connectDelay = connectDelay
         self.infoDelay = infoDelay
         self.processDelay = processDelay
+        self.connectDelay = connectDelay
         self.connectError = connectError
         self.infoError = infoError
         self.processResults = processResults
@@ -61,13 +67,27 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         if let connectDelay { try await Task.sleep(for: connectDelay) }
         if let connectError {
             currentConnectionSnapshot = .disconnected(connectError.errorDescription)
+            transitionConnectionState(to: .disconnected)
             throw connectError
         }
         currentConnectionSnapshot = .ready
+        guard !connected else { return }
+        connected = true
+        transitionConnectionState(to: .connected)
     }
 
     func connectionSnapshot() -> AppServerEnvironmentConnectionSnapshot {
         currentConnectionSnapshot
+    }
+
+    func connectionEvents() -> AsyncStream<AppServerExecServerConnectionObservation> {
+        let identifier = UUID()
+        let pair = AsyncStream<AppServerExecServerConnectionObservation>.makeStream()
+        connectionEventContinuations[identifier] = pair.continuation
+        pair.continuation.onTermination = { [weak self] _ in
+            Task { await self?.removeConnectionEventContinuation(identifier) }
+        }
+        return pair.stream
     }
 
     func environmentInfo() async throws -> AppServerEnvironmentInfo {
@@ -143,6 +163,15 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
 
     func close() {
         closeCount += 1
+        if connected {
+            connected = false
+            currentConnectionSnapshot = .disconnected("closed")
+            transitionConnectionState(to: .disconnected)
+        }
+        for continuation in connectionEventContinuations.values {
+            continuation.finish()
+        }
+        connectionEventContinuations.removeAll()
     }
 
     func setInfoError(_ error: AppServerExecServerError?) {
@@ -151,6 +180,16 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
 
     func setConnectionSnapshot(_ snapshot: AppServerEnvironmentConnectionSnapshot) {
         currentConnectionSnapshot = snapshot
+        connected = snapshot.isConnected
+        transitionConnectionState(to: connected ? .connected : .disconnected)
+    }
+
+    func emitConnectionState(_ state: AppServerEnvironmentConnectionState) {
+        connected = state == .connected
+        currentConnectionSnapshot = connected
+            ? .ready
+            : .disconnected("connection closed")
+        transitionConnectionState(to: state)
     }
 
     func setProcessResults(_ results: [AppServerRemoteProcessResult]) {
@@ -180,6 +219,22 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
 
     private func missing(_ pathURI: String) -> AppServerExecServerError {
         .remoteRPC(code: -32_000, message: "path not found: \(pathURI)")
+    }
+
+    private func transitionConnectionState(to state: AppServerEnvironmentConnectionState) {
+        guard state != lastPublishedConnectionState else { return }
+        lastPublishedConnectionState = state
+        let observation = AppServerExecServerConnectionObservation(
+            state: state,
+            observedAt: ContinuousClock.now
+        )
+        for continuation in connectionEventContinuations.values {
+            continuation.yield(observation)
+        }
+    }
+
+    private func removeConnectionEventContinuation(_ identifier: UUID) {
+        connectionEventContinuations[identifier] = nil
     }
 }
 
@@ -219,4 +274,69 @@ final class AppServerFakeExecServerFactory: @unchecked Sendable {
         defer { lock.unlock() }
         return registrations
     }
+}
+
+struct EnvironmentSessionFixture {
+    var session: AppServerSession
+    var output: EnvironmentSessionOutputCollector
+    var workspace: URL
+}
+
+actor EnvironmentSessionOutputCollector {
+    private var lines: [String] = []
+
+    func append(_ line: String) {
+        lines.append(line)
+    }
+
+    func records() throws -> [[String: CLIJSONValue]] {
+        try lines.map { line in
+            guard let value = try CLIJSONCodec.decode(line).objectValue else {
+                throw EnvironmentSessionTestError.invalidRecord
+            }
+            return value
+        }
+    }
+}
+
+struct EnvironmentEchoLLM: LLMClient {
+    func nextAction(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) -> AgentAction {
+        .say(userMessage)
+    }
+}
+
+actor EnvironmentScriptedLLM: LLMClient {
+    struct Observation: Sendable {
+        var messages: [ChatMessage]
+        var toolNames: Set<String>
+    }
+
+    private var actions: [AgentAction]
+    private var captured: [Observation] = []
+
+    init(actions: [AgentAction]) {
+        self.actions = actions
+    }
+
+    func nextAction(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) -> AgentAction {
+        captured.append(.init(messages: thread.messages, toolNames: Set(tools.map(\.name))))
+        guard !actions.isEmpty else { return .say("No scripted action remains.") }
+        return actions.removeFirst()
+    }
+
+    func observations() -> [Observation] {
+        captured
+    }
+}
+
+enum EnvironmentSessionTestError: Error {
+    case invalidRecord
 }

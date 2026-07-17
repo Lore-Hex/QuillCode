@@ -300,8 +300,14 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 
 - Current Codex app-server execution environments are process-scoped registrations, not durable user
   configuration. `environment/add` accepts `environmentId`, `execServerUrl`, and an optional unsigned
-  `connectTimeoutMs`; registration is lazy and replacing an ID, including `local`, is allowed.
-  `environment/info` forces connection and reports a shell name/path plus nullable CWD. Thread
+  `connectTimeoutMs`; it acknowledges registration immediately, connects in the background, and
+  replacing an ID, including `local`, is allowed. `environment/info` recovers or awaits connection
+  and reports a shell name/path plus nullable CWD. `environment/status` is observation-only: local is
+  `ready`, a registered target with no established connection or failure is `pending`, a known or
+  newly observed transport failure is `disconnected` with an error, and an unknown ID returns
+  `unknown` with an error as a normal result. A ready remote is probed over its existing initialized
+  connection with the exec-server `environment/status` method and a ten-second deadline; status never
+  starts or recovers a connection. Thread
   start/resume/fork and turn start accept an `environments` array: omission preserves/defaults the
   selection, an empty array disables environment access, and a nonempty array selects its first
   `{environmentId,cwd}` entry and persists it for later turns. Unknown IDs fail with `-32600`.
@@ -311,14 +317,13 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   `process/read` response's `nextSeq` is one past the last observed event, so the next inclusive
   `afterSeq` cursor is `nextSeq - 1`; readers wait for `closed`, not merely `exited`, to retain output
   flushed after process exit. A request that loses transport after dispatch must not be replayed
-  automatically. `environment/status` observes an existing registration without creating or resuming
-  a connection and returns `ready`, `pending`, `disconnected`, or `unknown` plus a nullable error.
-  Selected threads receive `thread/environment/connected` only on a later connection transition, not
-  as replayed state when selection starts, and all threads selecting that environment receive a later
-  disconnected transition. Sources: generated
-  current app-server v2 schemas and public `openai/codex` app-server environment processor,
-  exec-server protocol, remote environment tests, and deferred executor implementation at Codex
-  0.144.5, audited 2026-07-16.
+  automatically. A persistent receive loop observes idle closure and routes concurrent responses by
+  request ID. Selected subscribed threads receive future `thread/environment/connected` and
+  `thread/environment/disconnected` transitions for their environment; current state is not replayed,
+  and every selected subscribed thread receives the transition. Sources: generated current app-server
+  v2 schemas and public `openai/codex` app-server environment processor, exec-server protocol, status
+  and remote-environment tests, and deferred executor implementation at Codex 0.144.5, audited
+  2026-07-16.
 
 - Current Codex remote projects launch the remote Codex app server over SSH and run it through the
   remote user's login shell. The remote `codex` executable must therefore be available on that
