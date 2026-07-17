@@ -178,6 +178,26 @@ test('mock harness renders office artifact metadata previews from tool cards', a
   await expect(page.getByText('Created `budget.xlsx`.')).toBeVisible();
 });
 
+test('mock harness renders delimited table artifact previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a csv table artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('revenue.csv');
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'spreadsheet');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Spreadsheet · CSV');
+  await expect(page.getByTestId('tool-card-table-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-table-preview-meta')).toHaveText([
+    'Format: CSV',
+    '4 rows, 3 columns'
+  ]);
+  await expect(page.getByTestId('tool-card-table-preview-header')).toHaveText(['Quarter', 'Revenue', 'Notes']);
+  await expect(page.getByTestId('tool-card-table-preview-cell').filter({ hasText: 'Expansion, EU' })).toBeVisible();
+  await expect(page.getByText('Created `revenue.csv`.')).toBeVisible();
+});
+
 test('mock harness renders appshot artifact previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

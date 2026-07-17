@@ -162,6 +162,40 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteSpreadsheet.officePreview)
     }
 
+    func testArtifactStateDerivesDelimitedTablePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let csv = directory.appendingPathComponent("revenue.csv")
+        try """
+        Quarter,Revenue,Notes
+        Q1,12000,Launch
+        Q2,18500,"Expansion, EU"
+        Q3,22400,Retention
+        """.write(to: csv, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: csv.path)
+        let preview = try XCTUnwrap(artifact.tablePreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .spreadsheet)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "CSV")
+        XCTAssertEqual(preview.delimiterLabel, "CSV")
+        XCTAssertEqual(preview.rowCountLabel, "4 rows")
+        XCTAssertEqual(preview.columnCount, 3)
+        XCTAssertEqual(preview.headers, ["Quarter", "Revenue", "Notes"])
+        XCTAssertEqual(preview.rows, [
+            ["Q1", "12000", "Launch"],
+            ["Q2", "18500", "Expansion, EU"],
+            ["Q3", "22400", "Retention"]
+        ])
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: CSV",
+            "4 rows, 3 columns"
+        ])
+
+        let remoteCSV = ToolArtifactState(value: "https://example.com/revenue.csv")
+        XCTAssertNil(remoteCSV.tablePreview)
+    }
+
     func testArtifactStateDerivesAppshotPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let appshotFile = directory.appendingPathComponent("checkout.appshot.json")

@@ -12,6 +12,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactAppshotPreviewText = try Self.appSourceText(named: "ToolArtifactAppshotPreviewBuilder.swift")
         let artifactPDFPreviewText = try Self.appSourceText(named: "ToolArtifactPDFPreviewBuilder.swift")
         let artifactOfficePreviewText = try Self.appSourceText(named: "ToolArtifactOfficePreviewBuilder.swift")
+        let artifactTablePreviewText = try Self.appSourceText(named: "ToolArtifactTablePreviewBuilder.swift")
         let artifactByteSizeText = try Self.appSourceText(named: "ToolArtifactByteSizeFormatter.swift")
         let artifactTextPreviewText = try Self.appSourceText(named: "ToolArtifactTextPreviewBuilder.swift")
         let transcriptBuilderText = try Self.appSourceText(named: "WorkspaceTranscriptSurfaceBuilder.swift")
@@ -27,10 +28,12 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "ToolArtifactAppshotPreviewBuilder.appshotPreview",
             "ToolArtifactPDFPreviewBuilder.pdfPreview",
             "ToolArtifactOfficePreviewBuilder.officePreview",
+            "ToolArtifactTablePreviewBuilder.tablePreview",
             "public struct ToolArtifactDocumentPreview",
             "public struct ToolArtifactAppshotPreview",
             "public struct ToolArtifactPDFPreview",
             "public struct ToolArtifactOfficePreview",
+            "public struct ToolArtifactTablePreview",
             "public struct ToolArtifactImagePreview"
         ])
         Self.assertSource(artifactValueClassifierText, contains: "enum ToolArtifactValueClassifier")
@@ -62,6 +65,13 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "centralDirectoryHeaderSignature",
             "worksheetCount",
             "slideCount"
+        ])
+        Self.assertSource(artifactTablePreviewText, containsAll: [
+            "enum ToolArtifactTablePreviewBuilder",
+            "byteLimit",
+            "rowLimit",
+            "columnLimit",
+            "parseRows"
         ])
         Self.assertSource(artifactByteSizeText, contains: "enum ToolArtifactByteSizeFormatter")
         Self.assertSource(artifactTextPreviewText, contains: "enum ToolArtifactTextPreviewBuilder")
