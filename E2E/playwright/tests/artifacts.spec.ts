@@ -111,6 +111,27 @@ test('mock harness renders image artifact previews from tool cards', async ({ pa
   await expect(page.getByText('Captured a screenshot of Terminal (1280 x 720).')).toBeVisible();
 });
 
+test('mock harness renders SVG artifacts as image previews', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make an svg artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('logo.svg');
+  await expect(page.getByTestId('tool-card-image-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-image-preview')).toHaveAttribute('data-kind', 'image');
+  await expect(page.getByTestId('tool-card-image-preview-type')).toHaveText('Image · SVG · 320 x 180 px');
+  await expect(page.getByTestId('tool-card-image-preview-label')).toHaveText('logo.svg');
+  await expect(page.getByTestId('tool-card-image-preview-detail')).toHaveText('/mock/QuillCode/artifacts');
+  await expect(page.getByTestId('tool-card-image-preview').locator('img')).toHaveAttribute(
+    'src',
+    'file:///mock/QuillCode/artifacts/logo.svg'
+  );
+  await expect(page.getByTestId('tool-card-text-previews')).toHaveCount(0);
+  await expect(page.getByText('Created `logo.svg`.')).toBeVisible();
+});
+
 test('mock harness renders document artifact previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

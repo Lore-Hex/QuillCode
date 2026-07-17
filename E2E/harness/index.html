@@ -8154,7 +8154,7 @@
     function artifactIsImagePreview(value, kind) {
       if (value.toLowerCase().startsWith('data:image/')) return true;
       if (kind !== 'file' && kind !== 'url') return false;
-      return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'tif', 'tiff', 'bmp'].includes(artifactPathExtension(value));
+      return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg', 'tif', 'tiff', 'bmp'].includes(artifactPathExtension(value));
     }
 
     function artifactPreviewURL(value, kind) {
@@ -8168,9 +8168,13 @@
 
     function artifactImagePreview(value, kind, detail) {
       if (!artifactIsImagePreview(value, kind)) return null;
+      const dimensionsLabel = artifactImageDimensionsLabel(value, kind);
+      const typeLine = ['Image', artifactImageExtension(value), dimensionsLabel].filter(Boolean).join(' · ');
       return {
         typeLabel: 'Image',
         extensionLabel: artifactImageExtension(value),
+        dimensionsLabel,
+        typeLine,
         detail
       };
     }
@@ -8190,6 +8194,47 @@
       if (base === 'jpeg') return 'JPG';
       if (base === 'x-icon') return 'ICO';
       return base.toUpperCase();
+    }
+
+    function artifactImageDimensionsLabel(value, kind) {
+      if (kind !== 'file') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || content.length > 64 * 1024) return null;
+      if (artifactPathExtension(value) !== 'svg') return null;
+      const dimensions = svgDimensions(content);
+      return dimensions ? `${dimensions.width} x ${dimensions.height} px` : null;
+    }
+
+    function svgDimensions(content) {
+      const svgMatch = content.slice(0, 4096).match(/<svg\b([^>]*)>/i);
+      if (!svgMatch) return null;
+      const tag = svgMatch[1] || '';
+      const width = svgLengthAttribute(tag, 'width');
+      const height = svgLengthAttribute(tag, 'height');
+      if (width && height) return { width, height };
+      const viewBox = svgAttribute(tag, 'viewBox');
+      if (!viewBox) return null;
+      const values = viewBox.replaceAll(',', ' ').trim().split(/\s+/).map(Number);
+      if (values.length !== 4 || values.some(value => !Number.isFinite(value))) return null;
+      const viewBoxWidth = Math.round(values[2]);
+      const viewBoxHeight = Math.round(values[3]);
+      return viewBoxWidth > 0 && viewBoxHeight > 0 ? { width: viewBoxWidth, height: viewBoxHeight } : null;
+    }
+
+    function svgLengthAttribute(tag, name) {
+      const value = svgAttribute(tag, name);
+      if (!value) return null;
+      const match = value.match(/^\s*([0-9]+(?:\.[0-9]+)?)/);
+      if (!match) return null;
+      const rounded = Math.round(Number(match[1]));
+      return rounded > 0 ? rounded : null;
+    }
+
+    function svgAttribute(tag, name) {
+      const match = tag.match(new RegExp(`${name}\\s*=\\s*["']([^"']+)["']`, 'i'))
+        || tag.match(new RegExp(`${name}\\s*=\\s*([^\\s>]+)`, 'i'));
+      return match ? String(match[1] || '').trim() || null : null;
     }
 
     const documentPreviewKinds = new Map([
@@ -10253,7 +10298,7 @@
               <figure class="artifact-preview" data-testid="tool-card-image-preview" data-kind="image">
                 <img src="${escapeHTML(artifact.previewURL)}" alt="${escapeHTML(artifact.label)}" loading="lazy">
                 <figcaption>
-                  <small data-testid="tool-card-image-preview-type">${escapeHTML(artifact.imagePreview.typeLabel)} · ${escapeHTML(artifact.imagePreview.extensionLabel)}</small>
+                  <small data-testid="tool-card-image-preview-type">${escapeHTML(artifact.imagePreview.typeLine)}</small>
                   <strong data-testid="tool-card-image-preview-label">${escapeHTML(artifact.label)}</strong>
                   <small data-testid="tool-card-image-preview-detail">${escapeHTML(artifact.imagePreview.detail)}</small>
                 </figcaption>
@@ -22077,6 +22122,17 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Captured ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Captured appshot `checkout.appshot.json`.');
+      } else if (text.toLowerCase().includes('svg') && text.toLowerCase().includes('artifact')) {
+        const path = '/mock/QuillCode/artifacts/logo.svg';
+        state.mockFiles[path] = '<svg width="320" height="180" viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg"><rect width="320" height="180"/></svg>';
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path: 'artifacts/logo.svg', contentType: 'image/svg+xml' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `logo.svg`.');
       } else if (fileWriteRequest) {
         const { path, content } = fileWriteRequest;
         if (isRemoteProject) {

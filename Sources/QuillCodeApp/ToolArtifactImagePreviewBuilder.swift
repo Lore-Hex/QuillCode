@@ -76,6 +76,7 @@ enum ToolArtifactImagePreviewBuilder {
         "gif",
         "webp",
         "heic",
+        "svg",
         "tif",
         "tiff",
         "bmp"

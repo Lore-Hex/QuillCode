@@ -71,6 +71,7 @@ final class ParityWorkspacePlaywrightFocusedSpecGateTests: QuillCodeParityTestCa
         let artifactFlowNames = [
             "surfaces file artifacts from tool cards",
             "renders image artifact previews from tool cards",
+            "renders SVG artifacts as image previews",
             "renders document artifact previews from tool cards",
             "renders delimited table artifact previews from tool cards",
             "renders appshot artifact previews from tool cards"
