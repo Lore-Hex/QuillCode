@@ -907,6 +907,53 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(surface.composer.placeholder, modelComposer.placeholder)
     }
 
+    /// The live plan-progress rail and queued follow-up chips are the unattended-driving check-in
+    /// surface — both are model-derived composer fields. `refreshState` rebuilds the composer from
+    /// the LOCAL draft, so it must carry them across; the bare rebuild dropped both, making the rail
+    /// and follow-ups vanish on every controller-triggered refresh. (`supportsPersonality` was in the
+    /// same dropped set; the structural `==` guard above catches it once a fixture exercises it.)
+    func testDesktopRefreshPreservesPlanProgressAndFollowUpQueue() throws {
+        let update = AgentPlanUpdate(plan: [
+            AgentPlanItem(step: "Inspect", status: .completed),
+            AgentPlanItem(step: "Change", status: .inProgress),
+            AgentPlanItem(step: "Verify", status: .pending)
+        ])
+        let planResult = ToolResult(ok: true, stdout: try JSONHelpers.encodePretty(update))
+        var thread = ChatThread(
+            title: "Plan work",
+            messages: [.init(role: .user, content: "plan the work")],
+            events: [.init(
+                kind: .toolCompleted,
+                summary: "\(ToolDefinition.planUpdate.name) completed",
+                payloadJSON: try JSONHelpers.encodePretty(planResult)
+            )]
+        )
+        thread.followUpQueue = [FollowUpItem(text: "queued follow-up")]
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        let expected = model.surface().composer
+        XCTAssertNotNil(expected.planProgress, "fixture must actually populate a plan")
+        XCTAssertFalse(expected.followUpQueue.isEmpty, "fixture must actually queue a follow-up")
+
+        var surface = model.surface()
+        var draft = model.composer.draft
+        var terminalDraft = model.terminal.draft
+        var browserAddressDraft = model.browser.addressDraft
+        QuillCodeDesktopModelStateCoordinator().refreshState(
+            from: model,
+            surface: &surface,
+            draft: &draft,
+            terminalDraft: &terminalDraft,
+            browserAddressDraft: &browserAddressDraft
+        )
+
+        XCTAssertEqual(surface.composer.planProgress, expected.planProgress, "the plan rail must survive refresh")
+        XCTAssertEqual(surface.composer.followUpQueue, expected.followUpQueue, "queued follow-ups must survive refresh")
+        XCTAssertEqual(surface.composer, expected, "no model-derived composer field may be dropped by the rebuild")
+    }
+
     private func richlyPopulatedModel() -> QuillCodeWorkspaceModel {
         let thread = ChatThread(messages: [
             ChatMessage(role: .user, content: "first request"),

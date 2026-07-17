@@ -41,10 +41,14 @@ struct QuillCodeDesktopModelStateCoordinator {
             draft = nextState.draft
         }
         // Rebuild from the LOCAL draft so slash/@-mention suggestions reflect live typing, but
-        // carry the model-derived fields the bare rebuild used to silently drop: the focusToken
-        // (focus-composer's signal — without it Cmd+L is dead on native because the view's
-        // .onChange never fires), the file-mention index + changed paths (so @-mentions aren't
-        // computed against an empty index), and the sent-message history (Up/Down recall).
+        // carry EVERY model-derived field the bare rebuild would otherwise silently drop: the
+        // focusToken (focus-composer's signal — without it Cmd+L is dead on native because the
+        // view's .onChange never fires), the file-mention index + changed paths (so @-mentions
+        // aren't computed against an empty index), the sent-message history (Up/Down recall), the
+        // live plan-progress strip + queued follow-up chips (the unattended-driving check-in surface
+        // — otherwise both vanish on every controller-triggered refresh), and supportsPersonality
+        // (drives whether personality slash suggestions appear; defaulting it true after a refresh
+        // would surface `/personality` on models that don't support it).
         surface.composer = ComposerSurface(
             composer: ComposerState(
                 draft: draft,
@@ -55,7 +59,10 @@ struct QuillCodeDesktopModelStateCoordinator {
             ),
             fileMentionIndex: model.fileMentionIndex,
             changedFilePaths: nextState.surface.changedFilePaths,
-            sentMessageHistory: nextState.surface.composer.sentMessageHistory
+            sentMessageHistory: nextState.surface.composer.sentMessageHistory,
+            planProgress: nextState.surface.composer.planProgress,
+            followUpQueue: model.selectedThread?.followUpQueue ?? [],
+            supportsPersonality: nextState.surface.composer.supportsPersonality
         )
         if terminalDraft != nextState.terminalDraft, !model.terminal.isRunning {
             terminalDraft = nextState.terminalDraft
