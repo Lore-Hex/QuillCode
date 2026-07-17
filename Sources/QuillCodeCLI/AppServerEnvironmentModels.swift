@@ -25,6 +25,34 @@ struct AppServerEnvironmentInfo: Sendable, Equatable {
     }
 }
 
+enum AppServerEnvironmentStatus: String, Sendable, Equatable {
+    case ready
+    case pending
+    case disconnected
+    case unknown
+}
+
+struct AppServerEnvironmentConnectionSnapshot: Sendable, Equatable {
+    var status: AppServerEnvironmentStatus
+    var error: String?
+
+    static let ready = Self(status: .ready, error: nil)
+    static let pending = Self(status: .pending, error: nil)
+
+    static func disconnected(_ error: String?) -> Self {
+        Self(status: .disconnected, error: error)
+    }
+
+    var rpcValue: CLIJSONValue {
+        .object([
+            "error": error.map(CLIJSONValue.string) ?? .null,
+            "status": .string(status.rawValue)
+        ])
+    }
+
+    var isConnected: Bool { status == .ready }
+}
+
 struct AppServerThreadEnvironmentSelection: Codable, Sendable, Equatable {
     var environmentID: String
     var cwd: String
@@ -65,6 +93,8 @@ struct AppServerRemoteDirectoryEntry: Sendable, Equatable {
 
 protocol AppServerExecServerClient: Sendable {
     func connect() async throws
+    /// Reports the current environment state without opening or resuming a connection.
+    func connectionSnapshot() async -> AppServerEnvironmentConnectionSnapshot
     func environmentInfo() async throws -> AppServerEnvironmentInfo
     func runProcess(_ request: AppServerRemoteProcessRequest) async throws -> AppServerRemoteProcessResult
     func readFile(at pathURI: String) async throws -> Data

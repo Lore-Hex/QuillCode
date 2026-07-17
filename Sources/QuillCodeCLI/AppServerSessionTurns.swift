@@ -39,6 +39,7 @@ extension AppServerSession {
             throw error
         }
         markThreadLoaded(threadID, subscription: .ifNew)
+        try await synchronizeEnvironmentSubscription(for: record)
 
         let userItem = AppServerThreadProjection.userMessageItem(
             userMessage,

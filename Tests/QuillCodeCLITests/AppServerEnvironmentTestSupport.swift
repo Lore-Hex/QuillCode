@@ -10,6 +10,7 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
     }
 
     private var info: AppServerEnvironmentInfo
+    private var connectDelay: Duration?
     private var infoDelay: Duration?
     private var processDelay: Duration?
     private var connectError: AppServerExecServerError?
@@ -23,12 +24,14 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
     private var closeCount = 0
     private var processRequests: [AppServerRemoteProcessRequest] = []
     private var removedURIs: [String] = []
+    private var currentConnectionSnapshot: AppServerEnvironmentConnectionSnapshot = .pending
 
     init(
         info: AppServerEnvironmentInfo = .init(
             shell: .init(name: "zsh", path: "/bin/zsh"),
             cwd: "file:///workspace"
         ),
+        connectDelay: Duration? = nil,
         infoDelay: Duration? = nil,
         processDelay: Duration? = nil,
         connectError: AppServerExecServerError? = nil,
@@ -40,6 +43,7 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         directoryEntries: [String: [AppServerRemoteDirectoryEntry]] = [:]
     ) {
         self.info = info
+        self.connectDelay = connectDelay
         self.infoDelay = infoDelay
         self.processDelay = processDelay
         self.connectError = connectError
@@ -51,9 +55,19 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         self.directoryEntries = directoryEntries
     }
 
-    func connect() throws {
+    func connect() async throws {
         connectCount += 1
-        if let connectError { throw connectError }
+        currentConnectionSnapshot = .pending
+        if let connectDelay { try await Task.sleep(for: connectDelay) }
+        if let connectError {
+            currentConnectionSnapshot = .disconnected(connectError.errorDescription)
+            throw connectError
+        }
+        currentConnectionSnapshot = .ready
+    }
+
+    func connectionSnapshot() -> AppServerEnvironmentConnectionSnapshot {
+        currentConnectionSnapshot
     }
 
     func environmentInfo() async throws -> AppServerEnvironmentInfo {
@@ -133,6 +147,10 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
 
     func setInfoError(_ error: AppServerExecServerError?) {
         infoError = error
+    }
+
+    func setConnectionSnapshot(_ snapshot: AppServerEnvironmentConnectionSnapshot) {
+        currentConnectionSnapshot = snapshot
     }
 
     func setProcessResults(_ results: [AppServerRemoteProcessResult]) {

@@ -21,6 +21,42 @@ final class AppServerEnvironmentRegistryTests: XCTestCase {
             "/opt/homebrew/bin/fish"
         )
         XCTAssertEqual(value.objectValue?["cwd"]?.stringValue, cwd.standardizedFileURL.absoluteString)
+
+        let status = try await registry.status(.object(["environmentId": .string("local")]))
+        XCTAssertEqual(status.objectValue?["status"]?.stringValue, "ready")
+        XCTAssertEqual(status.objectValue?["error"], .null)
+    }
+
+    func testStatusReportsPendingReadyDisconnectedAndUnknownWithoutReconnecting() async throws {
+        let client = AppServerFakeExecServerClient(connectDelay: .milliseconds(80))
+        let factory = AppServerFakeExecServerFactory(clients: [client])
+        let registry = registry(factory: factory)
+        _ = try await registry.add(registration(id: "remote", url: "ws://example.test"))
+
+        var status = try await registry.status(.object(["environmentId": .string("remote")]))
+        XCTAssertEqual(status.objectValue?["status"]?.stringValue, "pending")
+        XCTAssertEqual(status.objectValue?["error"], .null)
+
+        try await waitUntil {
+            let value = try? await registry.status(.object([
+                "environmentId": .string("remote")
+            ]))
+            return value?.objectValue?["status"]?.stringValue == "ready"
+        }
+        await client.setConnectionSnapshot(.disconnected("transport closed"))
+        status = try await registry.status(.object(["environmentId": .string("remote")]))
+        XCTAssertEqual(status.objectValue?["status"]?.stringValue, "disconnected")
+        XCTAssertEqual(status.objectValue?["error"]?.stringValue, "transport closed")
+        let clientSnapshot = await client.snapshot()
+        XCTAssertEqual(clientSnapshot.connectCount, 1)
+
+        status = try await registry.status(.object(["environmentId": .string("missing")]))
+        XCTAssertEqual(status.objectValue?["status"]?.stringValue, "unknown")
+        XCTAssertEqual(
+            status.objectValue?["error"]?.stringValue,
+            "unknown environment id `missing`"
+        )
+        await registry.closeAll()
     }
 
     func testAddIsLazyAndInfoSurfacesRemoteConnectionFailure() async throws {
@@ -109,6 +145,7 @@ final class AppServerEnvironmentRegistryTests: XCTestCase {
         AppServerEnvironmentRegistry(
             localCWD: URL(fileURLWithPath: "/tmp"),
             environment: [:],
+            monitorInterval: .milliseconds(5),
             clientFactory: { factory.make(websocketURL: $0, connectTimeout: $1) }
         )
     }

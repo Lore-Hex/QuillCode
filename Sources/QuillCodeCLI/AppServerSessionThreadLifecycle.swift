@@ -32,6 +32,7 @@ extension AppServerSession {
         try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
         markThreadLoaded(record.thread.id, subscription: .always)
+        try await synchronizeEnvironmentSubscription(for: record)
         await notifyThreadStarted(record)
         return AppServerThreadLifecycleOutcome(
             result: startOrResumeResponse(record, includeTurns: false, isActive: false),
@@ -58,6 +59,7 @@ extension AppServerSession {
         try await validateRequiredMCPServers(for: record)
         try await repository.save(record)
         markThreadLoaded(record.thread.id, subscription: .always)
+        try await synchronizeEnvironmentSubscription(for: record)
         return AppServerThreadLifecycleOutcome(
             result: startOrResumeResponse(record, includeTurns: true, isActive: hasActiveOperation(for: id)),
             threadID: record.thread.id
@@ -87,6 +89,7 @@ extension AppServerSession {
         try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
         markThreadLoaded(record.thread.id, subscription: .always)
+        try await synchronizeEnvironmentSubscription(for: record)
         await notifyThreadStarted(record)
         return AppServerThreadLifecycleOutcome(
             result: startOrResumeResponse(record, includeTurns: true, isActive: false),
@@ -119,6 +122,7 @@ extension AppServerSession {
         }
         _ = try await loadRecord(id)
         try await repository.delete(id)
+        await removeEnvironmentSubscription(for: id)
         loadedThreadIDs.remove(id)
         subscribedThreadIDs.remove(id)
         outOfBandElicitationCounts[id] = nil

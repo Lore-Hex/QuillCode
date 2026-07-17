@@ -45,12 +45,15 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
         Self.assertSource(session, containsAll: [
             "case \"environment/add\"",
             "case \"environment/info\"",
+            "case \"environment/status\"",
             "environmentRegistry"
         ])
         Self.assertSource(registry, containsAll: [
             "Registration is intentionally lazy",
             "unknown environment id",
             "unknown turn environment id",
+            "ConnectionEvent",
+            "connectionSnapshot",
             "closeAll"
         ])
         Self.assertSource(connectionClient, containsAll: [
@@ -91,6 +94,7 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             transportTests,
             containsAll: [
                 "testConcurrentRPCsAreSerializedAndReconnectResumesSession",
+                "testConnectionSnapshotProbesExistingSocketAndNeverReconnects",
                 "testProcessReadsAdvanceWithLastObservedSequenceWithoutSkippingOutput"
             ]
         )
