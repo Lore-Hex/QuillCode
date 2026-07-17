@@ -48,6 +48,7 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         let svgFile = directory.appendingPathComponent("logo.svg")
         let bmpFile = directory.appendingPathComponent("diagram.bmp")
         let webpFile = directory.appendingPathComponent("mock.webp")
+        let tiffFile = directory.appendingPathComponent("scan.tiff")
         try pngHeader(width: 1280, height: 720).write(to: pngFile)
         try """
         <svg width="320px" height="180px" viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg">
@@ -56,11 +57,13 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         """.write(to: svgFile, atomically: true, encoding: .utf8)
         try bmpHeader(width: 640, height: 360).write(to: bmpFile)
         try webpVP8XHeader(width: 512, height: 288).write(to: webpFile)
+        try tiffHeader(width: 300, height: 200, byteOrder: .littleEndian).write(to: tiffFile)
 
         let imageFile = ToolArtifactState(value: pngFile.path)
         let svgArtifact = ToolArtifactState(value: svgFile.path)
         let bmpArtifact = ToolArtifactState(value: bmpFile.path)
         let webpArtifact = ToolArtifactState(value: webpFile.path)
+        let tiffArtifact = ToolArtifactState(value: tiffFile.path)
 
         XCTAssertEqual(imageFile.imagePreview?.dimensionsLabel, "1280 x 720 px")
         XCTAssertEqual(imageFile.imagePreview?.typeLine, "Image · PNG · 1280 x 720 px")
@@ -70,6 +73,8 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: webpVP8XHeader(width: 512, height: 288))?.label, "512 x 288 px")
         XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: webpVP8LHeader(width: 257, height: 129))?.label, "257 x 129 px")
         XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: webpVP8Header(width: 320, height: 180))?.label, "320 x 180 px")
+        XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: tiffHeader(width: 300, height: 200, byteOrder: .littleEndian))?.label, "300 x 200 px")
+        XCTAssertEqual(ToolArtifactImageMetadataReader.dimensions(from: tiffHeader(width: 301, height: 201, byteOrder: .bigEndian))?.label, "301 x 201 px")
         XCTAssertTrue(svgArtifact.isImagePreview)
         XCTAssertNil(svgArtifact.documentPreview)
         XCTAssertEqual(svgArtifact.imagePreview?.extensionLabel, "SVG")
@@ -77,6 +82,7 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(svgArtifact.imagePreview?.typeLine, "Image · SVG · 320 x 180 px")
         XCTAssertEqual(bmpArtifact.imagePreview?.typeLine, "Image · BMP · 640 x 360 px")
         XCTAssertEqual(webpArtifact.imagePreview?.typeLine, "Image · WEBP · 512 x 288 px")
+        XCTAssertEqual(tiffArtifact.imagePreview?.typeLine, "Image · TIFF · 300 x 200 px")
         XCTAssertEqual(
             ToolArtifactImageMetadataReader.dimensions(from: Data(#"<svg viewBox="0 0 1024 768"></svg>"#.utf8))?.label,
             "1024 x 768 px"
@@ -380,6 +386,24 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         return Data(bytes)
     }
 
+    private func tiffHeader(width: UInt32, height: UInt32, byteOrder: TIFFFixtureByteOrder) -> Data {
+        var bytes = Array(byteOrder.signature.utf8)
+        bytes.append(contentsOf: byteOrder.uint16Bytes(42))
+        bytes.append(contentsOf: byteOrder.uint32Bytes(8))
+        bytes.append(contentsOf: byteOrder.uint16Bytes(2))
+        bytes.append(contentsOf: tiffEntry(tag: 256, value: width, byteOrder: byteOrder))
+        bytes.append(contentsOf: tiffEntry(tag: 257, value: height, byteOrder: byteOrder))
+        bytes.append(contentsOf: byteOrder.uint32Bytes(0))
+        return Data(bytes)
+    }
+
+    private func tiffEntry(tag: UInt16, value: UInt32, byteOrder: TIFFFixtureByteOrder) -> [UInt8] {
+        byteOrder.uint16Bytes(tag)
+            + byteOrder.uint16Bytes(4)
+            + byteOrder.uint32Bytes(1)
+            + byteOrder.uint32Bytes(value)
+    }
+
     private func bigEndianBytes(_ value: UInt32) -> [UInt8] {
         [
             UInt8((value >> 24) & 0xFF),
@@ -404,6 +428,46 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             UInt8((value >> 8) & 0xFF),
             UInt8((value >> 16) & 0xFF)
         ]
+    }
+
+    private enum TIFFFixtureByteOrder {
+        case littleEndian
+        case bigEndian
+
+        var signature: String {
+            switch self {
+            case .littleEndian: return "II"
+            case .bigEndian: return "MM"
+            }
+        }
+
+        func uint16Bytes(_ value: UInt16) -> [UInt8] {
+            switch self {
+            case .littleEndian:
+                return [UInt8(value & 0x00FF), UInt8(value >> 8)]
+            case .bigEndian:
+                return [UInt8(value >> 8), UInt8(value & 0x00FF)]
+            }
+        }
+
+        func uint32Bytes(_ value: UInt32) -> [UInt8] {
+            switch self {
+            case .littleEndian:
+                return [
+                    UInt8(value & 0xFF),
+                    UInt8((value >> 8) & 0xFF),
+                    UInt8((value >> 16) & 0xFF),
+                    UInt8((value >> 24) & 0xFF)
+                ]
+            case .bigEndian:
+                return [
+                    UInt8((value >> 24) & 0xFF),
+                    UInt8((value >> 16) & 0xFF),
+                    UInt8((value >> 8) & 0xFF),
+                    UInt8(value & 0xFF)
+                ]
+            }
+        }
     }
 
     private func pdfFixture(title: String, pageCount: Int) -> String {
