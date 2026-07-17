@@ -132,6 +132,24 @@ test('mock harness renders SVG artifacts as image previews', async ({ page }) =>
   await expect(page.getByText('Created `logo.svg`.')).toBeVisible();
 });
 
+test('mock harness renders BMP and WebP artifact dimensions', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make bitmap artifacts');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText(['diagram.bmp', 'preview.webp']);
+  await expect(page.getByTestId('tool-card-image-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-image-preview')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card-image-preview-type')).toHaveText([
+    'Image · BMP · 640 x 360 px',
+    'Image · WEBP · 512 x 288 px'
+  ]);
+  await expect(page.getByTestId('tool-card-image-preview-label')).toHaveText(['diagram.bmp', 'preview.webp']);
+  await expect(page.getByText('Created bitmap image artifacts.')).toBeVisible();
+});
+
 test('mock harness renders document artifact previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
