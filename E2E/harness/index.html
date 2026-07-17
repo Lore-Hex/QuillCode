@@ -3692,7 +3692,8 @@
       font-weight: 650;
     }
     .artifact-pdf-preview,
-    .artifact-office-preview {
+    .artifact-office-preview,
+    .artifact-table-preview {
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
@@ -3713,14 +3714,16 @@
       overflow-wrap: anywhere;
     }
     .artifact-pdf-preview div,
-    .artifact-office-preview div {
+    .artifact-office-preview div,
+    .artifact-table-preview div {
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
       min-width: 0;
     }
     .artifact-pdf-preview small,
-    .artifact-office-preview small {
+    .artifact-office-preview small,
+    .artifact-table-preview small {
       display: inline-flex;
       align-items: center;
       min-height: 24px;
@@ -3731,6 +3734,41 @@
       font-size: 11px;
       font-weight: 650;
       white-space: nowrap;
+    }
+    .artifact-table-preview {
+      display: grid;
+      align-items: stretch;
+    }
+    .artifact-table-preview table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    .artifact-table-preview th,
+    .artifact-table-preview td {
+      padding: 5px 8px;
+      border-right: 1px solid rgba(255,255,255,.06);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      font-size: 11px;
+      line-height: 1.25;
+      overflow: hidden;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .artifact-table-preview th {
+      color: var(--text);
+      background: rgba(255,255,255,.06);
+      font-weight: 750;
+    }
+    .artifact-table-preview td {
+      color: var(--muted);
+      background: rgba(255,255,255,.025);
+      font-weight: 550;
     }
     .artifact-preview {
       margin: 0;
@@ -8083,7 +8121,8 @@
         documentPreview,
         appshotPreview: artifactAppshotPreview(value, kind, documentPreview),
         pdfPreview: artifactPDFPreview(value, kind, documentPreview),
-        officePreview: artifactOfficePreview(value, kind, documentPreview)
+        officePreview: artifactOfficePreview(value, kind, documentPreview),
+        tablePreview: artifactTablePreview(value, kind, documentPreview)
       };
     }
 
@@ -8162,7 +8201,9 @@
       ['pages', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['rtf', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['numbers', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
+      ['csv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['ods', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
+      ['tsv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['xls', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['xlsx', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['key', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }],
@@ -8329,6 +8370,85 @@
       return preview.metadataLines.length ? preview : null;
     }
 
+    function artifactTablePreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'spreadsheet') return null;
+      const extension = artifactPreviewExtension(value);
+      const delimiter = extension === 'csv' ? ',' : extension === 'tsv' ? '\t' : null;
+      if (!delimiter) return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+
+      const byteLimit = 64 * 1024;
+      const rowLimit = 8;
+      const columnLimit = 6;
+      const rows = parseDelimitedRows(content.slice(0, byteLimit), delimiter)
+        .filter(row => row.some(cell => String(cell || '').trim()));
+      if (!rows.length) return null;
+
+      const limitedRows = rows.slice(0, rowLimit);
+      const maxColumns = Math.max(...rows.map(row => row.length));
+      const columnCount = Math.min(Math.max(...limitedRows.map(row => row.length)), columnLimit);
+      const normalize = row => Array.from({ length: columnCount }, (_, index) =>
+        String(row[index] || '').trim().slice(0, 80)
+      );
+      const headers = normalize(limitedRows[0]).map((cell, index) => cell || `Column ${index + 1}`);
+      const preview = {
+        delimiterLabel: extension === 'csv' ? 'CSV' : 'TSV',
+        rowCountLabel: content.length > byteLimit ? `${rows.length}+ rows` : `${rows.length} row${rows.length === 1 ? '' : 's'}`,
+        columnCount,
+        headers,
+        rows: limitedRows.slice(1).map(normalize),
+        isTruncated: content.length > byteLimit || rows.length > rowLimit || maxColumns > columnLimit
+      };
+      preview.metadataLines = [
+        `Format: ${preview.delimiterLabel}`,
+        `${preview.rowCountLabel}, ${preview.columnCount} column${preview.columnCount === 1 ? '' : 's'}`,
+        preview.isTruncated ? `Preview: first ${preview.rows.length} rows` : null
+      ].filter(Boolean);
+      return preview;
+    }
+
+    function parseDelimitedRows(text, delimiter) {
+      const rows = [];
+      let row = [];
+      let field = '';
+      let quoted = false;
+      for (let index = 0; index < text.length; index += 1) {
+        const character = text[index];
+        if (quoted) {
+          if (character === '"') {
+            if (text[index + 1] === '"') {
+              field += '"';
+              index += 1;
+            } else {
+              quoted = false;
+            }
+          } else {
+            field += character;
+          }
+        } else if (character === '"') {
+          quoted = true;
+        } else if (character === delimiter) {
+          row.push(field);
+          field = '';
+        } else if (character === '\n') {
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = '';
+          if (rows.length > 9) break;
+        } else if (character !== '\r') {
+          field += character;
+        }
+      }
+      if (field || row.length) {
+        row.push(field);
+        rows.push(row);
+      }
+      return rows;
+    }
+
     function unescapePDFLiteral(value) {
       return String(value || '')
         .replace(/\\\(/g, '(')
@@ -8453,6 +8573,7 @@
       const name = path.split('/').filter(Boolean).at(-1)?.toLowerCase() || '';
       if (name.endsWith('.appshot') || name.endsWith('.appshot.json')) return null;
       const extension = name.includes('.') ? name.split('.').pop() : '';
+      if (extension === 'csv' || extension === 'tsv') return null;
       if (!textPreviewFilenames.has(name) && !textPreviewExtensions.has(extension)) return null;
       const text = state.mockFiles[path];
       if (typeof text !== 'string' || !text.trim() || text.includes('\u0000')) return null;
@@ -10162,6 +10283,26 @@
                   <div>${metadata}</div>
                 </div>` : '';
         };
+        const renderTablePreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-table-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const headers = (preview.headers || [])
+            .map(cell => `<th data-testid="tool-card-table-preview-header">${escapeHTML(cell)}</th>`)
+            .join('');
+          const rows = (preview.rows || [])
+            .map(row => `<tr>${row.map(cell => `<td data-testid="tool-card-table-preview-cell">${escapeHTML(cell)}</td>`).join('')}</tr>`)
+            .join('');
+          return headers || rows ? `
+                <div class="artifact-table-preview" data-testid="tool-card-table-preview">
+                  <div>${metadata}</div>
+                  <table>
+                    <thead><tr>${headers}</tr></thead>
+                    <tbody>${rows}</tbody>
+                  </table>
+                </div>` : '';
+        };
         const renderAppshotPreview = preview => {
           if (!preview) return '';
           const image = preview.screenshotURL
@@ -10202,6 +10343,7 @@
                 ${href ? `<a class="hit-target-link" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
                 ${renderPDFPreview(artifact.pdfPreview)}
                 ${renderOfficePreview(artifact.officePreview)}
+                ${renderTablePreview(artifact.tablePreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
               </figure>`;
             }).join('')}
@@ -21828,6 +21970,22 @@
           }, null, 2)
         });
         addMessage('assistant', `Downloaded to \`${path}\`.`);
+      } else if (text.toLowerCase().includes('csv') || text.toLowerCase().includes('table artifact')) {
+        const path = '/mock/QuillCode/reports/revenue.csv';
+        state.mockFiles[path] = [
+          'Quarter,Revenue,Notes',
+          'Q1,12000,Launch',
+          'Q2,18500,"Expansion, EU"',
+          'Q3,22400,Retention'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/csv' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `revenue.csv`.');
       } else if (text.toLowerCase().includes('spreadsheet') || text.toLowerCase().includes('xlsx')) {
         const path = '/mock/QuillCode/reports/budget.xlsx';
         const fileNames = [

@@ -34,6 +34,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
         } else if let officePreview = artifact.officePreview {
             metadataContent(title: artifact.label, metadataLines: officePreview.metadataLines)
+        } else if let tablePreview = artifact.tablePreview {
+            tableContent(tablePreview)
         } else {
             genericContent
         }
@@ -71,6 +73,20 @@ struct QuillCodeArtifactDocumentPreview: View {
                 subtitleLineLimit: 2
             )
             appshotMetadata(appshotPreview.metadataLines)
+        }
+    }
+
+    private func tableContent(_ tablePreview: ToolArtifactTablePreview) -> some View {
+        previewSurface(minHeight: 116) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "tablecells")
+                },
+                title: artifact.label,
+                subtitle: tablePreview.metadataLines.joined(separator: " · "),
+                subtitleLineLimit: 2
+            )
+            tableGrid(tablePreview)
         }
     }
 
@@ -202,6 +218,45 @@ struct QuillCodeArtifactDocumentPreview: View {
                 }
             }
             .padding(.leading, 2)
+        }
+    }
+
+    private func tableGrid(_ tablePreview: ToolArtifactTablePreview) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            tableRow(tablePreview.headers, isHeader: true)
+            ForEach(Array(tablePreview.rows.enumerated()), id: \.offset) { _, row in
+                tableRow(row, isHeader: false)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func tableRow(_ row: [String], isHeader: Bool) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                Text(cell.isEmpty ? " " : cell)
+                    .font(.caption2.weight(isHeader ? .semibold : .regular))
+                    .foregroundStyle(isHeader ? QuillCodePalette.text : QuillCodePalette.muted)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .overlay(alignment: .trailing) {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.05))
+                            .frame(width: 1)
+                    }
+            }
+        }
+        .background(isHeader ? Color.white.opacity(0.06) : Color.white.opacity(0.025))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.05))
+                .frame(height: 1)
         }
     }
 

@@ -201,6 +201,7 @@ enum WorkspaceHTMLToolCardRenderer {
             } ?? ""
             let pdfPreview = renderPDFPreview(artifact.pdfPreview)
             let officePreview = renderOfficePreview(artifact.officePreview)
+            let tablePreview = renderTablePreview(artifact.tablePreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             return """
             <figure class="artifact-document-preview" data-testid="tool-card-document-preview" data-kind="\(escape(preview.kind.rawValue))">
@@ -213,6 +214,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(openLink)
               \(pdfPreview)
               \(officePreview)
+              \(tablePreview)
               \(appshotPreview)
             </figure>
             """
@@ -283,6 +285,33 @@ enum WorkspaceHTMLToolCardRenderer {
           <div>
             \(metadata)
           </div>
+        </div>
+        """
+    }
+
+    private static func renderTablePreview(_ preview: ToolArtifactTablePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let headers = preview.headers.map {
+            #"<th data-testid="tool-card-table-preview-header">\#(escape($0))</th>"#
+        }.joined(separator: "")
+        let rows = preview.rows.map { row in
+            let cells = row.map {
+                #"<td data-testid="tool-card-table-preview-cell">\#(escape($0))</td>"#
+            }.joined(separator: "")
+            return "<tr>\(cells)</tr>"
+        }.joined(separator: "")
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-table-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        return """
+        <div class="artifact-table-preview" data-testid="tool-card-table-preview">
+          <div>
+            \(metadata)
+          </div>
+          <table>
+            <thead><tr>\(headers)</tr></thead>
+            <tbody>\(rows)</tbody>
+          </table>
         </div>
         """
     }

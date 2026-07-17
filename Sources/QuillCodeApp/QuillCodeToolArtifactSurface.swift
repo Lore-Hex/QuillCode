@@ -179,6 +179,43 @@ public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactTablePreview: Codable, Sendable, Hashable {
+    public var delimiterLabel: String
+    public var rowCountLabel: String
+    public var columnCount: Int
+    public var headers: [String]
+    public var rows: [[String]]
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(delimiterLabel)",
+            "\(rowCountLabel), \(columnCount) column\(columnCount == 1 ? "" : "s")",
+            isTruncated ? "Preview: first \(rows.count) rows" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !headers.isEmpty || !rows.isEmpty
+    }
+
+    public init(
+        delimiterLabel: String,
+        rowCountLabel: String,
+        columnCount: Int,
+        headers: [String],
+        rows: [[String]],
+        isTruncated: Bool = false
+    ) {
+        self.delimiterLabel = delimiterLabel
+        self.rowCountLabel = rowCountLabel
+        self.columnCount = columnCount
+        self.headers = headers
+        self.rows = rows
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactImagePreview: Codable, Sendable, Hashable {
     public var typeLabel: String
     public var extensionLabel: String
@@ -223,6 +260,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var officePreview: ToolArtifactOfficePreview? {
         ToolArtifactOfficePreviewBuilder.officePreview(for: value, kind: kind)
+    }
+    public var tablePreview: ToolArtifactTablePreview? {
+        ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
     }
     public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {

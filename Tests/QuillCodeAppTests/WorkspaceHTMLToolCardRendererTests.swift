@@ -292,6 +292,52 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-meta">Size: \#(byteSize)"#))
     }
 
+    func testHTMLRendererIncludesDelimitedTableArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let csv = reports.appendingPathComponent("revenue.csv")
+        try """
+        Quarter,Revenue,Notes
+        Q1,12000,Launch
+        Q2,18500,"Expansion, EU"
+        Q3,22400,Retention
+        """.write(to: csv, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"revenue.csv"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote revenue.csv\n", artifacts: [csv.path])
+        let thread = ChatThread(
+            title: "CSV artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="spreadsheet""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Spreadsheet · CSV"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">revenue.csv"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-table-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-table-preview-meta">Format: CSV"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-table-preview-meta">4 rows, 3 columns"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-table-preview-header">Quarter"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-table-preview-header">Revenue"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-table-preview-cell">Expansion, EU"#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)

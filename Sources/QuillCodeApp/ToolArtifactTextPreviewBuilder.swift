@@ -5,7 +5,8 @@ enum ToolArtifactTextPreviewBuilder {
         let artifact = ToolArtifactState(value: value)
         guard artifact.kind == .file,
               !artifact.isImagePreview,
-              artifact.documentPreview?.kind != .appshot
+              artifact.documentPreview?.kind != .appshot,
+              artifact.tablePreview == nil
         else { return nil }
         guard let fileURL = localArtifactFileURL(for: value) else { return nil }
         guard isTextPreviewCandidate(fileURL) else { return nil }

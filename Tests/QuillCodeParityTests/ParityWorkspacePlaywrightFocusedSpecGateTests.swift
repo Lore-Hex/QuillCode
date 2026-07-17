@@ -72,6 +72,7 @@ final class ParityWorkspacePlaywrightFocusedSpecGateTests: QuillCodeParityTestCa
             "surfaces file artifacts from tool cards",
             "renders image artifact previews from tool cards",
             "renders document artifact previews from tool cards",
+            "renders delimited table artifact previews from tool cards",
             "renders appshot artifact previews from tool cards"
         ]
 
@@ -79,6 +80,7 @@ final class ParityWorkspacePlaywrightFocusedSpecGateTests: QuillCodeParityTestCa
         XCTAssertTrue(artifactsSpecText.contains("clickSidebarTool"), "Focused artifact flows should cover Activity artifact surfacing.")
         XCTAssertTrue(artifactsSpecText.contains("tool-card-image-preview"), "Focused artifact flows should cover image preview chrome.")
         XCTAssertTrue(artifactsSpecText.contains("tool-card-document-preview"), "Focused artifact flows should cover document and appshot preview chrome.")
+        XCTAssertTrue(artifactsSpecText.contains("tool-card-table-preview"), "Focused artifact flows should cover delimited table preview chrome.")
         for flowName in artifactFlowNames {
             XCTAssertTrue(artifactsSpecText.contains(flowName), "\(flowName) should live in artifacts.spec.ts.")
             XCTAssertFalse(coreSpecText.contains(flowName), "\(flowName) should not drift back into core.spec.ts.")
