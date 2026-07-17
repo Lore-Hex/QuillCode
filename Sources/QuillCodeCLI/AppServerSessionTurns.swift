@@ -136,6 +136,13 @@ extension AppServerSession {
             active.task?.cancel()
             return .object([:])
         }
+        if let active = activeGuardianRetries[threadID] {
+            guard turnID == active.turnID else {
+                throw AppServerRPCError.invalidParams("turnId does not match the active turn")
+            }
+            active.task?.cancel()
+            return .object([:])
+        }
         throw AppServerRPCError.invalidParams("thread has no active turn")
     }
 

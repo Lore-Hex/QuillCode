@@ -730,8 +730,182 @@ final class AppServerSessionTests: XCTestCase {
         XCTAssertEqual(thread["status"]?.objectValue?["type"]?.stringValue, "idle")
     }
 
+    func testGuardianDenialApprovalValidatesRetriesPersistsAndRejectsReplay() async throws {
+        let call = ToolCall(
+            id: "guardian-shell-call",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "printf x >> guardian-retry.txt"])
+        )
+        let safety = AppServerSequenceSafetyReviewer([
+            SafetyReview(
+                verdict: .deny,
+                rationale: "Initial Guardian denial.",
+                userIntentMatched: true,
+                reviewTelemetry: .init(
+                    source: .primaryModel,
+                    reviewerModel: "glm-5.2",
+                    attemptedModels: ["glm-5.2"],
+                    riskLevel: .medium,
+                    userAuthorization: .explicit
+                ),
+                riskLevel: .medium,
+                userAuthorization: .explicit
+            ),
+            SafetyReview(
+                verdict: .approve,
+                rationale: "Exact retry approved.",
+                userIntentMatched: true,
+                reviewTelemetry: .init(
+                    source: .primaryModel,
+                    reviewerModel: "glm-5.2",
+                    attemptedModels: ["glm-5.2"],
+                    riskLevel: .low,
+                    userAuthorization: .explicit
+                ),
+                riskLevel: .low,
+                userAuthorization: .explicit
+            )
+        ])
+        let fixture = try await makeSession(
+            llm: AppServerScriptedLLM(actions: [.tool(call), .say("I chose not to bypass the denial.")]),
+            safety: safety
+        )
+        let threadID = try await startThread(
+            in: fixture,
+            sandbox: "workspace-write",
+            approvalsReviewer: "guardian_subagent"
+        )
+        try await sendRequest(
+            id: 3,
+            method: "turn/start",
+            params: [
+                "threadId": threadID,
+                "input": [["type": "text", "text": "Append x to guardian-retry.txt"]]
+            ],
+            to: fixture.session
+        )
+        await fixture.session.waitForActiveTurns()
+
+        var records = try await fixture.output.records()
+        let initialCompletion = try XCTUnwrap(records.first {
+            $0["method"]?.stringValue == "item/autoApprovalReview/completed"
+                && $0["params"]?.objectValue?["review"]?.objectValue?["status"]?.stringValue == "denied"
+        })
+        let initial = try XCTUnwrap(initialCompletion["params"]?.objectValue)
+        let reviewID = try XCTUnwrap(initial["reviewId"]?.stringValue)
+        let turnID = try XCTUnwrap(initial["turnId"]?.stringValue)
+        XCTAssertEqual(initial["targetItemId"]?.stringValue, call.id)
+        XCTAssertEqual(
+            initial["action"]?.objectValue?["command"]?.stringValue,
+            "printf x >> guardian-retry.txt"
+        )
+        XCTAssertEqual(initial["review"]?.objectValue?["riskLevel"]?.stringValue, "medium")
+        XCTAssertEqual(initial["review"]?.objectValue?["userAuthorization"]?.stringValue, "high")
+        let outputFile = fixture.workspace.appendingPathComponent("guardian-retry.txt")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outputFile.path))
+
+        let event: [String: Any] = [
+            "id": reviewID,
+            "target_item_id": call.id,
+            "turn_id": turnID,
+            "status": "denied",
+            "action": [
+                "type": "command",
+                "source": "shell",
+                "command": "printf x >> guardian-retry.txt",
+                "cwd": fixture.workspace.path
+            ]
+        ]
+        var forged = event
+        forged["action"] = [
+            "type": "command",
+            "source": "shell",
+            "command": "printf forged >> guardian-retry.txt",
+            "cwd": fixture.workspace.path
+        ]
+        try await sendRequest(
+            id: 4,
+            method: "thread/approveGuardianDeniedAction",
+            params: ["threadId": threadID, "event": forged],
+            to: fixture.session
+        )
+        var missingTarget = event
+        missingTarget.removeValue(forKey: "target_item_id")
+        try await sendRequest(
+            id: 8,
+            method: "thread/approveGuardianDeniedAction",
+            params: ["threadId": threadID, "event": missingTarget],
+            to: fixture.session
+        )
+        var wrongTurn = event
+        wrongTurn["turn_id"] = "different-turn"
+        try await sendRequest(
+            id: 9,
+            method: "thread/approveGuardianDeniedAction",
+            params: ["threadId": threadID, "event": wrongTurn],
+            to: fixture.session
+        )
+        var nonDenied = forged
+        nonDenied["status"] = "approved"
+        try await sendRequest(
+            id: 5,
+            method: "thread/approveGuardianDeniedAction",
+            params: ["threadId": threadID, "event": nonDenied],
+            to: fixture.session
+        )
+        records = try await fixture.output.records()
+        XCTAssertEqual(errorCode(for: 4, in: records), -32_600)
+        XCTAssertEqual(errorCode(for: 8, in: records), -32_600)
+        XCTAssertEqual(errorCode(for: 9, in: records), -32_600)
+        XCTAssertNotNil(result(for: 5, in: records))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: outputFile.path))
+
+        try await sendRequest(
+            id: 6,
+            method: "thread/approveGuardianDeniedAction",
+            params: ["threadId": threadID, "event": event],
+            to: fixture.session
+        )
+        await fixture.session.waitForActiveTurns()
+        records = try await fixture.output.records()
+        let responseIndex = try XCTUnwrap(records.firstIndex { $0["id"]?.numberValue == 6 })
+        let retryStartedIndex = try XCTUnwrap(records.enumerated().first {
+            $0.offset > responseIndex
+                && $0.element["method"]?.stringValue == "item/autoApprovalReview/started"
+        }?.offset)
+        XCTAssertLessThan(responseIndex, retryStartedIndex)
+        let retryCompletion = try XCTUnwrap(records.dropFirst(retryStartedIndex).first {
+            $0["method"]?.stringValue == "item/autoApprovalReview/completed"
+        })
+        XCTAssertEqual(
+            retryCompletion["params"]?.objectValue?["review"]?.objectValue?["status"]?.stringValue,
+            "approved"
+        )
+        XCTAssertEqual(try String(contentsOf: outputFile, encoding: .utf8), "x")
+        let persisted = try JSONThreadStore(
+            directory: fixture.home.appendingPathComponent("threads")
+        ).load(try XCTUnwrap(UUID(uuidString: threadID)))
+        XCTAssertEqual(
+            AutoReviewDenialHistory.records(in: persisted, workspaceRoot: fixture.workspace).first?.retryState,
+            .consumed
+        )
+        let reviewAttempts = await safety.attempts()
+        XCTAssertEqual(reviewAttempts, [.initial, .denialOverride(requestID: reviewID)])
+
+        try await sendRequest(
+            id: 7,
+            method: "thread/approveGuardianDeniedAction",
+            params: ["threadId": threadID, "event": event],
+            to: fixture.session
+        )
+        records = try await fixture.output.records()
+        XCTAssertEqual(errorCode(for: 7, in: records), -32_600)
+        XCTAssertEqual(try String(contentsOf: outputFile, encoding: .utf8), "x")
+    }
+
     private func makeSession(
-        llm: any LLMClient
+        llm: any LLMClient,
+        safety: any SafetyReviewer = StaticSafetyReviewer()
     ) async throws -> AppServerFixture {
         let home = try temporaryDirectory(prefix: "app-server-home")
         let workspace = try temporaryDirectory(prefix: "app-server-workspace")
@@ -743,7 +917,7 @@ final class AppServerSessionTests: XCTestCase {
             runnerFactory: { configuration in
                 AgentRunner(
                     llm: llm,
-                    safety: StaticSafetyReviewer(),
+                    safety: safety,
                     maxToolSteps: configuration.appConfig.maxToolSteps,
                     enablesImmediateActionPreflight: false,
                     compaction: AgentCompactionPolicy(compactor: ThreadCompactor())
@@ -933,6 +1107,27 @@ private actor AppServerScriptedLLM: LLMClient {
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
         guard !actions.isEmpty else { return .say("No scripted action remains.") }
         return actions.removeFirst()
+    }
+}
+
+private actor AppServerSequenceSafetyReviewer: SafetyReviewer {
+    private var reviews: [SafetyReview]
+    private var recordedAttempts: [ApprovalReviewAttempt] = []
+
+    init(_ reviews: [SafetyReview]) {
+        self.reviews = reviews
+    }
+
+    func review(_ context: SafetyContext) async -> SafetyReview {
+        recordedAttempts.append(context.reviewAttempt)
+        guard !reviews.isEmpty else {
+            return SafetyReview(verdict: .deny, rationale: "No test review remains.")
+        }
+        return reviews.removeFirst()
+    }
+
+    func attempts() -> [ApprovalReviewAttempt] {
+        recordedAttempts
     }
 }
 

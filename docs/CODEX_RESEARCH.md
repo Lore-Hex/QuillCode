@@ -4,6 +4,16 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 
 ## Current Research Inputs
 
+- Codex app-server 0.144.5 exposes `thread/approveGuardianDeniedAction` with one thread ID and a
+  serialized Guardian assessment event. The event uses snake-case durable fields, status values such
+  as `in_progress`, `denied`, and `timed_out`, and typed command, patch, or MCP actions. Current Codex
+  acknowledges non-denied events without launching work. A denied event injects narrowly scoped
+  authorization for only that assessed action. Auto-review lifecycle is reported separately through
+  camel-case `item/autoApprovalReview/started` and `item/autoApprovalReview/completed` notifications.
+  QuillCode preserves the public contract while using its stronger durable retry primitive: the event
+  must match the exact persisted denial, turn, target tool item, and normalized action; execution uses
+  only the persisted call and requires a fresh Auto review. Sources: generated 0.144.5 schemas and
+  public `openai/codex` app-server protocol and Guardian processor, audited 2026-07-16.
 - Codex app-server 0.144.5 experimental feature discovery uses `experimentalFeature/list` with
   decimal offset cursors, clamps `limit = 0` to one item, returns beta presentation copy only for beta
   flags, and optionally refreshes effective project config from a loaded `threadId`.
