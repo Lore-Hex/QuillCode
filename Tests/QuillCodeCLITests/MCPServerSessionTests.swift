@@ -152,6 +152,13 @@ final class MCPServerSessionTests: XCTestCase {
             approval["params"]?.objectValue?["codex_elicitation"],
             .string("patch-approval")
         )
+        let params = try XCTUnwrap(approval["params"]?.objectValue)
+        let fileChanges = try XCTUnwrap(params["codex_file_changes"]?.objectValue)
+        XCTAssertEqual(fileChanges["approved.txt"]?.objectValue?["kind"], .string("write"))
+        XCTAssertEqual(
+            params["codex_changes"]?.objectValue?["changes"]?.objectValue?["approved.txt"]?.objectValue?["path"],
+            .string("approved.txt")
+        )
         try await fixture.respond(
             id: approvalID,
             result: .object(["decision": .string("approved")])
@@ -200,6 +207,76 @@ final class MCPServerSessionTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(
             atPath: fixture.workspace.appendingPathComponent("denied.txt").path
         ))
+        await fixture.finish()
+    }
+
+    func testPatchApprovalIncludesPathKeyedFileChangeMetadata() async throws {
+        let patch = """
+        diff --git a/created.txt b/created.txt
+        new file mode 100644
+        index 0000000..3b18e51
+        --- /dev/null
+        +++ b/created.txt
+        @@ -0,0 +1 @@
+        +hello
+        diff --git a/existing.txt b/existing.txt
+        index 3b18e51..f2ba8f8 100644
+        --- a/existing.txt
+        +++ b/existing.txt
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+        let llm = MCPTestScriptedLLM(actions: [
+            .tool(ToolCall(
+                name: ToolDefinition.applyPatch.name,
+                argumentsJSON: ToolArguments.json(["patch": patch])
+            )),
+            .say("Patch applied.")
+        ])
+        let fixture = try makeFixture(llm: llm)
+        try "old\n".write(
+            to: fixture.workspace.appendingPathComponent("existing.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try await fixture.initialize()
+        try await fixture.callTool(
+            id: .string("patch-approval-call"),
+            name: "codex",
+            arguments: .object([
+                "prompt": .string("apply patch"),
+                "cwd": .string(fixture.workspace.path),
+                "approval-policy": .string("on-request"),
+                "sandbox": .string("workspace-write")
+            ])
+        )
+
+        let approval = try await fixture.waitForMessage { message in
+            message["method"] == .string("elicitation/create")
+        }
+        let approvalID = try XCTUnwrap(MCPServerRequestID(jsonValue: approval["id"]))
+        let changes = try XCTUnwrap(
+            approval["params"]?.objectValue?["codex_file_changes"]?.objectValue
+        )
+        XCTAssertEqual(changes["created.txt"]?.objectValue?["kind"], .string("create"))
+        XCTAssertEqual(changes["existing.txt"]?.objectValue?["kind"], .string("modify"))
+        XCTAssertNil(changes["/dev/null"])
+
+        try await fixture.respond(
+            id: approvalID,
+            result: .object(["decision": .string("denied")])
+        )
+
+        let response = try await fixture.waitForMessage { $0["id"] == .string("patch-approval-call") }
+        XCTAssertEqual(response["result"]?.objectValue?["isError"], .bool(false))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: fixture.workspace.appendingPathComponent("created.txt").path
+        ))
+        XCTAssertEqual(
+            try String(contentsOf: fixture.workspace.appendingPathComponent("existing.txt"), encoding: .utf8),
+            "old\n"
+        )
         await fixture.finish()
     }
 

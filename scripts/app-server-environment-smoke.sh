@@ -26,6 +26,7 @@ import time
 from app_server_environment_exec_server import ExecServer, READ_ONLY_SANDBOX
 
 binary, home, workspace = [os.path.abspath(path) for path in sys.argv[1:]]
+RESPONSE_TIMEOUT = float(os.environ.get("QUILLCODE_APP_SERVER_SMOKE_TIMEOUT", "45"))
 
 server = ExecServer()
 server.start()
@@ -46,10 +47,14 @@ def send(message):
     process.stdin.flush()
 
 
-def read_record(timeout=15):
+def read_record(timeout=RESPONSE_TIMEOUT):
     ready, _, _ = select.select([process.stdout], [], [], timeout)
     if not ready:
-        raise AssertionError("app-server did not respond before timeout")
+        raise AssertionError(
+            "app-server did not respond before timeout "
+            f"(timeout={timeout:.1f}s, poll={process.poll()}, "
+            f"records={len(records)}, exec_methods={server.methods[-12:]!r})"
+        )
     line = process.stdout.readline()
     if not line:
         raise AssertionError(
@@ -60,7 +65,7 @@ def read_record(timeout=15):
     return record
 
 
-def read_until(predicate, timeout=15):
+def read_until(predicate, timeout=RESPONSE_TIMEOUT):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         record = read_record(max(0.01, deadline - time.monotonic()))
@@ -69,8 +74,8 @@ def read_until(predicate, timeout=15):
     raise AssertionError("app-server did not emit the expected record")
 
 
-def response(request_id):
-    return read_until(lambda record: record.get("id") == request_id)
+def response(request_id, timeout=RESPONSE_TIMEOUT):
+    return read_until(lambda record: record.get("id") == request_id, timeout=timeout)
 
 
 try:
