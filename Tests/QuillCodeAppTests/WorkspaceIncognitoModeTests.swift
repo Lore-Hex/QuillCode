@@ -552,6 +552,45 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
         XCTAssertTrue(banner.subtitle.contains("private session"))
     }
 
+    func testClearAndDeletePreserveIncognitoSpendReceipts() throws {
+        for destroy in ["clear", "delete"] {
+            let model = model(threads: [], selectedThreadID: nil)
+            let incognitoID = model.newIncognitoChat()
+            model.mutateThread(incognitoID) { thread in
+                thread.messages.append(.init(role: .user, content: "private"))
+                thread.events.append(ModelTokenUsageEvent.event(
+                    usage: ModelTokenUsage(promptTokens: 800, completionTokens: 200),
+                    modelID: TrustedRouterDefaults.e2eModel
+                ))
+            }
+
+            if destroy == "clear" {
+                _ = model.clearThread(incognitoID)
+            } else {
+                _ = model.deleteThread(incognitoID)
+            }
+
+            let receipt = try XCTUnwrap(model.discardedEphemeralSpendThreads.first, "\(destroy) must retain spend")
+            XCTAssertTrue(receipt.messages.isEmpty)
+            XCTAssertEqual(
+                ModelTokenUsageEvent.usage(from: try XCTUnwrap(receipt.events.first))?.contextTokens,
+                1_000
+            )
+        }
+    }
+
+    func testWorkspaceSurfaceDecodesLegacyPayloadWithoutIncognitoKey() throws {
+        let model = model(threads: [ChatThread(title: "T")], selectedThreadID: nil)
+        let encoded = try JSONEncoder().encode(model.surface())
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "isIncognito")
+        let legacy = try JSONSerialization.data(withJSONObject: object)
+
+        let decoded = try JSONDecoder().decode(WorkspaceSurface.self, from: legacy)
+
+        XCTAssertFalse(decoded.isIncognito, "absent key must decode as not-incognito (@QuillCodeDefaultFalse)")
+    }
+
     private func model(threads: [ChatThread], selectedThreadID: UUID?) -> QuillCodeWorkspaceModel {
         QuillCodeWorkspaceModel(root: QuillCodeRootState(
             threads: threads,

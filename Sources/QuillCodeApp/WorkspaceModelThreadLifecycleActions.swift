@@ -100,6 +100,11 @@ extension QuillCodeWorkspaceModel {
             setLastError("Stop this chat before deleting it.")
             return false
         }
+        // Typed /delete bypasses the discard-on-exit helper; keep the ephemeral spend receipt so a
+        // deleted incognito session's usage still counts against the period limits.
+        if let target = root.threads.first(where: { $0.id == id }) {
+            retainEphemeralSpendReceipt(for: target)
+        }
         return applyNavigationLifecycleChange {
             guard let result = updateThreadLifecycle({ threads in
                 WorkspaceThreadLifecycleEngine.deleteThread(
@@ -132,6 +137,10 @@ extension QuillCodeWorkspaceModel {
             return false
         }
         let originalThread = root.threads.first(where: { $0.id == id })
+        // /clear wipes the transcript (and its usage events); keep the ephemeral spend receipt first.
+        if let originalThread {
+            retainEphemeralSpendReceipt(for: originalThread)
+        }
         let attachments = originalThread.map(Self.allImageAttachmentsForCleanup) ?? []
         guard let result = updateThreadLifecycle({
             WorkspaceThreadLifecycleEngine.clearThread(id, threads: &$0)

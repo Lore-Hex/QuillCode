@@ -14,7 +14,8 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var sideConversation: SideConversationSurface?
     /// True while the selected thread is an incognito chat: session-only, never persisted, pinned to
     /// the E2E-encrypted route. Renderers show a persistent banner so the private state is unmistakable.
-    public var isIncognito: Bool
+    /// Default-false-on-absent so surface payloads bridged before this field existed still decode.
+    @QuillCodeDefaultFalse public var isIncognito: Bool
     public var codeReviewRequest: WorkspaceCodeReviewRequest?
     public var review: WorkspaceReviewSurface
     public var terminal: TerminalSurface

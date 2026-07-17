@@ -18,6 +18,16 @@ extension QuillCodeWorkspaceModel {
     /// Destroys the selected incognito thread when the user navigates away (new chat, thread or
     /// project selection): removes it from memory, finishes its runs, clears its draft, and prunes it
     /// from navigation history so Workspace Back can never resurrect the "never saved" conversation.
+    /// Preserves a session-only spend receipt for any ephemeral thread whose usage is about to be
+    /// destroyed (discard-on-exit, but also typed /clear and /delete which bypass the exit helper) —
+    /// so cycling incognito sessions can never launder spend past the configured period limits.
+    func retainEphemeralSpendReceipt(for thread: ChatThread) {
+        guard thread.runtimeContext.isEphemeral,
+              let receipt = Self.spendReceiptStub(from: thread)
+        else { return }
+        discardedEphemeralSpendThreads.append(receipt)
+    }
+
     /// Distills a destroyed ephemeral thread's provider-usage events (token counts, model id,
     /// timestamps — never message content) into a stub the spend-period ledger can keep counting.
     private static func spendReceiptStub(from thread: ChatThread) -> ChatThread? {
@@ -37,9 +47,7 @@ extension QuillCodeWorkspaceModel {
         guard let current = selectedThread, current.runtimeContext.isIncognito else { return false }
         // Spend must survive the destruction (limits would otherwise be resettable by cycling
         // incognito sessions); the receipt carries no conversation content.
-        if let receipt = Self.spendReceiptStub(from: current) {
-            discardedEphemeralSpendThreads.append(receipt)
-        }
+        retainEphemeralSpendReceipt(for: current)
         root.threads.removeAll { $0.id == current.id }
         sessionStartHookCoordinator.remove(threadID: current.id)
         agentRuns.finish(threadID: current.id)

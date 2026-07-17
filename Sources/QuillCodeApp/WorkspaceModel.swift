@@ -387,7 +387,7 @@ public final class QuillCodeWorkspaceModel {
         automations.isVisible = isVisible
     }
 
-    func setLastError(_ message: String?) {
+    public func setLastError(_ message: String?) {
         lastError = message
     }
 

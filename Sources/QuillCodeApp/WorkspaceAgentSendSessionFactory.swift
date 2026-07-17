@@ -117,7 +117,11 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             // arbitrary user-configured shell — an automatic hook could persist incognito content
             // despite the "never saved" contract. Incognito sessions run without them.
             runHooks: thread.runtimeContext.isIncognito ? [] : runHooks,
-            pluginLifecycleHooks: pluginLifecycleHooks,
+            // A SessionStart plugin hook appends its stdout / additionalContext as a system message —
+            // durable workspace context injected into the private conversation, the exact thing the
+            // incognito guards keep out. Run with no lifecycle hooks for incognito (an empty executor
+            // makes prepareLifecycle's report a no-op even though the .primary case still fires).
+            pluginLifecycleHooks: thread.runtimeContext.isIncognito ? emptyPluginLifecycleHooks : pluginLifecycleHooks,
             lifecycle: lifecycle ?? .primary(sessionStartHookCoordinator),
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
@@ -274,6 +278,17 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private var pluginLifecycleHooks: ProjectPluginLifecycleHookExecutor {
         ProjectPluginLifecycleHookExecutor(
             hooks: hooks,
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
+    }
+
+    /// A lifecycle-hook executor with no hooks — its SessionStart run produces an empty, context-free
+    /// report. Used for incognito sends so no plugin can inject durable workspace context.
+    private var emptyPluginLifecycleHooks: ProjectPluginLifecycleHookExecutor {
+        ProjectPluginLifecycleHookExecutor(
+            hooks: [],
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor
