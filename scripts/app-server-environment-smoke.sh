@@ -23,7 +23,7 @@ import subprocess
 import sys
 import time
 
-from app_server_environment_exec_server import ExecServer
+from app_server_environment_exec_server import ExecServer, READ_ONLY_SANDBOX
 
 binary, home, workspace = [os.path.abspath(path) for path in sys.argv[1:]]
 
@@ -154,6 +154,14 @@ try:
     start = server.process_starts[0]
     assert start["argv"] == ["/bin/zsh", "-lc", remote_command], start
     assert start["cwd"] == "file:///workspace", start
+    assert start["sandbox"] == READ_ONLY_SANDBOX, start
+    assert start["enforceManagedNetwork"] is False, start
+    assert start["managedNetwork"] is None, start
+    assert server.file_system_requests, "expected a canonicalize request"
+    assert all(
+        request["sandbox"] == READ_ONLY_SANDBOX
+        for request in server.file_system_requests
+    ), server.file_system_requests
 
     server.disconnect_client()
     disconnected = read_until(

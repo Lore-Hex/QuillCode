@@ -39,6 +39,15 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
                 start["params"]?.objectValue?["argv"]?.arrayValue?.compactMap(\.stringValue),
                 ["/bin/zsh", "-lc", "whoami"]
             )
+            XCTAssertEqual(
+                start["params"]?.objectValue?["sandbox"],
+                try Self.sandbox().rpcValue
+            )
+            XCTAssertEqual(
+                start["params"]?.objectValue?["enforceManagedNetwork"],
+                .bool(false)
+            )
+            XCTAssertEqual(start["params"]?.objectValue?["managedNetwork"], .null)
             try await peer.respond(to: start, result: .object([
                 "processId": .string(processID)
             ]))
@@ -73,10 +82,100 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
                 argv: ["/bin/zsh", "-lc", "whoami"],
                 cwdURI: "file:///workspace",
                 environment: [:],
+                sandbox: try Self.sandbox(),
                 timeoutSeconds: 2
             ))
             XCTAssertEqual(process.stdout, "quill\n")
             XCTAssertEqual(process.exitCode, 0)
+            try await server.value
+        } catch {
+            server.cancel()
+            listener.close()
+            await client.close()
+            throw error
+        }
+        listener.close()
+        await client.close()
+    }
+
+    func testFileSystemRequestsForwardSandboxContext() async throws {
+        let listener = try TCPSocketListener(host: "127.0.0.1", port: 0)
+        let sandbox = try Self.sandbox()
+        let server = Task.detached { @Sendable [listener, sandbox] in
+            let connection = try await listener.accept()
+            defer { connection.close() }
+            let peer = try await Self.acceptPeer(connection)
+            try await peer.completeHandshake(sessionID: "filesystem-session")
+
+            let read = try await peer.readJSON()
+            try Self.assertSandbox(sandbox, on: read, method: "fs/readFile")
+            try await peer.respond(to: read, result: .object([
+                "dataBase64": .string(Data("hello".utf8).base64EncodedString())
+            ]))
+
+            let write = try await peer.readJSON()
+            try Self.assertSandbox(sandbox, on: write, method: "fs/writeFile")
+            try await peer.respond(to: write, result: .object([:]))
+
+            let create = try await peer.readJSON()
+            try Self.assertSandbox(sandbox, on: create, method: "fs/createDirectory")
+            try await peer.respond(to: create, result: .object([:]))
+
+            let metadata = try await peer.readJSON()
+            try Self.assertSandbox(sandbox, on: metadata, method: "fs/getMetadata")
+            try await peer.respond(to: metadata, result: .object([
+                "isDirectory": .bool(false),
+                "isFile": .bool(true),
+                "isSymlink": .bool(false),
+                "size": .number(5)
+            ]))
+
+            let canonicalize = try await peer.readJSON()
+            try Self.assertSandbox(sandbox, on: canonicalize, method: "fs/canonicalize")
+            try await peer.respond(to: canonicalize, result: .object([
+                "path": .string("file:///workspace/file.txt")
+            ]))
+
+            let directory = try await peer.readJSON()
+            try Self.assertSandbox(sandbox, on: directory, method: "fs/readDirectory")
+            try await peer.respond(to: directory, result: .object([
+                "entries": .array([])
+            ]))
+
+            let remove = try await peer.readJSON()
+            try Self.assertSandbox(sandbox, on: remove, method: "fs/remove")
+            try await peer.respond(to: remove, result: .object([:]))
+        }
+        let client = AppServerExecServerWebSocketClient(
+            websocketURL: "ws://127.0.0.1:\(listener.port)",
+            connectTimeout: 2
+        )
+
+        do {
+            let path = "file:///workspace/file.txt"
+            let data = try await client.readFile(at: path, sandbox: sandbox)
+            XCTAssertEqual(data, Data("hello".utf8))
+            try await client.writeFile(Data("hello".utf8), at: path, sandbox: sandbox)
+            try await client.createDirectory(
+                at: "file:///workspace/new",
+                recursive: true,
+                sandbox: sandbox
+            )
+            let metadata = try await client.metadata(at: path, sandbox: sandbox)
+            XCTAssertEqual(metadata.size, 5)
+            let canonicalPath = try await client.canonicalize(path, sandbox: sandbox)
+            XCTAssertEqual(canonicalPath, path)
+            let entries = try await client.readDirectory(
+                at: "file:///workspace",
+                sandbox: sandbox
+            )
+            XCTAssertEqual(entries, [])
+            try await client.remove(
+                at: path,
+                recursive: false,
+                force: false,
+                sandbox: sandbox
+            )
             try await server.value
         } catch {
             server.cancel()
@@ -258,6 +357,7 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
                 argv: ["/bin/zsh", "-lc", "printf output"],
                 cwdURI: "file:///workspace",
                 environment: [:],
+                sandbox: try Self.sandbox(),
                 timeoutSeconds: 2
             ))
             XCTAssertEqual(process.stdout, "first\n")
@@ -427,7 +527,10 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
 
         do {
             do {
-                _ = try await client.metadata(at: "file:///workspace/file")
+                _ = try await client.metadata(
+                    at: "file:///workspace/file",
+                    sandbox: try Self.sandbox()
+                )
                 XCTFail("Oversized metadata must be rejected")
             } catch let error as AppServerExecServerError {
                 XCTAssertEqual(
@@ -481,6 +584,7 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
                     argv: ["/bin/zsh", "-lc", "whoami"],
                     cwdURI: "file:///workspace",
                     environment: [:],
+                    sandbox: try Self.sandbox(),
                     timeoutSeconds: 2
                 ))
                 XCTFail("Oversized process sequence must be rejected")
@@ -537,6 +641,7 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
                     argv: ["/bin/zsh", "-lc", "whoami"],
                     cwdURI: "file:///workspace",
                     environment: [:],
+                    sandbox: try Self.sandbox(),
                     timeoutSeconds: 2
                 ))
                 XCTFail("A terminal response without status must not become exit code zero")
@@ -624,6 +729,25 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
             ]),
             "cwd": .string("file:///workspace")
         ])
+    }
+
+    private static func sandbox() throws -> AppServerExecServerSandboxContext {
+        try AppServerExecServerSandboxContext(
+            policy: .init(mode: .readOnly),
+            workspace: .init(cwd: "/workspace", fallbackCWDURI: nil)
+        )
+    }
+
+    private static func assertSandbox(
+        _ sandbox: AppServerExecServerSandboxContext,
+        on request: [String: CLIJSONValue],
+        method: String
+    ) throws {
+        XCTAssertEqual(request["method"]?.stringValue, method)
+        XCTAssertEqual(
+            try XCTUnwrap(request["params"]?.objectValue?["sandbox"]),
+            sandbox.rpcValue
+        )
     }
 
     private static func acceptPeer(

@@ -9,6 +9,30 @@ import struct
 import threading
 import time
 
+
+READ_ONLY_SANDBOX = {
+    "permissions": {
+        "type": "managed",
+        "file_system": {
+            "type": "restricted",
+            "entries": [{
+                "path": {
+                    "type": "special",
+                    "value": {"kind": "root"},
+                },
+                "access": "read",
+            }],
+        },
+        "network": "restricted",
+    },
+    "cwd": "file:///workspace",
+    "workspaceRoots": ["file:///workspace"],
+    "windowsSandboxLevel": "disabled",
+    "windowsSandboxPrivateDesktop": False,
+    "useLegacyLandlock": False,
+}
+
+
 def receive_exact(connection, count):
     data = bytearray()
     while len(data) < count:
@@ -87,6 +111,7 @@ class ExecServer:
         self.initialize_count = 0
         self.process_starts = []
         self.process_reads = {}
+        self.file_system_requests = []
         self.thread = threading.Thread(target=self._run, daemon=True)
 
     def start(self):
@@ -222,8 +247,13 @@ class ExecServer:
                 "cwd": "file:///workspace",
             }
         if method == "fs/canonicalize":
+            self._assert_read_only_sandbox(params)
+            self.file_system_requests.append(params)
             return {"path": params["path"]}
         if method == "process/start":
+            self._assert_read_only_sandbox(params)
+            assert params["enforceManagedNetwork"] is False, params
+            assert params["managedNetwork"] is None, params
             self.process_starts.append(params)
             self.process_reads[params["processId"]] = 0
             return {"processId": params["processId"]}
@@ -283,3 +313,7 @@ class ExecServer:
         if method == "process/terminate":
             return {}
         raise AssertionError(f"unexpected exec-server method: {method}")
+
+    @staticmethod
+    def _assert_read_only_sandbox(params):
+        assert params["sandbox"] == READ_ONLY_SANDBOX, params

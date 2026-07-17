@@ -70,6 +70,29 @@ struct AppServerRemoteWorkspacePath: Sendable, Equatable {
         )
     }
 
+    func sandboxPathURI(for rawPath: String) throws -> String {
+        let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              !trimmed.contains("\0"),
+              trimmed.rangeOfCharacter(from: .newlines) == nil else {
+            throw AppServerRemotePathError.invalidPath(rawPath)
+        }
+
+        let normalized = Self.normalizedSeparators(trimmed, flavor: flavor)
+        guard Self.isSyntacticallyAbsolute(normalized, flavor: flavor) else {
+            return try resolve(normalized).uri
+        }
+        let parsed = try Self.parseAbsolute(normalized)
+        guard parsed.flavor == flavor else {
+            throw AppServerRemotePathError.outsideWorkspace(rawPath)
+        }
+        return Self.resolved(
+            components: parsed.components,
+            relativeComponents: [],
+            flavor: parsed.flavor
+        ).uri
+    }
+
     func parent(of path: Resolved) throws -> Resolved {
         guard path.relativePath != "." else { return root }
         let native = path.nativePath
@@ -185,6 +208,15 @@ struct AppServerRemoteWorkspacePath: Sendable, Equatable {
         switch flavor {
         case .unix: path.hasPrefix("/")
         case .windows(let drive): path.uppercased().hasPrefix(drive + "/")
+        }
+    }
+
+    private static func isSyntacticallyAbsolute(_ path: String, flavor: Flavor) -> Bool {
+        switch flavor {
+        case .unix:
+            path.hasPrefix("/")
+        case .windows:
+            path.range(of: #"^[A-Za-z]:/"#, options: .regularExpression) != nil
         }
     }
 

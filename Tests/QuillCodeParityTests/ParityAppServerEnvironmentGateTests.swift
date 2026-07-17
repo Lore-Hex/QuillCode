@@ -24,6 +24,10 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             root,
             "Sources/QuillCodeCLI/AppServerExecServerProcessClient.swift"
         )
+        let sandboxContext = try text(
+            root,
+            "Sources/QuillCodeCLI/AppServerExecServerSandboxContext.swift"
+        )
         let executor = try text(
             root,
             "Sources/QuillCodeCLI/AppServerRemoteEnvironmentToolExecutor.swift"
@@ -39,6 +43,10 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
         let transportTests = try text(
             root,
             "Tests/QuillCodeCLITests/AppServerExecServerWebSocketClientTests.swift"
+        )
+        let sandboxTests = try text(
+            root,
+            "Tests/QuillCodeCLITests/AppServerExecServerSandboxContextTests.swift"
         )
         let smoke = try text(root, "scripts/app-server-environment-smoke.sh")
         let smokeServer = try text(
@@ -84,20 +92,35 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "fs/readFile",
             "fs/writeFile",
             "fs/readDirectory",
-            "fs/canonicalize"
+            "fs/canonicalize",
+            "sandbox.rpcValue"
         ])
         Self.assertSource(processClient, containsAll: [
             "process/start",
             "process/read",
+            "request.sandbox.rpcValue",
             "nextSequence - 1",
             "if closed || terminalFailure != nil || sandboxDenied",
             "withTaskCancellationHandler"
+        ])
+        Self.assertSource(sandboxContext, containsAll: [
+            "case managed(entries:",
+            "case disabled",
+            "case .readOnly:",
+            "case .workspaceWrite:",
+            "case .dangerFullAccess:",
+            "project_roots",
+            "workspaceRoots",
+            "windowsSandboxPrivateDesktop",
+            "useLegacyLandlock"
         ])
         Self.assertSource(executor, containsAll: [
             "remotelyExecutedToolNames",
             "executeUserShell",
             "readFileURIs",
-            "canonicalized"
+            "canonicalized",
+            "AppServerExecServerSandboxContext",
+            "sandbox: sandbox"
         ])
         Self.assertSource(userShell, containsAll: [
             "case .disabled:",
@@ -116,10 +139,17 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             transportTests,
             containsAll: [
                 "testConcurrentRPCsRouteResponsesAndReconnectResumesSession",
+                "testFileSystemRequestsForwardSandboxContext",
                 "testStatusProbeUsesExistingConnectionAndIdleClosePublishesFutureTransitions",
                 "testProcessReadsAdvanceWithLastObservedSequenceWithoutSkippingOutput"
             ]
         )
+        Self.assertSource(sandboxTests, containsAll: [
+            "testReadOnlyProfileMatchesExecServerProtocol",
+            "testWorkspaceWriteProfileProjectsRootsAndExclusionsExactly",
+            "testDangerFullAccessUsesDisabledProfileWithoutClaimingManagedEnforcement",
+            "testWritableRootForAnotherTargetDriveFailsClosed"
+        ])
         Self.assertSource(smoke, containsAll: [
             "import time",
             "environment/status",
@@ -133,6 +163,7 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(smokeServer, containsAll: [
             "class ExecServer:",
+            "READ_ONLY_SANDBOX",
             "resumeSessionId",
             "environment/status",
             "process/start",
@@ -140,6 +171,8 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "send_frame(connection, 8, b\"\")",
             "_wait_for_connection_change",
             "timeout=15",
+            "_assert_read_only_sandbox",
+            "enforceManagedNetwork",
             "late-output"
         ])
         Self.assertSource(aggregateSmoke, contains: "app-server-environment-smoke.sh")

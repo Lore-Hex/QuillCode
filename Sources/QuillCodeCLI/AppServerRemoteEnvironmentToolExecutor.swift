@@ -27,19 +27,26 @@ actor AppServerRemoteEnvironmentToolExecutor {
     let workspace: AppServerRemoteWorkspacePath
 
     private let client: any AppServerExecServerClient
+    private let sandbox: AppServerExecServerSandboxContext
     private var readFileURIs: Set<String> = []
 
     init(
         environmentID: String,
         cwd: String,
         environmentInfo: AppServerEnvironmentInfo,
+        sandboxPolicy: AppServerSandboxPolicy,
         client: any AppServerExecServerClient
     ) throws {
         self.environmentID = environmentID
         self.environmentInfo = environmentInfo
-        self.workspace = try AppServerRemoteWorkspacePath(
+        let workspace = try AppServerRemoteWorkspacePath(
             cwd: cwd,
             fallbackCWDURI: environmentInfo.cwd
+        )
+        self.workspace = workspace
+        self.sandbox = try AppServerExecServerSandboxContext(
+            policy: sandboxPolicy,
+            workspace: workspace
         )
         self.client = client
     }
@@ -136,10 +143,20 @@ actor AppServerRemoteEnvironmentToolExecutor {
                 timeout: timeout
             )
         } catch {
-            try? await client.remove(at: temporary.uri, recursive: false, force: true)
+            try? await client.remove(
+                at: temporary.uri,
+                recursive: false,
+                force: true,
+                sandbox: sandbox
+            )
             throw error
         }
-        try? await client.remove(at: temporary.uri, recursive: false, force: true)
+        try? await client.remove(
+            at: temporary.uri,
+            recursive: false,
+            force: true,
+            sandbox: sandbox
+        )
         return result
     }
 
@@ -147,7 +164,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
         let requested = try arguments.requiredString("path")
         let resolved = try workspace.resolve(requested)
         let canonical = try await canonicalized(resolved)
-        let data = try await client.readFile(at: canonical.uri)
+        let data = try await client.readFile(at: canonical.uri, sandbox: sandbox)
         if FileReadRenderer.isProbablyBinary(data) {
             return ToolResult(
                 ok: true,
@@ -181,11 +198,14 @@ actor AppServerRemoteEnvironmentToolExecutor {
         let requested = arguments.string("path") ?? "."
         let resolved = try workspace.resolve(requested, defaultingToRoot: true)
         let canonical = try await canonicalized(resolved)
-        let metadata = try await client.metadata(at: canonical.uri)
+        let metadata = try await client.metadata(at: canonical.uri, sandbox: sandbox)
         guard metadata.isDirectory else { throw FileToolError.notDirectory(requested) }
 
         let includeHidden = arguments.bool("includeHidden") ?? false
-        let allEntries = try await client.readDirectory(at: canonical.uri)
+        let allEntries = try await client.readDirectory(
+            at: canonical.uri,
+            sandbox: sandbox
+        )
             .filter { includeHidden || !$0.fileName.hasPrefix(".") }
             .sorted(by: Self.entrySort)
         let limit = min(
@@ -283,13 +303,19 @@ actor AppServerRemoteEnvironmentToolExecutor {
         if let existingCanonical, !readFileURIs.contains(existingCanonical.uri) {
             throw FileEditGuardError.writeWithoutRead(requested)
         }
-        let existingData = existingMetadata == nil ? nil : try await client.readFile(at: resolved.uri)
+        let existingData = existingMetadata == nil
+            ? nil
+            : try await client.readFile(at: resolved.uri, sandbox: sandbox)
         let style = existingData.map(FileEncodingPreservation.detect) ?? .default
         let data = FileEncodingPreservation.apply(content, style: style)
         if existingData == data { throw FileEditGuardError.noOpWrite(requested) }
 
-        try await client.createDirectory(at: parent.uri, recursive: true)
-        try await client.writeFile(data, at: resolved.uri)
+        try await client.createDirectory(
+            at: parent.uri,
+            recursive: true,
+            sandbox: sandbox
+        )
+        try await client.writeFile(data, at: resolved.uri, sandbox: sandbox)
         let written = try await canonicalized(resolved)
         readFileURIs.insert(written.uri)
         return ToolResult(
@@ -344,10 +370,20 @@ actor AppServerRemoteEnvironmentToolExecutor {
             }
             executionResult = attempted
         } catch {
-            try? await client.remove(at: temporary.uri, recursive: false, force: true)
+            try? await client.remove(
+                at: temporary.uri,
+                recursive: false,
+                force: true,
+                sandbox: sandbox
+            )
             throw error
         }
-        try? await client.remove(at: temporary.uri, recursive: false, force: true)
+        try? await client.remove(
+            at: temporary.uri,
+            recursive: false,
+            force: true,
+            sandbox: sandbox
+        )
         guard executionResult.ok else { return executionResult }
 
         var result = executionResult
@@ -374,6 +410,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
             argv: Self.shellArguments(shell: environmentInfo.shell, command: command),
             cwdURI: cwd.uri,
             environment: environment,
+            sandbox: sandbox,
             timeoutSeconds: timeout
         ))
         let ok = process.exitCode == 0 && process.failure == nil && !process.sandboxDenied
@@ -399,7 +436,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
     private func canonicalized(
         _ path: AppServerRemoteWorkspacePath.Resolved
     ) async throws -> AppServerRemoteWorkspacePath.Resolved {
-        let canonicalURI = try await client.canonicalize(path.uri)
+        let canonicalURI = try await client.canonicalize(path.uri, sandbox: sandbox)
         guard let canonical = workspace.canonical(canonicalURI) else {
             throw AppServerRemotePathError.outsideWorkspace(path.nativePath)
         }
@@ -408,7 +445,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
 
     private func optionalMetadata(at uri: String) async throws -> AppServerRemoteFileMetadata? {
         do {
-            return try await client.metadata(at: uri)
+            return try await client.metadata(at: uri, sandbox: sandbox)
         } catch let error as AppServerExecServerError {
             guard case .remoteRPC(_, let message) = error,
                   Self.isMissingPathError(message) else {
@@ -430,7 +467,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
             candidate = parent
         }
         let canonical = try await canonicalized(candidate)
-        let metadata = try await client.metadata(at: canonical.uri)
+        let metadata = try await client.metadata(at: canonical.uri, sandbox: sandbox)
         guard metadata.isDirectory else {
             throw FileToolError.notDirectory(candidate.relativePath)
         }
@@ -442,11 +479,15 @@ actor AppServerRemoteEnvironmentToolExecutor {
     ) async throws -> AppServerRemoteWorkspacePath.Resolved {
         let directory = try workspace.resolve(".quillcode/tmp")
         try await validateNearestExistingParent(of: directory)
-        try await client.createDirectory(at: directory.uri, recursive: true)
+        try await client.createDirectory(
+            at: directory.uri,
+            recursive: true,
+            sandbox: sandbox
+        )
         let file = try workspace.resolve(
             ".quillcode/tmp/\(UUID().uuidString.lowercased()).\(suffix)"
         )
-        try await client.writeFile(data, at: file.uri)
+        try await client.writeFile(data, at: file.uri, sandbox: sandbox)
         return file
     }
 

@@ -325,6 +325,19 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   and remote-environment tests, and deferred executor implementation at Codex 0.144.5, audited
   2026-07-16.
 
+- The exec-server `FileSystemSandboxContext` is an explicit request value, not an app-server-local
+  policy label. Its camel-case envelope carries `permissions`, optional `cwd`, `workspaceRoots`,
+  `windowsSandboxLevel`, `windowsSandboxPrivateDesktop`, and `useLegacyLandlock`. Managed permissions
+  contain a snake-case `file_system` profile plus `network`; filesystem entries combine a tagged path
+  (`path`, `glob_pattern`, or `special`) with `read`, `write`, or `deny` access. Read-only can therefore
+  be represented by root read access, workspace-write by root read plus project-root/temp/explicit-root
+  writes and project metadata reads, and unrestricted execution by the disabled permission profile.
+  `process/start` separately carries `enforceManagedNetwork` and nullable `managedNetwork`; a client
+  without a real managed proxy must send false/null rather than claim enforcement. QuillCode derives
+  this target-native context once per selected thread executor and forwards it on every process and
+  filesystem request. Source: public `openai/codex` exec-server protocol, filesystem permissions, and
+  config types at commit `315195492c80fdade38e917c18f9584efd599304`, audited 2026-07-17.
+
 - Current Codex remote projects launch the remote Codex app server over SSH and run it through the
   remote user's login shell. The remote `codex` executable must therefore be available on that
   shell's `PATH`; authentication and normal SSH host-key/security expectations still apply. Codex
