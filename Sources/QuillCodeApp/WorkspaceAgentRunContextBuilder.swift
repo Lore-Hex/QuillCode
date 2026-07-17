@@ -27,6 +27,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     /// so saved allow/deny/ask rules compose with (never replace) the mode + intent review.
     var permissionRules: (any PermissionRulesProviding)? = nil
     var allowsSubagents: Bool = true
+    /// Incognito runs must not expose tools that persist conversation-derived content: the model
+    /// could otherwise autonomously write distilled incognito-chat content to durable memory.
+    var threadIsIncognito: Bool = false
 
     /// Configures a per-send runner. `modelID` pins THIS run's LLM client to the selected model —
     /// the thread's model — so `/model`, the top-bar picker, and the `/model` popup all take effect
@@ -58,9 +61,37 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         if activeRunner.maxToolSteps == AgentRunner.defaultMaxToolSteps {
             activeRunner.maxToolSteps = config.maxToolSteps
         }
+        // EVERY model-backed auxiliary must respect the E2E route, not just the primary client
+        // below: the auto-mode safety reviewer otherwise ships recentMessages + userMessage to the
+        // GLM/Kimi reviewer models, and the LLM compaction summarizer ships older turns to the
+        // auxiliary model on context pressure. This traffic hardening keys off the EFFECTIVE model —
+        // a regular thread can select trustedrouter/e2e from the Private category, and "E2E
+        // Encrypted" in the UI must mean no non-E2E egress there either. (Persistence restrictions —
+        // memory tool, hooks, computer-use — stay incognito-only; they're about "never saved", not
+        // routing.) Swap the auxiliaries to their model-free forms — static safety policy (auto
+        // approvals degrade to the conservative static verdicts) and the deterministic compaction
+        // summarizer — and retarget or drop web search.
+        let requiresE2EOnlyTraffic = threadIsIncognito
+            || TrustedRouterDefaults.canonicalModelID(modelID ?? "") == TrustedRouterDefaults.e2eModel
+        if requiresE2EOnlyTraffic {
+            activeRunner.safety = AutoSafetyReviewer()
+            if var compaction = activeRunner.compaction {
+                compaction.compactor.summarizer = DeterministicThreadCompactionSummarizer()
+                activeRunner.compaction = compaction
+            }
+            // host.web.search makes its own chat-completions request carrying the private query —
+            // retarget it onto the E2E route, or drop the tool entirely for client types we can't
+            // retarget (never let a search silently ride the default non-E2E model).
+            if var webSearch = activeRunner.webSearch as? TrustedRouterWebSearchClient {
+                webSearch.model = TrustedRouterDefaults.e2eModel
+                activeRunner.webSearch = webSearch
+            } else {
+                activeRunner.webSearch = nil
+            }
+        }
         if let permissionRules {
             activeRunner.safety = PermissionRuleGatedSafetyReviewer(
-                base: runner.safety,
+                base: activeRunner.safety,
                 rules: permissionRules
             )
         }
@@ -142,6 +173,11 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     private var computerUseToolDefinitions: [ToolDefinition] {
+        // Computer-use screenshots and workflow-recording PNGs are written under the DURABLE
+        // per-thread attachment directory with no cleanup once an ephemeral thread evaporates —
+        // the same orphaned-artifact leak addComposerImages refuses. Gate the tools for incognito
+        // until temp-dir routing / the orphan sweep exists.
+        if threadIsIncognito { return [] }
         guard let computerUseBackend else { return [] }
         var definitions = ToolDefinition.computerUseDefinitions
         if computerUseBackend is any WorkflowRecordingBackend {
@@ -151,7 +187,10 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     private var memoryToolDefinitions: [ToolDefinition] {
-        globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
+        // No memory.remember in incognito: the user-typed /remember stays available (explicit,
+        // bookmark-like), but the MODEL must not be able to persist incognito content on its own.
+        if threadIsIncognito { return [] }
+        return globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
     }
 
     private var activityToolExecutionOverride: AgentToolExecutionOverride {

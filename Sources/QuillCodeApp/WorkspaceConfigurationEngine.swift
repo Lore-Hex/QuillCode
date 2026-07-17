@@ -62,6 +62,10 @@ struct WorkspaceConfigurationEngine {
 
     static func syncThread(_ thread: inout ChatThread, to config: AppConfig) {
         thread.mode = config.mode
+        // Saving Settings (even an unrelated option) must not overwrite an incognito thread's model:
+        // the picker renders locked, and silently retargeting the next send at config.defaultModel
+        // would defeat the advertised E2E pin.
+        guard !thread.runtimeContext.isIncognito else { return }
         thread.model = config.defaultModel
     }
 }

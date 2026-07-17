@@ -13,7 +13,14 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func renameThread(_ id: UUID, to title: String) -> Bool {
-        updateAndSaveThread { threads in
+        // A typed /rename bypasses palette enablement. Ephemeral titles must stay fixed: the title
+        // reaches desktop notifications (persisted by OS notification history), and "Incognito" /
+        // "Side: …" is also what keeps those surfaces content-free.
+        if root.threads.first(where: { $0.id == id })?.runtimeContext.isEphemeral == true {
+            setLastError("Incognito and side conversations can't be renamed.")
+            return false
+        }
+        return updateAndSaveThread { threads in
             WorkspaceThreadLifecycleEngine.renameThread(id, to: title, threads: &threads)
         } != nil
     }
@@ -40,7 +47,13 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func archiveThread(_ id: UUID) -> Bool {
-        guard root.threads.contains(where: { $0.id == id && !$0.isArchived }) else {
+        guard let target = root.threads.first(where: { $0.id == id && !$0.isArchived }) else {
+            return false
+        }
+        // Archiving persists the thread and keeps it selectable from History — the opposite of an
+        // ephemeral thread's contract. Typed /archive bypasses palette enablement, so refuse here.
+        if target.runtimeContext.isEphemeral {
+            setLastError("Incognito and side conversations can't be archived: they are never saved.")
             return false
         }
         preserveDisposableWorktreeBeforeArchive(threadID: id)
@@ -66,6 +79,11 @@ extension QuillCodeWorkspaceModel {
                 WorkspaceThreadLifecycleEngine.unarchiveThread(id, threads: &$0)
             }) else { return false }
 
+            // Unarchive selects the restored thread directly (not via selectThread), so the outgoing
+            // incognito discard must run here too — otherwise Workspace Back could resurrect it.
+            if root.selectedThreadID != id {
+                _ = discardIncognitoThreadOnExit()
+            }
             applyThreadDraftSelection(to: id)
             root.selectedThreadID = id
             root.selectedProjectID = knownProjectID(result.projectID)
@@ -81,6 +99,16 @@ extension QuillCodeWorkspaceModel {
         guard !agentRuns.isRunning(id) else {
             setLastError("Stop this chat before deleting it.")
             return false
+        }
+        // Typed /delete bypasses the discard-on-exit helper; keep the ephemeral spend receipt so a
+        // deleted incognito session's usage still counts against the period limits, and clear the
+        // workspace-scoped error so a private run's failure doesn't render as a runtime-issue card
+        // in the next durable chat.
+        if let target = root.threads.first(where: { $0.id == id }) {
+            retainEphemeralSpendReceipt(for: target)
+            if target.runtimeContext.isEphemeral && root.selectedThreadID == id {
+                setLastError(nil)
+            }
         }
         return applyNavigationLifecycleChange {
             guard let result = updateThreadLifecycle({ threads in
@@ -114,6 +142,15 @@ extension QuillCodeWorkspaceModel {
             return false
         }
         let originalThread = root.threads.first(where: { $0.id == id })
+        // /clear wipes the transcript (and its usage events); keep the ephemeral spend receipt first.
+        if let originalThread {
+            retainEphemeralSpendReceipt(for: originalThread)
+            // Match /delete: an ephemeral thread stays put after /clear, so its private run's failure
+            // would otherwise linger as a runtime-issue card. Clear the workspace-scoped error too.
+            if originalThread.runtimeContext.isEphemeral && root.selectedThreadID == id {
+                setLastError(nil)
+            }
+        }
         let attachments = originalThread.map(Self.allImageAttachmentsForCleanup) ?? []
         guard let result = updateThreadLifecycle({
             WorkspaceThreadLifecycleEngine.clearThread(id, threads: &$0)

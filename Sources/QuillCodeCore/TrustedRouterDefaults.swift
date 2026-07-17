@@ -7,6 +7,9 @@ public enum TrustedRouterDefaults {
     public static let socratesModel = "trustedrouter/socrates"
     public static let aristotleModel = "trustedrouter/aristotle"
     public static let platoModel = "trustedrouter/plato"
+    /// The end-to-end-encrypted route: inference runs inside the attested TrustedRouter enclave and
+    /// prompts are never visible to the provider. Incognito threads are pinned to it.
+    public static let e2eModel = "trustedrouter/e2e"
     public static let defaultModel = fastModel
     public static let defaultAPIBaseURL = "https://api.trustedrouter.com/v1"
     public static let signInURL = "https://trustedrouter.com/sign-in-with-trustedrouter"
@@ -16,6 +19,7 @@ public enum TrustedRouterDefaults {
     public static let recommendedCategory = "Recommended"
     public static let safetyCategory = "Safety"
     public static let currentCategory = "Current"
+    public static let privateCategory = "Private"
     public static let trustedRouterProvider = "trustedrouter"
     public static let fastModelDisplayName = "Nike 1.0"
     public static let zeusModelDisplayName = "Zeus 1.0"
@@ -23,6 +27,7 @@ public enum TrustedRouterDefaults {
     public static let socratesModelDisplayName = "Socrates 1.0"
     public static let aristotleModelDisplayName = "Aristotle 1.0"
     public static let platoModelDisplayName = "Plato 1.0"
+    public static let e2eModelDisplayName = "E2E Encrypted"
     public static let zeusSlashAlias = "/zeus"
     public static let prometheusSlashAlias = "/prometheus"
     public static let socratesSlashAlias = "/socrates"
@@ -86,7 +91,13 @@ public enum TrustedRouterDefaults {
         "tr/plato": platoModel,
         "oss coding": platoModel,
         "oss-coding": platoModel,
-        "freedom oss coding agent": platoModel
+        "freedom oss coding agent": platoModel,
+        "e2e": e2eModel,
+        "/e2e": e2eModel,
+        "tr/e2e": e2eModel,
+        "e2e encrypted": e2eModel,
+        "e2e-encrypted": e2eModel,
+        "encrypted": e2eModel
     ]
     public static let safetyPrimaryCatalogModel = "z-ai/glm-5.2"
     public static let safetyFallbackCatalogModel = "moonshotai/kimi-k2.6"
@@ -100,6 +111,7 @@ public enum TrustedRouterDefaults {
         .init(id: socratesModel, provider: trustedRouterProvider, displayName: socratesModelDisplayName, category: recommendedCategory),
         .init(id: aristotleModel, provider: trustedRouterProvider, displayName: aristotleModelDisplayName, category: recommendedCategory),
         .init(id: platoModel, provider: trustedRouterProvider, displayName: platoModelDisplayName, category: recommendedCategory),
+        .init(id: e2eModel, provider: trustedRouterProvider, displayName: e2eModelDisplayName, category: privateCategory),
         .init(id: minimaxM3Model, provider: "minimax", displayName: "MiniMax M3", category: "minimax"),
         .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
         .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
@@ -111,7 +123,10 @@ public enum TrustedRouterDefaults {
         prometheusModel: prometheusModelDisplayName,
         socratesModel: socratesModelDisplayName,
         aristotleModel: aristotleModelDisplayName,
-        platoModel: platoModelDisplayName
+        platoModel: platoModelDisplayName,
+        // Display-only (NOT in recommendedModelIDs): the incognito-pinned E2E route must render its
+        // human name in the locked model chip even when the live catalog omits the route.
+        e2eModel: e2eModelDisplayName
     ]
 
     public static let recommendedSummaries: [String: String] = [

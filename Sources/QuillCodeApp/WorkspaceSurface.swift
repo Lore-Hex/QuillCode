@@ -12,6 +12,10 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var transcript: TranscriptSurface
     public var contextBanner: ContextBannerSurface?
     public var sideConversation: SideConversationSurface?
+    /// True while the selected thread is an incognito chat: session-only, never persisted, pinned to
+    /// the E2E-encrypted route. Renderers show a persistent banner so the private state is unmistakable.
+    /// Default-false-on-absent so surface payloads bridged before this field existed still decode.
+    @QuillCodeDefaultFalse public var isIncognito: Bool
     public var codeReviewRequest: WorkspaceCodeReviewRequest?
     public var autoReviewDenials: AutoReviewDenialsSurface?
     public var review: WorkspaceReviewSurface
@@ -45,6 +49,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         transcript: TranscriptSurface,
         contextBanner: ContextBannerSurface? = nil,
         sideConversation: SideConversationSurface? = nil,
+        isIncognito: Bool = false,
         codeReviewRequest: WorkspaceCodeReviewRequest? = nil,
         autoReviewDenials: AutoReviewDenialsSurface? = nil,
         review: WorkspaceReviewSurface,
@@ -71,6 +76,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.transcript = transcript
         self.contextBanner = contextBanner
         self.sideConversation = sideConversation
+        self.isIncognito = isIncognito
         self.codeReviewRequest = codeReviewRequest
         self.autoReviewDenials = autoReviewDenials
         self.review = review
@@ -187,6 +193,7 @@ public extension QuillCodeWorkspaceModel {
                 modelCatalog: root.modelCatalog
             ).banner(),
             sideConversation: sideConversationSurface(),
+            isIncognito: thread?.runtimeContext.isIncognito == true,
             codeReviewRequest: codeReviewRequest,
             autoReviewDenials: isAutoReviewDenialsPresented
                 ? AutoReviewDenialsSurfaceBuilder.surface(

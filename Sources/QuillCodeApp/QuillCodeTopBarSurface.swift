@@ -1,6 +1,33 @@
 import Foundation
 import QuillCodeCore
 
+/// Decodes as `false` when the key is absent, so Bool fields added to persisted/bridged surfaces
+/// never break decoding of payloads encoded before the field existed. The `KeyedDecodingContainer`
+/// overload below is what makes SYNTHESIZED Codable use if-present semantics for wrapped fields.
+@propertyWrapper
+public struct QuillCodeDefaultFalse: Codable, Sendable, Hashable {
+    public var wrappedValue: Bool
+
+    public init(wrappedValue: Bool) {
+        self.wrappedValue = wrappedValue
+    }
+
+    public init(from decoder: Decoder) throws {
+        wrappedValue = try decoder.singleValueContainer().decode(Bool.self)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(wrappedValue)
+    }
+}
+
+extension KeyedDecodingContainer {
+    public func decode(_ type: QuillCodeDefaultFalse.Type, forKey key: Key) throws -> QuillCodeDefaultFalse {
+        try decodeIfPresent(type, forKey: key) ?? QuillCodeDefaultFalse(wrappedValue: false)
+    }
+}
+
 public struct TopBarSurface: Codable, Sendable, Hashable {
     public var appName: String
     public var primaryTitle: String
@@ -11,6 +38,9 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
     public var memorySources: [String]
     public var modelLabel: String
     public var selectedModelID: String
+    /// True when the selected thread's model is pinned for its lifetime (incognito chats pin the
+    /// E2E-encrypted route). Renderers show a locked, non-interactive model chip instead of a picker.
+    @QuillCodeDefaultFalse public var modelIsLocked: Bool
     public var modelCategories: [ModelCategorySurface]
     public var modelCatalogSource: ModelCatalogSource?
     public var modelCatalogStatusLabel: String
@@ -67,6 +97,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         memorySources: [String],
         modelLabel: String,
         selectedModelID: String,
+        modelIsLocked: Bool = false,
         modelCategories: [ModelCategorySurface],
         modelCatalogSource: ModelCatalogSource? = .bundled,
         modelCatalogStatusLabel: String = ModelCatalogStatus.bundled.statusLabel(),
@@ -103,6 +134,7 @@ public struct TopBarSurface: Codable, Sendable, Hashable {
         self.memorySources = memorySources
         self.modelLabel = modelLabel
         self.selectedModelID = selectedModelID
+        self.modelIsLocked = modelIsLocked
         self.modelCategories = modelCategories
         self.modelCatalogSource = modelCatalogSource
         self.modelCatalogStatusLabel = modelCatalogStatusLabel

@@ -254,6 +254,7 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             hasSelectedThread: hasSelectedThread,
             selectedThreadIsArchived: selectedThread?.isArchived == true,
             selectedThreadIsEphemeral: selectedThread?.runtimeContext.isEphemeral == true,
+            selectedThreadIsSideConversation: selectedThread?.runtimeContext.sideConversationParentThreadID != nil,
             selectedThreadHasMessages: selectedThreadHasMessages && !selectedThreadIsRunning,
             selectedThreadCanClear: selectedThreadCanClear,
             selectedThreadCanRevertLatestTurn: selectedThreadCanRevertLatestTurn,

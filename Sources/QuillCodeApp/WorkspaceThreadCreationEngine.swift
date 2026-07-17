@@ -119,6 +119,26 @@ struct WorkspaceThreadCreationEngine {
         return duplicate
     }
 
+    /// An incognito thread: session-only (never persisted — see ``ThreadRuntimeContext/isIncognito``)
+    /// and pinned to the end-to-end-encrypted TrustedRouter route regardless of the workspace's
+    /// selected model. Deliberately carries NO instructions/memories from the workspace: an incognito
+    /// conversation neither reads from nor contributes to durable workspace context.
+    static func incognitoThread(projectID: UUID?, mode: AgentMode) -> ChatThread {
+        ChatThread(
+            title: "Incognito",
+            projectID: projectID,
+            mode: mode,
+            model: TrustedRouterDefaults.e2eModel,
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: "Incognito chat: not saved, routed end-to-end encrypted"
+                )
+            ],
+            runtimeContext: .incognito
+        )
+    }
+
     static func sideConversation(from source: ChatThread, projectID: UUID?) -> ChatThread {
         ChatThread(
             title: "Side: \(source.title)",

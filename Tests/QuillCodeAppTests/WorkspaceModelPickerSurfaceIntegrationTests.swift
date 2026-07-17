@@ -19,7 +19,7 @@ final class WorkspaceModelPickerSurfaceIntegrationTests: XCTestCase {
         let surface = model.surface()
 
         XCTAssertEqual(surface.topBar.modelLabel, "acme/Code Pro")
-        XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding", "minimax"])
+        XCTAssertEqual(surface.topBar.modelCategories.map(\.category), ["Recommended", "Safety", "Coding", "Private", "minimax"])
         let recommended = surface.topBar.modelCategories.first { $0.category == "Recommended" }
         XCTAssertEqual(
             recommended?.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id),

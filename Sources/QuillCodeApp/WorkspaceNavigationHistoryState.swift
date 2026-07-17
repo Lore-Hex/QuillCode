@@ -34,6 +34,11 @@ public struct WorkspaceNavigationHistoryState: Codable, Sendable, Hashable {
         }
     }
 
+    /// The entry Back/Forward are currently anchored on, or nil when the history is empty.
+    public var currentLocation: WorkspaceNavigationLocation? {
+        entries.indices.contains(currentIndex) ? entries[currentIndex] : nil
+    }
+
     public var canGoBack: Bool {
         currentIndex > 0 && entries.indices.contains(currentIndex)
     }
@@ -67,6 +72,28 @@ public struct WorkspaceNavigationHistoryState: Codable, Sendable, Hashable {
         entries.append(newLocation)
         trimToMaximumEntries()
         currentIndex = entries.count - 1
+    }
+
+    /// Removes every entry referencing `threadID` and collapses the adjacent duplicates that removal
+    /// creates. Used when a session-only (incognito) thread is destroyed: Back/Forward must never be
+    /// able to resurrect a conversation the UI promised was gone.
+    public mutating func pruneEntries(withThreadID threadID: UUID) {
+        guard entries.contains(where: { $0.threadID == threadID }) else { return }
+        let currentLocation = entries.indices.contains(currentIndex) ? entries[currentIndex] : nil
+        var pruned: [WorkspaceNavigationLocation] = []
+        for entry in entries where entry.threadID != threadID {
+            if pruned.last != entry {
+                pruned.append(entry)
+            }
+        }
+        entries = pruned
+        if let currentLocation,
+           currentLocation.threadID != threadID,
+           let index = pruned.lastIndex(of: currentLocation) {
+            currentIndex = index
+        } else {
+            currentIndex = pruned.count - 1
+        }
     }
 
     public mutating func goBack() -> WorkspaceNavigationLocation? {

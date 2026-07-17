@@ -23,12 +23,24 @@ enum WorkspaceRunNotificationBuilder {
         // recorded on the thread (stable across reloads), else scan the transcript now.
         let integrity = RunIntegrityRecord.latest(in: thread)?.verdict
             ?? RunIntegrityScanner.verdict(for: thread)
+        // A flail stop's reason embeds the first failure-output line — private paths/content that
+        // must not reach durable OS notification history from an incognito run. The budget-stop path
+        // runs BEFORE the finalAnswer redaction, so it needs its own.
+        var budgetStop = budgetStop
+        if thread.runtimeContext.isIncognito, case .flailed = budgetStop {
+            budgetStop = .flailed(reason: "")
+        }
         return AgentRunNotificationPlanner.notification(
-            threadTitle: thread.title,
+            // Defense in depth on top of the rename refusal: no incognito title variant may reach
+            // durable OS notification history.
+            threadTitle: thread.runtimeContext.isIncognito ? "Incognito" : thread.title,
             threadID: thread.id,
             didFail: didFail,
             pendingApprovalSummary: pending?.toolCall.name,
-            finalAnswer: thread.messages.last(where: { $0.role == .assistant })?.content,
+            // Never put incognito reply text into a desktop notification: the OS persists
+            // notification history outside the guarded thread store. The finish ping still fires
+            // (that's the notify-when-away feature) but with a fixed, content-free body.
+            finalAnswer: redactedFinalAnswer(for: thread),
             pendingApprovalRequestID: pending?.id,
             didEditFiles: WorkspaceTurnRevertPlanner.threadMadeEdits(thread),
             hasVerificationAction: LocalEnvironmentActionMatcher.verificationAction(in: localActions) != nil,
@@ -36,6 +48,15 @@ enum WorkspaceRunNotificationBuilder {
             budgetStop: budgetStop,
             integrity: integrity
         )
+    }
+
+    /// The final-answer text the notification body may carry. For incognito threads the real reply is
+    /// replaced with a fixed placeholder whenever one exists — the ping survives, the content doesn't.
+    private static func redactedFinalAnswer(for thread: ChatThread) -> String? {
+        let answer = thread.messages.last(where: { $0.role == .assistant })?.content
+        guard thread.runtimeContext.isIncognito else { return answer }
+        guard answer?.isEmpty == false else { return nil }
+        return "The reply is ready."
     }
 
     /// Maps the agent's run stop reason into the App-local `BudgetStop` the notification planner uses —

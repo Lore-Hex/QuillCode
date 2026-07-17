@@ -131,6 +131,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         object.removeValue(forKey: "accountBalance")
         object.removeValue(forKey: "spendStatusLabel")
         object.removeValue(forKey: "spendStatusDetail")
+        object.removeValue(forKey: "modelIsLocked")
         let legacy = try JSONSerialization.data(withJSONObject: object)
 
         let decoded = try JSONDecoder().decode(TopBarSurface.self, from: legacy)
@@ -139,6 +140,7 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         XCTAssertNil(decoded.accountBalance)
         XCTAssertNil(decoded.spendStatusLabel)
         XCTAssertNil(decoded.spendStatusDetail)
+        XCTAssertFalse(decoded.modelIsLocked, "absent lock key must decode as unlocked (@QuillCodeDefaultFalse)")
     }
 
     func testHTMLRendererEmitsUsageChipOnlyWhenSet() {

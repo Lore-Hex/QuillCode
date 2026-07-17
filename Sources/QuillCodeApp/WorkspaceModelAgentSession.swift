@@ -68,7 +68,9 @@ extension QuillCodeWorkspaceModel {
             selectedProject: runProject,
             config: root.config,
             modelCatalog: root.modelCatalog,
-            spendPeriodThreads: root.threads,
+            // Include receipts from destroyed incognito sessions so the period ledger keeps counting
+            // spend the threads themselves no longer exist to report.
+            spendPeriodThreads: root.threads + discardedEphemeralSpendThreads,
             browser: browser,
             browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
                 guard let self else { return nil }

@@ -111,12 +111,20 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             runner: configuredRunner(
                 modelID: thread.model,
                 threadID: thread.id,
-                allowsSubagents: permitsSubagents
+                allowsSubagents: permitsSubagents,
+                threadIsIncognito: thread.runtimeContext.isIncognito
             ),
             workspaceRoot: workspaceRoot,
             recordsUserMessage: recordsUserMessage,
-            runHooks: runHooks,
-            pluginLifecycleHooks: pluginLifecycleHooks,
+            // Run hooks receive the raw prompt / last assistant message on stdin and execute
+            // arbitrary user-configured shell — an automatic hook could persist incognito content
+            // despite the "never saved" contract. Incognito sessions run without them.
+            runHooks: thread.runtimeContext.isIncognito ? [] : runHooks,
+            // A SessionStart plugin hook appends its stdout / additionalContext as a system message —
+            // durable workspace context injected into the private conversation, the exact thing the
+            // incognito guards keep out. Run with no lifecycle hooks for incognito (an empty executor
+            // makes prepareLifecycle's report a no-op even though the .primary case still fires).
+            pluginLifecycleHooks: thread.runtimeContext.isIncognito ? emptyPluginLifecycleHooks : pluginLifecycleHooks,
             lifecycle: lifecycle ?? .primary(sessionStartHookCoordinator),
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
@@ -167,7 +175,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     func configuredRunner(
         modelID: String?,
         threadID: UUID? = nil,
-        allowsSubagents: Bool = true
+        allowsSubagents: Bool = true,
+        threadIsIncognito: Bool = false
     ) -> AgentRunner {
         var runner = WorkspaceAgentRunContextBuilder(
             selectedProject: selectedProject,
@@ -187,7 +196,8 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             sshRemoteShellExecutor: sshRemoteShellExecutor,
             sshRemoteAppServer: sshRemoteAppServer,
             permissionRules: permissionRules,
-            allowsSubagents: allowsSubagents
+            allowsSubagents: allowsSubagents,
+            threadIsIncognito: threadIsIncognito
         ).configuredRunner(from: baseRunner, modelID: modelID)
         // Attach the (opt-in) per-workspace LSP coordinator so writes get diagnostics-after-write +
         // format-on-save and the host.lsp.* tools work. The coordinator is cached per workspace so the
@@ -208,32 +218,38 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         } else {
             runner.threadToolExecutionOverride = nil
         }
-        let pluginToolHooks = ProjectPluginToolHookExecutor(
-            hooks: hooks,
-            pluginDataBaseDirectory: pluginDataBaseDirectory,
-            selectedProject: selectedProject,
-            sshRemoteShellExecutor: sshRemoteShellExecutor
-        )
-        if let preToolUseHook = pluginToolHooks.preToolUseHook {
-            runner.preToolUseHook = preToolUseHook
-        }
-        if let postToolUseHook = pluginToolHooks.postToolUseHook {
-            runner.postToolUseHook = postToolUseHook
-        }
-        if let permissionRequestHook = pluginToolHooks.permissionRequestHook {
-            runner.permissionRequestHook = permissionRequestHook
-        }
-        let pluginCompactionHooks = ProjectPluginCompactionHookExecutor(
-            hooks: hooks,
-            pluginDataBaseDirectory: pluginDataBaseDirectory,
-            selectedProject: selectedProject,
-            sshRemoteShellExecutor: sshRemoteShellExecutor
-        )
-        if let preCompactHook = pluginCompactionHooks.preCompactHook {
-            runner.preCompactHook = preCompactHook
-        }
-        if let postCompactHook = pluginCompactionHooks.postCompactHook {
-            runner.postCompactHook = postCompactHook
+        // Plugin tool/compaction hooks execute user-configured shell with tool inputs/results (and
+        // compaction summaries) on stdin — external processes that commonly log what they receive.
+        // Incognito runs skip them entirely, like run hooks: "never saved" must hold against every
+        // configured egress, not just QuillCode-owned files.
+        if !threadIsIncognito {
+            let pluginToolHooks = ProjectPluginToolHookExecutor(
+                hooks: hooks,
+                pluginDataBaseDirectory: pluginDataBaseDirectory,
+                selectedProject: selectedProject,
+                sshRemoteShellExecutor: sshRemoteShellExecutor
+            )
+            if let preToolUseHook = pluginToolHooks.preToolUseHook {
+                runner.preToolUseHook = preToolUseHook
+            }
+            if let postToolUseHook = pluginToolHooks.postToolUseHook {
+                runner.postToolUseHook = postToolUseHook
+            }
+            if let permissionRequestHook = pluginToolHooks.permissionRequestHook {
+                runner.permissionRequestHook = permissionRequestHook
+            }
+            let pluginCompactionHooks = ProjectPluginCompactionHookExecutor(
+                hooks: hooks,
+                pluginDataBaseDirectory: pluginDataBaseDirectory,
+                selectedProject: selectedProject,
+                sshRemoteShellExecutor: sshRemoteShellExecutor
+            )
+            if let preCompactHook = pluginCompactionHooks.preCompactHook {
+                runner.preCompactHook = preCompactHook
+            }
+            if let postCompactHook = pluginCompactionHooks.postCompactHook {
+                runner.postCompactHook = postCompactHook
+            }
         }
         return runner
     }
@@ -245,12 +261,17 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     func configuredCodeReviewRunner(
         modelID: String,
         threadID: UUID,
-        reportCollector: WorkspaceCodeReviewReportCollector
+        reportCollector: WorkspaceCodeReviewReportCollector,
+        threadIsIncognito: Bool = false
     ) -> AgentRunner {
+        // A code review started from an incognito chat must honor the same E2E pin as the chat
+        // itself: force the reviewer onto the E2E route (ignoring the configured review model) and
+        // carry the incognito flag so its safety/compaction auxiliaries stay model-free too.
         let reviewer = configuredRunner(
-            modelID: modelID,
+            modelID: threadIsIncognito ? TrustedRouterDefaults.e2eModel : modelID,
             threadID: threadID,
-            allowsSubagents: false
+            allowsSubagents: false,
+            threadIsIncognito: threadIsIncognito
         )
         return WorkspaceCodeReviewRunner.configure(
             reviewer,
@@ -261,6 +282,17 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private var pluginLifecycleHooks: ProjectPluginLifecycleHookExecutor {
         ProjectPluginLifecycleHookExecutor(
             hooks: hooks,
+            pluginDataBaseDirectory: pluginDataBaseDirectory,
+            selectedProject: selectedProject,
+            sshRemoteShellExecutor: sshRemoteShellExecutor
+        )
+    }
+
+    /// A lifecycle-hook executor with no hooks — its SessionStart run produces an empty, context-free
+    /// report. Used for incognito sends so no plugin can inject durable workspace context.
+    private var emptyPluginLifecycleHooks: ProjectPluginLifecycleHookExecutor {
+        ProjectPluginLifecycleHookExecutor(
+            hooks: [],
             pluginDataBaseDirectory: pluginDataBaseDirectory,
             selectedProject: selectedProject,
             sshRemoteShellExecutor: sshRemoteShellExecutor

@@ -4,6 +4,10 @@ struct WorkspaceThreadCommandAvailability: Sendable, Hashable {
     var hasSelectedThread: Bool
     var selectedThreadIsArchived: Bool
     var selectedThreadIsEphemeral: Bool = false
+    /// True only for side conversations (which have a parent to return to) — NOT for incognito,
+    /// which is also ephemeral but has nowhere to "return"; keying return-affordances off generic
+    /// ephemerality would surface a silently-no-op command inside incognito chats.
+    var selectedThreadIsSideConversation: Bool = false
     var selectedThreadHasMessages: Bool
     var selectedThreadCanClear: Bool
     var selectedThreadCanRevertLatestTurn: Bool
@@ -44,6 +48,12 @@ enum WorkspaceThreadCommandCatalog {
                 shortcut: WorkspaceShortcutRegistry.label(for: "new-chat"),
                 category: WorkspaceCommandPalette.threadCategory,
                 keywords: ["thread", "conversation"]
+            ),
+            WorkspaceCommandSurface(
+                id: WorkspaceCommandAction.newIncognitoChat.rawValue,
+                title: "New incognito chat",
+                category: WorkspaceCommandPalette.threadCategory,
+                keywords: ["thread", "conversation", "incognito", "private", "ephemeral", "e2e", "encrypted", "not saved"]
             ),
             WorkspaceCommandSurface(
                 id: "thread-new-worktree",
@@ -262,7 +272,7 @@ enum WorkspaceThreadCommandCatalog {
     private static func sideConversationCommands(
         availability: WorkspaceThreadCommandAvailability
     ) -> [WorkspaceCommandSurface] {
-        guard availability.selectedThreadIsEphemeral else { return [] }
+        guard availability.selectedThreadIsSideConversation else { return [] }
         return [
             WorkspaceCommandSurface(
                 id: WorkspaceCommandAction.sideConversationReturn.rawValue,

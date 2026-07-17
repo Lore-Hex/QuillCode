@@ -143,6 +143,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.composer.slashSuggestions, [])
         XCTAssertEqual(surface.commands.map(\.id), [
             "new-chat",
+            "new-incognito-chat",
             "thread-new-worktree",
             "thread-restore-worktree",
             "thread-create-branch",

@@ -25,6 +25,21 @@ public extension QuillCodeWorkspaceModel {
 
     /// Runs a dedicated reviewer against the selected project's current execution root. The
     /// reviewer has a separate read-only tool catalog; only the normalized report is merged back
+    /// A review started from an incognito chat must not use detached delivery (it would discard the
+    /// private session and run/persist through the non-E2E review model). Callers that schedule
+    /// behavior off `delivery` (the desktop controller's follow-up-drain) apply this first so they
+    /// see the SAME effective delivery the run uses.
+    func withNormalizedDeliveryForSelection(
+        _ request: WorkspaceCodeReviewRequest
+    ) -> WorkspaceCodeReviewRequest {
+        guard selectedThread?.runtimeContext.isIncognito == true, request.delivery == .detached else {
+            return request
+        }
+        var normalized = request
+        normalized.delivery = .current
+        return normalized
+    }
+
     /// into the durable task, so investigation output never bloats future agent context.
     @discardableResult
     func runCodeReview(
@@ -60,6 +75,12 @@ public extension QuillCodeWorkspaceModel {
         guard selectedProject != nil else {
             return failCodeReviewPreflight("Open a Git project before starting a code review.")
         }
+        // A review started FROM an incognito chat stays IN it: detached delivery would discard the
+        // private session (its newChat branch) and then run + PERSIST the review through the
+        // configured non-E2E review model — both sides of the contract broken at once. Normalized
+        // here AND by the desktop controller (via normalizedReviewDelivery) so its follow-up-drain
+        // scheduling sees the same effective delivery.
+        let request = withNormalizedDeliveryForSelection(request)
         if request.delivery == .current,
            let selectedThreadID = selectedThread?.id,
            agentRuns.isRunning(selectedThreadID) {
@@ -96,7 +117,13 @@ public extension QuillCodeWorkspaceModel {
             projects: root.projects,
             globalMemories: root.globalMemories
         )
-        let reviewModel = request.model ?? root.config.reviewModel ?? targetThread.model
+        // ONE effective review model, used for both the runner client AND the scratch thread. An
+        // incognito review forces the E2E route on the runner; the scratch thread must carry the same
+        // model or its streamed usage events are tagged (and priced/spend-fused) by a model that
+        // never actually ran.
+        let reviewModel = targetThread.runtimeContext.isIncognito
+            ? TrustedRouterDefaults.e2eModel
+            : (request.model ?? root.config.reviewModel ?? targetThread.model)
         appendStartedCodeReview(request, to: targetThreadID)
         codeReviewRequest = nil
         beginAgentRun(
@@ -113,7 +140,8 @@ public extension QuillCodeWorkspaceModel {
         ).configuredCodeReviewRunner(
             modelID: reviewModel,
             threadID: targetThreadID,
-            reportCollector: collector
+            reportCollector: collector,
+            threadIsIncognito: targetThread.runtimeContext.isIncognito
         )
         let reviewThread = scratchReviewThread(from: targetThread, model: reviewModel)
         let prompt = WorkspaceCodeReviewPromptBuilder(request: request).prompt()

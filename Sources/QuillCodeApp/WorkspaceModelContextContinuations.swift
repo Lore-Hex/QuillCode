@@ -31,6 +31,12 @@ private struct ContextContinuationPreparation {
 extension QuillCodeWorkspaceModel {
     @discardableResult
     func startForkThread(strategy: WorkspaceThreadForkStrategy) -> Bool {
+        // The model-backed branch would send the transcript to an auxiliary summary model AND write
+        // a durable continuation — both forbidden for ephemeral threads. The synchronous forkThread
+        // fallback carries its own guard; this covers the async path.
+        if let source = selectedThread, refuseDurableContinuation(of: source, action: "fork") {
+            return false
+        }
         guard strategy == .summarizedContext, contextSummaryGenerator.isModelBacked else {
             return forkThread(strategy: strategy) != nil
         }
@@ -65,6 +71,9 @@ extension QuillCodeWorkspaceModel {
         guard let sourceID = selectedContextSummarySourceID(),
               let source = contextSummarySourceThread(sourceID)
         else { return false }
+        if refuseDurableContinuation(of: source, action: "compact") {
+            return false
+        }
         let hooks = pluginCompactionHookExecutor(for: source)
         guard contextSummaryGenerator.isModelBacked || hooks.hasExecutableHooks else {
             return compactContext() != nil
@@ -221,6 +230,9 @@ extension QuillCodeWorkspaceModel {
         purpose: WorkspaceContextSummaryPurpose
     ) async -> ContextContinuationPreparation? {
         guard let source = contextSummarySourceThread(sourceID) else { return nil }
+        // Belt to the entry guards: NO path may ship an ephemeral transcript to the auxiliary
+        // summary model or mint a durable continuation from it.
+        guard !source.runtimeContext.isEphemeral else { return nil }
         let projectID = knownProjectID(source.projectID)
         let summary = await configuredSummary(for: source, purpose: purpose)
         recordContextSummaryFinished(sourceID: sourceID, summary: summary, purpose: purpose)
@@ -240,7 +252,19 @@ extension QuillCodeWorkspaceModel {
     ) async -> WorkspaceContextSummaryOutcome {
         // Summaries/compaction are auxiliary housekeeping: route them to a cheap catalog model
         // instead of the thread's flagship model. The thread's own model is never touched here.
-        let selection = contextSummaryGenerator.isModelBacked
+        // BUT a thread routed to the E2E-encrypted model must keep this auxiliary traffic on the E2E
+        // route too — the cheap catalog aux model is never E2E, so summarize DETERMINISTICALLY (no
+        // egress) rather than shipping the transcript to it. This mirrors `requiresE2EOnlyTraffic` in
+        // WorkspaceAgentRunContextBuilder, which the standalone /compact and /fork summary path never
+        // goes through. Incognito threads never reach here (the isEphemeral belt guard in
+        // preparedContextContinuation returns first), so this covers a REGULAR thread that selected
+        // "E2E Encrypted" from the Private category or via `/model e2e`.
+        let routesE2EOnly = TrustedRouterDefaults.canonicalModelID(source.model)
+            == TrustedRouterDefaults.e2eModel
+        let generator: any WorkspaceContextSummaryGenerating = routesE2EOnly
+            ? DeterministicWorkspaceContextSummaryGenerator()
+            : contextSummaryGenerator
+        let selection = generator.isModelBacked
             ? AuxiliaryModelSelector.selection(models: root.modelCatalog, sessionModelID: source.model)
             : nil
         let request = WorkspaceContextSummaryRequest(
@@ -251,8 +275,8 @@ extension QuillCodeWorkspaceModel {
         )
         do {
             return WorkspaceContextSummaryOutcome(
-                summaryOverride: try await contextSummaryGenerator.summary(for: request),
-                source: .model,
+                summaryOverride: try await generator.summary(for: request),
+                source: generator.isModelBacked ? .model : .deterministicFallback,
                 modelSelection: selection
             )
         } catch {

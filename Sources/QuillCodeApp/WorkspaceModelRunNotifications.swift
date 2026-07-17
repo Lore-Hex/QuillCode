@@ -14,7 +14,10 @@ extension QuillCodeWorkspaceModel {
         case .completed, .failed: break
         case .cancelled: return
         }
-        guard root.threads.contains(where: { $0.id == expectedThreadID }) else { return }
+        guard let thread = root.threads.first(where: { $0.id == expectedThreadID }) else { return }
+        // Ephemeral threads never surface in Attention and are never persisted — a RED/UNVERIFIED
+        // record would otherwise pull the supposedly-hidden thread into the Attention section.
+        guard !thread.runtimeContext.isEphemeral else { return }
         mutateThread(expectedThreadID) { thread in
             RunIntegrityRecord.record(into: &thread)
         }
