@@ -325,6 +325,18 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   and remote-environment tests, and deferred executor implementation at Codex 0.144.5, audited
   2026-07-16.
 
+- Current Codex keeps local and exec-server commands in one unified process manager. Background
+  terminal records expose the manager's stable signed process ID while `os_pid` is optional because a
+  remote process has no meaningful PID on the app-server host. The same registered process streams
+  output, receives termination, and is removed by clean/interrupt lifecycle; clients do not fabricate
+  a local process for remote work. QuillCode mirrors that boundary with high descending signed-32-bit
+  IDs for remote sessions, null `osPid`, one list/terminate/clean registry, and incremental remote
+  stdout/stderr events. A canceled `process/read` retires its exact request ID while allowing its late
+  response to drain, so terminating one remote process does not reset the multiplexed WebSocket or
+  disconnect unrelated processes. Source: public `openai/codex` `unified_exec/process_manager.rs`,
+  `unified_exec/process.rs`, `codex_thread.rs`, and app-server background-terminal processor at commit
+  `315195492c80fdade38e917c18f9584efd599304`, audited 2026-07-17.
+
 - The exec-server `FileSystemSandboxContext` is an explicit request value, not an app-server-local
   policy label. Its camel-case envelope carries `permissions`, optional `cwd`, `workspaceRoots`,
   `windowsSandboxLevel`, `windowsSandboxPrivateDesktop`, and `useLegacyLandlock`. Managed permissions

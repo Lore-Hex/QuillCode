@@ -5,11 +5,6 @@ import FoundationNetworking
 import QuillCodeTools
 
 actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
-    private struct PendingResponse: Sendable {
-        var generation: UInt64
-        var continuation: AsyncThrowingStream<CLIJSONValue, Error>.Continuation
-    }
-
     private let websocketURL: String
     private let connectTimeout: TimeInterval
     private let session: URLSession
@@ -24,7 +19,7 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
     private var permanentlyClosed = false
     private var lastConnectionError: String?
     private var lastPublishedConnectionState: AppServerEnvironmentConnectionState?
-    private var pendingResponses: [Int64: PendingResponse] = [:]
+    private var responseRegistry = AppServerExecServerPendingResponseRegistry()
     private var connectionEventContinuations:
         [UUID: AsyncStream<AppServerExecServerConnectionObservation>.Continuation] = [:]
 
@@ -167,6 +162,10 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
                 params: params,
                 timeout: Self.requestTimeout
             )
+        } catch is CancellationError {
+            // A process reader can be cancelled after its process has been terminated. Retire only
+            // that pending response; the multiplexed WebSocket remains valid for other processes.
+            throw CancellationError()
         } catch let error as AppServerExecServerError {
             if case .remoteRPC = error { throw error }
             resetConnection(error: error)
@@ -245,7 +244,8 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
         let requestID = nextRequestID
         nextRequestID += 1
         let response = AsyncThrowingStream<CLIJSONValue, Error>.makeStream()
-        pendingResponses[requestID] = PendingResponse(
+        try responseRegistry.register(
+            requestID: requestID,
             generation: generation,
             continuation: response.continuation
         )
@@ -259,14 +259,26 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
         try await appServerWithTimeout(operation: "request", seconds: timeout) {
             try await socket.send(.string(String(decoding: payload, as: UTF8.self)))
         }
-        return try await appServerWithTimeout(operation: "response", seconds: timeout) {
-            var iterator = response.stream.makeAsyncIterator()
-            guard let value = try await iterator.next() else {
-                throw AppServerExecServerError.disconnected(
-                    "response stream ended before request id \(requestID) completed"
-                )
+        do {
+            return try await appServerWithTimeout(operation: "response", seconds: timeout) {
+                var iterator = response.stream.makeAsyncIterator()
+                guard let value = try await iterator.next() else {
+                    try Task.checkCancellation()
+                    throw AppServerExecServerError.disconnected(
+                        "response stream ended before request id \(requestID) completed"
+                    )
+                }
+                return value
             }
-            return value
+        } catch is CancellationError {
+            if responseRegistry.abandon(requestID) {
+                if responseRegistry.abandonedCount > Self.maximumAbandonedResponseIDs {
+                    resetConnection(error: AppServerExecServerError.invalidResponse(
+                        "too many canceled requests remained without responses"
+                    ))
+                }
+            }
+            throw CancellationError()
         }
     }
 
@@ -320,12 +332,8 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
                 "JSON-RPC response id must be an integer"
             )
         }
-        guard let pending = pendingResponses.removeValue(forKey: responseID),
-              pending.generation == generation else {
-            throw AppServerExecServerError.invalidResponse(
-                "received response for unexpected request id \(responseID)"
-            )
-        }
+        guard let pending = try responseRegistry.take(responseID) else { return }
+        guard pending.generation == generation else { return }
         if let error = object["error"]?.objectValue {
             let code = error["code"]?.numberValue.flatMap(Self.decodeJSONRPCErrorCode)
             let message = error["message"]?.stringValue ?? "unknown remote error"
@@ -352,7 +360,7 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
     }
 
     private func finishPendingResponse(_ requestID: Int64) {
-        pendingResponses.removeValue(forKey: requestID)?.continuation.finish()
+        responseRegistry.finish(requestID)
     }
 
     private func resetConnection(error: Error) {
@@ -365,10 +373,7 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
         let detail = Self.errorDetail(error)
         lastConnectionError = detail
         let pendingError = AppServerExecServerError.disconnected(detail)
-        for pending in pendingResponses.values {
-            pending.continuation.finish(throwing: pendingError)
-        }
-        pendingResponses.removeAll()
+        responseRegistry.failAll(throwing: pendingError)
         transitionConnectionState(to: .disconnected)
     }
 

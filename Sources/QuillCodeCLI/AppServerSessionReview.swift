@@ -195,7 +195,7 @@ extension AppServerSession {
                 review: reviewText
             )
         } catch is CancellationError {
-            cancelUserShellCommands(threadID: threadID, turnID: initial.id)
+            await cancelUserShellCommands(threadID: threadID, turnID: initial.id)
             await waitForUserShellCommands(threadID: threadID, turnID: initial.id)
             let snapshot = activeReviews[threadID]?.latestThread ?? initial.latestThread
             if let failure = activeReviews[threadID]?.persistenceFailure {

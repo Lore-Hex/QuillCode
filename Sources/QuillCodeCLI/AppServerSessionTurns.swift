@@ -111,7 +111,7 @@ extension AppServerSession {
                 throw AppServerRPCError.invalidParams("turnId does not match the active turn")
             }
             await cancelPendingMCPElicitations(threadID: threadID, turnID: active.id)
-            cancelUserShellCommands(threadID: threadID, turnID: active.id)
+            await cancelUserShellCommands(threadID: threadID, turnID: active.id)
             active.task?.cancel()
             return .object([:])
         }
@@ -119,14 +119,14 @@ extension AppServerSession {
             guard turnID == active.id else {
                 throw AppServerRPCError.invalidParams("turnId does not match the active turn")
             }
-            cancelUserShellCommands(threadID: threadID, turnID: active.id)
+            await cancelUserShellCommands(threadID: threadID, turnID: active.id)
             return .object([:])
         }
         if let active = activeCompactions[threadID] {
             guard turnID == active.id else {
                 throw AppServerRPCError.invalidParams("turnId does not match the active turn")
             }
-            cancelUserShellCommands(threadID: threadID, turnID: active.id)
+            await cancelUserShellCommands(threadID: threadID, turnID: active.id)
             active.task?.cancel()
             return .object([:])
         }
@@ -134,7 +134,7 @@ extension AppServerSession {
             guard turnID == active.id else {
                 throw AppServerRPCError.invalidParams("turnId does not match the active turn")
             }
-            cancelUserShellCommands(threadID: threadID, turnID: active.id)
+            await cancelUserShellCommands(threadID: threadID, turnID: active.id)
             active.task?.cancel()
             return .object([:])
         }

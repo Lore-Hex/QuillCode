@@ -201,8 +201,114 @@ try:
     })
     assert response(9)["result"] == {"status": "ready", "error": None}
 
+    background_commands = {
+        "printf quillcode-background-smoke-one",
+        "printf quillcode-background-smoke-two",
+    }
+    for request_id, command in zip((10, 11), sorted(background_commands)):
+        send({
+            "id": request_id,
+            "method": "thread/shellCommand",
+            "params": {"threadId": thread_id, "command": command},
+        })
+        assert response(request_id)["result"] == {}
+
+    expected_live_outputs = {"background-one\n", "background-two\n"}
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        live_outputs = {
+            record.get("params", {}).get("delta")
+            for record in records
+            if record.get("method") == "item/commandExecution/outputDelta"
+        }
+        if expected_live_outputs <= live_outputs:
+            break
+        read_record(max(0.01, deadline - time.monotonic()))
+    else:
+        raise AssertionError("remote background output did not stream before exit")
+
+    background_item_ids = {
+        item["id"]
+        for record in records
+        if record.get("method") == "item/started"
+        for item in [record.get("params", {}).get("item", {})]
+        if item.get("commandActions")
+        and item["commandActions"][0].get("command") in background_commands
+    }
+    assert len(background_item_ids) == 2, background_item_ids
+    completed_item_ids = {
+        record.get("params", {}).get("item", {}).get("id")
+        for record in records
+        if record.get("method") == "item/completed"
+    }
+    assert background_item_ids.isdisjoint(completed_item_ids), (
+        "background commands completed before lifecycle inspection",
+        background_item_ids,
+        completed_item_ids,
+    )
+
     send({
-        "id": 10,
+        "id": 12,
+        "method": "thread/backgroundTerminals/list",
+        "params": {"threadId": thread_id},
+    })
+    terminals = response(12)["result"]["data"]
+    assert len(terminals) == 2, terminals
+    assert all(terminal["osPid"] is None for terminal in terminals), terminals
+    assert {terminal["command"] for terminal in terminals} == background_commands, terminals
+    process_ids = {terminal["processId"] for terminal in terminals}
+    assert process_ids == {
+        start["processId"] for start in server.process_starts[-2:]
+    }, (process_ids, server.process_starts)
+
+    terminated_process_id = terminals[0]["processId"]
+    send({
+        "id": 13,
+        "method": "thread/backgroundTerminals/terminate",
+        "params": {
+            "threadId": thread_id,
+            "processId": terminated_process_id,
+        },
+    })
+    assert response(13)["result"] == {"terminated": True}
+    deadline = time.monotonic() + 15
+    while terminated_process_id not in server.process_terminations:
+        if time.monotonic() >= deadline:
+            raise AssertionError(
+                "remote process terminate was not forwarded: "
+                f"methods={server.methods!r} reads={server.process_reads!r}"
+            )
+        time.sleep(0.01)
+
+    send({
+        "id": 14,
+        "method": "thread/backgroundTerminals/list",
+        "params": {"threadId": thread_id},
+    })
+    remaining = response(14)["result"]["data"]
+    assert len(remaining) == 1, remaining
+    assert remaining[0]["processId"] != terminated_process_id, remaining
+
+    send({
+        "id": 15,
+        "method": "thread/backgroundTerminals/clean",
+        "params": {"threadId": thread_id},
+    })
+    assert response(15)["result"] == {}
+    deadline = time.monotonic() + 15
+    while set(server.process_terminations) != process_ids:
+        if time.monotonic() >= deadline:
+            raise AssertionError("remote background clean was not forwarded")
+        time.sleep(0.01)
+    send({
+        "id": 16,
+        "method": "thread/backgroundTerminals/list",
+        "params": {"threadId": thread_id},
+    })
+    assert response(16)["result"] == {"data": [], "nextCursor": None}
+
+    send({
+        "id": 20,
         "method": "thread/start",
         "params": {
             "cwd": workspace,
@@ -211,26 +317,26 @@ try:
             "environments": [],
         },
     })
-    disabled_thread_id = response(10)["result"]["thread"]["id"]
+    disabled_thread_id = response(20)["result"]["thread"]["id"]
     disabled_sentinel = os.path.join(workspace, "disabled-must-not-run")
     send({
-        "id": 11,
+        "id": 21,
         "method": "thread/shellCommand",
         "params": {
             "threadId": disabled_thread_id,
             "command": f"touch {disabled_sentinel}",
         },
     })
-    disabled = response(11)
+    disabled = response(21)
     assert disabled["error"]["code"] == -32600, disabled
     assert disabled["error"]["message"] == (
         "environment access is disabled for this thread"
     ), disabled
     assert not os.path.exists(disabled_sentinel), "disabled command ran locally"
-    assert len(server.process_starts) == 1, server.process_starts
+    assert len(server.process_starts) == 3, server.process_starts
 
     send({
-        "id": 12,
+        "id": 22,
         "method": "thread/start",
         "params": {
             "cwd": workspace,
@@ -239,7 +345,7 @@ try:
             "environments": [{"environmentId": "missing", "cwd": "/workspace"}],
         },
     })
-    missing = response(12)
+    missing = response(22)
     assert missing["error"]["code"] == -32600, missing
     assert "unknown turn environment id `missing`" in missing["error"]["message"], missing
 finally:
@@ -264,6 +370,7 @@ assert server.methods.count("initialize") == 2, server.methods
 assert server.methods.count("initialized") == 2, server.methods
 assert server.methods.count("environment/status") == 2, server.methods
 assert server.methods.count("environment/info") >= 3, server.methods
+assert server.methods.count("process/terminate") == 2, server.methods
 PY
 
 echo "app-server environment smoke passed"

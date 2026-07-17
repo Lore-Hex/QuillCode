@@ -2052,7 +2052,10 @@
   Process reads convert the exclusive `nextSeq` into the inclusive `afterSeq` cursor and continue
   through exit until output streams close, retaining late output without duplication or gaps. A failed
   request resets the connection but is never replayed; only a later independent request may reconnect.
-  Cancellation terminates an acknowledged remote process.
+  Cancellation of one long-poll read retires that exact request ID and drains a possible late reply
+  without resetting the multiplexed connection. Duplicate pending request IDs and reuse before an
+  abandoned response is drained fail closed instead of replacing a live continuation. Unknown response
+  IDs still fail the protocol closed.
 - **Lifecycle boundary:** Registry subscriptions compare source-observation instants rather than task
   delivery order, so a queued old transition cannot become a replay for a new subscriber. Every
   subscribed thread whose first selected environment matches receives future connected/disconnected
@@ -2066,6 +2069,11 @@
   creating lifecycle state. Remote commands retain the one-hour user-shell timeout and execute only
   through exec-server; disabled access returns `-32600`. Neither path can silently execute on the
   app-server host.
+- **Unified process boundary:** Local and remote user shells occupy one background-terminal registry.
+  Local process IDs are their OS PIDs; remote sessions receive high descending signed-32-bit app-server
+  IDs and report null `osPid`. Both stream output and support the same list, pagination, terminate,
+  clean, interrupt, and disconnect lifecycle. Remote terminate is acknowledged before canceling its
+  read loop so a canceled reader cannot suppress the remote RPC or tear down unrelated processes.
 - **Sandbox boundary:** Each selected remote executor derives one immutable, target-native
   `FileSystemSandboxContext` from the thread's effective policy and remote workspace. Read-only grants
   root read access; workspace-write adds project roots, allowed temporary roots, explicit writable
@@ -2073,8 +2081,8 @@
   Every process and filesystem request carries that context explicitly. Cross-drive Windows roots
   fail closed, and process launch sends false/null managed-network fields until QuillCode owns a real
   managed proxy rather than claiming enforcement it cannot provide.
-- **Deferred boundary:** Windows remote search and live remote output/background-terminal process
-  projection remain explicit partial-parity work rather than fabricated local behavior.
+- **Deferred boundary:** Windows remote search remains explicit partial-parity work rather than
+  fabricated local behavior.
 - **Evidence:** Registry, target-path, tool-router, session, direct-shell, and real URLSession WebSocket
   tests cover status shapes, source-ordered future transitions, idle disconnect, selected-thread
   fanout, selection, replacement, concurrency, reconnection, multi-read cursors, late output, context,
@@ -2082,4 +2090,7 @@
   app-server` smoke talks to a raw loopback
   exec-server, forces a disconnect and resumable reconnect, verifies lifecycle methods and multi-read
   remote output, asserts the read-only profile on filesystem and process requests, and uses local
-  filesystem sentinels to prove remote and disabled commands never ran locally.
+  filesystem sentinels to prove remote and disabled commands never ran locally. It also launches two
+  long-lived remote shells, proves output arrives before completion, verifies null OS PIDs, terminates
+  one, cleans the other, asserts both operations reuse the established WebSocket, and locks the pending
+  response registry against duplicate or prematurely reused request IDs.

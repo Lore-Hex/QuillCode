@@ -5,10 +5,10 @@ extension AppServerExecServerWebSocketClient {
     private static var processReadBytes: Int { 64 * 1_024 }
     private static var processReadWaitMilliseconds: Int { 1_000 }
 
-    func runProcess(
+    func startProcess(
         _ request: AppServerRemoteProcessRequest
-    ) async throws -> AppServerRemoteProcessResult {
-        let processID = "quillcode-\(UUID().uuidString.lowercased())"
+    ) async throws -> AppServerRemoteProcessSession {
+        let processID = try processID(for: request)
         let start = try await self.request(method: "process/start", params: .object([
             "arg0": .null,
             "argv": .array(request.argv.map(CLIJSONValue.string)),
@@ -28,19 +28,47 @@ extension AppServerExecServerWebSocketClient {
             )
         }
 
-        return try await withTaskCancellationHandler {
-            try await collectProcess(
-                processID: processID,
-                timeoutSeconds: request.timeoutSeconds
-            )
-        } onCancel: { [weak self] in
-            Task { await self?.terminateProcess(processID) }
+        let stream = AsyncThrowingStream<AppServerRemoteProcessEvent, Error>.makeStream()
+        let termination = AppServerRemoteProcessTermination {
+            [weak self] in await self?.terminateProcess(processID)
         }
+        let producer = Task { [weak self] in
+            guard let self else {
+                stream.continuation.finish(throwing: AppServerExecServerError.disconnected(
+                    "exec-server client was released while a process was active"
+                ))
+                return
+            }
+            do {
+                let result = try await self.collectProcess(
+                    processID: processID,
+                    timeoutSeconds: request.timeoutSeconds,
+                    continuation: stream.continuation,
+                    termination: termination
+                )
+                stream.continuation.yield(.finished(result))
+                stream.continuation.finish()
+            } catch {
+                stream.continuation.finish(throwing: error)
+            }
+        }
+        stream.continuation.onTermination = { reason in
+            guard case .cancelled = reason else { return }
+            producer.cancel()
+            Task { await termination.request() }
+        }
+        return AppServerRemoteProcessSession(
+            processID: processID,
+            stream: stream.stream,
+            terminateProcess: { await termination.request() }
+        )
     }
 
     private func collectProcess(
         processID: String,
-        timeoutSeconds: TimeInterval
+        timeoutSeconds: TimeInterval,
+        continuation: AsyncThrowingStream<AppServerRemoteProcessEvent, Error>.Continuation,
+        termination: AppServerRemoteProcessTermination
     ) async throws -> AppServerRemoteProcessResult {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: appServerDuration(seconds: timeoutSeconds))
@@ -54,7 +82,7 @@ extension AppServerExecServerWebSocketClient {
         while true {
             try Task.checkCancellation()
             guard clock.now < deadline else {
-                await terminateProcess(processID)
+                await termination.request()
                 throw AppServerExecServerError.timedOut(
                     operation: "process",
                     seconds: timeoutSeconds
@@ -92,8 +120,10 @@ extension AppServerExecServerWebSocketClient {
                 let text = String(decoding: data, as: UTF8.self)
                 if stream == "stderr" {
                     stderr.append(text)
+                    continuation.yield(.stderr(text))
                 } else {
                     stdout.append(text)
+                    continuation.yield(.stdout(text))
                 }
             }
             // Exec-server's cursor is inclusive: afterSeq is the last event observed, while
@@ -150,9 +180,38 @@ extension AppServerExecServerWebSocketClient {
         }
     }
 
+    private func processID(for request: AppServerRemoteProcessRequest) throws -> String {
+        guard let requested = request.processID else {
+            return "quillcode-\(UUID().uuidString.lowercased())"
+        }
+        let processID = requested.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !processID.isEmpty else {
+            throw AppServerExecServerError.invalidResponse(
+                "process/start requires a nonempty process id"
+            )
+        }
+        return processID
+    }
+
     private func terminateProcess(_ processID: String) async {
         _ = try? await request(method: "process/terminate", params: .object([
             "processId": .string(processID)
         ]))
+    }
+}
+
+private actor AppServerRemoteProcessTermination {
+    private let action: @Sendable () async -> Void
+    private var requested = false
+
+    init(action: @escaping @Sendable () async -> Void) {
+        self.action = action
+    }
+
+    func request() async {
+        guard !requested else { return }
+        requested = true
+        let action = action
+        await Task.detached { await action() }.value
     }
 }
