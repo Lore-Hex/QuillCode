@@ -236,7 +236,17 @@ actor AppServerEnvironmentRegistry {
             )
         }
         let execServerURL = try requiredString("execServerUrl", in: object)
-        let normalizedURL = execServerURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedURL = try normalizedExecServerURL(execServerURL)
+        let timeout = try connectTimeout(in: object)
+        return RegistrationParams(
+            environmentID: environmentID,
+            execServerURL: normalizedURL,
+            connectTimeout: timeout
+        )
+    }
+
+    private static func normalizedExecServerURL(_ raw: String) throws -> String {
+        let normalizedURL = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedURL.isEmpty else {
             throw AppServerRPCError.invalidRequest(
                 "exec-server protocol error: remote environment requires an exec-server url"
@@ -247,12 +257,15 @@ actor AppServerEnvironmentRegistry {
                 "exec-server protocol error: remote environment cannot use disabled exec-server url"
             )
         }
-        let timeout = try connectTimeout(in: object)
-        return RegistrationParams(
-            environmentID: environmentID,
-            execServerURL: normalizedURL,
-            connectTimeout: timeout
-        )
+        guard let url = URL(string: normalizedURL),
+              let scheme = url.scheme?.lowercased(),
+              (scheme == "ws" || scheme == "wss"),
+              url.host != nil else {
+            throw AppServerRPCError.invalidRequest(
+                "exec-server protocol error: unsupported WebSocket URL `\(normalizedURL)`"
+            )
+        }
+        return normalizedURL
     }
 
     private static func environmentID(from raw: CLIJSONValue) throws -> String {

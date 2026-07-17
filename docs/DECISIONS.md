@@ -2101,6 +2101,19 @@
   one, cleans the other, asserts both operations reuse the established WebSocket, and locks the pending
   response registry against duplicate or prematurely reused request IDs.
 
+## 2026-07-17: Remote environment registration validates WebSocket URLs before side effects
+
+- **Decision:** `environment/add` trims and validates `execServerUrl` before constructing a client,
+  mutating the process registry, or starting background connection work. Only nonempty `ws://` and
+  `wss://` URLs with a host are accepted; disabled sentinel values and other URL schemes fail as
+  `-32600` invalid requests.
+- **Why:** The exec-server client and researched Codex contract are WebSocket-based. Letting malformed
+  or non-WebSocket endpoints enter the registry made `environment/status` look like a real pending
+  environment until the background client failed, and it could leave stale selectable targets.
+- **Evidence:** `AppServerEnvironmentRegistryTests` proves invalid endpoints fail without factory
+  creation, while `AppServerEnvironmentSessionTests` proves the public JSON-RPC shape leaves the
+  environment unknown after rejection.
+
 ## 2026-07-17: MCP patch approvals expose path-keyed file-change metadata
 
 - **Compatibility boundary:** `quill-code mcp-server` keeps the existing `elicitation/create`

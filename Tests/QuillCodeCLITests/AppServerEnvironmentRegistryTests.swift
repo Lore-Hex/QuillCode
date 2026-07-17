@@ -144,36 +144,60 @@ final class AppServerEnvironmentRegistryTests: XCTestCase {
     }
 
     func testRegistrationAndSelectionValidationFailClosed() async throws {
-        let registry = AppServerEnvironmentRegistry(
+        let validationRegistry = AppServerEnvironmentRegistry(
             localCWD: URL(fileURLWithPath: "/tmp"),
             environment: [:]
         )
 
         try await assertInvalidRequest(contains: "environment id cannot be empty") {
-            _ = try await registry.add(self.registration(id: "", url: "ws://example.test"))
+            _ = try await validationRegistry.add(self.registration(id: "", url: "ws://example.test"))
         }
         try await assertInvalidRequest(contains: "requires an exec-server url") {
-            _ = try await registry.add(self.registration(id: "remote", url: "  "))
+            _ = try await validationRegistry.add(self.registration(id: "remote", url: "  "))
+        }
+        try await assertInvalidRequest(contains: "remote environment cannot use disabled") {
+            _ = try await validationRegistry.add(self.registration(id: "remote", url: "none"))
+        }
+        try await assertInvalidRequest(contains: "unsupported WebSocket URL") {
+            _ = try await validationRegistry.add(
+                self.registration(id: "remote", url: "https://example.test/ws")
+            )
+        }
+        try await assertInvalidRequest(contains: "unsupported WebSocket URL") {
+            _ = try await validationRegistry.add(
+                self.registration(id: "remote", url: "ws:///missing-host")
+            )
         }
         try await assertInvalidRequest(contains: "unsigned integer") {
-            _ = try await registry.add(.object([
+            _ = try await validationRegistry.add(.object([
                 "environmentId": .string("remote"),
                 "execServerUrl": .string("ws://example.test"),
                 "connectTimeoutMs": .number(-1)
             ]))
         }
         try await assertInvalidRequest(contains: "unsigned integer") {
-            _ = try await registry.add(.object([
+            _ = try await validationRegistry.add(.object([
                 "environmentId": .string("remote"),
                 "execServerUrl": .string("ws://example.test"),
                 "connectTimeoutMs": .number(Double(UInt64.max))
             ]))
         }
         try await assertInvalidRequest(contains: "unknown turn environment id") {
-            try await registry.validate([
+            try await validationRegistry.validate([
                 .init(environmentID: "missing", cwd: "/workspace")
             ])
         }
+
+        let factory = AppServerFakeExecServerFactory(clients: [
+            AppServerFakeExecServerClient()
+        ])
+        let factoryBackedRegistry = registry(factory: factory)
+        try await assertInvalidRequest(contains: "unsupported WebSocket URL") {
+            _ = try await factoryBackedRegistry.add(
+                self.registration(id: "remote", url: "file:///tmp/socket")
+            )
+        }
+        XCTAssertTrue(factory.snapshot().isEmpty)
     }
 
     private func registry(
