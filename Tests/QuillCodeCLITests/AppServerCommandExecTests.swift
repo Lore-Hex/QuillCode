@@ -297,6 +297,34 @@ final class AppServerCommandExecTests: XCTestCase {
                 ["processId": "missing"],
                 -32_600,
                 "no active command/exec for process id \"missing\""
+            ),
+            (
+                16,
+                "command/exec",
+                ["command": ["/bin/echo"], "processId": "", "streamStdoutStderr": true],
+                -32_602,
+                "processId must be a non-empty string or null"
+            ),
+            (
+                17,
+                "command/exec/write",
+                ["processId": "", "closeStdin": true],
+                -32_602,
+                "Invalid params: processId must be a non-empty string"
+            ),
+            (
+                18,
+                "command/exec/resize",
+                ["processId": "", "size": ["rows": 24, "cols": 80]],
+                -32_602,
+                "Invalid params: processId must be a non-empty string"
+            ),
+            (
+                19,
+                "command/exec/terminate",
+                ["processId": ""],
+                -32_602,
+                "Invalid params: processId must be a non-empty string"
             )
         ]
         for request in requests {

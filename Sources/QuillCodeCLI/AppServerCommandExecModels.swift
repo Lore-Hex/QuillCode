@@ -12,7 +12,7 @@ struct AppServerCommandExecRequest: Sendable, Equatable {
         sandboxPolicy: AppServerSandboxPolicy
     ) throws {
         let params = try AppServerParams(value)
-        let processID = try params.optionalString("processId")
+        let processID = try Self.optionalProcessID(from: params)
         let tty = try params.optionalBool("tty") ?? false
         let streamStdin = try params.optionalBool("streamStdin") ?? false
         let streamOutput = try params.optionalBool("streamStdoutStderr") ?? false
@@ -66,6 +66,20 @@ struct AppServerCommandExecRequest: Sendable, Equatable {
             inheritedEnvironment: inheritedEnvironment,
             sandboxPolicy: sandboxPolicy
         )
+    }
+
+    static func requiredProcessID(from params: AppServerParams) throws -> String {
+        try params.requiredString("processId")
+    }
+
+    private static func optionalProcessID(from params: AppServerParams) throws -> String? {
+        guard let processID = try params.optionalString("processId") else { return nil }
+        guard !processID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AppServerCommandExecError.invalidParams(
+                "processId must be a non-empty string or null"
+            )
+        }
+        return processID
     }
 }
 

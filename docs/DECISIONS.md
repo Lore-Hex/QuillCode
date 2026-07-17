@@ -1813,8 +1813,9 @@
   handle; PTY or streaming commands require a client process ID. The final response waits for process
   exit and output drain, follows every output delta, and never duplicates streamed bytes.
 - **Lifecycle boundary:** Follow-up write, resize, and terminate requests address only the originating
-  connection's active ID. An ID is reusable after exit. EOF terminates every process, drains its event
-  task, and suppresses deltas and deferred responses after the channel closes.
+  connection's active non-empty ID. PTY or streaming start requests also reject empty client process
+  IDs instead of creating ambiguous registry keys. An ID is reusable after exit. EOF terminates every
+  process, drains its event task, and suppresses deltas and deferred responses after the channel closes.
 - **Sandbox boundary:** Built-in profiles and explicit legacy policies normalize existing writable
   roots before launch. macOS uses a closed-by-default Seatbelt profile derived from OpenAI Codex 0.142.5
   under Apache 2.0; Linux uses bubblewrap and fails closed when restrictive execution cannot be
@@ -1824,8 +1825,9 @@
   Windows restricted-token behavior, and a remotely disabled local environment are not fabricated;
   they remain explicit work in the broader app-server parity row.
 - **Evidence:** Focused tests cover buffered and streaming execution, pipe and PTY control, output caps,
-  timeout, validation, ID lifecycle, disconnect teardown, and real Seatbelt denial/allow boundaries.
-  The executable JSONL smoke proves streamed stdin/output ordering through the packaged protocol path.
+  timeout, validation including empty process IDs, ID lifecycle, disconnect teardown, and real Seatbelt
+  denial/allow boundaries. The executable JSONL smoke proves streamed stdin/output ordering through the
+  packaged protocol path.
 
 ## 2026-07-16: Global memory reset preserves project-owned memory
 
