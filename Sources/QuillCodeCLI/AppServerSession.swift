@@ -107,6 +107,7 @@ actor AppServerSession {
     let accountLoginStarter: any AppServerAccountLoginStarting
     let mcpOAuthLoginStarter: any AppServerMCPOAuthLoginStarting
     let externalAgentConfigService: ClaudeCodeExternalAgentConfigService
+    let runtimeFeatureStore: AppServerRuntimeFeatureStore
     let sink: AppServerMessageSink
 
     var handshake = HandshakeState.awaitingInitialize
@@ -156,6 +157,7 @@ actor AppServerSession {
         accountLoginStarter: any AppServerAccountLoginStarting = DefaultAppServerAccountLoginStarter(),
         mcpOAuthLoginStarter: (any AppServerMCPOAuthLoginStarting)? = nil,
         paths providedPaths: QuillCodePaths? = nil,
+        runtimeFeatureStore: AppServerRuntimeFeatureStore = AppServerRuntimeFeatureStore(),
         sink: @escaping AppServerMessageSink
     ) throws {
         let paths = providedPaths
@@ -187,6 +189,7 @@ actor AppServerSession {
             destinationPaths: paths,
             appConfig: appConfig
         )
+        self.runtimeFeatureStore = runtimeFeatureStore
         self.sink = sink
     }
 
@@ -327,6 +330,9 @@ actor AppServerSession {
             case "configRequirements/read": result = try readConfigRequirements(params)
             case "config/value/write": result = try await writeConfigValue(params)
             case "config/batchWrite": result = try await writeConfigBatch(params)
+            case "experimentalFeature/list": result = try await listExperimentalFeatures(params)
+            case "experimentalFeature/enablement/set":
+                result = try await setExperimentalFeatureEnablement(params)
             case "gitDiffToRemote": result = try gitDiffToRemote(params)
             case "memory/reset": result = try resetMemory()
             case "externalAgentConfig/detect": result = try await detectExternalAgentConfig(params)

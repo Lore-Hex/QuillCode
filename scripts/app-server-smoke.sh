@@ -219,6 +219,38 @@ initialized, _ = read_until(lambda record: record.get("id") == 1)
 assert "result" in initialized and "jsonrpc" not in initialized, initialized
 send({"method": "initialized", "params": {}})
 
+send({"id": 217, "method": "experimentalFeature/list", "params": {"limit": 1}})
+feature_page, _ = read_until(lambda record: record.get("id") == 217)
+assert feature_page["result"] == {
+    "data": [{
+        "announcement": None,
+        "defaultEnabled": True,
+        "description": None,
+        "displayName": None,
+        "enabled": True,
+        "name": "hooks",
+        "stage": "stable",
+    }],
+    "nextCursor": "1",
+}, feature_page
+send({"id": 218, "method": "experimentalFeature/enablement/set", "params": {
+    "enablement": {"hooks": False, "memories": False, "unknown": True},
+}})
+feature_patch, _ = read_until(lambda record: record.get("id") == 218)
+assert feature_patch["result"] == {"enablement": {"memories": False}}, feature_patch
+send({"id": 219, "method": "experimentalFeature/list", "params": {
+    "cursor": "1",
+    "limit": 1,
+}})
+memory_feature, _ = read_until(lambda record: record.get("id") == 219)
+assert memory_feature["result"]["data"][0]["name"] == "memories", memory_feature
+assert memory_feature["result"]["data"][0]["enabled"] is False, memory_feature
+send({"id": 220, "method": "experimentalFeature/enablement/set", "params": {
+    "enablement": {"memories": True},
+}})
+feature_restore, _ = read_until(lambda record: record.get("id") == 220)
+assert feature_restore["result"] == {"enablement": {"memories": True}}, feature_restore
+
 send({"id": 212, "method": "externalAgentConfig/detect", "params": {
     "includeHome": True,
 }})

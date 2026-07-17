@@ -2,6 +2,15 @@ import Foundation
 
 struct AppServerConnectionDriver: Sendable {
     let runnerFactory: CLIAgentRunnerFactory
+    let runtimeFeatureStore: AppServerRuntimeFeatureStore
+
+    init(
+        runnerFactory: @escaping CLIAgentRunnerFactory,
+        runtimeFeatureStore: AppServerRuntimeFeatureStore = AppServerRuntimeFeatureStore()
+    ) {
+        self.runnerFactory = runnerFactory
+        self.runtimeFeatureStore = runtimeFeatureStore
+    }
 
     func run(
         request: CLIAppServerRequest,
@@ -15,6 +24,7 @@ struct AppServerConnectionDriver: Sendable {
             environment: environment,
             currentDirectory: currentDirectory,
             runnerFactory: runnerFactory,
+            runtimeFeatureStore: runtimeFeatureStore,
             sink: sink
         )
         let concurrentRequests = AppServerConcurrentRequestPool()

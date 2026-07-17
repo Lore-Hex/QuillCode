@@ -17,6 +17,7 @@ struct AppServerUnixSocketTransport: Sendable {
         let socketURL = try Self.socketURL(for: request)
         let listener = try UnixDomainSocketListener(socketURL: socketURL)
         let connections = AppServerSocketConnectionPool()
+        let runtimeFeatureStore = AppServerRuntimeFeatureStore()
         await diagnostics.writeStandardErrorLine(
             "quill-code app-server: listening on unix://\(socketURL.path)"
         )
@@ -29,7 +30,8 @@ struct AppServerUnixSocketTransport: Sendable {
                     defer { connection.close() }
                     do {
                         try await AppServerWebSocketConnectionHandler(
-                            runnerFactory: runnerFactory
+                            runnerFactory: runnerFactory,
+                            runtimeFeatureStore: runtimeFeatureStore
                         ).run(
                             request: request,
                             environment: environment,

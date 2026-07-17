@@ -409,7 +409,8 @@ public struct QuillCodeCommandRunner: Sendable {
       quill-code exec [OPTIONS] PROMPT
       quill-code exec resume (--last | THREAD_ID) [OPTIONS] PROMPT
       quill-code review (--uncommitted | --base BRANCH | --commit SHA | PROMPT) [OPTIONS]
-      quill-code app-server [--listen stdio://|unix://|unix:///absolute/path|ws://IP:PORT|off] [--mock | --live]
+      quill-code app-server [--listen stdio://|unix://|unix:///absolute/path|ws://IP:PORT|off]
+                            [--enable FEATURE | --disable FEATURE] [--mock | --live]
       quill-code mcp-server [--mock | --live]
       quill-code [--home PATH] doctor [--json | --summary] [--all] [--no-color] [--ascii]
       quill-code [LEGACY OPTIONS] PROMPT

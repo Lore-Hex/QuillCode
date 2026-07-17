@@ -247,6 +247,7 @@ public struct CLIAppServerRequest: Sendable, Equatable {
     public var baseURL: String?
     public var home: URL?
     public var webSocketAuth: CLIAppServerWebSocketAuth
+    public var featureEnablement: [String: Bool]
 
     public init(
         transport: CLIAppServerTransport = .stdio,
@@ -255,7 +256,8 @@ public struct CLIAppServerRequest: Sendable, Equatable {
         model: String? = nil,
         baseURL: String? = nil,
         home: URL? = nil,
-        webSocketAuth: CLIAppServerWebSocketAuth = CLIAppServerWebSocketAuth()
+        webSocketAuth: CLIAppServerWebSocketAuth = CLIAppServerWebSocketAuth(),
+        featureEnablement: [String: Bool] = [:]
     ) {
         self.transport = transport
         self.live = live
@@ -264,6 +266,7 @@ public struct CLIAppServerRequest: Sendable, Equatable {
         self.baseURL = baseURL
         self.home = home
         self.webSocketAuth = webSocketAuth
+        self.featureEnablement = featureEnablement
     }
 }
 
@@ -322,6 +325,7 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
     case unsupportedAppServerTransport(String)
     case appServerMessageTooLarge(limit: Int)
     case invalidAppServerAuth(String)
+    case unknownFeatureFlag(String)
 
     public var errorDescription: String? {
         switch self {
@@ -367,6 +371,8 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
             "App-server message exceeds the \(limit)-byte limit."
         case .invalidAppServerAuth(let reason):
             "Invalid app-server WebSocket authentication: \(reason)"
+        case .unknownFeatureFlag(let name):
+            "Unknown feature flag: \(name)"
         }
     }
 }

@@ -121,6 +121,25 @@ final class CLIArgumentParserTests: XCTestCase {
         XCTAssertEqual(configured.baseURL, "https://example.test/v1")
     }
 
+    func testAppServerParsesFeatureOverridesAndRejectsUnknownFlags() throws {
+        let configured = try appServerRequest(parser.parse([
+            "app-server",
+            "--disable", "memories",
+            "--enable=memories",
+            "--disable", "hooks"
+        ], currentDirectory: cwd))
+        XCTAssertEqual(configured.featureEnablement, [
+            "hooks": false,
+            "memories": true
+        ])
+
+        XCTAssertThrowsError(try parser.parse([
+            "app-server", "--enable", "not-a-feature"
+        ], currentDirectory: cwd)) { error in
+            XCTAssertEqual(error as? CLIError, .unknownFeatureFlag("not-a-feature"))
+        }
+    }
+
     func testAppServerRejectsUnsupportedTransportAndUnknownOptions() {
         for transport in [
             "ws://localhost:4500",
