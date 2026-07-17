@@ -26,6 +26,8 @@ public struct AgentRunNotification: Sendable, Hashable, Identifiable {
         case ceilingReached
         /// The flail detector stopped a busy-but-stuck run to save the remaining budget.
         case flailed
+        /// Auto review stopped a turn after repeated denials rather than allowing circumvention.
+        case autoReviewStopped
         /// The run produced a final answer with nothing pending.
         case finished
     }
@@ -36,6 +38,7 @@ public struct AgentRunNotification: Sendable, Hashable, Identifiable {
     public enum BudgetStop: Sendable, Hashable {
         case ceilingReached(limit: Int)
         case flailed(reason: String)
+        case autoReviewStopped(reason: String)
     }
 
     public var kind: Kind
@@ -184,6 +187,15 @@ public enum AgentRunNotificationPlanner {
                 kind: .flailed,
                 title: "QuillCode stopped — stuck",
                 body: detail.map { "\(title) — \($0)" } ?? "\(title) — the run was busy but not making progress.",
+                threadID: threadID
+            )
+        case .autoReviewStopped(let reason):
+            let detail = trimmedNonEmpty(reason).map { firstLine($0, limit: 100) }
+            return AgentRunNotification(
+                kind: .autoReviewStopped,
+                title: "QuillCode paused after safety denials",
+                body: detail.map { "\(title) — \($0)" }
+                    ?? "\(title) — inspect Auto-review Denials before retrying an exact action.",
                 threadID: threadID
             )
         }

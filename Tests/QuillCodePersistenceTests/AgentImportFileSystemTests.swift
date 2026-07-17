@@ -50,4 +50,24 @@ final class AgentImportFileSystemTests: PersistenceTestCase {
         )
         XCTAssertEqual(try Data(contentsOf: file), Data("original".utf8))
     }
+
+    func testDirectoryCopyNeverRemovesAnExistingDestination() throws {
+        let sourceRoot = try makeTempDirectory()
+        let source = sourceRoot.appendingPathComponent("plugin")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        try Data("new".utf8).write(to: source.appendingPathComponent("main.txt"))
+        let destinationRoot = try makeTempDirectory()
+        let destination = destinationRoot.appendingPathComponent("existing")
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        let sentinel = destination.appendingPathComponent("keep.txt")
+        try Data("keep".utf8).write(to: sentinel)
+
+        XCTAssertThrowsError(try AgentImportFileSystem.copyDirectory(
+            source,
+            sourceRoot: sourceRoot,
+            to: destination,
+            destinationRoot: destinationRoot
+        ))
+        XCTAssertEqual(try Data(contentsOf: sentinel), Data("keep".utf8))
+    }
 }

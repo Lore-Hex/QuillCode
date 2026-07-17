@@ -11,6 +11,9 @@ public struct SafetyContext: Sendable {
     /// the rule-gated reviewer needs it to load the right table and to normalize path resources.
     /// Nil (the default) means "no workspace known" and disables rule evaluation only.
     public var workspaceRoot: URL?
+    /// A narrowly scoped marker for the one user-requested retry of an exact prior denial.
+    /// Reviewers still evaluate the action normally and may deny it again.
+    public var reviewAttempt: ApprovalReviewAttempt
 
     public init(
         mode: AgentMode,
@@ -18,7 +21,8 @@ public struct SafetyContext: Sendable {
         toolCall: ToolCall,
         toolDefinition: ToolDefinition?,
         recentMessages: [ChatMessage],
-        workspaceRoot: URL? = nil
+        workspaceRoot: URL? = nil,
+        reviewAttempt: ApprovalReviewAttempt = .initial
     ) {
         self.mode = mode
         self.userMessage = userMessage
@@ -26,6 +30,7 @@ public struct SafetyContext: Sendable {
         self.toolDefinition = toolDefinition
         self.recentMessages = recentMessages
         self.workspaceRoot = workspaceRoot
+        self.reviewAttempt = reviewAttempt
     }
 }
 
@@ -35,28 +40,44 @@ public struct SafetyReview: Codable, Sendable, Hashable {
     public var reviewerModel: String?
     public var userIntentMatched: Bool
     public var reviewTelemetry: ApprovalReviewTelemetry?
+    public var reviewOutcome: ApprovalReviewOutcome
+    public var riskLevel: ApprovalRiskLevel
+    public var userAuthorization: ApprovalUserAuthorization
 
     public init(
         verdict: ApprovalVerdict,
         rationale: String,
         reviewerModel: String? = nil,
         userIntentMatched: Bool = false,
-        reviewTelemetry: ApprovalReviewTelemetry? = nil
+        reviewTelemetry: ApprovalReviewTelemetry? = nil,
+        reviewOutcome: ApprovalReviewOutcome? = nil,
+        riskLevel: ApprovalRiskLevel = .unknown,
+        userAuthorization: ApprovalUserAuthorization = .unknown
     ) {
         self.verdict = verdict
         self.rationale = rationale
         self.reviewerModel = reviewerModel
         self.userIntentMatched = userIntentMatched
         self.reviewTelemetry = reviewTelemetry
+        self.reviewOutcome = reviewOutcome ?? ApprovalReviewOutcome(verdict: verdict)
+        self.riskLevel = riskLevel
+        self.userAuthorization = userAuthorization
     }
 }
 
 public extension SafetyReview {
     func withReviewTelemetry(_ telemetry: ApprovalReviewTelemetry) -> SafetyReview {
         var copy = self
-        copy.reviewTelemetry = telemetry
+        var enrichedTelemetry = telemetry
+        if enrichedTelemetry.riskLevel == nil {
+            enrichedTelemetry.riskLevel = copy.riskLevel
+        }
+        if enrichedTelemetry.userAuthorization == nil {
+            enrichedTelemetry.userAuthorization = copy.userAuthorization
+        }
+        copy.reviewTelemetry = enrichedTelemetry
         if copy.reviewerModel == nil {
-            copy.reviewerModel = telemetry.reviewerModel
+            copy.reviewerModel = enrichedTelemetry.reviewerModel
         }
         return copy
     }
@@ -247,6 +268,19 @@ public struct AutoSafetyReviewer: SafetyReviewer {
         let recent = context.recentMessages.suffix(8)
             .map { "\($0.role.rawValue): \($0.content)" }
             .joined(separator: "\n")
+        let retryGuidance: String
+        if context.reviewAttempt.kind == .denialOverride,
+           let deniedRequestID = context.reviewAttempt.retryOfRequestID {
+            retryGuidance = """
+
+            Developer-scoped denial retry:
+            - The user selected the exact denied action \(deniedRequestID) from Auto-review Denials.
+            - This marker authorizes one new review, not automatic execution and not a workaround.
+            - Approve only if policy permits this exact action. Deny again when policy disallows an override.
+            """
+        } else {
+            retryGuidance = ""
+        }
         return """
         You are QuillCode's Auto safety reviewer. Decide whether one proposed tool call should run.
 
@@ -258,7 +292,8 @@ public struct AutoSafetyReviewer: SafetyReviewer {
         Approve PR merge/automerge only when the latest user request explicitly asks to merge that PR. If a shell command chains unrelated work beyond the request, deny or clarify even when its first command is safe.
 
         Return only JSON:
-        {"verdict":"approve|deny|clarify","rationale":"one sentence","userIntentMatched":true|false}
+        {"verdict":"approve|deny|clarify","rationale":"one sentence","userIntentMatched":true|false,"riskLevel":"low|medium|high|critical","userAuthorization":"explicit|implicit|missing|mismatched"}
+        \(retryGuidance)
 
         Recent transcript:
         \(recent)
@@ -279,6 +314,8 @@ public struct AutoSafetyReviewer: SafetyReviewer {
             var verdict: ApprovalVerdict
             var rationale: String
             var userIntentMatched: Bool
+            var riskLevel: ApprovalRiskLevel?
+            var userAuthorization: ApprovalUserAuthorization?
         }
         let data = Data(Self.reviewJSONPayload(from: json).utf8)
         let decoded = try JSONDecoder().decode(Wire.self, from: data)
@@ -286,7 +323,9 @@ public struct AutoSafetyReviewer: SafetyReviewer {
             verdict: decoded.verdict,
             rationale: decoded.rationale,
             reviewerModel: model,
-            userIntentMatched: decoded.userIntentMatched
+            userIntentMatched: decoded.userIntentMatched,
+            riskLevel: decoded.riskLevel ?? .unknown,
+            userAuthorization: decoded.userAuthorization ?? (decoded.userIntentMatched ? .implicit : .missing)
         )
     }
 

@@ -126,7 +126,8 @@ extension AppServerSession {
             sandboxPolicy: sandboxPolicy,
             permissionProfileID: permissionProfileID,
             permissionProfileIsExplicit: permissionProfileIsExplicit,
-            userShellTurns: base?.userShellTurns
+            userShellTurns: base?.userShellTurns,
+            environments: base?.environments
         )
     }
 

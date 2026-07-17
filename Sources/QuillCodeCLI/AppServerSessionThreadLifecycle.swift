@@ -20,6 +20,7 @@ extension AppServerSession {
             base: try defaultThreadSettings(requirements: requirements),
             requirements: requirements
         )
+        try await applyEnvironmentSelection(from: params, to: &settings)
         var thread = ChatThread(
             mode: mode(for: settings),
             model: try model(from: params, fallback: request.model ?? appConfig.defaultModel)
@@ -31,6 +32,7 @@ extension AppServerSession {
         try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
         markThreadLoaded(record.thread.id, subscription: .always)
+        try await synchronizeEnvironmentSubscription(for: record)
         await notifyThreadStarted(record)
         return AppServerThreadLifecycleOutcome(
             result: startOrResumeResponse(record, includeTurns: false, isActive: false),
@@ -50,12 +52,14 @@ extension AppServerSession {
             base: record.settings,
             requirements: requirements
         )
+        try await applyEnvironmentSelection(from: params, to: &record.settings)
         record.thread.model = try model(from: params, fallback: record.thread.model)
         try appendInstructions(from: params, to: &record.thread)
         record.thread.updatedAt = Date()
         try await validateRequiredMCPServers(for: record)
         try await repository.save(record)
         markThreadLoaded(record.thread.id, subscription: .always)
+        try await synchronizeEnvironmentSubscription(for: record)
         return AppServerThreadLifecycleOutcome(
             result: startOrResumeResponse(record, includeTurns: true, isActive: hasActiveOperation(for: id)),
             threadID: record.thread.id
@@ -78,12 +82,14 @@ extension AppServerSession {
             base: source.settings,
             requirements: requirements
         )
+        try await applyEnvironmentSelection(from: params, to: &settings)
         settings.sessionID = source.settings.sessionID ?? sourceID
         settings.forkedFromID = sourceID
         let record = AppServerThreadRecord(thread: thread, settings: settings)
         try await validateRequiredMCPServers(for: record)
         try await repository.create(record)
         markThreadLoaded(record.thread.id, subscription: .always)
+        try await synchronizeEnvironmentSubscription(for: record)
         await notifyThreadStarted(record)
         return AppServerThreadLifecycleOutcome(
             result: startOrResumeResponse(record, includeTurns: true, isActive: false),
@@ -116,6 +122,7 @@ extension AppServerSession {
         }
         _ = try await loadRecord(id)
         try await repository.delete(id)
+        await removeEnvironmentSubscription(for: id)
         loadedThreadIDs.remove(id)
         subscribedThreadIDs.remove(id)
         outOfBandElicitationCounts[id] = nil

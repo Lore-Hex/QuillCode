@@ -4,6 +4,60 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 
 ## Current Research Inputs
 
+- Codex app-server 0.144.5 exposes `thread/approveGuardianDeniedAction` with one thread ID and a
+  serialized Guardian assessment event. The event uses snake-case durable fields, status values such
+  as `in_progress`, `denied`, and `timed_out`, and typed command, patch, or MCP actions. Current Codex
+  acknowledges non-denied events without launching work. A denied event injects narrowly scoped
+  authorization for only that assessed action. Auto-review lifecycle is reported separately through
+  camel-case `item/autoApprovalReview/started` and `item/autoApprovalReview/completed` notifications.
+  QuillCode preserves the public contract while using its stronger durable retry primitive: the event
+  must match the exact persisted denial, turn, target tool item, and normalized action; execution uses
+  only the persisted call and requires a fresh Auto review. Sources: generated 0.144.5 schemas and
+  public `openai/codex` app-server protocol and Guardian processor, audited 2026-07-16.
+- Codex app-server 0.144.5 experimental feature discovery uses `experimentalFeature/list` with
+  decimal offset cursors, clamps `limit = 0` to one item, returns beta presentation copy only for beta
+  flags, and optionally refreshes effective project config from a loaded `threadId`.
+  `experimentalFeature/enablement/set` patches only an allowlisted subset in process memory, ignores
+  unknown or unsupported keys, and does not create or modify `config.toml`. Effective precedence is
+  cloud/managed requirements, CLI `--enable`, config, process runtime state, then code default.
+  QuillCode implements that contract with a typed registry of real QuillCode flags and makes the
+  runtime `memories` switch alter model context rather than returning cosmetic state. Socket clients
+  share one process-owned actor store, matching the process scope rather than leaking state into one
+  connection. Sources: generated 0.144.5 schemas, isolated JSONL probes, official app-server README,
+  and public `openai/codex` catalog/config processors, audited 2026-07-16.
+- Codex app-server 0.142.5 exposes `externalAgentConfig/detect`,
+  `externalAgentConfig/import`, and `externalAgentConfig/import/readHistories`. Detection defaults to
+  no home scan, accepts bounded repository CWDs plus explicit `includeHome`, and reports CONFIG,
+  MCP_SERVER_CONFIG, HOOKS, SKILLS, COMMANDS, SUBAGENTS, AGENTS_MD, PLUGINS, and recent SESSIONS.
+  Import first returns an opaque UUID, then emits one `externalAgentConfig/import/progress` event per
+  requested item and one grouped `externalAgentConfig/import/completed` event; completion order is
+  CONFIG, SKILLS, AGENTS_MD, PLUGINS, MCP_SERVER_CONFIG, SUBAGENTS, HOOKS, COMMANDS, SESSIONS.
+  History returns newest-first flattened successes and failures. QuillCode maps this protocol to its
+  bounded Claude Code adapter, revalidates client selections, excludes credentials, imports sessions
+  as durable tasks, serializes mutations, and refreshes config/skills/MCP state after completion.
+  Sources: generated 0.142.5 schemas, isolated local JSONL probes, and public `openai/codex`
+  external-agent-migration source, audited 2026-07-16.
+- Codex app-server 0.142.5 `thread/inject_items` accepts one nonempty list of raw Responses API
+  `ResponseItem` values and returns `{}` without a notification. The items are persisted as model-only
+  history: before the first turn they follow standard context and precede the first user prompt; later
+  injections follow the last durable transcript item and precede the next prompt. Injection remains
+  legal while a turn is active and must survive that turn's eventual snapshot. Empty arrays, malformed
+  response items, unknown/archived tasks, and remote image URLs fail with `-32600`; inline `data:` images
+  and forward-compatible message roles are accepted. Public 0.142.5 integration tests confirm that raw
+  injected items reach the next Responses request but never become visible transcript turns. Because
+  TrustedRouter uses chat-completions input, QuillCode maps message text/inline images to equivalent
+  chat messages and preserves every other response-item variant as canonical model-visible JSON rather
+  than inventing executable tool calls. Sources: generated 0.142.5 schemas, isolated local
+  `codex-cli 0.142.5` success/error/active-turn probes, and public `openai/codex` thread processor and
+  integration tests, audited 2026-07-16.
+- Current Codex `main` at `18110b810f0a328147f6cd85e6f1ab6414927366` exposes experimental
+  `thread/backgroundTerminals/list`, `thread/backgroundTerminals/terminate`, and
+  `thread/backgroundTerminals/clean`. Listing loads the thread, returns active unified-exec processes
+  sorted by process id, exposes item id, process id, command, cwd, and nullable resource metrics, and
+  uses the last PID as an opaque forward cursor. Termination parses one signed 32-bit process id and
+  is idempotent; clean terminates every background process owned by that thread. QuillCode maps this
+  contract to its existing thread-owned user-shell lifecycle rather than creating a second process
+  registry. Source: public `openai/codex` app-server protocol and thread processor, audited 2026-07-16.
 - Codex app-server 0.142.5 exposes `thread/search`, `thread/loaded/list`, and
   `thread/turns/list`. Isolated JSONL probes show that search requires a non-whitespace term, searches
   transcript text rather than a renamed title, returns the matching snippet, and accepts a zero limit
@@ -78,6 +132,16 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   Linked worktrees deliberately load project hooks from the primary checkout. Sources: public
   `openai/codex` app-server protocol, hook configuration, plugin resolver, and integration tests,
   audited 2026-07-16.
+- Codex app-server 0.142.5 `gitDiffToRemote` requires one `cwd` and returns the current local upstream
+  tip as `sha` plus a direct binary Git diff from that tip to the complete working tree. It includes
+  local commits ahead of upstream, staged changes, unstaged changes, and untracked files; excludes
+  ignored files; emits tracked patches before Git-ordered untracked patches; and deliberately uses
+  the current upstream tip rather than a merge base when histories diverge. Clean repositories return
+  an empty diff. Missing CWD, non-repositories, and repositories without an upstream fail with
+  `-32600`. QuillCode mirrors that local-ref behavior without fetching, while adding byte/file bounds
+  and disabling external diff and text-conversion hooks. Sources: generated 0.142.5 schemas and
+  isolated local `codex-cli 0.142.5` clean, dirty, ahead, diverged, binary, ignored, and invalid-repo
+  probes, audited 2026-07-16.
 - Codex app: projects, worktrees, automations, Git review, in-app browser, Computer Use, artifact previews.
 - Codex Review treats Unstaged, Staged, Commit, Branch, and Last turn as distinct scopes, with whole-diff Stage all/Revert all controls. QuillCode should preserve that information architecture while keeping historical comparisons read-only and deriving Last turn from auditable turn-owned edits instead of guessing from the current working tree.
 - Official managed-worktree behavior: new Worktree tasks start at detached HEAD from the selected branch, can carry current uncommitted changes, copy normally ignored files only when selected by `.worktreeinclude`, automatically copy ignored `AGENTS.override.md`, and keep a stable task/worktree association. Codex stores managed worktrees under `$CODEX_HOME/worktrees` by default, lets users choose another root, and automatically retains the 15 most recent managed tasks unless cleanup is disabled or the limit is changed. Handoff moves a task and its code between Local and that same worktree; managed cleanup saves restorable snapshots before deletion. Pinned, selected, still-running, Local, and permanent/named-branch worktrees are excluded from automatic removal, while reopening a task whose disposable worktree was removed offers restoration. Source: current Codex manual, Worktrees section (`environments/git-worktrees`).
@@ -152,6 +216,10 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - Codex Settings offers **Import from other agents** as a reviewable migration rather than an invisible compatibility scan. The import covers supported setup and recent work, lets the user customize what will be imported, is additive instead of destructive, and leaves provider credentials or trust decisions for explicit follow-up. QuillCode follows that product contract for Claude Code while applying stricter source-root, symlink, size, secret-redaction, and destination-receipt boundaries.
 - Codex `/side` (alias `/btw`) starts an ephemeral conversation from the active task's history while the parent task keeps running. Inherited history is reference-only, side conversations are excluded from the sidebar and durable task history, and Return discards the side branch. The side branch keeps the parent task's tool permissions, but it must not mutate files or other external state unless the user explicitly asks after entering the side conversation. Sources: official Codex slash-command reference (`learn.chatgpt.com/docs/reference/slash-commands`) and the public Codex TUI side-conversation implementation (`openai/codex`, `codex-rs/tui/src/app/side.rs`).
 - Sandbox and Auto-review: enforce boundaries first, route eligible review requests through a reviewer model.
+  A denied action remains inspectable as durable task history. Recovery should offer one exact,
+  context-bound retry through the reviewer rather than an editable approval bypass; redacted actions
+  cannot be replayed, retry is consumed before dispatch, and repeated denials trip a visible circuit
+  breaker. Opening that control surface must not add a transcript message or consume model context.
 - Remote connections: phone/host pairing, remote approvals, host-local files and tools.
 - Plugins, skills, MCP: reusable workflows and external tools; first expose project-local manifests clearly before enabling install/process lifecycle.
 - Codex/Open Agent Skills use progressive disclosure: only validated name/description metadata enters
@@ -178,6 +246,18 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - Standard Codex plugin packages use `.codex-plugin/plugin.json` as the required entry point and may reference package-relative `skills/` and `.mcp.json` components. QuillCode treats discovery as data-only, projects bundled components into its existing audited skill/MCP lanes, and resolves package paths again at use time. Source: current Codex manual, Build plugins and Model Context Protocol sections.
 - Standard hooks are discovered from `hooks.json`, inline `[hooks]` tables in `config.toml`, and plugin manifest/default `hooks/hooks.json` files. Multiple sources merge instead of overriding one another. QuillCode discovers project, user, and system `.quillcode` plus Codex-compatible `.codex` JSON/TOML sources through one canonical bounded decoder, and reads managed requirements from `/etc/codex/requirements.toml` and `/etc/quillcode/requirements.toml`. System and managed requirements hooks are policy-trusted and immutable; user and project definitions require exact-definition review. `allow_managed_hooks_only` removes user, project, session, and plugin hooks, while managed `[features].hooks` can pin the feature off. User and managed hooks execute locally even when the active project is SSH Remote; workspace hooks follow the selected local/SSH execution target. Cloud/MDM delivery of additional managed requirement documents remains an adapter follow-up. Editing a non-managed event, matcher, handler, command, timeout, async flag, or package root returns that hook to review. QuillCode executes trusted synchronous command handlers for `UserPromptSubmit`, `Stop`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStart`, and `SubagentStop`; unsupported events, prompt/agent handlers, asynchronous commands, and invalid matchers remain visible and inert. Matching commands launch concurrently and aggregate in configuration order. Every command receives newline-terminated JSON on stdin with `session_id`, nullable `transcript_path`, `cwd`, `hook_event_name`, and `model`; turn-scoped events also receive `turn_id`, and events that define it receive `permission_mode`. Tool hooks add canonical `tool_name` and `tool_input`; pre/post hooks also carry `tool_use_id`, and post adds `tool_response`. Permission requests add a non-destructive `tool_input.description` fallback from the safety rationale. Compaction hooks add `trigger` (`manual` or `auto`) and deliberately omit tool and permission fields. Session start matchers receive `startup`, `resume`, `clear`, or `compact`; the event omits `turn_id`. Subagent matchers receive `agent_type`; their payloads retain the parent session/turn identity and include the worker ID, while stop also includes nullable child transcript/last-message fields and `stop_hook_active`. Plain or structured start output becomes bounded hidden context. SubagentStop requires JSON and can request exactly one continuation through `decision:block` or exit code 2; `continue:false` overrides continuation. Plugin commands additionally receive `PLUGIN_ROOT`, `PLUGIN_DATA`, `CLAUDE_PLUGIN_ROOT`, and `CLAUDE_PLUGIN_DATA`; plugin data is private, stable, and isolated by canonical workspace and plugin. Source: current Codex manual, Hooks and Build plugins > Hooks.
 - Repository plugin marketplaces use `.agents/plugins/marketplace.json` (with `.claude-plugin/marketplace.json` as the legacy location). Local sources must begin with `./`, resolve from the marketplace repository root, stay within that root, and may be declared as a string or `{ "source": "local", "path": "./..." }`. QuillCode now follows that local contract, preserves modern-catalog precedence, honors `NOT_AVAILABLE`, and deliberately skips git/npm sources until signed remote acquisition is implemented. Source: current Codex manual, Build plugins > Install a local plugin manually and Marketplace metadata.
+- Codex app-server `plugin/install` accepts exactly one local `marketplacePath` or `remoteMarketplaceName` plus `pluginName`, returns `authPolicy` and `appsNeedingAuth`, and installs local packages into `CODEX_HOME/plugins/cache/<marketplace>/<plugin>`. `plugin/uninstall` accepts the composite `pluginId`, returns an empty object, and is idempotent. QuillCode implements the local contract with bounded transactional copies, immediate skill/hook cache invalidation, and explicit remote-source errors; it does not claim remote acquisition. Source: `openai/codex` app-server protocol `v2/plugin.rs` and request processor `plugins.rs`, audited 2026-07-16.
+- Codex 0.142.5 app-server `marketplace/add`, `marketplace/remove`, and `marketplace/upgrade`
+  manage durable user marketplace registrations separately from individual plugin installation. Add
+  accepts a local directory, GitHub `owner/repo`, HTTP(S)/SSH Git URL, optional ref, and optional sparse
+  paths; repeated identical add is idempotent. Upgrade can select one configured Git marketplace or all
+  Git marketplaces and reports independent per-marketplace errors. Remove deletes the registration and
+  any managed clone, but never deletes an external local source directory. QuillCode mirrors this with
+  prompt-disabled Git, bounded data-only catalog validation, staged filesystem activation, atomic TOML
+  preservation, rollback, cache invalidation, focused actor tests, and an executable JSONL lifecycle
+  smoke. Provider-hosted catalogs and sharing remain a distinct remote plugin service boundary. Source:
+  `openai/codex` `v2/plugin.rs`, `marketplace_processor.rs`, and `marketplace_add/remove/upgrade` suites,
+  audited 2026-07-16.
 - Memories and Chronicle: local recall layer, not a replacement for checked-in project rules. The first shippable slice should make loaded memory visible and auditable; explicit `/remember text` writes and explicit Forget actions are acceptable with clear transcript feedback and credential rejection before enabling autonomous writes.
 - Codex 0.142.5 app-server exposes parameterless `memory/reset` as a global reset for app-managed memory,
   rather than a request to mutate repository files. QuillCode maps that boundary to the contents of
@@ -196,6 +276,60 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   0.142.5 schemas, the official app-server README, and public `openai/codex`
   `app-server-protocol`, MCP connection manager, elicitation processor, and integration tests,
   audited 2026-07-16.
+- Current Codex app-server transport behavior uses JSONL only for stdio. `ws://IP:PORT` sends one
+  JSON-RPC message per WebSocket text frame, while `unix://` performs the same HTTP Upgrade over the
+  Unix socket before entering the shared WebSocket connection loop. TCP exposes `/readyz` and
+  `/healthz`, rejects any request with `Origin`, drops binary frames, answers ping with pong, and uses
+  bounded queues with exact `-32001` request-overload errors. Unauthenticated non-loopback listeners
+  are refused. Capability-token auth accepts a token file or SHA-256 digest; signed bearer auth uses
+  HS256 plus required expiry and optional not-before/issuer/audience checks. Sources: current Codex
+  manual app-server transport section and public `openai/codex` `app-server-transport` transport,
+  websocket, Unix-socket, and auth implementations, audited 2026-07-16.
+
+- Current Codex app-server experimental `thread/items/list` pages complete stored `ThreadItem`
+  payloads without resuming a thread. The request requires `threadId`, accepts nullable `turnId` and
+  cursor, defaults to ascending order and 25 items, and clamps a requested page to 1...100. Each
+  response entry carries its containing `turnId`; `nextCursor` continues after the page and
+  `backwardsCursor` includes the page head when the client reverses direction. Cursors belong to the
+  complete item stream rather than a turn-filtered substream, so clients may reuse one cursor with or
+  without `turnId`. Stores without item pagination return `-32601` and exact message
+  `thread/items/list is not supported yet`. QuillCode's local JSON store can provide the contract and
+  retains the older `thread/turns/items/list` spelling only as an explicit unsupported compatibility
+  boundary. Sources: official app-server README, generated v2 schemas, request processor, and remote
+  thread-store tests at public `openai/codex` commit `3151954`, audited 2026-07-16.
+
+- Current Codex app-server execution environments are process-scoped registrations, not durable user
+  configuration. `environment/add` accepts `environmentId`, `execServerUrl`, and an optional unsigned
+  `connectTimeoutMs`; registration is lazy and replacing an ID, including `local`, is allowed.
+  `environment/info` forces connection and reports a shell name/path plus nullable CWD. Thread
+  start/resume/fork and turn start accept an `environments` array: omission preserves/defaults the
+  selection, an empty array disables environment access, and a nonempty array selects its first
+  `{environmentId,cwd}` entry and persists it for later turns. Unknown IDs fail with `-32600`.
+  The exec-server WebSocket handshake sends `initialize` with `clientName` and nullable
+  `resumeSessionId`, receives `sessionId`, then sends `initialized`; process and filesystem requests
+  use target-native file URIs and explicit `process/start`/`process/read` plus `fs/*` methods. A
+  `process/read` response's `nextSeq` is one past the last observed event, so the next inclusive
+  `afterSeq` cursor is `nextSeq - 1`; readers wait for `closed`, not merely `exited`, to retain output
+  flushed after process exit. A request that loses transport after dispatch must not be replayed
+  automatically. `environment/status` observes an existing registration without creating or resuming
+  a connection and returns `ready`, `pending`, `disconnected`, or `unknown` plus a nullable error.
+  Selected threads receive `thread/environment/connected` only on a later connection transition, not
+  as replayed state when selection starts, and all threads selecting that environment receive a later
+  disconnected transition. Sources: generated
+  current app-server v2 schemas and public `openai/codex` app-server environment processor,
+  exec-server protocol, remote environment tests, and deferred executor implementation at Codex
+  0.144.5, audited 2026-07-16.
+
+- Current Codex remote projects launch the remote Codex app server over SSH and run it through the
+  remote user's login shell. The remote `codex` executable must therefore be available on that
+  shell's `PATH`; authentication and normal SSH host-key/security expectations still apply. Codex
+  warns that app-server transports are privileged local-control surfaces and should not be exposed
+  directly to untrusted networks. QuillCode maps this to one persistent SSH-launched
+  `quill-code app-server --stdio` process per remote project root. It may use direct one-shot SSH only
+  when app-server startup failed before a command was sent. A connection loss after dispatch is an
+  unknown execution state and must not trigger an automatic retry, because replaying a file, Git, or
+  shell mutation could duplicate work. Source: current official Codex manual, Remote projects and
+  App server transport/security sections, audited 2026-07-16.
 
 ## Product Translation
 

@@ -190,6 +190,14 @@ public struct SkillResolver: Sendable {
             kind: .user,
             url: locations.quillCodeHome.appendingPathComponent("skills", isDirectory: true)
         ))
+        roots.append(contentsOf: CodexInstalledPluginStore.packages(
+            in: locations.quillCodeHome
+        ).map { package in
+            SkillRoot(
+                kind: .user,
+                url: package.root.appendingPathComponent("skills", isDirectory: true)
+            )
+        })
         roots.append(SkillRoot(
             kind: .system,
             url: locations.quillCodeHome

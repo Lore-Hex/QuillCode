@@ -4,7 +4,7 @@ import QuillComputerUseKit
 enum WorkspaceCommandStaticCatalog {
     typealias Command = WorkspaceCommandSurface
 
-    static func retryCommands(canRetryLastUserTurn: Bool) -> [Command] {
+    static func retryCommands(canRetryLastUserTurn: Bool, hasSelectedThread: Bool) -> [Command] {
         let control = Category.control
         return [
             shortcut(
@@ -13,6 +13,13 @@ enum WorkspaceCommandStaticCatalog {
                 category: control,
                 keywords: ["retry", "rerun", "again", "failed"],
                 isEnabled: canRetryLastUserTurn
+            ),
+            command(
+                WorkspaceCommandAction.autoReviewDenials.rawValue,
+                "Auto-review Denials",
+                category: control,
+                keywords: ["approve", "auto review", "denied", "safety", "retry exact action"],
+                isEnabled: hasSelectedThread
             )
         ]
     }

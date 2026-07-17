@@ -111,6 +111,10 @@ final class WorkspaceCommandPlanTests: XCTestCase {
     func testPrefixCommandsParseStructuredValues() {
         let id = UUID()
         let runID = UUID()
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "auto-review-denial-retry:approval-123"),
+            .retryAutoReviewDenial(requestID: "approval-123")
+        )
         guard case .resolveSubagentApproval(let approval) = WorkspaceCommandPlan(
             commandID: "subagent-approval:approve:\(runID.uuidString):request_123"
         ) else {
@@ -234,6 +238,17 @@ final class WorkspaceCommandPlanTests: XCTestCase {
         XCTAssertEqual(
             WorkspaceCommandPlan(commandID: "activity-instruction-dismiss:instruction-conflict"),
             .dismissInstructionDiagnostic(id: "instruction-conflict")
+        )
+    }
+
+    func testAutoReviewDenialCommandsUseStaticPresentationActions() {
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "auto-review-denials"),
+            .action(.autoReviewDenials)
+        )
+        XCTAssertEqual(
+            WorkspaceCommandPlan(commandID: "auto-review-denials-dismiss"),
+            .action(.dismissAutoReviewDenials)
         )
     }
 

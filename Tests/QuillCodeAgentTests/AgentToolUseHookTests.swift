@@ -296,7 +296,10 @@ final class AgentToolUseHookTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertNotNil(result.pendingApproval)
+        XCTAssertNil(result.pendingApproval)
+        XCTAssertTrue(result.thread.events.contains { $0.kind == .approvalRequested })
+        XCTAssertTrue(result.thread.events.contains { $0.kind == .approvalDecided })
+        XCTAssertTrue(result.toolResults.allSatisfy { !$0.ok })
         let counts = await capture.snapshot()
         XCTAssertEqual(counts.permission, 0)
         XCTAssertFalse(result.thread.events.contains { $0.kind == .toolRunning })

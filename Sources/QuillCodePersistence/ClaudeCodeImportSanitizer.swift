@@ -47,9 +47,7 @@ enum ClaudeCodeImportSanitizer {
             server["args"] = sanitizedArguments(arguments)
         }
         for (key, value) in server where key != "url" && key != "args" {
-            if let string = value as? String {
-                server[key] = redactSensitiveString(string)
-            }
+            server[key] = redact(value, key: key)
         }
         if !inherited.isEmpty {
             server["env_vars"] = Array(Set(inherited)).sorted()

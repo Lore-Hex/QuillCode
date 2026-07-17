@@ -130,10 +130,35 @@ public struct CLIDoctorRequest: Sendable, Equatable {
 public enum CLIAppServerTransport: Sendable, Equatable {
     case stdio
     case unix(path: String?)
+    case webSocket(host: String, port: UInt16)
+    case off
 
     public init?(rawValue: String) {
         if rawValue == "stdio://" {
             self = .stdio
+            return
+        }
+        if rawValue == "off" {
+            self = .off
+            return
+        }
+        if rawValue.hasPrefix("ws://"),
+           let components = URLComponents(string: rawValue),
+           components.scheme?.lowercased() == "ws",
+           let parsedHost = components.host,
+           let port = components.port,
+           (0...Int(UInt16.max)).contains(port),
+           components.user == nil,
+           components.password == nil,
+           components.query == nil,
+           components.fragment == nil,
+           components.percentEncodedPath.isEmpty
+        {
+            let host = parsedHost.hasPrefix("[") && parsedHost.hasSuffix("]")
+                ? String(parsedHost.dropFirst().dropLast())
+                : parsedHost
+            guard Self.isNumericIP(host) else { return nil }
+            self = .webSocket(host: host, port: UInt16(port))
             return
         }
         guard rawValue.hasPrefix("unix://") else { return nil }
@@ -156,7 +181,61 @@ public enum CLIAppServerTransport: Sendable, Equatable {
         case .stdio: "stdio://"
         case .unix(nil): "unix://"
         case .unix(let path?): "unix://\(path)"
+        case .webSocket(let host, let port):
+            host.contains(":") ? "ws://[\(host)]:\(port)" : "ws://\(host):\(port)"
+        case .off: "off"
         }
+    }
+
+    private static func isNumericIP(_ host: String) -> Bool {
+        guard !host.isEmpty, !host.contains("\0") else { return false }
+        if host.contains(":") {
+            return host.allSatisfy {
+                $0.isHexDigit || $0 == ":" || $0 == "."
+            }
+        }
+        let components = host.split(separator: ".", omittingEmptySubsequences: false)
+        return components.count == 4 && components.allSatisfy {
+            !$0.isEmpty && UInt8($0) != nil
+        }
+    }
+}
+
+public enum CLIAppServerWebSocketAuthMode: String, Sendable, Equatable {
+    case capabilityToken = "capability-token"
+    case signedBearerToken = "signed-bearer-token"
+}
+
+public struct CLIAppServerWebSocketAuth: Sendable, Equatable {
+    public var mode: CLIAppServerWebSocketAuthMode?
+    public var tokenFile: String?
+    public var tokenSHA256: String?
+    public var sharedSecretFile: String?
+    public var issuer: String?
+    public var audience: String?
+    public var maxClockSkewSeconds: UInt64?
+
+    public init(
+        mode: CLIAppServerWebSocketAuthMode? = nil,
+        tokenFile: String? = nil,
+        tokenSHA256: String? = nil,
+        sharedSecretFile: String? = nil,
+        issuer: String? = nil,
+        audience: String? = nil,
+        maxClockSkewSeconds: UInt64? = nil
+    ) {
+        self.mode = mode
+        self.tokenFile = tokenFile
+        self.tokenSHA256 = tokenSHA256
+        self.sharedSecretFile = sharedSecretFile
+        self.issuer = issuer
+        self.audience = audience
+        self.maxClockSkewSeconds = maxClockSkewSeconds
+    }
+
+    public var isConfigured: Bool {
+        mode != nil || tokenFile != nil || tokenSHA256 != nil || sharedSecretFile != nil
+            || issuer != nil || audience != nil || maxClockSkewSeconds != nil
     }
 }
 
@@ -167,6 +246,8 @@ public struct CLIAppServerRequest: Sendable, Equatable {
     public var model: String?
     public var baseURL: String?
     public var home: URL?
+    public var webSocketAuth: CLIAppServerWebSocketAuth
+    public var featureEnablement: [String: Bool]
 
     public init(
         transport: CLIAppServerTransport = .stdio,
@@ -174,7 +255,9 @@ public struct CLIAppServerRequest: Sendable, Equatable {
         apiKey: String? = nil,
         model: String? = nil,
         baseURL: String? = nil,
-        home: URL? = nil
+        home: URL? = nil,
+        webSocketAuth: CLIAppServerWebSocketAuth = CLIAppServerWebSocketAuth(),
+        featureEnablement: [String: Bool] = [:]
     ) {
         self.transport = transport
         self.live = live
@@ -182,6 +265,8 @@ public struct CLIAppServerRequest: Sendable, Equatable {
         self.model = model
         self.baseURL = baseURL
         self.home = home
+        self.webSocketAuth = webSocketAuth
+        self.featureEnablement = featureEnablement
     }
 }
 
@@ -239,6 +324,8 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
     case structuredOutputMismatch(String)
     case unsupportedAppServerTransport(String)
     case appServerMessageTooLarge(limit: Int)
+    case invalidAppServerAuth(String)
+    case unknownFeatureFlag(String)
 
     public var errorDescription: String? {
         switch self {
@@ -279,9 +366,13 @@ public enum CLIError: Error, LocalizedError, Sendable, Equatable {
         case .structuredOutputMismatch(let reason):
             "The final response does not match --output-schema: \(reason)"
         case .unsupportedAppServerTransport(let value):
-            "App-server transport \(value) is not supported. Use stdio://, unix://, or unix:///absolute/path."
+            "App-server transport \(value) is not supported. Use stdio://, unix://, unix:///absolute/path, ws://IP:PORT, or off."
         case .appServerMessageTooLarge(let limit):
             "App-server message exceeds the \(limit)-byte limit."
+        case .invalidAppServerAuth(let reason):
+            "Invalid app-server WebSocket authentication: \(reason)"
+        case .unknownFeatureFlag(let name):
+            "Unknown feature flag: \(name)"
         }
     }
 }

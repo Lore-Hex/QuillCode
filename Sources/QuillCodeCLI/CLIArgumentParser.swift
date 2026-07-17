@@ -69,6 +69,54 @@ public struct CLIArgumentParser: Sendable {
                     throw CLIError.unsupportedAppServerTransport(value)
                 }
                 request.transport = transport
+            case "--ws-auth":
+                let value = try cliValue(for: option, tokens: arguments, index: &index)
+                guard let mode = CLIAppServerWebSocketAuthMode(rawValue: value) else {
+                    throw CLIError.invalidOptionValue(option: option.name, value: value)
+                }
+                request.webSocketAuth.mode = mode
+            case "--ws-token-file":
+                request.webSocketAuth.tokenFile = try cliValue(
+                    for: option,
+                    tokens: arguments,
+                    index: &index
+                )
+            case "--ws-token-sha256":
+                request.webSocketAuth.tokenSHA256 = try cliValue(
+                    for: option,
+                    tokens: arguments,
+                    index: &index
+                )
+            case "--ws-shared-secret-file":
+                request.webSocketAuth.sharedSecretFile = try cliValue(
+                    for: option,
+                    tokens: arguments,
+                    index: &index
+                )
+            case "--ws-issuer":
+                request.webSocketAuth.issuer = try cliValue(
+                    for: option,
+                    tokens: arguments,
+                    index: &index
+                )
+            case "--ws-audience":
+                request.webSocketAuth.audience = try cliValue(
+                    for: option,
+                    tokens: arguments,
+                    index: &index
+                )
+            case "--ws-max-clock-skew-seconds":
+                let value = try cliValue(for: option, tokens: arguments, index: &index)
+                guard let seconds = UInt64(value) else {
+                    throw CLIError.invalidOptionValue(option: option.name, value: value)
+                }
+                request.webSocketAuth.maxClockSkewSeconds = seconds
+            case "--enable", "--disable":
+                let name = try cliValue(for: option, tokens: arguments, index: &index)
+                guard QuillCodeFeatureCatalog.definition(named: name) != nil else {
+                    throw CLIError.unknownFeatureFlag(name)
+                }
+                request.featureEnablement[name] = option.name == "--enable"
             default:
                 guard try parseServerRuntimeOption(
                     option,
@@ -81,7 +129,64 @@ public struct CLIArgumentParser: Sendable {
             }
             index += 1
         }
+        try validateAppServerWebSocketAuth(request)
         return request
+    }
+
+    private func validateAppServerWebSocketAuth(_ request: CLIAppServerRequest) throws {
+        let auth = request.webSocketAuth
+        guard auth.isConfigured else { return }
+        guard case .webSocket = request.transport else {
+            throw CLIError.invalidAppServerAuth("authentication flags require --listen ws://IP:PORT")
+        }
+        switch auth.mode {
+        case .capabilityToken:
+            guard auth.sharedSecretFile == nil,
+                  auth.issuer == nil,
+                  auth.audience == nil,
+                  auth.maxClockSkewSeconds == nil
+            else {
+                throw CLIError.invalidAppServerAuth(
+                    "signed bearer flags require --ws-auth signed-bearer-token"
+                )
+            }
+            guard (auth.tokenFile == nil) != (auth.tokenSHA256 == nil) else {
+                throw CLIError.invalidAppServerAuth(
+                    "exactly one of --ws-token-file or --ws-token-sha256 is required"
+                )
+            }
+            if let path = auth.tokenFile { try validateAbsoluteAuthPath(path, flag: "--ws-token-file") }
+            if let digest = auth.tokenSHA256,
+               digest.count != 64 || !digest.allSatisfy(\.isHexDigit) {
+                throw CLIError.invalidAppServerAuth(
+                    "--ws-token-sha256 must be a 64-character hexadecimal digest"
+                )
+            }
+        case .signedBearerToken:
+            guard auth.tokenFile == nil, auth.tokenSHA256 == nil else {
+                throw CLIError.invalidAppServerAuth(
+                    "capability token flags require --ws-auth capability-token"
+                )
+            }
+            guard let path = auth.sharedSecretFile else {
+                throw CLIError.invalidAppServerAuth(
+                    "--ws-shared-secret-file is required for signed-bearer-token"
+                )
+            }
+            try validateAbsoluteAuthPath(path, flag: "--ws-shared-secret-file")
+        case nil:
+            throw CLIError.invalidAppServerAuth(
+                "authentication flags require --ws-auth capability-token or signed-bearer-token"
+            )
+        }
+    }
+
+    private func validateAbsoluteAuthPath(_ path: String, flag: String) throws {
+        guard NSString(string: path).isAbsolutePath,
+              !path.contains("\0")
+        else {
+            throw CLIError.invalidAppServerAuth("\(flag) must be an absolute path")
+        }
     }
 
     private func parseMCPServer(

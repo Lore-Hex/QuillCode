@@ -23,7 +23,7 @@ final class ParityAppServerUnixTransportGateTests: QuillCodeParityTestCase {
         Self.assertSource(platform, containsAll: [
             "UnixDomainSocketListener",
             "UnixDomainSocketConnection",
-            "UnixDomainSocketBlockingIO",
+            "SocketBlockingIO",
             "ManagedSocketDescriptor",
             "withTaskCancellationHandler"
         ])
@@ -35,8 +35,8 @@ final class ParityAppServerUnixTransportGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(transport, containsAll: [
             "app-server-control.sock",
-            "AppServerUnixConnectionPool",
-            "CLIInputLineFramer",
+            "AppServerSocketConnectionPool",
+            "AppServerWebSocketConnectionHandler",
             ".posixPermissions: NSNumber(value: 0o700)"
         ])
         Self.assertSource(runner, containsAll: [
@@ -57,12 +57,13 @@ final class ParityAppServerUnixTransportGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(smoke, containsAll: [
             "socket.AF_UNIX",
+            "Sec-WebSocket-Key",
             "forced exit should leave a stale socket",
             "additional = [connect_client() for _ in range(8)]",
             "assert uninitialized.get(\"id\") == request_id"
         ])
         Self.assertSource(aggregateSmoke, contains: "app-server-unix-smoke.sh")
-        Self.assertSource(parity, contains: "App-server Unix transport")
+        Self.assertSource(parity, contains: "App-server WebSocket transports")
         Self.assertSource(
             decisions,
             contains: "Unix app-server transport shares protocol behavior without sharing sessions"

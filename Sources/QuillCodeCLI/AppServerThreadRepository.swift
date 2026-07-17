@@ -29,6 +29,7 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
     var permissionProfileID: String?
     var permissionProfileIsExplicit: Bool?
     var userShellTurns: [AppServerUserShellTurnRecord]?
+    var environments: [AppServerThreadEnvironmentSelection]?
 
     init(
         cwd: URL,
@@ -50,7 +51,8 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         sandboxPolicy: AppServerSandboxPolicy? = nil,
         permissionProfileID: String? = nil,
         permissionProfileIsExplicit: Bool? = nil,
-        userShellTurns: [AppServerUserShellTurnRecord]? = nil
+        userShellTurns: [AppServerUserShellTurnRecord]? = nil,
+        environments: [AppServerThreadEnvironmentSelection]? = nil
     ) {
         self.cwd = cwd.standardizedFileURL
         self.ephemeral = ephemeral
@@ -72,6 +74,7 @@ struct AppServerThreadSettings: Codable, Sendable, Equatable {
         self.permissionProfileID = permissionProfileID
         self.permissionProfileIsExplicit = permissionProfileIsExplicit
         self.userShellTurns = userShellTurns
+        self.environments = environments
     }
 
     var effectiveMemoryMode: AppServerThreadMemoryMode {

@@ -26,6 +26,7 @@ public enum WorkspaceHTMLRenderer {
               \(WorkspaceHTMLTranscriptRenderer.renderComposer(surface.composer, topBar: surface.topBar))
             </main>
           </div>
+          \(autoReviewDenialsHTML(for: surface))
           \(attentionDigestHTML(for: surface))
         </section>
         """
@@ -40,6 +41,54 @@ public enum WorkspaceHTMLRenderer {
           <strong data-testid="incognito-banner-title">Incognito chat</strong>
           <span data-testid="incognito-banner-detail">Not saved · E2E encrypted</span>
         </section>
+        """
+    }
+
+    private static func autoReviewDenialsHTML(for surface: WorkspaceSurface) -> String {
+        guard let denials = surface.autoReviewDenials else { return "" }
+        let rows = denials.items.map { item in
+            let metadata = [item.riskLabel.map { "\($0) risk" }, item.authorizationLabel]
+                .compactMap(\.self)
+                .map { #"<span>\#(WorkspaceHTMLPrimitives.escape($0))</span>"# }
+                .joined()
+            let retrying = denials.retryingRequestID == item.requestID
+            let state = switch item.retryState {
+            case .available: "Retry available"
+            case .consumed: "Retry used"
+            case .unavailable: "Cannot replay safely"
+            case .contextChanged: "Context changed"
+            }
+            return """
+            <article class="auto-review-denial" data-testid="auto-review-denial" data-request-id="\(WorkspaceHTMLPrimitives.escape(item.requestID))" data-retry-state="\(item.retryState.rawValue)">
+              <header><strong>\(WorkspaceHTMLPrimitives.escape(item.toolName))</strong><span>\(state)</span></header>
+              <p>\(WorkspaceHTMLPrimitives.escape(item.actionSummary))</p>
+              <p>\(WorkspaceHTMLPrimitives.escape(item.reason))</p>
+              <footer>\(metadata)\(WorkspaceHTMLPrimitives.commandButton(
+                  retrying ? "Reviewing" : "Review and retry",
+                  testID: "auto-review-denial-retry",
+                  commandID: item.retryCommandID,
+                  hitTargetKind: .text,
+                  disabled: !item.canRetry || denials.retryingRequestID != nil,
+                  attributes: [("data-request-id", item.requestID)]
+              ))</footer>
+            </article>
+            """
+        }.joined(separator: "\n")
+        let body = rows.isEmpty
+            ? #"<p data-testid="auto-review-denials-empty">No recent denials</p>"#
+            : rows
+        return """
+        <div class="auto-review-denials-backdrop" data-testid="auto-review-denials-dialog" role="dialog" aria-modal="true" aria-label="Auto-review Denials">
+          <section class="auto-review-denials-card">
+            <header><div><h2>Auto-review Denials</h2><p>Retry one exact action. Auto will review it again before anything runs.</p></div>\(WorkspaceHTMLPrimitives.commandButton(
+                "Done",
+                testID: "auto-review-denials-close",
+                commandID: WorkspaceCommandAction.dismissAutoReviewDenials.rawValue,
+                hitTargetKind: .text
+            ))</header>
+            <div data-testid="auto-review-denials-list">\(body)</div>
+          </section>
+        </div>
         """
     }
 

@@ -17,6 +17,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     /// Default-false-on-absent so surface payloads bridged before this field existed still decode.
     @QuillCodeDefaultFalse public var isIncognito: Bool
     public var codeReviewRequest: WorkspaceCodeReviewRequest?
+    public var autoReviewDenials: AutoReviewDenialsSurface?
     public var review: WorkspaceReviewSurface
     public var terminal: TerminalSurface
     public var browser: BrowserSurface
@@ -50,6 +51,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         sideConversation: SideConversationSurface? = nil,
         isIncognito: Bool = false,
         codeReviewRequest: WorkspaceCodeReviewRequest? = nil,
+        autoReviewDenials: AutoReviewDenialsSurface? = nil,
         review: WorkspaceReviewSurface,
         terminal: TerminalSurface,
         browser: BrowserSurface,
@@ -76,6 +78,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.sideConversation = sideConversation
         self.isIncognito = isIncognito
         self.codeReviewRequest = codeReviewRequest
+        self.autoReviewDenials = autoReviewDenials
         self.review = review
         self.terminal = terminal
         self.browser = browser
@@ -192,6 +195,13 @@ public extension QuillCodeWorkspaceModel {
             sideConversation: sideConversationSurface(),
             isIncognito: thread?.runtimeContext.isIncognito == true,
             codeReviewRequest: codeReviewRequest,
+            autoReviewDenials: isAutoReviewDenialsPresented
+                ? AutoReviewDenialsSurfaceBuilder.surface(
+                    thread: thread,
+                    workspaceRoot: activeWorkspaceRoot,
+                    retryingRequestID: autoReviewDenialRetryingRequestID
+                )
+                : nil,
             review: review,
             terminal: TerminalSurface(
                 terminal: terminal,

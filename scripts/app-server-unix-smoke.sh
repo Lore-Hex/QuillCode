@@ -21,6 +21,7 @@ import json
 import os
 import socket
 import stat
+import struct
 import subprocess
 import sys
 import time
@@ -79,29 +80,77 @@ class UnixClient:
     def __init__(self, raw_socket):
         self.socket = raw_socket
         self.buffer = bytearray()
+        self._upgrade()
+
+    def _upgrade(self):
+        request = (
+            "GET / HTTP/1.1\r\n"
+            "Host: localhost\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+            "Sec-WebSocket-Version: 13\r\n\r\n"
+        ).encode("ascii")
+        self.socket.sendall(request)
+        while b"\r\n\r\n" not in self.buffer:
+            chunk = self.socket.recv(4096)
+            if not chunk:
+                raise AssertionError("app-server closed before the WebSocket upgrade")
+            self.buffer.extend(chunk)
+        marker = self.buffer.index(b"\r\n\r\n") + 4
+        response = bytes(self.buffer[:marker])
+        del self.buffer[:marker]
+        assert response.startswith(b"HTTP/1.1 101 Switching Protocols\r\n"), response
 
     def send(self, message):
-        payload = json.dumps(message, separators=(",", ":")).encode("utf-8") + b"\n"
-        midpoint = max(1, len(payload) // 2)
-        self.socket.sendall(payload[:midpoint])
-        self.socket.sendall(payload[midpoint:])
+        payload = json.dumps(message, separators=(",", ":")).encode("utf-8")
+        mask = b"\x11\x22\x33\x44"
+        if len(payload) <= 125:
+            header = bytes([0x81, 0x80 | len(payload)])
+        elif len(payload) <= 0xFFFF:
+            header = bytes([0x81, 0xFE]) + struct.pack("!H", len(payload))
+        else:
+            header = bytes([0x81, 0xFF]) + struct.pack("!Q", len(payload))
+        masked = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+        frame = header + mask + masked
+        midpoint = max(1, len(frame) // 2)
+        self.socket.sendall(frame[:midpoint])
+        self.socket.sendall(frame[midpoint:])
 
     def receive(self):
         try:
-            while True:
-                newline = self.buffer.find(b"\n")
-                if newline >= 0:
-                    record = bytes(self.buffer[:newline])
-                    del self.buffer[:newline + 1]
-                    return json.loads(record)
-                chunk = self.socket.recv(4096)
-                if not chunk:
-                    raise AssertionError("app-server closed the Unix client before responding")
-                self.buffer.extend(chunk)
+            while len(self.buffer) < 2:
+                self._read_more()
+            first, second = self.buffer[0], self.buffer[1]
+            assert first & 0x80 and first & 0x0F == 1, (first, second)
+            assert second & 0x80 == 0, "server frames must not be masked"
+            length = second & 0x7F
+            header_length = 2
+            if length == 126:
+                while len(self.buffer) < 4:
+                    self._read_more()
+                length = struct.unpack("!H", self.buffer[2:4])[0]
+                header_length = 4
+            elif length == 127:
+                while len(self.buffer) < 10:
+                    self._read_more()
+                length = struct.unpack("!Q", self.buffer[2:10])[0]
+                header_length = 10
+            while len(self.buffer) < header_length + length:
+                self._read_more()
+            record = bytes(self.buffer[header_length:header_length + length])
+            del self.buffer[:header_length + length]
+            return json.loads(record)
         except TimeoutError as error:
             raise AssertionError(
                 f"app-server did not respond before the protocol deadline: {server_failure()}"
             ) from error
+
+    def _read_more(self):
+        chunk = self.socket.recv(4096)
+        if not chunk:
+            raise AssertionError("app-server closed the Unix client before responding")
+        self.buffer.extend(chunk)
 
     def close(self):
         self.socket.close()

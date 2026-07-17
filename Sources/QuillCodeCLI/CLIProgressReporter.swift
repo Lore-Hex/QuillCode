@@ -304,6 +304,8 @@ actor CLIProgressReporter {
             "spend_approval_required"
         case .approvalRequired:
             "approval_required"
+        case .autoReviewCircuitBreaker:
+            "auto_review_circuit_breaker"
         }
     }
 }

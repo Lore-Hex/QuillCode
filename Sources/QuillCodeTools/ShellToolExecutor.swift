@@ -109,6 +109,10 @@ public final class ShellStreamingSession: ShellInteractiveSession, @unchecked Se
     public let events: AsyncStream<ShellProcessEvent>
     private let runner: ShellStreamingProcessRunner
 
+    public var processIdentifier: Int32? {
+        runner.processIdentifier
+    }
+
     init(request: ShellExecutionRequest) {
         let (stream, continuation) = AsyncStream<ShellProcessEvent>.makeStream()
         let runner = ShellStreamingProcessRunner(request: request, continuation: continuation)

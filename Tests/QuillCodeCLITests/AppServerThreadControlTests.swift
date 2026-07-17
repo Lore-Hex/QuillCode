@@ -520,6 +520,44 @@ final class AppServerThreadControlTests: XCTestCase {
             "thread not found: 00000000-0000-0000-0000-000000000001"
         )
     }
+
+    func testRuntimeMemoryFeatureChangesModelContextWithoutDeletingNotes() async throws {
+        let observer = ThreadControlMemoryObserver()
+        let fixture = try await makeFixture(llm: observer)
+        try await initialize(fixture)
+        let threadID = try await startThread(fixture, requestID: 1)
+        let uuid = try XCTUnwrap(UUID(uuidString: threadID))
+        var record = try await fixture.session.repository.load(uuid)
+        record.thread.memories = [MemoryNote(
+            id: "runtime-memory",
+            scope: .project,
+            title: "Durable note",
+            content: "Keep this note while runtime memory is disabled.",
+            relativePath: "MEMORY.md",
+            byteCount: 48
+        )]
+        try await fixture.session.repository.save(record)
+
+        try await request(
+            fixture,
+            id: 2,
+            method: "experimentalFeature/enablement/set",
+            params: ["enablement": ["memories": false]]
+        )
+        try await runTurn(fixture, requestID: 3, threadID: threadID, text: "Inspect disabled context")
+        try await request(
+            fixture,
+            id: 4,
+            method: "experimentalFeature/enablement/set",
+            params: ["enablement": ["memories": true]]
+        )
+        try await runTurn(fixture, requestID: 5, threadID: threadID, text: "Inspect enabled context")
+
+        let observedCounts = await observer.observedMemoryCounts()
+        XCTAssertEqual(observedCounts, [0, 1])
+        record = try await fixture.session.repository.load(uuid)
+        XCTAssertEqual(record.thread.memories.map(\.id), ["runtime-memory"])
+    }
 }
 
 private extension AppServerThreadControlTests {

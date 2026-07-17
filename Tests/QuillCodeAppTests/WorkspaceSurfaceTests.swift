@@ -180,6 +180,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             "compact-context",
             "sidebar-saved-search-create",
             "retry-last-turn",
+            "auto-review-denials",
             "workspace-back",
             "workspace-forward",
             "search",

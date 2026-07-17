@@ -3,6 +3,8 @@ import QuillCodeCore
 
 enum WorkspaceCommandActionEffect: Sendable, Hashable {
     case presentCodeReview
+    case presentAutoReviewDenials
+    case dismissAutoReviewDenials
     case newChat
     case quickChat
     case workspaceBack
@@ -80,6 +82,10 @@ struct WorkspaceCommandActionPlanner: Sendable, Hashable {
         switch action {
         case .codeReview:
             return .presentCodeReview
+        case .autoReviewDenials:
+            return .presentAutoReviewDenials
+        case .dismissAutoReviewDenials:
+            return .dismissAutoReviewDenials
         case .newChat:
             return .newChat
         case .newIncognitoChat:

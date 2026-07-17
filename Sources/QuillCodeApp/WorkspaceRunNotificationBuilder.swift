@@ -66,6 +66,7 @@ enum WorkspaceRunNotificationBuilder {
         switch stopReason {
         case .toolStepCeilingExhausted(let limit): return .ceilingReached(limit: limit)
         case .flailDetected(let reason): return .flailed(reason: reason)
+        case .autoReviewCircuitBreaker(let reason): return .autoReviewStopped(reason: reason)
         case .finished, .spendFuseApprovalRequired, .approvalRequired: return nil
         }
     }

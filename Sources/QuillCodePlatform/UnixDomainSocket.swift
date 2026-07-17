@@ -69,7 +69,7 @@ public final class UnixDomainSocketListener: @unchecked Sendable {
 
     public func accept() async throws -> UnixDomainSocketConnection {
         try await withTaskCancellationHandler {
-            try await UnixDomainSocketBlockingIO.run { [descriptor] in
+            try await SocketBlockingIO.run { [descriptor] in
                 let listener = try descriptor.acquire()
                 defer { descriptor.release() }
                 while true {
@@ -114,7 +114,19 @@ public final class UnixDomainSocketListener: @unchecked Sendable {
 /// A full-duplex Unix-domain socket connection. Reads and writes may proceed concurrently while
 /// descriptor lifetime remains race-safe: close first interrupts active operations, then releases
 /// the descriptor only after every operation has returned.
-public final class UnixDomainSocketConnection: @unchecked Sendable {
+public protocol SocketByteConnection: AnyObject, Sendable {
+    func receive(maxBytes: Int) async throws -> Data?
+    func send(_ data: Data) async throws
+    func close()
+}
+
+public extension SocketByteConnection {
+    func receive() async throws -> Data? {
+        try await receive(maxBytes: 64 * 1_024)
+    }
+}
+
+public final class UnixDomainSocketConnection: SocketByteConnection, @unchecked Sendable {
     private static let pollMilliseconds: Int32 = 100
     private let descriptor: ManagedSocketDescriptor
 
@@ -146,7 +158,7 @@ public final class UnixDomainSocketConnection: @unchecked Sendable {
     public func receive(maxBytes: Int = 64 * 1_024) async throws -> Data? {
         precondition(maxBytes > 0)
         return try await withTaskCancellationHandler {
-            try await UnixDomainSocketBlockingIO.run { [descriptor] in
+            try await SocketBlockingIO.run { [descriptor] in
                 let socket = try descriptor.acquire()
                 defer { descriptor.release() }
                 var bytes = [UInt8](repeating: 0, count: maxBytes)
@@ -177,7 +189,7 @@ public final class UnixDomainSocketConnection: @unchecked Sendable {
     public func send(_ data: Data) async throws {
         guard !data.isEmpty else { return }
         try await withTaskCancellationHandler {
-            try await UnixDomainSocketBlockingIO.run { [descriptor] in
+            try await SocketBlockingIO.run { [descriptor] in
                 let socket = try descriptor.acquire()
                 defer { descriptor.release() }
                 let result = data.withUnsafeBytes { bytes in
@@ -198,7 +210,7 @@ public final class UnixDomainSocketConnection: @unchecked Sendable {
     }
 }
 
-private enum UnixDomainSocketBlockingIO {
+enum SocketBlockingIO {
     private static let queue = DispatchQueue(
         label: "com.lorehex.QuillCode.unix-domain-socket",
         qos: .userInitiated,
@@ -220,7 +232,7 @@ private enum UnixDomainSocketBlockingIO {
     }
 }
 
-private final class ManagedSocketDescriptor: @unchecked Sendable {
+final class ManagedSocketDescriptor: @unchecked Sendable {
     private struct State {
         var descriptor: Int32?
         var activeOperations = 0

@@ -16,7 +16,12 @@ struct AppServerUnixSocketTransport: Sendable {
     ) async throws {
         let socketURL = try Self.socketURL(for: request)
         let listener = try UnixDomainSocketListener(socketURL: socketURL)
-        let connections = AppServerUnixConnectionPool()
+        let connections = AppServerSocketConnectionPool()
+        let runtimeFeatureStore = AppServerRuntimeFeatureStore()
+        let environmentRegistry = AppServerEnvironmentRegistry(
+            localCWD: currentDirectory,
+            environment: environment
+        )
         await diagnostics.writeStandardErrorLine(
             "quill-code app-server: listening on unix://\(socketURL.path)"
         )
@@ -25,21 +30,21 @@ struct AppServerUnixSocketTransport: Sendable {
         do {
             while !Task.isCancelled {
                 let connection = try await listener.accept()
-                await connections.submit { [runnerFactory] in
+                let accepted = await connections.submit { [runnerFactory] in
                     defer { connection.close() }
                     do {
-                        try await AppServerConnectionDriver(runnerFactory: runnerFactory).run(
+                        try await AppServerWebSocketConnectionHandler(
+                            runnerFactory: runnerFactory,
+                            runtimeFeatureStore: runtimeFeatureStore,
+                            environmentRegistry: environmentRegistry
+                        ).run(
                             request: request,
                             environment: environment,
                             currentDirectory: currentDirectory,
-                            lines: Self.lines(from: connection),
-                            sink: { line in
-                                do {
-                                    try await connection.send(Data(line.utf8))
-                                } catch {
-                                    connection.close()
-                                }
-                            }
+                            connection: connection,
+                            authPolicy: try AppServerWebSocketAuthPolicy(
+                                configuration: CLIAppServerWebSocketAuth()
+                            )
                         )
                     } catch is CancellationError {
                         connection.close()
@@ -50,6 +55,7 @@ struct AppServerUnixSocketTransport: Sendable {
                         )
                     }
                 }
+                if !accepted { connection.close() }
             }
         } catch UnixDomainSocketError.cancelled where Task.isCancelled {
             // Parent cancellation closes the listener and is handled by the command runner.
@@ -58,6 +64,7 @@ struct AppServerUnixSocketTransport: Sendable {
         }
         listener.close()
         await connections.cancelAndWait()
+        await environmentRegistry.closeAll()
         if let listenerError { throw listenerError }
         try Task.checkCancellation()
     }
@@ -103,55 +110,4 @@ struct AppServerUnixSocketTransport: Sendable {
         )
     }
 
-    private static func lines(
-        from connection: UnixDomainSocketConnection
-    ) -> AsyncThrowingStream<Data, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    var framer = CLIInputLineFramer(
-                        maxLineBytes: AppServerSession.maximumMessageBytes
-                    )
-                    while let chunk = try await connection.receive() {
-                        for line in try framer.append(chunk) {
-                            continuation.yield(line)
-                        }
-                    }
-                    if let finalLine = try framer.finish() {
-                        continuation.yield(finalLine)
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-            continuation.onTermination = { _ in
-                task.cancel()
-                connection.close()
-            }
-        }
-    }
-}
-
-private actor AppServerUnixConnectionPool {
-    private var tasks: [UUID: Task<Void, Never>] = [:]
-
-    func submit(_ operation: @escaping @Sendable () async -> Void) {
-        let id = UUID()
-        tasks[id] = Task { [weak self] in
-            await operation()
-            await self?.remove(id)
-        }
-    }
-
-    func cancelAndWait() async {
-        let active = Array(tasks.values)
-        tasks.removeAll()
-        active.forEach { $0.cancel() }
-        for task in active { await task.value }
-    }
-
-    private func remove(_ id: UUID) {
-        tasks[id] = nil
-    }
 }

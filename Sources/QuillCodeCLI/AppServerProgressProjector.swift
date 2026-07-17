@@ -16,6 +16,7 @@ struct AppServerProgressProjector: Sendable {
     private var assistantTextByID: [UUID: String]
     private var completedAssistantIDs: Set<UUID>
     private var activeTools: [ToolCall] = []
+    private var activeGuardianReviews: [String: AppServerGuardianReviewProjection] = [:]
     private var mcpRoutes: [String: MCPAgentToolRoute] = [:]
     private(set) var items: [CLIJSONValue]
 
@@ -24,7 +25,7 @@ struct AppServerProgressProjector: Sendable {
         turnID: String,
         cwd: URL,
         baseline: ChatThread,
-        userItem: CLIJSONValue
+        userItem: CLIJSONValue? = nil
     ) {
         self.threadID = AppServerThreadProjection.identifier(threadID)
         self.turnID = turnID
@@ -34,7 +35,7 @@ struct AppServerProgressProjector: Sendable {
             message.role == .assistant ? (message.id, message.content) : nil
         })
         self.completedAssistantIDs = Set(baseline.messages.lazy.filter { $0.role == .assistant }.map(\.id))
-        self.items = [userItem]
+        self.items = userItem.map { [$0] } ?? []
     }
 
     mutating func registerMCPRoutes(_ routes: [String: MCPAgentToolRoute]) {
@@ -163,10 +164,103 @@ struct AppServerProgressProjector: Sendable {
                     "message": .string(message)
                 ])
             )]
-        case .toolRunning, .approvalRequested, .approvalDecided,
-             .reviewComment, .message, .messageFeedback:
+        case .approvalRequested:
+            return guardianReviewStarted(event)
+        case .approvalDecided:
+            return guardianReviewCompleted(event)
+        case .toolRunning, .reviewComment, .message, .messageFeedback:
             return []
         }
+    }
+
+    private mutating func guardianReviewStarted(
+        _ event: ThreadEvent
+    ) -> [AppServerProjectedNotification] {
+        guard let request = decode(ApprovalRequest.self, event.payloadJSON),
+              request.scope == .tool,
+              request.recommendedVerdict != nil,
+              let action = AppServerGuardianReviewAction(
+                call: request.toolCall,
+                cwd: cwd,
+                mcpRoutes: mcpRoutes
+              )
+        else {
+            return []
+        }
+        let projection = AppServerGuardianReviewProjection(
+            request: request,
+            action: action,
+            startedAt: event.createdAt
+        )
+        activeGuardianReviews[request.id] = projection
+        return [AppServerProjectedNotification(
+            method: "item/autoApprovalReview/started",
+            params: guardianReviewParams(
+                projection: projection,
+                status: "inProgress",
+                rationale: nil,
+                riskLevel: .null,
+                userAuthorization: .null,
+                completedAt: nil
+            )
+        )]
+    }
+
+    private mutating func guardianReviewCompleted(
+        _ event: ThreadEvent
+    ) -> [AppServerProjectedNotification] {
+        guard let decision = decode(ApprovalDecision.self, event.payloadJSON),
+              let projection = activeGuardianReviews.removeValue(forKey: decision.requestID)
+        else {
+            return []
+        }
+        let telemetry = decision.reviewTelemetry ?? projection.request.reviewTelemetry
+        let status = switch decision.reviewOutcome {
+        case .approved: "approved"
+        case .denied, .clarificationRequired: "denied"
+        case .timedOut: "timedOut"
+        case .aborted: "aborted"
+        }
+        return [AppServerProjectedNotification(
+            method: "item/autoApprovalReview/completed",
+            params: guardianReviewParams(
+                projection: projection,
+                status: status,
+                rationale: decision.rationale,
+                riskLevel: telemetry?.riskLevel?.guardianWireValue ?? .null,
+                userAuthorization: telemetry?.userAuthorization?.guardianWireValue ?? .null,
+                completedAt: event.createdAt
+            )
+        )]
+    }
+
+    private func guardianReviewParams(
+        projection: AppServerGuardianReviewProjection,
+        status: String,
+        rationale: String?,
+        riskLevel: CLIJSONValue,
+        userAuthorization: CLIJSONValue,
+        completedAt: Date?
+    ) -> CLIJSONValue {
+        var object: [String: CLIJSONValue] = [
+            "threadId": .string(threadID),
+            "turnId": .string(turnID),
+            "targetItemId": .string(projection.request.toolCall.id),
+            "reviewId": .string(projection.request.id),
+            "startedAtMs": .number((projection.startedAt.timeIntervalSince1970 * 1_000).rounded()),
+            "review": .object([
+                "status": .string(status),
+                "rationale": rationale.map(CLIJSONValue.string) ?? .null,
+                "riskLevel": riskLevel,
+                "userAuthorization": userAuthorization
+            ]),
+            "action": projection.action.notificationValue
+        ]
+        if let completedAt {
+            object["completedAtMs"] = .number((completedAt.timeIntervalSince1970 * 1_000).rounded())
+            object["decisionSource"] = .string("agent")
+        }
+        return .object(object)
     }
 
     private func toolItem(call: ToolCall, result: ToolResult?, status: String) -> CLIJSONValue {

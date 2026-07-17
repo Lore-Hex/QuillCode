@@ -23,8 +23,19 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 - App-server task discovery and history: transcript-content search rather than title matching,
   contextual snippets, archive/source/sort filters, connection-local loaded sets, zero/default/maximum
   limits, stable forward/backward anchor cursors, `summary`/`full`/`notLoaded` views, active-turn merge,
-  same-second event ordering, durable shell/reasoning/tool reconstruction after reconnect, malformed
-  requests, and explicit `thread/turns/items/list` non-support matching Codex 0.142.5.
+  same-second event ordering, durable shell/reasoning/tool reconstruction after reconnect, full
+  `thread/items/list` payloads, optional turn filtering, ascending/descending item pages, cursors reused
+  across filter changes, malformed anchors, empty history, and explicit legacy
+  `thread/turns/items/list` non-support.
+- App-server model-only context injection: exact `thread/inject_items` request validation and errors,
+  nonempty raw Responses API items, inline-data-image acceptance and remote-image rejection, archived
+  and unknown task handling, persistence without transcript turns, before-first/after-anchor prompt
+  ordering, chat-completions projection, history-window/cache interaction, reconnect durability, and
+  injection during an active turn without snapshot loss.
+- App-server `gitDiffToRemote`: current upstream-tip SHA rather than HEAD or merge base; clean output;
+  committed-ahead, staged, unstaged, untracked, ignored, binary, and diverged histories; tracked-before-
+  untracked ordering; relative and absolute CWDs; missing/non-Git/no-upstream errors; unsafe paths;
+  inventory/file/diff byte caps; and no external diff or text-conversion execution.
 - App-server fuzzy search: Codex reference scores/indices, case-insensitive multi-root ordering, empty
   queries, result and traversal caps, cancellation-token replacement, live-session query generations,
   independent sessions, stop/missing-session behavior, experimental gating, and EOF cleanup.
@@ -97,16 +108,34 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   turn views, explicit unsupported per-item paging, persisted
   post-rollback thread reads, zero-count rejection, persistence, clean EOF, and zero exit. This
   specifically guards against pipe readers that accidentally buffer until the client disconnects.
-- Real Unix app-server process smoke: create a `0600` socket at a short explicit path, keep two
-  clients connected concurrently, prove initialization state is connection-local, exercise split
-  JSONL writes and model discovery, force-kill the server, and restart on the stale socket without
+- That executable app-server smoke must inject model-only response context before the first turn,
+  prove `thread/read` still reports no visible turns, execute a later turn, and inspect durable state
+  to prove that asynchronous completion did not erase the injection.
+- Real Unix app-server process smoke: create a `0600` socket at a short explicit path, complete a
+  standard HTTP WebSocket upgrade, keep at least eight clients connected concurrently, prove
+  initialization state is connection-local, exercise split masked frames and model discovery,
+  force-kill the server, and restart on the stale socket without
   deleting it externally. Focused tests also cover the default `0700` control directory, active
   listener preservation, regular-file and symlink refusal, path bounds, cancellation, and exact
   device/inode cleanup.
+- Real TCP WebSocket app-server process smoke: verify `/readyz` and `/healthz`, global Origin
+  rejection, unauthenticated loopback initialization/model discovery, capability-token rejection and
+  acceptance before JSON-RPC initialization, and refusal to start an unauthenticated non-loopback
+  listener. Focused tests cover RFC 6455 accept calculation, masking, fragmentation, control frames,
+  binary dropping, message bounds, exact overload errors, signed HS256 bearer claims, and IPv4/IPv6
+  socket behavior.
+- The real stdio app-server smoke must initialize a repository and local bare upstream, dirty one
+  tracked file, add one untracked file, call `gitDiffToRemote`, and verify the exact upstream SHA plus
+  both patch classes through the built executable.
 - The app-server process smoke must also execute `thread/shellCommand` through the built binary and
   prove response-before-lifecycle ordering, configured login-shell display, source/cwd/action metadata,
   streamed and aggregated output, exit status, an empty durable history turn, and absence of historical
   command items.
+- App-server background terminals: launch concurrent thread-owned shells, wait for real PIDs, verify
+  deterministic list projection and PID-cursor pagination, terminate one process idempotently, clean
+  the remainder, reject invalid cursors/limits/process ids and unknown threads, and prove cancelled
+  shells still settle their normal item/turn persistence lifecycle. Repeat list/terminate/clean against
+  the built `quill-code app-server` process rather than relying only on actor-level unit tests.
 - The app-server process smoke must execute experimental `command/exec` through the built binary,
   stream stdin and base64 stdout under a client process ID, prove every delta precedes the deferred
   final response, and prove streamed bytes are absent from final stdout/stderr. Focused tests cover
@@ -149,6 +178,15 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   readonly-layer and version-conflict error data, legacy profile rejection, malformed and nested-null
   values, no-op byte preservation, runtime config refresh, and migration of early repeated scalar list
   keys into canonical arrays.
+- App-server external-agent migration conformance: default-empty and explicit home/repository
+  detection; exact nullable projections; response-before-progress ordering; one progress result per
+  requested item; canonical grouped completion; partial-failure continuation; additive config,
+  skill, plugin, hook, command, subagent, AGENTS, and session imports; exact subset filtering;
+  serialized concurrent MCP updates; secret exclusion; forged path/detail rejection; private bounded
+  history and reload; durable session/project provenance; missing-CWD workspace fallback; symlink and
+  preexisting-destination rejection; empty-import response without notifications/history; and EOF
+  cancellation without late notifications. The executable JSONL smoke repeats
+  detect/import/progress/completion/history against the built process.
 - App-server filesystem conformance against Codex 0.142.5: absolute-path validation; exact metadata
   and directory-entry fields; binary and empty writes; the 512 MiB read bound; recursive/null/default
   directory and remove behavior; file overwrite and directory merge; symlink preservation and target

@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodePersistence
 import QuillCodeTools
 
 extension AppServerSession {
@@ -86,8 +87,25 @@ extension AppServerSession {
             )
         }
 
-        var roots = [paths.home.standardizedFileURL.resolvingSymlinksInPath()]
-        var seen = Set(roots.map(\.path))
+        var roots: [URL] = []
+        var seen = Set<String>()
+        func appendUnique(_ root: URL) {
+            let canonical = root.standardizedFileURL.resolvingSymlinksInPath()
+            if seen.insert(canonical.path).inserted { roots.append(canonical) }
+        }
+        appendUnique(paths.home)
+        CodexMarketplaceMaterializer.managedMarketplaceRoots(in: paths.home).forEach(appendUnique)
+        if let registrations = try? MarketplaceRegistryStore(fileURL: paths.configFile).registrations() {
+            registrations.compactMap { registration in
+                guard registration.sourceType == .local else { return nil }
+                let root = URL(fileURLWithPath: registration.source, isDirectory: true)
+                    .standardizedFileURL
+                    .resolvingSymlinksInPath()
+                let values = try? root.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+                guard values?.isDirectory == true, values?.isSymbolicLink != true else { return nil }
+                return root
+            }.forEach(appendUnique)
+        }
         for (index, value) in requested.enumerated() {
             guard let path = value.stringValue,
                   !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -101,7 +119,7 @@ extension AppServerSession {
             let root = URL(fileURLWithPath: path, isDirectory: true)
                 .standardizedFileURL
                 .resolvingSymlinksInPath()
-            if seen.insert(root.path).inserted { roots.append(root) }
+            appendUnique(root)
         }
         return roots
     }

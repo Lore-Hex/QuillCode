@@ -72,6 +72,19 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
         ZStack {
             settingsModal
             agentImportModal
+            if let denials = surface.autoReviewDenials {
+                dismissibleModal(
+                    accessibilityLabel: "Dismiss Auto-review Denials",
+                    onDismiss: dismissAutoReviewDenials
+                ) {
+                    QuillCodeAutoReviewDenialsView(
+                        surface: denials,
+                        onClose: dismissAutoReviewDenials,
+                        onCommand: onCommand
+                    )
+                }
+                .zIndex(19)
+            }
             if surface.codeReviewRequest != nil {
                 dismissibleModal(accessibilityLabel: "Dismiss code review", onDismiss: onDismissCodeReview) {
                     QuillCodeCodeReviewRequestView(
@@ -422,6 +435,13 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
 
     private func dismissSubagentTranscript() {
         subagentTranscript = nil
+    }
+
+    private func dismissAutoReviewDenials() {
+        onCommand(WorkspaceCommandSurface(
+            id: WorkspaceCommandAction.dismissAutoReviewDenials.rawValue,
+            title: "Dismiss Auto-review Denials"
+        ))
     }
 
     private func runSubagentToolCardAction(_ action: ToolCardActionSurface) {

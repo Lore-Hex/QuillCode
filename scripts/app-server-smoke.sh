@@ -22,6 +22,7 @@ import os
 import stat
 import subprocess
 import sys
+import time
 
 binary, home, workspace, mcp_fixture = [
     os.path.normpath(os.path.abspath(path)) for path in sys.argv[1:]
@@ -141,9 +142,48 @@ project_memory = os.path.join(workspace, ".quillcode", "memories", "project.md")
 os.makedirs(os.path.dirname(project_memory), exist_ok=True)
 with open(project_memory, "w", encoding="utf-8") as memory_file:
     memory_file.write("preserve this project memory\n")
+git_diff_tracked = os.path.join(workspace, "git-diff-smoke.txt")
+with open(git_diff_tracked, "w", encoding="utf-8") as file:
+    file.write("remote baseline\n")
+
+def run_git(arguments, cwd=workspace):
+    return subprocess.run(
+        ["git", *arguments],
+        cwd=cwd,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+run_git(["init", "-b", "main"])
+run_git(["config", "user.email", "smoke@quillcode.local"])
+run_git(["config", "user.name", "QuillCode Smoke"])
+run_git(["add", "."])
+run_git(["commit", "-m", "app-server smoke baseline"])
+git_diff_remote = os.path.join(home, "git-diff-remote.git")
+run_git(["init", "--bare", git_diff_remote], cwd=home)
+run_git(["remote", "add", "origin", git_diff_remote])
+run_git(["push", "-u", "origin", "main"])
+git_diff_remote_sha = run_git(["rev-parse", "@{upstream}"]).stdout.strip()
+with open(git_diff_tracked, "a", encoding="utf-8") as file:
+    file.write("working tree change\n")
+with open(os.path.join(workspace, "git-diff-untracked.txt"), "w", encoding="utf-8") as file:
+    file.write("untracked smoke\n")
+external_agent_home = os.path.join(home, "external-agent-home")
+external_agent_config = os.path.join(external_agent_home, ".claude")
+os.makedirs(os.path.join(external_agent_config, "skills", "import-smoke"), exist_ok=True)
+with open(os.path.join(external_agent_config, "settings.json"), "w", encoding="utf-8") as file:
+    json.dump({"sandbox": {"enabled": True}}, file)
+with open(
+    os.path.join(external_agent_config, "skills", "import-smoke", "SKILL.md"),
+    "w",
+    encoding="utf-8",
+) as file:
+    file.write("---\nname: import-smoke\ndescription: Imported smoke skill.\n---\n")
 process = subprocess.Popen(
     [binary, "--home", home, "app-server", "--mock"],
     cwd=workspace,
+    env={**os.environ, "HOME": external_agent_home},
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -178,6 +218,104 @@ send({"id": 1, "method": "initialize", "params": {
 initialized, _ = read_until(lambda record: record.get("id") == 1)
 assert "result" in initialized and "jsonrpc" not in initialized, initialized
 send({"method": "initialized", "params": {}})
+
+send({"id": 217, "method": "experimentalFeature/list", "params": {"limit": 1}})
+feature_page, _ = read_until(lambda record: record.get("id") == 217)
+assert feature_page["result"] == {
+    "data": [{
+        "announcement": None,
+        "defaultEnabled": True,
+        "description": None,
+        "displayName": None,
+        "enabled": True,
+        "name": "hooks",
+        "stage": "stable",
+    }],
+    "nextCursor": "1",
+}, feature_page
+send({"id": 218, "method": "experimentalFeature/enablement/set", "params": {
+    "enablement": {"hooks": False, "memories": False, "unknown": True},
+}})
+feature_patch, _ = read_until(lambda record: record.get("id") == 218)
+assert feature_patch["result"] == {"enablement": {"memories": False}}, feature_patch
+send({"id": 219, "method": "experimentalFeature/list", "params": {
+    "cursor": "1",
+    "limit": 1,
+}})
+memory_feature, _ = read_until(lambda record: record.get("id") == 219)
+assert memory_feature["result"]["data"][0]["name"] == "memories", memory_feature
+assert memory_feature["result"]["data"][0]["enabled"] is False, memory_feature
+send({"id": 220, "method": "experimentalFeature/enablement/set", "params": {
+    "enablement": {"memories": True},
+}})
+feature_restore, _ = read_until(lambda record: record.get("id") == 220)
+assert feature_restore["result"] == {"enablement": {"memories": True}}, feature_restore
+
+send({"id": 212, "method": "externalAgentConfig/detect", "params": {
+    "includeHome": True,
+}})
+external_detect, _ = read_until(lambda record: record.get("id") == 212)
+external_items = {
+    item["itemType"]: item for item in external_detect["result"]["items"]
+}
+assert set(external_items) == {"CONFIG", "SKILLS"}, external_detect
+assert external_items["CONFIG"]["cwd"] is None, external_detect
+assert external_items["SKILLS"]["details"] is None, external_detect
+
+send({"id": 213, "method": "externalAgentConfig/import", "params": {
+    "source": "claude-code",
+    "migrationItems": [external_items["SKILLS"], external_items["CONFIG"]],
+}})
+external_started, import_start_records = read_until(
+    lambda record: record.get("id") == 213
+)
+assert len(import_start_records) == 1, import_start_records
+external_import_id = external_started["result"]["importId"]
+external_completed, import_events = read_until(
+    lambda record: record.get("method") == "externalAgentConfig/import/completed"
+)
+external_progress = [
+    record for record in import_events
+    if record.get("method") == "externalAgentConfig/import/progress"
+]
+assert [
+    record["params"]["itemTypeResults"][0]["itemType"]
+    for record in external_progress
+] == ["SKILLS", "CONFIG"], import_events
+assert external_completed["params"]["importId"] == external_import_id, external_completed
+assert [
+    result["itemType"]
+    for result in external_completed["params"]["itemTypeResults"]
+] == ["CONFIG", "SKILLS"], external_completed
+
+send({"id": 214, "method": "externalAgentConfig/import/readHistories", "params": {}})
+external_histories, _ = read_until(lambda record: record.get("id") == 214)
+assert len(external_histories["result"]["data"]) == 1, external_histories
+assert external_histories["result"]["data"][0]["importId"] == external_import_id, (
+    external_histories
+)
+
+send({"id": 215, "method": "externalAgentConfig/import", "params": {
+    "migrationItems": [],
+}})
+empty_external_import, _ = read_until(lambda record: record.get("id") == 215)
+empty_external_import_id = empty_external_import["result"]["importId"]
+send({"id": 216, "method": "externalAgentConfig/import/readHistories", "params": {}})
+histories_after_empty, empty_import_records = read_until(
+    lambda record: record.get("id") == 216
+)
+assert not any(
+    record.get("params", {}).get("importId") == empty_external_import_id
+    for record in empty_import_records
+), empty_import_records
+assert len(histories_after_empty["result"]["data"]) == 1, histories_after_empty
+
+send({"id": 211, "method": "gitDiffToRemote", "params": {"cwd": workspace}})
+git_diff, _ = read_until(lambda record: record.get("id") == 211)
+assert git_diff["result"]["sha"] == git_diff_remote_sha, git_diff
+assert "+working tree change" in git_diff["result"]["diff"], git_diff
+assert "diff --git a/git-diff-untracked.txt b/git-diff-untracked.txt" in \
+    git_diff["result"]["diff"], git_diff
 
 send({"id": 206, "method": "permissionProfile/list", "params": {}})
 profiles, _ = read_until(lambda record: record.get("id") == 206)
@@ -462,6 +600,61 @@ assert detail["hooks"] == [{
 assert [app["id"] for app in detail["apps"]] == ["smoke-app"], plugin_read
 assert detail["mcpServers"] == ["smoke-mcp"], plugin_read
 
+send({"id": 47, "method": "plugin/install", "params": {
+    "marketplacePath": os.path.join(marketplace_directory, "marketplace.json"),
+    "pluginName": "smoke-tools",
+}})
+plugin_install, records = read_until(lambda record: record.get("id") == 47)
+assert plugin_install["result"]["authPolicy"] == "ON_INSTALL", plugin_install
+assert [app["id"] for app in plugin_install["result"]["appsNeedingAuth"]] == [
+    "smoke-app"
+], plugin_install
+assert any(record.get("method") == "skills/changed" for record in records), records
+installed_cache_root = os.path.join(
+    home, "plugins", "cache", "smoke-marketplace", "smoke-tools"
+)
+assert os.path.isfile(
+    os.path.join(installed_cache_root, ".codex-plugin", "plugin.json")
+), installed_cache_root
+
+send({"id": 48, "method": "skills/list", "params": {
+    "cwds": [workspace],
+    "forceReload": True,
+}})
+installed_skills, _ = read_until(lambda record: record.get("id") == 48)
+installed_skill_names = {
+    skill["name"]
+    for entry in installed_skills["result"]["data"]
+    for skill in entry["skills"]
+}
+assert "smoke-plugin-skill" in installed_skill_names, installed_skills
+
+send({"id": 49, "method": "plugin/uninstall", "params": {
+    "pluginId": "smoke-tools@smoke-marketplace",
+}})
+plugin_uninstall, records = read_until(lambda record: record.get("id") == 49)
+assert plugin_uninstall["result"] == {}, plugin_uninstall
+assert any(record.get("method") == "skills/changed" for record in records), records
+assert not os.path.exists(installed_cache_root), installed_cache_root
+
+send({"id": 54, "method": "plugin/uninstall", "params": {
+    "pluginId": "smoke-tools@smoke-marketplace",
+}})
+plugin_uninstall_again, _ = read_until(lambda record: record.get("id") == 54)
+assert plugin_uninstall_again["result"] == {}, plugin_uninstall_again
+
+send({"id": 55, "method": "skills/list", "params": {
+    "cwds": [workspace],
+    "forceReload": True,
+}})
+remaining_skills, _ = read_until(lambda record: record.get("id") == 55)
+remaining_skill_names = {
+    skill["name"]
+    for entry in remaining_skills["result"]["data"]
+    for skill in entry["skills"]
+}
+assert "smoke-plugin-skill" not in remaining_skill_names, remaining_skills
+
 send({"id": 46, "method": "plugin/skill/read", "params": {
     "remoteMarketplaceName": "remote",
     "remotePluginId": "smoke-plugin",
@@ -618,12 +811,47 @@ assert all(update["error"] is None for update in startup_updates), startup_updat
 assert all(update["failureReason"] is None for update in startup_updates), startup_updates
 assert startup_ready["params"] == startup_updates[-1], startup_ready
 
+send({"id": 804, "method": "thread/approveGuardianDeniedAction", "params": {
+    "threadId": thread_id,
+    "event": {
+        "id": "missing-guardian-review",
+        "target_item_id": "missing-tool-call",
+        "turn_id": "missing-turn",
+        "status": "denied",
+        "action": {
+            "type": "command",
+            "source": "shell",
+            "command": "pwd",
+            "cwd": workspace,
+        },
+    },
+}})
+missing_guardian, _ = read_until(lambda record: record.get("id") == 804)
+assert missing_guardian["error"] == {
+    "code": -32600,
+    "message": "Guardian denial is no longer available",
+}, missing_guardian
+
 send({"id": 801, "method": "thread/loaded/list", "params": {"limit": 0}})
 loaded_threads, _ = read_until(lambda record: record.get("id") == 801)
 assert loaded_threads["result"] == {
     "data": [thread_id],
     "nextCursor": None,
 }, loaded_threads
+
+send({"id": 802, "method": "thread/inject_items", "params": {
+    "threadId": thread_id,
+    "items": [{
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "output_text", "text": "injected-model-only-smoke"}],
+    }],
+}})
+injected, _ = read_until(lambda record: record.get("id") == 802)
+assert injected["result"] == {}, injected
+send({"id": 803, "method": "thread/read", "params": {"threadId": thread_id}})
+read_after_injection, _ = read_until(lambda record: record.get("id") == 803)
+assert read_after_injection["result"]["thread"]["turns"] == [], read_after_injection
 
 send({"id": 60, "method": "mcpServerStatus/list", "params": {
     "threadId": thread_id,
@@ -790,6 +1018,7 @@ assert mention_item == {
     "path": "app://smoke-app",
 }, mention_item
 found_skill_snapshot = False
+found_injected_context = False
 for thread_name in os.listdir(os.path.join(home, "threads")):
     with open(os.path.join(home, "threads", thread_name), "r", encoding="utf-8") as thread_file:
         thread_contents = thread_file.read()
@@ -798,7 +1027,12 @@ for thread_name in os.listdir(os.path.join(home, "threads")):
             '"inputReferences"' in thread_contents
             and "Updated by the app-server watcher smoke." in thread_contents
         )
+        found_injected_context = found_injected_context or (
+            '"modelContextItems"' in thread_contents
+            and "injected-model-only-smoke" in thread_contents
+        )
 assert found_skill_snapshot, "selected skill context was not persisted with the turn"
+assert found_injected_context, "injected model-only context did not survive the turn"
 
 send({"id": 901, "method": "thread/search", "params": {
     "searchTerm": "APP-SERVER SMOKE",
@@ -968,6 +1202,50 @@ assert [turn["id"] for turn in older_turn_page["result"]["data"]] == [
 ], older_turn_page
 assert older_turn_page["result"]["nextCursor"] is None, older_turn_page
 
+send({"id": 113, "method": "thread/items/list", "params": {
+    "threadId": thread_id,
+    "limit": 1,
+    "sortDirection": "asc",
+}})
+first_item_page, _ = read_until(lambda record: record.get("id") == 113)
+first_items = first_item_page["result"]["data"]
+assert len(first_items) == 1, first_item_page
+assert first_items[0]["turnId"] == review_turn["id"], first_item_page
+assert first_items[0]["item"]["id"], first_item_page
+assert first_items[0]["item"]["type"], first_item_page
+item_cursor = first_item_page["result"]["nextCursor"]
+assert item_cursor, first_item_page
+
+send({"id": 114, "method": "thread/items/list", "params": {
+    "threadId": thread_id,
+    "cursor": item_cursor,
+    "limit": 1,
+}})
+second_item_page, _ = read_until(lambda record: record.get("id") == 114)
+second_items = second_item_page["result"]["data"]
+assert len(second_items) == 1, second_item_page
+assert second_items[0]["turnId"] == review_turn["id"], second_item_page
+assert second_items[0]["item"]["id"] != first_items[0]["item"]["id"], second_item_page
+assert second_item_page["result"]["backwardsCursor"], second_item_page
+
+send({"id": 115, "method": "thread/items/list", "params": {
+    "threadId": thread_id,
+    "turnId": second_turn["result"]["turn"]["id"],
+    "cursor": item_cursor,
+    "limit": 100,
+}})
+filtered_item_page, _ = read_until(lambda record: record.get("id") == 115)
+filtered_items = filtered_item_page["result"]["data"]
+assert len(filtered_items) >= 2, filtered_item_page
+assert all(
+    item["turnId"] == second_turn["result"]["turn"]["id"]
+    for item in filtered_items
+), filtered_item_page
+assert {item["item"]["type"] for item in filtered_items}.issuperset({
+    "userMessage",
+    "agentMessage",
+}), filtered_item_page
+
 send({"id": 12, "method": "thread/rollback", "params": {
     "threadId": thread_id,
     "numTurns": 1,
@@ -1120,14 +1398,75 @@ assert shell_turn_completed["params"]["turn"]["id"] == shell_turn_id, shell_turn
 assert shell_turn_completed["params"]["turn"]["status"] == "completed", shell_turn_completed
 assert shell_turn_completed["params"]["turn"]["items"] == [], shell_turn_completed
 
-send({"id": 160, "method": "thread/read", "params": {
+send({"id": 211, "method": "thread/shellCommand", "params": {
     "threadId": thread_id,
-    "includeTurns": True,
+    "command": "exec sleep 30",
 }})
-shell_history, _ = read_until(lambda record: record.get("id") == 160)
-shell_turns = shell_history["result"]["thread"]["turns"]
-assert len(shell_turns) == 2, shell_history
-assert shell_turns[-1]["id"] == shell_turn_id, shell_history
+background_shell_response, _ = read_until(lambda record: record.get("id") == 211)
+assert background_shell_response == {"id": 211, "result": {}}, background_shell_response
+
+background_terminal = None
+for request_id in range(212, 232):
+    send({"id": request_id, "method": "thread/backgroundTerminals/list", "params": {
+        "threadId": thread_id,
+    }})
+    background_list, _ = read_until(lambda record: record.get("id") == request_id)
+    terminals = background_list["result"]["data"]
+    if terminals:
+        background_terminal = terminals[0]
+        break
+    time.sleep(0.01)
+assert background_terminal is not None, "background shell never became listable"
+background_process_id = background_terminal["processId"]
+assert background_terminal["command"] == "exec sleep 30", background_terminal
+assert os.path.realpath(background_terminal["cwd"]) == os.path.realpath(workspace), (
+    background_terminal
+)
+assert background_terminal["osPid"] == int(background_process_id), background_terminal
+assert background_terminal["cpuPercent"] is None, background_terminal
+assert background_terminal["rssKb"] is None, background_terminal
+
+send({"id": 232, "method": "thread/backgroundTerminals/terminate", "params": {
+    "threadId": thread_id,
+    "processId": background_process_id,
+}})
+background_terminate, _ = read_until(lambda record: record.get("id") == 232)
+assert background_terminate["result"] == {"terminated": True}, background_terminate
+send({"id": 233, "method": "thread/backgroundTerminals/terminate", "params": {
+    "threadId": thread_id,
+    "processId": background_process_id,
+}})
+background_terminate_again, _ = read_until(lambda record: record.get("id") == 233)
+assert background_terminate_again["result"] == {"terminated": False}, (
+    background_terminate_again
+)
+send({"id": 234, "method": "thread/backgroundTerminals/list", "params": {
+    "threadId": thread_id,
+}})
+background_after_terminate, _ = read_until(lambda record: record.get("id") == 234)
+assert background_after_terminate["result"] == {"data": [], "nextCursor": None}, (
+    background_after_terminate
+)
+send({"id": 235, "method": "thread/backgroundTerminals/clean", "params": {
+    "threadId": thread_id,
+}})
+background_clean, _ = read_until(lambda record: record.get("id") == 235)
+assert background_clean["result"] == {}, background_clean
+
+shell_history = None
+shell_turns = []
+for request_id in range(240, 260):
+    send({"id": request_id, "method": "thread/read", "params": {
+        "threadId": thread_id,
+        "includeTurns": True,
+    }})
+    shell_history, _ = read_until(lambda record: record.get("id") == request_id)
+    shell_turns = shell_history["result"]["thread"]["turns"]
+    if len(shell_turns) == 3:
+        break
+    time.sleep(0.01)
+assert len(shell_turns) == 3, shell_history
+assert shell_turns[-2]["id"] == shell_turn_id, shell_history
 assert shell_turns[-1]["items"] == [], shell_history
 assert all(
     item.get("type") != "commandExecution"
@@ -1160,5 +1499,7 @@ status = process.wait(timeout=10)
 stderr = process.stderr.read()
 assert status == 0, (status, stderr)
 PY
+
+QUILLCODE_SKIP_BUILD=1 "$ROOT_DIR/scripts/app-server-marketplace-smoke.sh"
 
 echo "quill-code app-server smoke passed"

@@ -36,7 +36,8 @@ struct WorkspaceCommandSurfaceBuilder: Sendable, Hashable {
             savedSearches: sidebarSavedSearches
         )
         + WorkspaceCommandStaticCatalog.retryCommands(
-            canRetryLastUserTurn: canRetryLastUserTurn
+            canRetryLastUserTurn: canRetryLastUserTurn,
+            hasSelectedThread: hasSelectedThread
         )
         + WorkspaceCommandStaticCatalog.navigationCommands(
             hasSelectedThread: hasSelectedThread,

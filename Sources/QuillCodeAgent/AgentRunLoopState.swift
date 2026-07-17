@@ -58,6 +58,10 @@ struct AgentRunLoopState: Sendable {
         ))
     }
 
+    mutating func recordDeniedStep(_ completion: AgentToolStepCompletion) {
+        toolResults.append(contentsOf: completion.toolResults)
+    }
+
     mutating func recordFlailAssessmentIfNeeded() -> Bool {
         guard !injectedFlailAssessment else { return false }
         injectedFlailAssessment = true

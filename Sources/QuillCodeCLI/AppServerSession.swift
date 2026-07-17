@@ -10,6 +10,8 @@ typealias AppServerMessageSink = @Sendable (String) async -> Void
 struct AppServerConfiguredRunner: Sendable {
     var runner: AgentRunner
     var mcpRoutes: [String: MCPAgentToolRoute]
+    var workspaceRoot: URL
+    var modelEnvironmentContext: String?
 }
 
 actor AppServerSession {
@@ -45,6 +47,8 @@ actor AppServerSession {
         var command: String
         var cwd: URL
         var shellExecutableURL: URL
+        var shellExecutablePath: String
+        var remoteExecutor: AppServerRemoteEnvironmentToolExecutor?
         var startsStandaloneTurn: Bool
     }
 
@@ -63,6 +67,7 @@ actor AppServerSession {
         var launch: UserShellLaunch
         var session: ShellStreamingSession?
         var task: Task<Void, Never>?
+        var terminationRequested: Bool
     }
 
     struct ActiveCompaction: Sendable {
@@ -93,6 +98,18 @@ actor AppServerSession {
         var projector: AppServerProgressProjector
     }
 
+    struct ActiveGuardianRetry: Sendable {
+        var denialRequestID: String
+        var turnID: String
+        var settings: AppServerThreadSettings
+        var latestThread: ChatThread
+        var userMessage: String
+        var persistenceFailure: String?
+        var task: Task<Void, Never>?
+        var projector: AppServerProgressProjector
+        var configuredRunner: AppServerConfiguredRunner?
+    }
+
     let request: CLIAppServerRequest
     let environment: [String: String]
     let currentDirectory: URL
@@ -105,6 +122,9 @@ actor AppServerSession {
     let runnerFactory: CLIAgentRunnerFactory
     let accountLoginStarter: any AppServerAccountLoginStarting
     let mcpOAuthLoginStarter: any AppServerMCPOAuthLoginStarting
+    let externalAgentConfigService: ClaudeCodeExternalAgentConfigService
+    let runtimeFeatureStore: AppServerRuntimeFeatureStore
+    let environmentRegistry: AppServerEnvironmentRegistry
     let sink: AppServerMessageSink
 
     var handshake = HandshakeState.awaitingInitialize
@@ -114,11 +134,13 @@ actor AppServerSession {
     var activeTurns: [UUID: ActiveTurn] = [:]
     var activeCompactions: [UUID: ActiveCompaction] = [:]
     var activeReviews: [UUID: ActiveReview] = [:]
+    var activeGuardianRetries: [UUID: ActiveGuardianRetry] = [:]
     var activeRollbacks: Set<UUID> = []
     var activeUserShellTurns: [UUID: ActiveUserShellTurn] = [:]
     var activeUserShellCommands: [String: ActiveUserShellCommand] = [:]
     var loadedThreadIDs: Set<UUID> = []
     var subscribedThreadIDs: Set<UUID> = []
+    var environmentSubscriptions: [UUID: AppServerThreadEnvironmentSubscription] = [:]
     var outOfBandElicitationCounts: [UUID: UInt64] = [:]
     var processSessions: [String: AppServerProcessSession] = [:]
     var processEventTasks: [String: Task<Void, Never>] = [:]
@@ -133,6 +155,7 @@ actor AppServerSession {
     var pendingAccountLogins: [String: AppServerPendingAccountLogin] = [:]
     var pendingMCPOAuthLogins: [UUID: AppServerPendingMCPOAuthLogin] = [:]
     var mcpStartupTasks: [UUID: Task<Void, Never>] = [:]
+    var activeExternalAgentConfigImports: [UUID: Task<Void, Never>] = [:]
     var cachedModelCatalog: TrustedRouterModelCatalog?
     var cachedSkillSnapshots: [String: SkillCatalogSnapshot] = [:]
     var skillExtraRoots: [URL] = []
@@ -153,6 +176,8 @@ actor AppServerSession {
         accountLoginStarter: any AppServerAccountLoginStarting = DefaultAppServerAccountLoginStarter(),
         mcpOAuthLoginStarter: (any AppServerMCPOAuthLoginStarting)? = nil,
         paths providedPaths: QuillCodePaths? = nil,
+        runtimeFeatureStore: AppServerRuntimeFeatureStore = AppServerRuntimeFeatureStore(),
+        environmentRegistry providedEnvironmentRegistry: AppServerEnvironmentRegistry? = nil,
         sink: @escaping AppServerMessageSink
     ) throws {
         let paths = providedPaths
@@ -177,6 +202,18 @@ actor AppServerSession {
         self.accountLoginStarter = accountLoginStarter
         self.mcpOAuthLoginStarter = mcpOAuthLoginStarter
             ?? DefaultAppServerMCPOAuthLoginStarter(httpClient: mcpHTTPClient)
+        let sourceHome = environment["HOME"].map { URL(fileURLWithPath: $0) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+        self.externalAgentConfigService = ClaudeCodeExternalAgentConfigService(
+            sourceHomeDirectory: sourceHome,
+            destinationPaths: paths,
+            appConfig: appConfig
+        )
+        self.runtimeFeatureStore = runtimeFeatureStore
+        self.environmentRegistry = providedEnvironmentRegistry ?? AppServerEnvironmentRegistry(
+            localCWD: currentDirectory,
+            environment: environment
+        )
         self.sink = sink
     }
 
@@ -209,6 +246,7 @@ actor AppServerSession {
         let tasks = activeTurns.values.compactMap(\.task)
             + activeCompactions.values.compactMap(\.task)
             + activeReviews.values.compactMap(\.task)
+            + activeGuardianRetries.values.compactMap(\.task)
             + activeUserShellCommands.values.compactMap(\.task)
         for task in tasks { await task.value }
         let fuzzyTasks = activeFuzzyFileSearches.values.map(\.task)
@@ -216,23 +254,29 @@ actor AppServerSession {
         for task in fuzzyTasks { await task.value }
         let startupTasks = Array(mcpStartupTasks.values)
         for task in startupTasks { await task.value }
+        let importTasks = Array(activeExternalAgentConfigImports.values)
+        for task in importTasks { await task.value }
     }
 
     func hasActiveOperation(for threadID: UUID) -> Bool {
         activeTurns[threadID] != nil
             || activeCompactions[threadID] != nil
             || activeReviews[threadID] != nil
+            || activeGuardianRetries[threadID] != nil
             || activeRollbacks.contains(threadID)
             || activeUserShellTurns[threadID] != nil
     }
 
     func finishInput() async {
         inputFinished = true
+        await removeAllEnvironmentSubscriptions()
         cancelSkillWatcher()
         cancelAllFileWatches()
         cancelAllAccountLogins()
         cancelAllMCPServerOAuthLogins()
         cancelAllMCPServerStartups()
+        cancelAllExternalAgentConfigImports()
+        cancelAllGuardianRetries()
         await cancelAllFuzzyFileSearches()
         cancelAllUserShellCommands()
         await terminateAllCommandExecProcesses()
@@ -288,10 +332,15 @@ actor AppServerSession {
             var processToLaunch: String?
             var compactionToLaunch: UUID?
             var reviewToLaunch: UUID?
+            var guardianRetryToLaunch: UUID?
             var userShellToLaunch: UserShellLaunch?
             var mcpStartupThreadToLaunch: UUID?
+            var externalAgentConfigImportToLaunch: AppServerExternalAgentConfigImportLaunch?
             var notificationsAfterResponse: [AppServerDeferredNotification] = []
             switch method {
+            case "environment/add": result = try await environmentRegistry.add(params)
+            case "environment/info": result = try await environmentRegistry.info(params)
+            case "environment/status": result = try await environmentRegistry.status(params)
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
             case "account/read": result = try readAccount(params)
@@ -313,11 +362,27 @@ actor AppServerSession {
             case "configRequirements/read": result = try readConfigRequirements(params)
             case "config/value/write": result = try await writeConfigValue(params)
             case "config/batchWrite": result = try await writeConfigBatch(params)
+            case "experimentalFeature/list": result = try await listExperimentalFeatures(params)
+            case "experimentalFeature/enablement/set":
+                result = try await setExperimentalFeatureEnablement(params)
+            case "gitDiffToRemote": result = try gitDiffToRemote(params)
             case "memory/reset": result = try resetMemory()
+            case "externalAgentConfig/detect": result = try await detectExternalAgentConfig(params)
+            case "externalAgentConfig/import/readHistories":
+                result = try await readExternalAgentConfigImportHistories(params)
+            case "externalAgentConfig/import":
+                let launch = try prepareExternalAgentConfigImport(params)
+                externalAgentConfigImportToLaunch = launch
+                result = .object(["importId": .string(launch.importID.uuidString.lowercased())])
             case "hooks/list": result = try listHooks(params)
+            case "marketplace/add": result = try await addMarketplace(params)
+            case "marketplace/remove": result = try await removeMarketplace(params)
+            case "marketplace/upgrade": result = try await upgradeMarketplaces(params)
             case "plugin/list": result = try listPlugins(params)
             case "plugin/installed": result = try listInstalledPlugins(params)
             case "plugin/read": result = try readPlugin(params)
+            case "plugin/install": result = try await installPlugin(params)
+            case "plugin/uninstall": result = try await uninstallPlugin(params)
             case "plugin/skill/read": result = try readRemotePluginSkill(params)
             case "skills/list": result = try listSkills(params)
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
@@ -371,11 +436,19 @@ actor AppServerSession {
             case "thread/loaded/list": result = try listLoadedThreads(params)
             case "thread/read": result = try await readThread(params)
             case "thread/turns/list": result = try await listThreadTurns(params)
+            case "thread/items/list": result = try await listThreadItems(params)
+            case "thread/inject_items": result = try await injectThreadItems(params)
             case "thread/turns/items/list":
                 throw AppServerRPCError.methodNotSupported(method)
             case "thread/shellCommand":
                 userShellToLaunch = try await startUserShellCommand(params)
                 result = .object([:])
+            case "thread/backgroundTerminals/clean":
+                result = try await cleanBackgroundTerminals(params)
+            case "thread/backgroundTerminals/list":
+                result = try await listBackgroundTerminals(params)
+            case "thread/backgroundTerminals/terminate":
+                result = try await terminateBackgroundTerminal(params)
             case "thread/unsubscribe": result = try unsubscribeThread(params)
             case "thread/increment_elicitation": result = try await incrementThreadElicitation(params)
             case "thread/decrement_elicitation": result = try await decrementThreadElicitation(params)
@@ -398,6 +471,9 @@ actor AppServerSession {
                 compactionToLaunch = try await startThreadCompaction(params)
                 result = .object([:])
             case "thread/rollback": result = try await rollbackThread(params)
+            case "thread/approveGuardianDeniedAction":
+                guardianRetryToLaunch = try await prepareGuardianDenialApproval(params)
+                result = .object([:])
             case "turn/start":
                 result = try await startTurn(params)
                 turnToLaunch = try threadID(from: AppServerParams(params))
@@ -422,9 +498,13 @@ actor AppServerSession {
             }
             if let processToLaunch { launchProcessEventStream(processToLaunch) }
             if let mcpStartupThreadToLaunch { launchOptionalMCPServerStartups(for: mcpStartupThreadToLaunch) }
+            if let externalAgentConfigImportToLaunch {
+                launchExternalAgentConfigImport(externalAgentConfigImportToLaunch)
+            }
             if let compactionToLaunch { launchThreadCompaction(compactionToLaunch) }
             if let turnToLaunch { launchTurn(turnToLaunch) }
             if let reviewToLaunch { launchReview(reviewToLaunch) }
+            if let guardianRetryToLaunch { launchGuardianRetry(guardianRetryToLaunch) }
             if let userShellToLaunch { await launchUserShellCommand(userShellToLaunch) }
         } catch let error as AppServerRPCError {
             await send(.error(id: id, error: error))
@@ -501,7 +581,9 @@ actor AppServerSession {
 
     func sendNotification(_ method: String, params: CLIJSONValue) async {
         guard !optedOutNotifications.contains(method) else { return }
-        if method.hasPrefix("turn/") || method.hasPrefix("item/"),
+        if method.hasPrefix("turn/")
+            || method.hasPrefix("item/")
+            || method.hasPrefix("thread/environment/"),
            let rawThreadID = params.objectValue?["threadId"]?.stringValue,
            let threadID = UUID(uuidString: rawThreadID),
            !subscribedThreadIDs.contains(threadID) {
@@ -532,6 +614,7 @@ actor AppServerSession {
         for record: AppServerThreadRecord,
         includesMCP: Bool = true
     ) async throws -> AppServerConfiguredRunner {
+        let executionEnvironment = try await executionEnvironment(for: record.settings)
         let runRequest = CLIRunRequest(
             style: .exec,
             prompt: "",
@@ -539,7 +622,7 @@ actor AppServerSession {
             apiKey: request.apiKey,
             model: record.thread.model,
             baseURL: request.baseURL,
-            cwd: record.settings.cwd,
+            cwd: executionEnvironment.workspaceRoot,
             home: request.home,
             sandbox: record.settings.sandbox,
             explicitMode: record.thread.mode,
@@ -572,6 +655,10 @@ actor AppServerSession {
             runner = mcpAdapter.configure(runner)
             mcpRoutes = mcpAdapter.routesByModelName
         }
+        runner = configure(
+            runner,
+            for: executionEnvironment
+        )
         let inheritedHook = runner.permissionRequestHook
         runner.permissionRequestHook = { [weak self] call, reason, thread, workspaceRoot in
             var notices: [String] = []
@@ -605,7 +692,9 @@ actor AppServerSession {
         }
         return AppServerConfiguredRunner(
             runner: runner,
-            mcpRoutes: mcpRoutes
+            mcpRoutes: mcpRoutes,
+            workspaceRoot: executionEnvironment.workspaceRoot,
+            modelEnvironmentContext: executionEnvironment.modelContext
         )
     }
 }

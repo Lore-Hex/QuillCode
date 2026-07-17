@@ -2,6 +2,18 @@ import Foundation
 
 struct AppServerConnectionDriver: Sendable {
     let runnerFactory: CLIAgentRunnerFactory
+    let runtimeFeatureStore: AppServerRuntimeFeatureStore
+    let environmentRegistry: AppServerEnvironmentRegistry?
+
+    init(
+        runnerFactory: @escaping CLIAgentRunnerFactory,
+        runtimeFeatureStore: AppServerRuntimeFeatureStore = AppServerRuntimeFeatureStore(),
+        environmentRegistry: AppServerEnvironmentRegistry? = nil
+    ) {
+        self.runnerFactory = runnerFactory
+        self.runtimeFeatureStore = runtimeFeatureStore
+        self.environmentRegistry = environmentRegistry
+    }
 
     func run(
         request: CLIAppServerRequest,
@@ -10,19 +22,33 @@ struct AppServerConnectionDriver: Sendable {
         lines: AsyncThrowingStream<Data, Error>,
         sink: @escaping AppServerMessageSink
     ) async throws {
-        let session = try AppServerSession(
-            request: request,
-            environment: environment,
-            currentDirectory: currentDirectory,
-            runnerFactory: runnerFactory,
-            sink: sink
+        let registry = environmentRegistry ?? AppServerEnvironmentRegistry(
+            localCWD: currentDirectory,
+            environment: environment
         )
+        let ownsRegistry = environmentRegistry == nil
+        let session: AppServerSession
+        do {
+            session = try AppServerSession(
+                request: request,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runnerFactory: runnerFactory,
+                runtimeFeatureStore: runtimeFeatureStore,
+                environmentRegistry: registry,
+                sink: sink
+            )
+        } catch {
+            if ownsRegistry { await registry.closeAll() }
+            throw error
+        }
         let concurrentRequests = AppServerConcurrentRequestPool()
         var inputError: (any Error)?
         do {
             for try await line in lines {
                 if Self.requestCanAwaitClientResponse(line) {
-                    await concurrentRequests.submit(line, to: session)
+                    let accepted = await concurrentRequests.submit(line, to: session)
+                    if !accepted { await Self.sendOverloadResponse(for: line, sink: sink) }
                 } else {
                     await session.receive(line)
                 }
@@ -33,6 +59,7 @@ struct AppServerConnectionDriver: Sendable {
         await session.finishInput()
         await concurrentRequests.waitForAll()
         await session.waitForActiveTurns()
+        if ownsRegistry { await registry.closeAll() }
         if let inputError { throw inputError }
     }
 
@@ -45,20 +72,36 @@ struct AppServerConnectionDriver: Sendable {
         }
         return method == "mcpServer/tool/call"
     }
+
+    private static func sendOverloadResponse(
+        for line: Data,
+        sink: AppServerMessageSink
+    ) async {
+        guard case .request(let id, _, _) = try? AppServerInboundMessage(data: line),
+              let response = try? AppServerWireCodec.line(.error(
+                id: id,
+                error: AppServerRPCError.overloaded
+              ))
+        else { return }
+        await sink(response)
+    }
 }
 
 /// Owns only app-server requests that may wait for a server-request response from the same input
 /// connection. Completed tasks remove themselves, so a long-lived client does not retain every
 /// direct MCP call until disconnect.
 private actor AppServerConcurrentRequestPool {
+    private static let maximumConcurrentRequests = 128
     private var tasks: [UUID: Task<Void, Never>] = [:]
 
-    func submit(_ line: Data, to session: AppServerSession) {
+    func submit(_ line: Data, to session: AppServerSession) -> Bool {
+        guard tasks.count < Self.maximumConcurrentRequests else { return false }
         let id = UUID()
         tasks[id] = Task { [weak self] in
             await session.receive(line)
             await self?.remove(id)
         }
+        return true
     }
 
     func waitForAll() async {

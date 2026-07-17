@@ -4,6 +4,40 @@ import QuillCodeCore
 import QuillCodeTools
 
 extension AppServerSession {
+    func consumeRemoteUserShellCommand(
+        launch: UserShellLaunch,
+        executor: AppServerRemoteEnvironmentToolExecutor,
+        startedAt: Date
+    ) async {
+        let arguments = CLIJSONValue.object(["cmd": .string(launch.command)])
+        let argumentsJSON = (try? CLIJSONCodec.encode(arguments))
+            .map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+        let result = await executor.executeUserShell(
+            ToolCall(
+                id: launch.itemID,
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: argumentsJSON
+            ),
+            timeoutSeconds: Self.userShellTimeoutSeconds
+        )
+        var output = ShellOutputAccumulator()
+        for delta in [result.stdout, result.stderr] where !delta.isEmpty {
+            output.append(delta)
+            await sendNotification("item/commandExecution/outputDelta", params: .object([
+                "threadId": .string(AppServerThreadProjection.identifier(launch.threadID)),
+                "turnId": .string(launch.turnID),
+                "itemId": .string(launch.itemID),
+                "delta": .string(delta)
+            ]))
+        }
+        await completeUserShellCommand(
+            launch: launch,
+            result: result,
+            streamedOutput: output.text,
+            startedAt: startedAt
+        )
+    }
+
     func consumeUserShellEvents(
         launch: UserShellLaunch,
         session: ShellStreamingSession,
@@ -40,7 +74,7 @@ extension AppServerSession {
         )
     }
 
-    private func completeUserShellCommand(
+    func completeUserShellCommand(
         launch: UserShellLaunch,
         result: ToolResult,
         streamedOutput: String,

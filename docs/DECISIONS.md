@@ -1,5 +1,87 @@
 # QuillCode Decisions
 
+## 2026-07-16: Experimental feature state uses one real precedence chain
+
+- **Catalog boundary:** One typed core registry owns canonical names, lifecycle stage, presentation
+  copy, code defaults, and whether a feature can change at process runtime. The app-server projects
+  only real QuillCode flags; it does not copy Codex-internal flags that have no QuillCode behavior.
+- **Precedence:** Effective state is resolved as managed requirements, app-server `--enable` or
+  `--disable`, merged system/user/project config, process runtime enablement, then code default.
+  Project config is refreshed from the loaded task's CWD on every list request, including the primary
+  checkout for linked worktrees. Invalid runtime keys are ignored without becoming latent state.
+- **Runtime boundary:** `memories` is the first runtime-mutable flag because disabling it genuinely
+  removes durable notes from model input while preserving those notes in the task. Re-enabling it
+  restores context on the next model step. One actor-backed store is shared by every socket client in
+  the app-server process, while stdio naturally owns one store for its single connection. Stable
+  `hooks` state remains discoverable through the same config chain but is not advertised as
+  runtime-mutable until app-server hook execution shares that gate end to end.
+- **Wire contract:** `experimentalFeature/list` matches Codex's metadata/nullability, offset cursor,
+  zero-limit clamping, loaded-task validation, and error boundary. `experimentalFeature/enablement/set`
+  is process-only, patches named supported entries, and returns only accepted keys.
+- **Evidence:** Core catalog, CLI parser, cross-session process-state, config precedence, project
+  refresh, and model-context tests cover the implementation. The executable JSONL smoke and parity
+  gate bind the public process contract to the tests and documentation.
+
+## 2026-07-16: App-server agent migration revalidates and serializes every item
+
+- **Wire contract:** `externalAgentConfig/detect`, `externalAgentConfig/import`, and
+  `externalAgentConfig/import/readHistories` preserve the Codex 0.142.5 request, response, progress,
+  completion, grouping, and nullability shapes. Import returns its ID before any progress event.
+- **Authority boundary:** A client may choose only a subset of freshly detected details. Every import
+  re-detects its source and destination and rejects an item, session path, scope, or detail that is no
+  longer present. Descriptions never grant file authority.
+- **Mutation boundary:** Imports are serialized so concurrent requests cannot lose config updates.
+  Writes are additive, directory publication is no-overwrite and rollback-safe, hook/MCP/session
+  subsets cannot broaden an empty or partial selection, and runtime config, skills, and MCP state
+  refresh only after the import settles.
+- **Security:** Source and destination files are bounded regular files beneath revalidated roots.
+  Symlinks fail closed, static MCP secrets and Claude environment values are excluded, inherited
+  variable names may remain, and private import history uses a bounded owner-only file.
+- **Durability:** Recent sessions become ordinary durable QuillCode projects and tasks with Claude
+  provenance. Missing session working directories fall back to the app-server workspace; history and
+  provenance suppress duplicate imports across restart and crash recovery.
+- **Evidence:** Persistence and actor tests cover scope, ordering, partial failure, selective import,
+  concurrent config updates, secret exclusion, forged paths, session persistence, history reload,
+  symlink rejection, and EOF cancellation. The real JSONL smoke and parity gate bind the public
+  process, tests, and documentation together.
+
+## 2026-07-16: Injected response items use a durable model-only timeline
+
+- **Visibility boundary:** `thread/inject_items` never fabricates `ChatMessage` or `ThreadEvent`
+  records. Raw structured response items live in `ChatThread.modelContextItems`, so thread reads,
+  search, turn history, rollback projections, exports, and native transcripts remain unchanged.
+- **Ordering boundary:** Each injected item records the last visible message as its anchor; no anchor
+  means before the first visible turn. Prompt assembly merges items immediately after that anchor in
+  request order. A missing anchor after compaction is retained at the end of available history rather
+  than silently dropped.
+- **Transport boundary:** Responses `message` items preserve roles, text, and inline image detail when
+  projected into TrustedRouter chat-completions input. Developer messages become system messages.
+  Non-message and future variants remain model-visible as sorted canonical JSON; they are never
+  interpreted as locally executable tool calls.
+- **Concurrency boundary:** Active turn, review, compaction, and user-shell state owns the latest task
+  snapshot. Injection updates that state and persistence together; every progress/completion merge
+  explicitly carries model-only context forward so an older asynchronous snapshot cannot erase it.
+- **Evidence:** Exact-error actor tests cover validation, inline images, archive handling, transcript
+  isolation, and persistence. A blocking-LLM test injects during an active turn and proves the item
+  reaches the next model request. Prompt, legacy decode, real executable smoke, and parity-gate tests
+  cover ordering and durability.
+
+## 2026-07-16: Background-terminal control reuses thread shell ownership
+
+- **One process owner:** App-server background-terminal methods project the existing active user-shell
+  registry. They do not introduce a parallel process table or treat connection-scoped `process/spawn`
+  and `command/exec` sessions as thread-owned terminals.
+- **Identity and ordering:** A running shell is identified by its existing item id and real OS PID.
+  Lists sort by PID and use the last PID as the forward cursor, matching current Codex behavior.
+- **Race contract:** Terminate and clean first mark matching commands as terminating, then cancel their
+  shared streaming sessions. They disappear from subsequent lists immediately, repeated termination
+  returns `false`, and the ordinary event consumer remains responsible for exactly-once completion,
+  persistence, and standalone-turn settlement.
+- **Resource fields:** `osPid` is truthful; CPU and RSS remain null, matching current Codex app-server,
+  until a portable bounded process-metrics adapter exists.
+- **Evidence:** Concurrent-shell and invalid-input XCTest, the real executable app-server smoke, and a
+  source parity gate cover PID pagination, idempotent termination, clean-all, and lifecycle cleanup.
+
 ## 2026-07-16: Thread controls separate connection state from durable settings
 
 - **Connection contract:** Loaded and subscribed are distinct connection-local states. Start, resume,
@@ -971,7 +1053,7 @@
 - Browser parity gates live in `ParityBrowserGateTests`, not the broad `ParityGateTests` catch-all. Browser surface ownership, snapshot extraction, workflow state transitions, location resolving, browser integration-test ownership, and HTML browser-rendering boundaries should stay together so active browser work does not keep inflating the general architecture-gate file.
 - Live DOM browser capture is an adapter contract, not a direct dependency from `WorkspaceModel` to a WebView. `BrowserLiveDOMCapturing` owns rendered-session capture, `BrowserLiveDOMSnapshotBuilder` translates bounded rendered title/outline/visible text into `BrowserSnapshotState`, `WorkspaceBrowserWorkflow` owns capture begin/success/failure semantics, and `WorkspaceBrowserEngine` applies final URL/history/title/status mutations. The macOS desktop implementation lives in `DesktopBrowserLiveDOMCapturer`, where an offscreen `WKWebView` renders HTTP(S) pages and evaluates a bounded DOM snapshot. It defaults to `DesktopBrowserLiveDOMProfile.persistent`, backed by WebKit's default website data store, so cookies and session state can be reused across captures; `.ephemeral` remains available for future tests/privacy controls. Visible user sign-in lives in `DesktopBrowserSessionPresenter`, which owns one reusable retained desktop `WKWebView` window with the same default website data store and shares `WorkspaceBrowserLocationResolver` with browser preview. The same visible-session action is exposed through the browser pane, menu bar, and command palette; SwiftUI routes it through an optional host capability so non-desktop surfaces do not gain WebKit dependencies. The desktop controller only injects the capturer/presenter and asks the model to refresh or opens the resolved session; it must not import WebKit, embed JavaScript, or manage visible browser window lifecycle. Multi-tab session management and Linux/browser-process backends should plug into the same seam without adding platform branches to the app model.
 - Model and configuration parity gates live in `ParityModelGateTests`, not the broad `ParityGateTests` catch-all. Nike/Zeus/Prometheus/Socrates/Aristotle/Plato branding, TrustedRouter aliases, model catalog normalization, and app config boundaries should stay together so model naming and picker work can evolve without reintroducing raw model types as user-facing defaults.
-- Top-bar Disconnect All is a real command, not a disabled placeholder. It shares the active-work stop path with Stop All, stops active MCP server processes, cancels active sends and terminal runs, and detaches the currently selected SSH Remote project context without removing the project from the sidebar. SSH Remote shell/git commands remain noninteractive per-command executions, so disconnecting a remote project clears selection and terminal context rather than closing a persistent SSH socket.
+- Top-bar Disconnect All is a real command, not a disabled placeholder. It shares the active-work stop path with Stop All, stops active MCP server processes, cancels active sends and terminal runs, and detaches the currently selected SSH Remote project context without removing the project from the sidebar. Agent tool calls may hold a persistent SSH-launched remote app-server session; workspace teardown closes all such sessions. Explicit terminal and UI tool actions keep their existing noninteractive one-shot SSH behavior.
 - Workspace model-picker integration coverage lives in `WorkspaceModelPickerSurfaceIntegrationTests`, not the broad `WorkspaceSurfaceTests` catch-all. Category grouping, model search against workspace state, unknown selected models, recent/favorite ordering, and model badge metadata should stay together while pure DTO compatibility remains in `QuillCodeTopBarSurfaceTests` and pure builder behavior remains in `WorkspaceModelCatalogSurfaceBuilderTests`.
 - HTML chrome renderer coverage lives in `WorkspaceHTMLChromeRendererTests`, not the broad `WorkspaceSurfaceTests` catch-all. Static HTML smoke coverage for primary regions, sidebar chrome, top-bar overflow, composer markup, context banners, runtime issues, and sidebar date buckets should stay together; tool-card, terminal, browser, secondary-pane, and review HTML coverage can be split into their own focused suites as those areas evolve.
 - HTML renderer architecture gates live in `ParityHTMLGateTests`, not the broad `ParityGateTests` catch-all. Pure HTML renderer delegation checks for tool cards, top bar, terminal, secondary panes, review, transcript, and sidebar should stay together; browser-specific HTML rendering stays in `ParityBrowserGateTests`, and mixed native/composer/workspace surface gates remain in the broad suite until they have enough focused domain coverage to split cleanly.
@@ -1776,8 +1858,8 @@
 ## 2026-07-16: Unix app-server transport shares protocol behavior without sharing sessions
 
 - **Transport boundary:** `stdio://`, `unix://`, and `unix:///absolute/path` feed one
-  transport-neutral connection driver and the same bounded incremental JSONL framer. WebSocket is not
-  claimed until it has an equally explicit lifecycle and process smoke.
+  transport-neutral session driver. Unix clients now complete the same standard HTTP WebSocket
+  upgrade and text-frame protocol as TCP clients; only stdio remains newline-delimited JSON.
 - **Isolation boundary:** Every accepted Unix client creates an independent `AppServerSession`, so
   initialization, loaded threads, process handles, subscriptions, approval requests, and disconnect
   cleanup cannot leak between clients. Concurrent direct MCP calls remain connection-owned.
@@ -1813,3 +1895,181 @@
   overrides, batch-written enabled/trust transitions, malformed independent layers, and a command
   sentinel. The built JSONL smoke repeats the sentinel assertion, and a parity gate binds runtime,
   tests, smoke, research, and matrix status.
+
+## 2026-07-16: TCP and Unix app-server clients share one bounded WebSocket protocol
+
+- **Wire boundary:** Every non-stdio client uses RFC 6455 text frames with client masking,
+  fragmentation, ping/pong/close control handling, UTF-8 validation, and a shared message cap. Binary
+  messages are consumed and ignored, matching Codex. Unix sockets do not retain a private JSONL
+  dialect.
+- **Backpressure boundary:** Ingress and egress queues are bounded. A dropped request receives exact
+  JSON-RPC error `-32001` (`Server overloaded; retry later.`); a client that cannot consume bounded
+  outbound work is disconnected. Concurrent request and accepted-connection pools have explicit caps.
+- **HTTP boundary:** TCP exposes `GET /readyz` and `GET /healthz`. Any request carrying `Origin` is
+  rejected before routing. Loopback may run without credentials; non-loopback refuses to start without
+  configured authentication.
+- **Authentication boundary:** Capability tokens are compared through constant-time SHA-256 digests.
+  Signed bearer tokens require HS256, a secret of at least 32 bytes, `exp`, optional `nbf`, and optional
+  exact issuer/audience checks with bounded clock skew. Authorization completes before the WebSocket
+  upgrade and before app-server initialization.
+- **Platform boundary:** Portable TCP/Unix descriptor operations remain in `CQuillPlatform`; HTTP,
+  WebSocket, authentication, and session policy remain testable Swift with no app-level platform
+  conditionals.
+- **Evidence:** Focused parser, socket, framing, fragmentation, malformed-frame, capability-token, and
+  signed-token tests run beside executable TCP health/auth and multi-client Unix crash/recovery smokes.
+
+## 2026-07-16: Git diff-to-remote compares one bounded local snapshot
+
+- **Protocol boundary:** `gitDiffToRemote` resolves the repository's current local upstream tip and
+  returns that SHA with a direct working-tree diff. It does not fetch, infer a merge base, or mutate
+  refs, the index, or files.
+- **State boundary:** The diff intentionally combines committed-ahead, staged, unstaged, and untracked
+  changes, excludes ignored files, and appends Git-ordered untracked binary patches after the tracked
+  patch. A clean repository returns an empty diff.
+- **Execution boundary:** Git runs with external diff and text conversion disabled. Patch output is
+  written to private temporary files, then checked against aggregate byte limits before and after
+  reading; untracked inventory bytes and file count are independently capped.
+- **Failure boundary:** Missing, non-directory, non-Git, no-upstream, unsafe-path, timeout, and bound
+  failures collapse to Codex's generic `-32600` request error without leaking Git stderr.
+- **Evidence:** Real-Git actor tests cover clean, dirty, ahead, diverged, ignored, invalid, and bounded
+  cases. The built JSONL smoke verifies tracked and untracked output against a real bare upstream, and
+  a parity gate binds implementation, tests, smoke, research, and matrix status.
+
+## 2026-07-16: Item cursors are anchored before optional turn filtering
+
+- **Protocol boundary:** `thread/items/list` returns complete app-server item projections with their
+  containing turn IDs. It shares the existing durable/active history projection instead of inventing
+  a second transcript reconstruction path.
+- **Cursor boundary:** Opaque cursors identify a stable turn/item pair in the complete ordered stream.
+  Pagination locates that anchor before applying an optional turn filter, which keeps one cursor valid
+  across filtered and unfiltered requests as required by Codex.
+- **Integrity boundary:** Every projected turn and item must have a non-empty stable ID. Corrupt or
+  incomplete internal projections fail with an internal error instead of emitting an unpageable item.
+- **Compatibility boundary:** Current `thread/items/list` is implemented. The obsolete
+  `thread/turns/items/list` spelling remains an explicit `-32601` response rather than silently
+  changing meaning for old clients.
+- **Evidence:** Actor tests cover full payloads, active history, cross-filter cursors, both directions,
+  bounds, validation, and empty history. The built-process smoke pages and filters real persisted
+  items, while a parity gate binds runtime, tests, smoke, research, and matrix status.
+
+## 2026-07-16: Marketplace acquisition is data-only and transactionally registered
+
+- **Protocol boundary:** `marketplace/add`, `marketplace/remove`, and `marketplace/upgrade` mirror the
+  Codex 0.142.5 local marketplace contract. Sources may be external local directories, GitHub
+  `owner/repo` shorthand, HTTP(S)/SSH Git URLs, or local Git repositories with optional refs and
+  sparse paths. Credentials are never accepted in HTTP(S) source URLs.
+- **Execution boundary:** Git uses argv, disables interactive credential prompts and LFS smudging,
+  and never executes marketplace lifecycle code. Cloned trees have aggregate entry, file, and byte
+  limits, reject symbolic and special entries, and must expose exactly one valid standard catalog.
+- **Transaction boundary:** Managed clones activate through sibling staging and backup directories.
+  Config persistence preserves unrelated TOML atomically; a failed config write restores the prior
+  clone. Removal stages the clone before config mutation, and upgrade isolates failures per selected
+  marketplace. External local source directories are registered but never copied or deleted.
+- **Integrity boundary:** Repeated identical add is idempotent only after the installed catalog is
+  revalidated. A replaced, missing, or damaged managed checkout fails closed. Successful mutation
+  clears skill discovery and emits `skills/changed`.
+- **Evidence:** Registry, materializer, and app-server actor tests cover preservation, bounds,
+  idempotence, corruption, Git upgrade/no-op upgrade, validation, and removal. The built JSONL smoke
+  repeats add/upgrade/remove against a real temporary Git repository, and a parity gate binds the
+  runtime, tests, smoke, research, and matrix claim.
+
+## 2026-07-16: SSH Remote agent tools reuse a remote app server without replaying ambiguity
+
+- **Transport boundary:** Each remote project root owns at most one pooled SSH process running
+  `quill-code app-server --stdio` through the remote user's login shell. The client performs the real
+  initialize/initialized JSONL handshake and serializes bounded `command/exec` requests over that
+  process. Ordinary terminal and explicit UI actions remain one-shot SSH operations.
+- **Safety boundary:** QuillCode's normal local tool schema, mode, and approval review still decide
+  whether a command may dispatch. The already-approved remote command requests the unrestricted
+  app-server profile so it can perform the action the user approved; remote managed requirements may
+  still reject that profile.
+- **Retry boundary:** Failure to initialize is known to precede execution and may fall back to the
+  established one-shot SSH executor. Any failure after the command request is written is reported as
+  an unknown execution state and is never retried automatically. The user is told to inspect remote
+  state before retrying, preventing duplicate file, Git, or shell mutations.
+- **Architecture boundary:** One command plan and result transformer serve both transports, keeping
+  path checks, shell timeouts, file-list decoding, artifacts, patch validation, and PR URL extraction
+  identical. The workspace owns the pool lifecycle and disconnects all sessions on teardown.
+- **Evidence:** Process-backed tests launch fake SSH and app-server executables to prove handshake,
+  two-command connection reuse, nonzero exits, pre-dispatch unavailability, and post-dispatch loss.
+  App tests prove artifact finalization, safe fallback, cwd/timeout forwarding, and no fallback after
+  ambiguous execution. The remote parity source gate binds the client, pool, workspace wiring, tests,
+  research, and matrix claim.
+
+## 2026-07-16: Auto-review denials are durable and exactly retryable once
+
+- **History boundary:** Every completed review records a typed outcome, bounded rationale, reviewer
+  provenance, risk, authorization source, and a canonical redacted action identity. The Denials
+  surface reconstructs its newest ten entries from durable thread events instead of maintaining a
+  second mutable history store.
+- **Retry boundary:** A denied action may be retried once only when its turn, workspace, safety mode,
+  tool name, and canonical arguments still match. Retry creates fresh request and tool-call IDs and
+  passes through Auto review again; it never converts a denial into approval or edits the call.
+- **Privacy boundary:** Calls whose arguments could not be retained safely are visible as denials but
+  are not replayable. The retry receipt is persisted before execution so a crash or relaunch cannot
+  dispatch the same denied mutation twice.
+- **Interaction boundary:** `/approve`, `/approvals`, and `/denials` open one calm control surface and
+  do not add a user message or model turn. Available, reviewing, consumed, unavailable, and
+  context-changed states are explicit, and a reviewer denial remains a denial after retry.
+- **Circuit-breaker boundary:** Auto review pauses after three consecutive denials or ten denials in
+  the newest fifty completed reviews. A non-denial resets the consecutive count; timeouts do not
+  masquerade as safety denials.
+- **Evidence:** Core history and retry-state tests, agent exact-replay/circuit-breaker tests, native
+  persistence tests, command-routing tests, and Playwright lifecycle coverage prove denial, reopen,
+  exact re-review, successful execution, durable consumption, and refusal of a second execution.
+
+## 2026-07-16: Guardian denial approval reuses durable Auto review
+
+- **Protocol boundary:** `thread/approveGuardianDeniedAction` accepts the current Codex Guardian event
+  shape and acknowledges non-denied status without work. Started and completed Auto-review state uses
+  the current dedicated notification methods instead of being inferred from generic tool cards.
+- **Authority boundary:** The client event is never executable input. Its review, turn, target item,
+  and normalized action must match one available durable denial exactly. QuillCode reconstructs the
+  command, patch, or MCP call only from private persisted history and retains the original user text.
+- **Execution boundary:** A matched denial goes through the existing exact one-shot retry primitive,
+  receives a fresh Auto review, and persists the consumed receipt before dispatch. Forged, stale,
+  redacted, context-changed, concurrent, or replayed requests fail closed.
+- **Evidence:** A full actor test proves validation, response ordering, fresh review, exact shell side
+  effect, durable consumption, and replay rejection. The built JSONL smoke proves the public method
+  rejects an unknown review deterministically, and a parity gate binds all implementation evidence.
+
+## 2026-07-16: App-server execution environments fail closed across every host path
+
+- **Registry boundary:** One process-scoped registry serves every stdio, TCP WebSocket, and Unix
+  WebSocket client. `environment/add` mutates it immediately and connects lazily; replacement closes
+  the old client, `environment/info` surfaces connection errors, and transport shutdown closes all
+  remaining clients.
+- **Selection boundary:** Omitted environment arrays preserve the prior/default target, an empty array
+  disables host access, and a nonempty array validates and selects its first entry. Selection persists
+  with thread settings across start, resume, fork, and turn-level updates. Unknown IDs and malformed
+  CWDs fail before a turn or direct command can dispatch.
+- **Transport boundary:** Remote clients use a text-frame WebSocket, initialize/initialized handshake,
+  resumable session ID, serialized request ownership, bounded responses, and per-request deadlines.
+  Process reads convert the exclusive `nextSeq` into the inclusive `afterSeq` cursor and continue
+  through exit until output streams close, retaining late output without duplication or gaps. A failed
+  request resets the connection but is never replayed; only a later independent request may reconnect.
+  Cancellation terminates an acknowledged remote process.
+- **Execution boundary:** Selected remote turns replace local shell/file/patch routing with the
+  exec-server adapter and target-native workspace paths. Canonical containment blocks symlink escapes,
+  existing files require a prior read before write/patch, temporary stdin and patch files are cleaned,
+  and web search remains on the cloud-owned route. Environment context is XML-escaped and transient;
+  it is placed immediately before the active user request and never enters durable transcript history.
+- **No-fallback boundary:** Direct `thread/shellCommand` resolves the same selected environment before
+  creating lifecycle state. Remote commands retain the one-hour user-shell timeout and execute only
+  through exec-server; disabled access returns `-32600`. Neither path can silently execute on the
+  app-server host.
+- **Lifecycle boundary:** `environment/status` probes only an existing socket and never reconnects it;
+  one process-scoped monitor fans state changes out to selected threads without per-thread polling.
+  Pending-to-ready emits connected, ready-to-disconnected emits disconnected, selecting an already
+  ready environment does not replay state, and selection changes, deletion, or client teardown remove
+  subscriptions. Status probes have their own short deadline so a stalled health check cannot block
+  ordinary tool traffic indefinitely.
+- **Deferred boundary:** Remote sandbox-profile forwarding, Windows remote search, and live remote
+  output/background-terminal process projection remain explicit partial-parity work rather than
+  fabricated local behavior.
+- **Evidence:** Registry, target-path, tool-router, session, direct-shell, and real URLSession WebSocket
+  tests cover selection, replacement, status, connection transitions, no-replay fan-out, cleanup,
+  concurrency, reconnection, multi-read cursors, late output, context, path, and no-fallback behavior.
+  A built `quill-code app-server` smoke talks to a raw
+  loopback exec-server, verifies multi-read remote output, and uses local filesystem sentinels to prove
+  remote and disabled commands never ran locally.

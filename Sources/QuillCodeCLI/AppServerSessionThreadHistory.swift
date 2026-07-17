@@ -5,16 +5,11 @@ extension AppServerSession {
         let params = try AppServerParams(raw)
         let threadID = try threadID(from: params)
         let itemsView = try turnItemsView(try params.optionalString("itemsView"))
-        let direction = try turnSortDirection(try params.optionalString("sortDirection"))
-        let record = try await threadHistoryRecord(threadID)
-        var turns = AppServerThreadHistoryProjection.turns(record)
-        if let active = activeProjectedTurn(threadID) {
-            if let index = turns.firstIndex(where: { turnIdentifier($0) == turnIdentifier(active) }) {
-                turns[index] = active
-            } else {
-                turns.append(active)
-            }
-        }
+        let direction = try historySortDirection(
+            try params.optionalString("sortDirection"),
+            default: .desc
+        )
+        var turns = try await projectedThreadHistoryTurns(threadID)
         turns = turns.map { applyingItemsView(itemsView, to: $0) }
         if direction == .desc { turns.reverse() }
 
@@ -31,6 +26,19 @@ extension AppServerSession {
             "nextCursor": page.nextCursor.map(CLIJSONValue.string) ?? .null,
             "backwardsCursor": page.backwardsCursor.map(CLIJSONValue.string) ?? .null
         ])
+    }
+
+    func projectedThreadHistoryTurns(_ threadID: UUID) async throws -> [CLIJSONValue] {
+        let record = try await threadHistoryRecord(threadID)
+        var turns = AppServerThreadHistoryProjection.turns(record)
+        if let active = activeProjectedTurn(threadID) {
+            if let index = turns.firstIndex(where: { turnIdentifier($0) == turnIdentifier(active) }) {
+                turns[index] = active
+            } else {
+                turns.append(active)
+            }
+        }
+        return turns
     }
 
     private func threadHistoryRecord(_ threadID: UUID) async throws -> AppServerThreadRecord {
@@ -135,9 +143,12 @@ extension AppServerSession {
         return view
     }
 
-    private func turnSortDirection(_ value: String?) throws -> AppServerTurnSortDirection {
-        let value = value ?? AppServerTurnSortDirection.desc.rawValue
-        guard let direction = AppServerTurnSortDirection(rawValue: value) else {
+    func historySortDirection(
+        _ value: String?,
+        default defaultDirection: AppServerHistorySortDirection
+    ) throws -> AppServerHistorySortDirection {
+        let value = value ?? defaultDirection.rawValue
+        guard let direction = AppServerHistorySortDirection(rawValue: value) else {
             throw AppServerRPCError.invalidRequest(
                 "Invalid request: unknown variant `\(value)`, expected `asc` or `desc`"
             )
@@ -164,7 +175,7 @@ private enum AppServerTurnItemsView: String {
     case full
 }
 
-private enum AppServerTurnSortDirection: String {
+enum AppServerHistorySortDirection: String {
     case asc
     case desc
 }

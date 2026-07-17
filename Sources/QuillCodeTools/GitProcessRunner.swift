@@ -8,13 +8,19 @@ public struct GitProcessRunner: Sendable {
         self.githubCLIExecutable = githubCLIExecutable
     }
 
-    public func runGit(_ arguments: [String], cwd: URL, timeoutSeconds: TimeInterval) -> ToolResult {
+    public func runGit(
+        _ arguments: [String],
+        cwd: URL,
+        timeoutSeconds: TimeInterval,
+        environment: [String: String] = [:]
+    ) -> ToolResult {
         runProcess(
             executableURL: URL(fileURLWithPath: "/usr/bin/env"),
             arguments: ["git"] + arguments,
             cwd: cwd,
             timeoutSeconds: timeoutSeconds,
-            toolName: "Git"
+            toolName: "Git",
+            environment: environment
         )
     }
 
@@ -42,12 +48,18 @@ public struct GitProcessRunner: Sendable {
         arguments: [String],
         cwd: URL,
         timeoutSeconds: TimeInterval,
-        toolName: String
+        toolName: String,
+        environment: [String: String] = [:]
     ) -> ToolResult {
         let process = Process()
         process.executableURL = executableURL
         process.arguments = arguments
         process.currentDirectoryURL = cwd
+        if !environment.isEmpty {
+            process.environment = ProcessInfo.processInfo.environment.merging(environment) {
+                _, new in new
+            }
+        }
 
         let stdout = Pipe()
         let stderr = Pipe()

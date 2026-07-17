@@ -66,6 +66,9 @@ public struct QuillCodePaths: Sendable, Hashable {
     public var importsDirectory: URL { home.appendingPathComponent("imports") }
     public var appServerMetadataDirectory: URL { home.appendingPathComponent("app-server-threads") }
     public var agentImportReceiptFile: URL { importsDirectory.appendingPathComponent("receipts.json") }
+    public var externalAgentConfigImportHistoryFile: URL {
+        importsDirectory.appendingPathComponent("external-agent-config-history.json")
+    }
 
     public init() {
         let home = FileManager.default.homeDirectoryForCurrentUser

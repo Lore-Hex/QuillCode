@@ -252,6 +252,7 @@ extension AppServerSession {
         _ snapshot: ChatThread,
         active: ActiveReview
     ) -> ChatThread {
+        let snapshot = preservingModelContext(from: active.latestThread, in: snapshot)
         var visible = mergingUserShellMessages(active.userShellMessages, into: snapshot)
         visible.messages.removeAll {
             $0.role == .assistant && !active.baselineAssistantIDs.contains($0.id)
@@ -270,7 +271,8 @@ extension AppServerSession {
         review: String?
     ) async {
         guard var active = activeReviews.removeValue(forKey: threadID) else { return }
-        let snapshot = mergingUserShellMessages(active.userShellMessages, into: snapshot)
+        let preservedSnapshot = preservingModelContext(from: active.latestThread, in: snapshot)
+        let snapshot = mergingUserShellMessages(active.userShellMessages, into: preservedSnapshot)
         let completedAt = Date()
         let notifications = active.projector.finish(snapshot, completedAt: completedAt)
         var completionStatus = status
