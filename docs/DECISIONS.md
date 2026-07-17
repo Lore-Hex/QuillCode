@@ -1906,3 +1906,24 @@
 - **Evidence:** Actor tests cover full payloads, active history, cross-filter cursors, both directions,
   bounds, validation, and empty history. The built-process smoke pages and filters real persisted
   items, while a parity gate binds runtime, tests, smoke, research, and matrix status.
+
+## 2026-07-16: Marketplace acquisition is data-only and transactionally registered
+
+- **Protocol boundary:** `marketplace/add`, `marketplace/remove`, and `marketplace/upgrade` mirror the
+  Codex 0.142.5 local marketplace contract. Sources may be external local directories, GitHub
+  `owner/repo` shorthand, HTTP(S)/SSH Git URLs, or local Git repositories with optional refs and
+  sparse paths. Credentials are never accepted in HTTP(S) source URLs.
+- **Execution boundary:** Git uses argv, disables interactive credential prompts and LFS smudging,
+  and never executes marketplace lifecycle code. Cloned trees have aggregate entry, file, and byte
+  limits, reject symbolic and special entries, and must expose exactly one valid standard catalog.
+- **Transaction boundary:** Managed clones activate through sibling staging and backup directories.
+  Config persistence preserves unrelated TOML atomically; a failed config write restores the prior
+  clone. Removal stages the clone before config mutation, and upgrade isolates failures per selected
+  marketplace. External local source directories are registered but never copied or deleted.
+- **Integrity boundary:** Repeated identical add is idempotent only after the installed catalog is
+  revalidated. A replaced, missing, or damaged managed checkout fails closed. Successful mutation
+  clears skill discovery and emits `skills/changed`.
+- **Evidence:** Registry, materializer, and app-server actor tests cover preservation, bounds,
+  idempotence, corruption, Git upgrade/no-op upgrade, validation, and removal. The built JSONL smoke
+  repeats add/upgrade/remove against a real temporary Git repository, and a parity gate binds the
+  runtime, tests, smoke, research, and matrix claim.
