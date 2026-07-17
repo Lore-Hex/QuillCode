@@ -22,6 +22,7 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     var mcpToolExecutionOverride: AgentToolExecutionOverride?
     var mcpStreamingToolExecutionOverride: AgentStreamingToolExecutionOverride? = nil
     var sshRemoteShellExecutor: SSHRemoteShellExecutor
+    var sshRemoteAppServer: (any SSHRemoteAppServerExecuting)? = nil
     /// Per-project persisted permission rules. When present, the run's safety reviewer is wrapped
     /// so saved allow/deny/ask rules compose with (never replace) the mode + intent review.
     var permissionRules: (any PermissionRulesProviding)? = nil
@@ -244,7 +245,8 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     private var remoteProjectToolExecutionOverride: AgentToolExecutionOverride? {
         WorkspaceRemoteProjectToolExecutor.executionOverride(
             project: selectedProject,
-            executor: sshRemoteShellExecutor
+            executor: sshRemoteShellExecutor,
+            appServer: sshRemoteAppServer
         )
     }
 }

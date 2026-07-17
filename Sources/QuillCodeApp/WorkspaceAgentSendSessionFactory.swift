@@ -24,6 +24,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
     private let mcpToolExecutionOverride: AgentToolExecutionOverride?
     private let mcpStreamingToolExecutionOverride: AgentStreamingToolExecutionOverride?
     private let sshRemoteShellExecutor: SSHRemoteShellExecutor
+    private let sshRemoteAppServer: (any SSHRemoteAppServerExecuting)?
     private let permissionRules: (any PermissionRulesProviding)?
     private let workspaceRoot: URL
     private let subagentThreadStore: SubagentThreadStore?
@@ -50,6 +51,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         mcpToolExecutionOverride: AgentToolExecutionOverride?,
         mcpStreamingToolExecutionOverride: AgentStreamingToolExecutionOverride? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor,
+        sshRemoteAppServer: (any SSHRemoteAppServerExecuting)? = nil,
         permissionRules: (any PermissionRulesProviding)? = nil,
         subagentThreadStore: SubagentThreadStore? = nil,
         subagentApprovalPayloadStore: SubagentApprovalPayloadStore? = nil,
@@ -80,6 +82,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
         self.mcpToolExecutionOverride = mcpToolExecutionOverride
         self.mcpStreamingToolExecutionOverride = mcpStreamingToolExecutionOverride
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
+        self.sshRemoteAppServer = sshRemoteAppServer
         self.permissionRules = permissionRules
         self.subagentThreadStore = subagentThreadStore
         self.subagentApprovalPayloadStore = subagentApprovalPayloadStore
@@ -182,6 +185,7 @@ struct WorkspaceAgentSendSessionFactory: Sendable {
             mcpToolExecutionOverride: mcpToolExecutionOverride,
             mcpStreamingToolExecutionOverride: mcpStreamingToolExecutionOverride,
             sshRemoteShellExecutor: sshRemoteShellExecutor,
+            sshRemoteAppServer: sshRemoteAppServer,
             permissionRules: permissionRules,
             allowsSubagents: allowsSubagents
         ).configuredRunner(from: baseRunner, modelID: modelID)

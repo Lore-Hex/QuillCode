@@ -6,6 +6,7 @@ final class ParityRemoteProjectToolGateTests: QuillCodeParityTestCase {
         let toolRunsText = try Self.appSourceText(named: "WorkspaceModelToolRuns.swift")
         let builderText = try Self.appSourceText(named: "WorkspaceAgentRunContextBuilder.swift")
         let executorText = try Self.appSourceText(named: "WorkspaceRemoteProjectToolExecutor.swift")
+        let commandPlanText = try Self.appSourceText(named: "WorkspaceRemoteProjectCommandPlan.swift")
         let toolCatalogText = try Self.appSourceText(named: "WorkspaceRemoteProjectToolCatalog.swift")
         let executionContextText = try Self.appSourceText(named: "WorkspaceRemoteProjectToolExecutionContext.swift")
         let fileExecutorText = try Self.appSourceText(named: "WorkspaceRemoteProjectFileToolExecutor.swift")
@@ -22,6 +23,11 @@ final class ParityRemoteProjectToolGateTests: QuillCodeParityTestCase {
         let remoteShellFormatterText = try Self.appSourceText(named: "WorkspaceRemoteShellCommandFormatter.swift")
         let worktreeBuilderText = try Self.appSourceText(named: "WorkspaceRemoteGitWorktreeCommandBuilder.swift")
         let remotePathText = try Self.appSourceText(named: "WorkspaceRemoteProjectPath.swift")
+        let appServerProtocolText = try Self.toolsSourceText(named: "SSHRemoteAppServerProtocol.swift")
+        let appServerClientText = try Self.toolsSourceText(named: "SSHRemoteAppServerClient.swift")
+        let appServerPoolText = try Self.toolsSourceText(named: "SSHRemoteAppServerPool.swift")
+        let appServerTestsText = try Self.toolsTestSourceText(named: "SSHRemoteAppServerPoolTests.swift")
+        let modelAgentSessionText = try Self.appSourceText(named: "WorkspaceModelAgentSession.swift")
 
         Self.assertSource(executorText, contains: "struct WorkspaceRemoteProjectToolExecutor")
         Self.assertSource(executorText, contains: "static let toolDefinitions")
@@ -36,7 +42,13 @@ final class ParityRemoteProjectToolGateTests: QuillCodeParityTestCase {
         Self.assertSource(executionContextText, containsAll: [
             "struct WorkspaceRemoteProjectToolExecutionContext",
             "func run(",
+            "func run(_ plan: WorkspaceRemoteProjectCommandPlan)",
             "SSH Remote project is missing a usable host."
+        ])
+        Self.assertSource(commandPlanText, containsAll: [
+            "struct WorkspaceRemoteProjectCommandPlan",
+            "timeoutSeconds",
+            "func finalize"
         ])
         Self.assertSource(fileExecutorText, containsAll: [
             "enum WorkspaceRemoteProjectFileToolExecutor",
@@ -81,6 +93,41 @@ final class ParityRemoteProjectToolGateTests: QuillCodeParityTestCase {
         Self.assertSource(fileExecutorText, contains: "WorkspaceRemoteProjectPath.relativePath")
         Self.assertSource(builderText, contains: "WorkspaceRemoteProjectToolExecutor.toolDefinitions")
         Self.assertSource(builderText, contains: "WorkspaceRemoteProjectToolExecutor.executionOverride")
+        Self.assertSource(builderText, contains: "appServer: sshRemoteAppServer")
+        Self.assertSource(modelAgentSessionText, contains: "sshRemoteAppServer: sshRemoteAppServer")
+        Self.assertSource(appServerProtocolText, containsAll: [
+            "protocol SSHRemoteAppServerExecuting",
+            "case unavailableBeforeExecution",
+            "case executionStateUnknown"
+        ])
+        Self.assertSource(appServerClientText, containsAll: [
+            "app-server --stdio",
+            "command/exec",
+            "requestMayHaveStarted",
+            ".executionStateUnknown"
+        ])
+        Self.assertSource(appServerClientText, excludes: "retry")
+        Self.assertSource(appServerPoolText, containsAll: [
+            "actor SSHRemoteAppServerPool",
+            "clients: [ConnectionKey: SSHRemoteAppServerClient]",
+            "withTaskCancellationHandler",
+            "disconnectAll"
+        ])
+        Self.assertSource(executorText, containsAll: [
+            "case .unavailableBeforeExecution:",
+            "case .executionStateUnknown(let detail):",
+            "did not retry it to avoid duplicate changes",
+            "EnvironmentOverridePolicy.validateOverrides",
+            "Shell stdin must be at most 1048576 UTF-8 bytes.",
+            "Shell timeoutSeconds must be between 1 and 1800."
+        ])
+        Self.assertSource(appServerTestsText, containsAll: [
+            "testExecutesCommandsThroughOnePersistentRemoteAppServer",
+            "testReportsUnavailableBeforeExecutionWhenRemoteBinaryCannotStart",
+            "testDoesNotClassifyDisconnectAfterDispatchAsSafeToRetry",
+            "testDefinitiveRPCRejectionDoesNotBecomeUnknownOrBreakTheSession",
+            "testCancellationDropsUncertainSessionBeforeNextCommand"
+        ])
         Self.assertSource(toolRunsText, contains: "WorkspaceToolRunCoordinator")
         Self.assertSource(try Self.appSourceText(named: "WorkspaceToolRunCoordinator.swift"), contains: "WorkspaceToolCallExecutorFactory.executor")
         Self.assertSource(try Self.appSourceText(named: "WorkspaceToolCallExecutorFactory.swift"), contains: "WorkspaceToolCallExecutor(")
