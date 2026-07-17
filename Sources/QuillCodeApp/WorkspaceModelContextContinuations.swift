@@ -31,6 +31,12 @@ private struct ContextContinuationPreparation {
 extension QuillCodeWorkspaceModel {
     @discardableResult
     func startForkThread(strategy: WorkspaceThreadForkStrategy) -> Bool {
+        // The model-backed branch would send the transcript to an auxiliary summary model AND write
+        // a durable continuation — both forbidden for ephemeral threads. The synchronous forkThread
+        // fallback carries its own guard; this covers the async path.
+        if let source = selectedThread, refuseDurableContinuation(of: source, action: "fork") {
+            return false
+        }
         guard strategy == .summarizedContext, contextSummaryGenerator.isModelBacked else {
             return forkThread(strategy: strategy) != nil
         }
@@ -65,6 +71,9 @@ extension QuillCodeWorkspaceModel {
         guard let sourceID = selectedContextSummarySourceID(),
               let source = contextSummarySourceThread(sourceID)
         else { return false }
+        if refuseDurableContinuation(of: source, action: "compact") {
+            return false
+        }
         let hooks = pluginCompactionHookExecutor(for: source)
         guard contextSummaryGenerator.isModelBacked || hooks.hasExecutableHooks else {
             return compactContext() != nil
@@ -221,6 +230,9 @@ extension QuillCodeWorkspaceModel {
         purpose: WorkspaceContextSummaryPurpose
     ) async -> ContextContinuationPreparation? {
         guard let source = contextSummarySourceThread(sourceID) else { return nil }
+        // Belt to the entry guards: NO path may ship an ephemeral transcript to the auxiliary
+        // summary model or mint a durable continuation from it.
+        guard !source.runtimeContext.isEphemeral else { return nil }
         let projectID = knownProjectID(source.projectID)
         let summary = await configuredSummary(for: source, purpose: purpose)
         recordContextSummaryFinished(sourceID: sourceID, summary: summary, purpose: purpose)

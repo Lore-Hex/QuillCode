@@ -57,7 +57,11 @@ extension QuillCodeWorkspaceModel {
         // incognito send otherwise lingers, provider error text included, in the new thread.
         setLastError(nil)
         if root.selectedThreadID == current.id {
-            root.selectedThreadID = nil
+            // Land the selection back on the pruned history's current anchor (not nil): the caller's
+            // next navigation records FROM this location, and an empty old-location mismatch would
+            // make recordTransition reset the whole history — losing Back to everything before the
+            // incognito detour.
+            root.selectedThreadID = navigationHistory.currentLocation?.threadID
         }
         return true
     }
@@ -109,6 +113,13 @@ extension QuillCodeWorkspaceModel {
         recordsNavigation: Bool = true,
         sessionStartSource: ProjectPluginSessionStartSource = .startup
     ) -> UUID {
+        // The common created-thread selection boundary: every path that lands here while an incognito
+        // thread is selected (worktree create/open, forks, quick chats — not just newChat) is leaving
+        // that session, so the discard must run BEFORE the navigation snapshot below records a
+        // transition from a location that is about to be pruned.
+        if thread.id != root.selectedThreadID {
+            _ = discardIncognitoThreadOnExit()
+        }
         let previousLocation = currentNavigationLocation
         // Leaving the current thread for a newly created one (New Chat / fork / compact): persist its
         // return watermark, mirroring the harness's newChat() → markTranscriptSeen.

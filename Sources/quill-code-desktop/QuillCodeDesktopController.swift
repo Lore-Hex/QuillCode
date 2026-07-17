@@ -116,6 +116,9 @@ final class QuillCodeDesktopController: ObservableObject {
         // incognito: it keys off the side-conversation parent.)
         workspaceModel.onEphemeralThreadDiscarded = { [tasks] threadID in
             tasks.cancel(.send(threadID))
+            // A current-thread code review occupies its own task slot; its reviewer provider call
+            // and read tools must stop with the session too.
+            tasks.cancel(.codeReview(threadID))
         }
         let initialState = modelStateCoordinator.initialState(from: model)
         self.surface = initialState.surface

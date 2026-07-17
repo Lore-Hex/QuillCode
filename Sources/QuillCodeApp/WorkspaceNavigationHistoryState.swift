@@ -34,6 +34,11 @@ public struct WorkspaceNavigationHistoryState: Codable, Sendable, Hashable {
         }
     }
 
+    /// The entry Back/Forward are currently anchored on, or nil when the history is empty.
+    public var currentLocation: WorkspaceNavigationLocation? {
+        entries.indices.contains(currentIndex) ? entries[currentIndex] : nil
+    }
+
     public var canGoBack: Bool {
         currentIndex > 0 && entries.indices.contains(currentIndex)
     }

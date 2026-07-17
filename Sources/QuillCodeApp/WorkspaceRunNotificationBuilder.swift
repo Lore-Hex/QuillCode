@@ -31,7 +31,9 @@ enum WorkspaceRunNotificationBuilder {
             budgetStop = .flailed(reason: "")
         }
         return AgentRunNotificationPlanner.notification(
-            threadTitle: thread.title,
+            // Defense in depth on top of the rename refusal: no incognito title variant may reach
+            // durable OS notification history.
+            threadTitle: thread.runtimeContext.isIncognito ? "Incognito" : thread.title,
             threadID: thread.id,
             didFail: didFail,
             pendingApprovalSummary: pending?.toolCall.name,

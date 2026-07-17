@@ -1,5 +1,7 @@
 import XCTest
+import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 @MainActor
@@ -353,6 +355,106 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
 
         XCTAssertFalse(notification.body.contains(secret), notification.body)
         XCTAssertFalse(notification.title.contains(secret))
+    }
+
+    func testIncognitoRunnerRetargetsWebSearchToTheE2ERoute() throws {
+        var baseRunner = AgentRunner()
+        baseRunner.webSearch = TrustedRouterWebSearchClient(model: TrustedRouterDefaults.defaultModel)
+
+        let runner = WorkspaceAgentSendSessionFactory(
+            baseRunner: baseRunner,
+            selectedProject: nil,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: URL(fileURLWithPath: "/tmp")
+        ).configuredRunner(
+            modelID: TrustedRouterDefaults.e2eModel,
+            threadID: UUID(),
+            threadIsIncognito: true
+        )
+
+        // host.web.search makes its own chat-completions request with the private query — it must
+        // ride the E2E route, never the default model.
+        XCTAssertEqual(
+            (runner.webSearch as? TrustedRouterWebSearchClient)?.model,
+            TrustedRouterDefaults.e2eModel
+        )
+    }
+
+    func testAsyncForkAndCompactEntriesAreRefusedForIncognito() {
+        let model = model(threads: [], selectedThreadID: nil)
+        let incognitoID = model.newIncognitoChat()
+        model.mutateThread(incognitoID) { thread in
+            thread.messages.append(.init(role: .user, content: "private question"))
+        }
+
+        // The model-backed summary continuations bypass the synchronous fork/compact helpers; their
+        // entry points must refuse too (they'd ship the transcript to an auxiliary model AND write a
+        // durable continuation).
+        XCTAssertFalse(model.startForkThread(strategy: .summarizedContext))
+        XCTAssertFalse(model.startCompactContext(workspaceRoot: URL(fileURLWithPath: "/tmp")))
+        XCTAssertEqual(model.root.threads.count, 1)
+    }
+
+    func testRenamingAnIncognitoThreadIsRefused() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        let incognitoID = model.newIncognitoChat()
+
+        XCTAssertFalse(model.renameThread(incognitoID, to: "secret project title"))
+
+        XCTAssertEqual(try XCTUnwrap(model.selectedThread).title, "Incognito")
+        XCTAssertNotNil(model.lastError)
+    }
+
+    func testNotificationTitleIsFixedEvenIfAnIncognitoTitleWasMutated() throws {
+        // Defense in depth: even if some path mutates the title, notifications never carry it.
+        var thread = WorkspaceThreadCreationEngine.incognitoThread(projectID: nil, mode: .auto)
+        thread.title = "secret project title"
+        thread.messages.append(.init(role: .user, content: "question"))
+        thread.messages.append(.init(role: .assistant, content: "answer"))
+
+        let notification = try XCTUnwrap(
+            WorkspaceRunNotificationBuilder.notification(thread: thread, didFail: false)
+        )
+
+        XCTAssertFalse(notification.title.contains("secret project title"))
+        XCTAssertFalse(notification.body.contains("secret project title"))
+    }
+
+    func testBackNavigationStillReachesThePreIncognitoThread() throws {
+        let durable = ChatThread(
+            title: "Durable work",
+            messages: [.init(role: .user, content: "hello")]
+        )
+        let model = model(threads: [durable], selectedThreadID: durable.id)
+
+        _ = model.newIncognitoChat()
+        let newChatID = model.newChat()
+
+        // The incognito detour is collapsed, not history-resetting: Back from the new chat must
+        // still reach the durable thread the user was on before going incognito.
+        XCTAssertEqual(model.root.selectedThreadID, newChatID)
+        XCTAssertTrue(model.navigateBackInWorkspace(), "history must survive the incognito collapse")
+        XCTAssertEqual(model.root.selectedThreadID, durable.id)
+    }
+
+    func testDirectThreadInsertionDiscardsTheSelectedIncognitoThread() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        let incognitoID = model.newIncognitoChat()
+
+        // Worktree create/open (and other creation flows) insert + select directly, bypassing
+        // newChat/selectThread — the common insertion boundary must discard the outgoing session.
+        let created = ChatThread(title: "Worktree task")
+        _ = model.insertCreatedThread(created, selectedProjectID: nil, saveThread: false)
+
+        XCTAssertEqual(model.root.selectedThreadID, created.id)
+        XCTAssertFalse(model.root.threads.contains { $0.id == incognitoID })
     }
 
     private func model(threads: [ChatThread], selectedThreadID: UUID?) -> QuillCodeWorkspaceModel {

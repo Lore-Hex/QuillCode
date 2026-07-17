@@ -73,6 +73,15 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
                 compaction.compactor.summarizer = DeterministicThreadCompactionSummarizer()
                 activeRunner.compaction = compaction
             }
+            // host.web.search makes its own chat-completions request carrying the private query —
+            // retarget it onto the E2E route, or drop the tool entirely for client types we can't
+            // retarget (never let a search silently ride the default non-E2E model).
+            if var webSearch = activeRunner.webSearch as? TrustedRouterWebSearchClient {
+                webSearch.model = TrustedRouterDefaults.e2eModel
+                activeRunner.webSearch = webSearch
+            } else {
+                activeRunner.webSearch = nil
+            }
         }
         if let permissionRules {
             activeRunner.safety = PermissionRuleGatedSafetyReviewer(

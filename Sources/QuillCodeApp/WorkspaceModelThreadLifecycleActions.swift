@@ -13,7 +13,14 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func renameThread(_ id: UUID, to title: String) -> Bool {
-        updateAndSaveThread { threads in
+        // A typed /rename bypasses palette enablement. Ephemeral titles must stay fixed: the title
+        // reaches desktop notifications (persisted by OS notification history), and "Incognito" /
+        // "Side: …" is also what keeps those surfaces content-free.
+        if root.threads.first(where: { $0.id == id })?.runtimeContext.isEphemeral == true {
+            setLastError("Incognito and side conversations can't be renamed.")
+            return false
+        }
+        return updateAndSaveThread { threads in
             WorkspaceThreadLifecycleEngine.renameThread(id, to: title, threads: &threads)
         } != nil
     }

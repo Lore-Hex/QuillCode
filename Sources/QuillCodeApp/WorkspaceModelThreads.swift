@@ -46,8 +46,9 @@ extension QuillCodeWorkspaceModel {
     /// Fork/compact/duplicate all create a DURABLE (saveThread: true) copy of the source transcript —
     /// which would silently break an ephemeral thread's "never saved" promise. The palette disables
     /// these commands for ephemeral threads, but typed /fork, /compact, and /duplicate bypass
-    /// isEnabled and land here, so the guard must live at the model level.
-    private func refuseDurableContinuation(of source: ChatThread, action: String) -> Bool {
+    /// isEnabled and land here (and in the async model-backed-summary continuations), so the guard
+    /// must live at the model level.
+    func refuseDurableContinuation(of source: ChatThread, action: String) -> Bool {
         guard source.runtimeContext.isEphemeral else { return false }
         setLastError("Can't \(action) an incognito or side conversation: it would save the private transcript.")
         return true
