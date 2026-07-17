@@ -12,7 +12,10 @@ final class ParityAppServerExperimentalFeaturesGateTests: QuillCodeParityTestCas
         )
         let webSocket = try text(root, "Sources/QuillCodeCLI/AppServerWebSocketTransport.swift")
         let unixSocket = try text(root, "Sources/QuillCodeCLI/AppServerUnixSocketTransport.swift")
-        let turns = try text(root, "Sources/QuillCodeCLI/AppServerSessionTurns.swift")
+        let turnExecution = try text(
+            root,
+            "Sources/QuillCodeCLI/AppServerSessionTurnExecution.swift"
+        )
         let parser = try text(root, "Sources/QuillCodeCLI/CLIArgumentParser.swift")
         let featureTests = try text(
             root,
@@ -54,7 +57,7 @@ final class ParityAppServerExperimentalFeaturesGateTests: QuillCodeParityTestCas
         ])
         Self.assertSource(webSocket, contains: "runtimeFeatureStore: runtimeFeatureStore")
         Self.assertSource(unixSocket, contains: "runtimeFeatureStore: runtimeFeatureStore")
-        Self.assertSource(turns, containsAll: [
+        Self.assertSource(turnExecution, containsAll: [
             "experimentalFeatureEnabled(",
             ".memories,",
             "modelThread.memories = []",

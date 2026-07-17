@@ -22,6 +22,10 @@ struct AppServerWebSocketTransport: Sendable {
         let listener = try TCPSocketListener(host: host, port: requestedPort)
         let connections = AppServerSocketConnectionPool()
         let runtimeFeatureStore = AppServerRuntimeFeatureStore()
+        let environmentRegistry = AppServerEnvironmentRegistry(
+            localCWD: currentDirectory,
+            environment: environment
+        )
         let displayHost = host.contains(":") ? "[\(host)]" : host
         await diagnostics.writeStandardErrorLine(
             "quill-code app-server: listening on ws://\(displayHost):\(listener.port)"
@@ -36,7 +40,8 @@ struct AppServerWebSocketTransport: Sendable {
                     do {
                         try await AppServerWebSocketConnectionHandler(
                             runnerFactory: runnerFactory,
-                            runtimeFeatureStore: runtimeFeatureStore
+                            runtimeFeatureStore: runtimeFeatureStore,
+                            environmentRegistry: environmentRegistry
                         ).run(
                             request: request,
                             environment: environment,
@@ -62,6 +67,7 @@ struct AppServerWebSocketTransport: Sendable {
         }
         listener.close()
         await connections.cancelAndWait()
+        await environmentRegistry.closeAll()
         if let listenerError { throw listenerError }
         try Task.checkCancellation()
     }
@@ -78,6 +84,7 @@ struct AppServerWebSocketConnectionHandler: Sendable {
 
     let runnerFactory: CLIAgentRunnerFactory
     let runtimeFeatureStore: AppServerRuntimeFeatureStore
+    let environmentRegistry: AppServerEnvironmentRegistry
 
     func run(
         request: CLIAppServerRequest,
@@ -194,7 +201,8 @@ struct AppServerWebSocketConnectionHandler: Sendable {
         do {
             try await AppServerConnectionDriver(
                 runnerFactory: runnerFactory,
-                runtimeFeatureStore: runtimeFeatureStore
+                runtimeFeatureStore: runtimeFeatureStore,
+                environmentRegistry: environmentRegistry
             ).run(
                 request: request,
                 environment: environment,

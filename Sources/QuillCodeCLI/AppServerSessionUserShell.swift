@@ -3,6 +3,42 @@ import QuillCodeAgent
 import QuillCodeCore
 import QuillCodeTools
 
+private enum AppServerUserShellDestination {
+    case turn(id: String, settings: AppServerThreadSettings)
+    case compaction(id: String, settings: AppServerThreadSettings)
+    case review(id: String, settings: AppServerThreadSettings)
+    case existingStandalone(id: String, settings: AppServerThreadSettings)
+    case newStandalone(id: String, record: AppServerThreadRecord)
+
+    var turnID: String {
+        switch self {
+        case .turn(let id, _),
+             .compaction(let id, _),
+             .review(let id, _),
+             .existingStandalone(let id, _),
+             .newStandalone(let id, _):
+            id
+        }
+    }
+
+    var settings: AppServerThreadSettings {
+        switch self {
+        case .turn(_, let settings),
+             .compaction(_, let settings),
+             .review(_, let settings),
+             .existingStandalone(_, let settings):
+            settings
+        case .newStandalone(_, let record):
+            record.settings
+        }
+    }
+
+    var startsStandaloneTurn: Bool {
+        if case .newStandalone = self { return true }
+        return false
+    }
+}
+
 extension AppServerSession {
     static let userShellTimeoutSeconds: TimeInterval = 60 * 60
 
@@ -22,104 +58,39 @@ extension AppServerSession {
             throw AppServerRPCError.invalidRequest("command must not be empty")
         }
 
-        let record = try await loadRecord(threadID)
+        _ = try await loadRecord(threadID)
         markThreadLoaded(threadID, subscription: .ifNew)
         let itemID = UUID().uuidString.lowercased()
-        let shellExecutableURL = userShellExecutableURL()
 
-        let launch: UserShellLaunch
-        if let active = activeTurns[threadID] {
-            launch = UserShellLaunch(
+        while true {
+            let destination = try await userShellDestination(threadID: threadID)
+            let launch = try await userShellLaunch(
                 threadID: threadID,
-                turnID: active.id,
+                turnID: destination.turnID,
                 itemID: itemID,
                 command: command,
-                cwd: active.settings.cwd,
-                shellExecutableURL: shellExecutableURL,
-                startsStandaloneTurn: false
+                settings: destination.settings,
+                startsStandaloneTurn: destination.startsStandaloneTurn
             )
-        } else if let active = activeCompactions[threadID] {
-            launch = UserShellLaunch(
+            guard try await commitUserShellDestination(
+                destination,
                 threadID: threadID,
-                turnID: active.id,
-                itemID: itemID,
-                command: command,
-                cwd: active.settings.cwd,
-                shellExecutableURL: shellExecutableURL,
-                startsStandaloneTurn: false
-            )
-        } else if let active = activeReviews[threadID] {
-            launch = UserShellLaunch(
-                threadID: threadID,
-                turnID: active.id,
-                itemID: itemID,
-                command: command,
-                cwd: active.settings.cwd,
-                shellExecutableURL: shellExecutableURL,
-                startsStandaloneTurn: false
-            )
-        } else if var active = activeUserShellTurns[threadID] {
-            active.pendingItemIDs.insert(itemID)
-            activeUserShellTurns[threadID] = active
-            launch = UserShellLaunch(
-                threadID: threadID,
-                turnID: active.id,
-                itemID: itemID,
-                command: command,
-                cwd: active.settings.cwd,
-                shellExecutableURL: shellExecutableURL,
-                startsStandaloneTurn: false
-            )
-        } else {
-            guard !activeRollbacks.contains(threadID) else {
-                throw AppServerRPCError.invalidRequest(
-                    "the active thread operation cannot accept a user shell command"
-                )
+                itemID: itemID
+            ) else {
+                continue
             }
-            let turnID = UUID().uuidString.lowercased()
-            activeUserShellTurns[threadID] = ActiveUserShellTurn(
-                id: turnID,
-                startedAt: Date(),
-                settings: record.settings,
-                latestThread: record.thread,
-                pendingItemIDs: [itemID],
-                lifecycleStarted: false,
-                interrupted: false,
-                persistenceFailure: nil
+            activeUserShellCommands[itemID] = ActiveUserShellCommand(
+                launch: launch,
+                session: nil,
+                task: nil,
+                terminationRequested: false
             )
-            launch = UserShellLaunch(
-                threadID: threadID,
-                turnID: turnID,
-                itemID: itemID,
-                command: command,
-                cwd: record.settings.cwd,
-                shellExecutableURL: shellExecutableURL,
-                startsStandaloneTurn: true
-            )
+            return launch
         }
-
-        activeUserShellCommands[itemID] = ActiveUserShellCommand(
-            launch: launch,
-            session: nil,
-            task: nil,
-            terminationRequested: false
-        )
-        return launch
     }
 
     func launchUserShellCommand(_ launch: UserShellLaunch) async {
         guard var commandState = activeUserShellCommands[launch.itemID] else { return }
-        let request = ShellExecutionRequest(
-            command: launch.command,
-            cwd: launch.cwd,
-            timeoutSeconds: Self.userShellTimeoutSeconds,
-            environment: environment.isEmpty ? nil : environment,
-            shellExecutableURL: launch.shellExecutableURL
-        )
-        let session = ShellToolExecutor().startStreamingSession(request)
-        commandState.session = session
-        activeUserShellCommands[launch.itemID] = commandState
-        if inputFinished { session.cancel() }
 
         if launch.startsStandaloneTurn,
            var turn = activeUserShellTurns[launch.threadID],
@@ -153,20 +124,46 @@ extension AppServerSession {
             date: startedAt
         ))
 
-        let task = Task { [weak self] in
-            guard let self else { return }
-            await self.consumeUserShellEvents(
-                launch: launch,
-                session: session,
-                startedAt: startedAt
+        let task: Task<Void, Never>
+        if let remoteExecutor = launch.remoteExecutor {
+            task = Task { [weak self] in
+                guard let self else { return }
+                await self.consumeRemoteUserShellCommand(
+                    launch: launch,
+                    executor: remoteExecutor,
+                    startedAt: startedAt
+                )
+            }
+        } else {
+            let request = ShellExecutionRequest(
+                command: launch.command,
+                cwd: launch.cwd,
+                timeoutSeconds: Self.userShellTimeoutSeconds,
+                environment: environment.isEmpty ? nil : environment,
+                shellExecutableURL: launch.shellExecutableURL
             )
+            let session = ShellToolExecutor().startStreamingSession(request)
+            commandState.session = session
+            activeUserShellCommands[launch.itemID] = commandState
+            task = Task { [weak self] in
+                guard let self else { return }
+                await self.consumeUserShellEvents(
+                    launch: launch,
+                    session: session,
+                    startedAt: startedAt
+                )
+            }
         }
         guard var launched = activeUserShellCommands[launch.itemID] else {
-            session.cancel()
+            task.cancel()
             return
         }
         launched.task = task
         activeUserShellCommands[launch.itemID] = launched
+        if inputFinished {
+            launched.session?.cancel()
+            task.cancel()
+        }
     }
 
     func cancelUserShellCommands(threadID: UUID, turnID: String) {
@@ -199,6 +196,7 @@ extension AppServerSession {
             command.terminationRequested = true
             activeUserShellCommands[itemID] = command
             command.session?.cancel()
+            command.task?.cancel()
         }
         return itemIDs.count
     }
@@ -238,5 +236,118 @@ extension AppServerSession {
             return fallback
         }
         return URL(fileURLWithPath: path).standardizedFileURL
+    }
+
+    private func userShellLaunch(
+        threadID: UUID,
+        turnID: String,
+        itemID: String,
+        command: String,
+        settings: AppServerThreadSettings,
+        startsStandaloneTurn: Bool
+    ) async throws -> UserShellLaunch {
+        let selected = try await executionEnvironment(for: settings)
+        switch selected.access {
+        case .disabled:
+            throw AppServerRPCError.invalidRequest(
+                "environment access is disabled for this thread"
+            )
+        case .local:
+            let executable = userShellExecutableURL()
+            return UserShellLaunch(
+                threadID: threadID,
+                turnID: turnID,
+                itemID: itemID,
+                command: command,
+                cwd: selected.workspaceRoot,
+                shellExecutableURL: executable,
+                shellExecutablePath: executable.path,
+                remoteExecutor: nil,
+                startsStandaloneTurn: startsStandaloneTurn
+            )
+        case .remote(let executor):
+            let workspace = await executor.logicalWorkspaceURL
+            let shellPath = executor.environmentInfo.shell.path
+            return UserShellLaunch(
+                threadID: threadID,
+                turnID: turnID,
+                itemID: itemID,
+                command: command,
+                cwd: workspace,
+                shellExecutableURL: URL(fileURLWithPath: shellPath),
+                shellExecutablePath: shellPath,
+                remoteExecutor: executor,
+                startsStandaloneTurn: startsStandaloneTurn
+            )
+        }
+    }
+
+    private func userShellDestination(
+        threadID: UUID
+    ) async throws -> AppServerUserShellDestination {
+        if let active = activeTurns[threadID] {
+            return .turn(id: active.id, settings: active.settings)
+        }
+        if let active = activeCompactions[threadID] {
+            return .compaction(id: active.id, settings: active.settings)
+        }
+        if let active = activeReviews[threadID] {
+            return .review(id: active.id, settings: active.settings)
+        }
+        if let active = activeUserShellTurns[threadID] {
+            return .existingStandalone(id: active.id, settings: active.settings)
+        }
+        guard !activeRollbacks.contains(threadID) else {
+            throw AppServerRPCError.invalidRequest(
+                "the active thread operation cannot accept a user shell command"
+            )
+        }
+        return .newStandalone(
+            id: UUID().uuidString.lowercased(),
+            record: try await loadRecord(threadID)
+        )
+    }
+
+    private func commitUserShellDestination(
+        _ destination: AppServerUserShellDestination,
+        threadID: UUID,
+        itemID: String
+    ) async throws -> Bool {
+        switch destination {
+        case .turn(let id, _):
+            return activeTurns[threadID]?.id == id
+        case .compaction(let id, _):
+            return activeCompactions[threadID]?.id == id
+        case .review(let id, _):
+            return activeReviews[threadID]?.id == id
+        case .existingStandalone(let id, _):
+            guard var active = activeUserShellTurns[threadID], active.id == id else {
+                return false
+            }
+            active.pendingItemIDs.insert(itemID)
+            activeUserShellTurns[threadID] = active
+            return true
+        case .newStandalone(let id, let record):
+            let latest = try await loadRecord(threadID)
+            guard latest.settings == record.settings,
+                  activeTurns[threadID] == nil,
+                  activeCompactions[threadID] == nil,
+                  activeReviews[threadID] == nil,
+                  activeUserShellTurns[threadID] == nil,
+                  !activeRollbacks.contains(threadID) else {
+                return false
+            }
+            activeUserShellTurns[threadID] = ActiveUserShellTurn(
+                id: id,
+                startedAt: Date(),
+                settings: latest.settings,
+                latestThread: latest.thread,
+                pendingItemIDs: [itemID],
+                lifecycleStarted: false,
+                interrupted: false,
+                persistenceFailure: nil
+            )
+            return true
+        }
     }
 }

@@ -52,7 +52,7 @@ extension AppServerSession {
             "type": .string("commandExecution"),
             "id": .string(launch.itemID),
             "command": .string(
-                "\(launch.shellExecutableURL.path) -lc \(shellSingleQuoted(launch.command))"
+                "\(launch.shellExecutablePath) -lc \(shellSingleQuoted(launch.command))"
             ),
             "cwd": .string(launch.cwd.path),
             "processId": .null,

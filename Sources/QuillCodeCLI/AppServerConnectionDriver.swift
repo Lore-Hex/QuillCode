@@ -3,13 +3,16 @@ import Foundation
 struct AppServerConnectionDriver: Sendable {
     let runnerFactory: CLIAgentRunnerFactory
     let runtimeFeatureStore: AppServerRuntimeFeatureStore
+    let environmentRegistry: AppServerEnvironmentRegistry?
 
     init(
         runnerFactory: @escaping CLIAgentRunnerFactory,
-        runtimeFeatureStore: AppServerRuntimeFeatureStore = AppServerRuntimeFeatureStore()
+        runtimeFeatureStore: AppServerRuntimeFeatureStore = AppServerRuntimeFeatureStore(),
+        environmentRegistry: AppServerEnvironmentRegistry? = nil
     ) {
         self.runnerFactory = runnerFactory
         self.runtimeFeatureStore = runtimeFeatureStore
+        self.environmentRegistry = environmentRegistry
     }
 
     func run(
@@ -19,14 +22,26 @@ struct AppServerConnectionDriver: Sendable {
         lines: AsyncThrowingStream<Data, Error>,
         sink: @escaping AppServerMessageSink
     ) async throws {
-        let session = try AppServerSession(
-            request: request,
-            environment: environment,
-            currentDirectory: currentDirectory,
-            runnerFactory: runnerFactory,
-            runtimeFeatureStore: runtimeFeatureStore,
-            sink: sink
+        let registry = environmentRegistry ?? AppServerEnvironmentRegistry(
+            localCWD: currentDirectory,
+            environment: environment
         )
+        let ownsRegistry = environmentRegistry == nil
+        let session: AppServerSession
+        do {
+            session = try AppServerSession(
+                request: request,
+                environment: environment,
+                currentDirectory: currentDirectory,
+                runnerFactory: runnerFactory,
+                runtimeFeatureStore: runtimeFeatureStore,
+                environmentRegistry: registry,
+                sink: sink
+            )
+        } catch {
+            if ownsRegistry { await registry.closeAll() }
+            throw error
+        }
         let concurrentRequests = AppServerConcurrentRequestPool()
         var inputError: (any Error)?
         do {
@@ -44,6 +59,7 @@ struct AppServerConnectionDriver: Sendable {
         await session.finishInput()
         await concurrentRequests.waitForAll()
         await session.waitForActiveTurns()
+        if ownsRegistry { await registry.closeAll() }
         if let inputError { throw inputError }
     }
 
