@@ -2081,12 +2081,15 @@
   Every process and filesystem request carries that context explicitly. Cross-drive Windows roots
   fail closed, and process launch sends false/null managed-network fields until QuillCode owns a real
   managed proxy rather than claiming enforcement it cannot provide.
-- **Deferred boundary:** Windows remote search remains explicit partial-parity work rather than
-  fabricated local behavior.
+- **Remote search boundary:** Remote `host.file.search` uses exec-server filesystem RPCs rather
+  than target shell commands. The scanner canonicalizes the selected root, walks bounded directory
+  entries, skips build/dependency directories plus oversized or non-UTF-8 files, and returns the same
+  structured match payload for POSIX and Windows/PowerShell remotes without `rg`, `grep`, or host-local
+  fallback.
 - **Evidence:** Registry, target-path, tool-router, session, direct-shell, and real URLSession WebSocket
   tests cover status shapes, source-ordered future transitions, idle disconnect, selected-thread
   fanout, selection, replacement, concurrency, reconnection, multi-read cursors, late output, context,
-  path, exact sandbox serialization/forwarding, and no-fallback behavior. A built `quill-code
+  path, cross-platform remote search, exact sandbox serialization/forwarding, and no-fallback behavior. A built `quill-code
   app-server` smoke talks to a raw loopback
   exec-server, forces a disconnect and resumable reconnect, verifies lifecycle methods and multi-read
   remote output, asserts the read-only profile on filesystem and process requests, and uses local

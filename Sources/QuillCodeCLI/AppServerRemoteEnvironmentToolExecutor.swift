@@ -255,6 +255,8 @@ actor AppServerRemoteEnvironmentToolExecutor {
 
     private func searchFiles(_ arguments: ToolArguments) async throws -> ToolResult {
         let query = try arguments.requiredString("query")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { throw FileToolError.emptySearchQuery }
         let requested = arguments.string("path") ?? "."
         let resolved = try workspace.resolve(requested, defaultingToRoot: true)
         let canonical = try await canonicalized(resolved)
@@ -262,40 +264,21 @@ actor AppServerRemoteEnvironmentToolExecutor {
             max(arguments.int("maxResults") ?? Self.defaultSearchLimit, 1),
             Self.maximumSearchLimit
         )
-        guard Self.isPOSIXShell(environmentInfo.shell.name) else {
-            return ToolResult(
-                ok: false,
-                error: "Remote file search is not available for \(environmentInfo.shell.name) environments yet."
-            )
-        }
-
-        let command = Self.searchCommand(query: query, path: canonical.relativePath)
-        let result = try await runCommand(
-            command,
-            cwd: workspace.root,
-            environment: [:],
-            timeout: 60
+        var scanner = RemoteFileSearchScanner(
+            client: client,
+            sandbox: sandbox,
+            workspace: workspace,
+            query: query,
+            limit: limit
         )
-        if !result.ok, result.exitCode != 1 { return result }
-
-        var matches: [FileSearchMatch] = []
-        var sawAdditionalMatch = false
-        for line in result.stdout.split(separator: "\n", omittingEmptySubsequences: true) {
-            guard let match = Self.parseSearchLine(String(line)) else { continue }
-            if matches.count < limit {
-                matches.append(match)
-            } else {
-                sawAdditionalMatch = true
-                break
-            }
-        }
+        let matches = try await scanner.search(startingAt: canonical)
         let output = FileSearchToolOutput(
             query: query,
             path: canonical.relativePath,
             matches: matches,
-            scannedFiles: 0,
-            skippedFiles: 0,
-            truncated: sawAdditionalMatch
+            scannedFiles: scanner.scannedFiles,
+            skippedFiles: scanner.skippedFiles,
+            truncated: scanner.truncated
         )
         return ToolResult(
             ok: true,
@@ -573,45 +556,6 @@ actor AppServerRemoteEnvironmentToolExecutor {
         }
     }
 
-    private static func isPOSIXShell(_ name: String) -> Bool {
-        !["powershell", "pwsh", "cmd", "cmd.exe"].contains(name.lowercased())
-    }
-
-    private static func searchCommand(query: String, path: String) -> String {
-        let quotedQuery = shellQuote(query)
-        let quotedPath = shellQuote(path)
-        return """
-        if command -v rg >/dev/null 2>&1; then
-          rg --line-number --no-heading --color never --fixed-strings \
-            --glob '!.git/**' --glob '!.build/**' --glob '!build/**' \
-            --glob '!node_modules/**' -- \(quotedQuery) \(quotedPath)
-        else
-          grep -R -n -F --exclude-dir=.git --exclude-dir=.build \
-            --exclude-dir=build --exclude-dir=node_modules -- \(quotedQuery) \(quotedPath)
-        fi
-        """
-    }
-
-    private static func shellQuote(_ value: String) -> String {
-        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
-    }
-
-    private static func parseSearchLine(_ line: String) -> FileSearchMatch? {
-        guard let first = line.firstIndex(of: ":") else { return nil }
-        let afterFirst = line.index(after: first)
-        guard let second = line[afterFirst...].firstIndex(of: ":"),
-              let lineNumber = Int(line[afterFirst..<second]) else {
-            return nil
-        }
-        let path = String(line[..<first])
-        let previewStart = line.index(after: second)
-        let rawPreview = String(line[previewStart...])
-        let preview = rawPreview.count > 240
-            ? String(rawPreview.prefix(240)) + "..."
-            : rawPreview
-        return FileSearchMatch(path: path, line: lineNumber, preview: preview)
-    }
-
     private static func entrySort(
         _ lhs: AppServerRemoteDirectoryEntry,
         _ rhs: AppServerRemoteDirectoryEntry
@@ -660,5 +604,175 @@ private enum AppServerRemoteToolError: Error, LocalizedError, Sendable, Equatabl
         switch self {
         case .invalidArguments(let message): message
         }
+    }
+}
+
+private struct RemoteFileSearchScanner {
+    private static let maximumSearchFileBytes = 1_000_000
+    private static let maximumSearchScannedFiles = 2_000
+    private static let maximumSearchPreviewCharacters = 240
+    private static let excludedDirectoryNames: Set<String> = [
+        ".build",
+        ".git",
+        ".swiftpm",
+        "DerivedData",
+        "build",
+        "node_modules"
+    ]
+
+    private let client: any AppServerExecServerClient
+    private let sandbox: AppServerExecServerSandboxContext
+    private let workspace: AppServerRemoteWorkspacePath
+    private let query: String
+    private let lowercasedQuery: String
+    private let limit: Int
+
+    private(set) var scannedFiles = 0
+    private(set) var skippedFiles = 0
+    private(set) var truncated = false
+    private var matches: [FileSearchMatch] = []
+
+    init(
+        client: any AppServerExecServerClient,
+        sandbox: AppServerExecServerSandboxContext,
+        workspace: AppServerRemoteWorkspacePath,
+        query: String,
+        limit: Int
+    ) {
+        self.client = client
+        self.sandbox = sandbox
+        self.workspace = workspace
+        self.query = query
+        self.lowercasedQuery = query.lowercased()
+        self.limit = limit
+    }
+
+    mutating func search(
+        startingAt root: AppServerRemoteWorkspacePath.Resolved
+    ) async throws -> [FileSearchMatch] {
+        try await scan(root)
+        return matches
+    }
+
+    private mutating func scan(
+        _ path: AppServerRemoteWorkspacePath.Resolved
+    ) async throws {
+        guard !truncated else { return }
+        let metadata = try await client.metadata(
+            at: path.uri,
+            sandbox: sandbox
+        )
+        if metadata.isDirectory {
+            guard !shouldSkipDirectory(path) else { return }
+            let entries = try await client.readDirectory(
+                at: path.uri,
+                sandbox: sandbox
+            )
+                .sorted(by: Self.entrySort)
+            for entry in entries {
+                guard !truncated else { break }
+                let child = try workspace.resolve(
+                    path.relativePath == "."
+                        ? entry.fileName
+                        : "\(path.relativePath)/\(entry.fileName)"
+                )
+                if entry.isDirectory {
+                    guard !shouldSkipDirectory(child) else { continue }
+                    try await scan(child)
+                } else if entry.isFile {
+                    try await scanFile(child)
+                } else {
+                    skippedFiles += 1
+                }
+            }
+            return
+        }
+        guard metadata.isFile else {
+            skippedFiles += 1
+            return
+        }
+        try await scanFile(path, metadata: metadata)
+    }
+
+    private mutating func scanFile(
+        _ path: AppServerRemoteWorkspacePath.Resolved,
+        metadata knownMetadata: AppServerRemoteFileMetadata? = nil
+    ) async throws {
+        guard matches.count < limit,
+              scannedFiles < Self.maximumSearchScannedFiles else {
+            truncated = true
+            return
+        }
+        let metadata: AppServerRemoteFileMetadata
+        if let knownMetadata {
+            metadata = knownMetadata
+        } else {
+            metadata = try await client.metadata(
+                at: path.uri,
+                sandbox: sandbox
+            )
+        }
+        guard metadata.isFile else {
+            skippedFiles += 1
+            return
+        }
+        guard metadata.size <= Self.maximumSearchFileBytes else {
+            skippedFiles += 1
+            return
+        }
+        let data = try await client.readFile(
+            at: path.uri,
+            sandbox: sandbox
+        )
+        guard let text = String(data: data, encoding: .utf8) else {
+            skippedFiles += 1
+            return
+        }
+        scannedFiles += 1
+        appendMatches(in: text, path: path.relativePath)
+    }
+
+    private mutating func appendMatches(in text: String, path: String) {
+        for (offset, line) in text.components(separatedBy: .newlines).enumerated() {
+            guard matches.count < limit else {
+                truncated = true
+                return
+            }
+            guard line.lowercased().contains(lowercasedQuery) else { continue }
+            matches.append(FileSearchMatch(
+                path: path,
+                line: offset + 1,
+                preview: Self.boundedSearchPreview(line)
+            ))
+        }
+    }
+
+    private func shouldSkipDirectory(
+        _ path: AppServerRemoteWorkspacePath.Resolved
+    ) -> Bool {
+        guard path.relativePath != "." else { return false }
+        let name = path.relativePath.split(separator: "/").last.map(String.init)
+        guard let name else { return false }
+        return Self.excludedDirectoryNames.contains(name)
+    }
+
+    private static func entrySort(
+        _ lhs: AppServerRemoteDirectoryEntry,
+        _ rhs: AppServerRemoteDirectoryEntry
+    ) -> Bool {
+        if lhs.isDirectory != rhs.isDirectory { return lhs.isDirectory }
+        let order = lhs.fileName.localizedCaseInsensitiveCompare(rhs.fileName)
+        return order == .orderedSame ? lhs.fileName < rhs.fileName : order == .orderedAscending
+    }
+
+    private static func boundedSearchPreview(_ line: String) -> String {
+        let collapsed = line
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        guard collapsed.count > maximumSearchPreviewCharacters else {
+            return collapsed
+        }
+        return "\(collapsed.prefix(maximumSearchPreviewCharacters))..."
     }
 }
