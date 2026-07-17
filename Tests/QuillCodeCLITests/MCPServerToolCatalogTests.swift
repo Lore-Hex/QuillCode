@@ -15,10 +15,26 @@ final class MCPServerToolCatalogTests: XCTestCase {
         XCTAssertEqual(runSchema["additionalProperties"], .bool(false))
         XCTAssertEqual(runSchema["required"], .array([.string("prompt")]))
         let properties = try XCTUnwrap(runSchema["properties"]?.objectValue)
-        XCTAssertEqual(Set(properties.keys), Set([
-            "approval-policy", "base-instructions", "compact-prompt", "config", "cwd",
-            "developer-instructions", "model", "prompt", "sandbox"
-        ]))
+        let aliasProperties = MCPServerRunInput.approvalPolicyArgumentAliases
+            + MCPServerRunInput.baseInstructionsArgumentAliases
+            + MCPServerRunInput.compactPromptArgumentAliases
+            + MCPServerRunInput.developerInstructionsArgumentAliases
+            + MCPServerRunInput.sandboxArgumentAliases
+        XCTAssertEqual(Set(properties.keys), Set(
+            ["config", "cwd", "model", "prompt"] + aliasProperties
+        ))
+        for alias in MCPServerRunInput.approvalPolicyArgumentAliases {
+            XCTAssertEqual(properties[alias]?.objectValue?["enum"], .array(
+                MCPServerApprovalPolicy.allCases.map { .string($0.rawValue) }
+            ))
+        }
+        for alias in MCPServerRunInput.sandboxArgumentAliases {
+            XCTAssertEqual(properties[alias]?.objectValue?["enum"], .array([
+                .string("read-only"),
+                .string("workspace-write"),
+                .string("danger-full-access")
+            ]))
+        }
 
         let reply = try XCTUnwrap(tools[1].objectValue)
         let replySchema = try XCTUnwrap(reply["inputSchema"]?.objectValue)

@@ -2,17 +2,19 @@
 
 ## 2026-07-17: MCP run input aliases are compatible but fail closed
 
-- **Compatibility boundary:** The public `codex` MCP tool accepts Codex-style kebab-case,
-  snake_case, and camelCase spellings for top-level run arguments that clients commonly vary:
-  approval policy, sandbox mode, base instructions, compact prompt, and developer instructions.
+- **Compatibility boundary:** The public `codex` MCP tool accepts and advertises Codex-style
+  kebab-case, snake_case, and camelCase spellings for top-level run arguments that clients commonly
+  vary: approval policy, sandbox mode, base instructions, compact prompt, and developer
+  instructions.
 - **Conflict boundary:** Alias groups are mutually exclusive. If a client sends two spellings for the
   same semantic field, QuillCode rejects the call before creating or persisting a task instead of
   choosing one silently.
 - **Safety boundary:** The broader config object remains allowlisted and continues to reject
   account, secret, and unknown keys. Alias compatibility does not become arbitrary config passthrough.
-- **Evidence:** Focused MCP config-overlay tests prove snake/camel aliases normalize correctly and
-  conflicting aliases fail closed; the parity matrix records that full MCP parity still excludes
-  complete native Codex event coverage and true OS-sandbox `on-failure` retry semantics.
+- **Evidence:** Focused MCP catalog/config-overlay tests prove snake/camel aliases are visible in the
+  JSON schema, normalize correctly, and conflicting aliases fail closed; the parity matrix records
+  that full MCP parity still excludes complete native Codex event coverage and true OS-sandbox
+  `on-failure` retry semantics.
 
 ## 2026-07-16: Experimental feature state uses one real precedence chain
 
