@@ -43,7 +43,7 @@ extension AppServerSession {
     func writeCommandExec(_ value: CLIJSONValue) throws -> CLIJSONValue {
         try requireExperimentalAPI(for: "command/exec/write")
         let params = try AppServerParams(value)
-        let processID = try params.requiredString("processId", allowingEmpty: true)
+        let processID = try AppServerCommandExecRequest.requiredProcessID(from: params)
         let closeStdin = try params.optionalBool("closeStdin") ?? false
         let encoded = try params.optionalString("deltaBase64")
         guard encoded != nil || closeStdin else {
@@ -72,7 +72,7 @@ extension AppServerSession {
     func resizeCommandExec(_ value: CLIJSONValue) throws -> CLIJSONValue {
         try requireExperimentalAPI(for: "command/exec/resize")
         let params = try AppServerParams(value)
-        let processID = try params.requiredString("processId", allowingEmpty: true)
+        let processID = try AppServerCommandExecRequest.requiredProcessID(from: params)
         let size = try AppServerProcessSpawnRequest.terminalSize(
             from: params,
             required: true,
@@ -88,9 +88,8 @@ extension AppServerSession {
 
     func terminateCommandExec(_ value: CLIJSONValue) throws -> CLIJSONValue {
         try requireExperimentalAPI(for: "command/exec/terminate")
-        let processID = try AppServerParams(value).requiredString(
-            "processId",
-            allowingEmpty: true
+        let processID = try AppServerCommandExecRequest.requiredProcessID(
+            from: try AppServerParams(value)
         )
         do {
             try activeCommandExec(processID).kill()
