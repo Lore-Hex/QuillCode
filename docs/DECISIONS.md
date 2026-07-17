@@ -1530,9 +1530,11 @@
   TrustedRouter credential exists. It returns the schema-compatible `apiKey` account kind but never
   serializes the credential itself; externally managed refresh requests are type-checked and ignored.
 - **Usage contract:** `account/usage/read` aggregates only persisted local model-usage receipts into
-  UTC daily buckets and streaks. `account/rateLimits/read` exposes configured QuillCode day/week/month
-  spend controls under `quillcode-local-*` IDs and names every row as local. Neither method claims to
-  represent TrustedRouter account history, balances, or provider quotas.
+  UTC daily buckets, streaks, and prompt/completion/context token totals. Legacy total-only receipts
+  still contribute their total as context so old transcripts stay visible in accounting.
+  `account/rateLimits/read` exposes configured QuillCode day/week/month spend controls under
+  `quillcode-local-*` IDs and names every row as local. Neither method claims to represent
+  TrustedRouter account history, balances, or provider quotas.
 - **Config contract (superseded 2026-07-15):** This slice initially projected only effective model,
   reviewer, sandbox, and web-search state. The later structured-document decision above adds true
   per-key origins, raw user layers, and general value/batch mutation.

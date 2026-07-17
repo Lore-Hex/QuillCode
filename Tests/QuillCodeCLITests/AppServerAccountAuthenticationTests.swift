@@ -133,9 +133,9 @@ final class AppServerAccountAuthenticationTests: XCTestCase {
         )
         let secondCancelResult = try await fixture.output.result(id: 3)
         let completionCount = try await fixture.output.notificationCount(method: "account/login/completed")
-        let cancellationCount = await loginDriver.cancellationCount
         XCTAssertEqual(secondCancelResult?["status"]?.stringValue, "notFound")
         XCTAssertEqual(completionCount, 1)
+        let cancellationCount = try await loginDriver.waitForCancellationCount(1)
         XCTAssertEqual(cancellationCount, 1)
     }
 
@@ -387,6 +387,18 @@ private actor AccountLoginTestDriver: AppServerAccountLoginStarting {
 
     func fail(_ error: Error) {
         complete(.failure(error))
+    }
+
+    func waitForCancellationCount(
+        _ expected: Int,
+        timeout: Duration = .seconds(3)
+    ) async throws -> Int {
+        let deadline = ContinuousClock.now + timeout
+        while ContinuousClock.now < deadline {
+            if cancellationCount >= expected { return cancellationCount }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        return cancellationCount
     }
 
     private func wait() async throws -> AppServerAccountCredential {
