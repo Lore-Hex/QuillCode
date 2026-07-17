@@ -2066,13 +2066,20 @@
   creating lifecycle state. Remote commands retain the one-hour user-shell timeout and execute only
   through exec-server; disabled access returns `-32600`. Neither path can silently execute on the
   app-server host.
-- **Deferred boundary:** Remote sandbox-profile forwarding, Windows remote search, and live remote
-  output/background-terminal process projection remain explicit partial-parity work rather than
-  fabricated local behavior.
+- **Sandbox boundary:** Each selected remote executor derives one immutable, target-native
+  `FileSystemSandboxContext` from the thread's effective policy and remote workspace. Read-only grants
+  root read access; workspace-write adds project roots, allowed temporary roots, explicit writable
+  roots, and read-only project metadata; danger-full-access uses the protocol's disabled profile.
+  Every process and filesystem request carries that context explicitly. Cross-drive Windows roots
+  fail closed, and process launch sends false/null managed-network fields until QuillCode owns a real
+  managed proxy rather than claiming enforcement it cannot provide.
+- **Deferred boundary:** Windows remote search and live remote output/background-terminal process
+  projection remain explicit partial-parity work rather than fabricated local behavior.
 - **Evidence:** Registry, target-path, tool-router, session, direct-shell, and real URLSession WebSocket
   tests cover status shapes, source-ordered future transitions, idle disconnect, selected-thread
   fanout, selection, replacement, concurrency, reconnection, multi-read cursors, late output, context,
-  path, and no-fallback behavior. A built `quill-code app-server` smoke talks to a raw loopback
+  path, exact sandbox serialization/forwarding, and no-fallback behavior. A built `quill-code
+  app-server` smoke talks to a raw loopback
   exec-server, forces a disconnect and resumable reconnect, verifies lifecycle methods and multi-read
-  remote output, and uses local filesystem sentinels to prove remote and disabled commands never ran
-  locally.
+  remote output, asserts the read-only profile on filesystem and process requests, and uses local
+  filesystem sentinels to prove remote and disabled commands never ran locally.

@@ -19,7 +19,7 @@ extension AppServerExecServerWebSocketClient {
             "managedNetwork": .null,
             "pipeStdin": .bool(false),
             "processId": .string(processID),
-            "sandbox": .null,
+            "sandbox": request.sandbox.rpcValue,
             "tty": .bool(false)
         ]))
         guard start.objectValue?["processId"]?.stringValue == processID else {

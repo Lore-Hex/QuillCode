@@ -4,10 +4,17 @@ import QuillCodeAgent
 import QuillCodeCore
 
 actor AppServerFakeExecServerClient: AppServerExecServerClient {
+    struct FileSystemRequest: Sendable, Equatable {
+        var method: String
+        var pathURI: String
+        var sandbox: AppServerExecServerSandboxContext
+    }
+
     struct Snapshot: Sendable, Equatable {
         var connectCount: Int
         var closeCount: Int
         var processRequests: [AppServerRemoteProcessRequest]
+        var fileSystemRequests: [FileSystemRequest]
         var removedURIs: [String]
     }
 
@@ -25,6 +32,7 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
     private var connectCount = 0
     private var closeCount = 0
     private var processRequests: [AppServerRemoteProcessRequest] = []
+    private var fileSystemRequests: [FileSystemRequest] = []
     private var removedURIs: [String] = []
     private var currentConnectionSnapshot: AppServerEnvironmentConnectionSnapshot = .pending
     private var connected = false
@@ -113,20 +121,38 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         return processResults.removeFirst()
     }
 
-    func readFile(at pathURI: String) throws -> Data {
+    func readFile(
+        at pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) throws -> Data {
+        recordFileSystemRequest("fs/readFile", pathURI: pathURI, sandbox: sandbox)
         guard let data = files[pathURI] else { throw missing(pathURI) }
         return data
     }
 
-    func writeFile(_ data: Data, at pathURI: String) {
+    func writeFile(
+        _ data: Data,
+        at pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) {
+        recordFileSystemRequest("fs/writeFile", pathURI: pathURI, sandbox: sandbox)
         files[pathURI] = data
     }
 
-    func createDirectory(at pathURI: String, recursive: Bool) {
+    func createDirectory(
+        at pathURI: String,
+        recursive: Bool,
+        sandbox: AppServerExecServerSandboxContext
+    ) {
+        recordFileSystemRequest("fs/createDirectory", pathURI: pathURI, sandbox: sandbox)
         directories.insert(pathURI)
     }
 
-    func metadata(at pathURI: String) throws -> AppServerRemoteFileMetadata {
+    func metadata(
+        at pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) throws -> AppServerRemoteFileMetadata {
+        recordFileSystemRequest("fs/getMetadata", pathURI: pathURI, sandbox: sandbox)
         if directories.contains(pathURI) {
             return .init(isDirectory: true, isFile: false, isSymbolicLink: false, size: 0)
         }
@@ -139,7 +165,11 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         )
     }
 
-    func canonicalize(_ pathURI: String) throws -> String {
+    func canonicalize(
+        _ pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) throws -> String {
+        recordFileSystemRequest("fs/canonicalize", pathURI: pathURI, sandbox: sandbox)
         let canonical = canonicalURIs[pathURI] ?? pathURI
         guard directories.contains(pathURI)
                 || files[pathURI] != nil
@@ -150,12 +180,22 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         return canonical
     }
 
-    func readDirectory(at pathURI: String) throws -> [AppServerRemoteDirectoryEntry] {
+    func readDirectory(
+        at pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) throws -> [AppServerRemoteDirectoryEntry] {
+        recordFileSystemRequest("fs/readDirectory", pathURI: pathURI, sandbox: sandbox)
         guard directories.contains(pathURI) else { throw missing(pathURI) }
         return directoryEntries[pathURI] ?? []
     }
 
-    func remove(at pathURI: String, recursive: Bool, force: Bool) {
+    func remove(
+        at pathURI: String,
+        recursive: Bool,
+        force: Bool,
+        sandbox: AppServerExecServerSandboxContext
+    ) {
+        recordFileSystemRequest("fs/remove", pathURI: pathURI, sandbox: sandbox)
         removedURIs.append(pathURI)
         files[pathURI] = nil
         directories.remove(pathURI)
@@ -213,8 +253,21 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
             connectCount: connectCount,
             closeCount: closeCount,
             processRequests: processRequests,
+            fileSystemRequests: fileSystemRequests,
             removedURIs: removedURIs
         )
+    }
+
+    private func recordFileSystemRequest(
+        _ method: String,
+        pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) {
+        fileSystemRequests.append(.init(
+            method: method,
+            pathURI: pathURI,
+            sandbox: sandbox
+        ))
     }
 
     private func missing(_ pathURI: String) -> AppServerExecServerError {

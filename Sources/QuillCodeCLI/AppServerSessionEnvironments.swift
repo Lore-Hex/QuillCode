@@ -140,6 +140,7 @@ extension AppServerSession {
                 environmentID: environmentID,
                 cwd: explicitSelection?.cwd ?? "",
                 environmentInfo: info,
+                sandboxPolicy: settings.effectiveSandboxPolicy,
                 client: client
             )
             return AppServerExecutionEnvironment(

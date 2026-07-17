@@ -32,6 +32,12 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
         XCTAssertEqual(request.argv, ["/bin/zsh", "-lc", "whoami"])
         XCTAssertEqual(request.cwdURI, "file:///workspace/Sources")
         XCTAssertEqual(request.timeoutSeconds, 12)
+        let expectedSandbox = try sandbox(mode: .workspaceWrite)
+        XCTAssertEqual(request.sandbox, expectedSandbox)
+        XCTAssertFalse(snapshot.fileSystemRequests.isEmpty)
+        XCTAssertTrue(
+            snapshot.fileSystemRequests.allSatisfy { $0.sandbox == expectedSandbox }
+        )
     }
 
     func testShellStdinUsesRemoteTemporaryFileAndAlwaysCleansItUp() async throws {
@@ -173,6 +179,7 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
                 shell: .init(name: "zsh & tools", path: "/bin/zsh"),
                 cwd: "file:///workspace"
             ),
+            sandboxPolicy: .init(mode: .readOnly),
             client: AppServerFakeExecServerClient()
         )
 
@@ -192,7 +199,17 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
                 shell: .init(name: "zsh", path: "/bin/zsh"),
                 cwd: "file:///workspace"
             ),
+            sandboxPolicy: .init(mode: .workspaceWrite),
             client: client
+        )
+    }
+
+    private func sandbox(
+        mode: CLISandboxMode
+    ) throws -> AppServerExecServerSandboxContext {
+        try AppServerExecServerSandboxContext(
+            policy: .init(mode: mode),
+            workspace: .init(cwd: "/workspace", fallbackCWDURI: nil)
         )
     }
 }

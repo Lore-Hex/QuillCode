@@ -67,6 +67,7 @@ struct AppServerRemoteProcessRequest: Sendable, Equatable {
     var argv: [String]
     var cwdURI: String
     var environment: [String: String]
+    var sandbox: AppServerExecServerSandboxContext
     var timeoutSeconds: TimeInterval
 }
 
@@ -108,13 +109,38 @@ protocol AppServerExecServerClient: Sendable {
     func connectionEvents() async -> AsyncStream<AppServerExecServerConnectionObservation>
     func environmentInfo() async throws -> AppServerEnvironmentInfo
     func runProcess(_ request: AppServerRemoteProcessRequest) async throws -> AppServerRemoteProcessResult
-    func readFile(at pathURI: String) async throws -> Data
-    func writeFile(_ data: Data, at pathURI: String) async throws
-    func createDirectory(at pathURI: String, recursive: Bool) async throws
-    func metadata(at pathURI: String) async throws -> AppServerRemoteFileMetadata
-    func canonicalize(_ pathURI: String) async throws -> String
-    func readDirectory(at pathURI: String) async throws -> [AppServerRemoteDirectoryEntry]
-    func remove(at pathURI: String, recursive: Bool, force: Bool) async throws
+    func readFile(
+        at pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) async throws -> Data
+    func writeFile(
+        _ data: Data,
+        at pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) async throws
+    func createDirectory(
+        at pathURI: String,
+        recursive: Bool,
+        sandbox: AppServerExecServerSandboxContext
+    ) async throws
+    func metadata(
+        at pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) async throws -> AppServerRemoteFileMetadata
+    func canonicalize(
+        _ pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) async throws -> String
+    func readDirectory(
+        at pathURI: String,
+        sandbox: AppServerExecServerSandboxContext
+    ) async throws -> [AppServerRemoteDirectoryEntry]
+    func remove(
+        at pathURI: String,
+        recursive: Bool,
+        force: Bool,
+        sandbox: AppServerExecServerSandboxContext
+    ) async throws
     func close() async
 }
 
