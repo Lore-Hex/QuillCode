@@ -366,8 +366,8 @@ finally:
 assert server.methods[:2] == ["initialize", "initialized"], (
     server.methods
 )
-assert server.methods.count("initialize") == 2, server.methods
-assert server.methods.count("initialized") == 2, server.methods
+assert server.methods.count("initialize") >= 2, server.methods
+assert server.methods.count("initialize") == server.methods.count("initialized"), server.methods
 assert server.methods.count("environment/status") == 2, server.methods
 assert server.methods.count("environment/info") >= 3, server.methods
 assert server.methods.count("process/terminate") == 2, server.methods

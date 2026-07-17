@@ -119,18 +119,18 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
     func testSearchUsesCanonicalPathAfterSafeSymlinkResolution() async throws {
         let requested = "file:///workspace/link"
         let canonical = "file:///workspace/Sources"
+        let sourceFile = "file:///workspace/Sources/Agent.swift"
         let client = AppServerFakeExecServerClient(
-            processResults: [
-                .init(
-                    stdout: "",
-                    stderr: "",
-                    exitCode: 1,
-                    failure: nil,
-                    sandboxDenied: false
-                )
+            files: [
+                sourceFile: Data("struct Needle {}\n".utf8)
             ],
             directories: ["file:///workspace", requested, canonical],
-            canonicalURIs: [requested: canonical]
+            canonicalURIs: [requested: canonical],
+            directoryEntries: [
+                canonical: [
+                    .init(fileName: "Agent.swift", isDirectory: false, isFile: true)
+                ]
+            ]
         )
         let executor = try makeExecutor(client: client)
 
@@ -141,9 +141,60 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
 
         XCTAssertTrue(result.ok, result.error ?? "")
         let snapshot = await client.snapshot()
-        let command = try XCTUnwrap(snapshot.processRequests.first?.argv.last)
-        XCTAssertTrue(command.contains("'Sources'"), command)
-        XCTAssertFalse(command.contains("'link'"), command)
+        XCTAssertTrue(snapshot.processRequests.isEmpty)
+        XCTAssertTrue(snapshot.fileSystemRequests.contains {
+            $0.method == "fs/readDirectory" && $0.pathURI == canonical
+        })
+        XCTAssertTrue(result.stdout.contains(#""path" : "Sources\/Agent.swift""#), result.stdout)
+        XCTAssertTrue(result.stdout.contains("Needle"), result.stdout)
+    }
+
+    func testSearchWorksThroughFilesystemAPIForWindowsRemoteShells() async throws {
+        let root = "file:///C:/workspace"
+        let sources = "file:///C:/workspace/Sources"
+        let file = "file:///C:/workspace/Sources/App.swift"
+        let client = AppServerFakeExecServerClient(
+            info: .init(
+                shell: .init(name: "pwsh", path: "C:\\Program Files\\PowerShell\\7\\pwsh.exe"),
+                cwd: root
+            ),
+            files: [
+                file: Data("let value = \"Needle from Windows\"\n".utf8)
+            ],
+            directories: [root, sources],
+            directoryEntries: [
+                root: [
+                    .init(fileName: "Sources", isDirectory: true, isFile: false)
+                ],
+                sources: [
+                    .init(fileName: "App.swift", isDirectory: false, isFile: true)
+                ]
+            ]
+        )
+        let executor = try AppServerRemoteEnvironmentToolExecutor(
+            environmentID: "windows",
+            cwd: "C:\\workspace",
+            environmentInfo: .init(
+                shell: .init(name: "pwsh", path: "C:\\Program Files\\PowerShell\\7\\pwsh.exe"),
+                cwd: root
+            ),
+            sandboxPolicy: .init(mode: .workspaceWrite),
+            client: client
+        )
+
+        let result = await executor.execute(ToolCall(
+            name: ToolDefinition.fileSearch.name,
+            argumentsJSON: #"{"query":"needle","path":"."}"#
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains(#""path" : "Sources\/App.swift""#), result.stdout)
+        XCTAssertTrue(result.stdout.contains("Needle from Windows"), result.stdout)
+        let snapshot = await client.snapshot()
+        XCTAssertTrue(snapshot.processRequests.isEmpty)
+        XCTAssertTrue(snapshot.fileSystemRequests.contains {
+            $0.method == "fs/readDirectory" && $0.pathURI == root
+        })
     }
 
     func testUnavailableToolReturnsFailureInsteadOfLocalFallback() async throws {
