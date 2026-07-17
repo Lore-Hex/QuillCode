@@ -169,9 +169,21 @@ with open(git_diff_tracked, "a", encoding="utf-8") as file:
     file.write("working tree change\n")
 with open(os.path.join(workspace, "git-diff-untracked.txt"), "w", encoding="utf-8") as file:
     file.write("untracked smoke\n")
+external_agent_home = os.path.join(home, "external-agent-home")
+external_agent_config = os.path.join(external_agent_home, ".claude")
+os.makedirs(os.path.join(external_agent_config, "skills", "import-smoke"), exist_ok=True)
+with open(os.path.join(external_agent_config, "settings.json"), "w", encoding="utf-8") as file:
+    json.dump({"sandbox": {"enabled": True}}, file)
+with open(
+    os.path.join(external_agent_config, "skills", "import-smoke", "SKILL.md"),
+    "w",
+    encoding="utf-8",
+) as file:
+    file.write("---\nname: import-smoke\ndescription: Imported smoke skill.\n---\n")
 process = subprocess.Popen(
     [binary, "--home", home, "app-server", "--mock"],
     cwd=workspace,
+    env={**os.environ, "HOME": external_agent_home},
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -206,6 +218,65 @@ send({"id": 1, "method": "initialize", "params": {
 initialized, _ = read_until(lambda record: record.get("id") == 1)
 assert "result" in initialized and "jsonrpc" not in initialized, initialized
 send({"method": "initialized", "params": {}})
+
+send({"id": 212, "method": "externalAgentConfig/detect", "params": {
+    "includeHome": True,
+}})
+external_detect, _ = read_until(lambda record: record.get("id") == 212)
+external_items = {
+    item["itemType"]: item for item in external_detect["result"]["items"]
+}
+assert set(external_items) == {"CONFIG", "SKILLS"}, external_detect
+assert external_items["CONFIG"]["cwd"] is None, external_detect
+assert external_items["SKILLS"]["details"] is None, external_detect
+
+send({"id": 213, "method": "externalAgentConfig/import", "params": {
+    "source": "claude-code",
+    "migrationItems": [external_items["SKILLS"], external_items["CONFIG"]],
+}})
+external_started, import_start_records = read_until(
+    lambda record: record.get("id") == 213
+)
+assert len(import_start_records) == 1, import_start_records
+external_import_id = external_started["result"]["importId"]
+external_completed, import_events = read_until(
+    lambda record: record.get("method") == "externalAgentConfig/import/completed"
+)
+external_progress = [
+    record for record in import_events
+    if record.get("method") == "externalAgentConfig/import/progress"
+]
+assert [
+    record["params"]["itemTypeResults"][0]["itemType"]
+    for record in external_progress
+] == ["SKILLS", "CONFIG"], import_events
+assert external_completed["params"]["importId"] == external_import_id, external_completed
+assert [
+    result["itemType"]
+    for result in external_completed["params"]["itemTypeResults"]
+] == ["CONFIG", "SKILLS"], external_completed
+
+send({"id": 214, "method": "externalAgentConfig/import/readHistories", "params": {}})
+external_histories, _ = read_until(lambda record: record.get("id") == 214)
+assert len(external_histories["result"]["data"]) == 1, external_histories
+assert external_histories["result"]["data"][0]["importId"] == external_import_id, (
+    external_histories
+)
+
+send({"id": 215, "method": "externalAgentConfig/import", "params": {
+    "migrationItems": [],
+}})
+empty_external_import, _ = read_until(lambda record: record.get("id") == 215)
+empty_external_import_id = empty_external_import["result"]["importId"]
+send({"id": 216, "method": "externalAgentConfig/import/readHistories", "params": {}})
+histories_after_empty, empty_import_records = read_until(
+    lambda record: record.get("id") == 216
+)
+assert not any(
+    record.get("params", {}).get("importId") == empty_external_import_id
+    for record in empty_import_records
+), empty_import_records
+assert len(histories_after_empty["result"]["data"]) == 1, histories_after_empty
 
 send({"id": 211, "method": "gitDiffToRemote", "params": {"cwd": workspace}})
 git_diff, _ = read_until(lambda record: record.get("id") == 211)

@@ -119,15 +119,28 @@ enum AgentImportFileSystem {
         else {
             throw AgentImportError.invalidSourceOrDestination
         }
-        try createDirectory(destination, inside: destinationRoot)
-        for file in files {
-            let relative = relativePath(file, inside: source)
-            let target = destination.appendingPathComponent(relative)
-            try createDirectory(target.deletingLastPathComponent(), inside: destinationRoot)
-            guard safeDestination(target, inside: destinationRoot) != nil else {
-                throw AgentImportError.invalidSourceOrDestination
+        try createDirectory(destination.deletingLastPathComponent(), inside: destinationRoot)
+        var createdDestination = false
+        do {
+            try FileManager.default.createDirectory(
+                at: destination,
+                withIntermediateDirectories: false
+            )
+            createdDestination = true
+            for file in files {
+                let relative = relativePath(file, inside: source)
+                let target = destination.appendingPathComponent(relative)
+                try createDirectory(target.deletingLastPathComponent(), inside: destinationRoot)
+                guard safeDestination(target, inside: destinationRoot) != nil else {
+                    throw AgentImportError.invalidSourceOrDestination
+                }
+                try FileManager.default.copyItem(at: file, to: target)
             }
-            try FileManager.default.copyItem(at: file, to: target)
+        } catch {
+            if createdDestination {
+                removeCreatedItem(destination, inside: destinationRoot)
+            }
+            throw error
         }
         return files.count
     }
@@ -176,8 +189,34 @@ enum AgentImportFileSystem {
         }
     }
 
+    static func removeCreatedItem(_ destination: URL, inside root: URL) {
+        let root = root.standardizedFileURL.resolvingSymlinksInPath()
+        let requested = destination.standardizedFileURL
+        guard requested.path != root.path,
+              WorkspaceBoundary.isWithin(requested, root: root)
+        else { return }
+        let parent = requested.deletingLastPathComponent().resolvingSymlinksInPath()
+        guard WorkspaceBoundary.isWithin(parent, root: root) else { return }
+        try? FileManager.default.removeItem(
+            at: parent.appendingPathComponent(requested.lastPathComponent)
+        )
+    }
+
     static func createDirectory(_ directory: URL, inside root: URL) throws {
-        let resolvedRoot = root.standardizedFileURL.resolvingSymlinksInPath()
+        let standardizedRoot = root.standardizedFileURL
+        if !FileManager.default.fileExists(atPath: standardizedRoot.path) {
+            try FileManager.default.createDirectory(
+                at: standardizedRoot,
+                withIntermediateDirectories: true
+            )
+        }
+        let rootValues = try standardizedRoot.resourceValues(
+            forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+        )
+        guard rootValues.isDirectory == true, rootValues.isSymbolicLink != true else {
+            throw AgentImportError.invalidSourceOrDestination
+        }
+        let resolvedRoot = standardizedRoot.resolvingSymlinksInPath()
         if directory.standardizedFileURL.resolvingSymlinksInPath().path == resolvedRoot.path {
             return
         }

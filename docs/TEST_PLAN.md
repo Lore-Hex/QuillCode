@@ -178,6 +178,15 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   readonly-layer and version-conflict error data, legacy profile rejection, malformed and nested-null
   values, no-op byte preservation, runtime config refresh, and migration of early repeated scalar list
   keys into canonical arrays.
+- App-server external-agent migration conformance: default-empty and explicit home/repository
+  detection; exact nullable projections; response-before-progress ordering; one progress result per
+  requested item; canonical grouped completion; partial-failure continuation; additive config,
+  skill, plugin, hook, command, subagent, AGENTS, and session imports; exact subset filtering;
+  serialized concurrent MCP updates; secret exclusion; forged path/detail rejection; private bounded
+  history and reload; durable session/project provenance; missing-CWD workspace fallback; symlink and
+  preexisting-destination rejection; empty-import response without notifications/history; and EOF
+  cancellation without late notifications. The executable JSONL smoke repeats
+  detect/import/progress/completion/history against the built process.
 - App-server filesystem conformance against Codex 0.142.5: absolute-path validation; exact metadata
   and directory-entry fields; binary and empty writes; the 512 MiB read bound; recursive/null/default
   directory and remove behavior; file overwrite and directory merge; symlink preservation and target

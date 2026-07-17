@@ -12,6 +12,10 @@
   IPv4/IPv6 TCP and private multi-client Unix-domain sockets. It has independent bounded sessions,
   health probes, Origin rejection, capability-token and signed-bearer authentication, same-user
   stale-socket recovery, race-safe cleanup, and executable TCP/auth and Unix crash/restart coverage.
+- App-server external-agent migration now exposes the Codex 0.142.5 detect/import/history lifecycle
+  for bounded Claude Code setup and recent sessions, with serialized additive writes, exact subset
+  filtering, secret exclusion, durable provenance/history, runtime refresh, executable smoke, and a
+  source parity gate.
 - Core models, mock agent, shell/file/git tools.
 - Auto safety policy and reviewer protocol.
 - Persistence and secret-store API.
