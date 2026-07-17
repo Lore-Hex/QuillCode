@@ -43,6 +43,17 @@ struct QuillCodeDesktopComposerCoordinator {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty || !model.composer.attachments.isEmpty else { return }
 
+        // `/incognito` opens a fresh private session — intercept it BEFORE the busy-thread
+        // follow-up queue below, which would otherwise enqueue the slash text into the running
+        // (durable, non-E2E) thread and run it there. Mirrors the native slash dispatch order.
+        if model.composer.attachments.isEmpty,
+           WorkspaceIncognitoSlash.isIncognitoCommand(prompt) {
+            draft = ""
+            model.newIncognitoChat()
+            refresh()
+            return
+        }
+
         // `/side` is intentionally available while the parent chat is running. Intercept it before
         // the normal busy-thread follow-up queue so the parent keeps working and the question runs
         // in its own ephemeral task slot.

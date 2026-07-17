@@ -24,21 +24,28 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
         let hasProviderUsage = Self.latestProviderUsage(for: thread) != nil
         let progress = Self.contextSummaryProgress(for: thread)
         let contextCommandIsEnabled = progress == nil
+        // Fork and compact mint DURABLE continuations of the transcript — always refused for an
+        // ephemeral (incognito) thread. The banner must not present them as live controls that only
+        // ever fail; the sole real escape is a fresh chat. (Matches the command-palette gating.)
+        let isEphemeral = thread.runtimeContext.isEphemeral
+        let durableContinuationEnabled = contextCommandIsEnabled && !isEphemeral
 
         return ContextBannerSurface(
             usedPercent: usedPercent,
             title: "\(usedPercent >= 100 ? "Context limit reached" : "Approaching context limit") (\(usedPercent)% used)",
-            subtitle: hasProviderUsage
-                ? "Provider-reported token usage is near the limit. Compact the thread, start fresh, or fork with latest, summarized, or full visible context."
-                : "Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context.",
+            subtitle: isEphemeral
+                ? "Older turns may drop out soon. Start a fresh chat to keep going (this private session can't be compacted or forked)."
+                : (hasProviderUsage
+                    ? "Provider-reported token usage is near the limit. Compact the thread, start fresh, or fork with latest, summarized, or full visible context."
+                    : "Older turns may drop out soon. Compact the thread, start fresh, or fork with latest, summarized, or full visible context."),
             progress: progress,
             newThreadCommand: WorkspaceCommandSurface(id: "new-chat", title: "New thread"),
-            forkCommand: WorkspaceThreadForkStrategy.latestTurn.command(isEnabled: contextCommandIsEnabled),
-            forkCommands: WorkspaceThreadForkStrategy.allCases.map { $0.command(isEnabled: contextCommandIsEnabled) },
+            forkCommand: WorkspaceThreadForkStrategy.latestTurn.command(isEnabled: durableContinuationEnabled),
+            forkCommands: WorkspaceThreadForkStrategy.allCases.map { $0.command(isEnabled: durableContinuationEnabled) },
             compactCommand: WorkspaceCommandSurface(
                 id: "compact-context",
                 title: progress?.activeCommandID == "compact-context" ? "Compacting..." : "Compact context",
-                isEnabled: contextCommandIsEnabled
+                isEnabled: durableContinuationEnabled
             )
         )
     }

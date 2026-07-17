@@ -1,6 +1,7 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodeReview
 import QuillCodeTools
 @testable import QuillCodeApp
 
@@ -501,6 +502,54 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
         // stashed one (the discard previously left a blank live composer that the next transition
         // persisted over the stash).
         XCTAssertEqual(model.composer.draft, "half-written important message")
+    }
+
+    func testIncognitoSlashHelperMatchesAllAliasesAndOnlyBareCommands() {
+        for alias in ["/incognito", "/INCOGNITO", "  /incognito-chat ", "/private-chat"] {
+            XCTAssertTrue(WorkspaceIncognitoSlash.isIncognitoCommand(alias), alias)
+        }
+        // The command word is matched on the FIRST token (matching the native parser, which ignores
+        // /incognito's argument), but a DIFFERENT word — or no leading slash — is not the command.
+        XCTAssertTrue(WorkspaceIncognitoSlash.isIncognitoCommand("/incognito ignored args"))
+        XCTAssertFalse(WorkspaceIncognitoSlash.isIncognitoCommand("/incognitomode"))
+        XCTAssertFalse(WorkspaceIncognitoSlash.isIncognitoCommand("incognito"))
+        XCTAssertFalse(WorkspaceIncognitoSlash.isIncognitoCommand("/side"))
+    }
+
+    func testStartingIncognitoOverAnActiveSideConversationCancelsTheSideTask() throws {
+        let parent = ChatThread(title: "Parent", messages: [.init(role: .user, content: "work")])
+        let model = model(threads: [parent], selectedThreadID: parent.id)
+        var cancelledThreadIDs: [UUID] = []
+        model.onEphemeralThreadDiscarded = { cancelledThreadIDs.append($0) }
+        let sideID = try XCTUnwrap(model.startSideConversation(prompt: "quick q"))
+
+        _ = model.newIncognitoChat()
+
+        XCTAssertTrue(cancelledThreadIDs.contains(sideID), "the replaced side conversation's send task must be cancelled")
+        XCTAssertFalse(model.root.threads.contains { $0.id == sideID })
+        XCTAssertTrue(try XCTUnwrap(model.selectedThread).runtimeContext.isIncognito)
+    }
+
+    func testIncognitoDetachedReviewIsCoercedToCurrentDelivery() {
+        let model = model(threads: [], selectedThreadID: nil)
+        _ = model.newIncognitoChat()
+        let detached = WorkspaceCodeReviewRequest(scope: .uncommitted, delivery: .detached)
+
+        let normalized = model.withNormalizedDeliveryForSelection(detached)
+
+        XCTAssertEqual(normalized.delivery, .current, "detached would discard the private session + persist a durable review")
+    }
+
+    func testContextBannerDisablesForkAndCompactForIncognito() throws {
+        var thread = WorkspaceThreadCreationEngine.incognitoThread(projectID: nil, mode: .auto)
+        thread.messages = [.init(role: .user, content: String(repeating: "x", count: 130_000))]
+
+        let banner = try XCTUnwrap(WorkspaceContextBannerBuilder(thread: thread).banner())
+
+        XCTAssertEqual(banner.compactCommand.isEnabled, false)
+        XCTAssertTrue(banner.forkCommands.allSatisfy { $0.isEnabled == false })
+        XCTAssertEqual(banner.newThreadCommand.id, "new-chat", "the fresh-chat escape stays available")
+        XCTAssertTrue(banner.subtitle.contains("private session"))
     }
 
     private func model(threads: [ChatThread], selectedThreadID: UUID?) -> QuillCodeWorkspaceModel {

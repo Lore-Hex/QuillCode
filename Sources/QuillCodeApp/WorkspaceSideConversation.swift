@@ -79,6 +79,11 @@ public extension QuillCodeWorkspaceModel {
         root.threads.removeAll { $0.id == side.id }
         sessionStartHookCoordinator.remove(threadID: side.id)
         agentRuns.finish(threadID: side.id)
+        // agentRuns.finish is registry bookkeeping; the OWNING .send task must be cancelled too, at
+        // the model level so EVERY caller is covered — including newIncognitoChat, which replaces an
+        // active side conversation from the menu/palette where the desktop's command-keyed cancel
+        // helper never fires.
+        onEphemeralThreadDiscarded?(side.id)
         root.selectedThreadID = parentThreadID
         root.selectedProjectID = knownProjectID(parent.projectID)
         syncTerminalSessionToSelectedProject()

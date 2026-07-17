@@ -3,8 +3,9 @@ import Foundation
 enum SlashThreadCommandParser {
     static func supports(_ name: String) -> Bool {
         switch normalizedName(name) {
+        case let incognito where WorkspaceIncognitoSlash.aliases.contains(incognito):
+            return true
         case "new", "new-chat", "newchat",
-             "incognito", "incognito-chat", "private-chat",
              "clear", "clear-chat", "reset-chat",
              "undo", "revert", "revert-latest", "undo-edit",
              "compact", "compact-context", "context-compact",
@@ -32,7 +33,7 @@ enum SlashThreadCommandParser {
         switch command {
         case "new", "new-chat", "newchat":
             return .newChat
-        case "incognito", "incognito-chat", "private-chat":
+        case let incognito where WorkspaceIncognitoSlash.aliases.contains(incognito):
             return .workspaceCommand("new-incognito-chat")
         case "clear", "clear-chat", "reset-chat":
             return .workspaceCommand("thread-clear")
