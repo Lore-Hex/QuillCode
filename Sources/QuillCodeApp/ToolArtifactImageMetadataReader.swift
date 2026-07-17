@@ -29,6 +29,7 @@ enum ToolArtifactImageMetadataReader {
         pngDimensions(from: data)
             ?? gifDimensions(from: data)
             ?? jpegDimensions(from: data)
+            ?? icoDimensions(from: data)
             ?? tiffDimensions(from: data)
             ?? bmpDimensions(from: data)
             ?? webpDimensions(from: data)
@@ -117,6 +118,39 @@ enum ToolArtifactImageMetadataReader {
         default:
             return false
         }
+    }
+
+    private static func icoDimensions(from data: Data) -> ToolArtifactImageDimensions? {
+        guard data.count >= 6,
+              littleEndianUInt16(data, at: 0) == 0,
+              littleEndianUInt16(data, at: 2) == 1
+        else {
+            return nil
+        }
+
+        let entryCount = Int(littleEndianUInt16(data, at: 4))
+        guard entryCount > 0, entryCount <= 1024, 6 + entryCount * 16 <= data.count else {
+            return nil
+        }
+
+        var largest: ToolArtifactImageDimensions?
+        for entryIndex in 0..<entryCount {
+            let entryOffset = 6 + entryIndex * 16
+            guard data[entryOffset + 3] == 0 else { continue }
+            let candidate = ToolArtifactImageDimensions(
+                width: icoDimensionSide(data[entryOffset]),
+                height: icoDimensionSide(data[entryOffset + 1])
+            )
+            guard candidate.width > 0, candidate.height > 0 else { continue }
+            if largest.map({ candidate.width * candidate.height > $0.width * $0.height }) ?? true {
+                largest = candidate
+            }
+        }
+        return largest
+    }
+
+    private static func icoDimensionSide(_ byte: UInt8) -> Int {
+        byte == 0 ? 256 : Int(byte)
     }
 
     private static func tiffDimensions(from data: Data) -> ToolArtifactImageDimensions? {

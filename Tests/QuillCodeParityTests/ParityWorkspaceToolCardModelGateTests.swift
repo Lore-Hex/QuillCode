@@ -45,6 +45,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "pngDimensions",
             "gifDimensions",
             "jpegDimensions",
+            "icoDimensions",
             "tiffDimensions",
             "bmpDimensions",
             "webpDimensions"

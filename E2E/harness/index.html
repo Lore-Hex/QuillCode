@@ -8154,7 +8154,7 @@
     function artifactIsImagePreview(value, kind) {
       if (value.toLowerCase().startsWith('data:image/')) return true;
       if (kind !== 'file' && kind !== 'url') return false;
-      return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'svg', 'tif', 'tiff', 'bmp'].includes(artifactPathExtension(value));
+      return ['png', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'heic', 'svg', 'tif', 'tiff', 'bmp'].includes(artifactPathExtension(value));
     }
 
     function artifactPreviewURL(value, kind) {
@@ -8204,14 +8204,47 @@
       const extension = artifactPathExtension(value);
       const dimensions = extension === 'svg'
         ? svgDimensions(content)
-        : extension === 'bmp'
-          ? bmpDimensions(content)
-          : extension === 'webp'
-            ? webpDimensions(content)
-            : extension === 'tif' || extension === 'tiff'
-              ? tiffDimensions(content)
-              : null;
+        : extension === 'ico'
+          ? icoDimensions(content)
+          : extension === 'bmp'
+            ? bmpDimensions(content)
+            : extension === 'webp'
+              ? webpDimensions(content)
+              : extension === 'tif' || extension === 'tiff'
+                ? tiffDimensions(content)
+                : null;
       return dimensions ? `${dimensions.width} x ${dimensions.height} px` : null;
+    }
+
+    function icoDimensions(content) {
+      if (
+        content.length < 6
+        || littleEndianUInt16(content, 0) !== 0
+        || littleEndianUInt16(content, 2) !== 1
+      ) {
+        return null;
+      }
+      const entryCount = littleEndianUInt16(content, 4);
+      if (entryCount < 1 || entryCount > 1024 || 6 + entryCount * 16 > content.length) return null;
+
+      let largest = null;
+      for (let index = 0; index < entryCount; index += 1) {
+        const entryOffset = 6 + index * 16;
+        if (byteAt(content, entryOffset + 3) !== 0) continue;
+        const candidate = validDimensions(
+          icoDimensionSide(byteAt(content, entryOffset)),
+          icoDimensionSide(byteAt(content, entryOffset + 1))
+        );
+        if (!candidate) continue;
+        if (!largest || candidate.width * candidate.height > largest.width * largest.height) {
+          largest = candidate;
+        }
+      }
+      return largest;
+    }
+
+    function icoDimensionSide(value) {
+      return value === 0 ? 256 : value;
     }
 
     function bmpDimensions(content) {
@@ -8437,6 +8470,24 @@
         0, 0, 0, 0,
         ...littleEndian24Bytes(width - 1),
         ...littleEndian24Bytes(height - 1)
+      ]);
+    }
+
+    function mockICOHeader() {
+      return binaryString([
+        0, 0,
+        1, 0,
+        2, 0,
+        16, 16, 0, 0,
+        1, 0,
+        32, 0,
+        ...littleEndianBytes(4),
+        ...littleEndianBytes(38),
+        0, 0, 0, 0,
+        1, 0,
+        32, 0,
+        ...littleEndianBytes(4),
+        ...littleEndianBytes(42)
       ]);
     }
 
@@ -22362,9 +22413,11 @@
         const bmpPath = '/mock/QuillCode/artifacts/diagram.bmp';
         const webpPath = '/mock/QuillCode/artifacts/preview.webp';
         const tiffPath = '/mock/QuillCode/artifacts/scan.tiff';
+        const icoPath = '/mock/QuillCode/artifacts/app.ico';
         state.mockFiles[bmpPath] = mockBMPHeader(640, 360);
         state.mockFiles[webpPath] = mockWebPVP8XHeader(512, 288);
         state.mockFiles[tiffPath] = mockTIFFHeader(300, 200);
+        state.mockFiles[icoPath] = mockICOHeader();
         addToolCard({
           title: 'host.file.write',
           subtitle: 'Completed',
@@ -22372,8 +22425,8 @@
           inputJSON: JSON.stringify({ path: 'artifacts', contentType: 'generated image headers' }, null, 2),
           outputJSON: JSON.stringify({
             ok: true,
-            stdout: `Wrote ${bmpPath}, ${webpPath}, and ${tiffPath}\n`,
-            artifacts: [bmpPath, webpPath, tiffPath]
+            stdout: `Wrote ${bmpPath}, ${webpPath}, ${tiffPath}, and ${icoPath}\n`,
+            artifacts: [bmpPath, webpPath, tiffPath, icoPath]
           }, null, 2)
         });
         addMessage('assistant', 'Created bitmap image artifacts.');
