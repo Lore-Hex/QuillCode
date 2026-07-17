@@ -122,25 +122,39 @@ struct MCPServerRunInput: Sendable {
         var aliases: [String]
     }
 
+    static let approvalPolicyArgumentAliases = ["approval-policy", "approval_policy", "approvalPolicy"]
+    static let baseInstructionsArgumentAliases = [
+        "base-instructions",
+        "base_instructions",
+        "baseInstructions"
+    ]
+    static let compactPromptArgumentAliases = ["compact-prompt", "compact_prompt", "compactPrompt"]
+    static let developerInstructionsArgumentAliases = [
+        "developer-instructions",
+        "developer_instructions",
+        "developerInstructions"
+    ]
+    static let sandboxArgumentAliases = ["sandbox", "sandbox_mode", "sandboxMode"]
+
     private static let approvalPolicyAliases = AliasGroup(
         canonicalName: "approval-policy",
-        aliases: ["approval-policy", "approval_policy", "approvalPolicy"]
+        aliases: approvalPolicyArgumentAliases
     )
     private static let baseInstructionsAliases = AliasGroup(
         canonicalName: "base-instructions",
-        aliases: ["base-instructions", "base_instructions", "baseInstructions"]
+        aliases: baseInstructionsArgumentAliases
     )
     private static let compactPromptAliases = AliasGroup(
         canonicalName: "compact-prompt",
-        aliases: ["compact-prompt", "compact_prompt", "compactPrompt"]
+        aliases: compactPromptArgumentAliases
     )
     private static let developerInstructionsAliases = AliasGroup(
         canonicalName: "developer-instructions",
-        aliases: ["developer-instructions", "developer_instructions", "developerInstructions"]
+        aliases: developerInstructionsArgumentAliases
     )
     private static let sandboxAliases = AliasGroup(
         canonicalName: "sandbox",
-        aliases: ["sandbox", "sandbox_mode", "sandboxMode"]
+        aliases: sandboxArgumentAliases
     )
     private static let aliasGroups = [
         approvalPolicyAliases,
