@@ -2032,3 +2032,37 @@
 - **Evidence:** A full actor test proves validation, response ordering, fresh review, exact shell side
   effect, durable consumption, and replay rejection. The built JSONL smoke proves the public method
   rejects an unknown review deterministically, and a parity gate binds all implementation evidence.
+
+## 2026-07-16: App-server execution environments fail closed across every host path
+
+- **Registry boundary:** One process-scoped registry serves every stdio, TCP WebSocket, and Unix
+  WebSocket client. `environment/add` mutates it immediately and connects lazily; replacement closes
+  the old client, `environment/info` surfaces connection errors, and transport shutdown closes all
+  remaining clients.
+- **Selection boundary:** Omitted environment arrays preserve the prior/default target, an empty array
+  disables host access, and a nonempty array validates and selects its first entry. Selection persists
+  with thread settings across start, resume, fork, and turn-level updates. Unknown IDs and malformed
+  CWDs fail before a turn or direct command can dispatch.
+- **Transport boundary:** Remote clients use a text-frame WebSocket, initialize/initialized handshake,
+  resumable session ID, serialized request ownership, bounded responses, and per-request deadlines.
+  Process reads convert the exclusive `nextSeq` into the inclusive `afterSeq` cursor and continue
+  through exit until output streams close, retaining late output without duplication or gaps. A failed
+  request resets the connection but is never replayed; only a later independent request may reconnect.
+  Cancellation terminates an acknowledged remote process.
+- **Execution boundary:** Selected remote turns replace local shell/file/patch routing with the
+  exec-server adapter and target-native workspace paths. Canonical containment blocks symlink escapes,
+  existing files require a prior read before write/patch, temporary stdin and patch files are cleaned,
+  and web search remains on the cloud-owned route. Environment context is XML-escaped and transient;
+  it is placed immediately before the active user request and never enters durable transcript history.
+- **No-fallback boundary:** Direct `thread/shellCommand` resolves the same selected environment before
+  creating lifecycle state. Remote commands retain the one-hour user-shell timeout and execute only
+  through exec-server; disabled access returns `-32600`. Neither path can silently execute on the
+  app-server host.
+- **Deferred boundary:** Experimental environment-status notifications, remote sandbox-profile
+  forwarding, Windows remote search, and live remote output/background-terminal process projection
+  remain explicit partial-parity work rather than fabricated local behavior.
+- **Evidence:** Registry, target-path, tool-router, session, direct-shell, and real URLSession WebSocket
+  tests cover selection, replacement, concurrency, reconnection, multi-read cursors, late output,
+  context, path, and no-fallback behavior. A built `quill-code app-server` smoke talks to a raw
+  loopback exec-server, verifies multi-read remote output, and uses local filesystem sentinels to prove
+  remote and disabled commands never ran locally.

@@ -24,7 +24,10 @@ final class ParityAppServerThreadControlGateTests: QuillCodeParityTestCase {
             root,
             "Sources/QuillCodeCLI/AppServerThreadRepository.swift"
         )
-        let turns = try text(root, "Sources/QuillCodeCLI/AppServerSessionTurns.swift")
+        let turnExecution = try text(
+            root,
+            "Sources/QuillCodeCLI/AppServerSessionTurnExecution.swift"
+        )
         let tests = try text(
             root,
             "Tests/QuillCodeCLITests/AppServerThreadControlTests.swift"
@@ -68,7 +71,7 @@ final class ParityAppServerThreadControlGateTests: QuillCodeParityTestCase {
             "var effectiveMemoryMode: AppServerThreadMemoryMode",
             "var effectiveSandboxPolicy: AppServerSandboxPolicy"
         ])
-        Self.assertSource(turns, containsAll: [
+        Self.assertSource(turnExecution, containsAll: [
             "active.settings.effectiveMemoryMode == .enabled",
             "memoryFeatureEnabled",
             "if !memoriesEnabled",

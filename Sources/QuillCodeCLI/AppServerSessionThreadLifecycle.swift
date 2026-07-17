@@ -20,6 +20,7 @@ extension AppServerSession {
             base: try defaultThreadSettings(requirements: requirements),
             requirements: requirements
         )
+        try await applyEnvironmentSelection(from: params, to: &settings)
         var thread = ChatThread(
             mode: mode(for: settings),
             model: try model(from: params, fallback: request.model ?? appConfig.defaultModel)
@@ -50,6 +51,7 @@ extension AppServerSession {
             base: record.settings,
             requirements: requirements
         )
+        try await applyEnvironmentSelection(from: params, to: &record.settings)
         record.thread.model = try model(from: params, fallback: record.thread.model)
         try appendInstructions(from: params, to: &record.thread)
         record.thread.updatedAt = Date()
@@ -78,6 +80,7 @@ extension AppServerSession {
             base: source.settings,
             requirements: requirements
         )
+        try await applyEnvironmentSelection(from: params, to: &settings)
         settings.sessionID = source.settings.sessionID ?? sourceID
         settings.forkedFromID = sourceID
         let record = AppServerThreadRecord(thread: thread, settings: settings)

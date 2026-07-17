@@ -298,6 +298,26 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   boundary. Sources: official app-server README, generated v2 schemas, request processor, and remote
   thread-store tests at public `openai/codex` commit `3151954`, audited 2026-07-16.
 
+- Current Codex app-server execution environments are process-scoped registrations, not durable user
+  configuration. `environment/add` accepts `environmentId`, `execServerUrl`, and an optional unsigned
+  `connectTimeoutMs`; registration is lazy and replacing an ID, including `local`, is allowed.
+  `environment/info` forces connection and reports a shell name/path plus nullable CWD. Thread
+  start/resume/fork and turn start accept an `environments` array: omission preserves/defaults the
+  selection, an empty array disables environment access, and a nonempty array selects its first
+  `{environmentId,cwd}` entry and persists it for later turns. Unknown IDs fail with `-32600`.
+  The exec-server WebSocket handshake sends `initialize` with `clientName` and nullable
+  `resumeSessionId`, receives `sessionId`, then sends `initialized`; process and filesystem requests
+  use target-native file URIs and explicit `process/start`/`process/read` plus `fs/*` methods. A
+  `process/read` response's `nextSeq` is one past the last observed event, so the next inclusive
+  `afterSeq` cursor is `nextSeq - 1`; readers wait for `closed`, not merely `exited`, to retain output
+  flushed after process exit. A request that loses transport after dispatch must not be replayed
+  automatically. Newer source also
+  contains experimental `environment/status` and connected/disconnected lifecycle notifications
+  behind the deferred executor path; those are a separate remaining parity slice. Sources: generated
+  current app-server v2 schemas and public `openai/codex` app-server environment processor,
+  exec-server protocol, remote environment tests, and deferred executor implementation at Codex
+  0.144.5, audited 2026-07-16.
+
 - Current Codex remote projects launch the remote Codex app server over SSH and run it through the
   remote user's login shell. The remote `codex` executable must therefore be available on that
   shell's `PATH`; authentication and normal SSH host-key/security expectations still apply. Codex

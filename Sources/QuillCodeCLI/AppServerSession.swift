@@ -10,6 +10,8 @@ typealias AppServerMessageSink = @Sendable (String) async -> Void
 struct AppServerConfiguredRunner: Sendable {
     var runner: AgentRunner
     var mcpRoutes: [String: MCPAgentToolRoute]
+    var workspaceRoot: URL
+    var modelEnvironmentContext: String?
 }
 
 actor AppServerSession {
@@ -45,6 +47,8 @@ actor AppServerSession {
         var command: String
         var cwd: URL
         var shellExecutableURL: URL
+        var shellExecutablePath: String
+        var remoteExecutor: AppServerRemoteEnvironmentToolExecutor?
         var startsStandaloneTurn: Bool
     }
 
@@ -120,6 +124,7 @@ actor AppServerSession {
     let mcpOAuthLoginStarter: any AppServerMCPOAuthLoginStarting
     let externalAgentConfigService: ClaudeCodeExternalAgentConfigService
     let runtimeFeatureStore: AppServerRuntimeFeatureStore
+    let environmentRegistry: AppServerEnvironmentRegistry
     let sink: AppServerMessageSink
 
     var handshake = HandshakeState.awaitingInitialize
@@ -171,6 +176,7 @@ actor AppServerSession {
         mcpOAuthLoginStarter: (any AppServerMCPOAuthLoginStarting)? = nil,
         paths providedPaths: QuillCodePaths? = nil,
         runtimeFeatureStore: AppServerRuntimeFeatureStore = AppServerRuntimeFeatureStore(),
+        environmentRegistry providedEnvironmentRegistry: AppServerEnvironmentRegistry? = nil,
         sink: @escaping AppServerMessageSink
     ) throws {
         let paths = providedPaths
@@ -203,6 +209,10 @@ actor AppServerSession {
             appConfig: appConfig
         )
         self.runtimeFeatureStore = runtimeFeatureStore
+        self.environmentRegistry = providedEnvironmentRegistry ?? AppServerEnvironmentRegistry(
+            localCWD: currentDirectory,
+            environment: environment
+        )
         self.sink = sink
     }
 
@@ -326,6 +336,8 @@ actor AppServerSession {
             var externalAgentConfigImportToLaunch: AppServerExternalAgentConfigImportLaunch?
             var notificationsAfterResponse: [AppServerDeferredNotification] = []
             switch method {
+            case "environment/add": result = try await environmentRegistry.add(params)
+            case "environment/info": result = try await environmentRegistry.info(params)
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
             case "account/read": result = try readAccount(params)
@@ -597,6 +609,7 @@ actor AppServerSession {
         for record: AppServerThreadRecord,
         includesMCP: Bool = true
     ) async throws -> AppServerConfiguredRunner {
+        let executionEnvironment = try await executionEnvironment(for: record.settings)
         let runRequest = CLIRunRequest(
             style: .exec,
             prompt: "",
@@ -604,7 +617,7 @@ actor AppServerSession {
             apiKey: request.apiKey,
             model: record.thread.model,
             baseURL: request.baseURL,
-            cwd: record.settings.cwd,
+            cwd: executionEnvironment.workspaceRoot,
             home: request.home,
             sandbox: record.settings.sandbox,
             explicitMode: record.thread.mode,
@@ -637,6 +650,10 @@ actor AppServerSession {
             runner = mcpAdapter.configure(runner)
             mcpRoutes = mcpAdapter.routesByModelName
         }
+        runner = configure(
+            runner,
+            for: executionEnvironment
+        )
         let inheritedHook = runner.permissionRequestHook
         runner.permissionRequestHook = { [weak self] call, reason, thread, workspaceRoot in
             var notices: [String] = []
@@ -670,7 +687,9 @@ actor AppServerSession {
         }
         return AppServerConfiguredRunner(
             runner: runner,
-            mcpRoutes: mcpRoutes
+            mcpRoutes: mcpRoutes,
+            workspaceRoot: executionEnvironment.workspaceRoot,
+            modelEnvironmentContext: executionEnvironment.modelContext
         )
     }
 }
