@@ -61,7 +61,7 @@ extension QuillCodeWorkspaceModel {
 
     public func selectProject(_ id: UUID?, recordsNavigation: Bool = true) {
         _ = returnFromSideConversation()
-        _ = discardIncognitoThreadOnExit()
+        _ = discardConfidentialThreadOnExit()
         guard let selection = WorkspaceProjectEngine.selectionAfterSelectingProject(
             id,
             projects: root.projects,
@@ -161,9 +161,9 @@ extension QuillCodeWorkspaceModel {
             let refreshedContext = workspaceThreadContext(id)
             mutateSelectedThread { thread in
                 guard thread.projectID == id else { return }
-                // Incognito threads deliberately carry no workspace context; a project refresh must
+                // Confidential threads deliberately carry no workspace context; a project refresh must
                 // not become the side door that fills the private conversation with durable notes.
-                guard !thread.runtimeContext.isIncognito else { return }
+                guard !thread.runtimeContext.isConfidential else { return }
                 thread.instructions = refreshedContext.instructions
                 thread.memories = refreshedContext.memories
                 thread.events.append(ThreadEvent(

@@ -33,12 +33,12 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func setModel(_ model: String) -> String {
-        // An incognito thread's model is pinned to the E2E-encrypted route for its lifetime: a model
+        // A confidential thread's model is pinned to the E2E-encrypted route for its lifetime: a model
         // switch would silently break the privacy promise the mode advertises, so the gesture is a
         // no-op (the picker renders locked, but the slash/palette paths land here too). The workspace
-        // DEFAULT is deliberately left untouched as well — a change made from inside an incognito
+        // DEFAULT is deliberately left untouched as well — a change made from inside a confidential
         // chat should not quietly reconfigure future normal chats.
-        if let thread = selectedThread, thread.runtimeContext.isIncognito {
+        if let thread = selectedThread, thread.runtimeContext.isConfidential {
             return thread.model
         }
         let modelID = WorkspaceConfigurationEngine.setModel(model, config: &root.config)

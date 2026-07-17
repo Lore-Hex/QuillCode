@@ -250,8 +250,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         messages.append(Self.chatMessage(role: "system", content: Self.goalPrompt(goal)))
     }
 
-    static let incognitoBoundaryPrompt = """
-    You are in an incognito chat. This conversation is session-only: it is never saved to disk, it
+    static let confidentialBoundaryPrompt = """
+    You are in a confidential chat. This conversation is session-only: it is never saved to disk, it
     is excluded from thread history, and it is routed through the end-to-end encrypted model route.
 
     Do not write conversation-derived content anywhere durable unless the user explicitly asks:
@@ -264,8 +264,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         switch thread.runtimeContext {
         case .sideConversation:
             messages.append(Self.chatMessage(role: "system", content: Self.sideConversationBoundaryPrompt))
-        case .incognito:
-            messages.append(Self.chatMessage(role: "system", content: Self.incognitoBoundaryPrompt))
+        case .confidential:
+            messages.append(Self.chatMessage(role: "system", content: Self.confidentialBoundaryPrompt))
         case .standard:
             break
         }

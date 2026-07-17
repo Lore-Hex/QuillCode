@@ -59,9 +59,9 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             memorySources: memories.map(\.relativePath),
             modelLabel: modelCatalog.modelLabel(),
             selectedModelID: topBarState.model,
-            // Incognito threads pin the E2E-encrypted route for their lifetime; the picker renders
+            // Confidential threads pin the E2E-encrypted route for their lifetime; the picker renders
             // locked so the privacy promise can't be silently broken by a model switch.
-            modelIsLocked: thread?.runtimeContext.isIncognito == true,
+            modelIsLocked: thread?.runtimeContext.isConfidential == true,
             modelCategories: modelCatalog.categories(),
             modelCatalogSource: modelCatalogStatus.source,
             modelCatalogStatusLabel: modelCatalogStatus.statusLabel(),

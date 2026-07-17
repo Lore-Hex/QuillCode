@@ -14,7 +14,7 @@ struct QuillCodeDesktopCommands: Commands {
     var body: some Commands {
         CommandMenu("QuillCode") {
             command("New Chat", id: "new-chat")
-            command("New Incognito Chat", id: "new-incognito-chat")
+            command("New Confidential Chat", id: "new-confidential-chat")
             command("Quick Chat", id: "quick-chat")
             command("Open Project...", id: "add-project")
 

@@ -27,9 +27,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     /// so saved allow/deny/ask rules compose with (never replace) the mode + intent review.
     var permissionRules: (any PermissionRulesProviding)? = nil
     var allowsSubagents: Bool = true
-    /// Incognito runs must not expose tools that persist conversation-derived content: the model
-    /// could otherwise autonomously write distilled incognito-chat content to durable memory.
-    var threadIsIncognito: Bool = false
+    /// Confidential runs must not expose tools that persist conversation-derived content: the model
+    /// could otherwise autonomously write distilled confidential-chat content to durable memory.
+    var threadIsConfidential: Bool = false
 
     /// Configures a per-send runner. `modelID` pins THIS run's LLM client to the selected model —
     /// the thread's model — so `/model`, the top-bar picker, and the `/model` popup all take effect
@@ -67,11 +67,11 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         // auxiliary model on context pressure. This traffic hardening keys off the EFFECTIVE model —
         // a regular thread can select trustedrouter/e2e from the Private category, and "E2E
         // Encrypted" in the UI must mean no non-E2E egress there either. (Persistence restrictions —
-        // memory tool, hooks, computer-use — stay incognito-only; they're about "never saved", not
+        // memory tool, hooks, computer-use — stay confidential-only; they're about "never saved", not
         // routing.) Swap the auxiliaries to their model-free forms — static safety policy (auto
         // approvals degrade to the conservative static verdicts) and the deterministic compaction
         // summarizer — and retarget or drop web search.
-        let requiresE2EOnlyTraffic = threadIsIncognito
+        let requiresE2EOnlyTraffic = threadIsConfidential
             || TrustedRouterDefaults.canonicalModelID(modelID ?? "") == TrustedRouterDefaults.e2eModel
         if requiresE2EOnlyTraffic {
             activeRunner.safety = AutoSafetyReviewer()
@@ -175,9 +175,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     private var computerUseToolDefinitions: [ToolDefinition] {
         // Computer-use screenshots and workflow-recording PNGs are written under the DURABLE
         // per-thread attachment directory with no cleanup once an ephemeral thread evaporates —
-        // the same orphaned-artifact leak addComposerImages refuses. Gate the tools for incognito
+        // the same orphaned-artifact leak addComposerImages refuses. Gate the tools for confidential
         // until temp-dir routing / the orphan sweep exists.
-        if threadIsIncognito { return [] }
+        if threadIsConfidential { return [] }
         guard let computerUseBackend else { return [] }
         var definitions = ToolDefinition.computerUseDefinitions
         if computerUseBackend is any WorkflowRecordingBackend {
@@ -187,9 +187,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     }
 
     private var memoryToolDefinitions: [ToolDefinition] {
-        // No memory.remember in incognito: the user-typed /remember stays available (explicit,
-        // bookmark-like), but the MODEL must not be able to persist incognito content on its own.
-        if threadIsIncognito { return [] }
+        // No memory.remember in confidential: the user-typed /remember stays available (explicit,
+        // bookmark-like), but the MODEL must not be able to persist confidential content on its own.
+        if threadIsConfidential { return [] }
         return globalMemoryDirectory == nil ? [] : [ToolDefinition.memoryRemember]
     }
 

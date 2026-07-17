@@ -14,10 +14,10 @@ extension QuillCodeWorkspaceModel {
     @discardableResult
     public func renameThread(_ id: UUID, to title: String) -> Bool {
         // A typed /rename bypasses palette enablement. Ephemeral titles must stay fixed: the title
-        // reaches desktop notifications (persisted by OS notification history), and "Incognito" /
+        // reaches desktop notifications (persisted by OS notification history), and "Confidential" /
         // "Side: …" is also what keeps those surfaces content-free.
         if root.threads.first(where: { $0.id == id })?.runtimeContext.isEphemeral == true {
-            setLastError("Incognito and side conversations can't be renamed.")
+            setLastError("Confidential and side conversations can't be renamed.")
             return false
         }
         return updateAndSaveThread { threads in
@@ -53,7 +53,7 @@ extension QuillCodeWorkspaceModel {
         // Archiving persists the thread and keeps it selectable from History — the opposite of an
         // ephemeral thread's contract. Typed /archive bypasses palette enablement, so refuse here.
         if target.runtimeContext.isEphemeral {
-            setLastError("Incognito and side conversations can't be archived: they are never saved.")
+            setLastError("Confidential and side conversations can't be archived: they are never saved.")
             return false
         }
         preserveDisposableWorktreeBeforeArchive(threadID: id)
@@ -80,9 +80,9 @@ extension QuillCodeWorkspaceModel {
             }) else { return false }
 
             // Unarchive selects the restored thread directly (not via selectThread), so the outgoing
-            // incognito discard must run here too — otherwise Workspace Back could resurrect it.
+            // confidential discard must run here too — otherwise Workspace Back could resurrect it.
             if root.selectedThreadID != id {
-                _ = discardIncognitoThreadOnExit()
+                _ = discardConfidentialThreadOnExit()
             }
             applyThreadDraftSelection(to: id)
             root.selectedThreadID = id
@@ -101,7 +101,7 @@ extension QuillCodeWorkspaceModel {
             return false
         }
         // Typed /delete bypasses the discard-on-exit helper; keep the ephemeral spend receipt so a
-        // deleted incognito session's usage still counts against the period limits, and clear the
+        // deleted confidential session's usage still counts against the period limits, and clear the
         // workspace-scoped error so a private run's failure doesn't render as a runtime-issue card
         // in the next durable chat.
         if let target = root.threads.first(where: { $0.id == id }) {

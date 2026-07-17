@@ -326,7 +326,7 @@ enum WorkspaceCommandAction: String, Equatable {
     case attentionAcknowledge = "attention-acknowledge"
     case attentionDismiss = "attention-dismiss"
     // Appended at the end (never mid-enum — discriminant shifts corrupt incremental builds).
-    case newIncognitoChat = "new-incognito-chat"
+    case newConfidentialChat = "new-confidential-chat"
 }
 
 private extension String {

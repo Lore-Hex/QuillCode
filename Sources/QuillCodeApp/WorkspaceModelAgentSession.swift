@@ -68,7 +68,7 @@ extension QuillCodeWorkspaceModel {
             selectedProject: runProject,
             config: root.config,
             modelCatalog: root.modelCatalog,
-            // Include receipts from destroyed incognito sessions so the period ledger keeps counting
+            // Include receipts from destroyed confidential sessions so the period ledger keeps counting
             // spend the threads themselves no longer exist to report.
             spendPeriodThreads: root.threads + discardedEphemeralSpendThreads,
             browser: browser,

@@ -44,9 +44,9 @@ struct WorkspaceContextResolver: Sendable {
     }
 
     private func activeInstructions(for thread: ChatThread?) -> [ProjectInstruction] {
-        // Incognito threads intentionally have no workspace context: empty means empty, never the
+        // Confidential threads intentionally have no workspace context: empty means empty, never the
         // project fallback (which would refill the private conversation with durable notes).
-        if thread?.runtimeContext.isIncognito == true { return [] }
+        if thread?.runtimeContext.isConfidential == true { return [] }
         if let thread, !thread.instructions.isEmpty {
             return thread.instructions
         }
@@ -54,7 +54,7 @@ struct WorkspaceContextResolver: Sendable {
     }
 
     private func activeMemories(for thread: ChatThread?) -> [MemoryNote] {
-        if thread?.runtimeContext.isIncognito == true { return [] }
+        if thread?.runtimeContext.isConfidential == true { return [] }
         if let thread, !thread.memories.isEmpty {
             return thread.memories
         }

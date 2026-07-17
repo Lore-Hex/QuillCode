@@ -2,20 +2,20 @@ import XCTest
 @testable import QuillCodeCore
 
 final class ThreadRuntimeContextTests: XCTestCase {
-    func testIncognitoContextIsEphemeralAndSessionOnlyAcrossCoding() throws {
-        // Incognito's whole promise is "never saved": the context must count as ephemeral (which
+    func testConfidentialContextIsEphemeralAndSessionOnlyAcrossCoding() throws {
+        // Confidential's whole promise is "never saved": the context must count as ephemeral (which
         // gates every persistence path) and must not survive an encode/decode round trip — a decoded
-        // incognito thread degrades to .standard exactly like a side conversation does.
-        let thread = ChatThread(title: "Incognito", runtimeContext: .incognito)
+        // confidential thread degrades to .standard exactly like a side conversation does.
+        let thread = ChatThread(title: "Confidential", runtimeContext: .confidential)
 
         let data = try JSONEncoder().encode(thread)
         let decoded = try JSONDecoder().decode(ChatThread.self, from: data)
 
         XCTAssertTrue(thread.runtimeContext.isEphemeral)
-        XCTAssertTrue(thread.runtimeContext.isIncognito)
+        XCTAssertTrue(thread.runtimeContext.isConfidential)
         XCTAssertNil(thread.runtimeContext.sideConversationParentThreadID)
-        XCTAssertFalse(ThreadRuntimeContext.standard.isIncognito)
-        XCTAssertFalse(ThreadRuntimeContext.sideConversation(parentThreadID: UUID()).isIncognito)
+        XCTAssertFalse(ThreadRuntimeContext.standard.isConfidential)
+        XCTAssertFalse(ThreadRuntimeContext.sideConversation(parentThreadID: UUID()).isConfidential)
         XCTAssertEqual(decoded.runtimeContext, .standard)
         XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("runtimeContext"))
     }

@@ -11,7 +11,7 @@ extension QuillCodeDesktopController {
     }
 
     func runCodeReview(_ request: WorkspaceCodeReviewRequest) {
-        // Use the SAME effective delivery the run will (incognito coerces detached → current), so the
+        // Use the SAME effective delivery the run will (confidential coerces detached → current), so the
         // task slot, the busy check, and the onFinish follow-up-drain all agree.
         let request = model.withNormalizedDeliveryForSelection(request)
         let sourceThreadID = model.selectedThread?.id

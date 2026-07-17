@@ -8,7 +8,7 @@ public enum WorkspaceHTMLRenderer {
           <div class="\(workspaceGridClass(for: surface))">
             \(sidebarHTML(for: surface))
             <main class="transcript" data-testid="transcript">
-              \(incognitoBannerHTML(for: surface))
+              \(confidentialBannerHTML(for: surface))
               \(sideConversationHTML(for: surface))
               \(WorkspaceHTMLSecondaryPaneRenderer.renderAutomations(surface.automations))
               \(WorkspaceHTMLTranscriptRenderer.render(
@@ -32,14 +32,14 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
-    /// The persistent incognito banner (control-free), mirroring the native
-    /// `QuillCodeIncognitoBannerView` and the harness's `.incognito-banner`.
-    private static func incognitoBannerHTML(for surface: WorkspaceSurface) -> String {
-        guard surface.isIncognito else { return "" }
+    /// The persistent confidential banner (control-free), mirroring the native
+    /// `QuillCodeConfidentialBannerView` and the harness's `.confidential-banner`.
+    private static func confidentialBannerHTML(for surface: WorkspaceSurface) -> String {
+        guard surface.isConfidential else { return "" }
         return """
-        <section class="incognito-banner" data-testid="incognito-banner" aria-label="Incognito chat: not saved, end-to-end encrypted">
-          <strong data-testid="incognito-banner-title">Incognito chat</strong>
-          <span data-testid="incognito-banner-detail">Not saved · E2E encrypted</span>
+        <section class="confidential-banner" data-testid="confidential-banner" aria-label="Confidential chat: not saved, end-to-end encrypted">
+          <strong data-testid="confidential-banner-title">Confidential chat</strong>
+          <span data-testid="confidential-banner-detail">Not saved · E2E encrypted</span>
         </section>
         """
     }

@@ -15,12 +15,12 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
-    /// Destroys the selected incognito thread when the user navigates away (new chat, thread or
+    /// Destroys the selected confidential thread when the user navigates away (new chat, thread or
     /// project selection): removes it from memory, finishes its runs, clears its draft, and prunes it
     /// from navigation history so Workspace Back can never resurrect the "never saved" conversation.
     /// Preserves a session-only spend receipt for any ephemeral thread whose usage is about to be
     /// destroyed (discard-on-exit, but also typed /clear and /delete which bypass the exit helper) —
-    /// so cycling incognito sessions can never launder spend past the configured period limits.
+    /// so cycling confidential sessions can never launder spend past the configured period limits.
     func retainEphemeralSpendReceipt(for thread: ChatThread) {
         guard thread.runtimeContext.isEphemeral,
               let receipt = Self.spendReceiptStub(from: thread)
@@ -34,7 +34,7 @@ extension QuillCodeWorkspaceModel {
         let usageEvents = thread.events.filter { ModelTokenUsageEvent.usage(from: $0) != nil }
         guard !usageEvents.isEmpty else { return nil }
         return ChatThread(
-            title: "Incognito spend receipt",
+            title: "Confidential spend receipt",
             model: thread.model,
             events: usageEvents,
             createdAt: thread.createdAt,
@@ -43,10 +43,10 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
-    func discardIncognitoThreadOnExit() -> Bool {
-        guard let current = selectedThread, current.runtimeContext.isIncognito else { return false }
+    func discardConfidentialThreadOnExit() -> Bool {
+        guard let current = selectedThread, current.runtimeContext.isConfidential else { return false }
         // Spend must survive the destruction (limits would otherwise be resettable by cycling
-        // incognito sessions); the receipt carries no conversation content.
+        // confidential sessions); the receipt carries no conversation content.
         retainEphemeralSpendReceipt(for: current)
         root.threads.removeAll { $0.id == current.id }
         sessionStartHookCoordinator.remove(threadID: current.id)
@@ -62,18 +62,18 @@ extension QuillCodeWorkspaceModel {
         navigationHistory.pruneEntries(withThreadID: current.id)
         // The workspace-scoped error surface (runtimeIssueSurface derives from lastError) must not
         // carry the private session's failures into the next chat — a run-failed card from an
-        // incognito send otherwise lingers, provider error text included, in the new thread.
+        // confidential send otherwise lingers, provider error text included, in the new thread.
         setLastError(nil)
         if root.selectedThreadID == current.id {
             // Land the selection back on the pruned history's current anchor (not nil): the caller's
             // next navigation records FROM this location, and an empty old-location mismatch would
             // make recordTransition reset the whole history — losing Back to everything before the
-            // incognito detour.
+            // confidential detour.
             root.selectedThreadID = navigationHistory.currentLocation?.threadID
             // And hydrate the live composer from the anchor's SAVED draft: the next transition
             // treats the anchor as the outgoing thread and persists the live composer over its
-            // stash — which, left blank from the incognito clear above, would erase an unsent
-            // pre-incognito draft.
+            // stash — which, left blank from the confidential clear above, would erase an unsent
+            // pre-confidential draft.
             if let anchorID = root.selectedThreadID {
                 composer.draft = persistedComposerDraft(for: anchorID) ?? ""
                 composer.attachments = persistedComposerAttachments(for: anchorID)
@@ -85,7 +85,7 @@ extension QuillCodeWorkspaceModel {
     public func selectThread(_ id: UUID, recordsNavigation: Bool = true) {
         if id != root.selectedThreadID {
             _ = returnFromSideConversation()
-            _ = discardIncognitoThreadOnExit()
+            _ = discardConfidentialThreadOnExit()
         }
         guard let thread = root.threads.first(where: { $0.id == id }) else { return }
         let previousLocation = currentNavigationLocation
@@ -129,12 +129,12 @@ extension QuillCodeWorkspaceModel {
         recordsNavigation: Bool = true,
         sessionStartSource: ProjectPluginSessionStartSource = .startup
     ) -> UUID {
-        // The common created-thread selection boundary: every path that lands here while an incognito
+        // The common created-thread selection boundary: every path that lands here while a confidential
         // thread is selected (worktree create/open, forks, quick chats — not just newChat) is leaving
         // that session, so the discard must run BEFORE the navigation snapshot below records a
         // transition from a location that is about to be pruned.
         if thread.id != root.selectedThreadID {
-            _ = discardIncognitoThreadOnExit()
+            _ = discardConfidentialThreadOnExit()
         }
         let previousLocation = currentNavigationLocation
         // Leaving the current thread for a newly created one (New Chat / fork / compact): persist its

@@ -256,7 +256,7 @@ extension QuillCodeWorkspaceModel {
         // route too — the cheap catalog aux model is never E2E, so summarize DETERMINISTICALLY (no
         // egress) rather than shipping the transcript to it. This mirrors `requiresE2EOnlyTraffic` in
         // WorkspaceAgentRunContextBuilder, which the standalone /compact and /fork summary path never
-        // goes through. Incognito threads never reach here (the isEphemeral belt guard in
+        // goes through. Confidential threads never reach here (the isEphemeral belt guard in
         // preparedContextContinuation returns first), so this covers a REGULAR thread that selected
         // "E2E Encrypted" from the Private category or via `/model e2e`.
         let routesE2EOnly = summarizesLocallyForPrivacy(source)

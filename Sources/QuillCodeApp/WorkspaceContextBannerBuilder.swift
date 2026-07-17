@@ -25,7 +25,7 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
         let progress = Self.contextSummaryProgress(for: thread)
         let contextCommandIsEnabled = progress == nil
         // Fork and compact mint DURABLE continuations of the transcript — always refused for an
-        // ephemeral (incognito) thread. The banner must not present them as live controls that only
+        // ephemeral (confidential) thread. The banner must not present them as live controls that only
         // ever fail; the sole real escape is a fresh chat. (Matches the command-palette gating.)
         let isEphemeral = thread.runtimeContext.isEphemeral
         let durableContinuationEnabled = contextCommandIsEnabled && !isEphemeral

@@ -19,7 +19,7 @@ extension QuillCodeWorkspaceModel {
         // durable artifact an ephemeral thread would leave behind forever (nothing sweeps it once the
         // thread evaporates). Until orphan cleanup exists, refuse honestly instead of leaking.
         if selectedThread?.runtimeContext.isEphemeral == true {
-            setLastError("Images can't be attached in incognito or side conversations: attachments are saved to disk.")
+            setLastError("Images can't be attached in confidential or side conversations: attachments are saved to disk.")
             return
         }
 

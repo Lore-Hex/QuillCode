@@ -65,6 +65,10 @@ struct QuillCodeTranscriptView: View {
     private let bottomPinThreshold: CGFloat = 60
     private static let transcriptScrollSpace = "quillcode.transcript.scroll"
     private static let bottomSentinelID = "quillcode.transcript.bottom-sentinel"
+    /// The conversation column's readable measure. Wide enough for tool cards and the review pane's
+    /// diffs, narrow enough that assistant prose stays readable (~90-100 chars at body size). The
+    /// harness/DOM `.timeline` centers on the same 860px so the three surfaces agree.
+    private static let contentColumnMaxWidth: CGFloat = 860
 
     private var findMatches: [QuillCodeTranscriptFindMatch] {
         QuillCodeTranscriptFindMatch.matches(in: transcript, query: findQuery)
@@ -144,9 +148,12 @@ struct QuillCodeTranscriptView: View {
     private var transcriptBody: some View {
         Group {
             if isEmptyStateVisible {
+                // Two spacers CENTER the hero in the transcript void — bottom-anchoring it against
+                // the composer left a large dead area above at tall windows.
                 Spacer(minLength: 0)
                 emptyState
                     .padding(.bottom, 20)
+                Spacer(minLength: 0)
             } else {
                 ScrollViewReader { proxy in
                     QuillCodeTranscriptJumpBar(
@@ -191,8 +198,14 @@ struct QuillCodeTranscriptView: View {
                             }
                             bottomSentinel
                         }
-                        .frame(maxWidth: .infinity)
+                        // Readable measure: cap the conversation column and center it, instead of
+                        // letting text run edge-to-edge at wide windows (a ~1200pt line is unreadable
+                        // and user bubbles end up a screen-width away from replies). Everything —
+                        // messages, tool cards, banners, the review pane — shares one column, so
+                        // alignment contexts (trailing user bubbles) pin to the column, not the pane.
+                        .frame(maxWidth: Self.contentColumnMaxWidth)
                         .padding(22)
+                        .frame(maxWidth: .infinity)
                         .background(contentTopOffsetReader)
                     }
                     .coordinateSpace(.named(Self.transcriptScrollSpace))

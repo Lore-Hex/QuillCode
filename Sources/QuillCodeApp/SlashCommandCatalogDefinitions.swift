@@ -25,10 +25,12 @@ extension SlashCommandCatalog {
             aliases: ["new-chat", "newchat"]
         ),
         slashDefinition(
-            "/incognito",
-            "New incognito chat",
+            "/confidential",
+            "New confidential chat",
             "Start a private chat that is never saved and always uses the end-to-end encrypted route.",
-            aliases: ["incognito-chat", "private-chat"]
+            // "incognito" is the pre-rename name — kept for autocomplete so old muscle memory
+            // (typing "/inc…") still surfaces this command.
+            aliases: ["confidential-chat", "private-chat", "incognito", "incognito-chat"]
         ),
         slashDefinition(
             "/side question",

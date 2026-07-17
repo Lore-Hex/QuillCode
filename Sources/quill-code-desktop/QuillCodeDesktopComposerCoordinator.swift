@@ -43,19 +43,19 @@ struct QuillCodeDesktopComposerCoordinator {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !prompt.isEmpty || !model.composer.attachments.isEmpty else { return }
 
-        // `/incognito` opens a fresh private session — intercept it BEFORE the busy-thread
+        // `/confidential` opens a fresh private session — intercept it BEFORE the busy-thread
         // follow-up queue below, which would otherwise enqueue the slash text into the running
         // (durable, non-E2E) thread and run it there. Mirrors the native slash dispatch order.
         // Intercept REGARDLESS of attachments: with an attachment present the submission planner
-        // treats "/incognito" as an agent prompt and would send the private text (and image) over
+        // treats "/confidential" as an agent prompt and would send the private text (and image) over
         // the current durable thread's non-E2E route — refuse, keeping the attachment, since
-        // attachments aren't available inside incognito anyway.
-        if WorkspaceIncognitoSlash.isIncognitoCommand(prompt) {
+        // attachments aren't available inside confidential anyway.
+        if WorkspaceConfidentialSlash.isConfidentialCommand(prompt) {
             if model.composer.attachments.isEmpty {
                 draft = ""
-                model.newIncognitoChat()
+                model.newConfidentialChat()
             } else {
-                model.setLastError("Remove the attached image to start an incognito chat: attachments aren't available in incognito.")
+                model.setLastError("Remove the attached image to start a confidential chat: attachments aren't available in confidential.")
             }
             refresh()
             return
