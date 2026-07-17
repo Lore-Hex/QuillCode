@@ -54,7 +54,7 @@ extension AppServerSession {
 
 private struct AppServerLocalUsage {
     private let calendar: Calendar
-    private let buckets: [(day: Date, tokens: Int64)]
+    private let buckets: [(day: Date, tokens: AppServerTokenTotals)]
     private let today: Date
 
     init(threads: [ChatThread], now: Date = Date()) {
@@ -62,22 +62,27 @@ private struct AppServerLocalUsage {
         calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? calendar.timeZone
         self.calendar = calendar
         self.today = calendar.startOfDay(for: now)
-        var totals: [Date: Int64] = [:]
+        var totals: [Date: AppServerTokenTotals] = [:]
         for event in threads.flatMap(\.events) {
             guard let record = ModelTokenUsageEvent.record(from: event) else { continue }
             let day = calendar.startOfDay(for: event.createdAt)
-            totals[day] = Self.saturatingAdd(totals[day, default: 0], Int64(record.usage.totalTokens))
+            totals[day, default: .zero].add(record.usage)
         }
         self.buckets = totals.map { ($0.key, $0.value) }.sorted { $0.day < $1.day }
     }
 
     var response: CLIJSONValue {
-        let lifetime = buckets.reduce(Int64(0)) { Self.saturatingAdd($0, $1.tokens) }
+        let lifetime = buckets.reduce(AppServerTokenTotals.zero) { partial, bucket in
+            partial.adding(bucket.tokens)
+        }
         let streaks = streakSummary
         return .object([
             "summary": .object([
-                "lifetimeTokens": .number(Double(lifetime)),
-                "peakDailyTokens": .number(Double(buckets.map(\.tokens).max() ?? 0)),
+                "lifetimeTokens": .number(Double(lifetime.total)),
+                "lifetimePromptTokens": .number(Double(lifetime.prompt)),
+                "lifetimeCompletionTokens": .number(Double(lifetime.completion)),
+                "lifetimeContextTokens": .number(Double(lifetime.context)),
+                "peakDailyTokens": .number(Double(buckets.map(\.tokens.total).max() ?? 0)),
                 "longestRunningTurnSec": .null,
                 "currentStreakDays": .number(Double(streaks.current)),
                 "longestStreakDays": .number(Double(streaks.longest))
@@ -85,7 +90,10 @@ private struct AppServerLocalUsage {
             "dailyUsageBuckets": .array(buckets.map { bucket in
                 .object([
                     "startDate": .string(dayString(bucket.day)),
-                    "tokens": .number(Double(bucket.tokens))
+                    "tokens": .number(Double(bucket.tokens.total)),
+                    "promptTokens": .number(Double(bucket.tokens.prompt)),
+                    "completionTokens": .number(Double(bucket.tokens.completion)),
+                    "contextTokens": .number(Double(bucket.tokens.context))
                 ])
             })
         ])
@@ -113,6 +121,32 @@ private struct AppServerLocalUsage {
             components.year ?? 0,
             components.month ?? 0,
             components.day ?? 0
+        )
+    }
+
+}
+
+private struct AppServerTokenTotals: Sendable, Equatable {
+    static let zero = AppServerTokenTotals(prompt: 0, completion: 0, total: 0, context: 0)
+
+    var prompt: Int64
+    var completion: Int64
+    var total: Int64
+    var context: Int64
+
+    mutating func add(_ usage: ModelTokenUsage) {
+        prompt = Self.saturatingAdd(prompt, Int64(usage.promptTokens))
+        completion = Self.saturatingAdd(completion, Int64(usage.completionTokens))
+        total = Self.saturatingAdd(total, Int64(usage.totalTokens))
+        context = Self.saturatingAdd(context, Int64(usage.contextTokens))
+    }
+
+    func adding(_ other: AppServerTokenTotals) -> AppServerTokenTotals {
+        AppServerTokenTotals(
+            prompt: Self.saturatingAdd(prompt, other.prompt),
+            completion: Self.saturatingAdd(completion, other.completion),
+            total: Self.saturatingAdd(total, other.total),
+            context: Self.saturatingAdd(context, other.context)
         )
     }
 
