@@ -50,7 +50,11 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "bmpDimensions",
             "webpDimensions"
         ])
-        Self.assertSource(artifactDocumentPreviewText, contains: "enum ToolArtifactDocumentPreviewBuilder")
+        Self.assertSource(artifactDocumentPreviewText, containsAll: [
+            "enum ToolArtifactDocumentPreviewBuilder",
+            ".audio",
+            ".video"
+        ])
         Self.assertSource(artifactAppshotPreviewText, containsAll: [
             "enum ToolArtifactAppshotPreviewBuilder",
             "byteLimit",

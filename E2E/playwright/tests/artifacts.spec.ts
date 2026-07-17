@@ -219,6 +219,35 @@ test('mock harness renders office artifact metadata previews from tool cards', a
   await expect(page.getByText('Created `budget.xlsx`.')).toBeVisible();
 });
 
+test('mock harness renders media artifact previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make media artifacts');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText(['voice-note.mp3', 'demo.mp4']);
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card-document-preview').nth(0)).toHaveAttribute('data-kind', 'audio');
+  await expect(page.getByTestId('tool-card-document-preview').nth(1)).toHaveAttribute('data-kind', 'video');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText(['Audio · MP3', 'Video · MP4']);
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText(['voice-note.mp3', 'demo.mp4']);
+  await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText([
+    '/mock/QuillCode/media',
+    '/mock/QuillCode/media'
+  ]);
+  await expect(page.getByTestId('tool-card-document-preview-open').nth(0)).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/media/voice-note.mp3'
+  );
+  await expect(page.getByTestId('tool-card-document-preview-open').nth(1)).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/media/demo.mp4'
+  );
+  await expect(page.getByText('Created media artifacts.')).toBeVisible();
+});
+
 test('mock harness renders delimited table artifact previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

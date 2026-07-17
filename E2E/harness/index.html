@@ -8530,7 +8530,20 @@
       ['key', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }],
       ['odp', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }],
       ['ppt', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }],
-      ['pptx', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }]
+      ['pptx', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }],
+      ['aac', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['aif', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['aiff', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['flac', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['m4a', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['mp3', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['ogg', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['opus', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['wav', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['webm', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
+      ['m4v', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
+      ['mov', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
+      ['mp4', { kind: 'video', typeLabel: 'Video', icon: 'VID' }]
     ]);
 
     function artifactPathExtension(value) {
@@ -22430,6 +22443,23 @@
           }, null, 2)
         });
         addMessage('assistant', 'Created bitmap image artifacts.');
+      } else if (text.toLowerCase().includes('media') && text.toLowerCase().includes('artifact')) {
+        const audioPath = '/mock/QuillCode/media/voice-note.mp3';
+        const videoPath = '/mock/QuillCode/media/demo.mp4';
+        state.mockFiles[audioPath] = 'ID3';
+        state.mockFiles[videoPath] = '\u0000\u0000\u0000\u0018ftypmp42';
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path: 'media', contentType: 'generated media' }, null, 2),
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: `Wrote ${audioPath} and ${videoPath}\n`,
+            artifacts: [audioPath, videoPath]
+          }, null, 2)
+        });
+        addMessage('assistant', 'Created media artifacts.');
       } else if (fileWriteRequest) {
         const { path, content } = fileWriteRequest;
         if (isRemoteProject) {

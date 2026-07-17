@@ -357,6 +357,10 @@ enum WorkspaceHTMLToolCardRenderer {
             return "XLS"
         case .presentation:
             return "PPT"
+        case .audio:
+            return "AUD"
+        case .video:
+            return "VID"
         }
     }
 
