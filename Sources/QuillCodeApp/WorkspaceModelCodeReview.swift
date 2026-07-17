@@ -117,7 +117,13 @@ public extension QuillCodeWorkspaceModel {
             projects: root.projects,
             globalMemories: root.globalMemories
         )
-        let reviewModel = request.model ?? root.config.reviewModel ?? targetThread.model
+        // ONE effective review model, used for both the runner client AND the scratch thread. An
+        // incognito review forces the E2E route on the runner; the scratch thread must carry the same
+        // model or its streamed usage events are tagged (and priced/spend-fused) by a model that
+        // never actually ran.
+        let reviewModel = targetThread.runtimeContext.isIncognito
+            ? TrustedRouterDefaults.e2eModel
+            : (request.model ?? root.config.reviewModel ?? targetThread.model)
         appendStartedCodeReview(request, to: targetThreadID)
         codeReviewRequest = nil
         beginAgentRun(

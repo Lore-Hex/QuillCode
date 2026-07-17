@@ -591,6 +591,41 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
         XCTAssertFalse(decoded.isIncognito, "absent key must decode as not-incognito (@QuillCodeDefaultFalse)")
     }
 
+    func testMemoryContextNoticeDoesNotInjectMemoriesIntoIncognito() throws {
+        let note = MemoryNote(
+            id: "m", scope: .global, title: "Note", content: "durable secret", relativePath: "m.md", byteCount: 13
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(globalMemories: [note]))
+        let incognitoID = model.newIncognitoChat()
+
+        // Simulates a /remember mutation that would refresh the thread's memory context — the notice
+        // application must be suppressed for incognito (the prompt builder would emit these as a
+        // system prompt, breaking the no-workspace-context contract).
+        model.applyMemoryMutation(WorkspaceMemoryMutation(
+            transcript: WorkspaceLocalCommandTranscript(userText: "/remember durable secret", assistantText: "Saved", title: "Memory"),
+            updatedGlobalMemories: [note],
+            updatedProjectMemories: nil,
+            noticeSummary: "Saved a memory",
+            noticeRelativePath: "m.md",
+            reviewEvent: nil
+        ))
+
+        XCTAssertTrue(
+            try XCTUnwrap(model.root.threads.first { $0.id == incognitoID }).memories.isEmpty,
+            "incognito must never carry injected workspace memories"
+        )
+    }
+
+    func testDeletingASelectedIncognitoThreadClearsTheErrorSurface() {
+        let model = model(threads: [], selectedThreadID: nil)
+        let incognitoID = model.newIncognitoChat()
+        model.setLastError("TrustedRouter streaming request failed with HTTP 402")
+
+        _ = model.deleteThread(incognitoID)
+
+        XCTAssertNil(model.lastError, "a deleted incognito run's failure must not linger into the next chat")
+    }
+
     private func model(threads: [ChatThread], selectedThreadID: UUID?) -> QuillCodeWorkspaceModel {
         QuillCodeWorkspaceModel(root: QuillCodeRootState(
             threads: threads,

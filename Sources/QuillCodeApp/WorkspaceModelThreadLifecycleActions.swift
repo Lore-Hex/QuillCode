@@ -101,9 +101,14 @@ extension QuillCodeWorkspaceModel {
             return false
         }
         // Typed /delete bypasses the discard-on-exit helper; keep the ephemeral spend receipt so a
-        // deleted incognito session's usage still counts against the period limits.
+        // deleted incognito session's usage still counts against the period limits, and clear the
+        // workspace-scoped error so a private run's failure doesn't render as a runtime-issue card
+        // in the next durable chat.
         if let target = root.threads.first(where: { $0.id == id }) {
             retainEphemeralSpendReceipt(for: target)
+            if target.runtimeContext.isEphemeral && root.selectedThreadID == id {
+                setLastError(nil)
+            }
         }
         return applyNavigationLifecycleChange {
             guard let result = updateThreadLifecycle({ threads in

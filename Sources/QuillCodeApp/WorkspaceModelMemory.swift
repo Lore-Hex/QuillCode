@@ -104,6 +104,11 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func applyMemoryContextNotice(_ mutation: WorkspaceMemoryMutation) {
+        // Never write the workspace memory snapshot onto an incognito thread: the prompt builder
+        // would emit those durable memories as a system prompt, breaking the no-workspace-context
+        // contract. The /remember write itself still lands in the durable memory store (an explicit,
+        // bookmark-like action) — only the injection into the private conversation is suppressed.
+        if selectedThread?.runtimeContext.isIncognito == true { return }
         guard let summary = mutation.noticeSummary,
               let relativePath = mutation.noticeRelativePath
         else {
