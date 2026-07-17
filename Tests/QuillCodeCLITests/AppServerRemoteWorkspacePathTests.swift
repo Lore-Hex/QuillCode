@@ -19,6 +19,14 @@ final class AppServerRemoteWorkspacePathTests: XCTestCase {
             )
         )
         XCTAssertEqual(try workspace.resolve("/srv/project/Tests").relativePath, "Tests")
+        XCTAssertEqual(
+            try workspace.sandboxPathURI(for: "/srv/shared"),
+            "file:///srv/shared"
+        )
+        XCTAssertEqual(
+            try workspace.sandboxPathURI(for: "DerivedData"),
+            "file:///srv/project/DerivedData"
+        )
         XCTAssertThrowsError(try workspace.resolve("../secret"))
         XCTAssertThrowsError(try workspace.resolve("/etc/passwd"))
     }
@@ -39,7 +47,12 @@ final class AppServerRemoteWorkspacePathTests: XCTestCase {
                 relativePath: "Sources/Main.swift"
             )
         )
+        XCTAssertEqual(
+            try workspace.sandboxPathURI(for: #"C:\shared"#),
+            "file:///C:/shared"
+        )
         XCTAssertThrowsError(try workspace.resolve(#"D:\outside.txt"#))
+        XCTAssertThrowsError(try workspace.sandboxPathURI(for: #"D:\shared"#))
         XCTAssertThrowsError(try workspace.resolve(#"..\outside.txt"#))
     }
 

@@ -360,6 +360,10 @@ final class AppServerEnvironmentSessionTests: XCTestCase {
         let snapshot = await client.snapshot()
         XCTAssertEqual(snapshot.processRequests.count, 1)
         XCTAssertEqual(snapshot.processRequests.first?.argv, ["/bin/zsh", "-lc", "whoami"])
+        XCTAssertEqual(
+            snapshot.processRequests.first?.sandbox,
+            try remoteSandbox(.init(mode: .dangerFullAccess))
+        )
         let observations = await llm.observations()
         let first = try XCTUnwrap(observations.first)
         XCTAssertTrue(first.toolNames.contains(ToolDefinition.shellRun.name))
@@ -432,6 +436,10 @@ final class AppServerEnvironmentSessionTests: XCTestCase {
         XCTAssertEqual(snapshot.processRequests.count, 1)
         XCTAssertEqual(snapshot.processRequests.first?.argv, ["/bin/zsh", "-lc", "whoami"])
         XCTAssertEqual(snapshot.processRequests.first?.cwdURI, "file:///workspace")
+        XCTAssertEqual(
+            snapshot.processRequests.first?.sandbox,
+            try remoteSandbox(.init(mode: .readOnly))
+        )
         XCTAssertEqual(snapshot.processRequests.first?.timeoutSeconds, 60 * 60)
         records = try await fixture.output.records()
         XCTAssertEqual(result(for: 3, in: records), [:])
@@ -829,6 +837,15 @@ final class AppServerEnvironmentSessionTests: XCTestCase {
         .init(
             shell: .init(name: "zsh", path: "/bin/zsh"),
             cwd: "file:///workspace"
+        )
+    }
+
+    private func remoteSandbox(
+        _ policy: AppServerSandboxPolicy
+    ) throws -> AppServerExecServerSandboxContext {
+        try AppServerExecServerSandboxContext(
+            policy: policy,
+            workspace: .init(cwd: "/workspace", fallbackCWDURI: nil)
         )
     }
 
