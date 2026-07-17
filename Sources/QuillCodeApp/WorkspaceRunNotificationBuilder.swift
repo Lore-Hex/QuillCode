@@ -23,6 +23,13 @@ enum WorkspaceRunNotificationBuilder {
         // recorded on the thread (stable across reloads), else scan the transcript now.
         let integrity = RunIntegrityRecord.latest(in: thread)?.verdict
             ?? RunIntegrityScanner.verdict(for: thread)
+        // A flail stop's reason embeds the first failure-output line — private paths/content that
+        // must not reach durable OS notification history from an incognito run. The budget-stop path
+        // runs BEFORE the finalAnswer redaction, so it needs its own.
+        var budgetStop = budgetStop
+        if thread.runtimeContext.isIncognito, case .flailed = budgetStop {
+            budgetStop = .flailed(reason: "")
+        }
         return AgentRunNotificationPlanner.notification(
             threadTitle: thread.title,
             threadID: thread.id,

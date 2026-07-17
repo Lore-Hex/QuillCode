@@ -18,13 +18,39 @@ extension QuillCodeWorkspaceModel {
     /// Destroys the selected incognito thread when the user navigates away (new chat, thread or
     /// project selection): removes it from memory, finishes its runs, clears its draft, and prunes it
     /// from navigation history so Workspace Back can never resurrect the "never saved" conversation.
+    /// Distills a destroyed ephemeral thread's provider-usage events (token counts, model id,
+    /// timestamps — never message content) into a stub the spend-period ledger can keep counting.
+    private static func spendReceiptStub(from thread: ChatThread) -> ChatThread? {
+        let usageEvents = thread.events.filter { ModelTokenUsageEvent.usage(from: $0) != nil }
+        guard !usageEvents.isEmpty else { return nil }
+        return ChatThread(
+            title: "Incognito spend receipt",
+            model: thread.model,
+            events: usageEvents,
+            createdAt: thread.createdAt,
+            updatedAt: thread.updatedAt
+        )
+    }
+
     @discardableResult
     func discardIncognitoThreadOnExit() -> Bool {
         guard let current = selectedThread, current.runtimeContext.isIncognito else { return false }
+        // Spend must survive the destruction (limits would otherwise be resettable by cycling
+        // incognito sessions); the receipt carries no conversation content.
+        if let receipt = Self.spendReceiptStub(from: current) {
+            discardedEphemeralSpendThreads.append(receipt)
+        }
         root.threads.removeAll { $0.id == current.id }
         sessionStartHookCoordinator.remove(threadID: current.id)
         agentRuns.finish(threadID: current.id)
+        // The registry entry above is bookkeeping; the OWNING send task lives in the desktop task
+        // coordinator, which observes this callback to actually cancel provider/tool work.
+        onEphemeralThreadDiscarded?(current.id)
         threadDrafts = ComposerDraftStore.cleared(current.id, drafts: threadDrafts)
+        // The LIVE composer belongs to the discarded session too: unsent private text (and attached
+        // images) must not stay visible under whatever gets selected next.
+        composer.draft = ""
+        composer.attachments = []
         navigationHistory.pruneEntries(withThreadID: current.id)
         // The workspace-scoped error surface (runtimeIssueSurface derives from lastError) must not
         // carry the private session's failures into the next chat — a run-failed card from an

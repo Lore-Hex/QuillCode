@@ -40,7 +40,13 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func archiveThread(_ id: UUID) -> Bool {
-        guard root.threads.contains(where: { $0.id == id && !$0.isArchived }) else {
+        guard let target = root.threads.first(where: { $0.id == id && !$0.isArchived }) else {
+            return false
+        }
+        // Archiving persists the thread and keeps it selectable from History — the opposite of an
+        // ephemeral thread's contract. Typed /archive bypasses palette enablement, so refuse here.
+        if target.runtimeContext.isEphemeral {
+            setLastError("Incognito and side conversations can't be archived: they are never saved.")
             return false
         }
         preserveDisposableWorktreeBeforeArchive(threadID: id)

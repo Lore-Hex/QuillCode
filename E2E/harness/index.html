@@ -20755,6 +20755,16 @@
       const text = String(value).trim();
       const attachments = clonedPlainObject(state.composer.attachments || [], []);
       if (!text && !attachments.length) return;
+      // /incognito dispatches BEFORE the shared instant-command path: runInstantSlashCommand would
+      // ensureThread + record the slash text into a DURABLE transcript first — the opposite of the
+      // command's promise (mirrors the native slash path, which never touches the durable thread).
+      if (!attachments.length && /^\/(incognito|incognito-chat|private-chat)\b/i.test(text)) {
+        state.composer.draft = '';
+        state.composer.canSend = false;
+        state.composer.slashActiveIndex = 0;
+        newIncognitoChat();
+        return;
+      }
       if (!attachments.length && runInstantStopSlashCommand(text)) return;
       if (!attachments.length) {
         const sideSlash = sideConversationSlash(text);
@@ -20809,9 +20819,7 @@
         return true;
       }
 
-      const commandID = /^\/(incognito|incognito-chat|private-chat)\b/i.test(text)
-        ? 'new-incognito-chat'
-        : /^\/(focus|composer|input)\b/i.test(text)
+      const commandID = /^\/(focus|composer|input)\b/i.test(text)
         ? 'focus-composer'
         : /^\/(retry|rerun|again)\b/i.test(text)
           ? 'retry-last-turn'

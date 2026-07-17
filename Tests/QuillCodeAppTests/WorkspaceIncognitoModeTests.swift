@@ -279,6 +279,82 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
         XCTAssertTrue(label.contains(TrustedRouterDefaults.e2eModelDisplayName), label)
     }
 
+    func testDiscardFiresTheTaskCancellationHookAndClearsTheLiveComposer() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        var cancelledThreadIDs: [UUID] = []
+        model.onEphemeralThreadDiscarded = { cancelledThreadIDs.append($0) }
+        let incognitoID = model.newIncognitoChat()
+        model.setDraft("half-typed private question")
+
+        _ = model.newChat()
+
+        XCTAssertEqual(cancelledThreadIDs, [incognitoID], "the desktop layer must be told to cancel the owning send task")
+        XCTAssertEqual(model.composer.draft, "", "unsent private text must not survive into the next selection")
+        XCTAssertTrue(model.composer.attachments.isEmpty)
+    }
+
+    func testDiscardPreservesContentFreeSpendReceipts() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        let incognitoID = model.newIncognitoChat()
+        model.mutateThread(incognitoID) { thread in
+            thread.messages.append(.init(role: .user, content: "private question"))
+            thread.events.append(ModelTokenUsageEvent.event(
+                usage: ModelTokenUsage(promptTokens: 1_000, completionTokens: 500),
+                modelID: TrustedRouterDefaults.e2eModel
+            ))
+        }
+
+        _ = model.newChat()
+
+        let receipt = try XCTUnwrap(model.discardedEphemeralSpendThreads.first)
+        XCTAssertTrue(receipt.messages.isEmpty, "receipts carry usage only — never conversation content")
+        XCTAssertEqual(receipt.events.count, 1)
+        XCTAssertEqual(
+            ModelTokenUsageEvent.usage(from: try XCTUnwrap(receipt.events.first))?.contextTokens,
+            1_500,
+            "the period ledger must keep counting the destroyed session's spend"
+        )
+    }
+
+    func testDiscardWithoutUsageLeavesNoReceipt() {
+        let model = model(threads: [], selectedThreadID: nil)
+        _ = model.newIncognitoChat()
+
+        _ = model.newChat()
+
+        XCTAssertTrue(model.discardedEphemeralSpendThreads.isEmpty)
+    }
+
+    func testArchivingAnIncognitoThreadIsRefused() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        let incognitoID = model.newIncognitoChat()
+
+        XCTAssertFalse(model.archiveThread(incognitoID))
+
+        XCTAssertNotNil(model.lastError)
+        XCTAssertTrue(
+            model.root.threads.contains { $0.id == incognitoID },
+            "refusal must leave the live session intact (not half-archived)"
+        )
+    }
+
+    func testFlailNotificationForIncognitoCarriesNoFailureOutput() throws {
+        var thread = WorkspaceThreadCreationEngine.incognitoThread(projectID: nil, mode: .auto)
+        let secret = "/Users/private/secret-project/main.py exploded"
+        thread.messages.append(.init(role: .user, content: "question"))
+
+        let notification = try XCTUnwrap(
+            WorkspaceRunNotificationBuilder.notification(
+                thread: thread,
+                didFail: false,
+                budgetStop: .flailed(reason: secret)
+            )
+        )
+
+        XCTAssertFalse(notification.body.contains(secret), notification.body)
+        XCTAssertFalse(notification.title.contains(secret))
+    }
+
     private func model(threads: [ChatThread], selectedThreadID: UUID?) -> QuillCodeWorkspaceModel {
         QuillCodeWorkspaceModel(root: QuillCodeRootState(
             threads: threads,

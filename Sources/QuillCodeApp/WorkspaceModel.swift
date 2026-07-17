@@ -38,6 +38,17 @@ public final class QuillCodeWorkspaceModel {
     /// point of daily-driving on a loop is not watching, so the app pings you when it needs you. nil in
     /// tests / the CLI, where there is no desktop notification surface.
     public var onRunNotification: (@MainActor @Sendable (AgentRunNotification) -> Void)?
+    /// Set by the desktop layer to CANCEL the owning `.send(threadID)` task when a discarded
+    /// ephemeral (incognito) thread had work in flight. The model's run registry is bookkeeping
+    /// only — without this hook the provider/tool work would keep executing after the UI promised
+    /// the session was destroyed. nil in tests / the CLI.
+    public var onEphemeralThreadDiscarded: (@MainActor (UUID) -> Void)?
+    /// Content-free spend receipts distilled from destroyed incognito threads (usage events only —
+    /// token counts, model id, timestamps; no messages). The run-spend period ledger is built from
+    /// `root.threads`, so without these a destroyed incognito session's spend would vanish from the
+    /// daily/weekly/monthly accounting and repeated incognito use could exceed configured limits.
+    /// Session-only by design: it must never be persisted with the rest of the workspace.
+    var discardedEphemeralSpendThreads: [ChatThread] = []
     /// Optional platform hook for browser tools that need a live native browser surface. Desktop installs
     /// this for visible WebKit sessions; nil keeps the pure app-core snapshot executor behavior.
     public var visibleBrowserToolOverride: AgentToolExecutionOverride?
