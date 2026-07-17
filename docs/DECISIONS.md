@@ -1031,7 +1031,7 @@
 - Browser parity gates live in `ParityBrowserGateTests`, not the broad `ParityGateTests` catch-all. Browser surface ownership, snapshot extraction, workflow state transitions, location resolving, browser integration-test ownership, and HTML browser-rendering boundaries should stay together so active browser work does not keep inflating the general architecture-gate file.
 - Live DOM browser capture is an adapter contract, not a direct dependency from `WorkspaceModel` to a WebView. `BrowserLiveDOMCapturing` owns rendered-session capture, `BrowserLiveDOMSnapshotBuilder` translates bounded rendered title/outline/visible text into `BrowserSnapshotState`, `WorkspaceBrowserWorkflow` owns capture begin/success/failure semantics, and `WorkspaceBrowserEngine` applies final URL/history/title/status mutations. The macOS desktop implementation lives in `DesktopBrowserLiveDOMCapturer`, where an offscreen `WKWebView` renders HTTP(S) pages and evaluates a bounded DOM snapshot. It defaults to `DesktopBrowserLiveDOMProfile.persistent`, backed by WebKit's default website data store, so cookies and session state can be reused across captures; `.ephemeral` remains available for future tests/privacy controls. Visible user sign-in lives in `DesktopBrowserSessionPresenter`, which owns one reusable retained desktop `WKWebView` window with the same default website data store and shares `WorkspaceBrowserLocationResolver` with browser preview. The same visible-session action is exposed through the browser pane, menu bar, and command palette; SwiftUI routes it through an optional host capability so non-desktop surfaces do not gain WebKit dependencies. The desktop controller only injects the capturer/presenter and asks the model to refresh or opens the resolved session; it must not import WebKit, embed JavaScript, or manage visible browser window lifecycle. Multi-tab session management and Linux/browser-process backends should plug into the same seam without adding platform branches to the app model.
 - Model and configuration parity gates live in `ParityModelGateTests`, not the broad `ParityGateTests` catch-all. Nike/Zeus/Prometheus/Socrates/Aristotle/Plato branding, TrustedRouter aliases, model catalog normalization, and app config boundaries should stay together so model naming and picker work can evolve without reintroducing raw model types as user-facing defaults.
-- Top-bar Disconnect All is a real command, not a disabled placeholder. It shares the active-work stop path with Stop All, stops active MCP server processes, cancels active sends and terminal runs, and detaches the currently selected SSH Remote project context without removing the project from the sidebar. SSH Remote shell/git commands remain noninteractive per-command executions, so disconnecting a remote project clears selection and terminal context rather than closing a persistent SSH socket.
+- Top-bar Disconnect All is a real command, not a disabled placeholder. It shares the active-work stop path with Stop All, stops active MCP server processes, cancels active sends and terminal runs, and detaches the currently selected SSH Remote project context without removing the project from the sidebar. Agent tool calls may hold a persistent SSH-launched remote app-server session; workspace teardown closes all such sessions. Explicit terminal and UI tool actions keep their existing noninteractive one-shot SSH behavior.
 - Workspace model-picker integration coverage lives in `WorkspaceModelPickerSurfaceIntegrationTests`, not the broad `WorkspaceSurfaceTests` catch-all. Category grouping, model search against workspace state, unknown selected models, recent/favorite ordering, and model badge metadata should stay together while pure DTO compatibility remains in `QuillCodeTopBarSurfaceTests` and pure builder behavior remains in `WorkspaceModelCatalogSurfaceBuilderTests`.
 - HTML chrome renderer coverage lives in `WorkspaceHTMLChromeRendererTests`, not the broad `WorkspaceSurfaceTests` catch-all. Static HTML smoke coverage for primary regions, sidebar chrome, top-bar overflow, composer markup, context banners, runtime issues, and sidebar date buckets should stay together; tool-card, terminal, browser, secondary-pane, and review HTML coverage can be split into their own focused suites as those areas evolve.
 - HTML renderer architecture gates live in `ParityHTMLGateTests`, not the broad `ParityGateTests` catch-all. Pure HTML renderer delegation checks for tool cards, top bar, terminal, secondary panes, review, transcript, and sidebar should stay together; browser-specific HTML rendering stays in `ParityBrowserGateTests`, and mixed native/composer/workspace surface gates remain in the broad suite until they have enough focused domain coverage to split cleanly.
@@ -1950,3 +1950,26 @@
   idempotence, corruption, Git upgrade/no-op upgrade, validation, and removal. The built JSONL smoke
   repeats add/upgrade/remove against a real temporary Git repository, and a parity gate binds the
   runtime, tests, smoke, research, and matrix claim.
+
+## 2026-07-16: SSH Remote agent tools reuse a remote app server without replaying ambiguity
+
+- **Transport boundary:** Each remote project root owns at most one pooled SSH process running
+  `quill-code app-server --stdio` through the remote user's login shell. The client performs the real
+  initialize/initialized JSONL handshake and serializes bounded `command/exec` requests over that
+  process. Ordinary terminal and explicit UI actions remain one-shot SSH operations.
+- **Safety boundary:** QuillCode's normal local tool schema, mode, and approval review still decide
+  whether a command may dispatch. The already-approved remote command requests the unrestricted
+  app-server profile so it can perform the action the user approved; remote managed requirements may
+  still reject that profile.
+- **Retry boundary:** Failure to initialize is known to precede execution and may fall back to the
+  established one-shot SSH executor. Any failure after the command request is written is reported as
+  an unknown execution state and is never retried automatically. The user is told to inspect remote
+  state before retrying, preventing duplicate file, Git, or shell mutations.
+- **Architecture boundary:** One command plan and result transformer serve both transports, keeping
+  path checks, shell timeouts, file-list decoding, artifacts, patch validation, and PR URL extraction
+  identical. The workspace owns the pool lifecycle and disconnects all sessions on teardown.
+- **Evidence:** Process-backed tests launch fake SSH and app-server executables to prove handshake,
+  two-command connection reuse, nonzero exits, pre-dispatch unavailability, and post-dispatch loss.
+  App tests prove artifact finalization, safe fallback, cwd/timeout forwarding, and no fallback after
+  ambiguous execution. The remote parity source gate binds the client, pool, workspace wiring, tests,
+  research, and matrix claim.

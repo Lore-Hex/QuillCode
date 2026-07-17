@@ -73,6 +73,7 @@ public final class QuillCodeWorkspaceModel {
     let managedWorktreeDefaultRoot: URL
     var computerUseBackend: (any ComputerUseBackend)?
     let sshRemoteShellExecutor: SSHRemoteShellExecutor
+    let sshRemoteAppServer: any SSHRemoteAppServerExecuting
     let mcpRuntime: WorkspaceMCPRuntime
     let sessionStartHookCoordinator: WorkspaceSessionStartHookCoordinator
     var activeTerminalSession: (any ShellInteractiveSession)?
@@ -156,6 +157,7 @@ public final class QuillCodeWorkspaceModel {
             .appendingPathComponent(".quillcode/worktrees"),
         computerUseBackend: (any ComputerUseBackend)? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor(),
+        sshRemoteAppServer: any SSHRemoteAppServerExecuting = SSHRemoteAppServerPool(),
         mcpSecretStore: (any MCPSecretStore)? = nil
     ) {
         self.root = root
@@ -201,6 +203,7 @@ public final class QuillCodeWorkspaceModel {
         self.managedWorktreeDefaultRoot = managedWorktreeDefaultRoot.standardizedFileURL
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
+        self.sshRemoteAppServer = sshRemoteAppServer
         self.sessionStartHookCoordinator = WorkspaceSessionStartHookCoordinator(
             resumedThreadIDs: Set(root.threads.map(\.id))
         )
@@ -220,6 +223,8 @@ public final class QuillCodeWorkspaceModel {
         activeTerminalSession?.cancel()
         pullRequestReconciliationTask?.cancel()
         mcpRuntime.terminateAllRunningProcesses()
+        let sshRemoteAppServer = sshRemoteAppServer
+        Task { await sshRemoteAppServer.disconnectAll() }
     }
 
     func syncTerminalSessionToSelectedProject() {

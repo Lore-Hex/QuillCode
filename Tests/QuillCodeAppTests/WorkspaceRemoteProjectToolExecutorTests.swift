@@ -74,6 +74,69 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         ])
     }
 
+    func testRemoteShellPreservesValidatedEnvironmentStdinAndTimeoutContract() throws {
+        let root = try makeTempDirectory()
+        let remoteRoot = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-shell-contract-args.txt")
+        let fakeSSH = try makeExecutingFakeSSH(in: root, argumentsFile: argumentsFile)
+
+        let result = WorkspaceRemoteProjectToolExecutor.execute(
+            ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json([
+                    "cmd": "IFS= read -r line; printf '%s:%s' \"$line\" \"$QC_VALUE\"",
+                    "environment": ["QC_VALUE": "remote"],
+                    "stdin": "hello\n",
+                    "timeoutSeconds": 5
+                ])
+            ),
+            project: remoteProject(path: remoteRoot.path),
+            executor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        XCTAssertTrue(result.ok, "\(result.error ?? "") \(result.stderr)")
+        XCTAssertEqual(result.stdout, "hello:remote")
+        let command = try recordedArguments(from: argumentsFile).last ?? ""
+        XCTAssertTrue(command.contains("base64 --decode | env 'QC_VALUE=remote' /bin/sh -c"), command)
+    }
+
+    func testRemoteShellRejectsInvalidEnvironmentStdinAndTimeoutBeforeSSH() throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-invalid-shell-args.txt")
+        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let project = remoteProject(path: "/srv/quill")
+
+        let invalidEnvironment = WorkspaceRemoteProjectToolExecutor.execute(
+            ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "true", "environment": ["BAD-KEY": "value"]])
+            ),
+            project: project,
+            executor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+        let invalidTimeout = WorkspaceRemoteProjectToolExecutor.execute(
+            ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "true", "timeoutSeconds": 1_801])
+            ),
+            project: project,
+            executor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+        let oversizedInput = WorkspaceRemoteProjectToolExecutor.execute(
+            ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "cat", "stdin": String(repeating: "x", count: 1_048_577)])
+            ),
+            project: project,
+            executor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path)
+        )
+
+        XCTAssertTrue(invalidEnvironment.error?.contains("ASCII identifiers") == true)
+        XCTAssertTrue(invalidTimeout.error?.contains("between 1 and 1800") == true)
+        XCTAssertTrue(oversizedInput.error?.contains("at most 1048576") == true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
+    }
+
     func testRemoteFileWriteAddsRemoteArtifact() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("ssh-args.txt")
@@ -659,6 +722,99 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         )
     }
 
+    func testAgentOverrideUsesPersistentAppServerAndFinalizesArtifacts() async throws {
+        let appServer = StubSSHRemoteAppServer(outcomes: [
+            .completed(ToolResult(ok: true, stdout: "Wrote notes/hello.txt\n", exitCode: 0))
+        ])
+        let project = remoteProject(path: "/srv/quill")
+        let override = try XCTUnwrap(WorkspaceRemoteProjectToolExecutor.executionOverride(
+            project: project,
+            executor: SSHRemoteShellExecutor(),
+            appServer: appServer
+        ))
+
+        let optionalResult = await override(
+            ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "notes/hello.txt",
+                    "content": "hello\n"
+                ])
+            ),
+            URL(fileURLWithPath: "/unused")
+        )
+        let result = try XCTUnwrap(optionalResult)
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.artifacts, ["ssh://quill@feather.local:2222/srv/quill/notes/hello.txt"])
+        let requests = await appServer.requests
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.first?.connection, project.connection)
+        XCTAssertTrue(requests.first?.command.contains("base64 --decode") == true)
+    }
+
+    func testAgentOverrideFallsBackOnlyWhenAppServerWasUnavailableBeforeExecution() async throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-fallback-args.txt")
+        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let appServer = StubSSHRemoteAppServer(outcomes: [
+            .unavailableBeforeExecution("quill-code is not installed")
+        ])
+        let override = try XCTUnwrap(WorkspaceRemoteProjectToolExecutor.executionOverride(
+            project: remoteProject(path: "/srv/quill"),
+            executor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path),
+            appServer: appServer
+        ))
+
+        let optionalResult = await override(
+            ToolCall(name: ToolDefinition.shellRun.name, argumentsJSON: ToolArguments.json(["cmd": "whoami"])),
+            URL(fileURLWithPath: "/unused")
+        )
+        let result = try XCTUnwrap(optionalResult)
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, "remote-ok\n")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: argumentsFile.path))
+        let requests = await appServer.requests
+        XCTAssertEqual(requests.count, 1)
+    }
+
+    func testAgentOverrideNeverRetriesWhenExecutionStateIsUnknown() async throws {
+        let root = try makeTempDirectory()
+        let argumentsFile = root.appendingPathComponent("ssh-must-not-run.txt")
+        let fakeSSH = try makeFakeSSH(in: root, argumentsFile: argumentsFile)
+        let appServer = StubSSHRemoteAppServer(outcomes: [
+            .executionStateUnknown("connection reset")
+        ])
+        let override = try XCTUnwrap(WorkspaceRemoteProjectToolExecutor.executionOverride(
+            project: remoteProject(path: "/srv/quill"),
+            executor: SSHRemoteShellExecutor(sshExecutable: fakeSSH.path),
+            appServer: appServer
+        ))
+
+        let optionalResult = await override(
+            ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json([
+                    "cmd": "touch shipped.txt",
+                    "cwd": "Sources",
+                    "timeoutSeconds": 12
+                ])
+            ),
+            URL(fileURLWithPath: "/unused")
+        )
+        let result = try XCTUnwrap(optionalResult)
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("may have run") == true, result.error ?? "")
+        XCTAssertTrue(result.error?.contains("did not retry") == true, result.error ?? "")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: argumentsFile.path))
+        let requests = await appServer.requests
+        let request = try XCTUnwrap(requests.first)
+        XCTAssertEqual(request.connection.path, "/srv/quill/Sources")
+        XCTAssertEqual(request.timeoutSeconds, 12)
+    }
+
     func testUnsupportedRemoteToolReturnsClearError() {
         let result = WorkspaceRemoteProjectToolExecutor.execute(
             ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"),
@@ -746,4 +902,37 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
             .split(separator: "\n")
             .map(String.init)
     }
+}
+
+private actor StubSSHRemoteAppServer: SSHRemoteAppServerExecuting {
+    struct Request: Sendable {
+        var command: String
+        var connection: ProjectConnection
+        var timeoutSeconds: TimeInterval
+    }
+
+    private var outcomes: [SSHRemoteAppServerExecutionOutcome]
+    private(set) var requests: [Request] = []
+
+    init(outcomes: [SSHRemoteAppServerExecutionOutcome]) {
+        self.outcomes = outcomes
+    }
+
+    func execute(
+        command: String,
+        connection: ProjectConnection,
+        timeoutSeconds: TimeInterval
+    ) async -> SSHRemoteAppServerExecutionOutcome {
+        requests.append(Request(
+            command: command,
+            connection: connection,
+            timeoutSeconds: timeoutSeconds
+        ))
+        return outcomes.isEmpty
+            ? .unavailableBeforeExecution("No stub outcome configured.")
+            : outcomes.removeFirst()
+    }
+
+    func disconnect(_ connection: ProjectConnection) async {}
+    func disconnectAll() async {}
 }

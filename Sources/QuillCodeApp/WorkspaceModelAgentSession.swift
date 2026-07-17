@@ -85,6 +85,7 @@ extension QuillCodeWorkspaceModel {
             mcpToolExecutionOverride: mcpRuntime.executionOverride(extensions: extensions),
             mcpStreamingToolExecutionOverride: mcpRuntime.streamingExecutionOverride(extensions: extensions),
             sshRemoteShellExecutor: sshRemoteShellExecutor,
+            sshRemoteAppServer: sshRemoteAppServer,
             permissionRules: permissionRuleStore,
             subagentThreadStore: subagentThreadStore,
             subagentApprovalPayloadStore: subagentApprovalPayloadStore,

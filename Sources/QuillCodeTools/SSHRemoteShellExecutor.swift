@@ -1,6 +1,26 @@
 import Foundation
 import QuillCodeCore
 
+struct SSHRemoteInvocation: Sendable, Hashable {
+    var executable: String
+    var arguments: [String]
+
+    init(executable: String, arguments: [String]) {
+        self.executable = executable
+        self.arguments = arguments
+    }
+
+    var shellCommand: String {
+        ([executable] + arguments)
+            .map(Self.shellSingleQuoted)
+            .joined(separator: " ")
+    }
+
+    static func shellSingleQuoted(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
+    }
+}
+
 public struct SSHRemoteShellExecutor: Sendable {
     public var sshExecutable: String
     public var connectTimeoutSeconds: Int
@@ -21,6 +41,40 @@ public struct SSHRemoteShellExecutor: Sendable {
     ) -> ShellExecutionRequest? {
         let trimmedCommand = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedCommand.isEmpty,
+              let invocation = projectInvocation(
+                  command: trimmedCommand,
+                  connection: connection
+              )
+        else {
+            return nil
+        }
+
+        return ShellExecutionRequest(
+            command: invocation.shellCommand,
+            cwd: FileManager.default.homeDirectoryForCurrentUser,
+            timeoutSeconds: timeoutSeconds,
+            environment: environment
+        )
+    }
+
+    func projectInvocation(
+        command: String,
+        connection: ProjectConnection
+    ) -> SSHRemoteInvocation? {
+        let command = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty else { return nil }
+        return invocation(
+            remoteCommand: "cd \(Self.remotePathExpression(connection.path)) && \(command)",
+            connection: connection
+        )
+    }
+
+    func invocation(
+        remoteCommand: String,
+        connection: ProjectConnection
+    ) -> SSHRemoteInvocation? {
+        let remoteCommand = remoteCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !remoteCommand.isEmpty,
               connection.kind == .ssh,
               let host = connection.host?.trimmingCharacters(in: .whitespacesAndNewlines),
               !host.isEmpty,
@@ -30,9 +84,7 @@ public struct SSHRemoteShellExecutor: Sendable {
             return nil
         }
 
-        let remoteCommand = "cd \(Self.remotePathExpression(connection.path)) && \(trimmedCommand)"
         var arguments = [
-            sshExecutable,
             "-T",
             "-o", "BatchMode=yes",
             "-o", "ConnectTimeout=\(connectTimeoutSeconds)"
@@ -46,13 +98,7 @@ public struct SSHRemoteShellExecutor: Sendable {
         arguments.append("--")
         arguments.append(Self.destination(host: host, user: connection.user))
         arguments.append(remoteCommand)
-
-        return ShellExecutionRequest(
-            command: arguments.map(Self.shellSingleQuoted).joined(separator: " "),
-            cwd: FileManager.default.homeDirectoryForCurrentUser,
-            timeoutSeconds: timeoutSeconds,
-            environment: environment
-        )
+        return SSHRemoteInvocation(executable: sshExecutable, arguments: arguments)
     }
 
     private static func destination(host: String, user: String?) -> String {
@@ -80,12 +126,8 @@ public struct SSHRemoteShellExecutor: Sendable {
         }
         if trimmedPath.hasPrefix("~/") {
             let relativePath = String(trimmedPath.dropFirst(2))
-            return relativePath.isEmpty ? "~" : "~/\(shellSingleQuoted(relativePath))"
+            return relativePath.isEmpty ? "~" : "~/\(SSHRemoteInvocation.shellSingleQuoted(relativePath))"
         }
-        return shellSingleQuoted(trimmedPath)
-    }
-
-    private static func shellSingleQuoted(_ value: String) -> String {
-        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
+        return SSHRemoteInvocation.shellSingleQuoted(trimmedPath)
     }
 }

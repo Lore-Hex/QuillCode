@@ -4,26 +4,35 @@ import QuillCodeCore
 import QuillCodeTools
 
 enum WorkspaceRemoteProjectFileToolExecutor {
-    static func execute(
+    static func plan(
         _ call: ToolCall,
         context: WorkspaceRemoteProjectToolExecutionContext
-    ) -> ToolResult {
-        do {
-            let args = try ToolArguments(call.argumentsJSON)
-            let relativePath = try remoteFilePath(for: call, arguments: args)
-            let command = try remoteCommand(for: call, path: relativePath, arguments: args)
-            let result = context.run(command: command)
-            return call.name == ToolDefinition.fileList.name
-                ? remoteFileListResult(
+    ) throws -> WorkspaceRemoteProjectCommandPlan {
+        let args = try ToolArguments(call.argumentsJSON)
+        let relativePath = try remoteFilePath(for: call, arguments: args)
+        let command = try remoteCommand(for: call, path: relativePath, arguments: args)
+        let connection = context.connection
+        if call.name == ToolDefinition.fileList.name {
+            let includeHidden = args.bool("includeHidden") ?? false
+            let maxEntries = args.int("maxEntries")
+            return WorkspaceRemoteProjectCommandPlan(
+                command: command,
+                connection: connection
+            ) { result in
+                remoteFileListResult(
                     result,
-                    connection: context.connection,
+                    connection: connection,
                     path: relativePath,
-                    includeHidden: args.bool("includeHidden") ?? false,
-                    maxEntries: args.int("maxEntries")
+                    includeHidden: includeHidden,
+                    maxEntries: maxEntries
                 )
-                : remoteFileResult(result, connection: context.connection, path: relativePath)
-        } catch {
-            return ToolResult(ok: false, error: String(describing: error))
+            }
+        }
+        return WorkspaceRemoteProjectCommandPlan(
+            command: command,
+            connection: connection
+        ) { result in
+            remoteFileResult(result, connection: connection, path: relativePath)
         }
     }
 

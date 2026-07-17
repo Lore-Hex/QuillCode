@@ -273,6 +273,17 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   boundary. Sources: official app-server README, generated v2 schemas, request processor, and remote
   thread-store tests at public `openai/codex` commit `3151954`, audited 2026-07-16.
 
+- Current Codex remote projects launch the remote Codex app server over SSH and run it through the
+  remote user's login shell. The remote `codex` executable must therefore be available on that
+  shell's `PATH`; authentication and normal SSH host-key/security expectations still apply. Codex
+  warns that app-server transports are privileged local-control surfaces and should not be exposed
+  directly to untrusted networks. QuillCode maps this to one persistent SSH-launched
+  `quill-code app-server --stdio` process per remote project root. It may use direct one-shot SSH only
+  when app-server startup failed before a command was sent. A connection loss after dispatch is an
+  unknown execution state and must not trigger an automatic retry, because replaying a file, Git, or
+  shell mutation could duplicate work. Source: current official Codex manual, Remote projects and
+  App server transport/security sections, audited 2026-07-16.
+
 ## Product Translation
 
 - QuillCode should feel like a fast native coding workspace.
