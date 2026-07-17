@@ -1,7 +1,10 @@
 import Foundation
+import QuillCodeCore
 import QuillCodeTools
 
 extension AppServerSession {
+    private static let maximumPluginSkillBodyBytes = 48_000
+
     func readPlugin(_ value: CLIJSONValue) throws -> CLIJSONValue {
         let request = try pluginSourceRequest(value, method: "plugin/read")
         if let remoteMarketplaceName = request.remoteMarketplaceName {
@@ -42,16 +45,52 @@ extension AppServerSession {
         )])
     }
 
-    func readRemotePluginSkill(_ value: CLIJSONValue) throws -> CLIJSONValue {
+    func readPluginSkill(_ value: CLIJSONValue) throws -> CLIJSONValue {
         let params = try AppServerParams(value)
-        let marketplace = try params.requiredString("remoteMarketplaceName")
-        let pluginID = try params.requiredString("remotePluginId")
+        let marketplacePath = try params.optionalString("marketplacePath")
+        let remoteMarketplaceName = try params.optionalString("remoteMarketplaceName")
+        let pluginName = try params.optionalString("pluginName")
+        let pluginID = try params.optionalString("remotePluginId")
         let skillName = try params.requiredString("skillName")
-        guard [marketplace, pluginID, skillName].allSatisfy(isBoundedPluginText) else {
+        guard (marketplacePath == nil) != (remoteMarketplaceName == nil) else {
+            throw AppServerRPCError.invalidRequest(
+                "plugin/skill/read requires exactly one of marketplacePath or remoteMarketplaceName"
+            )
+        }
+
+        if let remoteMarketplaceName {
+            let remotePluginID = pluginID ?? pluginName ?? ""
+            let values = [remoteMarketplaceName, remotePluginID, skillName]
+            guard values.allSatisfy(isBoundedPluginText) else {
+                throw AppServerRPCError.invalidRequest("invalid remote plugin skill identifier")
+            }
+            throw AppServerRPCError.invalidRequest(
+                "remote plugin skill read is not available for marketplace \(remoteMarketplaceName)"
+            )
+        }
+
+        guard let marketplacePath else {
+            throw AppServerRPCError.invalidRequest("marketplacePath is required for local plugin skill reads")
+        }
+        guard pluginID == nil else {
             throw AppServerRPCError.invalidRequest("invalid remote plugin skill identifier")
         }
-        throw AppServerRPCError.invalidRequest(
-            "remote plugin skill read is not available for marketplace \(marketplace)"
+        guard let pluginName, let normalizedPluginName = normalizedPluginIdentifier(pluginName) else {
+            throw AppServerRPCError.invalidRequest("pluginName must be a bounded identifier")
+        }
+
+        let selection = try localPluginSelection(
+            AppServerPluginSourceRequest(
+                marketplacePath: marketplacePath,
+                remoteMarketplaceName: nil,
+                pluginName: normalizedPluginName
+            ),
+            operation: "read plugin skill"
+        )
+        return try readLocalPluginSkill(
+            marketplace: selection.marketplace,
+            entry: selection.entry,
+            requestedSkillName: skillName
         )
     }
 
@@ -122,6 +161,113 @@ extension AppServerSession {
         if let brandColor = interface.brandColor { value["brandColor"] = .string(brandColor) }
         if let defaultPrompt = interface.defaultPrompt { value["defaultPrompt"] = .string(defaultPrompt) }
         return .object(value)
+    }
+
+    private func readLocalPluginSkill(
+        marketplace: CodexPluginMarketplaceCatalog,
+        entry: CodexPluginMarketplaceEntry,
+        requestedSkillName: String
+    ) throws -> CLIJSONValue {
+        guard entry.package != nil,
+              let detail = CodexPluginPackageDetailLoader.load(
+                at: entry.source.localPath,
+                pluginIdentifier: "\(entry.name)@\(marketplace.name)"
+              )
+        else {
+            throw AppServerRPCError.invalidRequest(
+                "plugin `\(entry.name)` has a missing or invalid plugin.json"
+            )
+        }
+
+        let skillName = try normalizedSkillName(requestedSkillName, pluginName: entry.name)
+        guard let skill = detail.skills.first(where: { $0.name == skillName }) else {
+            throw AppServerRPCError.invalidRequest(
+                "skill `\(requestedSkillName)` was not found in plugin `\(entry.name)`"
+            )
+        }
+
+        let pluginRoot = entry.source.localPath.standardizedFileURL.resolvingSymlinksInPath()
+        let skillFile = skill.path.standardizedFileURL.resolvingSymlinksInPath()
+        guard WorkspaceBoundary.isWithin(skillFile, root: pluginRoot) else {
+            throw AppServerRPCError.invalidRequest("plugin skill path escapes plugin package")
+        }
+
+        let contents = try boundedPluginSkillContent(at: skillFile)
+        let namespacedName = "\(entry.name):\(skill.name)"
+        return .object([
+            "skill": .object([
+                "marketplaceName": .string(marketplace.name),
+                "marketplacePath": .string(marketplace.path.standardizedFileURL.path),
+                "pluginName": .string(entry.name),
+                "name": .string(namespacedName),
+                "skillName": .string(skill.name),
+                "description": .string(skill.description),
+                "shortDescription": pluginOptionalString(skill.shortDescription),
+                "interface": skill.interface.map(pluginSkillInterfaceValue) ?? .null,
+                "path": .string(skillFile.path),
+                "content": .string(contents),
+                "truncated": .bool(false),
+                "enabled": .bool(appConfig.skillConfiguration.isEnabled(
+                    name: namespacedName,
+                    manifestPath: skill.path
+                ))
+            ])
+        ])
+    }
+
+    private func normalizedSkillName(_ value: String, pluginName: String) throws -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawSkillName: String
+        if trimmed.hasPrefix("\(pluginName):") {
+            rawSkillName = String(trimmed.dropFirst(pluginName.count + 1))
+        } else {
+            rawSkillName = trimmed
+        }
+        guard SkillResolver.isSafeSkillName(rawSkillName),
+              rawSkillName.count <= 64
+        else {
+            throw AppServerRPCError.invalidRequest("skillName must be a bounded skill identifier")
+        }
+        return rawSkillName
+    }
+
+    private func boundedPluginSkillContent(at url: URL) throws -> String {
+        let values: URLResourceValues
+        do {
+            values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        } catch {
+            throw AppServerRPCError.invalidRequest(
+                "plugin skill manifest is unreadable: \(error.localizedDescription)"
+            )
+        }
+        guard values.isRegularFile == true else {
+            throw AppServerRPCError.invalidRequest("plugin skill manifest is not a regular file")
+        }
+
+        guard (values.fileSize ?? Self.maximumPluginSkillBodyBytes + 1)
+            <= Self.maximumPluginSkillBodyBytes
+        else {
+            throw AppServerRPCError.invalidRequest(
+                "plugin skill manifest exceeds \(Self.maximumPluginSkillBodyBytes) bytes"
+            )
+        }
+        let data: Data
+        do {
+            data = try Data(contentsOf: url, options: [.mappedIfSafe])
+        } catch {
+            throw AppServerRPCError.invalidRequest(
+                "plugin skill manifest is unreadable: \(error.localizedDescription)"
+            )
+        }
+        guard data.count <= Self.maximumPluginSkillBodyBytes else {
+            throw AppServerRPCError.invalidRequest(
+                "plugin skill manifest exceeds \(Self.maximumPluginSkillBodyBytes) bytes"
+            )
+        }
+        guard let contents = String(data: data, encoding: .utf8) else {
+            throw AppServerRPCError.invalidRequest("plugin skill manifest is not UTF-8")
+        }
+        return contents
     }
 
 }

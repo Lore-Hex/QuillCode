@@ -282,8 +282,9 @@
 
 - **Decision:** Codex-compatible `plugin/read` accepts exactly one local or remote marketplace source.
   Local reads project the 0.142.5 `PluginDetail` shape from the shared marketplace entry and a lazy
-  package-detail loader. Remote reads and remote-only `plugin/skill/read` return explicit invalid-request
-  errors until QuillCode has a genuine remote plugin service.
+  package-detail loader. Local `plugin/skill/read` re-resolves the same marketplace/package boundary
+  before returning bounded `SKILL.md` content and metadata. Remote reads still return explicit
+  invalid-request errors until QuillCode has a genuine remote plugin service.
 - **Progressive disclosure:** Detail discovery parses skill frontmatter and optional interface policy,
   but never reads `SKILL.md` bodies into model context. It filters skills to the Codex product, applies
   namespaced persistent enablement, and projects exact hook keys, app metadata, and usable MCP names.
@@ -293,8 +294,9 @@
   An explicit invalid component path never falls back to a default component directory.
 - **Evidence:** Dedicated loader tests cover default and explicit components, product filters, hook order,
   inline manifests, malformed and oversized data, path traversal, and root/nested symlinks. Protocol tests
-  cover the exact local response and every source/error boundary. The shipped-binary stdio smoke performs
-  a real `plugin/read` and verifies the explicit remote skill-read error.
+  cover the exact local plugin response, local skill-content response, Codex product filtering, and every
+  source/error boundary. The shipped-binary stdio smoke performs a real `plugin/read` and verifies the
+  explicit remote skill-read error.
 
 ## 2026-07-15: App-server plugin discovery reuses the desktop's data-only catalog
 
