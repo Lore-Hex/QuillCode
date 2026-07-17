@@ -273,10 +273,20 @@ extension QuillCodeWorkspaceModel {
             purpose: purpose,
             modelID: selection?.modelID
         )
+        // An E2E-routed summary is local BY DESIGN, not a failure — record it as its own source so the
+        // notice says so, instead of the misleading "model summary unavailable; used deterministic
+        // fallback". A genuine generator failure still lands in the catch below as .deterministicFallback.
+        let outcomeSource: WorkspaceContextSummaryOutcomeSource = if routesE2EOnly {
+            .e2eDeterministic
+        } else if generator.isModelBacked {
+            .model
+        } else {
+            .deterministicFallback
+        }
         do {
             return WorkspaceContextSummaryOutcome(
                 summaryOverride: try await generator.summary(for: request),
-                source: generator.isModelBacked ? .model : .deterministicFallback,
+                source: outcomeSource,
                 modelSelection: selection
             )
         } catch {

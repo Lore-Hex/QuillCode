@@ -24,6 +24,10 @@ struct WorkspaceContextSummaryTelemetryPlanner {
             return "Model context summary unavailable; used deterministic fallback"
         case (.forkSummary, .deterministicFallback):
             return "Model fork summary unavailable; used deterministic fallback"
+        case (.compact, .e2eDeterministic):
+            return "Summarized locally to keep this end-to-end-encrypted chat private"
+        case (.forkSummary, .e2eDeterministic):
+            return "Summarized the fork locally to keep this end-to-end-encrypted chat private"
         }
     }
 
@@ -56,6 +60,10 @@ struct WorkspaceContextSummaryTelemetryPlanner {
             return "Used deterministic context summary fallback"
         case (.forkSummary, .deterministicFallback):
             return "Used deterministic fork summary fallback"
+        case (.compact, .e2eDeterministic):
+            return "Used a local context summary to keep this end-to-end-encrypted chat private"
+        case (.forkSummary, .e2eDeterministic):
+            return "Used a local fork summary to keep this end-to-end-encrypted chat private"
         }
     }
 

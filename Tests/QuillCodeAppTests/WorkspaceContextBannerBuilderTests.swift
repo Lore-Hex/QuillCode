@@ -86,6 +86,45 @@ final class WorkspaceContextBannerBuilderTests: XCTestCase {
         XCTAssertEqual(Set(banner.forkCommands.map(\.isEnabled)), [true])
     }
 
+    /// EVERY finished-summary source must clear the banner progress. `contextSummaryProgress`
+    /// string-matches the planner's copy behind a `default: continue`, so an unmatched finish notice
+    /// lets the reversed walk reach the stale START notice and wedge the banner on "Compacting..."
+    /// — which disables compact AND fork on exactly the oversized threads that need them. Driven off
+    /// `allCases` so adding a source without teaching the matcher fails here instead of shipping.
+    func testEveryFinishedSummarySourceClearsBannerProgress() throws {
+        for source in WorkspaceContextSummaryOutcomeSource.allCases {
+            for purpose in [WorkspaceContextSummaryPurpose.compact, .forkSummary] {
+                let thread = ChatThread(
+                    messages: [.init(role: .user, content: String(repeating: "x", count: 102_376))],
+                    events: [
+                        ThreadEvent(
+                            kind: .notice,
+                            summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: purpose)
+                        ),
+                        ThreadEvent(
+                            kind: .notice,
+                            summary: WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                                outcome: WorkspaceContextSummaryOutcome(summaryOverride: "ready", source: source),
+                                purpose: purpose
+                            )
+                        )
+                    ]
+                )
+                let label = "\(source.rawValue)/\(purpose)"
+
+                let banner = try XCTUnwrap(WorkspaceContextBannerBuilder(thread: thread).banner())
+
+                XCTAssertNil(banner.progress, "\(label) must clear the banner spinner")
+                XCTAssertTrue(banner.compactCommand.isEnabled, "\(label) must leave compact enabled")
+                XCTAssertEqual(
+                    Set(banner.forkCommands.map(\.isEnabled)),
+                    [true],
+                    "\(label) must leave fork enabled"
+                )
+            }
+        }
+    }
+
     func testBannerHiddenForMissingEmptyOrShortThreads() {
         let emptyThread = ChatThread()
         let shortThread = ChatThread(messages: [

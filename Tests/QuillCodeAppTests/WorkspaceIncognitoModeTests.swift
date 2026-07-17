@@ -655,8 +655,13 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
             "an E2E-routed thread must never reach the non-E2E model-backed summarizer"
         )
         XCTAssertTrue(
-            compacted.events.last?.payloadJSON?.contains(#""source" : "deterministic_fallback""#) == true,
-            "the summary must be recorded as deterministic (no auxiliary-model egress)"
+            compacted.events.last?.payloadJSON?.contains(#""source" : "e2e_deterministic""#) == true,
+            "a local-by-design E2E summary is its own source — NOT deterministic_fallback, which means the model summary failed"
+        )
+        XCTAssertEqual(
+            compacted.events.last?.summary,
+            "Used a local context summary to keep this end-to-end-encrypted chat private",
+            "the notice must explain the privacy reason, not claim the model summary was unavailable"
         )
     }
 

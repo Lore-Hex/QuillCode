@@ -122,6 +122,18 @@ struct WorkspaceContextBannerBuilder: Sendable, Hashable {
             WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
                 outcome: WorkspaceContextSummaryOutcome(summaryOverride: nil, source: .deterministicFallback),
                 purpose: .forkSummary
+            ),
+            // An E2E-routed summary FINISHES locally. Without these two, the finish notice falls to
+            // `default: continue`, the reversed walk reaches the stale START notice, and the banner
+            // stays stuck on "Compacting..." forever — disabling compact AND fork (progress != nil)
+            // on exactly the oversized E2E threads that need them.
+            WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                outcome: WorkspaceContextSummaryOutcome(summaryOverride: nil, source: .e2eDeterministic),
+                purpose: .compact
+            ),
+            WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                outcome: WorkspaceContextSummaryOutcome(summaryOverride: nil, source: .e2eDeterministic),
+                purpose: .forkSummary
             ):
                 return nil
             default:

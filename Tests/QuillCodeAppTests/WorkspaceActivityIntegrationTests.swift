@@ -137,6 +137,59 @@ final class WorkspaceActivityIntegrationTests: XCTestCase {
         XCTAssertEqual(contextSection.countLabel, "2 items")
     }
 
+    func testActivitySurfaceShowsE2EPrivateSummaryAsDoneNotFallback() throws {
+        // An E2E-routed thread summarizes locally BY DESIGN. Both the source-thread notice (matched by
+        // string) and the continuation telemetry must render it as a completed, privacy-explained step
+        // — never as the "fallback used / Checked" degraded outcome, and never dropped entirely.
+        let e2eOutcome = WorkspaceContextSummaryOutcome(
+            summaryOverride: "Local summary of the private chat.",
+            source: .e2eDeterministic
+        )
+        let thread = ChatThread(
+            title: "E2E thread",
+            messages: [.init(role: .user, content: "compact this")],
+            events: [
+                .init(
+                    kind: .notice,
+                    summary: WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                        outcome: e2eOutcome,
+                        purpose: .compact
+                    )
+                ),
+                WorkspaceContextSummaryTelemetryPlanner.continuationEvent(
+                    outcome: e2eOutcome,
+                    sourceTitle: "E2E thread",
+                    purpose: .compact
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread], selectedThreadID: thread.id),
+            activity: ActivityState(isVisible: true)
+        )
+
+        let activity = model.surface().activity
+
+        XCTAssertEqual(activity.contextItems.map(\.title), [
+            "Compacted privately",
+            "Context compacted privately"
+        ], "the source notice must still render — an unmatched summary string would drop it entirely")
+        XCTAssertEqual(
+            activity.contextItems.map(\.statusLabel),
+            ["Done", "Done"],
+            "a deliberate private summary is done, not the 'Checked' degraded-fallback state"
+        )
+        let continuationDetail = try XCTUnwrap(activity.contextItems.last).detail
+        XCTAssertTrue(
+            continuationDetail.contains("Local summary (end-to-end encrypted)"),
+            continuationDetail
+        )
+        XCTAssertFalse(
+            activity.contextItems.contains { $0.detail.contains("Fallback reason") },
+            "nothing failed, so no fallback reason may be shown"
+        )
+    }
+
     func testActivitySurfaceShowsContextSummaryContinuationTelemetry() throws {
         let modelOutcome = WorkspaceContextSummaryOutcome(
             summaryOverride: "Keep the current repo and validation details.",

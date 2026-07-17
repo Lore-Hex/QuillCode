@@ -71,6 +71,41 @@ final class WorkspaceContextSummaryTelemetryPlannerTests: XCTestCase {
         )
     }
 
+    func testContinuationEventRecordsE2EPrivateSummaryTelemetry() throws {
+        let event = WorkspaceContextSummaryTelemetryPlanner.continuationEvent(
+            outcome: WorkspaceContextSummaryOutcome(
+                summaryOverride: "Local summary of the private chat.",
+                source: .e2eDeterministic
+            ),
+            sourceTitle: "E2E thread",
+            purpose: .compact
+        )
+        let telemetry = try XCTUnwrap(decodeTelemetry(event))
+
+        XCTAssertEqual(
+            event.summary,
+            "Used a local context summary to keep this end-to-end-encrypted chat private",
+            "an E2E summary is local by DESIGN — it must never read as a failed/unavailable model summary"
+        )
+        XCTAssertEqual(telemetry.source, .e2eDeterministic)
+        XCTAssertNil(telemetry.errorDescription, "nothing failed, so there is no fallback reason to report")
+    }
+
+    func testE2EPrivateSourceNoticeCopyExplainsPrivacyNotFailure() {
+        for (purpose, expected) in [
+            (WorkspaceContextSummaryPurpose.compact, "Summarized locally to keep this end-to-end-encrypted chat private"),
+            (.forkSummary, "Summarized the fork locally to keep this end-to-end-encrypted chat private")
+        ] {
+            let copy = WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+                outcome: WorkspaceContextSummaryOutcome(summaryOverride: "ok", source: .e2eDeterministic),
+                purpose: purpose
+            )
+            XCTAssertEqual(copy, expected)
+            XCTAssertFalse(copy.contains("unavailable"), "the model summary was skipped on purpose, not unavailable")
+            XCTAssertFalse(copy.contains("fallback"), copy)
+        }
+    }
+
     private func decodeTelemetry(_ event: ThreadEvent) throws -> WorkspaceContextSummaryTelemetry? {
         guard let payload = event.payloadJSON?.data(using: .utf8) else { return nil }
         return try JSONDecoder().decode(WorkspaceContextSummaryTelemetry.self, from: payload)
