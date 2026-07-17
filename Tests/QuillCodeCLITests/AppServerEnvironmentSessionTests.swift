@@ -47,6 +47,39 @@ final class AppServerEnvironmentSessionTests: AppServerEnvironmentSessionTestCas
         await registry.closeAll()
     }
 
+    func testEnvironmentAddRejectsUnsupportedWebSocketURLBeforeRegistration() async throws {
+        let client = AppServerFakeExecServerClient(info: remoteInfo)
+        let factory = AppServerFakeExecServerFactory(clients: [client])
+        let registry = makeRegistry(factory: factory)
+        let fixture = try makeSession(llm: EnvironmentEchoLLM(), registry: registry)
+        try await initialize(fixture.session)
+
+        try await sendRequest(
+            id: 2,
+            method: "environment/add",
+            params: [
+                "environmentId": "remote",
+                "execServerUrl": "https://remote.example/ws"
+            ],
+            to: fixture.session
+        )
+        try await sendRequest(
+            id: 3,
+            method: "environment/status",
+            params: ["environmentId": "remote"],
+            to: fixture.session
+        )
+
+        let records = try await fixture.output.records()
+        XCTAssertEqual(errorCode(for: 2, in: records), -32_600)
+        XCTAssertTrue(
+            errorMessage(for: 2, in: records)?.contains("unsupported WebSocket URL") == true
+        )
+        XCTAssertEqual(result(for: 3, in: records)?["status"]?.stringValue, "unknown")
+        XCTAssertTrue(factory.snapshot().isEmpty)
+        await registry.closeAll()
+    }
+
     func testEnvironmentStatusUsesCodexCompatibleStatesWithoutUnknownIDError() async throws {
         let client = AppServerFakeExecServerClient()
         let factory = AppServerFakeExecServerFactory(clients: [client])
