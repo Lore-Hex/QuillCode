@@ -207,6 +207,19 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
           "screenshotPath": "checkout.png",
           "viewport": {"width": 1440, "height": 1000},
           "windows": [{"title": "Checkout"}],
+          "actions": [
+            {"type": "click", "target": "Email"},
+            {"type": "type", "text": "user@example.com"}
+          ],
+          "frames": [
+            {"screenshot": "checkout-start.png"},
+            {"screenshot": "checkout.png"}
+          ],
+          "events": [
+            {"name": "navigation"},
+            {"name": "form-fill"},
+            {"name": "capture"}
+          ],
           "capturedAt": "2026-06-21T12:00:00Z"
         }
         """.write(to: appshotFile, atomically: true, encoding: .utf8)
@@ -224,11 +237,17 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(preview.screenshotURL, expectedScreenshotURL)
         XCTAssertEqual(preview.viewportLabel, "1440 x 1000")
         XCTAssertEqual(preview.windowCount, 1)
+        XCTAssertEqual(preview.actionCount, 2)
+        XCTAssertEqual(preview.frameCount, 2)
+        XCTAssertEqual(preview.eventCount, 3)
         XCTAssertEqual(preview.capturedAt, "2026-06-21T12:00:00Z")
         XCTAssertEqual(preview.metadataLines, [
             "App: QuillCode",
             "Viewport: 1440 x 1000",
             "1 window",
+            "2 actions",
+            "2 frames",
+            "3 events",
             "Captured: 2026-06-21T12:00:00Z"
         ])
     }
