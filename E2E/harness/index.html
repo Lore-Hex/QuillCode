@@ -8208,7 +8208,9 @@
           ? bmpDimensions(content)
           : extension === 'webp'
             ? webpDimensions(content)
-            : null;
+            : extension === 'tif' || extension === 'tiff'
+              ? tiffDimensions(content)
+              : null;
       return dimensions ? `${dimensions.width} x ${dimensions.height} px` : null;
     }
 
@@ -8271,6 +8273,45 @@
         }
         offset = payloadOffset + chunkSize + (chunkSize % 2);
       }
+      return null;
+    }
+
+    function tiffDimensions(content) {
+      if (content.length < 10) return null;
+      const byteOrder = asciiAt(content, 0, 2) === 'II'
+        ? 'little'
+        : asciiAt(content, 0, 2) === 'MM'
+          ? 'big'
+          : null;
+      if (!byteOrder || tiffUInt16(content, 2, byteOrder) !== 42) return null;
+
+      const firstIFDOffset = tiffUInt32(content, 4, byteOrder);
+      if (firstIFDOffset < 8 || firstIFDOffset + 2 > content.length) return null;
+      const entryCount = tiffUInt16(content, firstIFDOffset, byteOrder);
+      if (entryCount > 1024) return null;
+
+      let width = null;
+      let height = null;
+      for (let index = 0; index < entryCount; index += 1) {
+        const entryOffset = firstIFDOffset + 2 + index * 12;
+        if (entryOffset + 12 > content.length) return null;
+        const tag = tiffUInt16(content, entryOffset, byteOrder);
+        if (tag !== 256 && tag !== 257) continue;
+        const value = tiffScalarValue(content, entryOffset, byteOrder);
+        if (!value) continue;
+        if (tag === 256) width = value;
+        if (tag === 257) height = value;
+        if (width && height) return validDimensions(width, height);
+      }
+      return null;
+    }
+
+    function tiffScalarValue(content, entryOffset, byteOrder) {
+      const fieldType = tiffUInt16(content, entryOffset + 2, byteOrder);
+      const valueCount = tiffUInt32(content, entryOffset + 4, byteOrder);
+      if (valueCount !== 1) return null;
+      if (fieldType === 3) return tiffUInt16(content, entryOffset + 8, byteOrder);
+      if (fieldType === 4) return tiffUInt32(content, entryOffset + 8, byteOrder);
       return null;
     }
 
@@ -8337,6 +8378,21 @@
       return littleEndianUInt32(content, offset) | 0;
     }
 
+    function tiffUInt16(content, offset, byteOrder) {
+      return byteOrder === 'little'
+        ? littleEndianUInt16(content, offset)
+        : ((byteAt(content, offset) << 8) | byteAt(content, offset + 1));
+    }
+
+    function tiffUInt32(content, offset, byteOrder) {
+      return byteOrder === 'little'
+        ? littleEndianUInt32(content, offset)
+        : ((byteAt(content, offset) << 24)
+          | (byteAt(content, offset + 1) << 16)
+          | (byteAt(content, offset + 2) << 8)
+          | byteAt(content, offset + 3)) >>> 0;
+    }
+
     function binaryString(bytes) {
       return String.fromCharCode(...bytes);
     }
@@ -8382,6 +8438,28 @@
         ...littleEndian24Bytes(width - 1),
         ...littleEndian24Bytes(height - 1)
       ]);
+    }
+
+    function mockTIFFHeader(width, height) {
+      return binaryString([
+        ...Array.from('II').map(character => character.charCodeAt(0)),
+        42, 0,
+        ...littleEndianBytes(8),
+        2, 0,
+        ...mockTIFFEntry(256, width),
+        ...mockTIFFEntry(257, height),
+        ...littleEndianBytes(0)
+      ]);
+    }
+
+    function mockTIFFEntry(tag, value) {
+      return [
+        tag & 0xFF,
+        (tag >> 8) & 0xFF,
+        4, 0,
+        1, 0, 0, 0,
+        ...littleEndianBytes(value)
+      ];
     }
 
     const documentPreviewKinds = new Map([
@@ -22283,14 +22361,20 @@
       } else if (text.toLowerCase().includes('bitmap') && text.toLowerCase().includes('artifact')) {
         const bmpPath = '/mock/QuillCode/artifacts/diagram.bmp';
         const webpPath = '/mock/QuillCode/artifacts/preview.webp';
+        const tiffPath = '/mock/QuillCode/artifacts/scan.tiff';
         state.mockFiles[bmpPath] = mockBMPHeader(640, 360);
         state.mockFiles[webpPath] = mockWebPVP8XHeader(512, 288);
+        state.mockFiles[tiffPath] = mockTIFFHeader(300, 200);
         addToolCard({
           title: 'host.file.write',
           subtitle: 'Completed',
           status: 'done',
           inputJSON: JSON.stringify({ path: 'artifacts', contentType: 'generated image headers' }, null, 2),
-          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${bmpPath} and ${webpPath}\n`, artifacts: [bmpPath, webpPath] }, null, 2)
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: `Wrote ${bmpPath}, ${webpPath}, and ${tiffPath}\n`,
+            artifacts: [bmpPath, webpPath, tiffPath]
+          }, null, 2)
         });
         addMessage('assistant', 'Created bitmap image artifacts.');
       } else if (fileWriteRequest) {

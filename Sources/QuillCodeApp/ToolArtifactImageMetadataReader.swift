@@ -29,6 +29,7 @@ enum ToolArtifactImageMetadataReader {
         pngDimensions(from: data)
             ?? gifDimensions(from: data)
             ?? jpegDimensions(from: data)
+            ?? tiffDimensions(from: data)
             ?? bmpDimensions(from: data)
             ?? webpDimensions(from: data)
             ?? svgDimensions(from: data)
@@ -115,6 +116,63 @@ enum ToolArtifactImageMetadataReader {
             return true
         default:
             return false
+        }
+    }
+
+    private static func tiffDimensions(from data: Data) -> ToolArtifactImageDimensions? {
+        guard data.count >= 10 else { return nil }
+        let byteOrder: TIFFByteOrder
+        if data[0] == 0x49, data[1] == 0x49 {
+            byteOrder = .littleEndian
+        } else if data[0] == 0x4D, data[1] == 0x4D {
+            byteOrder = .bigEndian
+        } else {
+            return nil
+        }
+        guard tiffUInt16(data, at: 2, byteOrder: byteOrder) == 42 else {
+            return nil
+        }
+
+        let firstIFDOffset = Int(tiffUInt32(data, at: 4, byteOrder: byteOrder))
+        guard firstIFDOffset >= 8, firstIFDOffset + 2 <= data.count else {
+            return nil
+        }
+        let entryCount = Int(tiffUInt16(data, at: firstIFDOffset, byteOrder: byteOrder))
+        guard entryCount <= 1024 else { return nil }
+
+        var width: UInt32?
+        var height: UInt32?
+        for entryIndex in 0..<entryCount {
+            let entryOffset = firstIFDOffset + 2 + entryIndex * 12
+            guard entryOffset + 12 <= data.count else { return nil }
+            let tag = tiffUInt16(data, at: entryOffset, byteOrder: byteOrder)
+            guard tag == 256 || tag == 257 else { continue }
+            guard let value = tiffScalarValue(data, at: entryOffset, byteOrder: byteOrder) else {
+                continue
+            }
+            if tag == 256 {
+                width = value
+            } else {
+                height = value
+            }
+            if let width, let height {
+                return dimensions(width: width, height: height)
+            }
+        }
+        return nil
+    }
+
+    private static func tiffScalarValue(_ data: Data, at entryOffset: Int, byteOrder: TIFFByteOrder) -> UInt32? {
+        let fieldType = tiffUInt16(data, at: entryOffset + 2, byteOrder: byteOrder)
+        let valueCount = tiffUInt32(data, at: entryOffset + 4, byteOrder: byteOrder)
+        guard valueCount == 1 else { return nil }
+        switch fieldType {
+        case 3:
+            return UInt32(tiffUInt16(data, at: entryOffset + 8, byteOrder: byteOrder))
+        case 4:
+            return tiffUInt32(data, at: entryOffset + 8, byteOrder: byteOrder)
+        default:
+            return nil
         }
     }
 
@@ -293,10 +351,33 @@ enum ToolArtifactImageMetadataReader {
         Int32(bitPattern: littleEndianUInt32(data, at: offset))
     }
 
+    private static func tiffUInt16(_ data: Data, at offset: Int, byteOrder: TIFFByteOrder) -> UInt16 {
+        switch byteOrder {
+        case .littleEndian:
+            return UInt16(littleEndianUInt16(data, at: offset))
+        case .bigEndian:
+            return bigEndianUInt16(data, at: offset)
+        }
+    }
+
+    private static func tiffUInt32(_ data: Data, at offset: Int, byteOrder: TIFFByteOrder) -> UInt32 {
+        switch byteOrder {
+        case .littleEndian:
+            return littleEndianUInt32(data, at: offset)
+        case .bigEndian:
+            return bigEndianUInt32(data, at: offset)
+        }
+    }
+
     private static func asciiString(_ data: Data, at offset: Int, length: Int) -> String? {
         guard offset >= 0, length >= 0, offset + length <= data.count else {
             return nil
         }
         return String(bytes: data[offset..<offset + length], encoding: .ascii)
+    }
+
+    private enum TIFFByteOrder {
+        case littleEndian
+        case bigEndian
     }
 }
