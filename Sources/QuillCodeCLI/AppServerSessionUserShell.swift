@@ -82,6 +82,7 @@ extension AppServerSession {
             activeUserShellCommands[itemID] = ActiveUserShellCommand(
                 launch: launch,
                 session: nil,
+                remoteSession: nil,
                 task: nil,
                 terminationRequested: false
             )
@@ -124,35 +125,32 @@ extension AppServerSession {
             date: startedAt
         ))
 
-        let task: Task<Void, Never>
         if let remoteExecutor = launch.remoteExecutor {
-            task = Task { [weak self] in
-                guard let self else { return }
-                await self.consumeRemoteUserShellCommand(
-                    launch: launch,
-                    executor: remoteExecutor,
-                    startedAt: startedAt
-                )
-            }
-        } else {
-            let request = ShellExecutionRequest(
-                command: launch.command,
-                cwd: launch.cwd,
-                timeoutSeconds: Self.userShellTimeoutSeconds,
-                environment: environment.isEmpty ? nil : environment,
-                shellExecutableURL: launch.shellExecutableURL
+            await launchRemoteUserShellCommand(
+                launch: launch,
+                executor: remoteExecutor,
+                startedAt: startedAt
             )
-            let session = ShellToolExecutor().startStreamingSession(request)
-            commandState.session = session
-            activeUserShellCommands[launch.itemID] = commandState
-            task = Task { [weak self] in
-                guard let self else { return }
-                await self.consumeUserShellEvents(
-                    launch: launch,
-                    session: session,
-                    startedAt: startedAt
-                )
-            }
+            return
+        }
+
+        let request = ShellExecutionRequest(
+            command: launch.command,
+            cwd: launch.cwd,
+            timeoutSeconds: Self.userShellTimeoutSeconds,
+            environment: environment.isEmpty ? nil : environment,
+            shellExecutableURL: launch.shellExecutableURL
+        )
+        let session = ShellToolExecutor().startStreamingSession(request)
+        commandState.session = session
+        activeUserShellCommands[launch.itemID] = commandState
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.consumeUserShellEvents(
+                launch: launch,
+                session: session,
+                startedAt: startedAt
+            )
         }
         guard var launched = activeUserShellCommands[launch.itemID] else {
             task.cancel()
@@ -160,44 +158,105 @@ extension AppServerSession {
         }
         launched.task = task
         activeUserShellCommands[launch.itemID] = launched
-        if inputFinished {
+        if launched.terminationRequested || inputFinished {
             launched.session?.cancel()
             task.cancel()
         }
     }
 
-    func cancelUserShellCommands(threadID: UUID, turnID: String) {
+    private func launchRemoteUserShellCommand(
+        launch: UserShellLaunch,
+        executor: AppServerRemoteEnvironmentToolExecutor,
+        startedAt: Date
+    ) async {
+        guard let processID = launch.remoteProcessID else {
+            await completeUserShellCommand(
+                launch: launch,
+                result: ToolResult(ok: false, error: "Remote command has no process id."),
+                streamedOutput: "",
+                startedAt: startedAt
+            )
+            return
+        }
+
+        do {
+            let session = try await executor.startUserShell(
+                command: launch.command,
+                processID: processID,
+                timeoutSeconds: Self.userShellTimeoutSeconds
+            )
+            guard var command = activeUserShellCommands[launch.itemID] else {
+                await session.terminate()
+                return
+            }
+            command.remoteSession = session
+            let task = Task { [weak self] in
+                guard let self else { return }
+                await self.consumeRemoteUserShellCommand(
+                    launch: launch,
+                    session: session,
+                    startedAt: startedAt
+                )
+            }
+            command.task = task
+            let shouldTerminate = command.terminationRequested || inputFinished
+            activeUserShellCommands[launch.itemID] = command
+            if shouldTerminate {
+                await session.terminate()
+                task.cancel()
+            }
+        } catch {
+            let cancelled = activeUserShellCommands[launch.itemID]?.terminationRequested == true
+                || error is CancellationError
+            await completeUserShellCommand(
+                launch: launch,
+                result: ToolResult(
+                    ok: false,
+                    error: cancelled ? "Command cancelled." : Self.userShellErrorMessage(error)
+                ),
+                streamedOutput: "",
+                startedAt: startedAt
+            )
+        }
+    }
+
+    func cancelUserShellCommands(threadID: UUID, turnID: String) async {
         if var standalone = activeUserShellTurns[threadID], standalone.id == turnID {
             standalone.interrupted = true
             activeUserShellTurns[threadID] = standalone
         }
-        requestUserShellCommandTermination {
+        await requestUserShellCommandTermination {
             $0.launch.threadID == threadID && $0.launch.turnID == turnID
         }
     }
 
-    func cancelAllUserShellCommands() {
+    func cancelAllUserShellCommands() async {
         for (threadID, var turn) in activeUserShellTurns {
             turn.interrupted = true
             activeUserShellTurns[threadID] = turn
         }
-        requestUserShellCommandTermination { _ in true }
+        await requestUserShellCommandTermination { _ in true }
     }
 
     @discardableResult
     func requestUserShellCommandTermination(
         where predicate: (ActiveUserShellCommand) -> Bool
-    ) -> Int {
+    ) async -> Int {
         let itemIDs = activeUserShellCommands.compactMap { itemID, command in
             !command.terminationRequested && predicate(command) ? itemID : nil
         }
+        var remoteSessions: [AppServerRemoteProcessSession] = []
+        var tasks: [Task<Void, Never>] = []
         for itemID in itemIDs {
             guard var command = activeUserShellCommands[itemID] else { continue }
             command.terminationRequested = true
             activeUserShellCommands[itemID] = command
             command.session?.cancel()
-            command.task?.cancel()
+            if let remoteSession = command.remoteSession { remoteSessions.append(remoteSession) }
+            if let task = command.task { tasks.append(task) }
         }
+        for session in remoteSessions { await session.terminate() }
+        for task in tasks { task.cancel() }
         return itemIDs.count
     }
 
@@ -238,6 +297,15 @@ extension AppServerSession {
         return URL(fileURLWithPath: path).standardizedFileURL
     }
 
+    private static func userShellErrorMessage(_ error: any Error) -> String {
+        if let localized = error as? any LocalizedError,
+           let description = localized.errorDescription,
+           !description.isEmpty {
+            return description
+        }
+        return String(describing: error)
+    }
+
     private func userShellLaunch(
         threadID: UUID,
         turnID: String,
@@ -263,6 +331,7 @@ extension AppServerSession {
                 shellExecutableURL: executable,
                 shellExecutablePath: executable.path,
                 remoteExecutor: nil,
+                remoteProcessID: nil,
                 startsStandaloneTurn: startsStandaloneTurn
             )
         case .remote(let executor):
@@ -277,9 +346,22 @@ extension AppServerSession {
                 shellExecutableURL: URL(fileURLWithPath: shellPath),
                 shellExecutablePath: shellPath,
                 remoteExecutor: executor,
+                remoteProcessID: reserveRemoteBackgroundProcessID(),
                 startsStandaloneTurn: startsStandaloneTurn
             )
         }
+    }
+
+    private func reserveRemoteBackgroundProcessID() -> Int32 {
+        let activeIDs = Set(activeUserShellCommands.values.compactMap { command -> Int32? in
+            command.launch.remoteProcessID ?? command.session?.processIdentifier
+        })
+        var candidate = nextRemoteBackgroundProcessID
+        while activeIDs.contains(candidate) {
+            candidate = candidate == 1 ? Int32.max : candidate - 1
+        }
+        nextRemoteBackgroundProcessID = candidate == 1 ? Int32.max : candidate - 1
+        return candidate
     }
 
     private func userShellDestination(

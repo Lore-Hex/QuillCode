@@ -4,7 +4,7 @@ extension AppServerSession {
     func cleanBackgroundTerminals(_ raw: CLIJSONValue) async throws -> CLIJSONValue {
         let threadID = try threadID(from: AppServerParams(raw))
         _ = try await loadRecord(threadID)
-        requestUserShellCommandTermination { $0.launch.threadID == threadID }
+        await requestUserShellCommandTermination { $0.launch.threadID == threadID }
         return .object([:])
     }
 
@@ -41,9 +41,9 @@ extension AppServerSession {
                 "invalid background terminal process id: expected a 32-bit signed integer"
             )
         }
-        let terminated = requestUserShellCommandTermination { command in
+        let terminated = await requestUserShellCommandTermination { command in
             command.launch.threadID == threadID
-                && command.session?.processIdentifier == processID
+                && command.backgroundProcessID == processID
         } > 0
         return .object(["terminated": .bool(terminated)])
     }
@@ -72,15 +72,17 @@ extension AppServerSession {
 private struct BackgroundTerminal {
     var itemID: String
     var processID: Int32
+    var osProcessID: Int32?
     var command: String
     var cwd: URL
 
     init?(command: AppServerSession.ActiveUserShellCommand, threadID: UUID) {
         guard command.launch.threadID == threadID,
               !command.terminationRequested,
-              let processID = command.session?.processIdentifier else { return nil }
+              let processID = command.backgroundProcessID else { return nil }
         self.itemID = command.launch.itemID
         self.processID = processID
+        self.osProcessID = command.session?.processIdentifier
         self.command = command.launch.command
         self.cwd = command.launch.cwd
     }
@@ -91,10 +93,18 @@ private struct BackgroundTerminal {
             "processId": .string(processID.description),
             "command": .string(command),
             "cwd": .string(cwd.path),
-            "osPid": .number(Double(processID)),
+            "osPid": osProcessID.map { .number(Double($0)) } ?? .null,
             "cpuPercent": .null,
             "rssKb": .null
         ])
+    }
+}
+
+private extension AppServerSession.ActiveUserShellCommand {
+    var backgroundProcessID: Int32? {
+        if let processID = session?.processIdentifier { return processID }
+        guard remoteSession != nil else { return nil }
+        return launch.remoteProcessID
     }
 }
 

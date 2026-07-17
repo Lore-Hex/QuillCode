@@ -76,6 +76,22 @@ actor AppServerRemoteEnvironmentToolExecutor {
         await execute(call, shellTimeoutOverride: timeoutSeconds)
     }
 
+    func startUserShell(
+        command: String,
+        processID: Int32,
+        timeoutSeconds: TimeInterval
+    ) async throws -> AppServerRemoteProcessSession {
+        let canonicalCWD = try await canonicalized(workspace.root)
+        return try await client.startProcess(.init(
+            processID: processID.description,
+            argv: Self.shellArguments(shell: environmentInfo.shell, command: command),
+            cwdURI: canonicalCWD.uri,
+            environment: [:],
+            sandbox: sandbox,
+            timeoutSeconds: try validatedInternalShellTimeout(timeoutSeconds)
+        ))
+    }
+
     private func execute(
         _ call: ToolCall,
         shellTimeoutOverride: TimeInterval?
@@ -413,6 +429,12 @@ actor AppServerRemoteEnvironmentToolExecutor {
             sandbox: sandbox,
             timeoutSeconds: timeout
         ))
+        return Self.toolResult(from: process)
+    }
+
+    nonisolated static func toolResult(
+        from process: AppServerRemoteProcessResult
+    ) -> ToolResult {
         let ok = process.exitCode == 0 && process.failure == nil && !process.sandboxDenied
         let error: String?
         if process.sandboxDenied {

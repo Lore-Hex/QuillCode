@@ -16,6 +16,10 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             root,
             "Sources/QuillCodeCLI/AppServerExecServerWebSocketClient.swift"
         )
+        let responseRegistry = try text(
+            root,
+            "Sources/QuillCodeCLI/AppServerExecServerPendingResponseRegistry.swift"
+        )
         let fileSystemClient = try text(
             root,
             "Sources/QuillCodeCLI/AppServerExecServerFileSystemClient.swift"
@@ -43,6 +47,14 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
         let transportTests = try text(
             root,
             "Tests/QuillCodeCLITests/AppServerExecServerWebSocketClientTests.swift"
+        )
+        let processSessionTests = try text(
+            root,
+            "Tests/QuillCodeCLITests/AppServerExecServerProcessSessionTests.swift"
+        )
+        let backgroundTerminalTests = try text(
+            root,
+            "Tests/QuillCodeCLITests/AppServerRemoteBackgroundTerminalTests.swift"
         )
         let sandboxTests = try text(
             root,
@@ -86,7 +98,15 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "method: \"initialized\"",
             "method: \"environment/status\"",
             "startReader(",
-            "readerDidFail("
+            "readerDidFail(",
+            "responseRegistry",
+            "catch is CancellationError"
+        ])
+        Self.assertSource(responseRegistry, containsAll: [
+            "abandonedResponseIDs",
+            "mutating func abandon(",
+            "mutating func take(",
+            "received response for unexpected request id"
         ])
         Self.assertSource(fileSystemClient, containsAll: [
             "fs/readFile",
@@ -98,10 +118,12 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
         Self.assertSource(processClient, containsAll: [
             "process/start",
             "process/read",
+            "process/terminate",
             "request.sandbox.rpcValue",
             "nextSequence - 1",
             "if closed || terminalFailure != nil || sandboxDenied",
-            "withTaskCancellationHandler"
+            "continuation.yield(.stdout(text))",
+            "AppServerRemoteProcessTermination"
         ])
         Self.assertSource(sandboxContext, containsAll: [
             "case managed(entries:",
@@ -144,6 +166,14 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
                 "testProcessReadsAdvanceWithLastObservedSequenceWithoutSkippingOutput"
             ]
         )
+        Self.assertSource(processSessionTests, containsAll: [
+            "testProcessSessionStreamsBeforeExitAndTerminatesTheStableProcessID",
+            "testCancelledProcessReadIgnoresLateReplyWithoutResettingSharedConnection"
+        ])
+        Self.assertSource(
+            backgroundTerminalTests,
+            contains: "testRemoteUserShellStreamsListsTerminatesAndCleansThroughUnifiedRegistry"
+        )
         Self.assertSource(sandboxTests, containsAll: [
             "testReadOnlyProfileMatchesExecServerProtocol",
             "testWorkspaceWriteProfileProjectsRootsAndExclusionsExactly",
@@ -159,6 +189,9 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "remote command ran on the local host",
             "disabled command ran locally",
             "late-output",
+            "thread/backgroundTerminals/list",
+            "remote process terminate was not forwarded",
+            "remote background clean was not forwarded",
             "app-server environment smoke passed"
         ])
         Self.assertSource(smokeServer, containsAll: [
@@ -168,6 +201,9 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "environment/status",
             "process/start",
             "process/read",
+            "process/terminate",
+            "background_processes",
+            "process_terminations",
             "send_frame(connection, 8, b\"\")",
             "_wait_for_connection_change",
             "timeout=15",

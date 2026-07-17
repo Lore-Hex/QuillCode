@@ -103,7 +103,7 @@ extension AppServerSession {
                 error: nil
             )
         } catch is CancellationError {
-            cancelUserShellCommands(threadID: threadID, turnID: initial.id)
+            await cancelUserShellCommands(threadID: threadID, turnID: initial.id)
             await waitForUserShellCommands(threadID: threadID, turnID: initial.id)
             let snapshot = activeCompactions[threadID]?.latestThread ?? initial.latestThread
             if let failure = activeCompactions[threadID]?.persistenceFailure {

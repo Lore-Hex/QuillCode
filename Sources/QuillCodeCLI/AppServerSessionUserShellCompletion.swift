@@ -6,36 +6,73 @@ import QuillCodeTools
 extension AppServerSession {
     func consumeRemoteUserShellCommand(
         launch: UserShellLaunch,
-        executor: AppServerRemoteEnvironmentToolExecutor,
+        session: AppServerRemoteProcessSession,
         startedAt: Date
     ) async {
-        let arguments = CLIJSONValue.object(["cmd": .string(launch.command)])
-        let argumentsJSON = (try? CLIJSONCodec.encode(arguments))
-            .map { String(decoding: $0, as: UTF8.self) } ?? "{}"
-        let result = await executor.executeUserShell(
-            ToolCall(
-                id: launch.itemID,
-                name: ToolDefinition.shellRun.name,
-                argumentsJSON: argumentsJSON
-            ),
-            timeoutSeconds: Self.userShellTimeoutSeconds
-        )
         var output = ShellOutputAccumulator()
-        for delta in [result.stdout, result.stderr] where !delta.isEmpty {
-            output.append(delta)
-            await sendNotification("item/commandExecution/outputDelta", params: .object([
-                "threadId": .string(AppServerThreadProjection.identifier(launch.threadID)),
-                "turnId": .string(launch.turnID),
-                "itemId": .string(launch.itemID),
-                "delta": .string(delta)
-            ]))
+        do {
+            let events = try await session.events()
+            for try await event in events {
+                switch event {
+                case .stdout(let delta), .stderr(let delta):
+                    await appendRemoteUserShellDelta(
+                        delta,
+                        output: &output,
+                        launch: launch
+                    )
+                case .finished(let processResult):
+                    await completeUserShellCommand(
+                        launch: launch,
+                        result: AppServerRemoteEnvironmentToolExecutor.toolResult(
+                            from: processResult
+                        ),
+                        streamedOutput: output.text,
+                        startedAt: startedAt
+                    )
+                    return
+                }
+            }
+            try Task.checkCancellation()
+            throw AppServerExecServerError.invalidResponse(
+                "remote process event stream closed without a terminal result"
+            )
+        } catch {
+            await session.terminate()
+            let cancelled = error is CancellationError || Task.isCancelled
+            await completeUserShellCommand(
+                launch: launch,
+                result: ToolResult(
+                    ok: false,
+                    error: cancelled ? "Command cancelled." : Self.remoteShellErrorMessage(error)
+                ),
+                streamedOutput: output.text,
+                startedAt: startedAt
+            )
         }
-        await completeUserShellCommand(
-            launch: launch,
-            result: result,
-            streamedOutput: output.text,
-            startedAt: startedAt
-        )
+    }
+
+    private func appendRemoteUserShellDelta(
+        _ delta: String,
+        output: inout ShellOutputAccumulator,
+        launch: UserShellLaunch
+    ) async {
+        guard !delta.isEmpty else { return }
+        output.append(delta)
+        await sendNotification("item/commandExecution/outputDelta", params: .object([
+            "threadId": .string(AppServerThreadProjection.identifier(launch.threadID)),
+            "turnId": .string(launch.turnID),
+            "itemId": .string(launch.itemID),
+            "delta": .string(delta)
+        ]))
+    }
+
+    private static func remoteShellErrorMessage(_ error: any Error) -> String {
+        if let localized = error as? any LocalizedError,
+           let description = localized.errorDescription,
+           !description.isEmpty {
+            return description
+        }
+        return String(describing: error)
     }
 
     func consumeUserShellEvents(

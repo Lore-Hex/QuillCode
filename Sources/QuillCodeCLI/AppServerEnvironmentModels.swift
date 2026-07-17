@@ -64,6 +64,7 @@ struct AppServerThreadEnvironmentSelection: Codable, Sendable, Equatable {
 }
 
 struct AppServerRemoteProcessRequest: Sendable, Equatable {
+    var processID: String? = nil
     var argv: [String]
     var cwdURI: String
     var environment: [String: String]
@@ -77,6 +78,48 @@ struct AppServerRemoteProcessResult: Sendable, Equatable {
     var exitCode: Int32
     var failure: String?
     var sandboxDenied: Bool
+}
+
+enum AppServerRemoteProcessEvent: Sendable, Equatable {
+    case stdout(String)
+    case stderr(String)
+    case finished(AppServerRemoteProcessResult)
+}
+
+actor AppServerRemoteProcessSession {
+    nonisolated let processID: String
+
+    private let stream: AsyncThrowingStream<AppServerRemoteProcessEvent, Error>
+    private let terminateProcess: @Sendable () async -> Void
+    private var streamClaimed = false
+    private var terminationRequested = false
+
+    init(
+        processID: String,
+        stream: AsyncThrowingStream<AppServerRemoteProcessEvent, Error>,
+        terminateProcess: @escaping @Sendable () async -> Void
+    ) {
+        self.processID = processID
+        self.stream = stream
+        self.terminateProcess = terminateProcess
+    }
+
+    func events() throws -> AsyncThrowingStream<AppServerRemoteProcessEvent, Error> {
+        guard !streamClaimed else {
+            throw AppServerExecServerError.invalidResponse(
+                "remote process events were consumed more than once"
+            )
+        }
+        streamClaimed = true
+        return stream
+    }
+
+    func terminate() async {
+        guard !terminationRequested else { return }
+        terminationRequested = true
+        let action = terminateProcess
+        await Task.detached { await action() }.value
+    }
 }
 
 struct AppServerRemoteFileMetadata: Sendable, Equatable {
@@ -108,7 +151,9 @@ protocol AppServerExecServerClient: Sendable {
     func connectionSnapshot() async -> AppServerEnvironmentConnectionSnapshot
     func connectionEvents() async -> AsyncStream<AppServerExecServerConnectionObservation>
     func environmentInfo() async throws -> AppServerEnvironmentInfo
-    func runProcess(_ request: AppServerRemoteProcessRequest) async throws -> AppServerRemoteProcessResult
+    func startProcess(
+        _ request: AppServerRemoteProcessRequest
+    ) async throws -> AppServerRemoteProcessSession
     func readFile(
         at pathURI: String,
         sandbox: AppServerExecServerSandboxContext
@@ -142,6 +187,22 @@ protocol AppServerExecServerClient: Sendable {
         sandbox: AppServerExecServerSandboxContext
     ) async throws
     func close() async
+}
+
+extension AppServerExecServerClient {
+    func runProcess(
+        _ request: AppServerRemoteProcessRequest
+    ) async throws -> AppServerRemoteProcessResult {
+        let session = try await startProcess(request)
+        let events = try await session.events()
+        for try await event in events {
+            if case .finished(let result) = event { return result }
+        }
+        try Task.checkCancellation()
+        throw AppServerExecServerError.invalidResponse(
+            "remote process event stream closed without a terminal result"
+        )
+    }
 }
 
 enum AppServerResolvedEnvironment: Sendable {

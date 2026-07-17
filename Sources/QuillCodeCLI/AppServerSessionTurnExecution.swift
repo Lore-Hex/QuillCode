@@ -167,7 +167,7 @@ extension AppServerSession {
 
     private func finishInterruptedTurn(_ threadID: UUID, initial: ActiveTurn) async {
         if let turnID = activeTurns[threadID]?.id {
-            cancelUserShellCommands(threadID: threadID, turnID: turnID)
+            await cancelUserShellCommands(threadID: threadID, turnID: turnID)
             await waitForUserShellCommands(threadID: threadID, turnID: turnID)
         }
         let snapshot = activeTurns[threadID]?.latestThread ?? initial.latestThread

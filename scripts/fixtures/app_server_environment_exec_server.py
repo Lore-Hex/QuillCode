@@ -111,6 +111,8 @@ class ExecServer:
         self.initialize_count = 0
         self.process_starts = []
         self.process_reads = {}
+        self.background_processes = set()
+        self.process_terminations = []
         self.file_system_requests = []
         self.thread = threading.Thread(target=self._run, daemon=True)
 
@@ -256,11 +258,52 @@ class ExecServer:
             assert params["managedNetwork"] is None, params
             self.process_starts.append(params)
             self.process_reads[params["processId"]] = 0
+            if "quillcode-background-smoke" in params["argv"][-1]:
+                self.background_processes.add(params["processId"])
             return {"processId": params["processId"]}
         if method == "process/read":
             process_id = params["processId"]
             read_index = self.process_reads[process_id]
             self.process_reads[process_id] += 1
+            if process_id in self.background_processes:
+                if process_id in self.process_terminations:
+                    return {
+                        "chunks": [],
+                        "nextSeq": 2,
+                        "exited": True,
+                        "exitCode": 143,
+                        "closed": True,
+                        "failure": None,
+                        "sandboxDenied": False,
+                    }
+                if read_index == 0:
+                    assert params["afterSeq"] is None, params
+                    command = next(
+                        start["argv"][-1]
+                        for start in self.process_starts
+                        if start["processId"] == process_id
+                    )
+                    suffix = "one" if command.endswith("one") else "two"
+                    return {
+                        "chunks": [{
+                            "seq": 1,
+                            "stream": "stdout",
+                            "chunk": base64.b64encode(
+                                f"background-{suffix}\n".encode("utf-8")
+                            ).decode("ascii"),
+                        }],
+                        "nextSeq": 2,
+                        "exited": False,
+                        "closed": False,
+                    }
+                assert params["afterSeq"] == 1, params
+                time.sleep(0.02)
+                return {
+                    "chunks": [],
+                    "nextSeq": 2,
+                    "exited": False,
+                    "closed": False,
+                }
             if read_index == 0:
                 assert params["afterSeq"] is None, params
                 return {
@@ -311,6 +354,9 @@ class ExecServer:
                 "sandboxDenied": False,
             }
         if method == "process/terminate":
+            process_id = params["processId"]
+            if process_id not in self.process_terminations:
+                self.process_terminations.append(process_id)
             return {}
         raise AssertionError(f"unexpected exec-server method: {method}")
 

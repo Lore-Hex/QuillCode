@@ -7,6 +7,7 @@ extension AppServerExecServerWebSocketClient {
     static var requestTimeout: TimeInterval { 30 }
     static var environmentStatusTimeout: TimeInterval { 10 }
     static var maximumMessageBytes: Int { 8 * 1_024 * 1_024 }
+    static var maximumAbandonedResponseIDs: Int { 4_096 }
 
     func environmentInfo() async throws -> AppServerEnvironmentInfo {
         let result = try await request(method: "environment/info", params: .null)

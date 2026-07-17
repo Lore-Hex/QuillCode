@@ -49,6 +49,7 @@ actor AppServerSession {
         var shellExecutableURL: URL
         var shellExecutablePath: String
         var remoteExecutor: AppServerRemoteEnvironmentToolExecutor?
+        var remoteProcessID: Int32?
         var startsStandaloneTurn: Bool
     }
 
@@ -66,6 +67,7 @@ actor AppServerSession {
     struct ActiveUserShellCommand: Sendable {
         var launch: UserShellLaunch
         var session: ShellStreamingSession?
+        var remoteSession: AppServerRemoteProcessSession?
         var task: Task<Void, Never>?
         var terminationRequested: Bool
     }
@@ -138,6 +140,7 @@ actor AppServerSession {
     var activeRollbacks: Set<UUID> = []
     var activeUserShellTurns: [UUID: ActiveUserShellTurn] = [:]
     var activeUserShellCommands: [String: ActiveUserShellCommand] = [:]
+    var nextRemoteBackgroundProcessID = Int32.max
     var loadedThreadIDs: Set<UUID> = []
     var subscribedThreadIDs: Set<UUID> = []
     var environmentSubscriptions: [UUID: AppServerThreadEnvironmentSubscription] = [:]
@@ -278,7 +281,7 @@ actor AppServerSession {
         cancelAllExternalAgentConfigImports()
         cancelAllGuardianRetries()
         await cancelAllFuzzyFileSearches()
-        cancelAllUserShellCommands()
+        await cancelAllUserShellCommands()
         await terminateAllCommandExecProcesses()
         await terminateAllProcesses()
         await resolveAllPendingMCPElicitations()

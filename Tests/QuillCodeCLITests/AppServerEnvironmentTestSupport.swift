@@ -14,6 +14,7 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         var connectCount: Int
         var closeCount: Int
         var processRequests: [AppServerRemoteProcessRequest]
+        var terminatedProcessIDs: [String]
         var fileSystemRequests: [FileSystemRequest]
         var removedURIs: [String]
     }
@@ -32,6 +33,8 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
     private var connectCount = 0
     private var closeCount = 0
     private var processRequests: [AppServerRemoteProcessRequest] = []
+    private var terminatedProcessIDs: [String] = []
+    private var nextProcessSequence = 1
     private var fileSystemRequests: [FileSystemRequest] = []
     private var removedURIs: [String] = []
     private var currentConnectionSnapshot: AppServerEnvironmentConnectionSnapshot = .pending
@@ -104,21 +107,47 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
         return info
     }
 
-    func runProcess(
+    func startProcess(
         _ request: AppServerRemoteProcessRequest
-    ) async throws -> AppServerRemoteProcessResult {
+    ) async throws -> AppServerRemoteProcessSession {
         processRequests.append(request)
-        if let processDelay { try await Task.sleep(for: processDelay) }
-        guard !processResults.isEmpty else {
-            return .init(
+        let processID = request.processID ?? "fake-process-\(nextProcessSequence)"
+        nextProcessSequence += 1
+        let result = processResults.isEmpty
+            ? AppServerRemoteProcessResult(
                 stdout: "",
                 stderr: "",
                 exitCode: 0,
                 failure: nil,
                 sandboxDenied: false
             )
+            : processResults.removeFirst()
+        let delay = processDelay
+        let stream = AsyncThrowingStream<AppServerRemoteProcessEvent, Error>.makeStream()
+        let producer = Task {
+            do {
+                if !result.stdout.isEmpty { stream.continuation.yield(.stdout(result.stdout)) }
+                if !result.stderr.isEmpty { stream.continuation.yield(.stderr(result.stderr)) }
+                if let delay { try await Task.sleep(for: delay) }
+                stream.continuation.yield(.finished(result))
+                stream.continuation.finish()
+            } catch {
+                stream.continuation.finish(throwing: error)
+            }
         }
-        return processResults.removeFirst()
+        stream.continuation.onTermination = { reason in
+            guard case .cancelled = reason else { return }
+            producer.cancel()
+        }
+        return AppServerRemoteProcessSession(
+            processID: processID,
+            stream: stream.stream,
+            terminateProcess: { [weak self] in
+                producer.cancel()
+                stream.continuation.finish(throwing: CancellationError())
+                await self?.recordProcessTermination(processID)
+            }
+        )
     }
 
     func readFile(
@@ -253,6 +282,7 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
             connectCount: connectCount,
             closeCount: closeCount,
             processRequests: processRequests,
+            terminatedProcessIDs: terminatedProcessIDs,
             fileSystemRequests: fileSystemRequests,
             removedURIs: removedURIs
         )
@@ -268,6 +298,10 @@ actor AppServerFakeExecServerClient: AppServerExecServerClient {
             pathURI: pathURI,
             sandbox: sandbox
         ))
+    }
+
+    private func recordProcessTermination(_ processID: String) {
+        terminatedProcessIDs.append(processID)
     }
 
     private func missing(_ pathURI: String) -> AppServerExecServerError {
