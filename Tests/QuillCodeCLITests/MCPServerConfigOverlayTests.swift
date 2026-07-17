@@ -3,6 +3,34 @@ import QuillCodeCore
 import XCTest
 
 final class MCPServerConfigOverlayTests: XCTestCase {
+    func testRunInputAcceptsCodexStyleTopLevelAliases() throws {
+        let input = try MCPServerRunInput(arguments: [
+            "prompt": .string("work"),
+            "approval_policy": .string("never"),
+            "baseInstructions": .string("base"),
+            "compact_prompt": .string("compact"),
+            "developerInstructions": .string("developer"),
+            "sandbox_mode": .string("read-only")
+        ])
+
+        XCTAssertEqual(input.prompt, "work")
+        XCTAssertEqual(input.approvalPolicy, .never)
+        XCTAssertEqual(input.baseInstructions, "base")
+        XCTAssertEqual(input.compactPrompt, "compact")
+        XCTAssertEqual(input.developerInstructions, "developer")
+        XCTAssertEqual(input.sandbox, .readOnly)
+    }
+
+    func testRunInputRejectsConflictingTopLevelAliases() throws {
+        XCTAssertThrowsError(try MCPServerRunInput(arguments: [
+            "prompt": .string("work"),
+            "approval-policy": .string("on-request"),
+            "approvalPolicy": .string("never")
+        ])) { error in
+            XCTAssertTrue("\(error)".contains("conflicting codex argument aliases"))
+        }
+    }
+
     func testResolvesCodexAliasesAndExplicitPolicyPrecedence() throws {
         let input = try MCPServerRunInput(arguments: [
             "prompt": .string("work"),

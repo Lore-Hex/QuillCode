@@ -63,10 +63,7 @@ struct MCPServerRunInput: Sendable {
     var sandbox: CLISandboxMode?
 
     init(arguments: [String: CLIJSONValue]) throws {
-        let supported = Set([
-            "prompt", "approval-policy", "base-instructions", "compact-prompt", "config",
-            "cwd", "developer-instructions", "model", "sandbox"
-        ])
+        let supported = Set(Self.aliases.keys).union(["prompt", "config", "cwd", "model"])
         let unknown = Set(arguments.keys).subtracting(supported)
         guard unknown.isEmpty else {
             throw MCPServerToolInputError.invalid(
@@ -74,8 +71,8 @@ struct MCPServerRunInput: Sendable {
             )
         }
         self.prompt = try MCPServerToolArguments.requiredString("prompt", in: arguments)
-        if let rawPolicy = try MCPServerToolArguments.optionalString(
-            "approval-policy",
+        if let rawPolicy = try Self.optionalString(
+            aliasGroup: Self.approvalPolicyAliases,
             in: arguments
         ) {
             guard let policy = MCPServerApprovalPolicy(rawValue: rawPolicy) else {
@@ -85,12 +82,12 @@ struct MCPServerRunInput: Sendable {
         } else {
             self.approvalPolicy = nil
         }
-        self.baseInstructions = try MCPServerToolArguments.optionalString(
-            "base-instructions",
+        self.baseInstructions = try Self.optionalString(
+            aliasGroup: Self.baseInstructionsAliases,
             in: arguments
         )
-        self.compactPrompt = try MCPServerToolArguments.optionalString(
-            "compact-prompt",
+        self.compactPrompt = try Self.optionalString(
+            aliasGroup: Self.compactPromptAliases,
             in: arguments
         )
         if let value = arguments["config"], value != .null {
@@ -102,12 +99,15 @@ struct MCPServerRunInput: Sendable {
             self.config = [:]
         }
         self.cwd = try MCPServerToolArguments.optionalString("cwd", in: arguments)
-        self.developerInstructions = try MCPServerToolArguments.optionalString(
-            "developer-instructions",
+        self.developerInstructions = try Self.optionalString(
+            aliasGroup: Self.developerInstructionsAliases,
             in: arguments
         )
         self.model = try MCPServerToolArguments.optionalString("model", in: arguments)
-        if let rawSandbox = try MCPServerToolArguments.optionalString("sandbox", in: arguments) {
+        if let rawSandbox = try Self.optionalString(
+            aliasGroup: Self.sandboxAliases,
+            in: arguments
+        ) {
             guard let sandbox = CLISandboxMode(rawValue: rawSandbox) else {
                 throw MCPServerToolInputError.invalid("sandbox is not supported")
             }
@@ -115,6 +115,59 @@ struct MCPServerRunInput: Sendable {
         } else {
             self.sandbox = nil
         }
+    }
+
+    private struct AliasGroup {
+        var canonicalName: String
+        var aliases: [String]
+    }
+
+    private static let approvalPolicyAliases = AliasGroup(
+        canonicalName: "approval-policy",
+        aliases: ["approval-policy", "approval_policy", "approvalPolicy"]
+    )
+    private static let baseInstructionsAliases = AliasGroup(
+        canonicalName: "base-instructions",
+        aliases: ["base-instructions", "base_instructions", "baseInstructions"]
+    )
+    private static let compactPromptAliases = AliasGroup(
+        canonicalName: "compact-prompt",
+        aliases: ["compact-prompt", "compact_prompt", "compactPrompt"]
+    )
+    private static let developerInstructionsAliases = AliasGroup(
+        canonicalName: "developer-instructions",
+        aliases: ["developer-instructions", "developer_instructions", "developerInstructions"]
+    )
+    private static let sandboxAliases = AliasGroup(
+        canonicalName: "sandbox",
+        aliases: ["sandbox", "sandbox_mode", "sandboxMode"]
+    )
+    private static let aliasGroups = [
+        approvalPolicyAliases,
+        baseInstructionsAliases,
+        compactPromptAliases,
+        developerInstructionsAliases,
+        sandboxAliases
+    ]
+    private static let aliases: [String: String] = Dictionary(
+        uniqueKeysWithValues: aliasGroups.flatMap { group in
+            group.aliases.map { ($0, group.canonicalName) }
+        }
+    )
+
+    private static func optionalString(
+        aliasGroup: AliasGroup,
+        in arguments: [String: CLIJSONValue]
+    ) throws -> String? {
+        let present = aliasGroup.aliases.filter { arguments[$0] != nil }
+        guard present.count <= 1 else {
+            throw MCPServerToolInputError.invalid(
+                "conflicting codex argument aliases for \(aliasGroup.canonicalName): "
+                    + present.sorted().joined(separator: ", ")
+            )
+        }
+        guard let key = present.first else { return nil }
+        return try MCPServerToolArguments.optionalString(key, in: arguments)
     }
 }
 
