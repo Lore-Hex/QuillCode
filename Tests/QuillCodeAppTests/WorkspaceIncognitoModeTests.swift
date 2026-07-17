@@ -665,6 +665,33 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
         )
     }
 
+    /// Guards the PRODUCTION wiring of the local-summary announcement: `recordContextSummaryStart`
+    /// deriving `isLocal` from the source thread. The copy, the matchers, and the outcome source are
+    /// all tested elsewhere, but without this the decision to pass `isLocal: true` can regress
+    /// silently — leaving an E2E thread permanently claiming "with TrustedRouter" for a call it never
+    /// makes. Drives the real entry point (`startForkThread`), which records the notice synchronously.
+    func testStartingASummaryOnAnE2EThreadAnnouncesItAsLocalNotTrustedRouter() throws {
+        for (model, expected) in [
+            (TrustedRouterDefaults.e2eModel, "Summarizing context locally"),
+            ("z-ai/glm-5.2", "Summarizing context with TrustedRouter")
+        ] {
+            let source = ChatThread(
+                title: "Work",
+                model: model,
+                messages: [.init(role: .user, content: "a question")]
+            )
+            let workspace = QuillCodeWorkspaceModel(
+                root: QuillCodeRootState(threads: [source], selectedThreadID: source.id),
+                contextSummaryGenerator: ModelBackedSummaryGeneratorStub(summary: "unused")
+            )
+
+            XCTAssertTrue(workspace.startForkThread(strategy: .summarizedContext), model)
+
+            let started = try XCTUnwrap(workspace.root.threads.first { $0.id == source.id }?.events.first)
+            XCTAssertEqual(started.summary, expected, "the announcement must match the summary actually run")
+        }
+    }
+
     func testReturningFromSideConversationRetainsContentFreeSpendReceipt() throws {
         // A side conversation is ephemeral and runs on the parent's priced (non-E2E) model. Destroying
         // it on /return must keep a content-free spend receipt — exactly like incognito discard/clear/

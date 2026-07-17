@@ -291,7 +291,10 @@ extension QuillCodeWorkspaceModel {
         } catch {
             return WorkspaceContextSummaryOutcome(
                 summaryOverride: nil,
-                source: .deterministicFallback,
+                // Unreachable on the E2E path today (the deterministic generator cannot throw), but
+                // keep the source honest structurally rather than by luck: an E2E thread that already
+                // announced a LOCAL summary must never finish by claiming a model was unavailable.
+                source: routesE2EOnly ? .e2eDeterministic : .deterministicFallback,
                 errorDescription: WorkspaceContextSummarySanitizer.diagnostic(from: error.localizedDescription),
                 modelSelection: selection
             )
