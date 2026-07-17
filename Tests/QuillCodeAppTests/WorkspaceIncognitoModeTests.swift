@@ -457,6 +457,52 @@ final class WorkspaceIncognitoModeTests: XCTestCase {
         XCTAssertFalse(model.root.threads.contains { $0.id == incognitoID })
     }
 
+    func testManuallySelectedE2ERouteAlsoHardensAuxiliaryTraffic() throws {
+        // trustedrouter/e2e is user-selectable from the Private category on a REGULAR thread; the
+        // "E2E Encrypted" chip must mean no non-E2E egress there either, even without incognito.
+        var baseRunner = AgentRunner()
+        baseRunner.webSearch = TrustedRouterWebSearchClient(model: TrustedRouterDefaults.defaultModel)
+
+        let runner = WorkspaceAgentSendSessionFactory(
+            baseRunner: baseRunner,
+            selectedProject: nil,
+            config: AppConfig(),
+            browser: BrowserState(),
+            browserToolOverride: nil,
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor(),
+            workspaceRoot: URL(fileURLWithPath: "/tmp")
+        ).configuredRunner(
+            modelID: TrustedRouterDefaults.e2eModel,
+            threadID: UUID(),
+            threadIsIncognito: false
+        )
+
+        XCTAssertEqual(
+            (runner.webSearch as? TrustedRouterWebSearchClient)?.model,
+            TrustedRouterDefaults.e2eModel
+        )
+    }
+
+    func testPreIncognitoDraftSurvivesTheDetour() throws {
+        let durable = ChatThread(title: "Durable work", messages: [.init(role: .user, content: "hi")])
+        let model = model(threads: [durable], selectedThreadID: durable.id)
+        model.setDraft("half-written important message")
+
+        _ = model.newIncognitoChat()
+        model.setDraft("private text that must vanish")
+        _ = model.newChat()
+        model.selectThread(durable.id)
+
+        // The incognito detour must neither leak its own draft nor erase the durable thread's
+        // stashed one (the discard previously left a blank live composer that the next transition
+        // persisted over the stash).
+        XCTAssertEqual(model.composer.draft, "half-written important message")
+    }
+
     private func model(threads: [ChatThread], selectedThreadID: UUID?) -> QuillCodeWorkspaceModel {
         QuillCodeWorkspaceModel(root: QuillCodeRootState(
             threads: threads,

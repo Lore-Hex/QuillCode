@@ -62,6 +62,14 @@ extension QuillCodeWorkspaceModel {
             // make recordTransition reset the whole history — losing Back to everything before the
             // incognito detour.
             root.selectedThreadID = navigationHistory.currentLocation?.threadID
+            // And hydrate the live composer from the anchor's SAVED draft: the next transition
+            // treats the anchor as the outgoing thread and persists the live composer over its
+            // stash — which, left blank from the incognito clear above, would erase an unsent
+            // pre-incognito draft.
+            if let anchorID = root.selectedThreadID {
+                composer.draft = persistedComposerDraft(for: anchorID) ?? ""
+                composer.attachments = persistedComposerAttachments(for: anchorID)
+            }
         }
         return true
     }

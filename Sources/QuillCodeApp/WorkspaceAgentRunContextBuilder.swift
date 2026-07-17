@@ -60,14 +60,19 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         if activeRunner.maxToolSteps == AgentRunner.defaultMaxToolSteps {
             activeRunner.maxToolSteps = config.maxToolSteps
         }
-        // EVERY model-backed auxiliary must respect the incognito E2E pin, not just the primary
-        // client below: the auto-mode safety reviewer otherwise ships recentMessages + userMessage to
-        // the GLM/Kimi reviewer models, and the LLM compaction summarizer ships older turns to the
-        // auxiliary model on context pressure. Swap both to their model-free forms — static safety
-        // policy (auto approvals degrade to the conservative static verdicts) and the deterministic
-        // compaction summarizer — so the ONLY provider traffic an incognito run produces is the
-        // pinned E2E route.
-        if threadIsIncognito {
+        // EVERY model-backed auxiliary must respect the E2E route, not just the primary client
+        // below: the auto-mode safety reviewer otherwise ships recentMessages + userMessage to the
+        // GLM/Kimi reviewer models, and the LLM compaction summarizer ships older turns to the
+        // auxiliary model on context pressure. This traffic hardening keys off the EFFECTIVE model —
+        // a regular thread can select trustedrouter/e2e from the Private category, and "E2E
+        // Encrypted" in the UI must mean no non-E2E egress there either. (Persistence restrictions —
+        // memory tool, hooks, computer-use — stay incognito-only; they're about "never saved", not
+        // routing.) Swap the auxiliaries to their model-free forms — static safety policy (auto
+        // approvals degrade to the conservative static verdicts) and the deterministic compaction
+        // summarizer — and retarget or drop web search.
+        let requiresE2EOnlyTraffic = threadIsIncognito
+            || TrustedRouterDefaults.canonicalModelID(modelID ?? "") == TrustedRouterDefaults.e2eModel
+        if requiresE2EOnlyTraffic {
             activeRunner.safety = AutoSafetyReviewer()
             if var compaction = activeRunner.compaction {
                 compaction.compactor.summarizer = DeterministicThreadCompactionSummarizer()

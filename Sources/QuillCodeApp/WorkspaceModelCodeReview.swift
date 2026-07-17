@@ -60,6 +60,13 @@ public extension QuillCodeWorkspaceModel {
         guard selectedProject != nil else {
             return failCodeReviewPreflight("Open a Git project before starting a code review.")
         }
+        // A review started FROM an incognito chat stays IN it: detached delivery would discard the
+        // private session (its newChat branch) and then run + PERSIST the review through the
+        // configured non-E2E review model — both sides of the contract broken at once.
+        var request = request
+        if selectedThread?.runtimeContext.isIncognito == true, request.delivery == .detached {
+            request.delivery = .current
+        }
         if request.delivery == .current,
            let selectedThreadID = selectedThread?.id,
            agentRuns.isRunning(selectedThreadID) {
