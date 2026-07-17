@@ -206,6 +206,10 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 - Codex Settings offers **Import from other agents** as a reviewable migration rather than an invisible compatibility scan. The import covers supported setup and recent work, lets the user customize what will be imported, is additive instead of destructive, and leaves provider credentials or trust decisions for explicit follow-up. QuillCode follows that product contract for Claude Code while applying stricter source-root, symlink, size, secret-redaction, and destination-receipt boundaries.
 - Codex `/side` (alias `/btw`) starts an ephemeral conversation from the active task's history while the parent task keeps running. Inherited history is reference-only, side conversations are excluded from the sidebar and durable task history, and Return discards the side branch. The side branch keeps the parent task's tool permissions, but it must not mutate files or other external state unless the user explicitly asks after entering the side conversation. Sources: official Codex slash-command reference (`learn.chatgpt.com/docs/reference/slash-commands`) and the public Codex TUI side-conversation implementation (`openai/codex`, `codex-rs/tui/src/app/side.rs`).
 - Sandbox and Auto-review: enforce boundaries first, route eligible review requests through a reviewer model.
+  A denied action remains inspectable as durable task history. Recovery should offer one exact,
+  context-bound retry through the reviewer rather than an editable approval bypass; redacted actions
+  cannot be replayed, retry is consumed before dispatch, and repeated denials trip a visible circuit
+  breaker. Opening that control surface must not add a transcript message or consume model context.
 - Remote connections: phone/host pairing, remote approvals, host-local files and tools.
 - Plugins, skills, MCP: reusable workflows and external tools; first expose project-local manifests clearly before enabling install/process lifecycle.
 - Codex/Open Agent Skills use progressive disclosure: only validated name/description metadata enters

@@ -13,6 +13,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
     public var contextBanner: ContextBannerSurface?
     public var sideConversation: SideConversationSurface?
     public var codeReviewRequest: WorkspaceCodeReviewRequest?
+    public var autoReviewDenials: AutoReviewDenialsSurface?
     public var review: WorkspaceReviewSurface
     public var terminal: TerminalSurface
     public var browser: BrowserSurface
@@ -45,6 +46,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         contextBanner: ContextBannerSurface? = nil,
         sideConversation: SideConversationSurface? = nil,
         codeReviewRequest: WorkspaceCodeReviewRequest? = nil,
+        autoReviewDenials: AutoReviewDenialsSurface? = nil,
         review: WorkspaceReviewSurface,
         terminal: TerminalSurface,
         browser: BrowserSurface,
@@ -70,6 +72,7 @@ public struct WorkspaceSurface: Codable, Sendable, Hashable {
         self.contextBanner = contextBanner
         self.sideConversation = sideConversation
         self.codeReviewRequest = codeReviewRequest
+        self.autoReviewDenials = autoReviewDenials
         self.review = review
         self.terminal = terminal
         self.browser = browser
@@ -185,6 +188,13 @@ public extension QuillCodeWorkspaceModel {
             ).banner(),
             sideConversation: sideConversationSurface(),
             codeReviewRequest: codeReviewRequest,
+            autoReviewDenials: isAutoReviewDenialsPresented
+                ? AutoReviewDenialsSurfaceBuilder.surface(
+                    thread: thread,
+                    workspaceRoot: activeWorkspaceRoot,
+                    retryingRequestID: autoReviewDenialRetryingRequestID
+                )
+                : nil,
             review: review,
             terminal: TerminalSurface(
                 terminal: terminal,

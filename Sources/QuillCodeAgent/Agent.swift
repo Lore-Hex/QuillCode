@@ -138,6 +138,7 @@ public struct AgentRunner: Sendable {
                 Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
             )
             var runLoop = AgentRunLoopState()
+            var autoReviewCircuit = AutoReviewCircuitBreaker()
             let limit = max(1, maxToolSteps)
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
 
@@ -205,7 +206,29 @@ public struct AgentRunner: Sendable {
                             stopReason: .approvalRequired(requestID: pendingApproval.request.id),
                             pendingApproval: pendingApproval
                         )
-                    case .completed(let completion):
+                    case .denied(let completion):
+                        appendToolFeedback(completion, to: &next)
+                        runLoop.recordDeniedStep(completion)
+                        if let reason = autoReviewCircuit.record(.denied) {
+                            let message = reason.message
+                                + " Review the exact denials with /approve before retrying one action."
+                            appendAssistantMessage(message, to: &next)
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Auto-review circuit breaker: \(reason.message)"
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            return AgentRunResult(
+                                thread: next,
+                                toolResults: runLoop.toolResults,
+                                stopReason: .autoReviewCircuitBreaker(reason: reason.message)
+                            )
+                        }
+                    case .completed(let completion, let reviewOutcome):
+                        if let reviewOutcome {
+                            _ = autoReviewCircuit.record(reviewOutcome)
+                        }
                         appendToolFeedback(completion, to: &next)
                         let verdict = runLoop.recordCompletedStep(
                             completion,

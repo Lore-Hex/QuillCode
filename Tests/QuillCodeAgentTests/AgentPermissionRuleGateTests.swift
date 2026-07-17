@@ -43,7 +43,14 @@ final class AgentPermissionRuleGateTests: XCTestCase {
             result.thread.events.contains { $0.kind == .toolCompleted },
             "a denied tool call must never execute"
         )
-        XCTAssertTrue(result.toolResults.isEmpty)
+        XCTAssertFalse(result.toolResults.isEmpty)
+        XCTAssertTrue(result.toolResults.allSatisfy { !$0.ok })
+        XCTAssertTrue(
+            result.toolResults.allSatisfy {
+                $0.error?.contains("Auto review denied this exact action") == true
+            },
+            "the model should receive denial feedback without executing the tool"
+        )
     }
 
     func testWithoutTheDenyRuleTheSameAutoRunExecutes() async throws {

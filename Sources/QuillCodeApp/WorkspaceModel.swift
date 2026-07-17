@@ -23,6 +23,10 @@ public final class QuillCodeWorkspaceModel {
     /// Session-only request presented by `/review` and the command palette. The review result is
     /// durable in the target thread; an unfinished chooser is intentionally not persisted.
     public internal(set) var codeReviewRequest: WorkspaceCodeReviewRequest?
+    /// Session-only Auto-review history presentation. Denials themselves are reconstructed from
+    /// durable thread events; only whether the dialog is open and its active retry are transient.
+    public internal(set) var isAutoReviewDenialsPresented = false
+    public internal(set) var autoReviewDenialRetryingRequestID: String?
     /// Session-only Review selection when the pane is showing thread provenance rather than a
     /// recorded git-diff tool card. `nil` means derive the scope from the latest diff card.
     public internal(set) var reviewSelectionOverride: WorkspaceReviewSelection?

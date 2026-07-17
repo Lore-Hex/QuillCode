@@ -64,6 +64,9 @@ public enum AgentRunStopReason: Sendable, Hashable {
     /// separately by `AgentRunResult.pendingApproval`; keeping only the opaque request id here
     /// prevents stop-reason surfaces from accidentally exposing tool arguments.
     case approvalRequired(requestID: String)
+    /// Auto review denied too many actions in one turn. The agent is stopped before it can keep
+    /// probing equivalent workarounds and the user can inspect exact denials through `/approve`.
+    case autoReviewCircuitBreaker(reason: String)
 }
 
 /// Private continuation material for an agent run that stopped at an approval gate.

@@ -4,7 +4,8 @@ import QuillCodeSafety
 import QuillCodeTools
 
 enum AgentToolStep: Sendable {
-    case completed(AgentToolStepCompletion)
+    case completed(AgentToolStepCompletion, reviewOutcome: ApprovalReviewOutcome?)
+    case denied(AgentToolStepCompletion)
     case blocked(AgentPendingApproval)
 }
 
@@ -22,7 +23,8 @@ extension AgentRunner {
         thread: inout ChatThread,
         workspaceRoot: URL,
         toolDefinitions: [ToolDefinition],
-        onProgress: AgentRunProgressHandler?
+        onProgress: AgentRunProgressHandler?,
+        reviewAttempt: ApprovalReviewAttempt = .initial
     ) async throws -> AgentToolStep {
         // The edit guard is scoped to THIS thread's model context: only files whose content
         // entered this thread (read or written here) may be overwritten/patched here.
@@ -48,7 +50,7 @@ extension AgentRunner {
                 result: result,
                 followUpReviewResult: nil,
                 toolResults: [result]
-            ))
+            ), reviewOutcome: nil)
         }
 
         let preHook = try await prepareToolCall(
@@ -74,7 +76,7 @@ extension AgentRunner {
                 result: result,
                 followUpReviewResult: nil,
                 toolResults: [result]
-            ))
+            ), reviewOutcome: nil)
         }
 
         try Task.checkCancellation()
@@ -84,15 +86,35 @@ extension AgentRunner {
             toolCall: effectiveCall,
             toolDefinition: definition,
             recentMessages: thread.messages,
-            workspaceRoot: workspaceRoot
+            workspaceRoot: workspaceRoot,
+            reviewAttempt: reviewAttempt
         ))
         try Task.checkCancellation()
 
         if review.verdict == .deny {
+            if thread.mode == .auto {
+                let result = await appendDeniedAutoReview(
+                    review,
+                    for: effectiveCall,
+                    definition: definition,
+                    reviewAttempt: reviewAttempt,
+                    workspaceRoot: workspaceRoot,
+                    to: &thread,
+                    onProgress: onProgress
+                )
+                return .denied(AgentToolStepCompletion(
+                    call: effectiveCall,
+                    result: result,
+                    followUpReviewResult: nil,
+                    toolResults: [result]
+                ))
+            }
             let pendingApproval = await appendBlockedReview(
                 review,
                 for: effectiveCall,
                 definition: definition,
+                reviewAttempt: reviewAttempt,
+                workspaceRoot: workspaceRoot,
                 to: &thread,
                 onProgress: onProgress
             )
@@ -114,6 +136,8 @@ extension AgentRunner {
                     review,
                     for: effectiveCall,
                     definition: definition,
+                    reviewAttempt: reviewAttempt,
+                    workspaceRoot: workspaceRoot,
                     to: &thread,
                     onProgress: onProgress
                 )
@@ -132,7 +156,7 @@ extension AgentRunner {
                     result: result,
                     followUpReviewResult: nil,
                     toolResults: [result]
-                ))
+                ), reviewOutcome: review.reviewOutcome)
             }
         }
 
@@ -159,7 +183,7 @@ extension AgentRunner {
             result: result,
             followUpReviewResult: followUpReviewResult,
             toolResults: toolResults
-        ))
+        ), reviewOutcome: review.reviewOutcome)
     }
 
     func appendToolFeedback(_ completion: AgentToolStepCompletion, to thread: inout ChatThread) {

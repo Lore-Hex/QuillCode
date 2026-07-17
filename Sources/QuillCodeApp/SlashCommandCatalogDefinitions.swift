@@ -125,6 +125,12 @@ extension SlashCommandCatalog {
             aliases: ["rerun", "again", "retry last"]
         ),
         slashDefinition(
+            "/approve",
+            "Review Auto denials",
+            "Open the ten most recent Auto-review denials and retry one exact action once.",
+            aliases: ["approvals", "denials", "auto review"]
+        ),
+        slashDefinition(
             "/disconnect",
             "Disconnect all",
             "Stop active work and disconnect remote workspace or extension sessions.",

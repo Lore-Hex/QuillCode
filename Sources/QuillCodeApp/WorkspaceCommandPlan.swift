@@ -35,6 +35,7 @@ enum WorkspaceCommandPlan: Equatable {
     case resolveInstructionDiagnostic(id: String)
     case dismissInstructionDiagnostic(id: String)
     case resolveSubagentApproval(WorkspaceSubagentApprovalCommand)
+    case retryAutoReviewDenial(requestID: String)
     case setDraft(String)
     case runTool(name: String)
     case runToolCall(ToolCall)
@@ -97,6 +98,9 @@ enum WorkspaceCommandPlan: Equatable {
     ].merging(WorkspacePullRequestCommandCatalog.draftByCommandID) { local, _ in local }
 
     private static func prefixPlan(_ commandID: String) -> WorkspaceCommandPlan? {
+        if let requestID = commandID.value(after: Self.autoReviewDenialRetryPrefix) {
+            return .retryAutoReviewDenial(requestID: requestID)
+        }
         if let command = WorkspaceSubagentApprovalCommand(commandID: commandID) {
             return .resolveSubagentApproval(command)
         }
@@ -229,10 +233,18 @@ enum WorkspaceCommandPlan: Equatable {
             nil
         }
     }
+
+    static let autoReviewDenialRetryPrefix = "auto-review-denial-retry:"
+
+    static func autoReviewDenialRetryCommandID(_ requestID: String) -> String {
+        autoReviewDenialRetryPrefix + requestID
+    }
 }
 
 enum WorkspaceCommandAction: String, Equatable {
     case codeReview = "code-review"
+    case autoReviewDenials = "auto-review-denials"
+    case dismissAutoReviewDenials = "auto-review-denials-dismiss"
     case newChat = "new-chat"
     case quickChat = "quick-chat"
     case workspaceBack = "workspace-back"
