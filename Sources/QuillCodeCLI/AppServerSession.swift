@@ -140,6 +140,7 @@ actor AppServerSession {
     var activeUserShellCommands: [String: ActiveUserShellCommand] = [:]
     var loadedThreadIDs: Set<UUID> = []
     var subscribedThreadIDs: Set<UUID> = []
+    var environmentSubscriptions: [UUID: AppServerThreadEnvironmentSubscription] = [:]
     var outOfBandElicitationCounts: [UUID: UInt64] = [:]
     var processSessions: [String: AppServerProcessSession] = [:]
     var processEventTasks: [String: Task<Void, Never>] = [:]
@@ -268,6 +269,7 @@ actor AppServerSession {
 
     func finishInput() async {
         inputFinished = true
+        await removeAllEnvironmentSubscriptions()
         cancelSkillWatcher()
         cancelAllFileWatches()
         cancelAllAccountLogins()
@@ -338,6 +340,7 @@ actor AppServerSession {
             switch method {
             case "environment/add": result = try await environmentRegistry.add(params)
             case "environment/info": result = try await environmentRegistry.info(params)
+            case "environment/status": result = try await environmentRegistry.status(params)
             case "model/list": result = try await listModels(params)
             case "modelProvider/capabilities/read": result = try modelProviderCapabilities(params)
             case "account/read": result = try readAccount(params)
@@ -578,7 +581,9 @@ actor AppServerSession {
 
     func sendNotification(_ method: String, params: CLIJSONValue) async {
         guard !optedOutNotifications.contains(method) else { return }
-        if method.hasPrefix("turn/") || method.hasPrefix("item/"),
+        if method.hasPrefix("turn/")
+            || method.hasPrefix("item/")
+            || method.hasPrefix("thread/environment/"),
            let rawThreadID = params.objectValue?["threadId"]?.stringValue,
            let threadID = UUID(uuidString: rawThreadID),
            !subscribedThreadIDs.contains(threadID) {

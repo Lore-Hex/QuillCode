@@ -6,6 +6,7 @@ import QuillCodeTools
 
 actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
     private static let requestTimeout: TimeInterval = 30
+    private static let statusTimeout: TimeInterval = 2
     private static let maximumMessageBytes = 8 * 1_024 * 1_024
 
     private let websocketURL: String
@@ -18,6 +19,8 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
     private var nextRequestID: Int64 = 1
     private var resumableSessionID: String?
     private var permanentlyClosed = false
+    private var awaitingInitialConnection = true
+    private var lastConnectionError: String?
     private var requestSlotOccupied = false
     private var requestSlotWaiters: [CheckedContinuation<Void, Never>] = []
 
@@ -54,10 +57,44 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
         do {
             try await task.value
             connectionTask = nil
+            awaitingInitialConnection = false
+            lastConnectionError = nil
         } catch {
             connectionTask = nil
-            resetConnection()
+            awaitingInitialConnection = false
+            resetConnection(error: error)
             throw error
+        }
+    }
+
+    func connectionSnapshot() async -> AppServerEnvironmentConnectionSnapshot {
+        if permanentlyClosed {
+            return .disconnected(lastConnectionError ?? "the client has been closed")
+        }
+        if connectionTask != nil || awaitingInitialConnection {
+            return .pending
+        }
+        guard initialized, socket != nil else {
+            return .disconnected(lastConnectionError)
+        }
+
+        await acquireRequestSlot()
+        defer { releaseRequestSlot() }
+        guard initialized, socket != nil else {
+            return connectionTask != nil
+                ? .pending
+                : .disconnected(lastConnectionError)
+        }
+        do {
+            let result = try await requestOnCurrentConnection(
+                method: "environment/status",
+                params: .null,
+                timeout: Self.statusTimeout
+            )
+            return try Self.decodeConnectionSnapshot(result)
+        } catch {
+            resetConnection(error: error)
+            return .disconnected(Self.errorDescription(error))
         }
     }
 
@@ -92,6 +129,8 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
 
     func close() async {
         permanentlyClosed = true
+        awaitingInitialConnection = false
+        lastConnectionError = "the client has been closed"
         connectionTask?.cancel()
         connectionTask = nil
         resetConnection()
@@ -133,7 +172,7 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
             }
             initialized = true
         } catch {
-            resetConnection()
+            resetConnection(error: error)
             throw error
         }
     }
@@ -152,7 +191,7 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
         } catch {
             // Never replay a request whose send may have reached the executor. A subsequent caller
             // may reconnect, but this operation fails closed so mutations cannot run twice.
-            resetConnection()
+            resetConnection(error: error)
             throw error
         }
     }
@@ -243,10 +282,40 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
         }
     }
 
-    private func resetConnection() {
+    private func resetConnection(error: (any Error)? = nil) {
+        if let error { lastConnectionError = Self.errorDescription(error) }
         initialized = false
         socket?.cancel(with: .goingAway, reason: nil)
         socket = nil
+    }
+
+    private static func decodeConnectionSnapshot(
+        _ value: CLIJSONValue
+    ) throws -> AppServerEnvironmentConnectionSnapshot {
+        guard let object = value.objectValue,
+              let rawStatus = object["status"]?.stringValue,
+              let status = AppServerEnvironmentStatus(rawValue: rawStatus),
+              status != .unknown else {
+            throw AppServerExecServerError.invalidResponse(
+                "environment/status did not return ready, pending, or disconnected"
+            )
+        }
+        let error: String?
+        if let value = object["error"], value != .null {
+            guard let detail = value.stringValue else {
+                throw AppServerExecServerError.invalidResponse(
+                    "environment/status error must be a string or null"
+                )
+            }
+            error = detail
+        } else {
+            error = nil
+        }
+        return AppServerEnvironmentConnectionSnapshot(status: status, error: error)
+    }
+
+    private static func errorDescription(_ error: any Error) -> String {
+        (error as? any LocalizedError)?.errorDescription ?? String(describing: error)
     }
 
     private static func messageData(_ message: URLSessionWebSocketTask.Message) throws -> Data {

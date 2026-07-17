@@ -175,6 +175,8 @@ class ExecServer:
                 "shell": {"name": "zsh", "path": "/bin/zsh"},
                 "cwd": "file:///workspace",
             }
+        if method == "environment/status":
+            return {"status": "ready", "error": None}
         if method == "fs/canonicalize":
             return {"path": params["path"]}
         if method == "process/start":
@@ -314,6 +316,12 @@ try:
         "shell": {"name": "zsh", "path": "/bin/zsh"},
         "cwd": "file:///workspace",
     }, info
+    send({
+        "id": 9,
+        "method": "environment/status",
+        "params": {"environmentId": "remote"},
+    })
+    assert response(9)["result"] == {"status": "ready", "error": None}
 
     send({
         "id": 4,
@@ -404,10 +412,11 @@ finally:
             f"app-server exited with {return_code}: {stderr}"
         )
 
-assert server.methods[:3] == ["initialize", "initialized", "environment/info"], (
+assert server.methods[:2] == ["initialize", "initialized"], (
     server.methods
 )
 assert server.methods.count("environment/info") >= 2, server.methods
+assert "environment/status" in server.methods, server.methods
 PY
 
 echo "app-server environment smoke passed"

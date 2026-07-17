@@ -311,9 +311,11 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   `process/read` response's `nextSeq` is one past the last observed event, so the next inclusive
   `afterSeq` cursor is `nextSeq - 1`; readers wait for `closed`, not merely `exited`, to retain output
   flushed after process exit. A request that loses transport after dispatch must not be replayed
-  automatically. Newer source also
-  contains experimental `environment/status` and connected/disconnected lifecycle notifications
-  behind the deferred executor path; those are a separate remaining parity slice. Sources: generated
+  automatically. `environment/status` observes an existing registration without creating or resuming
+  a connection and returns `ready`, `pending`, `disconnected`, or `unknown` plus a nullable error.
+  Selected threads receive `thread/environment/connected` only on a later connection transition, not
+  as replayed state when selection starts, and all threads selecting that environment receive a later
+  disconnected transition. Sources: generated
   current app-server v2 schemas and public `openai/codex` app-server environment processor,
   exec-server protocol, remote environment tests, and deferred executor implementation at Codex
   0.144.5, audited 2026-07-16.

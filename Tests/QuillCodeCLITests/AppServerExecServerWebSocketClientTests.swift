@@ -88,6 +88,49 @@ final class AppServerExecServerWebSocketClientTests: XCTestCase {
         await client.close()
     }
 
+    func testConnectionSnapshotProbesExistingSocketAndNeverReconnects() async throws {
+        let listener = try TCPSocketListener(host: "127.0.0.1", port: 0)
+        let server = Task.detached { @Sendable [listener] in
+            let connection = try await listener.accept()
+            defer { connection.close() }
+            let peer = try await Self.acceptPeer(connection)
+            try await peer.completeHandshake(sessionID: "status-session")
+            let status = try await peer.readJSON()
+            XCTAssertEqual(status["method"]?.stringValue, "environment/status")
+            try await peer.respond(to: status, result: .object([
+                "error": .null,
+                "status": .string("ready")
+            ]))
+            try await peer.writer.sendClose()
+        }
+        let client = AppServerExecServerWebSocketClient(
+            websocketURL: "ws://127.0.0.1:\(listener.port)",
+            connectTimeout: 2
+        )
+
+        do {
+            let initial = await client.connectionSnapshot()
+            XCTAssertEqual(initial, .pending)
+            try await client.connect()
+            let ready = await client.connectionSnapshot()
+            XCTAssertEqual(ready, .ready)
+            try await server.value
+
+            let disconnected = await client.connectionSnapshot()
+            XCTAssertEqual(disconnected.status, .disconnected)
+            XCTAssertNotNil(disconnected.error)
+            let stillDisconnected = await client.connectionSnapshot()
+            XCTAssertEqual(stillDisconnected.status, .disconnected)
+        } catch {
+            server.cancel()
+            listener.close()
+            await client.close()
+            throw error
+        }
+        listener.close()
+        await client.close()
+    }
+
     func testConfiguredConnectTimeoutBoundsInitializeHandshake() async throws {
         let listener = try TCPSocketListener(host: "127.0.0.1", port: 0)
         let server = Task.detached { @Sendable [listener] in

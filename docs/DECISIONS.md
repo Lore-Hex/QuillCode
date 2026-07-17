@@ -2058,11 +2058,18 @@
   creating lifecycle state. Remote commands retain the one-hour user-shell timeout and execute only
   through exec-server; disabled access returns `-32600`. Neither path can silently execute on the
   app-server host.
-- **Deferred boundary:** Experimental environment-status notifications, remote sandbox-profile
-  forwarding, Windows remote search, and live remote output/background-terminal process projection
-  remain explicit partial-parity work rather than fabricated local behavior.
+- **Lifecycle boundary:** `environment/status` probes only an existing socket and never reconnects it;
+  one process-scoped monitor fans state changes out to selected threads without per-thread polling.
+  Pending-to-ready emits connected, ready-to-disconnected emits disconnected, selecting an already
+  ready environment does not replay state, and selection changes, deletion, or client teardown remove
+  subscriptions. Status probes have their own short deadline so a stalled health check cannot block
+  ordinary tool traffic indefinitely.
+- **Deferred boundary:** Remote sandbox-profile forwarding, Windows remote search, and live remote
+  output/background-terminal process projection remain explicit partial-parity work rather than
+  fabricated local behavior.
 - **Evidence:** Registry, target-path, tool-router, session, direct-shell, and real URLSession WebSocket
-  tests cover selection, replacement, concurrency, reconnection, multi-read cursors, late output,
-  context, path, and no-fallback behavior. A built `quill-code app-server` smoke talks to a raw
+  tests cover selection, replacement, status, connection transitions, no-replay fan-out, cleanup,
+  concurrency, reconnection, multi-read cursors, late output, context, path, and no-fallback behavior.
+  A built `quill-code app-server` smoke talks to a raw
   loopback exec-server, verifies multi-read remote output, and uses local filesystem sentinels to prove
   remote and disabled commands never ran locally.
