@@ -170,17 +170,19 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let diagram = root.appendingPathComponent("diagram.bmp")
         let preview = root.appendingPathComponent("preview.webp")
         let scan = root.appendingPathComponent("scan.tiff")
+        let icon = root.appendingPathComponent("app.ico")
         try pngHeader(width: 1024, height: 768).write(to: screenshot)
         try #"<svg viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg"></svg>"#
             .write(to: logo, atomically: true, encoding: .utf8)
         try bmpHeader(width: 640, height: 360).write(to: diagram)
         try webpVP8XHeader(width: 512, height: 288).write(to: preview)
         try tiffHeader(width: 300, height: 200).write(to: scan)
+        try icoHeader().write(to: icon)
         let call = ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}")
         let result = ToolResult(
             ok: true,
             stdout: "captured screenshot\n",
-            artifacts: [screenshot.path, logo.path, diagram.path, preview.path, scan.path]
+            artifacts: [screenshot.path, logo.path, diagram.path, preview.path, scan.path, icon.path]
         )
         let thread = ChatThread(
             title: "Screenshot",
@@ -209,6 +211,7 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · BMP · 640 x 360 px"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · WEBP · 512 x 288 px"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · TIFF · 300 x 200 px"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · ICO · 256 x 256 px"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-label">logo.svg"#))
     }
 
@@ -486,6 +489,27 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         bytes.append(contentsOf: tiffEntry(tag: 256, value: width))
         bytes.append(contentsOf: tiffEntry(tag: 257, value: height))
         bytes.append(contentsOf: littleEndianBytes(0))
+        return Data(bytes)
+    }
+
+    private func icoHeader() -> Data {
+        var bytes: [UInt8] = [
+            0, 0,
+            1, 0,
+            2, 0,
+            16, 16, 0, 0,
+            1, 0,
+            32, 0
+        ]
+        bytes.append(contentsOf: littleEndianBytes(4))
+        bytes.append(contentsOf: littleEndianBytes(38))
+        bytes.append(contentsOf: [
+            0, 0, 0, 0,
+            1, 0,
+            32, 0
+        ])
+        bytes.append(contentsOf: littleEndianBytes(4))
+        bytes.append(contentsOf: littleEndianBytes(42))
         return Data(bytes)
     }
 
