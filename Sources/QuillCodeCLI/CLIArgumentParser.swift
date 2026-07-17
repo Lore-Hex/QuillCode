@@ -111,6 +111,12 @@ public struct CLIArgumentParser: Sendable {
                     throw CLIError.invalidOptionValue(option: option.name, value: value)
                 }
                 request.webSocketAuth.maxClockSkewSeconds = seconds
+            case "--enable", "--disable":
+                let name = try cliValue(for: option, tokens: arguments, index: &index)
+                guard QuillCodeFeatureCatalog.definition(named: name) != nil else {
+                    throw CLIError.unknownFeatureFlag(name)
+                }
+                request.featureEnablement[name] = option.name == "--enable"
             default:
                 guard try parseServerRuntimeOption(
                     option,

@@ -4,6 +4,17 @@ QuillCode tracks Codex workflow parity without copying private implementation or
 
 ## Current Research Inputs
 
+- Codex app-server 0.144.5 experimental feature discovery uses `experimentalFeature/list` with
+  decimal offset cursors, clamps `limit = 0` to one item, returns beta presentation copy only for beta
+  flags, and optionally refreshes effective project config from a loaded `threadId`.
+  `experimentalFeature/enablement/set` patches only an allowlisted subset in process memory, ignores
+  unknown or unsupported keys, and does not create or modify `config.toml`. Effective precedence is
+  cloud/managed requirements, CLI `--enable`, config, process runtime state, then code default.
+  QuillCode implements that contract with a typed registry of real QuillCode flags and makes the
+  runtime `memories` switch alter model context rather than returning cosmetic state. Socket clients
+  share one process-owned actor store, matching the process scope rather than leaking state into one
+  connection. Sources: generated 0.144.5 schemas, isolated JSONL probes, official app-server README,
+  and public `openai/codex` catalog/config processors, audited 2026-07-16.
 - Codex app-server 0.142.5 exposes `externalAgentConfig/detect`,
   `externalAgentConfig/import`, and `externalAgentConfig/import/readHistories`. Detection defaults to
   no home scan, accepts bounded repository CWDs plus explicit `includeHome`, and reports CONFIG,

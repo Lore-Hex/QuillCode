@@ -187,7 +187,13 @@ extension AppServerSession {
                 activeTurns[threadID] = configuredActive
                 let durableMemories = active.latestThread.memories
                 var modelThread = active.latestThread
-                if active.settings.effectiveMemoryMode == .disabled {
+                let memoryFeatureEnabled = try await experimentalFeatureEnabled(
+                    .memories,
+                    cwd: active.settings.cwd
+                )
+                let memoriesEnabled = active.settings.effectiveMemoryMode == .enabled
+                    && memoryFeatureEnabled
+                if !memoriesEnabled {
                     modelThread.memories = []
                 }
                 var result = try await configuredRunner.runner.send(
@@ -199,7 +205,7 @@ extension AppServerSession {
                         await self?.receiveTurnProgress(threadID: threadID, snapshot: snapshot)
                     }
                 )
-                if active.settings.effectiveMemoryMode == .disabled {
+                if !memoriesEnabled {
                     result.thread.memories = durableMemories
                 }
                 try Task.checkCancellation()

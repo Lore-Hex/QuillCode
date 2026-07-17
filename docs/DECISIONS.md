@@ -1,5 +1,27 @@
 # QuillCode Decisions
 
+## 2026-07-16: Experimental feature state uses one real precedence chain
+
+- **Catalog boundary:** One typed core registry owns canonical names, lifecycle stage, presentation
+  copy, code defaults, and whether a feature can change at process runtime. The app-server projects
+  only real QuillCode flags; it does not copy Codex-internal flags that have no QuillCode behavior.
+- **Precedence:** Effective state is resolved as managed requirements, app-server `--enable` or
+  `--disable`, merged system/user/project config, process runtime enablement, then code default.
+  Project config is refreshed from the loaded task's CWD on every list request, including the primary
+  checkout for linked worktrees. Invalid runtime keys are ignored without becoming latent state.
+- **Runtime boundary:** `memories` is the first runtime-mutable flag because disabling it genuinely
+  removes durable notes from model input while preserving those notes in the task. Re-enabling it
+  restores context on the next model step. One actor-backed store is shared by every socket client in
+  the app-server process, while stdio naturally owns one store for its single connection. Stable
+  `hooks` state remains discoverable through the same config chain but is not advertised as
+  runtime-mutable until app-server hook execution shares that gate end to end.
+- **Wire contract:** `experimentalFeature/list` matches Codex's metadata/nullability, offset cursor,
+  zero-limit clamping, loaded-task validation, and error boundary. `experimentalFeature/enablement/set`
+  is process-only, patches named supported entries, and returns only accepted keys.
+- **Evidence:** Core catalog, CLI parser, cross-session process-state, config precedence, project
+  refresh, and model-context tests cover the implementation. The executable JSONL smoke and parity
+  gate bind the public process contract to the tests and documentation.
+
 ## 2026-07-16: App-server agent migration revalidates and serializes every item
 
 - **Wire contract:** `externalAgentConfig/detect`, `externalAgentConfig/import`, and

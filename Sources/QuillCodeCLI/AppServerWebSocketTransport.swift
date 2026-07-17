@@ -21,6 +21,7 @@ struct AppServerWebSocketTransport: Sendable {
         }
         let listener = try TCPSocketListener(host: host, port: requestedPort)
         let connections = AppServerSocketConnectionPool()
+        let runtimeFeatureStore = AppServerRuntimeFeatureStore()
         let displayHost = host.contains(":") ? "[\(host)]" : host
         await diagnostics.writeStandardErrorLine(
             "quill-code app-server: listening on ws://\(displayHost):\(listener.port)"
@@ -34,7 +35,8 @@ struct AppServerWebSocketTransport: Sendable {
                     defer { connection.close() }
                     do {
                         try await AppServerWebSocketConnectionHandler(
-                            runnerFactory: runnerFactory
+                            runnerFactory: runnerFactory,
+                            runtimeFeatureStore: runtimeFeatureStore
                         ).run(
                             request: request,
                             environment: environment,
@@ -75,6 +77,7 @@ struct AppServerWebSocketConnectionHandler: Sendable {
     private static let queueCapacity = 128
 
     let runnerFactory: CLIAgentRunnerFactory
+    let runtimeFeatureStore: AppServerRuntimeFeatureStore
 
     func run(
         request: CLIAppServerRequest,
@@ -189,7 +192,10 @@ struct AppServerWebSocketConnectionHandler: Sendable {
 
         var driverError: (any Error)?
         do {
-            try await AppServerConnectionDriver(runnerFactory: runnerFactory).run(
+            try await AppServerConnectionDriver(
+                runnerFactory: runnerFactory,
+                runtimeFeatureStore: runtimeFeatureStore
+            ).run(
                 request: request,
                 environment: environment,
                 currentDirectory: currentDirectory,

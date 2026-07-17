@@ -69,7 +69,9 @@ final class ParityAppServerThreadControlGateTests: QuillCodeParityTestCase {
             "var effectiveSandboxPolicy: AppServerSandboxPolicy"
         ])
         Self.assertSource(turns, containsAll: [
-            "active.settings.effectiveMemoryMode == .disabled",
+            "active.settings.effectiveMemoryMode == .enabled",
+            "memoryFeatureEnabled",
+            "if !memoriesEnabled",
             "result.thread.memories = durableMemories"
         ])
         Self.assertSource(tests, containsAll: [
