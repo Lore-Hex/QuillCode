@@ -25,7 +25,11 @@ enum WorkspaceActivityContextSurfaceBuilder {
             title: continuationTitle(for: telemetry),
             detail: continuationDetail(for: telemetry),
             kind: "context",
-            statusLabel: telemetry.source == .model ? ActivityStatusLabel.done : ActivityStatusLabel.checked
+            // Only a genuine fallback is "checked" (a degraded outcome worth a second look). A model
+            // summary and a deliberate E2E-private local summary are both simply done.
+            statusLabel: telemetry.source == .deterministicFallback
+                ? ActivityStatusLabel.checked
+                : ActivityStatusLabel.done
         )
     }
 
@@ -52,6 +56,21 @@ enum WorkspaceActivityContextSurfaceBuilder {
             return NoticePresentation(
                 title: "Summarizing fork context",
                 detail: "Asking TrustedRouter for a fork-ready summary.",
+                statusLabel: ActivityStatusLabel.running
+            )
+        // The local (E2E) start variants need their OWN copy: the two above promise a TrustedRouter
+        // call that an E2E-routed summary never makes, and this notice persists in Activity next to
+        // the "never reached an auxiliary model" finish notice.
+        case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .compact, isLocal: true):
+            return NoticePresentation(
+                title: "Compacting context",
+                detail: "Summarizing on-device to keep this end-to-end-encrypted chat private.",
+                statusLabel: ActivityStatusLabel.running
+            )
+        case WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: .forkSummary, isLocal: true):
+            return NoticePresentation(
+                title: "Summarizing fork context",
+                detail: "Summarizing on-device to keep this end-to-end-encrypted chat private.",
                 statusLabel: ActivityStatusLabel.running
             )
         case WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
@@ -96,6 +115,30 @@ enum WorkspaceActivityContextSurfaceBuilder {
                 detail: "Model fork summary was unavailable, so QuillCode kept a local fallback summary.",
                 statusLabel: ActivityStatusLabel.checked
             )
+        case WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+            outcome: WorkspaceContextSummaryOutcome(
+                summaryOverride: nil,
+                source: .e2eDeterministic
+            ),
+            purpose: .compact
+        ):
+            return NoticePresentation(
+                title: "Compacted privately",
+                detail: "Summarized locally so this end-to-end-encrypted chat never reached an auxiliary model.",
+                statusLabel: ActivityStatusLabel.done
+            )
+        case WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
+            outcome: WorkspaceContextSummaryOutcome(
+                summaryOverride: nil,
+                source: .e2eDeterministic
+            ),
+            purpose: .forkSummary
+        ):
+            return NoticePresentation(
+                title: "Fork summarized privately",
+                detail: "Summarized locally so this end-to-end-encrypted chat never reached an auxiliary model.",
+                statusLabel: ActivityStatusLabel.done
+            )
         default:
             return nil
         }
@@ -116,6 +159,10 @@ enum WorkspaceActivityContextSurfaceBuilder {
             return "Context compacted with fallback"
         case (.forkSummary, .deterministicFallback):
             return "Fork summary fallback used"
+        case (.compact, .e2eDeterministic):
+            return "Context compacted privately"
+        case (.forkSummary, .e2eDeterministic):
+            return "Fork summarized privately"
         }
     }
 
@@ -139,6 +186,8 @@ enum WorkspaceActivityContextSurfaceBuilder {
             return "Model summary"
         case .deterministicFallback:
             return "Deterministic summary"
+        case .e2eDeterministic:
+            return "Local summary (end-to-end encrypted)"
         }
     }
 

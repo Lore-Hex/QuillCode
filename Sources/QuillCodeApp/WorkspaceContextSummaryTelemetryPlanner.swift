@@ -2,12 +2,23 @@ import Foundation
 import QuillCodeCore
 
 struct WorkspaceContextSummaryTelemetryPlanner {
-    static func sourceStartSummary(purpose: WorkspaceContextSummaryPurpose) -> String {
-        switch purpose {
-        case .compact:
+    /// `isLocal` marks a summary that will be produced on-device because the thread is routed to the
+    /// E2E model. Without it the start notice claims "with TrustedRouter" for a call that never
+    /// happens — and sits in Activity forever contradicting the "never reached an auxiliary model"
+    /// finish notice. Defaulted so every existing caller and string-match pattern is unchanged.
+    static func sourceStartSummary(
+        purpose: WorkspaceContextSummaryPurpose,
+        isLocal: Bool = false
+    ) -> String {
+        switch (purpose, isLocal) {
+        case (.compact, false):
             return "Compacting context with TrustedRouter"
-        case .forkSummary:
+        case (.forkSummary, false):
             return "Summarizing context with TrustedRouter"
+        case (.compact, true):
+            return "Compacting context locally"
+        case (.forkSummary, true):
+            return "Summarizing context locally"
         }
     }
 
@@ -24,6 +35,10 @@ struct WorkspaceContextSummaryTelemetryPlanner {
             return "Model context summary unavailable; used deterministic fallback"
         case (.forkSummary, .deterministicFallback):
             return "Model fork summary unavailable; used deterministic fallback"
+        case (.compact, .e2eDeterministic):
+            return "Summarized locally to keep this end-to-end-encrypted chat private"
+        case (.forkSummary, .e2eDeterministic):
+            return "Summarized the fork locally to keep this end-to-end-encrypted chat private"
         }
     }
 
@@ -56,6 +71,10 @@ struct WorkspaceContextSummaryTelemetryPlanner {
             return "Used deterministic context summary fallback"
         case (.forkSummary, .deterministicFallback):
             return "Used deterministic fork summary fallback"
+        case (.compact, .e2eDeterministic):
+            return "Used a local context summary to keep this end-to-end-encrypted chat private"
+        case (.forkSummary, .e2eDeterministic):
+            return "Used a local fork summary to keep this end-to-end-encrypted chat private"
         }
     }
 

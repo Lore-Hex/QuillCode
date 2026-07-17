@@ -259,8 +259,7 @@ extension QuillCodeWorkspaceModel {
         // goes through. Incognito threads never reach here (the isEphemeral belt guard in
         // preparedContextContinuation returns first), so this covers a REGULAR thread that selected
         // "E2E Encrypted" from the Private category or via `/model e2e`.
-        let routesE2EOnly = TrustedRouterDefaults.canonicalModelID(source.model)
-            == TrustedRouterDefaults.e2eModel
+        let routesE2EOnly = summarizesLocallyForPrivacy(source)
         let generator: any WorkspaceContextSummaryGenerating = routesE2EOnly
             ? DeterministicWorkspaceContextSummaryGenerator()
             : contextSummaryGenerator
@@ -273,16 +272,29 @@ extension QuillCodeWorkspaceModel {
             purpose: purpose,
             modelID: selection?.modelID
         )
+        // An E2E-routed summary is local BY DESIGN, not a failure — record it as its own source so the
+        // notice says so, instead of the misleading "model summary unavailable; used deterministic
+        // fallback". A genuine generator failure still lands in the catch below as .deterministicFallback.
+        let outcomeSource: WorkspaceContextSummaryOutcomeSource = if routesE2EOnly {
+            .e2eDeterministic
+        } else if generator.isModelBacked {
+            .model
+        } else {
+            .deterministicFallback
+        }
         do {
             return WorkspaceContextSummaryOutcome(
                 summaryOverride: try await generator.summary(for: request),
-                source: generator.isModelBacked ? .model : .deterministicFallback,
+                source: outcomeSource,
                 modelSelection: selection
             )
         } catch {
             return WorkspaceContextSummaryOutcome(
                 summaryOverride: nil,
-                source: .deterministicFallback,
+                // Unreachable on the E2E path today (the deterministic generator cannot throw), but
+                // keep the source honest structurally rather than by luck: an E2E thread that already
+                // announced a LOCAL summary must never finish by claiming a model was unavailable.
+                source: routesE2EOnly ? .e2eDeterministic : .deterministicFallback,
                 errorDescription: WorkspaceContextSummarySanitizer.diagnostic(from: error.localizedDescription),
                 modelSelection: selection
             )
@@ -304,10 +316,24 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func recordContextSummaryStart(sourceID: UUID, purpose: WorkspaceContextSummaryPurpose) {
+        // Announce the summary the way it will ACTUALLY run: an E2E-routed thread never calls the
+        // auxiliary model, so promising "with TrustedRouter" here would leave a permanent, false
+        // claim sitting next to the local-summary finish notice.
+        let isLocal = contextSummarySourceThread(sourceID).map(summarizesLocallyForPrivacy) ?? false
         recordContextSummarySourceNotice(
             sourceID: sourceID,
-            summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(purpose: purpose)
+            summary: WorkspaceContextSummaryTelemetryPlanner.sourceStartSummary(
+                purpose: purpose,
+                isLocal: isLocal
+            )
         )
+    }
+
+    /// True when the thread's effective route is the E2E model, so every auxiliary summary step must
+    /// stay on-device. The single source of truth for both the start notice and the generator choice
+    /// — split them and the copy starts lying about what the summary path did.
+    private func summarizesLocallyForPrivacy(_ thread: ChatThread) -> Bool {
+        TrustedRouterDefaults.canonicalModelID(thread.model) == TrustedRouterDefaults.e2eModel
     }
 
     private func recordContextSummaryFinished(
