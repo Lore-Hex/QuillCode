@@ -65,7 +65,7 @@ struct TerminalScreenBuffer {
             case "\r":  // carriage return: back to column 0, overwrite from here
                 col = 0
                 i += 1
-            case "\n":  // line feed: next line, column 0
+            case "\n", "\u{0B}", "\u{0C}":  // line feed, vertical tab, form feed
                 lineFeed()
                 col = 0
                 i += 1
