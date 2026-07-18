@@ -77,6 +77,11 @@ struct QuillCodeArtifactDocumentPreview: View {
             xmlContent(xmlPreview)
         } else if let propertyListPreview = artifact.propertyListPreview {
             propertyListContent(propertyListPreview)
+        } else if let sqlitePreview = artifact.sqlitePreview {
+            metadataContent(
+                title: artifact.label,
+                metadataLines: sqlitePreview.metadataLines
+            )
         } else if let jsonPreview = artifact.jsonPreview {
             jsonContent(jsonPreview)
         } else if let archivePreview = artifact.archivePreview {

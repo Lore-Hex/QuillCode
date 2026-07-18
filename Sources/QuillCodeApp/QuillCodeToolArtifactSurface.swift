@@ -785,6 +785,38 @@ public struct ToolArtifactPropertyListPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactSQLitePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var pageSize: Int?
+    public var pageCount: Int?
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            pageSize.map { "Page size: \($0) bytes" },
+            pageCount.map { "\($0) page\($0 == 1 ? "" : "s")" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "SQLite",
+        pageSize: Int? = nil,
+        pageCount: Int? = nil,
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.pageSize = pageSize
+        self.pageCount = pageCount
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var entryCount: Int?
@@ -976,6 +1008,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var propertyListPreview: ToolArtifactPropertyListPreview? {
         ToolArtifactPropertyListPreviewBuilder.propertyListPreview(for: value, kind: kind)
+    }
+    public var sqlitePreview: ToolArtifactSQLitePreview? {
+        ToolArtifactSQLitePreviewBuilder.sqlitePreview(for: value, kind: kind)
     }
     public var archivePreview: ToolArtifactArchivePreview? {
         ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)
