@@ -273,10 +273,12 @@ test('mock harness renders archive artifact previews from tool cards', async ({ 
     'Format: ZIP',
     '4 entries',
     '3 top-level items',
+    'Entries: Sources/App.swift, Sources/Model.swift, Tests/AppTests.swift, +1 more',
     'Size: 4 KB',
     'Format: TAR',
     '3 entries',
     '2 top-level items',
+    'Entries: Sources/App.swift, Sources/Model.swift, Tests/AppTests.swift',
     'Size: 5 KB'
   ]);
   await expect(page.getByTestId('tool-card-document-preview-open').nth(0)).toHaveAttribute(

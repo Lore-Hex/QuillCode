@@ -252,6 +252,7 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             "Format: ZIP",
             "4 entries",
             "3 top-level items",
+            "Entries: Sources/App.swift, Sources/Model.swift, Tests/AppTests.swift, +1 more",
             "Size: \(byteSize)"
         ])
 
@@ -273,6 +274,7 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             "Format: TAR",
             "3 entries",
             "2 top-level items",
+            "Entries: Sources/App.swift, Sources/Model.swift, Tests/AppTests.swift",
             "Size: \(tarByteSize)"
         ])
 
