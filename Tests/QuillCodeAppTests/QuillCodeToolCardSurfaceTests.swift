@@ -901,6 +901,72 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         ])
     }
 
+    func testArtifactStateDerivesFontPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let font = directory.appendingPathComponent("Inter.woff2")
+        let bytes = woff2Fixture(flavor: "OTTO", declaredSize: 32, tableCount: 7)
+        try bytes.write(to: font)
+
+        let artifact = ToolArtifactState(value: font.path)
+        let preview = try XCTUnwrap(artifact.fontPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "WOFF2")
+        XCTAssertEqual(preview.formatLabel, "WOFF2")
+        XCTAssertEqual(preview.flavorLabel, "OpenType CFF")
+        XCTAssertEqual(preview.tableCount, 7)
+        XCTAssertEqual(preview.byteSizeLabel, ToolArtifactByteSizeFormatter.label(for: bytes.count))
+        XCTAssertEqual(preview.declaredByteSizeLabel, ToolArtifactByteSizeFormatter.label(for: 32))
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: WOFF2",
+            "Flavor: OpenType CFF",
+            "7 tables",
+            "Declared size: \(try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: 32)))",
+            "Size: \(try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: bytes.count)))"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+        XCTAssertNil(artifact.tomlPreview)
+        XCTAssertNil(artifact.yamlPreview)
+        XCTAssertNil(artifact.propertyListPreview)
+        XCTAssertNil(artifact.sqlitePreview)
+        XCTAssertNil(artifact.webAssemblyPreview)
+
+        let otf = directory.appendingPathComponent("Display.otf")
+        try sfntFixture(signature: "OTTO", tableCount: 3).write(to: otf)
+        let otfPreview = try XCTUnwrap(ToolArtifactState(value: otf.path).fontPreview)
+        XCTAssertEqual(otfPreview.formatLabel, "OpenType")
+        XCTAssertEqual(otfPreview.tableCount, 3)
+
+        let corruptFont = directory.appendingPathComponent("corrupt.woff2")
+        try Data(repeating: 0, count: 16).write(to: corruptFont)
+        XCTAssertNil(ToolArtifactState(value: corruptFont.path).fontPreview)
+
+        let remoteFont = ToolArtifactState(value: "https://example.com/Inter.woff2")
+        XCTAssertNil(remoteFont.fontPreview)
+    }
+
+    private func woff2Fixture(flavor: String, declaredSize: UInt32, tableCount: UInt16) -> Data {
+        var data = Data("wOF2".utf8)
+        data.append(Data(flavor.utf8))
+        data.append(UInt8((declaredSize >> 24) & 0xFF))
+        data.append(UInt8((declaredSize >> 16) & 0xFF))
+        data.append(UInt8((declaredSize >> 8) & 0xFF))
+        data.append(UInt8(declaredSize & 0xFF))
+        data.append(UInt8((tableCount >> 8) & 0xFF))
+        data.append(UInt8(tableCount & 0xFF))
+        data.append(contentsOf: [0, 0])
+        return data
+    }
+
+    private func sfntFixture(signature: String, tableCount: UInt16) -> Data {
+        var data = Data(signature.utf8)
+        data.append(UInt8((tableCount >> 8) & 0xFF))
+        data.append(UInt8(tableCount & 0xFF))
+        data.append(contentsOf: [0, 0, 0, 0, 0, 0])
+        return data
+    }
+
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let spreadsheet = directory.appendingPathComponent("budget.xlsx")

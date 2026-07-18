@@ -720,6 +720,34 @@ test('mock harness renders WebAssembly artifact metadata previews from tool card
   await expect(page.getByText('Created `module.wasm`.')).toBeVisible();
 });
 
+test('mock harness renders font artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a font artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('Inter.woff2');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/assets');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · WOFF2');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('Inter.woff2');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/assets/Inter.woff2'
+  );
+  await expect(page.getByTestId('tool-card-font-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-font-preview-meta')).toHaveText([
+    'Format: WOFF2',
+    'Flavor: OpenType CFF',
+    '7 tables',
+    'Declared size: 32 bytes',
+    'Size: 16 bytes'
+  ]);
+  await expect(page.getByText('Created `Inter.woff2`.')).toBeVisible();
+});
+
 test('mock harness renders XML artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
