@@ -205,6 +205,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let tablePreview = renderTablePreview(artifact.tablePreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
+            let iniPreview = renderINIPreview(artifact.iniPreview)
             let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
             let xmlPreview = renderXMLPreview(artifact.xmlPreview)
             let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
@@ -227,6 +228,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(tablePreview)
               \(jsonLinesPreview)
               \(tomlPreview)
+              \(iniPreview)
               \(yamlPreview)
               \(xmlPreview)
               \(propertyListPreview)
@@ -512,6 +514,31 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderINIPreview(_ preview: ToolArtifactINIPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-ini-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let sections = preview.sectionPreviewLabels.map {
+            #"<li data-testid="tool-card-ini-preview-section-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sectionList = sections.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-ini-preview-sections">
+                <strong data-testid="tool-card-ini-preview-section-title">Sections</strong>
+                <ul>\(sections)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !sectionList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-ini-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(sectionList)
         </div>
         """
     }

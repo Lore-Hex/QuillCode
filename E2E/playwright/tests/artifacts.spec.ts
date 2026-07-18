@@ -351,6 +351,36 @@ test('mock harness renders TOML artifact metadata previews from tool cards', asy
   await expect(page.getByText('Created `config.toml`.')).toBeVisible();
 });
 
+test('mock harness renders INI artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a config artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('quillcode.ini');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/config');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · INI');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('quillcode.ini');
+  await expect(page.getByTestId('tool-card-ini-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-ini-preview-meta')).toHaveText([
+    'Format: INI',
+    '3 sections',
+    '9 keys',
+    'Sections: trustedrouter, workspace, tools',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-ini-preview-section-title')).toHaveText('Sections');
+  await expect(page.getByTestId('tool-card-ini-preview-section-item')).toHaveText([
+    'trustedrouter',
+    'workspace',
+    'tools'
+  ]);
+  await expect(page.getByText('Created `quillcode.ini`.')).toBeVisible();
+});
+
 test('mock harness renders YAML artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

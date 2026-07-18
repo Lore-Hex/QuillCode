@@ -8207,6 +8207,7 @@
         tablePreview: artifactTablePreview(value, kind, documentPreview),
         jsonLinesPreview: artifactJSONLinesPreview(value, kind, documentPreview),
         tomlPreview: artifactTOMLPreview(value, kind, documentPreview),
+        iniPreview: artifactINIPreview(value, kind, documentPreview),
         yamlPreview: artifactYAMLPreview(value, kind, documentPreview),
         xmlPreview: artifactXMLPreview(value, kind, documentPreview),
         propertyListPreview: artifactPropertyListPreview(value, kind, documentPreview),
@@ -8617,6 +8618,9 @@
       ['json', { kind: 'data', typeLabel: 'Data', icon: 'JSON' }],
       ['jsonl', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
       ['ndjson', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
+      ['cfg', { kind: 'data', typeLabel: 'Data', icon: 'CFG' }],
+      ['conf', { kind: 'data', typeLabel: 'Data', icon: 'CONF' }],
+      ['ini', { kind: 'data', typeLabel: 'Data', icon: 'INI' }],
       ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
       ['yaml', { kind: 'data', typeLabel: 'Data', icon: 'YAML' }],
       ['yml', { kind: 'data', typeLabel: 'Data', icon: 'YML' }],
@@ -9107,6 +9111,68 @@
       const body = value.slice(1, -1).trim();
       if (!body) return 0;
       return body.split(',').map(item => item.trim()).filter(Boolean).length;
+    }
+
+    function artifactINIPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (!['cfg', 'conf', 'ini'].includes(extension)) return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const sections = [];
+      const seenSections = new Set();
+      let keyCount = 0;
+      let processedLines = 0;
+      let isTruncated = false;
+      for (const rawLine of content.split(/\r?\n/)) {
+        processedLines += 1;
+        if (processedLines > 2000) {
+          isTruncated = true;
+          break;
+        }
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+        const sectionMatch = line.match(/^\[([^\]]*)\]/);
+        if (sectionMatch) {
+          const label = jsonPreviewKeyLabel(sectionMatch[1] || '(empty section)');
+          if (!seenSections.has(label)) {
+            seenSections.add(label);
+            sections.push(label);
+          }
+          continue;
+        }
+        const delimiterIndex = Math.min(
+          ...[line.indexOf('='), line.indexOf(':')].filter(index => index >= 0)
+        );
+        if (delimiterIndex > 0 && line.slice(0, delimiterIndex).trim()) keyCount += 1;
+      }
+      const visibleSections = sections.slice(0, 6);
+      const remainder = sections.length - visibleSections.length;
+      const sectionPreviewLabel = visibleSections.length
+        ? `${visibleSections.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        formatLabel: extension.toUpperCase(),
+        sectionCount: sections.length,
+        keyCount,
+        sectionPreviewLabel,
+        sectionPreviewLabels: visibleSections,
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        `${preview.sectionCount} section${preview.sectionCount === 1 ? '' : 's'}`,
+        `${preview.keyCount} key${preview.keyCount === 1 ? '' : 's'}`,
+        preview.sectionPreviewLabel ? `Sections: ${preview.sectionPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null,
+        preview.isTruncated ? 'Preview truncated' : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.sectionPreviewLabels.length ? preview : null;
     }
 
     function artifactYAMLPreview(value, kind, documentPreview) {
@@ -11617,6 +11683,25 @@
                   ${keyList}
                 </div>` : '';
         };
+        const renderINIPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-ini-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const sections = (preview.sectionPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-ini-preview-section-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const sectionList = sections ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-ini-preview-sections">
+                    <strong data-testid="tool-card-ini-preview-section-title">Sections</strong>
+                    <ul>${sections}</ul>
+                  </section>` : '';
+          return metadata || sectionList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-ini-preview">
+                  <div>${metadata}</div>
+                  ${sectionList}
+                </div>` : '';
+        };
         const renderYAMLPreview = preview => {
           if (!preview) return '';
           const metadata = (preview.metadataLines || [])
@@ -11758,6 +11843,7 @@
                 ${renderTablePreview(artifact.tablePreview)}
                 ${renderJSONLinesPreview(artifact.jsonLinesPreview)}
                 ${renderTOMLPreview(artifact.tomlPreview)}
+                ${renderINIPreview(artifact.iniPreview)}
                 ${renderYAMLPreview(artifact.yamlPreview)}
                 ${renderXMLPreview(artifact.xmlPreview)}
                 ${renderPropertyListPreview(artifact.propertyListPreview)}
@@ -23511,6 +23597,34 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `manifest.xml`.');
+      } else if (text.toLowerCase().includes('config artifact') || text.toLowerCase().includes('ini artifact')) {
+        const path = '/mock/QuillCode/config/quillcode.ini';
+        state.mockFiles[path] = [
+          '; QuillCode mock configuration',
+          'root = /mock/QuillCode',
+          'model = trustedrouter/fast',
+          '',
+          '[trustedrouter]',
+          'base_url = https://api.trustedrouter.com/v1',
+          'timeout = 60',
+          '',
+          '[workspace]',
+          'auto_save = true',
+          'default_branch = main',
+          '',
+          '[tools]',
+          'shell = enabled',
+          'browser = enabled',
+          'computer_use = review'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/ini' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `quillcode.ini`.');
       } else if (text.toLowerCase().includes('plist artifact')) {
         const path = '/mock/QuillCode/Info.plist';
         state.mockFiles[path] = [

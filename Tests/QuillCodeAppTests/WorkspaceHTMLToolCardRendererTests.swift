@@ -735,6 +735,66 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesINIArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let configDirectory = root.appendingPathComponent("config", isDirectory: true)
+        try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+        let ini = configDirectory.appendingPathComponent("quillcode.ini")
+        try """
+        ; QuillCode mock configuration
+        root = /tmp/quillcode
+        model = trustedrouter/fast
+
+        [trustedrouter]
+        base_url = https://api.trustedrouter.com/v1
+        timeout = 60
+
+        [workspace]
+        auto_save = true
+        default_branch = main
+
+        [tools]
+        shell = enabled
+        browser = enabled
+        computer_use = review
+        """.write(to: ini, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"quillcode.ini"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote quillcode.ini\n", artifacts: [ini.path])
+        let thread = ChatThread(
+            title: "INI artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · INI"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">quillcode.ini"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ini-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ini-preview-meta">Format: INI"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ini-preview-meta">3 sections"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ini-preview-meta">9 keys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ini-preview-section-title">Sections"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ini-preview-section-item">trustedrouter"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ini-preview-section-item">workspace"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ini-preview-section-item">tools"#))
+    }
+
     func testHTMLRendererIncludesYAMLArtifactPreview() throws {
         let root = try makeTempDirectory()
         let workflows = root

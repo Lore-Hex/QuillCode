@@ -424,6 +424,49 @@ public struct ToolArtifactTOMLPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactINIPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var sectionCount: Int
+    public var keyCount: Int
+    public var sectionPreviewLabel: String?
+    public var sectionPreviewLabels: [String]
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(sectionCount) section\(sectionCount == 1 ? "" : "s")",
+            "\(keyCount) key\(keyCount == 1 ? "" : "s")",
+            sectionPreviewLabel.map { "Sections: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview truncated" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !sectionPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        sectionCount: Int,
+        keyCount: Int,
+        sectionPreviewLabel: String? = nil,
+        sectionPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.formatLabel = formatLabel
+        self.sectionCount = sectionCount
+        self.keyCount = keyCount
+        self.sectionPreviewLabel = sectionPreviewLabel
+        self.sectionPreviewLabels = sectionPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactYAMLPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var rootLabel: String
@@ -717,6 +760,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var tomlPreview: ToolArtifactTOMLPreview? {
         ToolArtifactTOMLPreviewBuilder.tomlPreview(for: value, kind: kind)
+    }
+    public var iniPreview: ToolArtifactINIPreview? {
+        ToolArtifactINIPreviewBuilder.iniPreview(for: value, kind: kind)
     }
     public var yamlPreview: ToolArtifactYAMLPreview? {
         ToolArtifactYAMLPreviewBuilder.yamlPreview(for: value, kind: kind)
