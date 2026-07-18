@@ -30,7 +30,8 @@ public enum TerminalOutputRenderer {
     ) -> TerminalRenderedFrame {
         guard raw.contains(where: {
             $0 == "\u{1B}" || $0 == "\u{9B}" || $0 == "\u{9D}" || $0 == "\r" || $0 == "\u{08}"
-                || $0 == "\u{09}" || $0 == "\u{07}"
+                || $0 == "\u{09}" || $0 == "\u{07}" || $0 == "\u{90}" || $0 == "\u{98}"
+                || $0 == "\u{9E}" || $0 == "\u{9F}"
         }) else {
             return TerminalRenderedFrame(
                 text: raw,

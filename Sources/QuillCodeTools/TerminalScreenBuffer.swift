@@ -59,7 +59,9 @@ struct TerminalScreenBuffer {
             case "\u{9B}":  // C1 CSI: single-scalar Control Sequence Introducer
                 i = handleCSI(scalars, paramsStart: i + 1)
             case "\u{9D}":  // C1 OSC: Operating System Command
-                i = consumeOSC(scalars, bodyStart: i + 1)
+                i = consumeStringControl(scalars, bodyStart: i + 1)
+            case "\u{90}", "\u{98}", "\u{9E}", "\u{9F}":  // C1 DCS/SOS/PM/APC string controls
+                i = consumeStringControl(scalars, bodyStart: i + 1)
             case "\r":  // carriage return: back to column 0, overwrite from here
                 col = 0
                 i += 1
@@ -114,7 +116,9 @@ struct TerminalScreenBuffer {
         case "[":  // CSI: Control Sequence Introducer
             return handleCSI(scalars, paramsStart: next + 1)
         case "]":  // OSC: terminated by BEL or ST (ESC \); strip the whole thing
-            return consumeOSC(scalars, bodyStart: next + 1)
+            return consumeStringControl(scalars, bodyStart: next + 1)
+        case "P", "X", "^", "_":  // DCS/SOS/PM/APC: string controls terminated by ST
+            return consumeStringControl(scalars, bodyStart: next + 1)
         case "7":
             saveCursor()
             return next + 1
@@ -129,7 +133,7 @@ struct TerminalScreenBuffer {
         }
     }
 
-    func consumeOSC(_ scalars: [Unicode.Scalar], bodyStart: Int) -> Int {
+    func consumeStringControl(_ scalars: [Unicode.Scalar], bodyStart: Int) -> Int {
         var i = bodyStart
         while i < scalars.count {
             if scalars[i] == "\u{07}" { return i + 1 }
