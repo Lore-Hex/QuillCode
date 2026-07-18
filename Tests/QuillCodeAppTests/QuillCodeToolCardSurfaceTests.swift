@@ -245,6 +245,7 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(spreadsheetPreview.entryCount, 7)
         XCTAssertEqual(spreadsheetPreview.worksheetCount, 2)
         XCTAssertNil(spreadsheetPreview.slideCount)
+        XCTAssertEqual(spreadsheetPreview.contentPreviewLabels, ["Sheet 1", "Sheet 2"])
         XCTAssertEqual(spreadsheetPreview.byteSizeLabel, ToolArtifactByteSizeFormatter.label(for: spreadsheetBytes.count))
         XCTAssertEqual(spreadsheetPreview.metadataLines, [
             "Format: Office Open XML",
@@ -264,7 +265,24 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(presentationPreview.entryCount, 4)
         XCTAssertNil(presentationPreview.worksheetCount)
         XCTAssertEqual(presentationPreview.slideCount, 2)
+        XCTAssertEqual(presentationPreview.contentPreviewLabels, ["Slide 1", "Slide 2"])
         XCTAssertEqual(presentationPreview.metadataLines.dropFirst(2).first, "2 slides")
+
+        let document = directory.appendingPathComponent("briefing.docx")
+        try OfficePackageFixture.zipPackage(fileNames: [
+            "[Content_Types].xml",
+            "word/document.xml",
+            "word/header1.xml",
+            "word/footer1.xml",
+            "word/comments.xml"
+        ]).write(to: document)
+        let documentPreview = try XCTUnwrap(ToolArtifactState(value: document.path).officePreview)
+        XCTAssertEqual(documentPreview.contentPreviewLabels, [
+            "Document body",
+            "Comments",
+            "1 header",
+            "1 footer"
+        ])
 
         let remoteSpreadsheet = ToolArtifactState(value: "https://example.com/budget.xlsx")
         XCTAssertNil(remoteSpreadsheet.officePreview)

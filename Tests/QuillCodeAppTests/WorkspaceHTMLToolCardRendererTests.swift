@@ -464,6 +464,10 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-meta">7 package entries"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-meta">2 sheets"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-meta">Size: \#(byteSize)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-contents""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-content-title">Contents"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-content-item">Sheet 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-office-preview-content-item">Sheet 2"#))
     }
 
     func testHTMLRendererIncludesDelimitedTableArtifactPreview() throws {

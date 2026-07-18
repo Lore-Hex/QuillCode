@@ -227,6 +227,7 @@ public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
     public var worksheetCount: Int?
     public var slideCount: Int?
     public var byteSizeLabel: String?
+    public var contentPreviewLabels: [String]
 
     public var metadataLines: [String] {
         [
@@ -239,7 +240,7 @@ public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
     }
 
     public var hasDisplayContent: Bool {
-        !metadataLines.isEmpty
+        !metadataLines.isEmpty || !contentPreviewLabels.isEmpty
     }
 
     public init(
@@ -247,13 +248,15 @@ public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
         entryCount: Int? = nil,
         worksheetCount: Int? = nil,
         slideCount: Int? = nil,
-        byteSizeLabel: String? = nil
+        byteSizeLabel: String? = nil,
+        contentPreviewLabels: [String] = []
     ) {
         self.formatLabel = formatLabel
         self.entryCount = entryCount
         self.worksheetCount = worksheetCount
         self.slideCount = slideCount
         self.byteSizeLabel = byteSizeLabel
+        self.contentPreviewLabels = contentPreviewLabels
     }
 }
 

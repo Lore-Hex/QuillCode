@@ -48,7 +48,7 @@ struct QuillCodeArtifactDocumentPreview: View {
                 metadataLines: markdownPreview.metadataLines
             )
         } else if let officePreview = artifact.officePreview {
-            metadataContent(title: artifact.label, metadataLines: officePreview.metadataLines)
+            officeContent(officePreview)
         } else if let tablePreview = artifact.tablePreview {
             tableContent(tablePreview)
         } else if let archivePreview = artifact.archivePreview {
@@ -110,6 +110,20 @@ struct QuillCodeArtifactDocumentPreview: View {
                 subtitleLineLimit: 2
             )
             tableGrid(tablePreview)
+        }
+    }
+
+    private func officeContent(_ officePreview: ToolArtifactOfficePreview) -> some View {
+        previewSurface(minHeight: officePreview.contentPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "doc.text")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(officePreview.metadataLines)
+            officeContentList(officePreview.contentPreviewLabels)
         }
     }
 
@@ -318,6 +332,29 @@ struct QuillCodeArtifactDocumentPreview: View {
                                     .lineLimit(2)
                             }
                         }
+                    }
+                }
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    @ViewBuilder
+    private func officeContentList(_ labels: [String]) -> some View {
+        if !labels.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Contents")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                ForEach(labels, id: \.self) { label in
+                    HStack(spacing: 7) {
+                        Circle()
+                            .fill(QuillCodePalette.blue)
+                            .frame(width: 5, height: 5)
+                        Text(label)
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.text)
+                            .lineLimit(1)
                     }
                 }
             }

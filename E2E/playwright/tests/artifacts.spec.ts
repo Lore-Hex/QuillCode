@@ -251,6 +251,11 @@ test('mock harness renders office artifact metadata previews from tool cards', a
     '2 sheets',
     'Size: 4 KB'
   ]);
+  await expect(page.getByTestId('tool-card-office-preview-content-title')).toHaveText('Contents');
+  await expect(page.getByTestId('tool-card-office-preview-content-item')).toHaveText([
+    'Sheet 1',
+    'Sheet 2'
+  ]);
   await expect(page.getByText('Created `budget.xlsx`.')).toBeVisible();
 });
 

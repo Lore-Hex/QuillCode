@@ -108,7 +108,15 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "enum ToolArtifactOfficePreviewBuilder",
             "ToolArtifactZipCentralDirectoryReader.centralDirectory",
             "worksheetCount",
-            "slideCount"
+            "slideCount",
+            "contentPreviewLabels"
+        ])
+        Self.assertSource(toolArtifactSurfaceText, containsAll: [
+            "contentPreviewLabels: [String]"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "officeContent(officePreview)",
+            "officeContentList(officePreview.contentPreviewLabels)"
         ])
         Self.assertSource(artifactArchivePreviewText, containsAll: [
             "enum ToolArtifactArchivePreviewBuilder",
