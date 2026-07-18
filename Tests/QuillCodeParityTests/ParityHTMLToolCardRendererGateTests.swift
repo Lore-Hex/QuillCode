@@ -6,10 +6,15 @@ final class ParityHTMLToolCardRendererGateTests: QuillCodeParityTestCase {
         let transcriptText = try Self.appSourceText(named: "WorkspaceHTMLTranscriptRenderer.swift")
         let toolCardText = try Self.appSourceText(named: "WorkspaceHTMLToolCardRenderer.swift")
         let primitivesText = try Self.appSourceText(named: "WorkspaceHTMLPrimitives.swift")
+        let harnessText = try String(
+            contentsOf: Self.packageRoot().appendingPathComponent("E2E/harness/index.html"),
+            encoding: .utf8
+        )
 
         assertToolCardRendererContracts(toolCardText)
         assertSharedPrimitiveContracts(primitivesText)
         assertToolCardDelegation(htmlText, transcriptText, toolCardText)
+        assertArtifactPreviewContracts(toolCardText, harnessText)
         assertWorkspaceRendererAvoidsToolCardOwnership(htmlText)
     }
 
@@ -43,6 +48,26 @@ final class ParityHTMLToolCardRendererGateTests: QuillCodeParityTestCase {
         )
         Self.assertSource(htmlText, contains: "WorkspaceHTMLTranscriptRenderer.render")
         Self.assertSource(transcriptText, contains: "WorkspaceHTMLToolCardRenderer.render")
+    }
+
+    private func assertArtifactPreviewContracts(_ toolCardText: String, _ harnessText: String) {
+        Self.assertSource(toolCardText, containsAll: [
+            "renderPDFPreview(artifact.pdfPreview, href: artifact.href)",
+            "private static func renderLocalPDFPagePreview",
+            "url.isFileURL",
+            #"data-testid="tool-card-pdf-page-preview""#,
+            #"type="application/pdf""#,
+            "#page=1",
+            #"data-testid="tool-card-pdf-page-preview-fallback""#
+        ])
+        Self.assertSource(harnessText, containsAll: [
+            "const localPDFPreviewObject",
+            "href.startsWith('file://')",
+            "renderPDFPreview(artifact.pdfPreview, href)",
+            #"data-testid="tool-card-pdf-page-preview""#,
+            #"type="application/pdf""#,
+            "#page=1"
+        ])
     }
 
     private func assertWorkspaceRendererAvoidsToolCardOwnership(_ htmlText: String) {

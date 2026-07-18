@@ -174,6 +174,15 @@ test('mock harness renders document artifact previews from tool cards', async ({
     '2 pages',
     /Size: \d+ bytes/
   ]);
+  await expect(page.getByTestId('tool-card-pdf-page-preview')).toHaveAttribute('type', 'application/pdf');
+  await expect(page.getByTestId('tool-card-pdf-page-preview')).toHaveAttribute(
+    'data',
+    'file:///mock/QuillCode/reports/briefing.pdf#page=1'
+  );
+  await expect(page.getByTestId('tool-card-pdf-page-preview-fallback')).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/reports/briefing.pdf'
+  );
   const [documentCardStyle, documentIconStyle] = await Promise.all([
     computedStyleProperties(page, '[data-testid="tool-card-document-preview"]', [
       'border-radius',
