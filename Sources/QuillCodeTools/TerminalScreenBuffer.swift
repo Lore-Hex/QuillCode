@@ -125,6 +125,13 @@ struct TerminalScreenBuffer {
         case "8":
             restoreCursor()
             return next + 1
+        case "D":  // IND: index
+            lineFeed()
+            return next + 1
+        case "E":  // NEL: next line
+            lineFeed()
+            col = 0
+            return next + 1
         case "M":  // RI: reverse index
             reverseIndex()
             return next + 1
