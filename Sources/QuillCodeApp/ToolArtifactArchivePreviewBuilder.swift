@@ -19,7 +19,13 @@ enum ToolArtifactArchivePreviewBuilder {
             let preview: ToolArtifactArchivePreview?
             switch documentPreview.extensionLabel.lowercased() {
             case "zip":
-                preview = try zipPreview(from: fileURL, fileSize: fileSize)
+                preview = try zipPreview(from: fileURL, fileSize: fileSize, formatLabel: "ZIP")
+            case "jar", "war", "ear", "apk", "ipa":
+                preview = try zipPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: documentPreview.extensionLabel.uppercased()
+                )
             case "7z":
                 preview = try magicOnlyPreview(
                     from: fileURL,
@@ -134,7 +140,11 @@ enum ToolArtifactArchivePreviewBuilder {
         }
     }
 
-    private static func zipPreview(from fileURL: URL, fileSize: Int) throws -> ToolArtifactArchivePreview? {
+    private static func zipPreview(
+        from fileURL: URL,
+        fileSize: Int,
+        formatLabel: String
+    ) throws -> ToolArtifactArchivePreview? {
         guard let directory = try ToolArtifactZipCentralDirectoryReader.centralDirectory(
             from: fileURL,
             fileSize: fileSize
@@ -142,7 +152,7 @@ enum ToolArtifactArchivePreviewBuilder {
             return nil
         }
         return ToolArtifactArchivePreview(
-            formatLabel: "ZIP",
+            formatLabel: formatLabel,
             entryCount: directory.fileNames.count,
             topLevelCount: topLevelCount(in: directory.fileNames),
             entryPreviewLabel: entryPreviewLabel(in: directory.fileNames),

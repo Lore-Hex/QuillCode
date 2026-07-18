@@ -8703,8 +8703,12 @@
       ['mov', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
       ['mp4', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
       ['7z', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['apk', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['bz2', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['ear', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['gz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['ipa', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['jar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['rar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['tar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['tar.bz2', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
@@ -8716,6 +8720,7 @@
       ['tgz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['tzst', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['txz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['war', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['xz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['zip', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['zst', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }]
@@ -9623,6 +9628,11 @@
       const extension = artifactPreviewExtension(value);
       if (![
         'zip',
+        'jar',
+        'war',
+        'ear',
+        'apk',
+        'ipa',
         '7z',
         'rar',
         'tar',
@@ -9667,7 +9677,7 @@
         ? packageInfo.sizeBytes
         : (state.mockFiles[path] || '').length;
       const preview = {
-        formatLabel: extension === 'tar' ? 'TAR' : 'ZIP',
+        formatLabel: zipContainerArchiveFormatLabel(extension),
         entryCount: fileNames.length,
         topLevelCount: topLevelItems.size || null,
         entryPreviewLabel: archiveEntryPreviewLabel(fileNames),
@@ -9686,6 +9696,10 @@
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
       return preview.metadataLines.length ? preview : null;
+    }
+
+    function zipContainerArchiveFormatLabel(extension) {
+      return extension === 'zip' ? 'ZIP' : extension.toUpperCase();
     }
 
     function artifactContainerOnlyPreview(path, packageInfo, extension) {
@@ -24699,6 +24713,11 @@
         addMessage('assistant', 'Created media artifacts.');
       } else if (text.toLowerCase().includes('archive') && text.toLowerCase().includes('artifact')) {
         const zipPath = '/mock/QuillCode/packages/source.zip';
+        const jarPath = '/mock/QuillCode/packages/app.jar';
+        const warPath = '/mock/QuillCode/packages/webapp.war';
+        const earPath = '/mock/QuillCode/packages/suite.ear';
+        const apkPath = '/mock/QuillCode/packages/mobile.apk';
+        const ipaPath = '/mock/QuillCode/packages/ios.ipa';
         const sevenZipPath = '/mock/QuillCode/packages/sources.7z';
         const rarPath = '/mock/QuillCode/packages/sources.rar';
         const tarPath = '/mock/QuillCode/packages/sources.tar';
@@ -24711,6 +24730,11 @@
         const zstdPath = '/mock/QuillCode/packages/report.txt.zst';
         const tarZstdPath = '/mock/QuillCode/packages/logs.tar.zst';
         state.mockFiles[zipPath] = 'PK\u0003\u0004';
+        state.mockFiles[jarPath] = 'PK\u0003\u0004';
+        state.mockFiles[warPath] = 'PK\u0003\u0004';
+        state.mockFiles[earPath] = 'PK\u0003\u0004';
+        state.mockFiles[apkPath] = 'PK\u0003\u0004';
+        state.mockFiles[ipaPath] = 'PK\u0003\u0004';
         state.mockFiles[sevenZipPath] = '7z\u00bc\u00af\u0027\u001c';
         state.mockFiles[rarPath] = 'Rar!\u001a\u0007\u0001\u0000';
         state.mockFiles[tarPath] = 'ustar';
@@ -24725,6 +24749,27 @@
         state.mockOfficePackages[zipPath] = {
           fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift', 'README.md'],
           sizeBytes: 4096
+        };
+        const packageArchiveEntries = ['META-INF/MANIFEST.MF', 'com/example/App.class', 'assets/config.json'];
+        state.mockOfficePackages[jarPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 3072
+        };
+        state.mockOfficePackages[warPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 4096
+        };
+        state.mockOfficePackages[earPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 5120
+        };
+        state.mockOfficePackages[apkPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 6144
+        };
+        state.mockOfficePackages[ipaPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 7168
         };
         state.mockOfficePackages[sevenZipPath] = {
           format: '7z',
@@ -24788,11 +24833,17 @@
           outputJSON: JSON.stringify({
             ok: true,
             stdout: [
-              `Wrote ${zipPath}, ${sevenZipPath}, ${rarPath}, ${tarPath}, ${gzipPath}, ${tarGzPath}, ${xzPath}, ${tarXzPath},`,
+              `Wrote ${zipPath}, ${jarPath}, ${warPath}, ${earPath}, ${apkPath}, ${ipaPath}, ${sevenZipPath},`,
+              `${rarPath}, ${tarPath}, ${gzipPath}, ${tarGzPath}, ${xzPath}, ${tarXzPath},`,
               `${bzipPath}, ${tarBzipPath}, ${zstdPath}, and ${tarZstdPath}\n`
             ].join(' '),
             artifacts: [
               zipPath,
+              jarPath,
+              warPath,
+              earPath,
+              apkPath,
+              ipaPath,
               sevenZipPath,
               rarPath,
               tarPath,
