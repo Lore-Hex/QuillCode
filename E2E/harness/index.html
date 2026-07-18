@@ -8706,9 +8706,11 @@
       ['apk', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['bz2', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['ear', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['epub', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['gz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['ipa', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['jar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['nupkg', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['rar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['tar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['tar.bz2', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
@@ -8720,8 +8722,11 @@
       ['tgz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['tzst', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['txz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['vsix', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['war', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['whl', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['xz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['xpi', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['zip', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
       ['zst', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }]
     ]);
@@ -9633,6 +9638,11 @@
         'ear',
         'apk',
         'ipa',
+        'epub',
+        'whl',
+        'vsix',
+        'xpi',
+        'nupkg',
         '7z',
         'rar',
         'tar',
@@ -24718,6 +24728,11 @@
         const earPath = '/mock/QuillCode/packages/suite.ear';
         const apkPath = '/mock/QuillCode/packages/mobile.apk';
         const ipaPath = '/mock/QuillCode/packages/ios.ipa';
+        const epubPath = '/mock/QuillCode/packages/manual.epub';
+        const wheelPath = '/mock/QuillCode/packages/quillcode-1.0.0-py3-none-any.whl';
+        const vsixPath = '/mock/QuillCode/packages/quillcode.vsix';
+        const xpiPath = '/mock/QuillCode/packages/quillcode.xpi';
+        const nupkgPath = '/mock/QuillCode/packages/QuillCode.1.0.0.nupkg';
         const sevenZipPath = '/mock/QuillCode/packages/sources.7z';
         const rarPath = '/mock/QuillCode/packages/sources.rar';
         const tarPath = '/mock/QuillCode/packages/sources.tar';
@@ -24735,6 +24750,11 @@
         state.mockFiles[earPath] = 'PK\u0003\u0004';
         state.mockFiles[apkPath] = 'PK\u0003\u0004';
         state.mockFiles[ipaPath] = 'PK\u0003\u0004';
+        state.mockFiles[epubPath] = 'PK\u0003\u0004';
+        state.mockFiles[wheelPath] = 'PK\u0003\u0004';
+        state.mockFiles[vsixPath] = 'PK\u0003\u0004';
+        state.mockFiles[xpiPath] = 'PK\u0003\u0004';
+        state.mockFiles[nupkgPath] = 'PK\u0003\u0004';
         state.mockFiles[sevenZipPath] = '7z\u00bc\u00af\u0027\u001c';
         state.mockFiles[rarPath] = 'Rar!\u001a\u0007\u0001\u0000';
         state.mockFiles[tarPath] = 'ustar';
@@ -24770,6 +24790,26 @@
         state.mockOfficePackages[ipaPath] = {
           fileNames: packageArchiveEntries,
           sizeBytes: 7168
+        };
+        state.mockOfficePackages[epubPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 8192
+        };
+        state.mockOfficePackages[wheelPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 9216
+        };
+        state.mockOfficePackages[vsixPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 10240
+        };
+        state.mockOfficePackages[xpiPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 11264
+        };
+        state.mockOfficePackages[nupkgPath] = {
+          fileNames: packageArchiveEntries,
+          sizeBytes: 12288
         };
         state.mockOfficePackages[sevenZipPath] = {
           format: '7z',
@@ -24833,7 +24873,8 @@
           outputJSON: JSON.stringify({
             ok: true,
             stdout: [
-              `Wrote ${zipPath}, ${jarPath}, ${warPath}, ${earPath}, ${apkPath}, ${ipaPath}, ${sevenZipPath},`,
+              `Wrote ${zipPath}, ${jarPath}, ${warPath}, ${earPath}, ${apkPath}, ${ipaPath}, ${epubPath},`,
+              `${wheelPath}, ${vsixPath}, ${xpiPath}, ${nupkgPath}, ${sevenZipPath},`,
               `${rarPath}, ${tarPath}, ${gzipPath}, ${tarGzPath}, ${xzPath}, ${tarXzPath},`,
               `${bzipPath}, ${tarBzipPath}, ${zstdPath}, and ${tarZstdPath}\n`
             ].join(' '),
@@ -24844,6 +24885,11 @@
               earPath,
               apkPath,
               ipaPath,
+              epubPath,
+              wheelPath,
+              vsixPath,
+              xpiPath,
+              nupkgPath,
               sevenZipPath,
               rarPath,
               tarPath,
