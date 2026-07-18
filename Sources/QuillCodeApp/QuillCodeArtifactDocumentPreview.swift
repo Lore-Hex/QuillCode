@@ -5,7 +5,12 @@ struct QuillCodeArtifactDocumentPreview: View {
 
     @ViewBuilder
     var body: some View {
-        if let url = artifactURL {
+        if let mediaPreview = artifact.mediaPreview,
+           let playbackURL = mediaPreview.playbackURL.flatMap(URL.init(string:)) {
+            mediaContent(mediaPreview, playbackURL: playbackURL)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(accessibilityLabel)
+        } else if let url = artifactURL {
             Link(destination: url) {
                 content
                     .quillCodeLinkTarget(minWidth: 160, alignment: .leading, radius: 18)
@@ -44,7 +49,10 @@ struct QuillCodeArtifactDocumentPreview: View {
         } else if let archivePreview = artifact.archivePreview {
             metadataContent(title: artifact.label, metadataLines: archivePreview.metadataLines)
         } else if let mediaPreview = artifact.mediaPreview {
-            metadataContent(title: mediaPreview.title ?? artifact.label, metadataLines: mediaPreview.metadataLines)
+            metadataContent(
+                title: mediaPreview.title ?? artifact.label,
+                metadataLines: mediaPreview.metadataLines
+            )
         } else {
             genericContent
         }
@@ -96,6 +104,30 @@ struct QuillCodeArtifactDocumentPreview: View {
                 subtitleLineLimit: 2
             )
             tableGrid(tablePreview)
+        }
+    }
+
+    private func mediaContent(_ mediaPreview: ToolArtifactMediaPreview, playbackURL: URL) -> some View {
+        previewSurface(minHeight: mediaPreview.kind == .video ? 230 : 146) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "play.rectangle")
+                },
+                title: mediaPreview.title ?? artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            QuillCodeArtifactMediaPlaybackView(preview: mediaPreview, url: playbackURL)
+            HStack(alignment: .center, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                metadataPills(mediaPreview.metadataLines)
+                Spacer(minLength: 4)
+                Link(destination: playbackURL) {
+                    Label("Open", systemImage: "arrow.up.right")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .quillCodeLinkTarget(minWidth: 74, alignment: .center, radius: 12)
+                .accessibilityLabel("Open \(artifact.label)")
+            }
         }
     }
 
