@@ -11,6 +11,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactDocumentPreviewText = try Self.appSourceText(named: "ToolArtifactDocumentPreviewBuilder.swift")
         let artifactAppshotPreviewText = try Self.appSourceText(named: "ToolArtifactAppshotPreviewBuilder.swift")
         let artifactPDFPreviewText = try Self.appSourceText(named: "ToolArtifactPDFPreviewBuilder.swift")
+        let artifactPDFPagePreviewText = try Self.appSourceText(named: "QuillCodeArtifactPDFPagePreviewView.swift")
         let artifactOfficePreviewText = try Self.appSourceText(named: "ToolArtifactOfficePreviewBuilder.swift")
         let artifactArchivePreviewText = try Self.appSourceText(named: "ToolArtifactArchivePreviewBuilder.swift")
         let artifactMediaPreviewText = try Self.appSourceText(named: "ToolArtifactMediaPreviewBuilder.swift")
@@ -76,6 +77,18 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "byteLimit",
             "parsedPageCount",
             "parsedTitle"
+        ])
+        Self.assertSource(artifactPDFPagePreviewText, containsAll: [
+            "struct QuillCodeArtifactPDFPagePreviewView",
+            "PDFPagePreviewRepresentable",
+            "PDFView",
+            "PDFDocument(url:",
+            "displayMode = .singlePage"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "pdfContent(pdfPreview, previewURL:",
+            "QuillCodeArtifactPDFPagePreviewView(url: previewURL)",
+            "Open \\(artifact.label)"
         ])
         Self.assertSource(artifactOfficePreviewText, containsAll: [
             "enum ToolArtifactOfficePreviewBuilder",
