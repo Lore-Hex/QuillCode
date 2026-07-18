@@ -242,12 +242,29 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         <body><h1>Launch Readiness</h1><a href="/logs">Logs</a><script></script></body></html>
         """
         try htmlText.write(to: htmlDocument, atomically: true, encoding: .utf8)
+        let diff = reports.appendingPathComponent("refactor.diff")
+        let diffText = """
+        diff --git a/Sources/App.swift b/Sources/App.swift
+        --- a/Sources/App.swift
+        +++ b/Sources/App.swift
+        @@ -1,2 +1,3 @@
+        -let title = "Old"
+        +let title = "QuillCode"
+        +let subtitle = "Fast"
+        diff --git a/Tests/AppTests.swift b/Tests/AppTests.swift
+        --- a/Tests/AppTests.swift
+        +++ b/Tests/AppTests.swift
+        @@ -4,2 +4,3 @@
+        +XCTAssertEqual(title, "QuillCode")
+        """
+        try diffText.write(to: diff, atomically: true, encoding: .utf8)
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"briefing.pdf"}"#)
         let result = ToolResult(ok: true, stdout: "Wrote briefing.pdf and setup.md\n", artifacts: [
             document.path,
             markdown.path,
             rtf.path,
-            htmlDocument.path
+            htmlDocument.path,
+            diff.path
         ])
         let thread = ChatThread(
             title: "Document artifact",
@@ -293,6 +310,15 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-html-preview-meta">Format: HTML"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-html-preview-meta">1 link"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-html-preview-meta">1 script"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · DIFF"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">refactor.diff"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-diff-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-diff-preview-meta">Format: Unified diff"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-diff-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-diff-preview-meta">2 hunks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-diff-preview-meta">+3 / -1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-diff-preview-file-item">Sources/App.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-diff-preview-file-item">Tests/AppTests.swift"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview-title">Setup"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview-meta">1 heading"#))

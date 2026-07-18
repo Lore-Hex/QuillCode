@@ -311,6 +311,63 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteHTML.htmlPreview)
     }
 
+    func testArtifactStateDerivesDiffPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let diffFile = directory.appendingPathComponent("refactor.diff")
+        let diffText = """
+        diff --git a/Sources/App.swift b/Sources/App.swift
+        index 1111111..2222222 100644
+        --- a/Sources/App.swift
+        +++ b/Sources/App.swift
+        @@ -1,3 +1,4 @@
+         import SwiftUI
+        -let title = "Old"
+        +let title = "QuillCode"
+        +let subtitle = "Fast"
+         struct AppView: View {}
+        @@ -10,2 +11,2 @@
+        -print("old")
+        +print("new")
+        diff --git a/Tests/AppTests.swift b/Tests/AppTests.swift
+        index 3333333..4444444 100644
+        --- a/Tests/AppTests.swift
+        +++ b/Tests/AppTests.swift
+        @@ -4,2 +4,3 @@
+         func testTitle() {
+        +    XCTAssertEqual(title, "QuillCode")
+         }
+        """
+        try diffText.write(to: diffFile, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: diffFile.path, textPreview: ToolArtifactTextPreviewBuilder.textPreview(for: diffFile.path))
+        let preview = try XCTUnwrap(artifact.diffPreview)
+        let byteCount = try XCTUnwrap(diffText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "DIFF")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.hunkCount, 3)
+        XCTAssertEqual(preview.additionCount, 4)
+        XCTAssertEqual(preview.deletionCount, 2)
+        XCTAssertEqual(preview.changedFileLabels, ["Sources/App.swift", "Tests/AppTests.swift"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Unified diff",
+            "2 files",
+            "3 hunks",
+            "+4 / -2",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNotNil(artifact.sourceTextPreview)
+
+        let plainDiff = directory.appendingPathComponent("plain.diff")
+        try "not a diff".write(to: plainDiff, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: plainDiff.path).diffPreview)
+
+        let remoteDiff = ToolArtifactState(value: "https://example.com/refactor.diff")
+        XCTAssertNil(remoteDiff.diffPreview)
+    }
+
     func testArtifactStateDerivesJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("build-report.json")

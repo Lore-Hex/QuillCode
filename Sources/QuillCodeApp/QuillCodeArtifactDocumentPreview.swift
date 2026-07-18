@@ -59,6 +59,8 @@ struct QuillCodeArtifactDocumentPreview: View {
                 title: htmlPreview.title ?? htmlPreview.heading ?? artifact.label,
                 metadataLines: htmlPreview.metadataLines
             )
+        } else if let diffPreview = artifact.diffPreview {
+            diffContent(diffPreview)
         } else if let tablePreview = artifact.tablePreview {
             tableContent(tablePreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
@@ -150,6 +152,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(jsonPreview.metadataLines)
             artifactContentList(title: "Top keys", labels: jsonPreview.keyPreviewLabels)
+        }
+    }
+
+    private func diffContent(_ diffPreview: ToolArtifactDiffPreview) -> some View {
+        previewSurface(minHeight: diffPreview.changedFileLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "plus.forwardslash.minus")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(diffPreview.metadataLines)
+            artifactContentList(title: "Changed files", labels: diffPreview.changedFileLabels)
         }
     }
 

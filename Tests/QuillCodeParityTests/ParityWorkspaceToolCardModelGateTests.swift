@@ -15,6 +15,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactOfficePreviewText = try Self.appSourceText(named: "ToolArtifactOfficePreviewBuilder.swift")
         let artifactRTFPreviewText = try Self.appSourceText(named: "ToolArtifactRTFPreviewBuilder.swift")
         let artifactHTMLPreviewText = try Self.appSourceText(named: "ToolArtifactHTMLPreviewBuilder.swift")
+        let artifactDiffPreviewText = try Self.appSourceText(named: "ToolArtifactDiffPreviewBuilder.swift")
         let artifactArchivePreviewText = try Self.appSourceText(named: "ToolArtifactArchivePreviewBuilder.swift")
         let artifactMediaPreviewText = try Self.appSourceText(named: "ToolArtifactMediaPreviewBuilder.swift")
         let artifactMediaPlaybackText = try Self.appSourceText(named: "QuillCodeArtifactMediaPlaybackView.swift")
@@ -39,6 +40,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "ToolArtifactOfficePreviewBuilder.officePreview",
             "ToolArtifactRTFPreviewBuilder.rtfPreview",
             "ToolArtifactHTMLPreviewBuilder.htmlPreview",
+            "ToolArtifactDiffPreviewBuilder.diffPreview",
             "ToolArtifactTablePreviewBuilder.tablePreview",
             "public struct ToolArtifactDocumentPreview",
             "public struct ToolArtifactAppshotPreview",
@@ -46,6 +48,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "public struct ToolArtifactOfficePreview",
             "public struct ToolArtifactRTFPreview",
             "public struct ToolArtifactHTMLPreview",
+            "public struct ToolArtifactDiffPreview",
             "public struct ToolArtifactArchivePreview",
             "public struct ToolArtifactMediaPreview",
             "public struct ToolArtifactSourceTextPreview",
@@ -153,6 +156,17 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
             "htmlPreview.title ?? htmlPreview.heading ?? artifact.label",
             "htmlPreview.metadataLines"
+        ])
+        Self.assertSource(artifactDiffPreviewText, containsAll: [
+            "enum ToolArtifactDiffPreviewBuilder",
+            "byteLimit",
+            "parseDiff",
+            "looksLikeDiff",
+            "changedFileLimit"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "diffContent(diffPreview)",
+            "diffPreview.changedFileLabels"
         ])
         Self.assertSource(artifactArchivePreviewText, containsAll: [
             "enum ToolArtifactArchivePreviewBuilder",
