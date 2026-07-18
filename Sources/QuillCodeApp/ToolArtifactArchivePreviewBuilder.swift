@@ -36,6 +36,22 @@ enum ToolArtifactArchivePreviewBuilder {
                     formatLabel: documentPreview.extensionLabel.uppercased(),
                     includesSingleMemberCounts: false
                 )
+            case "xz":
+                preview = try xzPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: "XZ",
+                    memberName: inferredXZMemberName(from: fileURL, extensionLabel: "xz"),
+                    includesSingleMemberCounts: true
+                )
+            case "tar.xz", "txz":
+                preview = try xzPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: documentPreview.extensionLabel.uppercased(),
+                    memberName: inferredXZMemberName(from: fileURL, extensionLabel: documentPreview.extensionLabel),
+                    includesSingleMemberCounts: false
+                )
             default:
                 preview = nil
             }
@@ -149,6 +165,41 @@ enum ToolArtifactArchivePreviewBuilder {
         )
     }
 
+    private static func xzPreview(
+        from fileURL: URL,
+        fileSize: Int,
+        formatLabel: String,
+        memberName: String?,
+        includesSingleMemberCounts: Bool
+    ) throws -> ToolArtifactArchivePreview? {
+        guard fileSize >= xzMinimumSize else { return nil }
+
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+
+        guard let header = try handle.read(upToCount: xzHeaderMagic.count),
+              Array(header) == xzHeaderMagic
+        else {
+            return nil
+        }
+
+        try handle.seek(toOffset: UInt64(fileSize - xzFooterMagic.count))
+        guard let footer = try handle.read(upToCount: xzFooterMagic.count),
+              Array(footer) == xzFooterMagic
+        else {
+            return nil
+        }
+
+        return ToolArtifactArchivePreview(
+            formatLabel: formatLabel,
+            entryCount: includesSingleMemberCounts ? 1 : nil,
+            topLevelCount: includesSingleMemberCounts && memberName != nil ? 1 : nil,
+            entryPreviewLabel: memberName,
+            entryPreviewLabels: memberName.map { [$0] } ?? [],
+            byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
+        )
+    }
+
     private static func entryPreviewLabel(in fileNames: [String]) -> String? {
         let previewNames = entryPreviewLabels(in: fileNames)
         guard !previewNames.isEmpty else { return nil }
@@ -206,6 +257,29 @@ enum ToolArtifactArchivePreviewBuilder {
             }
         }
         return nameBytes.isEmpty ? nil : sanitizedEntryName(String(decoding: nameBytes, as: UTF8.self))
+    }
+
+    private static func inferredXZMemberName(from fileURL: URL, extensionLabel: String) -> String? {
+        let fileName = fileURL.lastPathComponent
+        let lowercasedFileName = fileName.lowercased()
+        let suffix: String
+        switch extensionLabel.lowercased() {
+        case "tar.xz":
+            suffix = ".tar.xz"
+        case "txz":
+            suffix = ".txz"
+        default:
+            suffix = ".xz"
+        }
+        guard lowercasedFileName.hasSuffix(suffix),
+              fileName.count > suffix.count
+        else {
+            return nil
+        }
+        let endIndex = fileName.index(fileName.endIndex, offsetBy: -suffix.count)
+        let baseName = String(fileName[..<endIndex])
+        let memberName = extensionLabel.lowercased() == "xz" ? baseName : "\(baseName).tar"
+        return sanitizedEntryName(memberName)
     }
 
     private static func gzipLittleEndianUInt32(_ data: Data) -> UInt32 {
@@ -286,4 +360,7 @@ enum ToolArtifactArchivePreviewBuilder {
     private static let gzipExtraFieldFlag: UInt8 = 0x04
     private static let gzipOriginalNameFlag: UInt8 = 0x08
     private static let gzipReservedFlags: UInt8 = 0xe0
+    private static let xzHeaderMagic: [UInt8] = [0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00]
+    private static let xzFooterMagic: [UInt8] = [0x59, 0x5a]
+    private static let xzMinimumSize = 12
 }

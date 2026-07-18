@@ -340,6 +340,8 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let tar = packagesDirectory.appendingPathComponent("sources.tar")
         let gzip = packagesDirectory.appendingPathComponent("report.txt.gz")
         let tarGz = packagesDirectory.appendingPathComponent("logs.tar.gz")
+        let xz = packagesDirectory.appendingPathComponent("report.txt.xz")
+        let tarXZ = packagesDirectory.appendingPathComponent("logs.tar.xz")
         try OfficePackageFixture.zipPackage(fileNames: [
             "Sources/App.swift",
             "Sources/Model.swift",
@@ -361,8 +363,14 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
             compressedBytes: Data("compressed tar".utf8),
             uncompressedByteCount: 8_192
         ).write(to: tarGz)
+        try XZArchiveFixture.xzArchive().write(to: xz)
+        try XZArchiveFixture.xzArchive().write(to: tarXZ)
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"packages"}"#)
-        let result = ToolResult(ok: true, stdout: "Wrote archives\n", artifacts: [zip.path, tar.path, gzip.path, tarGz.path])
+        let result = ToolResult(
+            ok: true,
+            stdout: "Wrote archives\n",
+            artifacts: [zip.path, tar.path, gzip.path, tarGz.path, xz.path, tarXZ.path]
+        )
         let thread = ChatThread(
             title: "Archive artifacts",
             events: [
@@ -390,10 +398,14 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · GZ"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR.GZ"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · XZ"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR.XZ"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">source.zip"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">sources.tar"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">report.txt.gz"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">logs.tar.gz"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">report.txt.xz"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">logs.tar.xz"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: ZIP"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">4 entries"#))
@@ -415,10 +427,15 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: TAR.GZ"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Entries: logs.tar"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Uncompressed: 8 KB"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: XZ"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Entries: report.txt"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: TAR.XZ"#))
         XCTAssertTrue(html.contains(#"href="\#(zip.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(tar.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(gzip.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(tarGz.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"href="\#(xz.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"href="\#(tarXZ.standardizedFileURL.absoluteString)""#))
     }
 
     func testHTMLRendererIncludesOfficeArtifactPreview() throws {

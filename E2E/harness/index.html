@@ -8937,11 +8937,14 @@
     function artifactArchivePreview(value, kind, documentPreview) {
       if (kind !== 'file' || documentPreview?.kind !== 'archive') return null;
       const extension = artifactPreviewExtension(value);
-      if (!['zip', 'tar', 'gz', 'tar.gz', 'tgz'].includes(extension)) return null;
+      if (!['zip', 'tar', 'gz', 'tar.gz', 'tgz', 'xz', 'tar.xz', 'txz'].includes(extension)) return null;
       const path = artifactFilePath(value);
       const packageInfo = path ? state.mockOfficePackages[path] : null;
       if (['gz', 'tar.gz', 'tgz'].includes(extension)) {
         return artifactGzipPreview(path, packageInfo, extension);
+      }
+      if (['xz', 'tar.xz', 'txz'].includes(extension)) {
+        return artifactXZPreview(path, packageInfo, extension);
       }
       const fileNames = Array.isArray(packageInfo?.fileNames) ? packageInfo.fileNames : null;
       if (!fileNames) return null;
@@ -8965,6 +8968,33 @@
         Number.isInteger(preview.entryCount)
           ? `${preview.entryCount} ${preview.entryCount === 1 ? 'entry' : 'entries'}`
           : null,
+        Number.isInteger(preview.topLevelCount)
+          ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
+          : null,
+        preview.entryPreviewLabel ? `Entries: ${preview.entryPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
+    }
+
+    function artifactXZPreview(path, packageInfo, extension) {
+      if (!packageInfo || packageInfo.format !== 'xz') return null;
+      const memberName = packageInfo.originalName ? archiveEntryPreviewLabel([packageInfo.originalName]) : null;
+      const byteSize = Number.isFinite(packageInfo.sizeBytes)
+        ? packageInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const includesSingleMemberCounts = extension === 'xz';
+      const preview = {
+        formatLabel: extension === 'xz' ? 'XZ' : extension.toUpperCase(),
+        entryCount: includesSingleMemberCounts ? 1 : null,
+        topLevelCount: includesSingleMemberCounts && memberName ? 1 : null,
+        entryPreviewLabel: memberName,
+        entryPreviewLabels: memberName ? [memberName] : [],
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        Number.isInteger(preview.entryCount) ? '1 entry' : null,
         Number.isInteger(preview.topLevelCount)
           ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
           : null,
@@ -22935,10 +22965,14 @@
         const tarPath = '/mock/QuillCode/packages/sources.tar';
         const gzipPath = '/mock/QuillCode/packages/report.txt.gz';
         const tarGzPath = '/mock/QuillCode/packages/logs.tar.gz';
+        const xzPath = '/mock/QuillCode/packages/report.txt.xz';
+        const tarXzPath = '/mock/QuillCode/packages/logs.tar.xz';
         state.mockFiles[zipPath] = 'PK\u0003\u0004';
         state.mockFiles[tarPath] = 'ustar';
         state.mockFiles[gzipPath] = '\u001f\u008b\u0008\u0008';
         state.mockFiles[tarGzPath] = '\u001f\u008b\u0008\u0008';
+        state.mockFiles[xzPath] = '\u00fd7zXZ\u0000';
+        state.mockFiles[tarXzPath] = '\u00fd7zXZ\u0000';
         state.mockOfficePackages[zipPath] = {
           fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift', 'README.md'],
           sizeBytes: 4096
@@ -22959,6 +22993,16 @@
           uncompressedBytes: 8192,
           sizeBytes: 44
         };
+        state.mockOfficePackages[xzPath] = {
+          format: 'xz',
+          originalName: 'report.txt',
+          sizeBytes: 48
+        };
+        state.mockOfficePackages[tarXzPath] = {
+          format: 'xz',
+          originalName: 'logs.tar',
+          sizeBytes: 56
+        };
         addToolCard({
           title: 'host.file.write',
           subtitle: 'Completed',
@@ -22966,8 +23010,8 @@
           inputJSON: JSON.stringify({ path: 'packages', contentType: 'generated archives' }, null, 2),
           outputJSON: JSON.stringify({
             ok: true,
-            stdout: `Wrote ${zipPath}, ${tarPath}, ${gzipPath}, and ${tarGzPath}\n`,
-            artifacts: [zipPath, tarPath, gzipPath, tarGzPath]
+            stdout: `Wrote ${zipPath}, ${tarPath}, ${gzipPath}, ${tarGzPath}, ${xzPath}, and ${tarXzPath}\n`,
+            artifacts: [zipPath, tarPath, gzipPath, tarGzPath, xzPath, tarXzPath]
           }, null, 2)
         });
         addMessage('assistant', 'Created archive artifacts.');
