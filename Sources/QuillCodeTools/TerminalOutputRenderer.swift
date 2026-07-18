@@ -2,8 +2,8 @@ import Foundation
 
 /// Renders raw terminal (PTY) output into clean display text by applying the line-discipline control
 /// sequences that command output commonly relies on: SGR color/style preservation, carriage-return line
-/// overwrite, backspace, fixed tab stops, cursor-addressed redraws, erase-line / erase-display, and
-/// bell removal.
+/// overwrite, C0 line controls, backspace, fixed tab stops, cursor-addressed redraws, erase-line /
+/// erase-display, and bell removal.
 /// Without this, raw PTY output shows literal escape codes (`^[[31m`) and progress bars / TUI panes
 /// pile up across the transcript instead of repainting in place.
 ///
@@ -30,8 +30,8 @@ public enum TerminalOutputRenderer {
     ) -> TerminalRenderedFrame {
         guard raw.contains(where: {
             $0 == "\u{1B}" || $0 == "\u{9B}" || $0 == "\u{9D}" || $0 == "\r" || $0 == "\u{08}"
-                || $0 == "\u{09}" || $0 == "\u{07}" || $0 == "\u{90}" || $0 == "\u{98}"
-                || $0 == "\u{9E}" || $0 == "\u{9F}"
+                || $0 == "\u{09}" || $0 == "\u{0B}" || $0 == "\u{0C}" || $0 == "\u{07}"
+                || $0 == "\u{90}" || $0 == "\u{98}" || $0 == "\u{9E}" || $0 == "\u{9F}"
         }) else {
             return TerminalRenderedFrame(
                 text: raw,
