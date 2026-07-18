@@ -8207,6 +8207,7 @@
         tablePreview: artifactTablePreview(value, kind, documentPreview),
         jsonLinesPreview: artifactJSONLinesPreview(value, kind, documentPreview),
         tomlPreview: artifactTOMLPreview(value, kind, documentPreview),
+        yamlPreview: artifactYAMLPreview(value, kind, documentPreview),
         jsonPreview: artifactJSONPreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
         mediaPreview: artifactMediaPreview(value, kind, documentPreview),
@@ -8615,6 +8616,8 @@
       ['jsonl', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
       ['ndjson', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
       ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
+      ['yaml', { kind: 'data', typeLabel: 'Data', icon: 'YAML' }],
+      ['yml', { kind: 'data', typeLabel: 'Data', icon: 'YML' }],
       ['numbers', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['csv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['ods', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
@@ -9100,6 +9103,105 @@
       const body = value.slice(1, -1).trim();
       if (!body) return 0;
       return body.split(',').map(item => item.trim()).filter(Boolean).length;
+    }
+
+    function artifactYAMLPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'yaml' && extension !== 'yml') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const lines = content
+        .split(/\r?\n/)
+        .map(rawLine => stripTOMLComment(rawLine))
+        .map(rawLine => ({ rawLine, line: rawLine.trim(), indent: rawLine.match(/^\s*/)[0].length }))
+        .filter(entry => entry.line);
+      if (!lines.length) return null;
+
+      const topKeys = new Set();
+      let mappingCount = 0;
+      let sequenceCount = 0;
+      let scalarCount = 0;
+      let hasRootMapping = false;
+      const mappingIndents = new Set();
+      const sequenceIndents = new Set();
+      for (let index = 0; index < lines.length; index += 1) {
+        const entry = lines[index];
+        const sequenceMatch = entry.line.match(/^-\s+([^:]+):(?:\s*(.*))?$/);
+        if (sequenceMatch) {
+          if (!mappingIndents.has(`item:${entry.indent}:${index}`)) {
+            mappingIndents.add(`item:${entry.indent}:${index}`);
+            mappingCount += 1;
+          }
+          if ((sequenceMatch[2] || '').trim()) scalarCount += 1;
+          continue;
+        }
+
+        const keyMatch = entry.line.match(/^([^:]+):(?:\s*(.*))?$/);
+        if (!keyMatch) return null;
+        const key = keyMatch[1].trim();
+        const rawValue = (keyMatch[2] || '').trim();
+        if (entry.indent === 0) {
+          topKeys.add(key);
+          hasRootMapping = true;
+        }
+        if (!rawValue) {
+          const next = lines.slice(index + 1).find(candidate => candidate.indent > entry.indent);
+          if (next?.line.startsWith('-')) {
+            if (!sequenceIndents.has(entry.indent)) {
+              sequenceIndents.add(entry.indent);
+              sequenceCount += 1;
+            }
+          } else if (!mappingIndents.has(entry.indent)) {
+            mappingIndents.add(entry.indent);
+            mappingCount += 1;
+          }
+          continue;
+        }
+        const arrayItems = tomlArrayItemCount(rawValue);
+        if (arrayItems !== null) {
+          sequenceCount += 1;
+          scalarCount += arrayItems;
+        } else {
+          scalarCount += 1;
+        }
+      }
+      if (hasRootMapping) mappingCount += 1;
+      if (!topKeys.size) return null;
+
+      const keys = [...topKeys].sort();
+      const visibleKeys = keys.slice(0, 6).map(jsonPreviewKeyLabel);
+      const remainder = keys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        formatLabel: extension.toUpperCase(),
+        rootLabel: 'Mapping',
+        keyCount: keys.length,
+        itemCount: null,
+        mappingCount,
+        sequenceCount,
+        scalarCount,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        `Root: ${preview.rootLabel}`,
+        `${preview.keyCount} key${preview.keyCount === 1 ? '' : 's'}`,
+        preview.mappingCount > 0 ? `${preview.mappingCount} mapping${preview.mappingCount === 1 ? '' : 's'}` : null,
+        preview.sequenceCount > 0 ? `${preview.sequenceCount} sequence${preview.sequenceCount === 1 ? '' : 's'}` : null,
+        preview.scalarCount > 0 ? `${preview.scalarCount} value${preview.scalarCount === 1 ? '' : 's'}` : null,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
     }
 
     function jsonPreviewFromRoot(root, byteSize) {
@@ -11395,6 +11497,25 @@
                   ${keyList}
                 </div>` : '';
         };
+        const renderYAMLPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-yaml-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-yaml-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-yaml-preview-keys">
+                    <strong data-testid="tool-card-yaml-preview-key-title">Top-level keys</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-yaml-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
         const renderMediaPreview = preview => {
           if (!preview) return '';
           const title = preview.title
@@ -11479,6 +11600,7 @@
                 ${renderTablePreview(artifact.tablePreview)}
                 ${renderJSONLinesPreview(artifact.jsonLinesPreview)}
                 ${renderTOMLPreview(artifact.tomlPreview)}
+                ${renderYAMLPreview(artifact.yamlPreview)}
                 ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
                 ${renderArchivePreview(artifact.archivePreview)}
@@ -23183,6 +23305,27 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `config.toml`.');
+      } else if (text.toLowerCase().includes('yaml artifact')) {
+        const path = '/mock/QuillCode/.github/workflows/ci.yml';
+        state.mockFiles[path] = [
+          'name: CI',
+          'on: [push, pull_request]',
+          '',
+          'jobs:',
+          '  test:',
+          '    runs-on: ubuntu-latest',
+          '    steps:',
+          '      - uses: actions/checkout@v4',
+          '      - run: swift test'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/yaml' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `ci.yml`.');
       } else if (text.toLowerCase().includes('json artifact')) {
         const path = '/mock/QuillCode/reports/build-report.json';
         state.mockFiles[path] = JSON.stringify({

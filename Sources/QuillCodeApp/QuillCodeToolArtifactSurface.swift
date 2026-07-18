@@ -424,6 +424,61 @@ public struct ToolArtifactTOMLPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactYAMLPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var rootLabel: String
+    public var keyCount: Int?
+    public var itemCount: Int?
+    public var mappingCount: Int
+    public var sequenceCount: Int
+    public var scalarCount: Int
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "Root: \(rootLabel)",
+            keyCount.map { "\($0) key\($0 == 1 ? "" : "s")" },
+            itemCount.map { "\($0) item\($0 == 1 ? "" : "s")" },
+            mappingCount > 0 ? "\(mappingCount) mapping\(mappingCount == 1 ? "" : "s")" : nil,
+            sequenceCount > 0 ? "\(sequenceCount) sequence\(sequenceCount == 1 ? "" : "s")" : nil,
+            scalarCount > 0 ? "\(scalarCount) value\(scalarCount == 1 ? "" : "s")" : nil,
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        rootLabel: String,
+        keyCount: Int? = nil,
+        itemCount: Int? = nil,
+        mappingCount: Int = 0,
+        sequenceCount: Int = 0,
+        scalarCount: Int = 0,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.rootLabel = rootLabel
+        self.keyCount = keyCount
+        self.itemCount = itemCount
+        self.mappingCount = mappingCount
+        self.sequenceCount = sequenceCount
+        self.scalarCount = scalarCount
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var entryCount: Int?
@@ -563,6 +618,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var tomlPreview: ToolArtifactTOMLPreview? {
         ToolArtifactTOMLPreviewBuilder.tomlPreview(for: value, kind: kind)
+    }
+    public var yamlPreview: ToolArtifactYAMLPreview? {
+        ToolArtifactYAMLPreviewBuilder.yamlPreview(for: value, kind: kind)
     }
     public var archivePreview: ToolArtifactArchivePreview? {
         ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)

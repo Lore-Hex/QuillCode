@@ -366,6 +366,56 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteTOML.tomlPreview)
     }
 
+    func testArtifactStateDerivesYAMLPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let workflow = directory.appendingPathComponent("ci.yml")
+        let yamlText = """
+        name: CI
+        on: [push, pull_request]
+
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - run: swift test
+        """
+        try yamlText.write(to: workflow, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: workflow.path)
+        let preview = try XCTUnwrap(artifact.yamlPreview)
+        let byteCount = try XCTUnwrap(yamlText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "YML")
+        XCTAssertEqual(preview.formatLabel, "YML")
+        XCTAssertEqual(preview.rootLabel, "Mapping")
+        XCTAssertEqual(preview.keyCount, 3)
+        XCTAssertNil(preview.itemCount)
+        XCTAssertEqual(preview.mappingCount, 5)
+        XCTAssertEqual(preview.sequenceCount, 2)
+        XCTAssertEqual(preview.scalarCount, 6)
+        XCTAssertEqual(preview.keyPreviewLabels, ["jobs", "name", "on"])
+        XCTAssertEqual(preview.keyPreviewLabel, "jobs, name, on")
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: YML",
+            "Root: Mapping",
+            "3 keys",
+            "5 mappings",
+            "2 sequences",
+            "6 values",
+            "Keys: jobs, name, on",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+        XCTAssertNil(artifact.tomlPreview)
+
+        let remoteYAML = ToolArtifactState(value: "https://example.com/workflow.yml")
+        XCTAssertNil(remoteYAML.yamlPreview)
+    }
+
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let spreadsheet = directory.appendingPathComponent("budget.xlsx")

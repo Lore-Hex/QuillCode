@@ -60,6 +60,8 @@
 
 ## Current Parity Notes
 
+- Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
+  root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - The app server exposes Codex-compatible response-first `thread/compact/start`.
 - The app server exposes Codex-compatible one-shot and live-session fuzzy file search with bounded
   shared indexing, exact wire fields, match scores/indices, cancellation, and disconnect cleanup.
