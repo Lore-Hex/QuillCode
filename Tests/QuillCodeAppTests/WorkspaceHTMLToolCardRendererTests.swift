@@ -232,6 +232,14 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let byteCount = pdfBytes.data(using: .isoLatin1)?.count ?? 0
         let markdown = reports.appendingPathComponent("setup.md")
         try "# Setup\n\nRun the installer.\n".write(to: markdown, atomically: true, encoding: .utf8)
+        let mdx = reports.appendingPathComponent("component.mdx")
+        try """
+        # Component Guide
+
+        import { Callout } from "./Callout"
+
+        <Callout tone="info">Ship the preview.</Callout>
+        """.write(to: mdx, atomically: true, encoding: .utf8)
         let rtf = reports.appendingPathComponent("summary.rtf")
         let rtfText = #"{\rtf1\ansi{\info{\title Launch Notes}}{\fonttbl{\f0 Helvetica;}}\f0 Hello world.}"#
         try rtfText.write(to: rtf, atomically: true, encoding: .utf8)
@@ -262,6 +270,7 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let result = ToolResult(ok: true, stdout: "Wrote briefing.pdf and setup.md\n", artifacts: [
             document.path,
             markdown.path,
+            mdx.path,
             rtf.path,
             htmlDocument.path,
             diff.path
@@ -296,6 +305,8 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-kind="markdown""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Markdown · MD"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">setup.md"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Markdown · MDX"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">component.mdx"#))
         XCTAssertTrue(html.contains(#"data-kind="document""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Document · RTF"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">summary.rtf"#))
@@ -321,9 +332,13 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-diff-preview-file-item">Tests/AppTests.swift"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview-title">Setup"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview-title">Component Guide"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview-meta">1 heading"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">setup.md"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">component.mdx"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-meta">Type: MDX"#))
         XCTAssertTrue(html.contains("# Setup"))
+        XCTAssertTrue(html.contains("&lt;Callout tone=&quot;info&quot;&gt;Ship the preview.&lt;/Callout&gt;"))
         XCTAssertTrue(html.contains(#"href="\#(document.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-title">Quarterly Plan"#))

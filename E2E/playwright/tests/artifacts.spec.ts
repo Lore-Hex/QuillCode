@@ -243,6 +243,31 @@ test('mock harness renders markdown artifact metadata previews from tool cards',
   await expect(page.getByText('Created `setup.md`.')).toBeVisible();
 });
 
+test('mock harness renders MDX artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make an mdx artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('component.mdx');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/docs');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'markdown');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Markdown · MDX');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('component.mdx');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute('href', 'file:///mock/QuillCode/docs/component.mdx');
+  await expect(page.getByTestId('tool-card-markdown-preview-title')).toHaveText('Component Guide');
+  await expect(page.getByTestId('tool-card-markdown-preview-meta')).toHaveText([
+    '2 headings',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText('component.mdx');
+  await expect(page.getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: MDX');
+  await expect(page.getByTestId('tool-card-text-preview-content')).toContainText('<Callout tone="info">Ship the preview.</Callout>');
+  await expect(page.getByText('Created `component.mdx`.')).toBeVisible();
+});
+
 test('mock harness renders RTF artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
