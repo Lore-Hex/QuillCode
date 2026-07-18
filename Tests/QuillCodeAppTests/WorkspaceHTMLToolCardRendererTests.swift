@@ -342,6 +342,10 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let tarGz = packagesDirectory.appendingPathComponent("logs.tar.gz")
         let xz = packagesDirectory.appendingPathComponent("report.txt.xz")
         let tarXZ = packagesDirectory.appendingPathComponent("logs.tar.xz")
+        let bzip = packagesDirectory.appendingPathComponent("report.txt.bz2")
+        let tarBzip = packagesDirectory.appendingPathComponent("logs.tar.bz2")
+        let zstd = packagesDirectory.appendingPathComponent("report.txt.zst")
+        let tarZstd = packagesDirectory.appendingPathComponent("logs.tar.zst")
         try OfficePackageFixture.zipPackage(fileNames: [
             "Sources/App.swift",
             "Sources/Model.swift",
@@ -365,11 +369,26 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         ).write(to: tarGz)
         try XZArchiveFixture.xzArchive().write(to: xz)
         try XZArchiveFixture.xzArchive().write(to: tarXZ)
+        try Bzip2ArchiveFixture.bzip2Archive().write(to: bzip)
+        try Bzip2ArchiveFixture.bzip2Archive().write(to: tarBzip)
+        try ZstandardArchiveFixture.zstandardArchive().write(to: zstd)
+        try ZstandardArchiveFixture.zstandardArchive().write(to: tarZstd)
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"packages"}"#)
         let result = ToolResult(
             ok: true,
             stdout: "Wrote archives\n",
-            artifacts: [zip.path, tar.path, gzip.path, tarGz.path, xz.path, tarXZ.path]
+            artifacts: [
+                zip.path,
+                tar.path,
+                gzip.path,
+                tarGz.path,
+                xz.path,
+                tarXZ.path,
+                bzip.path,
+                tarBzip.path,
+                zstd.path,
+                tarZstd.path
+            ]
         )
         let thread = ChatThread(
             title: "Archive artifacts",
@@ -400,12 +419,20 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR.GZ"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · XZ"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR.XZ"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · BZ2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR.BZ2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · ZST"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR.ZST"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">source.zip"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">sources.tar"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">report.txt.gz"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">logs.tar.gz"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">report.txt.xz"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">logs.tar.xz"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">report.txt.bz2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">logs.tar.bz2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">report.txt.zst"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">logs.tar.zst"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: ZIP"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">4 entries"#))
@@ -430,12 +457,20 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: XZ"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Entries: report.txt"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: TAR.XZ"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: BZIP2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: TAR.BZ2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: ZSTD"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: TAR.ZST"#))
         XCTAssertTrue(html.contains(#"href="\#(zip.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(tar.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(gzip.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(tarGz.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(xz.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(tarXZ.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"href="\#(bzip.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"href="\#(tarBzip.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"href="\#(zstd.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"href="\#(tarZstd.standardizedFileURL.absoluteString)""#))
     }
 
     func testHTMLRendererIncludesOfficeArtifactPreview() throws {

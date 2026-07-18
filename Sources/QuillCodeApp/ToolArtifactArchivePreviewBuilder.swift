@@ -36,12 +36,36 @@ enum ToolArtifactArchivePreviewBuilder {
                     formatLabel: documentPreview.extensionLabel.uppercased(),
                     includesSingleMemberCounts: false
                 )
+            case "bz2":
+                preview = try magicOnlyPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: "BZIP2",
+                    memberName: inferredCompressedMemberName(from: fileURL, suffix: ".bz2", wrappedExtension: nil),
+                    includesSingleMemberCounts: true,
+                    minimumSize: bzip2MinimumSize,
+                    magicValidator: isBzip2Header
+                )
+            case "tar.bz2", "tbz", "tbz2":
+                preview = try magicOnlyPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: documentPreview.extensionLabel.uppercased(),
+                    memberName: inferredCompressedMemberName(
+                        from: fileURL,
+                        suffix: compressedTarSuffix(for: documentPreview.extensionLabel),
+                        wrappedExtension: "tar"
+                    ),
+                    includesSingleMemberCounts: false,
+                    minimumSize: bzip2MinimumSize,
+                    magicValidator: isBzip2Header
+                )
             case "xz":
                 preview = try xzPreview(
                     from: fileURL,
                     fileSize: fileSize,
                     formatLabel: "XZ",
-                    memberName: inferredXZMemberName(from: fileURL, extensionLabel: "xz"),
+                    memberName: inferredCompressedMemberName(from: fileURL, suffix: ".xz", wrappedExtension: nil),
                     includesSingleMemberCounts: true
                 )
             case "tar.xz", "txz":
@@ -49,8 +73,36 @@ enum ToolArtifactArchivePreviewBuilder {
                     from: fileURL,
                     fileSize: fileSize,
                     formatLabel: documentPreview.extensionLabel.uppercased(),
-                    memberName: inferredXZMemberName(from: fileURL, extensionLabel: documentPreview.extensionLabel),
+                    memberName: inferredCompressedMemberName(
+                        from: fileURL,
+                        suffix: compressedTarSuffix(for: documentPreview.extensionLabel),
+                        wrappedExtension: "tar"
+                    ),
                     includesSingleMemberCounts: false
+                )
+            case "zst":
+                preview = try magicOnlyPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: "ZSTD",
+                    memberName: inferredCompressedMemberName(from: fileURL, suffix: ".zst", wrappedExtension: nil),
+                    includesSingleMemberCounts: true,
+                    minimumSize: zstandardMagic.count,
+                    magicValidator: hasZstandardMagic
+                )
+            case "tar.zst", "tzst":
+                preview = try magicOnlyPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: documentPreview.extensionLabel.uppercased(),
+                    memberName: inferredCompressedMemberName(
+                        from: fileURL,
+                        suffix: compressedTarSuffix(for: documentPreview.extensionLabel),
+                        wrappedExtension: "tar"
+                    ),
+                    includesSingleMemberCounts: false,
+                    minimumSize: zstandardMagic.count,
+                    magicValidator: hasZstandardMagic
                 )
             default:
                 preview = nil
@@ -75,6 +127,36 @@ enum ToolArtifactArchivePreviewBuilder {
             topLevelCount: topLevelCount(in: directory.fileNames),
             entryPreviewLabel: entryPreviewLabel(in: directory.fileNames),
             entryPreviewLabels: entryPreviewLabels(in: directory.fileNames),
+            byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
+        )
+    }
+
+    private static func magicOnlyPreview(
+        from fileURL: URL,
+        fileSize: Int,
+        formatLabel: String,
+        memberName: String?,
+        includesSingleMemberCounts: Bool,
+        minimumSize: Int,
+        magicValidator: (Data) -> Bool
+    ) throws -> ToolArtifactArchivePreview? {
+        guard fileSize >= minimumSize else { return nil }
+
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+
+        guard let header = try handle.read(upToCount: minimumSize),
+              magicValidator(header)
+        else {
+            return nil
+        }
+
+        return ToolArtifactArchivePreview(
+            formatLabel: formatLabel,
+            entryCount: includesSingleMemberCounts ? 1 : nil,
+            topLevelCount: includesSingleMemberCounts && memberName != nil ? 1 : nil,
+            entryPreviewLabel: memberName,
+            entryPreviewLabels: memberName.map { [$0] } ?? [],
             byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
         )
     }
@@ -259,18 +341,13 @@ enum ToolArtifactArchivePreviewBuilder {
         return nameBytes.isEmpty ? nil : sanitizedEntryName(String(decoding: nameBytes, as: UTF8.self))
     }
 
-    private static func inferredXZMemberName(from fileURL: URL, extensionLabel: String) -> String? {
+    private static func inferredCompressedMemberName(
+        from fileURL: URL,
+        suffix: String,
+        wrappedExtension: String?
+    ) -> String? {
         let fileName = fileURL.lastPathComponent
         let lowercasedFileName = fileName.lowercased()
-        let suffix: String
-        switch extensionLabel.lowercased() {
-        case "tar.xz":
-            suffix = ".tar.xz"
-        case "txz":
-            suffix = ".txz"
-        default:
-            suffix = ".xz"
-        }
         guard lowercasedFileName.hasSuffix(suffix),
               fileName.count > suffix.count
         else {
@@ -278,8 +355,35 @@ enum ToolArtifactArchivePreviewBuilder {
         }
         let endIndex = fileName.index(fileName.endIndex, offsetBy: -suffix.count)
         let baseName = String(fileName[..<endIndex])
-        let memberName = extensionLabel.lowercased() == "xz" ? baseName : "\(baseName).tar"
+        let memberName = wrappedExtension.map { "\(baseName).\($0)" } ?? baseName
         return sanitizedEntryName(memberName)
+    }
+
+    private static func compressedTarSuffix(for extensionLabel: String) -> String {
+        switch extensionLabel.lowercased() {
+        case "tbz":
+            return ".tbz"
+        case "tbz2":
+            return ".tbz2"
+        case "txz":
+            return ".txz"
+        case "tzst":
+            return ".tzst"
+        default:
+            return ".\(extensionLabel.lowercased())"
+        }
+    }
+
+    private static func isBzip2Header(_ data: Data) -> Bool {
+        data.count >= bzip2MinimumSize
+            && data[0] == 0x42
+            && data[1] == 0x5a
+            && data[2] == 0x68
+            && (0x31...0x39).contains(data[3])
+    }
+
+    private static func hasZstandardMagic(_ data: Data) -> Bool {
+        data.count >= zstandardMagic.count && Array(data.prefix(zstandardMagic.count)) == zstandardMagic
     }
 
     private static func gzipLittleEndianUInt32(_ data: Data) -> UInt32 {
@@ -360,7 +464,9 @@ enum ToolArtifactArchivePreviewBuilder {
     private static let gzipExtraFieldFlag: UInt8 = 0x04
     private static let gzipOriginalNameFlag: UInt8 = 0x08
     private static let gzipReservedFlags: UInt8 = 0xe0
+    private static let bzip2MinimumSize = 4
     private static let xzHeaderMagic: [UInt8] = [0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00]
     private static let xzFooterMagic: [UInt8] = [0x59, 0x5a]
     private static let xzMinimumSize = 12
+    private static let zstandardMagic: [UInt8] = [0x28, 0xb5, 0x2f, 0xfd]
 }
