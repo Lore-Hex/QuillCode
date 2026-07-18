@@ -901,6 +901,42 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             "Size: \(byteSize)"
         ])
 
+        let packageEntries = [
+            "META-INF/MANIFEST.MF",
+            "com/example/App.class",
+            "assets/config.json"
+        ]
+        for (extensionLabel, formatLabel) in [
+            ("jar", "JAR"),
+            ("war", "WAR"),
+            ("ear", "EAR"),
+            ("apk", "APK"),
+            ("ipa", "IPA")
+        ] {
+            let packageArchive = directory.appendingPathComponent("bundle.\(extensionLabel)")
+            let packageBytes = OfficePackageFixture.zipPackage(fileNames: packageEntries)
+            try packageBytes.write(to: packageArchive)
+            let packageByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: packageBytes.count))
+            let packageArtifact = ToolArtifactState(value: packageArchive.path)
+            let packageDocumentPreview = try XCTUnwrap(packageArtifact.documentPreview)
+            let packageArchivePreview = try XCTUnwrap(packageArtifact.archivePreview)
+
+            XCTAssertEqual(packageDocumentPreview.kind, .archive)
+            XCTAssertEqual(packageDocumentPreview.extensionLabel, formatLabel)
+            XCTAssertEqual(packageArchivePreview.formatLabel, formatLabel)
+            XCTAssertEqual(packageArchivePreview.entryCount, 3)
+            XCTAssertEqual(packageArchivePreview.topLevelCount, 3)
+            XCTAssertEqual(packageArchivePreview.entryPreviewLabels, packageEntries)
+            XCTAssertEqual(packageArchivePreview.byteSizeLabel, packageByteSize)
+            XCTAssertEqual(packageArchivePreview.metadataLines, [
+                "Format: \(formatLabel)",
+                "3 entries",
+                "3 top-level items",
+                "Entries: META-INF/MANIFEST.MF, com/example/App.class, assets/config.json",
+                "Size: \(packageByteSize)"
+            ])
+        }
+
         let sevenZipArchive = directory.appendingPathComponent("sources.7z")
         let sevenZipBytes = Data([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0x00, 0x04, 0x00, 0x00])
         try sevenZipBytes.write(to: sevenZipArchive)
