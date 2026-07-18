@@ -321,6 +321,8 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview-meta">Size: \#(audioBytes.count) bytes"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview-meta">Format: MP4"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview-meta">Size: \#(videoBytes.count) bytes"#))
+        XCTAssertTrue(html.contains(#"<audio class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="\#(audio.absoluteString)"></audio>"#))
+        XCTAssertTrue(html.contains(#"<video class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="\#(video.absoluteString)"></video>"#))
     }
 
     func testHTMLRendererIncludesArchiveArtifactPreviews() throws {

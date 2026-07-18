@@ -323,10 +323,12 @@ public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
 }
 
 public struct ToolArtifactMediaPreview: Codable, Sendable, Hashable {
+    public var kind: ToolArtifactDocumentKind?
     public var formatLabel: String
     public var title: String?
     public var artist: String?
     public var byteSizeLabel: String?
+    public var playbackURL: String?
 
     public var metadataLines: [String] {
         [
@@ -341,15 +343,19 @@ public struct ToolArtifactMediaPreview: Codable, Sendable, Hashable {
     }
 
     public init(
+        kind: ToolArtifactDocumentKind? = nil,
         formatLabel: String,
         title: String? = nil,
         artist: String? = nil,
-        byteSizeLabel: String? = nil
+        byteSizeLabel: String? = nil,
+        playbackURL: String? = nil
     ) {
+        self.kind = kind
         self.formatLabel = formatLabel
         self.title = title
         self.artist = artist
         self.byteSizeLabel = byteSizeLabel
+        self.playbackURL = playbackURL
     }
 }
 

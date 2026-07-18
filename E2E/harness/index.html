@@ -3823,6 +3823,13 @@
       font-size: 11px;
       font-weight: 650;
     }
+    .artifact-media-player {
+      grid-column: 1 / -1;
+      width: min(100%, 520px);
+      max-height: 220px;
+      border-radius: 10px;
+      background: rgba(0,0,0,.24);
+    }
     .artifact-preview small:first-child {
       color: #75d7ff;
     }
@@ -8855,10 +8862,12 @@
         ? mediaInfo.sizeBytes
         : (state.mockFiles[path] || '').length;
       const preview = {
+        kind: documentPreview.kind,
         formatLabel: artifactPreviewExtension(value).toUpperCase(),
         title: mediaInfo.title || null,
         artist: mediaInfo.artist || null,
-        byteSizeLabel: byteSizeLabel(byteSize)
+        byteSizeLabel: byteSizeLabel(byteSize),
+        playbackURL: artifactHref({ kind, value }) || null
       };
       preview.metadataLines = [
         `Format: ${preview.formatLabel}`,
@@ -10847,11 +10856,23 @@
           const metadata = (preview.metadataLines || [])
             .map(line => `<small data-testid="tool-card-media-preview-meta">${escapeHTML(line)}</small>`)
             .join('');
-          return title || metadata ? `
+          const player = renderMediaPlayer(preview);
+          return title || metadata || player ? `
                 <div class="artifact-office-preview" data-testid="tool-card-media-preview">
                   ${title}
                   <div>${metadata}</div>
+                  ${player}
                 </div>` : '';
+        };
+        const renderMediaPlayer = preview => {
+          if (!preview?.playbackURL) return '';
+          if (preview.kind === 'audio') {
+            return `<audio class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="${escapeHTML(preview.playbackURL)}"></audio>`;
+          }
+          if (preview.kind === 'video') {
+            return `<video class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="${escapeHTML(preview.playbackURL)}"></video>`;
+          }
+          return '';
         };
         const renderAppshotPreview = preview => {
           if (!preview) return '';

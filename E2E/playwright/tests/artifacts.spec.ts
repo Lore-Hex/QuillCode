@@ -280,6 +280,17 @@ test('mock harness renders media artifact previews from tool cards', async ({ pa
     'Format: MP4',
     'Size: 8 KB'
   ]);
+  await expect(page.getByTestId('tool-card-media-player')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card-media-player').nth(0)).toHaveJSProperty('tagName', 'AUDIO');
+  await expect(page.getByTestId('tool-card-media-player').nth(0)).toHaveAttribute(
+    'src',
+    'file:///mock/QuillCode/media/voice-note.mp3'
+  );
+  await expect(page.getByTestId('tool-card-media-player').nth(1)).toHaveJSProperty('tagName', 'VIDEO');
+  await expect(page.getByTestId('tool-card-media-player').nth(1)).toHaveAttribute(
+    'src',
+    'file:///mock/QuillCode/media/demo.mp4'
+  );
   await expect(page.getByText('Created media artifacts.')).toBeVisible();
 });
 
