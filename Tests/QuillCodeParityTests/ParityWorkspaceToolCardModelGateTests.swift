@@ -14,6 +14,8 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactOfficePreviewText = try Self.appSourceText(named: "ToolArtifactOfficePreviewBuilder.swift")
         let artifactArchivePreviewText = try Self.appSourceText(named: "ToolArtifactArchivePreviewBuilder.swift")
         let artifactMediaPreviewText = try Self.appSourceText(named: "ToolArtifactMediaPreviewBuilder.swift")
+        let artifactMediaPlaybackText = try Self.appSourceText(named: "QuillCodeArtifactMediaPlaybackView.swift")
+        let artifactDocumentPreviewViewText = try Self.appSourceText(named: "QuillCodeArtifactDocumentPreview.swift")
         let artifactZipCentralDirectoryText = try Self.appSourceText(named: "ToolArtifactZipCentralDirectoryReader.swift")
         let artifactTablePreviewText = try Self.appSourceText(named: "ToolArtifactTablePreviewBuilder.swift")
         let artifactByteSizeText = try Self.appSourceText(named: "ToolArtifactByteSizeFormatter.swift")
@@ -101,6 +103,19 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "fileSizeLimit",
             "id3ReadLimit",
             "id3SyncSafeInteger"
+        ])
+        Self.assertSource(artifactMediaPlaybackText, containsAll: [
+            "struct QuillCodeArtifactMediaPlaybackView",
+            "VideoPlayer(player:",
+            "AVPlayer(url:",
+            "togglePlayback",
+            "Pause audio",
+            "Play audio"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "mediaContent(mediaPreview, playbackURL:",
+            "QuillCodeArtifactMediaPlaybackView(preview: mediaPreview, url: playbackURL)",
+            "Open \\(artifact.label)"
         ])
         Self.assertSource(artifactZipCentralDirectoryText, containsAll: [
             "enum ToolArtifactZipCentralDirectoryReader",
