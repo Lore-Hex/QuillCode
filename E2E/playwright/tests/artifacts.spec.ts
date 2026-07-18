@@ -78,6 +78,22 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await expect(page.getByLabel('Message')).toHaveValue('Edit instruction source AGENTS.md: ');
 });
 
+test('mock harness renders common coding source artifacts as text previews', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a vue artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText(['Dashboard.vue', 'go.mod']);
+  await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText(['Dashboard.vue', 'go.mod']);
+  await expect(page.getByTestId('tool-card-text-preview').nth(0).getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: Vue');
+  await expect(page.getByTestId('tool-card-text-preview').nth(1).getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: Go module');
+  await expect(page.getByTestId('tool-card-text-preview-content').nth(0)).toContainText('<template>');
+  await expect(page.getByTestId('tool-card-text-preview-content').nth(1)).toContainText('module example.com/quillcode');
+  await expect(page.getByText('Created `Dashboard.vue` and `go.mod`.')).toBeVisible();
+});
+
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
