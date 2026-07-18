@@ -229,6 +229,36 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteSpreadsheet.officePreview)
     }
 
+    func testArtifactStateDerivesArchivePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let archive = directory.appendingPathComponent("source.zip")
+        let archiveBytes = OfficePackageFixture.zipPackage(fileNames: [
+            "Sources/App.swift",
+            "Sources/Model.swift",
+            "Tests/AppTests.swift",
+            "README.md"
+        ])
+        try archiveBytes.write(to: archive)
+        let byteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: archiveBytes.count))
+
+        let artifact = ToolArtifactState(value: archive.path)
+        let preview = try XCTUnwrap(artifact.archivePreview)
+
+        XCTAssertEqual(preview.formatLabel, "ZIP")
+        XCTAssertEqual(preview.entryCount, 4)
+        XCTAssertEqual(preview.topLevelCount, 3)
+        XCTAssertEqual(preview.byteSizeLabel, byteSize)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: ZIP",
+            "4 entries",
+            "3 top-level items",
+            "Size: \(byteSize)"
+        ])
+
+        let remoteArchive = ToolArtifactState(value: "https://example.com/source.zip")
+        XCTAssertNil(remoteArchive.archivePreview)
+    }
+
     func testArtifactStateDerivesDelimitedTablePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let csv = directory.appendingPathComponent("revenue.csv")

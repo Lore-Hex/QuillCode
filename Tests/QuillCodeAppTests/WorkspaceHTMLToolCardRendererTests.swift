@@ -306,7 +306,12 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         try FileManager.default.createDirectory(at: packagesDirectory, withIntermediateDirectories: true)
         let zip = packagesDirectory.appendingPathComponent("source.zip")
         let tarGz = packagesDirectory.appendingPathComponent("logs.tar.gz")
-        try Data("PK".utf8).write(to: zip)
+        try OfficePackageFixture.zipPackage(fileNames: [
+            "Sources/App.swift",
+            "Sources/Model.swift",
+            "Tests/AppTests.swift",
+            "README.md"
+        ]).write(to: zip)
         try Data("gz".utf8).write(to: tarGz)
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"packages"}"#)
         let result = ToolResult(ok: true, stdout: "Wrote archives\n", artifacts: [zip.path, tarGz.path])
@@ -337,6 +342,10 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR.GZ"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">source.zip"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">logs.tar.gz"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: ZIP"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">4 entries"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">3 top-level items"#))
         XCTAssertTrue(html.contains(#"href="\#(zip.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(tarGz.standardizedFileURL.absoluteString)""#))
     }

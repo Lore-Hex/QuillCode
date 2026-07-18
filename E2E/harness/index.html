@@ -8122,7 +8122,8 @@
         appshotPreview: artifactAppshotPreview(value, kind, documentPreview),
         pdfPreview: artifactPDFPreview(value, kind, documentPreview),
         officePreview: artifactOfficePreview(value, kind, documentPreview),
-        tablePreview: artifactTablePreview(value, kind, documentPreview)
+        tablePreview: artifactTablePreview(value, kind, documentPreview),
+        archivePreview: artifactArchivePreview(value, kind, documentPreview)
       };
     }
 
@@ -8773,6 +8774,40 @@
         preview.isTruncated ? `Preview: first ${preview.rows.length} rows` : null
       ].filter(Boolean);
       return preview;
+    }
+
+    function artifactArchivePreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'archive') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'zip') return null;
+      const path = artifactFilePath(value);
+      const packageInfo = path ? state.mockOfficePackages[path] : null;
+      const fileNames = Array.isArray(packageInfo?.fileNames) ? packageInfo.fileNames : null;
+      if (!fileNames) return null;
+
+      const topLevelItems = new Set(fileNames
+        .map(fileName => String(fileName || '').replace(/^\/+|\/+$/g, '').split('/')[0])
+        .filter(Boolean));
+      const byteSize = Number.isFinite(packageInfo.sizeBytes)
+        ? packageInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const preview = {
+        formatLabel: 'ZIP',
+        entryCount: fileNames.length,
+        topLevelCount: topLevelItems.size || null,
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        Number.isInteger(preview.entryCount)
+          ? `${preview.entryCount} ${preview.entryCount === 1 ? 'entry' : 'entries'}`
+          : null,
+        Number.isInteger(preview.topLevelCount)
+          ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
+          : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
     }
 
     function parseDelimitedRows(text, delimiter) {
@@ -10676,6 +10711,16 @@
                   </table>
                 </div>` : '';
         };
+        const renderArchivePreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-archive-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return metadata ? `
+                <div class="artifact-office-preview" data-testid="tool-card-archive-preview">
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
         const renderAppshotPreview = preview => {
           if (!preview) return '';
           const image = preview.screenshotURL
@@ -10718,6 +10763,7 @@
                 ${renderOfficePreview(artifact.officePreview)}
                 ${renderTablePreview(artifact.tablePreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
+                ${renderArchivePreview(artifact.archivePreview)}
               </figure>`;
             }).join('')}
           </div>` : '';
@@ -22488,6 +22534,10 @@
         const tarPath = '/mock/QuillCode/packages/logs.tar.gz';
         state.mockFiles[zipPath] = 'PK\u0003\u0004';
         state.mockFiles[tarPath] = '\u001f\u008b';
+        state.mockOfficePackages[zipPath] = {
+          fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift', 'README.md'],
+          sizeBytes: 4096
+        };
         addToolCard({
           title: 'host.file.write',
           subtitle: 'Completed',

@@ -266,6 +266,13 @@ test('mock harness renders archive artifact previews from tool cards', async ({ 
     '/mock/QuillCode/packages',
     '/mock/QuillCode/packages'
   ]);
+  await expect(page.getByTestId('tool-card-archive-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-archive-preview-meta')).toHaveText([
+    'Format: ZIP',
+    '4 entries',
+    '3 top-level items',
+    'Size: 4 KB'
+  ]);
   await expect(page.getByTestId('tool-card-document-preview-open').nth(0)).toHaveAttribute(
     'href',
     'file:///mock/QuillCode/packages/source.zip'
