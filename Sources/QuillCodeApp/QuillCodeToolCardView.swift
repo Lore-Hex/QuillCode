@@ -78,8 +78,11 @@ struct QuillCodeToolCardView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(QuillCodePalette.muted)
                     LazyVGrid(columns: adaptivePreviewColumns, spacing: QuillCodeMetrics.controlClusterSpacing) {
-                        ForEach(card.imagePreviewArtifacts) { artifact in
-                            QuillCodeArtifactImagePreview(artifact: artifact)
+                        ForEach(Array(card.imagePreviewArtifacts.enumerated()), id: \.element.id) { index, artifact in
+                            QuillCodeArtifactImagePreview(
+                                artifact: artifact,
+                                sequenceLabel: imagePreviewSequenceLabel(index: index)
+                            )
                         }
                     }
                 }
@@ -176,6 +179,12 @@ struct QuillCodeToolCardView: View {
                 spacing: QuillCodeMetrics.controlClusterSpacing
             )
         ]
+    }
+
+    private func imagePreviewSequenceLabel(index: Int) -> String? {
+        let count = card.imagePreviewArtifacts.count
+        guard count > 1 else { return nil }
+        return "Image \(index + 1) of \(count)"
     }
 
     private var toolHeader: some View {

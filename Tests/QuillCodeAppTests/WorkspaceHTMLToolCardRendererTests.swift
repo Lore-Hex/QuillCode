@@ -161,6 +161,7 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · PNG"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-label">screenshot.png"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-detail">/tmp/quillcode-preview"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-image-preview-sequence""#))
     }
 
     func testHTMLRendererIncludesLocalImageDimensionsWhenReadable() throws {
@@ -212,6 +213,8 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · WEBP · 512 x 288 px"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · TIFF · 300 x 200 px"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-type">Image · ICO · 256 x 256 px"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-sequence">Image 1 of 6"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-sequence">Image 6 of 6"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-image-preview-label">logo.svg"#))
     }
 

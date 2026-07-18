@@ -17,6 +17,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactMediaPreviewText = try Self.appSourceText(named: "ToolArtifactMediaPreviewBuilder.swift")
         let artifactMediaPlaybackText = try Self.appSourceText(named: "QuillCodeArtifactMediaPlaybackView.swift")
         let artifactDocumentPreviewViewText = try Self.appSourceText(named: "QuillCodeArtifactDocumentPreview.swift")
+        let toolCardViewText = try Self.appSourceText(named: "QuillCodeToolCardView.swift")
         let artifactZipCentralDirectoryText = try Self.appSourceText(named: "ToolArtifactZipCentralDirectoryReader.swift")
         let artifactTablePreviewText = try Self.appSourceText(named: "ToolArtifactTablePreviewBuilder.swift")
         let artifactByteSizeText = try Self.appSourceText(named: "ToolArtifactByteSizeFormatter.swift")
@@ -48,6 +49,11 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         Self.assertSource(artifactValueClassifierText, contains: "enum ToolArtifactValueClassifier")
         Self.assertSource(artifactImagePreviewText, contains: "enum ToolArtifactImagePreviewBuilder")
         Self.assertSource(artifactImagePreviewText, contains: "ToolArtifactImageMetadataReader.dimensionsLabel")
+        Self.assertSource(toolCardViewText, containsAll: [
+            "imagePreviewSequenceLabel(index:",
+            "Image \\(index + 1) of \\(count)",
+            "QuillCodeArtifactImagePreview("
+        ])
         Self.assertSource(artifactImageMetadataText, containsAll: [
             "enum ToolArtifactImageMetadataReader",
             "maximumHeaderBytes",

@@ -10929,11 +10929,12 @@
         const previews = (artifacts || []).filter(artifact => artifact.isImagePreview && artifact.previewURL && artifact.imagePreview);
         return previews.length ? `
           <div class="tool-artifact-previews" data-testid="tool-card-image-previews" aria-label="Image previews">
-            ${previews.map(artifact => `
+            ${previews.map((artifact, index) => `
               <figure class="artifact-preview" data-testid="tool-card-image-preview" data-kind="image">
                 <img src="${escapeHTML(artifact.previewURL)}" alt="${escapeHTML(artifact.label)}" loading="lazy">
                 <figcaption>
                   <small data-testid="tool-card-image-preview-type">${escapeHTML(artifact.imagePreview.typeLine)}</small>
+                  ${previews.length > 1 ? `<small data-testid="tool-card-image-preview-sequence">Image ${index + 1} of ${previews.length}</small>` : ''}
                   <strong data-testid="tool-card-image-preview-label">${escapeHTML(artifact.label)}</strong>
                   <small data-testid="tool-card-image-preview-detail">${escapeHTML(artifact.imagePreview.detail)}</small>
                 </figcaption>
