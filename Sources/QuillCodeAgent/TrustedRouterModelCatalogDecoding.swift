@@ -77,7 +77,9 @@ struct TrustedRouterCatalogModel: Decodable {
     /// residency field ("data_residency"). All normalize through ModelCapabilities' canonical
     /// region codes; absent values mean UNKNOWN, never "everywhere".
     private static func regions(in container: KeyedDecodingContainer<FlexibleCodingKey>) -> [String] {
-        let listed = (try? container.firstStringList(for: ["regions", "data_residency", "dataResidency"])) ?? []
+        // "region" appears in the LIST keys too: a catalog is free to put an array under the
+        // singular key, and firstStringList on a scalar simply yields nothing.
+        let listed = (try? container.firstStringList(for: ["regions", "region", "data_residency", "dataResidency"])) ?? []
         if !listed.isEmpty { return listed }
         guard let single = try? container.firstNonEmptyString(for: ["region", "data_residency", "dataResidency"]) else {
             return []

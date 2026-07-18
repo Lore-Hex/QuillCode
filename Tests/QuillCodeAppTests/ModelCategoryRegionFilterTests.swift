@@ -24,6 +24,12 @@ final class ModelCategoryRegionFilterTests: XCTestCase {
             XCTAssertNil(ModelCategorySearchFilter.extractRegionOnlyConstraint(from: &terms), token)
             XCTAssertEqual(terms, [token])
         }
+
+        // Multiple region tokens: the FIRST wins and ALL are consumed — a leftover "eu-only" text
+        // term would poison the haystack match and guarantee empty results.
+        var multiple = ["us-only", "nike", "eu-only"]
+        XCTAssertEqual(ModelCategorySearchFilter.extractRegionOnlyConstraint(from: &multiple), "us")
+        XCTAssertEqual(multiple, ["nike"])
     }
 
     func testRegionOnlyEnforcementFailsClosedAndRequiresExclusivity() {

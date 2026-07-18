@@ -22,7 +22,14 @@ extension QuillCodeWorkspaceModel {
         let configuredRunner = agentSendSessionFactory(
             workspaceRoot: workspaceRoot,
             runProject: runProject
-        ).configuredRunner(modelID: thread.model, threadID: thread.id)
+        ).configuredRunner(
+            modelID: thread.model,
+            threadID: thread.id,
+            // A denial retry from a confidential chat is still a confidential run: without the flag
+            // it would skip the E2E model clamp AND attach plugin tool hooks (external processes
+            // that commonly log) to the private transcript.
+            threadIsConfidential: thread.runtimeContext.isConfidential
+        )
 
         do {
             let result = try await configuredRunner.retryAutoReviewDenial(

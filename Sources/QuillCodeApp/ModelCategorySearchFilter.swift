@@ -45,11 +45,12 @@ enum ModelCategorySearchFilter {
 
     /// Recognizes "<region>-only" search tokens ("us-only", "usa-only", "eu-only", "europe-only",
     /// "cn-only", "china-only" — hyphenated or compact) and removes them from the text terms,
-    /// returning the canonical region code they enforce. Only the first region token wins.
+    /// returning the canonical region code they enforce. EVERY region token is consumed and the
+    /// first one wins — leaving a later one as a text term would poison the haystack match and
+    /// guarantee empty results.
     static func extractRegionOnlyConstraint(from terms: inout [String]) -> String? {
         var required: String? = nil
         terms.removeAll { term in
-            guard required == nil else { return false }
             var stem = term
             if let range = stem.range(of: "-only", options: [.anchored, .backwards]) {
                 stem.removeSubrange(range)
@@ -61,7 +62,9 @@ enum ModelCategorySearchFilter {
             guard let canonical = ModelCapabilities.normalizedRegions([stem]).first,
                   ["us", "eu", "cn"].contains(canonical)
             else { return false }
-            required = canonical
+            if required == nil {
+                required = canonical
+            }
             return true
         }
         return required

@@ -32,6 +32,12 @@ test('confidential: /confidential shows the banner, pins + locks the E2E model, 
   await expect(page.getByTestId('model-picker-button')).toBeEnabled();
   await expect(page.getByTestId('model-picker-button')).toContainText('E2E Encrypted');
 
+  // The confidential hero replaces the starter cards: no invitation to share the workspace context
+  // this mode deliberately withholds.
+  await expect(page.getByTestId('confidential-empty-title')).toHaveText('This chat is confidential');
+  await expect(page.getByTestId('confidential-empty-guarantees')).toContainText('Never saved');
+  await expect(page.getByTestId('empty-starter-action')).toHaveCount(0);
+
   // The confidential thread never appears in the sidebar — only the seeded regular thread.
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
   await expect(page.getByTestId('sidebar-thread-row').filter({ hasText: 'Confidential' })).toHaveCount(0);

@@ -33,7 +33,14 @@ struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
         self.favoriteModelIDs = Self.normalizedUniqueModelIDs(favoriteModelIDs).filter(eligible)
         self.recentModelIDs = Self.normalizedUniqueModelIDs(recentModelIDs).filter(eligible)
         self.recentLimit = recentLimit
+        self.selectedModelIsAdmissible = eligible(self.selectedModelID)
     }
+
+    /// Whether the selected model may be synthesized back into the list when the catalog lacks it.
+    /// Under the E2E restriction a selected model that LOST eligibility (a live-catalog refresh
+    /// dropped its Confidential tier) must NOT be re-admitted as a phantom "Current" row — the
+    /// picker would offer a model the setModel gate then refuses.
+    private let selectedModelIsAdmissible: Bool
 
     func modelLabel() -> String {
         guard let model = catalog.first(where: { $0.id == selectedModelID }) else {
@@ -80,6 +87,9 @@ struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
 
     private func catalogIncludingSelectedModel() -> [ModelInfo] {
         guard !catalog.contains(where: { $0.id == selectedModelID }) else {
+            return catalog
+        }
+        guard selectedModelIsAdmissible else {
             return catalog
         }
         return [Self.fallbackModelInfo(for: selectedModelID)] + catalog

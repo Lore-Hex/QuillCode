@@ -90,12 +90,34 @@ extension QuillCodeWorkspaceModel {
         guard let catalog = WorkspaceConfigurationEngine.normalizedCatalog(from: models) else { return }
         root.modelCatalog = catalog
         root.modelCatalogStatus = .bundled
+        repinConfidentialThreadsAfterCatalogChange()
     }
 
     public func setModelCatalog(_ catalog: TrustedRouterModelCatalog) {
         guard let models = WorkspaceConfigurationEngine.normalizedCatalog(from: catalog.models) else { return }
         root.modelCatalog = models
         root.modelCatalogStatus = catalog.status
+        repinConfidentialThreadsAfterCatalogChange()
+    }
+
+    /// A catalog refresh can withdraw a model's Confidential tier while a confidential chat is
+    /// using it as its exact model. Re-pin such threads to the guaranteed E2E route IMMEDIATELY and
+    /// say so — otherwise the chip and picker keep claiming a model the run-level clamp silently
+    /// swaps out, and routing honesty is this mode's entire promise.
+    private func repinConfidentialThreadsAfterCatalogChange() {
+        for thread in root.threads where thread.runtimeContext.isConfidential {
+            guard !TrustedRouterDefaults.isE2EEligible(thread.model, catalog: root.modelCatalog) else {
+                continue
+            }
+            let displaced = WorkspaceStatusTextBuilder.subtitleModelLabel(thread.model)
+            mutateThread(thread.id) { thread in
+                WorkspaceConfigurationEngine.setModelID(TrustedRouterDefaults.e2eModel, thread: &thread)
+                thread.events.append(ThreadEvent(
+                    kind: .notice,
+                    summary: "\(displaced) no longer offers end-to-end encrypted routing; switched back to \(TrustedRouterDefaults.e2eModelDisplayName)."
+                ))
+            }
+        }
     }
 
     public func setTrustedRouterCredits(_ state: TrustedRouterCreditsState) {

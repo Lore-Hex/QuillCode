@@ -142,6 +142,46 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
         )
     }
 
+    func testStaleCatalogNeverReadmitsANonEligibleSelectedModelIntoTheRestrictedPicker() {
+        // The selected model LOST its Confidential tier (live-catalog refresh withdrew it). The
+        // restricted picker must not synthesize it back as a phantom "Current" row the setModel
+        // gate would then refuse — and the chip must stay locked (no real choice).
+        let builder = WorkspaceModelCatalogSurfaceBuilder(
+            catalog: TrustedRouterDefaults.bundledModelCatalog,
+            selectedModelID: "z-ai/glm-5.2-confidential",
+            defaultModelID: TrustedRouterDefaults.defaultModel,
+            favoriteModelIDs: [],
+            recentModelIDs: [],
+            restrictToE2EEligible: true
+        )
+        let listedIDs = builder.categories().flatMap { $0.models.map(\.id) }
+        XCTAssertFalse(listedIDs.contains("z-ai/glm-5.2-confidential"), "\(listedIDs)")
+        XCTAssertEqual(Set(listedIDs), [TrustedRouterDefaults.e2eModel])
+    }
+
+    func testCatalogRefreshRepinsAConfidentialThreadWhoseModelLostEligibility() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        model.root.modelCatalog = TrustedRouterDefaults.bundledModelCatalog + [confidentialTierModel]
+        _ = model.newConfidentialChat()
+        XCTAssertEqual(model.setModel(confidentialTierModel.id), confidentialTierModel.id)
+
+        // The refreshed catalog no longer carries the model's Confidential tier.
+        model.setModelCatalog(TrustedRouterDefaults.bundledModelCatalog)
+
+        let selected = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(
+            selected.model,
+            TrustedRouterDefaults.e2eModel,
+            "the thread must repin to the guaranteed route the moment eligibility is withdrawn"
+        )
+        XCTAssertTrue(
+            selected.events.contains {
+                $0.kind == .notice && $0.summary.contains("no longer offers end-to-end encrypted routing")
+            },
+            "the reroute must be SAID, not silent — routing honesty is the mode's promise"
+        )
+    }
+
     /// A live-catalog model TrustedRouter marks Confidential-tier (tier 3): its routing is
     /// end-to-end encrypted, so a confidential chat may select it as an exact model.
     private var confidentialTierModel: ModelInfo {

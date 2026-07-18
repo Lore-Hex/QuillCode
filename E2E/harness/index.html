@@ -223,6 +223,16 @@
       border-bottom: 1px solid var(--line-strong);
     }
     .quillcode-workspace[data-confidential="true"] .confidential-banner strong { color: var(--text); }
+    .confidential-empty { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .confidential-empty-glyph {
+      display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(196,138,246,.14); font-size: 30px;
+    }
+    .confidential-empty-guarantees {
+      list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;
+      color: var(--muted); font-size: 14px; text-align: left;
+    }
+    .confidential-empty-guarantees li::before { content: '•'; color: var(--purple); margin-right: 10px; }
     .topbar {
       position: relative;
       display: grid;
@@ -10325,12 +10335,25 @@
             </button>
           `).join('')}
         </div>` : '';
-      const timeline = hasTimelineContent ? context + runtimeIssue + review + transcriptItems + thinking : shouldHideEmptyTranscript ? '' : `
+      // Confidential hero: the mode's guarantees INSTEAD of project starter cards, which would
+      // invite sharing exactly the workspace context this mode deliberately withholds. Mirrors the
+      // native QuillCodeTranscriptView hero and the DOM renderer.
+      const emptyState = confidentialIsActive() ? `
+        <section class="empty confidential-empty" data-testid="transcript-empty">
+          <div class="confidential-empty-glyph" aria-hidden="true">🕶</div>
+          <h1 data-testid="confidential-empty-title">This chat is confidential</h1>
+          <ul class="confidential-empty-guarantees" data-testid="confidential-empty-guarantees">
+            <li>Never saved — destroyed when you leave</li>
+            <li>End-to-end encrypted on TrustedRouter</li>
+            <li>No workspace instructions or memories shared</li>
+          </ul>
+        </section>` : `
         <section class="empty" data-testid="transcript-empty">
           <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
           <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
           ${emptyStarterActions}
         </section>`;
+      const timeline = hasTimelineContent ? context + runtimeIssue + review + transcriptItems + thinking : shouldHideEmptyTranscript ? '' : emptyState;
       const projectsContent = state.projects.items.length
         ? state.projects.items.map(item => `
           <div class="project-row" data-testid="project-row" data-project-id="${escapeHTML(item.id)}" draggable="true">
@@ -10580,7 +10603,7 @@
       // Inside confidential the picker is USABLE but restricted; it locks only when the eligible
       // set offers no real choice (an openable picker with one row would read as broken).
       const modelPickerLocked = confidentialIsActive()
-        && eligibleModelCategories().reduce((count, category) => count + category.models.length, 0) <= 1;
+        && new Set(eligibleModelCategories().flatMap(category => category.models.map(model => model.id))).size <= 1;
       const filteredModelCategories = filterModelCategories(state.topBar.modelSearch);
       const filteredModelCount = filteredModelCategories.reduce((count, category) => count + category.models.length, 0);
       const modelSearchQuery = state.topBar.modelSearch.trim();
@@ -12048,16 +12071,26 @@
     // to models whose residency claim is entirely within that region (unknown residency fails
     // closed), and are removed from the text terms. Mirrors native ModelCategorySearchFilter.
     function extractRegionOnlyConstraint(terms) {
-      const canonical = { us: 'us', usa: 'us', eu: 'eu', europe: 'eu', cn: 'cn', china: 'cn' };
-      for (let index = 0; index < terms.length; index += 1) {
-        const match = terms[index].match(/^([a-z]+)-?only$/);
-        const region = match ? canonical[match[1]] : null;
-        if (region) {
-          terms.splice(index, 1);
-          return region;
-        }
+      const canonical = {
+        us: 'us', usa: 'us', 'united states': 'us', 'united-states': 'us', america: 'us',
+        eu: 'eu', europe: 'eu', 'european union': 'eu', 'european-union': 'eu',
+        cn: 'cn', china: 'cn', prc: 'cn'
+      };
+      let required = null;
+      for (let index = terms.length - 1; index >= 0; index -= 1) {
+        const term = terms[index];
+        let stem = null;
+        if (term.endsWith('-only')) stem = term.slice(0, -5);
+        else if (term.endsWith('only') && term.length > 4) stem = term.slice(0, -4);
+        if (stem === null) continue;
+        const region = canonical[stem] || null;
+        if (!region) continue;
+        // EVERY region token is consumed (first in the query wins) — leaving a later one as a text
+        // term would poison the haystack match and guarantee empty results.
+        terms.splice(index, 1);
+        required = region;
       }
-      return null;
+      return required;
     }
 
     function modelIsRegionOnly(model, region) {

@@ -16,7 +16,8 @@ public enum WorkspaceHTMLRenderer {
                 contextBanner: surface.contextBanner,
                 review: surface.review,
                 runtimeIssue: surface.runtimeIssue,
-                retryLastTurnCommand: surface.commands.first { $0.id == "retry-last-turn" && $0.isEnabled }
+                retryLastTurnCommand: surface.commands.first { $0.id == "retry-last-turn" && $0.isEnabled },
+                isConfidential: surface.isConfidential
               ))
               \(WorkspaceHTMLSecondaryPaneRenderer.renderExtensions(surface.extensions))
               \(WorkspaceHTMLSecondaryPaneRenderer.renderMemories(surface.memories))
