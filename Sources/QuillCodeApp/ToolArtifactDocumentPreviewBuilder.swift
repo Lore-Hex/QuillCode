@@ -44,6 +44,8 @@ enum ToolArtifactDocumentPreviewBuilder {
     private static let documentKindsByExtension: [String: ToolArtifactDocumentKind] = [
         "appshot": .appshot,
         "pdf": .pdf,
+        "markdown": .markdown,
+        "md": .markdown,
         "doc": .document,
         "docx": .document,
         "odt": .document,
