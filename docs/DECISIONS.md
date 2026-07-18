@@ -1841,13 +1841,18 @@
   under Apache 2.0; Linux uses bubblewrap and fails closed when restrictive execution cannot be
   enforced. `/var` and `/tmp` rules include macOS `/private` aliases so allowed temporary/workspace
   writes work without broadening access. Danger full access deliberately launches directly.
-- **Compatibility boundary:** Arbitrary configured permission profiles, managed network proxies,
-  Windows restricted-token behavior, and a remotely disabled local environment are not fabricated;
-  they remain explicit work in the broader app-server parity row.
+- **Network boundary:** Managed `allow_upstream_proxy = false` strips proxy environment variables
+  (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `NO_PROXY`, case-insensitively) after request overrides
+  are applied, so both inherited and client-supplied upstream proxies are excluded from `command/exec`
+  and lower-level process launches.
+- **Compatibility boundary:** Arbitrary configured permission profiles, full managed proxy profiles
+  with enforced local forwarding/domain routing, Windows restricted-token behavior, and a remotely
+  disabled local environment are not fabricated; they remain explicit work in the broader app-server
+  parity row.
 - **Evidence:** Focused tests cover buffered and streaming execution, pipe and PTY control, output caps,
-  timeout, validation including empty process IDs, ID lifecycle, disconnect teardown, and real Seatbelt
-  denial/allow boundaries. The executable JSONL smoke proves streamed stdin/output ordering through the
-  packaged protocol path.
+  timeout, validation including empty process IDs, ID lifecycle, disconnect teardown, managed upstream
+  proxy stripping, and real Seatbelt denial/allow boundaries. The executable JSONL smoke proves streamed
+  stdin/output ordering through the packaged protocol path.
 
 ## 2026-07-16: Global memory reset preserves project-owned memory
 

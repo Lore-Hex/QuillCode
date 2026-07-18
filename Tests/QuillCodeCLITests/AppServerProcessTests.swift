@@ -2,6 +2,7 @@ import Foundation
 import QuillCodeAgent
 @testable import QuillCodeCLI
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeSafety
 import XCTest
 
@@ -88,6 +89,48 @@ final class AppServerProcessTests: XCTestCase {
         XCTAssertEqual(exit["stderr"]?.stringValue, "unset")
         XCTAssertEqual(exit["stdoutCapReached"]?.boolValue, false)
         XCTAssertEqual(exit["stderrCapReached"]?.boolValue, false)
+    }
+
+    func testManagedNetworkRequirementsStripUpstreamProxyEnvironmentFromSpawnedProcess() async throws {
+        let fixture = try await makeFixture(
+            environment: [
+                "PATH": defaultPath,
+                "HTTP_PROXY": "http://proxy.example",
+                "https_proxy": "http://secure-proxy.example",
+                "ALL_PROXY": "socks5://proxy.example",
+                "no_proxy": "localhost",
+                "QC_KEEP": "kept"
+            ],
+            requirements: """
+            [experimental_network]
+            allow_upstream_proxy = false
+            """
+        )
+        var params = spawnParams(
+            handle: "managed-network",
+            command: [
+                "/bin/sh", "-c",
+                "printf '%s:%s:%s:%s:%s' "
+                    + "\"${HTTP_PROXY-unset}\" "
+                    + "\"${https_proxy-unset}\" "
+                    + "\"${ALL_PROXY-unset}\" "
+                    + "\"${no_proxy-unset}\" "
+                    + "\"$QC_KEEP\""
+            ]
+        )
+        params["env"] = [
+            "HTTP_PROXY": "http://request-proxy.example",
+            "QC_KEEP": "override-kept"
+        ]
+
+        try await sendRequest(id: 2, method: "process/spawn", params: params, to: fixture.session)
+
+        let records = try await waitForNotification("process/exited", output: fixture.output)
+        let exit = try XCTUnwrap(
+            records.last { $0["method"]?.stringValue == "process/exited" }?["params"]?.objectValue
+        )
+        XCTAssertEqual(exit["exitCode"]?.numberValue, 0)
+        XCTAssertEqual(exit["stdout"]?.stringValue, "unset:unset:unset:unset:override-kept")
     }
 
     func testStreamingOutputUsesBase64CapAndIsNotDuplicatedAtExit() async throws {
@@ -306,10 +349,17 @@ final class AppServerProcessTests: XCTestCase {
     private func makeFixture(
         initialize: Bool = true,
         experimentalAPI: Bool = true,
-        environment: [String: String]? = nil
+        environment: [String: String]? = nil,
+        requirements: String? = nil
     ) async throws -> ProcessFixture {
         let home = try temporaryDirectory(prefix: "process-home")
         let workspace = try temporaryDirectory(prefix: "process-workspace")
+        var hookPaths = HookConfigurationPaths(userQuillCodeDirectory: home)
+        if let requirements {
+            let file = home.appendingPathComponent("requirements.toml")
+            try requirements.write(to: file, atomically: true, encoding: .utf8)
+            hookPaths.managedRequirementFiles = [file]
+        }
         let output = ProcessOutputCollector()
         let session = try AppServerSession(
             request: CLIAppServerRequest(live: false, home: home),
@@ -322,6 +372,7 @@ final class AppServerProcessTests: XCTestCase {
                     maxToolSteps: configuration.appConfig.maxToolSteps
                 )
             },
+            paths: QuillCodePaths(home: home, hookConfigurationPaths: hookPaths),
             sink: { line in await output.append(line) }
         )
         let fixture = ProcessFixture(session: session, output: output, workspace: workspace)
