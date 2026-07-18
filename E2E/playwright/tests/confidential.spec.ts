@@ -24,11 +24,19 @@ test('confidential: /confidential shows the banner, pins + locks the E2E model, 
 
   await openConfidential(page);
 
-  // Banner + pinned/locked model.
+  // Banner + pinned model, and the whole chrome shifts to the confidential ramp.
   await expect(page.getByTestId('confidential-banner-title')).toHaveText('Confidential chat');
   await expect(page.getByTestId('confidential-banner-detail')).toHaveText('Not saved · E2E encrypted');
-  await expect(page.getByTestId('model-picker-button')).toBeDisabled();
+  await expect(page.getByTestId('workspace')).toHaveAttribute('data-confidential', 'true');
+  // The picker stays USABLE (the mock catalog offers a Confidential-tier choice) but pinned to E2E.
+  await expect(page.getByTestId('model-picker-button')).toBeEnabled();
   await expect(page.getByTestId('model-picker-button')).toContainText('E2E Encrypted');
+
+  // The confidential hero replaces the starter cards: no invitation to share the workspace context
+  // this mode deliberately withholds.
+  await expect(page.getByTestId('confidential-empty-title')).toHaveText('This chat is confidential');
+  await expect(page.getByTestId('confidential-empty-guarantees')).toContainText('Never saved');
+  await expect(page.getByTestId('empty-starter-action')).toHaveCount(0);
 
   // The confidential thread never appears in the sidebar — only the seeded regular thread.
   await expect(page.getByTestId('sidebar-thread-row')).toHaveCount(1);
@@ -37,6 +45,35 @@ test('confidential: /confidential shows the banner, pins + locks the E2E model, 
   // Chatting works normally inside a confidential chat.
   await sendComposerPrompt(page, 'answer privately please');
   await expect(page.getByTestId('message').filter({ hasText: 'answer privately please' })).toBeVisible();
+});
+
+test('confidential: the picker offers only E2E-eligible models and the choice stays thread-scoped', async ({ page }) => {
+  await page.goto(harnessURL());
+  await sendComposerPrompt(page, 'seed thread');
+  const modelBefore = (await page.getByTestId('model-picker-button').textContent())?.trim() || '';
+
+  await openConfidential(page);
+
+  // The browser lists ONLY E2E-eligible models: the E2E route + Confidential-tier catalog models.
+  await page.getByTestId('model-picker-button').click();
+  await expect(page.getByTestId('model-browser')).toBeVisible();
+  const listedIDs = await page.getByTestId('model-option').evaluateAll(
+    options => options.map(option => option.getAttribute('data-model-id'))
+  );
+  expect(listedIDs.sort()).toEqual(['trustedrouter/e2e', 'z-ai/glm-5.2-confidential']);
+
+  // Picking an exact Confidential-tier model works — the chip reflects the choice.
+  await page.locator('[data-testid="model-option"][data-model-id="z-ai/glm-5.2-confidential"]').click();
+  await expect(page.getByTestId('model-picker-button')).toContainText('GLM 5.2 Confidential');
+
+  // Leaving confidential restores the pre-confidential model: the in-mode choice was thread-scoped
+  // and must not quietly reconfigure normal chats.
+  const message = page.getByLabel('Message');
+  await message.fill('/new');
+  await message.press('Enter');
+  await expect(page.getByTestId('confidential-banner')).toHaveCount(0);
+  await expect(page.getByTestId('model-picker-button')).toHaveText(modelBefore);
+  await expect(page.getByTestId('workspace')).toHaveAttribute('data-confidential', 'false');
 });
 
 test('confidential: the legacy /incognito alias still starts a confidential chat', async ({ page }) => {

@@ -15,15 +15,32 @@ struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
         defaultModelID: String,
         favoriteModelIDs: [String],
         recentModelIDs: [String],
-        recentLimit: Int = 4
+        recentLimit: Int = 4,
+        restrictToE2EEligible: Bool = false
     ) {
-        self.catalog = TrustedRouterDefaults.normalizedModelCatalog(catalog)
+        // The restriction must run AFTER normalization: normalizedModelCatalog merges the bundled
+        // recommended set back in, so a pre-filtered input would quietly regrow non-eligible models.
+        // Favorites/recents are filtered too — their option builders fall back to a synthesized
+        // entry for ids missing from the catalog, which would otherwise smuggle a non-E2E model
+        // into a confidential picker under "Recent".
+        let normalized = TrustedRouterDefaults.normalizedModelCatalog(catalog)
+        let eligible: (String) -> Bool = { id in
+            !restrictToE2EEligible || TrustedRouterDefaults.isE2EEligible(id, catalog: normalized)
+        }
+        self.catalog = normalized.filter { eligible($0.id) }
         self.selectedModelID = TrustedRouterDefaults.canonicalModelID(selectedModelID)
         self.defaultModelID = TrustedRouterDefaults.normalizedDefaultModelID(defaultModelID)
-        self.favoriteModelIDs = Self.normalizedUniqueModelIDs(favoriteModelIDs)
-        self.recentModelIDs = Self.normalizedUniqueModelIDs(recentModelIDs)
+        self.favoriteModelIDs = Self.normalizedUniqueModelIDs(favoriteModelIDs).filter(eligible)
+        self.recentModelIDs = Self.normalizedUniqueModelIDs(recentModelIDs).filter(eligible)
         self.recentLimit = recentLimit
+        self.selectedModelIsAdmissible = eligible(self.selectedModelID)
     }
+
+    /// Whether the selected model may be synthesized back into the list when the catalog lacks it.
+    /// Under the E2E restriction a selected model that LOST eligibility (a live-catalog refresh
+    /// dropped its Confidential tier) must NOT be re-admitted as a phantom "Current" row — the
+    /// picker would offer a model the setModel gate then refuses.
+    private let selectedModelIsAdmissible: Bool
 
     func modelLabel() -> String {
         guard let model = catalog.first(where: { $0.id == selectedModelID }) else {
@@ -70,6 +87,9 @@ struct WorkspaceModelCatalogSurfaceBuilder: Sendable, Hashable {
 
     private func catalogIncludingSelectedModel() -> [ModelInfo] {
         guard !catalog.contains(where: { $0.id == selectedModelID }) else {
+            return catalog
+        }
+        guard selectedModelIsAdmissible else {
             return catalog
         }
         return [Self.fallbackModelInfo(for: selectedModelID)] + catalog

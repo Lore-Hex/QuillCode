@@ -59,9 +59,12 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
             memorySources: memories.map(\.relativePath),
             modelLabel: modelCatalog.modelLabel(),
             selectedModelID: topBarState.model,
-            // Confidential threads pin the E2E-encrypted route for their lifetime; the picker renders
-            // locked so the privacy promise can't be silently broken by a model switch.
-            modelIsLocked: thread?.runtimeContext.isConfidential == true,
+            // A confidential thread's picker stays USABLE but restricted (see modelCatalogBuilder).
+            // It renders locked only when the eligible set offers no real choice (just the E2E
+            // route) — an openable picker with a single row would read as broken, while the lock
+            // honestly says "pinned". Unique ids, because Favorites/Recent duplicate entries.
+            modelIsLocked: thread?.runtimeContext.isConfidential == true
+                && Set(modelCatalog.categories().flatMap { $0.models.map(\.id) }).count <= 1,
             modelCategories: modelCatalog.categories(),
             modelCatalogSource: modelCatalogStatus.source,
             modelCatalogStatusLabel: modelCatalogStatus.statusLabel(),
@@ -159,13 +162,19 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
         return WorktreeStatus(label: label, detail: detail, isWarning: !isResolvable)
     }
 
+    /// Inside a confidential chat the picker stays USABLE but only offers models whose TrustedRouter
+    /// routing is end-to-end encrypted (the E2E meta-route + Confidential-tier catalog models). The
+    /// model-level `setModel` guard is the enforcement; the builder-side restriction keeps the picker
+    /// honest about what it can actually switch to (and must live INSIDE the builder — its catalog
+    /// normalization would regrow a pre-filtered list).
     private func modelCatalogBuilder() -> WorkspaceModelCatalogSurfaceBuilder {
         WorkspaceModelCatalogSurfaceBuilder(
             catalog: modelCatalog,
             selectedModelID: topBarState.model,
             defaultModelID: defaultModelID,
             favoriteModelIDs: favoriteModelIDs,
-            recentModelIDs: recentModelIDs()
+            recentModelIDs: recentModelIDs(),
+            restrictToE2EEligible: thread?.runtimeContext.isConfidential == true
         )
     }
 

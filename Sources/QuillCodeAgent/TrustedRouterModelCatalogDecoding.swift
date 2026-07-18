@@ -35,7 +35,9 @@ struct TrustedRouterCatalogModel: Decodable {
             ]),
             status: container.firstNonEmptyString(for: ["status", "availability"]),
             summary: container.firstNonEmptyString(for: ["description", "summary"]),
-            releaseDate: Self.releaseDate(in: container)
+            releaseDate: Self.releaseDate(in: container),
+            privacyTier: container.firstInt(for: ["privacy_tier", "privacyTier"]),
+            regions: Self.regions(in: container)
         )
     }
 
@@ -69,6 +71,20 @@ struct TrustedRouterCatalogModel: Decodable {
     private static func capabilityTags(in container: KeyedDecodingContainer<FlexibleCodingKey>) throws -> [String] {
         try container.firstStringList(for: ["capabilities", "features"])
             + container.firstStringList(for: ["supported_parameters", "supportedParameters"])
+    }
+
+    /// Data-residency claims arrive as a list ("regions"), a single value ("region"), or a
+    /// residency field ("data_residency"). All normalize through ModelCapabilities' canonical
+    /// region codes; absent values mean UNKNOWN, never "everywhere".
+    private static func regions(in container: KeyedDecodingContainer<FlexibleCodingKey>) -> [String] {
+        // "region" appears in the LIST keys too: a catalog is free to put an array under the
+        // singular key, and firstStringList on a scalar simply yields nothing.
+        let listed = (try? container.firstStringList(for: ["regions", "region", "data_residency", "dataResidency"])) ?? []
+        if !listed.isEmpty { return listed }
+        guard let single = try? container.firstNonEmptyString(for: ["region", "data_residency", "dataResidency"]) else {
+            return []
+        }
+        return [single]
     }
 
     private static let releaseDateKeys = [

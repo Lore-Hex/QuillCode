@@ -71,6 +71,37 @@ enum QuillCodePalette {
     static let yellow = Color(red: 0.878, green: 0.667, blue: 0.302)       // #e0aa4d
     static let coral = Color(red: 0.820, green: 0.420, blue: 0.370)
     static let purple = Color(red: 0.769, green: 0.541, blue: 0.965)       // #c48af6 (agent)
+
+    /// Confidential-mode ramp: the SAME stepped elevation as the neutral ramp, shifted to a deep
+    /// violet cast so the mode is unmistakable at a glance — Chrome-incognito style, where the whole
+    /// chrome changes, not just a banner. Mirrors the harness/DOM `[data-confidential="true"]` token
+    /// overrides in E2E/harness/index.html — keep the two in sync.
+    enum Confidential {
+        static let background = Color(red: 0.071, green: 0.059, blue: 0.110)   // #12101c — deepest plane
+        static let panel = Color(red: 0.098, green: 0.082, blue: 0.153)        // #191527 — main content
+        static let panel2 = Color(red: 0.133, green: 0.110, blue: 0.200)       // #221c33 — cards, inputs
+        static let panel3 = Color(red: 0.173, green: 0.141, blue: 0.251)       // #2c2440 — nested chips
+        static let line = Color(red: 0.204, green: 0.165, blue: 0.302)         // #342a4d — hairline
+        static let lineStrong = Color(red: 0.275, green: 0.227, blue: 0.400)   // #463a66 — emphasized
+        static let userBubble = Color(red: 0.357, green: 0.290, blue: 0.561)   // #5b4a8f — violet "mine"
+        static let userBubbleBorder = Color(red: 0.478, green: 0.396, blue: 0.722) // #7a65b8
+        /// The banner band + hero-icon tint: the agent purple at surface strength.
+        static let bandFill = QuillCodePalette.purple.opacity(0.14)
+    }
+}
+
+/// True while the selected thread is a confidential chat, so the views that paint the workspace
+/// planes (transcript, composer, banner, bubbles) can swap to the violet confidential ramp without
+/// threading a flag through every initializer.
+private struct QuillCodeConfidentialAppearanceKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var quillCodeConfidentialAppearance: Bool {
+        get { self[QuillCodeConfidentialAppearanceKey.self] }
+        set { self[QuillCodeConfidentialAppearanceKey.self] = newValue }
+    }
 }
 
 func quillCodeWithAnimation(_ animation: Animation, reduceMotion: Bool, _ updates: () -> Void) {

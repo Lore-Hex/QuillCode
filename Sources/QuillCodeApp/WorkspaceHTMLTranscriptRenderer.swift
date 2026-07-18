@@ -6,7 +6,8 @@ enum WorkspaceHTMLTranscriptRenderer {
         contextBanner: ContextBannerSurface?,
         review: WorkspaceReviewSurface,
         runtimeIssue: RuntimeIssueSurface?,
-        retryLastTurnCommand: WorkspaceCommandSurface?
+        retryLastTurnCommand: WorkspaceCommandSurface?,
+        isConfidential: Bool = false
     ) -> String {
         let context = renderContextBanner(contextBanner)
         let issue = renderRuntimeIssue(runtimeIssue)
@@ -24,6 +25,22 @@ enum WorkspaceHTMLTranscriptRenderer {
         }.joined(separator: "\n")
         let thinking = renderThinking(transcript.thinking)
         if context.isEmpty && issue.isEmpty && timeline.isEmpty && thinking.isEmpty && !review.isVisible {
+            if isConfidential {
+                // The confidential hero (mirrors the native QuillCodeTranscriptView hero): the
+                // mode's guarantees INSTEAD of project starter cards, which would invite sharing
+                // exactly the workspace context this mode deliberately withholds.
+                return """
+                <section class="empty confidential-empty" data-testid="transcript-empty">
+                  <div class="confidential-empty-glyph" aria-hidden="true">🕶</div>
+                  <h1 data-testid="confidential-empty-title">This chat is confidential</h1>
+                  <ul class="confidential-empty-guarantees" data-testid="confidential-empty-guarantees">
+                    <li>Never saved — destroyed when you leave</li>
+                    <li>End-to-end encrypted on TrustedRouter</li>
+                    <li>No workspace instructions or memories shared</li>
+                  </ul>
+                </section>
+                """
+            }
             return """
             <section class="empty" data-testid="transcript-empty">
               <h1>\(escape(transcript.emptyTitle))</h1>

@@ -37,8 +37,28 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
     /// without this per-turn override a model switch would only reach the request after a Settings
     /// save or re-sign-in (the pre-existing dead-writer gap). A nil/empty `modelID` (or a mock
     /// client that can't override) leaves the client's model untouched — same model as before.
+    /// Belt on top of the setModel eligibility gate: if ANY path handed a confidential run a
+    /// non-E2E model (a direct thread mutation, a stale catalog that no longer marks the model
+    /// Confidential-tier), the request clamps back to the guaranteed E2E route rather than egress
+    /// on a non-encrypted one. Pure so the guard itself is testable.
+    static func effectiveModelID(
+        _ modelID: String?,
+        threadIsConfidential: Bool,
+        catalog: [ModelInfo]
+    ) -> String? {
+        guard threadIsConfidential, let requested = modelID,
+              !TrustedRouterDefaults.isE2EEligible(requested, catalog: catalog)
+        else { return modelID }
+        return TrustedRouterDefaults.e2eModel
+    }
+
     func configuredRunner(from runner: AgentRunner, modelID: String? = nil) -> AgentRunner {
         var activeRunner = runner
+        let modelID = Self.effectiveModelID(
+            modelID,
+            threadIsConfidential: threadIsConfidential,
+            catalog: modelCatalog
+        )
         activeRunner.baseToolDefinitions = baseToolDefinitions
         activeRunner.additionalToolDefinitions = additionalToolDefinitions
         activeRunner.toolExecutionOverride = toolExecutionOverride
@@ -71,8 +91,10 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         // routing.) Swap the auxiliaries to their model-free forms — static safety policy (auto
         // approvals degrade to the conservative static verdicts) and the deterministic compaction
         // summarizer — and retarget or drop web search.
+        // E2E-eligible covers the meta-route AND Confidential-tier catalog models: a thread whose
+        // primary traffic is end-to-end encrypted must not leak via auxiliaries either way.
         let requiresE2EOnlyTraffic = threadIsConfidential
-            || TrustedRouterDefaults.canonicalModelID(modelID ?? "") == TrustedRouterDefaults.e2eModel
+            || TrustedRouterDefaults.isE2EEligible(modelID ?? "", catalog: modelCatalog)
         if requiresE2EOnlyTraffic {
             activeRunner.safety = AutoSafetyReviewer()
             if var compaction = activeRunner.compaction {

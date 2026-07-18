@@ -35,6 +35,7 @@ struct QuillCodeTranscriptView: View {
     var onSubmitStarterAction: (String) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.quillCodeConfidentialAppearance) private var isConfidentialAppearance
 
     /// Per-thread "N new turns" bookkeeping. A `@StateObject` so it survives thread switches within
     /// this view's lifetime — the watermark for a thread you left stays put while it grows in the
@@ -123,7 +124,7 @@ struct QuillCodeTranscriptView: View {
             }
             transcriptBody
         }
-        .background(QuillCodePalette.background)
+        .background(isConfidentialAppearance ? QuillCodePalette.Confidential.background : QuillCodePalette.background)
         // The "N new turns" watermark bookkeeping lives on this STABLE parent — not inside the
         // empty-state-gated transcript subtree, which SwiftUI tears down (so its .onChange would
         // never fire) whenever the selected thread's transcript is empty, e.g. right after New
@@ -273,7 +274,7 @@ struct QuillCodeTranscriptView: View {
                 }
             }
         }
-        .background(QuillCodePalette.background)
+        .background(isConfidentialAppearance ? QuillCodePalette.Confidential.background : QuillCodePalette.background)
     }
 
     private var timelineItems: some View {
@@ -331,23 +332,72 @@ struct QuillCodeTranscriptView: View {
         .id(item.id)
     }
 
+    @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: 14) {
-            Text(transcript.emptyTitle)
+        if isConfidentialAppearance {
+            confidentialEmptyState
+        } else {
+            VStack(spacing: 14) {
+                Text(transcript.emptyTitle)
+                    .font(.title3.weight(.semibold))
+                    .tracking(-0.3)
+                    .foregroundStyle(QuillCodePalette.text)
+                Text(transcript.emptySubtitle)
+                    .font(.callout)
+                    .lineSpacing(3)
+                    .foregroundStyle(QuillCodePalette.muted)
+                starterActions
+                    .padding(.top, 4)
+            }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: 620)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 22)
+        }
+    }
+
+    /// The confidential "you've gone private" hero — Chrome-incognito style: a large mode glyph and
+    /// the mode's three guarantees, instead of the project starter cards (which would read as an
+    /// invitation to share workspace context this mode deliberately withholds).
+    private var confidentialEmptyState: some View {
+        VStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(QuillCodePalette.Confidential.bandFill)
+                    .frame(width: 72, height: 72)
+                Image(systemName: "eye.slash.fill")
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(QuillCodePalette.purple)
+            }
+            .accessibilityHidden(true)
+            Text("This chat is confidential")
                 .font(.title3.weight(.semibold))
                 .tracking(-0.3)
                 .foregroundStyle(QuillCodePalette.text)
-            Text(transcript.emptySubtitle)
-                .font(.callout)
-                .lineSpacing(3)
-                .foregroundStyle(QuillCodePalette.muted)
-            starterActions
-                .padding(.top, 4)
+            VStack(alignment: .leading, spacing: 8) {
+                confidentialGuarantee("internaldrive", "Never saved — destroyed when you leave")
+                confidentialGuarantee("lock.shield", "End-to-end encrypted on TrustedRouter")
+                confidentialGuarantee("doc.text.magnifyingglass", "No workspace instructions or memories shared")
+            }
+            .padding(.top, 2)
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: 620)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 22)
+        .accessibilityIdentifier("quillcode-confidential-empty-state")
+    }
+
+    private func confidentialGuarantee(_ systemImage: String, _ text: String) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.callout)
+                .foregroundStyle(QuillCodePalette.purple)
+                .frame(width: 20)
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(QuillCodePalette.muted)
+        }
     }
 
     private var starterActions: some View {

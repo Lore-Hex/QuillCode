@@ -10,7 +10,7 @@ struct QuillCodeConfidentialBannerView: View {
         HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             Image(systemName: "eye.slash.fill")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.muted)
+                .foregroundStyle(QuillCodePalette.purple)
             Text("Confidential chat")
                 .font(.callout.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.text)
@@ -21,10 +21,13 @@ struct QuillCodeConfidentialBannerView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
-        .background(QuillCodePalette.panel2)
+        // The mode's violet band — layered over the confidential panel so the strip reads as part of
+        // the shifted chrome, not a gray leftover from the normal ramp.
+        .background(QuillCodePalette.Confidential.bandFill)
+        .background(QuillCodePalette.Confidential.panel2)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(QuillCodePalette.line)
+                .fill(QuillCodePalette.Confidential.lineStrong)
                 .frame(height: 1)
         }
         .accessibilityElement(children: .combine)

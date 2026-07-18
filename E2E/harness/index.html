@@ -203,6 +203,36 @@
       display: none !important;
     }
     .quillcode-workspace { min-height: 100vh; display: grid; grid-template-rows: auto 1fr; }
+    /* Confidential mode: the whole chrome shifts to a deep violet ramp (Chrome-incognito style) by
+       re-tinting the shared tokens — every component that uses the vars inherits the mode look.
+       Mirrors QuillCodePalette.Confidential in the native app — keep the two in sync. */
+    .quillcode-workspace[data-confidential="true"] {
+      --bg: #12101c;
+      --panel: #191527;
+      --panel-2: #221c33;
+      --panel-3: #2c2440;
+      --line: #342a4d;
+      --line-strong: #463a66;
+      --user-bubble: #5b4a8f;
+      --user-bubble-border: #7a65b8;
+      --shadow-border: 0 0 0 1px var(--line);
+      --shadow-border-hover: 0 0 0 1px var(--line-strong);
+    }
+    .quillcode-workspace[data-confidential="true"] .confidential-banner {
+      background: linear-gradient(0deg, rgba(196,138,246,.14), rgba(196,138,246,.14)), var(--panel-2);
+      border-bottom: 1px solid var(--line-strong);
+    }
+    .quillcode-workspace[data-confidential="true"] .confidential-banner strong { color: var(--text); }
+    .confidential-empty { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .confidential-empty-glyph {
+      display: grid; place-items: center; width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(196,138,246,.14); font-size: 30px;
+    }
+    .confidential-empty-guarantees {
+      list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px;
+      color: var(--muted); font-size: 14px; text-align: left;
+    }
+    .confidential-empty-guarantees li::before { content: '•'; color: var(--purple); margin-right: 10px; }
     .topbar {
       position: relative;
       display: grid;
@@ -5303,18 +5333,18 @@
           {
             category: 'Recommended',
             models: [
-              { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Nike 1.0', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'], capabilities: { inputPricePerMillionTokens: 0.8, outputPricePerMillionTokens: 4 } },
-              { id: 'trustedrouter/zeus', provider: 'trustedrouter', displayName: 'Zeus 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 2, outputPricePerMillionTokens: 10 } },
-              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Prometheus 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5 } },
+              { id: 'trustedrouter/fast', provider: 'trustedrouter', displayName: 'Nike 1.0', isSelected: true, isFavorite: false, badges: ['Current', 'Default', 'Recommended'], capabilities: { inputPricePerMillionTokens: 0.8, outputPricePerMillionTokens: 4, regions: ['us'] } },
+              { id: 'trustedrouter/zeus', provider: 'trustedrouter', displayName: 'Zeus 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 2, outputPricePerMillionTokens: 10, regions: ['us'] } },
+              { id: 'trustedrouter/fusion', provider: 'trustedrouter', displayName: 'Prometheus 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5, regions: ['us', 'eu'] } },
               { id: 'trustedrouter/socrates', provider: 'trustedrouter', displayName: 'Socrates 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 3, outputPricePerMillionTokens: 15 } },
               { id: 'trustedrouter/aristotle', provider: 'trustedrouter', displayName: 'Aristotle 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 2.5, outputPricePerMillionTokens: 12.5 } },
-              { id: 'trustedrouter/plato', provider: 'trustedrouter', displayName: 'Plato 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5 } }
+              { id: 'trustedrouter/plato', provider: 'trustedrouter', displayName: 'Plato 1.0', isSelected: false, isFavorite: false, badges: ['Recommended'], capabilities: { inputPricePerMillionTokens: 1.5, outputPricePerMillionTokens: 7.5, regions: ['eu'] } }
             ]
           },
           {
             category: 'Safety',
             models: [
-              { id: 'z-ai/glm-5.2', provider: 'z-ai', displayName: 'GLM 5.2', isSelected: false, isFavorite: false, badges: [], capabilities: { inputPricePerMillionTokens: 0.6, outputPricePerMillionTokens: 2.2 } },
+              { id: 'z-ai/glm-5.2', provider: 'z-ai', displayName: 'GLM 5.2', isSelected: false, isFavorite: false, badges: [], capabilities: { inputPricePerMillionTokens: 0.6, outputPricePerMillionTokens: 2.2, regions: ['cn'] } },
               // No price — proves the `/model` popup renders a model gracefully without a price line.
               { id: 'moonshotai/kimi-k2.6', provider: 'moonshotai', displayName: 'Kimi K2.6', isSelected: false, isFavorite: false, badges: [], capabilities: {} }
             ]
@@ -5322,7 +5352,17 @@
           {
             category: 'minimax',
             models: [
-              { id: 'minimax/minimax-m3', provider: 'minimax', displayName: 'MiniMax M3', isSelected: false, isFavorite: false, badges: [], capabilities: { contextWindowTokens: 200000 } }
+              { id: 'minimax/minimax-m3', provider: 'minimax', displayName: 'MiniMax M3', isSelected: false, isFavorite: false, badges: [], capabilities: { contextWindowTokens: 200000, regions: ['cn'] } }
+            ]
+          },
+          {
+            category: 'Private',
+            models: [
+              // privacyTier 3 = TrustedRouter Confidential: E2E-eligible, so these are the only
+              // models a confidential chat's picker and /model popup may offer (mirrors native
+              // TrustedRouterDefaults.isE2EEligible).
+              { id: 'trustedrouter/e2e', provider: 'trustedrouter', displayName: 'E2E Encrypted', isSelected: false, isFavorite: false, badges: [], capabilities: { privacyTier: 3 } },
+              { id: 'z-ai/glm-5.2-confidential', provider: 'z-ai', displayName: 'GLM 5.2 Confidential', isSelected: false, isFavorite: false, badges: [], capabilities: { privacyTier: 3, inputPricePerMillionTokens: 0.9, outputPricePerMillionTokens: 3.1 } }
             ]
           }
         ],
@@ -6901,7 +6941,7 @@
       const normalizedQuery = normalizeModelField(query);
       const seen = new Set();
       const options = [];
-      for (const category of state.topBar.modelCategories) {
+      for (const category of eligibleModelCategories()) {
         for (const model of category.models) {
           const key = canonicalModelID(model.id);
           if (seen.has(key)) continue;
@@ -12436,12 +12476,25 @@
             </button>
           `).join('')}
         </div>` : '';
-      const timeline = hasTimelineContent ? context + runtimeIssue + review + transcriptItems + thinking : shouldHideEmptyTranscript ? '' : `
+      // Confidential hero: the mode's guarantees INSTEAD of project starter cards, which would
+      // invite sharing exactly the workspace context this mode deliberately withholds. Mirrors the
+      // native QuillCodeTranscriptView hero and the DOM renderer.
+      const emptyState = confidentialIsActive() ? `
+        <section class="empty confidential-empty" data-testid="transcript-empty">
+          <div class="confidential-empty-glyph" aria-hidden="true">🕶</div>
+          <h1 data-testid="confidential-empty-title">This chat is confidential</h1>
+          <ul class="confidential-empty-guarantees" data-testid="confidential-empty-guarantees">
+            <li>Never saved — destroyed when you leave</li>
+            <li>End-to-end encrypted on TrustedRouter</li>
+            <li>No workspace instructions or memories shared</li>
+          </ul>
+        </section>` : `
         <section class="empty" data-testid="transcript-empty">
           <h1>${escapeHTML(state.transcript.emptyTitle)}</h1>
           <p>${escapeHTML(state.transcript.emptySubtitle)}</p>
           ${emptyStarterActions}
         </section>`;
+      const timeline = hasTimelineContent ? context + runtimeIssue + review + transcriptItems + thinking : shouldHideEmptyTranscript ? '' : emptyState;
       const projectsContent = state.projects.items.length
         ? state.projects.items.map(item => `
           <div class="project-row" data-testid="project-row" data-project-id="${escapeHTML(item.id)}" draggable="true">
@@ -12688,6 +12741,10 @@
           </span>
         </div>
       ` : '';
+      // Inside confidential the picker is USABLE but restricted; it locks only when the eligible
+      // set offers no real choice (an openable picker with one row would read as broken).
+      const modelPickerLocked = confidentialIsActive()
+        && new Set(eligibleModelCategories().flatMap(category => category.models.map(model => model.id))).size <= 1;
       const filteredModelCategories = filterModelCategories(state.topBar.modelSearch);
       const filteredModelCount = filteredModelCategories.reduce((count, category) => count + category.models.length, 0);
       const modelSearchQuery = state.topBar.modelSearch.trim();
@@ -12734,7 +12791,7 @@
         <section class="model-panel" data-testid="model-browser" aria-label="Model browser">
           <div>
             <h2>Choose Model</h2>
-            <p>Search provider, category, model, or state</p>
+            <p>Search provider, category, model, state, or us-only / eu-only / china-only</p>
             <p class="model-catalog-status" data-testid="model-catalog-status" title="${escapeHTML(state.topBar.modelCatalogStatusDetail || state.topBar.modelCatalogStatusLabel)}">${escapeHTML(state.topBar.modelCatalogStatusLabel)}</p>
             ${state.topBar.modelProviderHealthLabel ? `<p class="model-provider-health" data-testid="model-provider-health" title="${escapeHTML(state.topBar.modelProviderHealthDetail || state.topBar.modelProviderHealthLabel)}">${escapeHTML(state.topBar.modelProviderHealthLabel)}</p>` : ''}
           </div>
@@ -12830,6 +12887,7 @@
           data-testid="workspace"
           data-sidebar-visible="${state.chrome.isSidebarVisible}"
           data-review-visible="${state.chrome.isReviewVisible}"
+          data-confidential="${confidentialIsActive()}"
           data-text-scale="${escapeHTML(state.chrome.textScale)}">
           <header class="topbar" data-testid="top-bar" aria-label="QuillCode top bar">
             <div class="topbar-status-metadata" data-testid="top-bar-status-metadata" aria-hidden="true">
@@ -12903,7 +12961,7 @@
                     <button type="button" class="hit-target-icon" data-testid="attach-images-button" aria-label="Attach images" title="Attach images">▧</button>
                     <input type="file" data-testid="image-file-input" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden>
                     <div class="model-picker-wrap">
-                      <button class="composer-model-button hit-target-capsule" type="button" ${confidentialIsActive() ? 'disabled ' : ''}aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="${confidentialIsActive() ? 'Model locked: ' : 'Model: '}${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${confidentialIsActive() ? '🔒 ' : ''}${escapeHTML(state.topBar.modelLabel)}</button>
+                      <button class="composer-model-button hit-target-capsule" type="button" ${modelPickerLocked ? 'disabled ' : ''}aria-expanded="${state.topBar.modelPickerOpen ? 'true' : 'false'}" aria-label="${modelPickerLocked ? 'Model locked: ' : 'Model: '}${escapeHTML(state.topBar.modelLabel)}" data-testid="model-picker-button">${modelPickerLocked ? '🔒 ' : ''}${escapeHTML(state.topBar.modelLabel)}</button>
                       ${modelBrowser}
                     </div>
                     <button type="button" class="mode-pill-button hit-target-capsule" data-testid="mode-picker-button" data-mode-tone="${escapeHTML(modeTone(state.topBar.modeLabel))}" aria-label="Auto safety mode: ${escapeHTML(state.topBar.modeLabel)}">
@@ -14150,12 +14208,44 @@
 	      });
 	    }
 
+    // "us-only" / "eu-only" / "china-only" search tokens are CONSTRAINTS, not text: they restrict
+    // to models whose residency claim is entirely within that region (unknown residency fails
+    // closed), and are removed from the text terms. Mirrors native ModelCategorySearchFilter.
+    function extractRegionOnlyConstraint(terms) {
+      const canonical = {
+        us: 'us', usa: 'us', 'united states': 'us', 'united-states': 'us', america: 'us',
+        eu: 'eu', europe: 'eu', 'european union': 'eu', 'european-union': 'eu',
+        cn: 'cn', china: 'cn', prc: 'cn'
+      };
+      let required = null;
+      for (let index = terms.length - 1; index >= 0; index -= 1) {
+        const term = terms[index];
+        let stem = null;
+        if (term.endsWith('-only')) stem = term.slice(0, -5);
+        else if (term.endsWith('only') && term.length > 4) stem = term.slice(0, -4);
+        if (stem === null) continue;
+        const region = canonical[stem] || null;
+        if (!region) continue;
+        // EVERY region token is consumed (first in the query wins) — leaving a later one as a text
+        // term would poison the haystack match and guarantee empty results.
+        terms.splice(index, 1);
+        required = region;
+      }
+      return required;
+    }
+
+    function modelIsRegionOnly(model, region) {
+      const regions = model.capabilities?.regions;
+      return Array.isArray(regions) && regions.length > 0 && regions.every(value => value === region);
+    }
+
     function filterModelCategories(query) {
       const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      if (!terms.length) return state.topBar.modelCategories;
+      const requiredRegion = extractRegionOnlyConstraint(terms);
+      if (!terms.length && !requiredRegion) return eligibleModelCategories();
       const includesFavoriteTerm = terms.includes('favorite') || terms.includes('favorites');
       const includesRecentTerm = terms.includes('recent');
-      return state.topBar.modelCategories
+      return eligibleModelCategories()
         .filter(category => !includesFavoriteTerm || category.category === 'Favorites')
         .filter(category => !includesRecentTerm || category.category === 'Recent')
         .filter(category => category.category !== 'Favorites' || includesFavoriteTerm)
@@ -14163,6 +14253,8 @@
         .map(category => ({
           ...category,
           models: category.models.filter(model => {
+            if (requiredRegion && !modelIsRegionOnly(model, requiredRegion)) return false;
+            if (!terms.length) return true;
             const haystack = [
               category.category,
               model.id,
@@ -14247,7 +14339,9 @@
     }
 
     function selectModel(selectedID) {
-      const allModels = state.topBar.modelCategories.flatMap(category => category.models);
+      // Resolving against the ELIGIBLE source is the dispatch-level gate: inside confidential, a
+      // non-E2E id simply fails to resolve, whichever path asked (picker click, Enter, /model).
+      const allModels = eligibleModelCategories().flatMap(category => category.models);
       const selected = allModels.find(model => model.id === selectedID);
       if (!selected) return false;
       state.topBar.selectedModelID = selected.id;
@@ -14591,12 +14685,16 @@
         model.isFavorite || badges.includes('Favorite') ? 'Favorite' : null,
         badges.includes('Recent') ? 'Recent' : null
       ].filter(Boolean);
-      return [
+      const rows = [
         { label: 'Provider', value: model.provider },
         { label: 'Model ID', value: model.id },
-        { label: 'Category', value: category },
-        { label: 'State', value: stateLabels.length ? uniqueStrings(stateLabels).join(', ') : 'Available' }
+        { label: 'Category', value: category }
       ];
+      if (Array.isArray(model.capabilities?.regions) && model.capabilities.regions.length) {
+        rows.push({ label: 'Region', value: model.capabilities.regions.map(region => region.toUpperCase()).join(', ') });
+      }
+      rows.push({ label: 'State', value: stateLabels.length ? uniqueStrings(stateLabels).join(', ') : 'Available' });
+      return rows;
     }
 
     function modelMetadataDetails(model, categoryName) {
@@ -17790,12 +17888,48 @@
         state.topBar.modelLabel = state.confidentialPreviousModelLabel;
         state.confidentialPreviousModelLabel = null;
       }
+      // A model picked INSIDE confidential is thread-scoped (mirrors native, where the workspace
+      // default is untouched): restore the pre-confidential selection and its badges on exit.
+      if (state.confidentialPreviousSelectedModelID) {
+        const previousID = state.confidentialPreviousSelectedModelID;
+        state.topBar.selectedModelID = previousID;
+        state.topBar.modelCategories = state.topBar.modelCategories.map(category => ({
+          ...category,
+          models: category.models.map(model => {
+            const selectedMatch = model.id === previousID;
+            const withoutCurrent = (model.badges || []).filter(badge => badge !== 'Current');
+            return {
+              ...model,
+              isSelected: selectedMatch,
+              badges: selectedMatch ? ['Current', ...withoutCurrent] : withoutCurrent
+            };
+          })
+        }));
+        state.confidentialPreviousSelectedModelID = null;
+      }
       return true;
     }
 
     function confidentialIsActive() {
       const current = state.sidebar.items.find(item => item.id === state.sidebar.selectedThreadID);
       return Boolean(current?.isConfidential);
+    }
+
+    // Mirrors native TrustedRouterDefaults.isE2EEligible: the E2E meta-route always, or any model
+    // TrustedRouter marks Confidential-tier (privacyTier 3) — the only models whose routing is
+    // end-to-end encrypted, and therefore the only ones a confidential chat may offer or select.
+    function modelIsE2EEligible(model) {
+      return model.id === 'trustedrouter/e2e' || model.capabilities?.privacyTier === 3;
+    }
+
+    // The single model-catalog source both the picker and the /model popup read: full catalog
+    // normally, E2E-eligible subset inside a confidential chat. Gating the SOURCE (and selectModel)
+    // keeps every list and every dispatch path honest at once.
+    function eligibleModelCategories() {
+      if (!confidentialIsActive()) return state.topBar.modelCategories;
+      return state.topBar.modelCategories
+        .map(category => ({ ...category, models: category.models.filter(modelIsE2EEligible) }))
+        .filter(category => category.models.length > 0);
     }
 
     // Mirrors QuillCodeWorkspaceModel.newConfidentialChat(): a session-only thread pinned to the
@@ -17832,6 +17966,8 @@
       state.composer.canSend = false;
       state.composer.isSending = false;
       state.confidentialPreviousModelLabel = state.topBar.modelLabel;
+      state.confidentialPreviousSelectedModelID = state.topBar.selectedModelID;
+      state.topBar.selectedModelID = 'trustedrouter/e2e';
       state.topBar.modelLabel = 'E2E Encrypted';
       state.topBar.primaryTitle = 'Confidential';
       state.topBar.agentStatus = 'Idle';

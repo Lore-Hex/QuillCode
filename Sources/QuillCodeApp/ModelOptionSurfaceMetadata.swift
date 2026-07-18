@@ -156,6 +156,13 @@ extension ModelOptionSurface {
                 value: capabilities.capabilityTags.joined(separator: ", ")
             ))
         }
+        if !capabilities.regions.isEmpty {
+            // Uppercased for display ("US, EU"); the search filter matches the lowercase codes.
+            rows.append(ModelMetadataRowSurface(
+                label: "Region",
+                value: capabilities.regions.map { $0.uppercased() }.joined(separator: ", ")
+            ))
+        }
         return rows
     }
 

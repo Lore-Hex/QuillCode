@@ -1,9 +1,14 @@
 import Foundation
+import QuillCodeCore
 
 enum ModelCategorySearchFilter {
     static func filter(_ categories: [ModelCategorySurface], matching query: String) -> [ModelCategorySurface] {
-        let terms = normalizedTerms(from: query)
-        guard !terms.isEmpty else {
+        var terms = normalizedTerms(from: query)
+        // Region enforcement terms ("us-only", "eu-only", "china-only") are CONSTRAINTS, not text:
+        // they restrict results to models whose routing is entirely within that region, and are
+        // removed from the text terms so "us-only" alone lists every US-resident model.
+        let requiredRegion = extractRegionOnlyConstraint(from: &terms)
+        guard !terms.isEmpty || requiredRegion != nil else {
             return categories
         }
 
@@ -12,6 +17,10 @@ enum ModelCategorySearchFilter {
                 return nil
             }
             let models = category.models.filter { option in
+                if let requiredRegion, !isRegionOnly(option, region: requiredRegion) {
+                    return false
+                }
+                guard !terms.isEmpty else { return true }
                 let haystack = searchableText(for: option, in: category).lowercased()
                 let compactHaystack = compactSearchText(haystack)
                 return terms.allSatisfy { term in
@@ -24,6 +33,41 @@ enum ModelCategorySearchFilter {
             }
             return ModelCategorySurface(category: category.category, models: models)
         }
+    }
+
+    /// A model qualifies as "<region>-only" when the catalog made an explicit residency claim and
+    /// EVERY claimed region is the required one. Unknown residency (empty) never qualifies —
+    /// enforcement must fail closed.
+    static func isRegionOnly(_ option: ModelOptionSurface, region: String) -> Bool {
+        !option.capabilities.regions.isEmpty
+            && option.capabilities.regions.allSatisfy { $0 == region }
+    }
+
+    /// Recognizes "<region>-only" search tokens ("us-only", "usa-only", "eu-only", "europe-only",
+    /// "cn-only", "china-only" — hyphenated or compact) and removes them from the text terms,
+    /// returning the canonical region code they enforce. EVERY region token is consumed and the
+    /// first one wins — leaving a later one as a text term would poison the haystack match and
+    /// guarantee empty results.
+    static func extractRegionOnlyConstraint(from terms: inout [String]) -> String? {
+        var required: String? = nil
+        terms.removeAll { term in
+            var stem = term
+            if let range = stem.range(of: "-only", options: [.anchored, .backwards]) {
+                stem.removeSubrange(range)
+            } else if let range = stem.range(of: "only", options: [.anchored, .backwards]), stem.count > 4 {
+                stem.removeSubrange(range)
+            } else {
+                return false
+            }
+            guard let canonical = ModelCapabilities.normalizedRegions([stem]).first,
+                  ["us", "eu", "cn"].contains(canonical)
+            else { return false }
+            if required == nil {
+                required = canonical
+            }
+            return true
+        }
+        return required
     }
 
     static func scopeSummary(for categories: [ModelCategorySurface]) -> String? {
