@@ -49,6 +49,11 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
         } else if let officePreview = artifact.officePreview {
             officeContent(officePreview)
+        } else if let rtfPreview = artifact.rtfPreview {
+            metadataContent(
+                title: rtfPreview.title ?? artifact.label,
+                metadataLines: rtfPreview.metadataLines
+            )
         } else if let tablePreview = artifact.tablePreview {
             tableContent(tablePreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {

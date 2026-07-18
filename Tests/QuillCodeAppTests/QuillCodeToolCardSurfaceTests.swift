@@ -230,6 +230,37 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePDF.pdfPreview)
     }
 
+    func testArtifactStateDerivesRTFPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let rtfFile = directory.appendingPathComponent("summary.rtf")
+        let rtfText = #"{\rtf1\ansi{\info{\title Launch Notes}}{\fonttbl{\f0 Helvetica;}}\f0 Hello world.}"#
+        try rtfText.write(to: rtfFile, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: rtfFile.path)
+        let preview = try XCTUnwrap(artifact.rtfPreview)
+        let byteCount = try XCTUnwrap(rtfText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .document)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "RTF")
+        XCTAssertEqual(preview.title, "Launch Notes")
+        XCTAssertEqual(preview.formatLabel, "RTF")
+        XCTAssertEqual(preview.encodingLabel, "ANSI")
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: RTF",
+            "Encoding: ANSI",
+            "Size: \(byteCount) bytes"
+        ])
+
+        let plainFile = directory.appendingPathComponent("plain.rtf")
+        try "not rich text".write(to: plainFile, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: plainFile.path).rtfPreview)
+
+        let remoteRTF = ToolArtifactState(value: "https://example.com/summary.rtf")
+        XCTAssertNil(remoteRTF.rtfPreview)
+    }
+
     func testArtifactStateDerivesJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("build-report.json")

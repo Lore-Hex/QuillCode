@@ -13,6 +13,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactPDFPreviewText = try Self.appSourceText(named: "ToolArtifactPDFPreviewBuilder.swift")
         let artifactPDFPagePreviewText = try Self.appSourceText(named: "QuillCodeArtifactPDFPagePreviewView.swift")
         let artifactOfficePreviewText = try Self.appSourceText(named: "ToolArtifactOfficePreviewBuilder.swift")
+        let artifactRTFPreviewText = try Self.appSourceText(named: "ToolArtifactRTFPreviewBuilder.swift")
         let artifactArchivePreviewText = try Self.appSourceText(named: "ToolArtifactArchivePreviewBuilder.swift")
         let artifactMediaPreviewText = try Self.appSourceText(named: "ToolArtifactMediaPreviewBuilder.swift")
         let artifactMediaPlaybackText = try Self.appSourceText(named: "QuillCodeArtifactMediaPlaybackView.swift")
@@ -35,11 +36,13 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "ToolArtifactAppshotPreviewBuilder.appshotPreview",
             "ToolArtifactPDFPreviewBuilder.pdfPreview",
             "ToolArtifactOfficePreviewBuilder.officePreview",
+            "ToolArtifactRTFPreviewBuilder.rtfPreview",
             "ToolArtifactTablePreviewBuilder.tablePreview",
             "public struct ToolArtifactDocumentPreview",
             "public struct ToolArtifactAppshotPreview",
             "public struct ToolArtifactPDFPreview",
             "public struct ToolArtifactOfficePreview",
+            "public struct ToolArtifactRTFPreview",
             "public struct ToolArtifactArchivePreview",
             "public struct ToolArtifactMediaPreview",
             "public struct ToolArtifactSourceTextPreview",
@@ -125,6 +128,17 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
             "officeContent(officePreview)",
             "officeContentList(officePreview.contentPreviewLabels)"
+        ])
+        Self.assertSource(artifactRTFPreviewText, containsAll: [
+            "enum ToolArtifactRTFPreviewBuilder",
+            "byteLimit",
+            "parsedTitle",
+            "parsedEncoding",
+            "text.hasPrefix"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "rtfPreview.title ?? artifact.label",
+            "rtfPreview.metadataLines"
         ])
         Self.assertSource(artifactArchivePreviewText, containsAll: [
             "enum ToolArtifactArchivePreviewBuilder",

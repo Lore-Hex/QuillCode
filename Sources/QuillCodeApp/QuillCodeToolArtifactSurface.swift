@@ -265,6 +265,41 @@ public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactRTFPreview: Codable, Sendable, Hashable {
+    public var title: String?
+    public var formatLabel: String
+    public var encodingLabel: String?
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            encodingLabel.map { "Encoding: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 64 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil || !metadataLines.isEmpty
+    }
+
+    public init(
+        title: String? = nil,
+        formatLabel: String = "RTF",
+        encodingLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.title = title
+        self.formatLabel = formatLabel
+        self.encodingLabel = encodingLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactTablePreview: Codable, Sendable, Hashable {
     public var delimiterLabel: String
     public var rowCountLabel: String
@@ -816,6 +851,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var officePreview: ToolArtifactOfficePreview? {
         ToolArtifactOfficePreviewBuilder.officePreview(for: value, kind: kind)
+    }
+    public var rtfPreview: ToolArtifactRTFPreview? {
+        ToolArtifactRTFPreviewBuilder.rtfPreview(for: value, kind: kind)
     }
     public var tablePreview: ToolArtifactTablePreview? {
         ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)

@@ -232,10 +232,14 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let byteCount = pdfBytes.data(using: .isoLatin1)?.count ?? 0
         let markdown = reports.appendingPathComponent("setup.md")
         try "# Setup\n\nRun the installer.\n".write(to: markdown, atomically: true, encoding: .utf8)
+        let rtf = reports.appendingPathComponent("summary.rtf")
+        let rtfText = #"{\rtf1\ansi{\info{\title Launch Notes}}{\fonttbl{\f0 Helvetica;}}\f0 Hello world.}"#
+        try rtfText.write(to: rtf, atomically: true, encoding: .utf8)
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"briefing.pdf"}"#)
         let result = ToolResult(ok: true, stdout: "Wrote briefing.pdf and setup.md\n", artifacts: [
             document.path,
-            markdown.path
+            markdown.path,
+            rtf.path
         ])
         let thread = ChatThread(
             title: "Document artifact",
@@ -267,6 +271,13 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-kind="markdown""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Markdown · MD"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">setup.md"#))
+        XCTAssertTrue(html.contains(#"data-kind="document""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Document · RTF"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">summary.rtf"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rtf-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rtf-preview-title">Launch Notes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rtf-preview-meta">Format: RTF"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rtf-preview-meta">Encoding: ANSI"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview-title">Setup"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-markdown-preview-meta">1 heading"#))
