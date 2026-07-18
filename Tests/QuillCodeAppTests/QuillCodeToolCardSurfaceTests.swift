@@ -124,6 +124,20 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(appshotBundle.documentPreview?.extensionLabel, "APPSHOT")
         XCTAssertEqual(appshotBundle.documentPreview?.detail, "/tmp/quillcode/appshots")
 
+        let audioFile = ToolArtifactState(value: "/tmp/quillcode/audio/voice-note.mp3")
+        XCTAssertTrue(audioFile.isDocumentPreview)
+        XCTAssertEqual(audioFile.documentPreview?.kind, .audio)
+        XCTAssertEqual(audioFile.documentPreview?.typeLabel, "Audio")
+        XCTAssertEqual(audioFile.documentPreview?.extensionLabel, "MP3")
+        XCTAssertEqual(audioFile.documentPreview?.detail, "/tmp/quillcode/audio")
+
+        let videoURL = ToolArtifactState(value: "https://example.com/artifacts/demo.mp4?download=1")
+        XCTAssertTrue(videoURL.isDocumentPreview)
+        XCTAssertEqual(videoURL.documentPreview?.kind, .video)
+        XCTAssertEqual(videoURL.documentPreview?.typeLabel, "Video")
+        XCTAssertEqual(videoURL.documentPreview?.extensionLabel, "MP4")
+        XCTAssertEqual(videoURL.documentPreview?.detail, "example.com/artifacts/demo.mp4")
+
         let textFile = ToolArtifactState(value: "/tmp/quillcode/notes.md", textPreview: "# Notes\n")
         XCTAssertFalse(textFile.isDocumentPreview)
         XCTAssertTrue(textFile.hasTextPreview)

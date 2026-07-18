@@ -260,6 +260,46 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-meta">Size: \#(byteCount) bytes"#))
     }
 
+    func testHTMLRendererIncludesMediaArtifactPreviews() throws {
+        let root = try makeTempDirectory()
+        let mediaDirectory = root.appendingPathComponent("media", isDirectory: true)
+        try FileManager.default.createDirectory(at: mediaDirectory, withIntermediateDirectories: true)
+        let audio = mediaDirectory.appendingPathComponent("voice-note.mp3")
+        let video = mediaDirectory.appendingPathComponent("demo.mp4")
+        try Data("id3".utf8).write(to: audio)
+        try Data("mp4".utf8).write(to: video)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"media"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote media\n", artifacts: [audio.path, video.path])
+        let thread = ChatThread(
+            title: "Media artifacts",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="audio""#))
+        XCTAssertTrue(html.contains(#"data-kind="video""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Audio · MP3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Video · MP4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">voice-note.mp3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">demo.mp4"#))
+    }
+
     func testHTMLRendererIncludesOfficeArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

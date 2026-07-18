@@ -48,6 +48,19 @@ enum ToolArtifactDocumentPreviewBuilder {
         "key": .presentation,
         "odp": .presentation,
         "ppt": .presentation,
-        "pptx": .presentation
+        "pptx": .presentation,
+        "aac": .audio,
+        "aif": .audio,
+        "aiff": .audio,
+        "flac": .audio,
+        "m4a": .audio,
+        "mp3": .audio,
+        "ogg": .audio,
+        "opus": .audio,
+        "wav": .audio,
+        "webm": .video,
+        "m4v": .video,
+        "mov": .video,
+        "mp4": .video
     ]
 }
