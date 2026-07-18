@@ -55,6 +55,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             jsonLinesContent(jsonLinesPreview)
         } else if let tomlPreview = artifact.tomlPreview {
             tomlContent(tomlPreview)
+        } else if let yamlPreview = artifact.yamlPreview {
+            yamlContent(yamlPreview)
         } else if let jsonPreview = artifact.jsonPreview {
             jsonContent(jsonPreview)
         } else if let archivePreview = artifact.archivePreview {
@@ -158,6 +160,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(tomlPreview.metadataLines)
             artifactContentList(title: "Top-level keys", labels: tomlPreview.keyPreviewLabels)
+        }
+    }
+
+    private func yamlContent(_ yamlPreview: ToolArtifactYAMLPreview) -> some View {
+        previewSurface(minHeight: yamlPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "curlybraces")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(yamlPreview.metadataLines)
+            artifactContentList(title: "Top-level keys", labels: yamlPreview.keyPreviewLabels)
         }
     }
 

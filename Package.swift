@@ -97,7 +97,8 @@ let package = Package(
                 "QuillCodeHooks",
                 "QuillCodeSafety",
                 "QuillComputerUseKit",
-                "QuillCodePlatformUI"
+                "QuillCodePlatformUI",
+                .product(name: "Yams", package: "Yams")
             ]
         ),
         .target(

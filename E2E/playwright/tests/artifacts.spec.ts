@@ -351,6 +351,37 @@ test('mock harness renders TOML artifact metadata previews from tool cards', asy
   await expect(page.getByText('Created `config.toml`.')).toBeVisible();
 });
 
+test('mock harness renders YAML artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a yaml artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('ci.yml');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/.github/workflows');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · YML');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('ci.yml');
+  await expect(page.getByTestId('tool-card-yaml-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-yaml-preview-meta')).toHaveText([
+    'Format: YML',
+    'Root: Mapping',
+    '3 keys',
+    '5 mappings',
+    '2 sequences',
+    '6 values',
+    'Keys: jobs, name, on',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-yaml-preview-key-title')).toHaveText('Top-level keys');
+  await expect(page.getByTestId('tool-card-yaml-preview-key-item')).toHaveText(['jobs', 'name', 'on']);
+  await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText('ci.yml');
+  await expect(page.getByTestId('tool-card-text-preview-content')).toContainText('name: CI');
+  await expect(page.getByText('Created `ci.yml`.')).toBeVisible();
+});
+
 test('mock harness renders office artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

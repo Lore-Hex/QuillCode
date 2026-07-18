@@ -50,6 +50,8 @@ enum ToolArtifactDocumentPreviewBuilder {
         "jsonl": .data,
         "ndjson": .data,
         "toml": .data,
+        "yaml": .data,
+        "yml": .data,
         "doc": .document,
         "docx": .document,
         "odt": .document,

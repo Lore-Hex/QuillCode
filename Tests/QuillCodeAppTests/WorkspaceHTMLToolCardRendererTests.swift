@@ -735,6 +735,63 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesYAMLArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let workflows = root
+            .appendingPathComponent(".github", isDirectory: true)
+            .appendingPathComponent("workflows", isDirectory: true)
+        try FileManager.default.createDirectory(at: workflows, withIntermediateDirectories: true)
+        let workflow = workflows.appendingPathComponent("ci.yml")
+        let yamlText = """
+        name: CI
+        on: [push, pull_request]
+
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - run: swift test
+        """
+        try yamlText.write(to: workflow, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"ci.yml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote ci.yml\n", artifacts: [workflow.path])
+        let thread = ChatThread(
+            title: "YAML artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · YML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">ci.yml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yaml-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yaml-preview-meta">Format: YML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yaml-preview-meta">Root: Mapping"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yaml-preview-meta">3 keys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yaml-preview-key-title">Top-level keys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yaml-preview-key-item">jobs"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yaml-preview-key-item">name"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">ci.yml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)
