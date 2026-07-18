@@ -371,6 +371,16 @@ final class AppServerCommandExecTests: XCTestCase {
                 ["processId": ""],
                 -32_602,
                 "Invalid params: processId must be a non-empty string"
+            ),
+            (
+                20,
+                "command/exec",
+                [
+                    "command": ["/bin/echo", "hello"],
+                    "sandboxPolicy": ["type": "externalSandbox", "owner": "codex"]
+                ],
+                -32_600,
+                AppServerSandboxPolicyParser.unsupportedExternalSandboxMessage
             )
         ]
         for request in requests {

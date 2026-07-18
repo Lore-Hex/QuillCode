@@ -118,7 +118,8 @@
 - **Compatibility boundary:** Built-in `:read-only`, `:workspace`, and `:danger-full-access`
   permission profiles are supported. Custom profiles and Codex's external-sandbox policy remain
   explicit future app-server work because QuillCode does not yet have equivalent configured profile
-  or external-sandbox owners.
+  or external-sandbox owners. External sandbox policy requests are rejected with a dedicated
+  app-server error instead of being folded into a generic unsupported policy failure.
 - **Evidence:** Isolated Codex 0.142.5 probes define response/error/null/ordering behavior. Focused
   actor tests cover connection isolation, event filtering, resume, patch persistence, validation,
   reconstruction, and actual model memory visibility; the real JSONL smoke exercises all six method

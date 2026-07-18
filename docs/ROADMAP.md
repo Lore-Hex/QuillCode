@@ -52,7 +52,8 @@
   metadata, response-first `thread/settings/update` notifications, built-in permission profiles,
   collaboration/reasoning/service settings, and durable `thread/memoryMode/set` behavior that hides
   notes from model context without deleting them. Custom permission profiles and external-sandbox
-  policies remain explicit parity work.
+  policies remain explicit parity work; external sandbox requests now fail with a dedicated
+  compatibility-boundary error until QuillCode owns a real external sandbox adapter.
 - App-server fuzzy file search now mirrors Codex's stable one-shot request and experimental live
   session lifecycle. Multi-root traversal is bounded and shared with composer indexing; scores,
   indices, deterministic ordering, cancellation tokens, query generations, updated/completed
