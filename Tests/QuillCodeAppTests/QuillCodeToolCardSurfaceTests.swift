@@ -416,6 +416,67 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteYAML.yamlPreview)
     }
 
+    func testArtifactStateDerivesPropertyListPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let plist = directory.appendingPathComponent("Info.plist")
+        let payload: [String: Any] = [
+            "CFBundleIdentifier": "co.lorehex.QuillCode",
+            "CFBundleName": "QuillCode",
+            "CFBundleURLTypes": [
+                [
+                    "CFBundleURLName": "TrustedRouter",
+                    "CFBundleURLSchemes": ["quillcode"]
+                ]
+            ],
+            "LSMinimumSystemVersion": "14.0",
+            "NSPrincipalClass": "NSApplication"
+        ]
+        let data = try PropertyListSerialization.data(fromPropertyList: payload, format: .xml, options: 0)
+        try data.write(to: plist)
+
+        let artifact = ToolArtifactState(value: plist.path)
+        let preview = try XCTUnwrap(artifact.propertyListPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "PLIST")
+        XCTAssertEqual(preview.formatLabel, "XML PLIST")
+        XCTAssertEqual(preview.rootLabel, "Dictionary")
+        XCTAssertEqual(preview.keyCount, 5)
+        XCTAssertNil(preview.itemCount)
+        XCTAssertEqual(preview.dictionaryCount, 2)
+        XCTAssertEqual(preview.arrayCount, 2)
+        XCTAssertEqual(preview.scalarCount, 6)
+        XCTAssertEqual(preview.keyPreviewLabels, [
+            "CFBundleIdentifier",
+            "CFBundleName",
+            "CFBundleURLTypes",
+            "LSMinimumSystemVersion",
+            "NSPrincipalClass"
+        ])
+        XCTAssertEqual(
+            preview.keyPreviewLabel,
+            "CFBundleIdentifier, CFBundleName, CFBundleURLTypes, LSMinimumSystemVersion, NSPrincipalClass"
+        )
+        XCTAssertEqual(preview.byteSizeLabel, "\(data.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: XML PLIST",
+            "Root: Dictionary",
+            "5 keys",
+            "2 dictionaries",
+            "2 arrays",
+            "6 values",
+            "Keys: CFBundleIdentifier, CFBundleName, CFBundleURLTypes, LSMinimumSystemVersion, NSPrincipalClass",
+            "Size: \(data.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+        XCTAssertNil(artifact.tomlPreview)
+        XCTAssertNil(artifact.yamlPreview)
+
+        let remotePlist = ToolArtifactState(value: "https://example.com/Info.plist")
+        XCTAssertNil(remotePlist.propertyListPreview)
+    }
+
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let spreadsheet = directory.appendingPathComponent("budget.xlsx")

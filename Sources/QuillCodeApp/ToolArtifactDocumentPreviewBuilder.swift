@@ -52,6 +52,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "toml": .data,
         "yaml": .data,
         "yml": .data,
+        "plist": .data,
         "doc": .document,
         "docx": .document,
         "odt": .document,

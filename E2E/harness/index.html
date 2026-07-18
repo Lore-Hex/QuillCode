@@ -8208,6 +8208,7 @@
         jsonLinesPreview: artifactJSONLinesPreview(value, kind, documentPreview),
         tomlPreview: artifactTOMLPreview(value, kind, documentPreview),
         yamlPreview: artifactYAMLPreview(value, kind, documentPreview),
+        propertyListPreview: artifactPropertyListPreview(value, kind, documentPreview),
         jsonPreview: artifactJSONPreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
         mediaPreview: artifactMediaPreview(value, kind, documentPreview),
@@ -8618,6 +8619,7 @@
       ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
       ['yaml', { kind: 'data', typeLabel: 'Data', icon: 'YAML' }],
       ['yml', { kind: 'data', typeLabel: 'Data', icon: 'YML' }],
+      ['plist', { kind: 'data', typeLabel: 'Data', icon: 'PLIST' }],
       ['numbers', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['csv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['ods', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
@@ -9197,6 +9199,69 @@
         `${preview.keyCount} key${preview.keyCount === 1 ? '' : 's'}`,
         preview.mappingCount > 0 ? `${preview.mappingCount} mapping${preview.mappingCount === 1 ? '' : 's'}` : null,
         preview.sequenceCount > 0 ? `${preview.sequenceCount} sequence${preview.sequenceCount === 1 ? '' : 's'}` : null,
+        preview.scalarCount > 0 ? `${preview.scalarCount} value${preview.scalarCount === 1 ? '' : 's'}` : null,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactPropertyListPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'plist') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const keyMatches = [...content.matchAll(/<key>([^<]+)<\/key>/g)].map(match => match[1].trim());
+      if (!keyMatches.length) return null;
+      const topKeys = [];
+      let rootDepth = 0;
+      for (const rawLine of content.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (line === '<dict>') {
+          rootDepth += 1;
+          continue;
+        }
+        if (line === '</dict>') {
+          rootDepth = Math.max(0, rootDepth - 1);
+          continue;
+        }
+        const keyMatch = line.match(/^<key>([^<]+)<\/key>$/);
+        if (keyMatch && rootDepth === 1) topKeys.push(keyMatch[1].trim());
+      }
+      const dictionaryCount = (content.match(/<dict>/g) || []).length;
+      const arrayCount = (content.match(/<array>/g) || []).length;
+      const scalarCount = (content.match(/<(string|true|false|integer|real|date|data)(?:>|\/>)/g) || []).length;
+      const keys = topKeys.length ? [...new Set(topKeys)].sort() : [...new Set(keyMatches)].sort();
+      const visibleKeys = keys.slice(0, 6).map(jsonPreviewKeyLabel);
+      const remainder = keys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        rootLabel: 'Dictionary',
+        formatLabel: 'XML PLIST',
+        keyCount: keys.length,
+        itemCount: null,
+        dictionaryCount,
+        arrayCount,
+        scalarCount,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        `Root: ${preview.rootLabel}`,
+        `${preview.keyCount} key${preview.keyCount === 1 ? '' : 's'}`,
+        preview.dictionaryCount > 0
+          ? `${preview.dictionaryCount} dictionar${preview.dictionaryCount === 1 ? 'y' : 'ies'}`
+          : null,
+        preview.arrayCount > 0 ? `${preview.arrayCount} array${preview.arrayCount === 1 ? '' : 's'}` : null,
         preview.scalarCount > 0 ? `${preview.scalarCount} value${preview.scalarCount === 1 ? '' : 's'}` : null,
         preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
@@ -11516,6 +11581,25 @@
                   ${keyList}
                 </div>` : '';
         };
+        const renderPropertyListPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-plist-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-plist-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-plist-preview-keys">
+                    <strong data-testid="tool-card-plist-preview-key-title">Top-level keys</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-plist-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
         const renderMediaPreview = preview => {
           if (!preview) return '';
           const title = preview.title
@@ -11601,6 +11685,7 @@
                 ${renderJSONLinesPreview(artifact.jsonLinesPreview)}
                 ${renderTOMLPreview(artifact.tomlPreview)}
                 ${renderYAMLPreview(artifact.yamlPreview)}
+                ${renderPropertyListPreview(artifact.propertyListPreview)}
                 ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
                 ${renderArchivePreview(artifact.archivePreview)}
@@ -23326,6 +23411,43 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `ci.yml`.');
+      } else if (text.toLowerCase().includes('plist artifact')) {
+        const path = '/mock/QuillCode/Info.plist';
+        state.mockFiles[path] = [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+          '<plist version="1.0">',
+          '<dict>',
+          '  <key>CFBundleIdentifier</key>',
+          '  <string>co.lorehex.QuillCode</string>',
+          '  <key>CFBundleName</key>',
+          '  <string>QuillCode</string>',
+          '  <key>CFBundleURLTypes</key>',
+          '  <array>',
+          '    <dict>',
+          '      <key>CFBundleURLName</key>',
+          '      <string>TrustedRouter</string>',
+          '      <key>CFBundleURLSchemes</key>',
+          '      <array>',
+          '        <string>quillcode</string>',
+          '      </array>',
+          '    </dict>',
+          '  </array>',
+          '  <key>LSMinimumSystemVersion</key>',
+          '  <string>14.0</string>',
+          '  <key>NSPrincipalClass</key>',
+          '  <string>NSApplication</string>',
+          '</dict>',
+          '</plist>'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/x-plist' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `Info.plist`.');
       } else if (text.toLowerCase().includes('json artifact')) {
         const path = '/mock/QuillCode/reports/build-report.json';
         state.mockFiles[path] = JSON.stringify({
