@@ -58,7 +58,13 @@ final class ParityHTMLToolCardRendererGateTests: QuillCodeParityTestCase {
             #"data-testid="tool-card-pdf-page-preview""#,
             #"type="application/pdf""#,
             "#page=1",
-            #"data-testid="tool-card-pdf-page-preview-fallback""#
+            #"data-testid="tool-card-pdf-page-preview-fallback""#,
+            "private static func renderAppshotReplay",
+            "preview.actionLabels",
+            "preview.frameLabels",
+            "preview.eventLabels",
+            #"data-testid="tool-card-appshot-replay-group""#,
+            #"data-testid="tool-card-appshot-replay-item""#
         ])
         Self.assertSource(harnessText, containsAll: [
             "const localPDFPreviewObject",
@@ -66,7 +72,11 @@ final class ParityHTMLToolCardRendererGateTests: QuillCodeParityTestCase {
             "renderPDFPreview(artifact.pdfPreview, href)",
             #"data-testid="tool-card-pdf-page-preview""#,
             #"type="application/pdf""#,
-            "#page=1"
+            "#page=1",
+            "const renderAppshotReplay",
+            "preview.actionLabels || []",
+            #"data-testid="tool-card-appshot-replay-group""#,
+            #"data-testid="tool-card-appshot-replay-item""#
         ])
     }
 
