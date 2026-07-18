@@ -195,6 +195,32 @@ test('mock harness renders document artifact previews from tool cards', async ({
   await expect(page.getByText('Created `briefing.pdf`.')).toBeVisible();
 });
 
+test('mock harness renders markdown artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a markdown artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('setup.md');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/docs');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'markdown');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Markdown · MD');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('setup.md');
+  await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText('/mock/QuillCode/docs');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute('href', 'file:///mock/QuillCode/docs/setup.md');
+  await expect(page.getByTestId('tool-card-markdown-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-markdown-preview-title')).toHaveText('Setup Guide');
+  await expect(page.getByTestId('tool-card-markdown-preview-meta')).toHaveText([
+    '2 headings',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText('setup.md');
+  await expect(page.getByTestId('tool-card-text-preview-content')).toContainText('# Setup Guide');
+  await expect(page.getByText('Created `setup.md`.')).toBeVisible();
+});
+
 test('mock harness renders office artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

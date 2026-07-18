@@ -3692,6 +3692,7 @@
       font-weight: 650;
     }
     .artifact-pdf-preview,
+    .artifact-markdown-preview,
     .artifact-office-preview,
     .artifact-table-preview {
       grid-column: 1 / -1;
@@ -3705,6 +3706,7 @@
       border-top: 1px solid rgba(255,255,255,.08);
     }
     .artifact-pdf-preview strong,
+    .artifact-markdown-preview strong,
     .artifact-office-preview strong {
       min-width: 0;
       max-width: 100%;
@@ -3714,6 +3716,7 @@
       overflow-wrap: anywhere;
     }
     .artifact-pdf-preview div,
+    .artifact-markdown-preview div,
     .artifact-office-preview div,
     .artifact-table-preview div {
       display: flex;
@@ -3722,6 +3725,7 @@
       min-width: 0;
     }
     .artifact-pdf-preview small,
+    .artifact-markdown-preview small,
     .artifact-office-preview small,
     .artifact-table-preview small {
       display: inline-flex;
@@ -8124,7 +8128,8 @@
         officePreview: artifactOfficePreview(value, kind, documentPreview),
         tablePreview: artifactTablePreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
-        mediaPreview: artifactMediaPreview(value, kind, documentPreview)
+        mediaPreview: artifactMediaPreview(value, kind, documentPreview),
+        markdownPreview: artifactMarkdownPreview(value, kind, documentPreview)
       };
     }
 
@@ -8523,6 +8528,8 @@
       ['odt', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['pages', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['rtf', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
+      ['markdown', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
+      ['md', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
       ['numbers', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['csv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['ods', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
@@ -8685,6 +8692,29 @@
         preview.byteSizeLabel
       ].some(Boolean);
       return hasDisplayContent ? preview : null;
+    }
+
+    function artifactMarkdownPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'markdown') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+
+      const limit = 64 * 1024;
+      const sample = content.slice(0, limit).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const headings = sample
+        .split('\n')
+        .map(line => line.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/))
+        .filter(Boolean);
+      const firstHeading = headings[0]?.[1]?.trim() || null;
+      const metadataLines = [
+        `${headings.length} ${headings.length === 1 ? 'heading' : 'headings'}`,
+        `Size: ${byteSizeLabel(content.length)}`,
+        content.length > limit ? 'Preview truncated' : null
+      ].filter(Boolean);
+      return firstHeading || metadataLines.length
+        ? { title: firstHeading, metadataLines }
+        : null;
     }
 
     function artifactOfficePreview(value, kind, documentPreview) {
@@ -10755,6 +10785,20 @@
                   <div>${metadata}</div>
                 </div>` : '';
         };
+        const renderMarkdownPreview = preview => {
+          if (!preview) return '';
+          const title = preview.title
+            ? `<strong data-testid="tool-card-markdown-preview-title">${escapeHTML(preview.title)}</strong>`
+            : '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-markdown-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return title || metadata ? `
+                <div class="artifact-markdown-preview" data-testid="tool-card-markdown-preview">
+                  ${title}
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
         const renderOfficePreview = preview => {
           if (!preview) return '';
           const metadata = (preview.metadataLines || [])
@@ -10848,6 +10892,7 @@
                 </figcaption>
                 ${href ? `<a class="hit-target-link" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
                 ${renderPDFPreview(artifact.pdfPreview)}
+                ${renderMarkdownPreview(artifact.markdownPreview)}
                 ${renderOfficePreview(artifact.officePreview)}
                 ${renderTablePreview(artifact.tablePreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
@@ -22494,6 +22539,27 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `revenue.csv`.');
+      } else if (text.toLowerCase().includes('markdown') || text.toLowerCase().includes('md artifact')) {
+        const path = '/mock/QuillCode/docs/setup.md';
+        state.mockFiles[path] = [
+          '# Setup Guide',
+          '',
+          'Use this checklist before shipping a new QuillCode build.',
+          '',
+          '## Smoke Test',
+          '',
+          '- Launch the app.',
+          '- Run a mock LLM turn.',
+          '- Verify artifact previews.'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/markdown' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `setup.md`.');
       } else if (text.toLowerCase().includes('spreadsheet') || text.toLowerCase().includes('xlsx')) {
         const path = '/mock/QuillCode/reports/budget.xlsx';
         const fileNames = [
