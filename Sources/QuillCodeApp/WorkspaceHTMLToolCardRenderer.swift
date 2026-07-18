@@ -210,6 +210,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let officePreview = renderOfficePreview(artifact.officePreview)
             let rtfPreview = renderRTFPreview(artifact.rtfPreview)
             let htmlPreview = renderHTMLPreview(artifact.htmlPreview)
+            let diffPreview = renderDiffPreview(artifact.diffPreview)
             let tablePreview = renderTablePreview(artifact.tablePreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
@@ -236,6 +237,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(officePreview)
               \(rtfPreview)
               \(htmlPreview)
+              \(diffPreview)
               \(tablePreview)
               \(jsonLinesPreview)
               \(tomlPreview)
@@ -350,6 +352,31 @@ enum WorkspaceHTMLToolCardRenderer {
           <div>
             \(metadata)
           </div>
+        </div>
+        """
+    }
+
+    private static func renderDiffPreview(_ preview: ToolArtifactDiffPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-diff-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let changedFiles = preview.changedFileLabels.map {
+            #"<li data-testid="tool-card-diff-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let changedFileList = changedFiles.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-diff-preview-files">
+                <strong data-testid="tool-card-diff-preview-file-title">Changed files</strong>
+                <ul>\(changedFiles)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !changedFileList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-diff-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(changedFileList)
         </div>
         """
     }

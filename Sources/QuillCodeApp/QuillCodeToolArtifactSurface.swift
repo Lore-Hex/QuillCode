@@ -343,6 +343,52 @@ public struct ToolArtifactHTMLPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactDiffPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var hunkCount: Int
+    public var additionCount: Int
+    public var deletionCount: Int
+    public var changedFileLabels: [String]
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(hunkCount) hunk\(hunkCount == 1 ? "" : "s")",
+            "+\(additionCount) / -\(deletionCount)",
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 128 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0 || hunkCount > 0 || additionCount > 0 || deletionCount > 0 || !changedFileLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Unified diff",
+        fileCount: Int = 0,
+        hunkCount: Int = 0,
+        additionCount: Int = 0,
+        deletionCount: Int = 0,
+        changedFileLabels: [String] = [],
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.hunkCount = hunkCount
+        self.additionCount = additionCount
+        self.deletionCount = deletionCount
+        self.changedFileLabels = changedFileLabels
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactTablePreview: Codable, Sendable, Hashable {
     public var delimiterLabel: String
     public var rowCountLabel: String
@@ -900,6 +946,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var htmlPreview: ToolArtifactHTMLPreview? {
         ToolArtifactHTMLPreviewBuilder.htmlPreview(for: value, kind: kind)
+    }
+    public var diffPreview: ToolArtifactDiffPreview? {
+        ToolArtifactDiffPreviewBuilder.diffPreview(for: value, kind: kind)
     }
     public var tablePreview: ToolArtifactTablePreview? {
         ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
