@@ -47,6 +47,8 @@ enum ToolArtifactDocumentPreviewBuilder {
         "markdown": .markdown,
         "md": .markdown,
         "json": .data,
+        "jsonl": .data,
+        "ndjson": .data,
         "doc": .document,
         "docx": .document,
         "odt": .document,

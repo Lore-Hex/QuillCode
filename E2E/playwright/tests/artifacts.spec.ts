@@ -276,6 +276,44 @@ test('mock harness renders JSON artifact metadata previews from tool cards', asy
   await expect(page.getByText('Created `build-report.json`.')).toBeVisible();
 });
 
+test('mock harness renders JSON Lines artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a jsonl artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('events.jsonl');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/logs');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · JSONL');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('events.jsonl');
+  await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText('/mock/QuillCode/logs');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/logs/events.jsonl'
+  );
+  await expect(page.getByTestId('tool-card-json-lines-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-json-lines-preview-meta')).toHaveText([
+    'Format: JSONL',
+    '3 records',
+    'Keys: durationMs, event, level, runId, tool',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-json-lines-preview-key-title')).toHaveText('Observed keys');
+  await expect(page.getByTestId('tool-card-json-lines-preview-key-item')).toHaveText([
+    'durationMs',
+    'event',
+    'level',
+    'runId',
+    'tool'
+  ]);
+  await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText('events.jsonl');
+  await expect(page.getByTestId('tool-card-text-preview-content')).toContainText('"event":"started"');
+  await expect(page.getByText('Created `events.jsonl`.')).toBeVisible();
+});
+
 test('mock harness renders office artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

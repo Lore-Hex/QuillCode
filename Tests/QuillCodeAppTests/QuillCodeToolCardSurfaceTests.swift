@@ -274,6 +274,44 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJSON.jsonPreview)
     }
 
+    func testArtifactStateDerivesJSONLinesPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let events = directory.appendingPathComponent("events.jsonl")
+        let jsonLinesText = """
+        {"event":"started","level":"info","runId":"run_123"}
+        {"event":"tool.completed","level":"info","tool":"shell.run"}
+        {"event":"finished","level":"info","durationMs":1284}
+        """
+        try jsonLinesText.write(to: events, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: events.path)
+        let preview = try XCTUnwrap(artifact.jsonLinesPreview)
+        let byteCount = try XCTUnwrap(jsonLinesText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(preview.formatLabel, "JSONL")
+        XCTAssertEqual(preview.recordCountLabel, "3 records")
+        XCTAssertEqual(preview.keyPreviewLabels, [
+            "durationMs",
+            "event",
+            "level",
+            "runId",
+            "tool"
+        ])
+        XCTAssertEqual(preview.keyPreviewLabel, "durationMs, event, level, runId, tool")
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: JSONL",
+            "3 records",
+            "Keys: durationMs, event, level, runId, tool",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let remoteJSONLines = ToolArtifactState(value: "https://example.com/events.jsonl")
+        XCTAssertNil(remoteJSONLines.jsonLinesPreview)
+    }
+
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let spreadsheet = directory.appendingPathComponent("budget.xlsx")
