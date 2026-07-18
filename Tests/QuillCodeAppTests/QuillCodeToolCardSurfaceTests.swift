@@ -901,6 +901,40 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             "Size: \(byteSize)"
         ])
 
+        let sevenZipArchive = directory.appendingPathComponent("sources.7z")
+        let sevenZipBytes = Data([0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c, 0x00, 0x04, 0x00, 0x00])
+        try sevenZipBytes.write(to: sevenZipArchive)
+        let sevenZipByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: sevenZipBytes.count))
+
+        let sevenZipPreview = try XCTUnwrap(ToolArtifactState(value: sevenZipArchive.path).archivePreview)
+        XCTAssertEqual(sevenZipPreview.formatLabel, "7Z")
+        XCTAssertNil(sevenZipPreview.entryCount)
+        XCTAssertNil(sevenZipPreview.topLevelCount)
+        XCTAssertNil(sevenZipPreview.entryPreviewLabel)
+        XCTAssertTrue(sevenZipPreview.entryPreviewLabels.isEmpty)
+        XCTAssertEqual(sevenZipPreview.byteSizeLabel, sevenZipByteSize)
+        XCTAssertEqual(sevenZipPreview.metadataLines, [
+            "Format: 7Z",
+            "Size: \(sevenZipByteSize)"
+        ])
+
+        let rarArchive = directory.appendingPathComponent("sources.rar")
+        let rarBytes = Data([0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00, 0x00, 0x00])
+        try rarBytes.write(to: rarArchive)
+        let rarByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: rarBytes.count))
+
+        let rarPreview = try XCTUnwrap(ToolArtifactState(value: rarArchive.path).archivePreview)
+        XCTAssertEqual(rarPreview.formatLabel, "RAR")
+        XCTAssertNil(rarPreview.entryCount)
+        XCTAssertNil(rarPreview.topLevelCount)
+        XCTAssertNil(rarPreview.entryPreviewLabel)
+        XCTAssertTrue(rarPreview.entryPreviewLabels.isEmpty)
+        XCTAssertEqual(rarPreview.byteSizeLabel, rarByteSize)
+        XCTAssertEqual(rarPreview.metadataLines, [
+            "Format: RAR",
+            "Size: \(rarByteSize)"
+        ])
+
         let tarArchive = directory.appendingPathComponent("sources.tar")
         let tarBytes = TarArchiveFixture.tarArchive(entries: [
             ("Sources/App.swift", Data("print(\"hi\")".utf8)),
