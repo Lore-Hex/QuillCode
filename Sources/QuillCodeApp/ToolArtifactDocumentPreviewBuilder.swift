@@ -49,6 +49,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "pdf": .pdf,
         "markdown": .markdown,
         "md": .markdown,
+        "mdx": .markdown,
         "json": .data,
         "jsonl": .data,
         "ndjson": .data,

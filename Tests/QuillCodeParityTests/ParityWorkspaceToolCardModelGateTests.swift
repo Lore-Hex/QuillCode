@@ -79,6 +79,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         Self.assertSource(artifactDocumentPreviewText, containsAll: [
             "enum ToolArtifactDocumentPreviewBuilder",
             "compoundPreviewExtensions",
+            #""mdx": .markdown"#,
             ".audio",
             ".video",
             ".archive"
@@ -221,7 +222,11 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "parseRows"
         ])
         Self.assertSource(artifactByteSizeText, contains: "enum ToolArtifactByteSizeFormatter")
-        Self.assertSource(artifactTextPreviewText, contains: "enum ToolArtifactTextPreviewBuilder")
+        Self.assertSource(artifactTextPreviewText, containsAll: [
+            "enum ToolArtifactTextPreviewBuilder",
+            #""mdx""#,
+            #""MDX""#
+        ])
         Self.assertSource(toolCardReducerText, containsAll: [
             "struct WorkspaceToolCardEventReducer",
             "WorkspaceToolCardProjection"

@@ -8624,6 +8624,7 @@
       ['html', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['markdown', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
       ['md', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
+      ['mdx', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MDX' }],
       ['json', { kind: 'data', typeLabel: 'Data', icon: 'JSON' }],
       ['jsonl', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
       ['ndjson', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
@@ -10105,7 +10106,7 @@
 
     const textPreviewExtensions = new Set([
       'c', 'cc', 'conf', 'cpp', 'css', 'csv', 'diff', 'go', 'h', 'hpp', 'html',
-      'java', 'js', 'json', 'jsonl', 'jsx', 'kt', 'log', 'm', 'md', 'mm', 'ndjson', 'py',
+      'java', 'js', 'json', 'jsonl', 'jsx', 'kt', 'log', 'm', 'md', 'mdx', 'mm', 'ndjson', 'py',
       'patch', 'rb', 'rs', 'sh', 'sql', 'swift', 'toml', 'ts', 'tsx', 'txt',
       'xml', 'yaml', 'yml'
     ]);
@@ -10142,6 +10143,7 @@
       log: 'Log',
       m: 'Objective-C',
       md: 'Markdown',
+      mdx: 'MDX',
       mm: 'Objective-C++',
       ndjson: 'NDJSON',
       patch: 'Patch',
@@ -23959,6 +23961,27 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `setup.md`.');
+      } else if (text.toLowerCase().includes('mdx') || text.toLowerCase().includes('component artifact')) {
+        const path = '/mock/QuillCode/docs/component.mdx';
+        state.mockFiles[path] = [
+          '# Component Guide',
+          '',
+          'import { Callout } from "./Callout"',
+          '',
+          '<Callout tone="info">Ship the preview.</Callout>',
+          '',
+          '## Props',
+          '',
+          '- `tone` controls the status color.'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/mdx' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `component.mdx`.');
       } else if (text.toLowerCase().includes('rtf') || text.toLowerCase().includes('rich text artifact')) {
         const path = '/mock/QuillCode/docs/summary.rtf';
         state.mockFiles[path] = '{\\rtf1\\ansi{\\info{\\title Launch Notes}}{\\fonttbl{\\f0 Helvetica;}}\\f0 Hello world.}';

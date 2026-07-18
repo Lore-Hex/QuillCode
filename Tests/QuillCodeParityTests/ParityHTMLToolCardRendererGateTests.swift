@@ -107,6 +107,8 @@ final class ParityHTMLToolCardRendererGateTests: QuillCodeParityTestCase {
             "artifactDiffPreview(value, kind, documentPreview)",
             "const renderDiffPreview",
             #"data-testid="tool-card-diff-preview-file-item""#,
+            "['mdx', { kind: 'markdown'",
+            "mdx: 'MDX'",
             "archiveEntryPreviewLabels",
             #"data-testid="tool-card-archive-preview-entries""#,
             #"data-testid="tool-card-archive-preview-entry-item""#

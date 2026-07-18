@@ -171,6 +171,13 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(markdownURL.documentPreview?.kind, .markdown)
         XCTAssertEqual(markdownURL.documentPreview?.extensionLabel, "MARKDOWN")
         XCTAssertEqual(markdownURL.documentPreview?.detail, "example.com/specs/setup.markdown")
+
+        let mdxFile = ToolArtifactState(value: "/tmp/quillcode/docs/component.mdx", textPreview: "# Component\n")
+        XCTAssertTrue(mdxFile.isDocumentPreview)
+        XCTAssertEqual(mdxFile.documentPreview?.kind, .markdown)
+        XCTAssertEqual(mdxFile.documentPreview?.typeLabel, "Markdown")
+        XCTAssertEqual(mdxFile.documentPreview?.extensionLabel, "MDX")
+        XCTAssertTrue(mdxFile.hasTextPreview)
     }
 
     func testArtifactStateDerivesMarkdownPreviewMetadata() throws {
@@ -203,6 +210,40 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             "3 headings",
             "Size: \(byteCount) bytes"
         ])
+    }
+
+    func testArtifactStateDerivesMDXPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let mdx = directory.appendingPathComponent("component.mdx")
+        let mdxText = """
+        # Component Guide
+
+        import { Callout } from "./Callout"
+
+        <Callout tone="info">Ship the preview.</Callout>
+
+        ## Props
+
+        - `tone` controls the status color.
+        """
+        try mdxText.write(to: mdx, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(
+            value: mdx.path,
+            textPreview: ToolArtifactTextPreviewBuilder.textPreview(for: mdx.path)
+        )
+        let preview = try XCTUnwrap(artifact.markdownPreview)
+        let sourcePreview = try XCTUnwrap(artifact.sourceTextPreview)
+        let byteCount = try XCTUnwrap(mdxText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .markdown)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "MDX")
+        XCTAssertEqual(preview.title, "Component Guide")
+        XCTAssertEqual(preview.headingCount, 2)
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(sourcePreview.typeLabel, "MDX")
+        XCTAssertEqual(sourcePreview.lineCountLabel, "9 lines")
     }
 
     func testArtifactStateDerivesPDFPreviewMetadata() throws {
