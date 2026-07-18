@@ -98,9 +98,11 @@ enum ToolArtifactDocumentPreviewBuilder {
         "apk": .archive,
         "bz2": .archive,
         "ear": .archive,
+        "epub": .archive,
         "gz": .archive,
         "ipa": .archive,
         "jar": .archive,
+        "nupkg": .archive,
         "rar": .archive,
         "tar": .archive,
         "tar.bz2": .archive,
@@ -112,8 +114,11 @@ enum ToolArtifactDocumentPreviewBuilder {
         "tgz": .archive,
         "tzst": .archive,
         "txz": .archive,
+        "vsix": .archive,
         "war": .archive,
+        "whl": .archive,
         "xz": .archive,
+        "xpi": .archive,
         "zip": .archive,
         "zst": .archive
     ]

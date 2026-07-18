@@ -87,8 +87,9 @@
   signature bytes and rendering truthful format/size metadata without extraction or synthetic
   entry listings.
 - Archive artifact previews now classify common ZIP-container deliverables (`.jar`, `.war`,
-  `.ear`, `.apk`, and `.ipa`) and reuse the bounded central-directory reader to render exact
-  package-format labels, entry counts, capped contents, and file sizes without extraction.
+  `.ear`, `.apk`, `.ipa`, `.epub`, `.whl`, `.vsix`, `.xpi`, and `.nupkg`) and reuse the bounded
+  central-directory reader to render exact package-format labels, entry counts, capped contents,
+  and file sizes without extraction.
 - The app server exposes Codex-compatible response-first `thread/compact/start`.
 - The app server exposes Codex-compatible one-shot and live-session fuzzy file search with bounded
   shared indexing, exact wire fields, match scores/indices, cancellation, and disconnect cleanup.

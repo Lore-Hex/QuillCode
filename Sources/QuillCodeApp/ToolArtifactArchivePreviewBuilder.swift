@@ -20,7 +20,7 @@ enum ToolArtifactArchivePreviewBuilder {
             switch documentPreview.extensionLabel.lowercased() {
             case "zip":
                 preview = try zipPreview(from: fileURL, fileSize: fileSize, formatLabel: "ZIP")
-            case "jar", "war", "ear", "apk", "ipa":
+            case "jar", "war", "ear", "apk", "ipa", "epub", "whl", "vsix", "xpi", "nupkg":
                 preview = try zipPreview(
                     from: fileURL,
                     fileSize: fileSize,

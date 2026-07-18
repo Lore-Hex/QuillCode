@@ -911,7 +911,12 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             ("war", "WAR"),
             ("ear", "EAR"),
             ("apk", "APK"),
-            ("ipa", "IPA")
+            ("ipa", "IPA"),
+            ("epub", "EPUB"),
+            ("whl", "WHL"),
+            ("vsix", "VSIX"),
+            ("xpi", "XPI"),
+            ("nupkg", "NUPKG")
         ] {
             let packageArchive = directory.appendingPathComponent("bundle.\(extensionLabel)")
             let packageBytes = OfficePackageFixture.zipPackage(fileNames: packageEntries)
