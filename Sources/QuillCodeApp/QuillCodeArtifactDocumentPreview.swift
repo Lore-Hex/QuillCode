@@ -32,6 +32,11 @@ struct QuillCodeArtifactDocumentPreview: View {
                 title: pdfPreview.title ?? artifact.label,
                 metadataLines: pdfPreview.metadataLines
             )
+        } else if let markdownPreview = artifact.markdownPreview {
+            metadataContent(
+                title: markdownPreview.title ?? artifact.label,
+                metadataLines: markdownPreview.metadataLines
+            )
         } else if let officePreview = artifact.officePreview {
             metadataContent(title: artifact.label, metadataLines: officePreview.metadataLines)
         } else if let tablePreview = artifact.tablePreview {
