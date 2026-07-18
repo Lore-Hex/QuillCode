@@ -166,6 +166,38 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(markdownURL.documentPreview?.detail, "example.com/specs/setup.markdown")
     }
 
+    func testArtifactStateDerivesMarkdownPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let markdown = directory.appendingPathComponent("release-notes.md")
+        let markdownText = """
+        # Release Notes
+
+        Intro.
+
+        ## Added
+
+        - Markdown artifact cards.
+
+        ### Fixed ###
+
+        Details.
+        """
+        try markdownText.write(to: markdown, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: markdown.path)
+        let preview = try XCTUnwrap(artifact.markdownPreview)
+        let byteCount = try XCTUnwrap(markdownText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(preview.title, "Release Notes")
+        XCTAssertEqual(preview.headingCount, 3)
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "3 headings",
+            "Size: \(byteCount) bytes"
+        ])
+    }
+
     func testArtifactStateDerivesPDFPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let pdfFile = directory.appendingPathComponent("briefing.pdf")

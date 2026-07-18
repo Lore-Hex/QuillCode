@@ -178,6 +178,37 @@ public struct ToolArtifactPDFPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactMarkdownPreview: Codable, Sendable, Hashable {
+    public var title: String?
+    public var headingCount: Int
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            headingCount > 0 ? "\(headingCount) heading\(headingCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 64 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil || !metadataLines.isEmpty
+    }
+
+    public init(
+        title: String? = nil,
+        headingCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.title = title
+        self.headingCount = headingCount
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var entryCount: Int?
@@ -363,6 +394,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var pdfPreview: ToolArtifactPDFPreview? {
         ToolArtifactPDFPreviewBuilder.pdfPreview(for: value, kind: kind)
+    }
+    public var markdownPreview: ToolArtifactMarkdownPreview? {
+        ToolArtifactMarkdownPreviewBuilder.markdownPreview(for: value, kind: kind)
     }
     public var officePreview: ToolArtifactOfficePreview? {
         ToolArtifactOfficePreviewBuilder.officePreview(for: value, kind: kind)
