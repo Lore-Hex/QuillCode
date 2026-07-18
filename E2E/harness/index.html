@@ -3775,6 +3775,33 @@
       font-weight: 650;
       white-space: nowrap;
     }
+    .artifact-office-contents {
+      flex-basis: 100%;
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .artifact-office-contents strong {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .artifact-office-contents ul {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .artifact-office-contents li {
+      min-width: 0;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 650;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .artifact-table-preview {
       display: grid;
       align-items: stretch;
@@ -8807,7 +8834,8 @@
         entryCount: fileNames.length,
         worksheetCount: worksheetCount || null,
         slideCount: slideCount || null,
-        byteSizeLabel: byteSizeLabel(byteSize)
+        byteSizeLabel: byteSizeLabel(byteSize),
+        contentPreviewLabels: officeContentPreviewLabels(fileNames, extension)
       };
       preview.metadataLines = [
         `Format: ${preview.formatLabel}`,
@@ -8822,7 +8850,49 @@
           : null,
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
-      return preview.metadataLines.length ? preview : null;
+      return preview.metadataLines.length || preview.contentPreviewLabels.length ? preview : null;
+    }
+
+    function officeContentPreviewLabels(fileNames, extension) {
+      if (extension === 'docx') {
+        const labels = [];
+        const checks = [
+          ['word/document.xml', 'Document body'],
+          ['word/comments.xml', 'Comments'],
+          ['word/footnotes.xml', 'Footnotes'],
+          ['word/endnotes.xml', 'Endnotes']
+        ];
+        checks.forEach(([path, label]) => {
+          if (fileNames.includes(path)) labels.push(label);
+        });
+        const headerCount = fileNames.filter(fileName => numberedOfficeEntryIndex(fileName, 'word/header', '.xml') !== null).length;
+        const footerCount = fileNames.filter(fileName => numberedOfficeEntryIndex(fileName, 'word/footer', '.xml') !== null).length;
+        if (headerCount > 0) labels.push(`${headerCount} header${headerCount === 1 ? '' : 's'}`);
+        if (footerCount > 0) labels.push(`${footerCount} footer${footerCount === 1 ? '' : 's'}`);
+        return labels.slice(0, 5);
+      }
+      if (extension === 'xlsx') {
+        return numberedOfficeLabels(fileNames, 'xl/worksheets/sheet', '.xml', 'Sheet');
+      }
+      if (extension === 'pptx') {
+        return numberedOfficeLabels(fileNames, 'ppt/slides/slide', '.xml', 'Slide');
+      }
+      return [];
+    }
+
+    function numberedOfficeLabels(fileNames, prefix, suffix, label) {
+      return fileNames
+        .map(fileName => [numberedOfficeEntryIndex(fileName, prefix, suffix), fileName])
+        .filter(([index]) => index !== null)
+        .sort(([left], [right]) => left - right)
+        .slice(0, 5)
+        .map(([index]) => `${label} ${index}`);
+    }
+
+    function numberedOfficeEntryIndex(fileName, prefix, suffix) {
+      if (!fileName.startsWith(prefix) || !fileName.endsWith(suffix) || fileName.includes('/_rels/')) return null;
+      const raw = fileName.slice(prefix.length, fileName.length - suffix.length);
+      return /^\d+$/.test(raw) ? Number(raw) : null;
     }
 
     function artifactTablePreview(value, kind, documentPreview) {
@@ -10920,9 +10990,18 @@
           const metadata = (preview.metadataLines || [])
             .map(line => `<small data-testid="tool-card-office-preview-meta">${escapeHTML(line)}</small>`)
             .join('');
-          return metadata ? `
+          const contents = (preview.contentPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-office-preview-content-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const contentList = contents ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-office-preview-contents">
+                    <strong data-testid="tool-card-office-preview-content-title">Contents</strong>
+                    <ul>${contents}</ul>
+                  </section>` : '';
+          return metadata || contentList ? `
                 <div class="artifact-office-preview" data-testid="tool-card-office-preview">
                   <div>${metadata}</div>
+                  ${contentList}
                 </div>` : '';
         };
         const renderTablePreview = preview => {
