@@ -202,6 +202,25 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render(raw), "header\nrow2\nnew\nfooter")
     }
 
+    func testIndexAndNextLineEscapesMoveCursorDown() {
+        XCTAssertEqual(render("ab\u{1B}Dcd"), "ab\n  cd")
+        XCTAssertEqual(render("ab\u{1B}Ecd"), "ab\ncd")
+    }
+
+    func testIndexEscapeScrollsOnlyTheCurrentRegion() {
+        let raw = [
+            "header",
+            "row1",
+            "row2",
+            "footer"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[3;1H"
+            + "\u{1B}Dnew"
+
+        XCTAssertEqual(render(raw), "header\nrow2\nnew\nfooter")
+    }
+
     func testReverseIndexScrollsDownInsideRegion() {
         let raw = [
             "header",

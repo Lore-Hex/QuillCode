@@ -23,6 +23,8 @@ final class ParityTerminalRendererGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(bufferText.contains("case \"\\u{9B}\""))
         XCTAssertTrue(bufferText.contains("case \"\\u{9D}\""))
         XCTAssertTrue(bufferText.contains("case \"P\", \"X\", \"^\", \"_\""))
+        XCTAssertTrue(bufferText.contains("case \"D\":  // IND: index"))
+        XCTAssertTrue(bufferText.contains("case \"E\":  // NEL: next line"))
         XCTAssertTrue(bufferText.contains("func consumeStringControl"))
         XCTAssertTrue(cellText.contains("struct TerminalScreenCell"))
         XCTAssertTrue(policyText.contains("public enum TerminalOutputAmbiguousWidthPolicy"))
@@ -60,6 +62,8 @@ final class ParityTerminalRendererGateTests: QuillCodeParityTestCase {
         let testsText = try Self.toolsTestSourceText(named: "TerminalOutputRendererTests.swift")
 
         XCTAssertTrue(testsText.contains("testScrollRegionLineFeedScrollsOnlyTheRegion"))
+        XCTAssertTrue(testsText.contains("testIndexAndNextLineEscapesMoveCursorDown"))
+        XCTAssertTrue(testsText.contains("testIndexEscapeScrollsOnlyTheCurrentRegion"))
         XCTAssertTrue(testsText.contains("testReverseIndexScrollsDownInsideRegion"))
         XCTAssertTrue(testsText.contains("testCSIExplicitScrollUpAndDownUseCurrentRegion"))
         XCTAssertTrue(testsText.contains("testC1CSISequencesShareTheNormalCSIParser"))
