@@ -8795,6 +8795,7 @@
         formatLabel: extension === 'tar' ? 'TAR' : 'ZIP',
         entryCount: fileNames.length,
         topLevelCount: topLevelItems.size || null,
+        entryPreviewLabel: archiveEntryPreviewLabel(fileNames),
         byteSizeLabel: byteSizeLabel(byteSize)
       };
       preview.metadataLines = [
@@ -8805,9 +8806,26 @@
         Number.isInteger(preview.topLevelCount)
           ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
           : null,
+        preview.entryPreviewLabel ? `Entries: ${preview.entryPreviewLabel}` : null,
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
       return preview.metadataLines.length ? preview : null;
+    }
+
+    function archiveEntryPreviewLabel(fileNames) {
+      const previewNames = [];
+      for (const fileName of fileNames) {
+        const previewName = String(fileName || '')
+          .replace(/[\r\n]+/g, ' ')
+          .trim()
+          .slice(0, 80);
+        if (previewName) previewNames.push(previewName);
+        if (previewNames.length === 3) break;
+      }
+      if (!previewNames.length) return null;
+      const remainingCount = Math.max(fileNames.length - previewNames.length, 0);
+      const previewText = previewNames.join(', ');
+      return remainingCount > 0 ? `${previewText}, +${remainingCount} more` : previewText;
     }
 
     function parseDelimitedRows(text, delimiter) {

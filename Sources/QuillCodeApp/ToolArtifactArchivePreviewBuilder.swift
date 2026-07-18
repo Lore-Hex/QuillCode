@@ -43,6 +43,7 @@ enum ToolArtifactArchivePreviewBuilder {
             formatLabel: "ZIP",
             entryCount: directory.fileNames.count,
             topLevelCount: topLevelCount(in: directory.fileNames),
+            entryPreviewLabel: entryPreviewLabel(in: directory.fileNames),
             byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
         )
     }
@@ -83,8 +84,38 @@ enum ToolArtifactArchivePreviewBuilder {
             formatLabel: "TAR",
             entryCount: fileNames.count,
             topLevelCount: topLevelCount(in: fileNames),
+            entryPreviewLabel: entryPreviewLabel(in: fileNames),
             byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
         )
+    }
+
+    private static func entryPreviewLabel(in fileNames: [String]) -> String? {
+        var previewNames: [String] = []
+        for fileName in fileNames {
+            let previewName = sanitizedEntryName(fileName)
+            if !previewName.isEmpty {
+                previewNames.append(previewName)
+            }
+            if previewNames.count == entryPreviewLimit {
+                break
+            }
+        }
+        guard !previewNames.isEmpty else { return nil }
+
+        let remainingCount = max(fileNames.count - previewNames.count, 0)
+        let previewText = previewNames.joined(separator: ", ")
+        if remainingCount > 0 {
+            return "\(previewText), +\(remainingCount) more"
+        }
+        return previewText
+    }
+
+    private static func sanitizedEntryName(_ fileName: String) -> String {
+        let singleLineName = fileName
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return String(singleLineName.prefix(entryNameCharacterLimit))
     }
 
     private static func topLevelCount(in fileNames: [String]) -> Int? {
@@ -146,4 +177,6 @@ enum ToolArtifactArchivePreviewBuilder {
     private static let fileSizeLimit = 50 * 1_024 * 1_024
     private static let tarBlockSize = 512
     private static let tarEntryLimit = 10_000
+    private static let entryPreviewLimit = 3
+    private static let entryNameCharacterLimit = 80
 }
