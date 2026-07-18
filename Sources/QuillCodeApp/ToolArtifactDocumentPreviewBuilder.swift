@@ -83,6 +83,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "docx": .document,
         "htm": .document,
         "html": .document,
+        "ipynb": .document,
         "odt": .document,
         "pages": .document,
         "rtf": .document,

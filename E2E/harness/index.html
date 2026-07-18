@@ -8262,6 +8262,7 @@
         webAssemblyPreview: artifactWebAssemblyPreview(value, kind, documentPreview),
         fontPreview: artifactFontPreview(value, kind, documentPreview),
         executablePreview: artifactExecutablePreview(value, kind, documentPreview),
+        notebookPreview: artifactNotebookPreview(value, kind, documentPreview),
         jsonPreview: artifactJSONPreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
         mediaPreview: artifactMediaPreview(value, kind, documentPreview),
@@ -8719,6 +8720,7 @@
       ['rtf', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['htm', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['html', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
+      ['ipynb', { kind: 'document', typeLabel: 'Document', icon: 'NB' }],
       ['markdown', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
       ['md', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
       ['mdx', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MDX' }],
@@ -9155,6 +9157,60 @@
       }
       const preview = jsonPreviewFromRoot(root, content.length);
       return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactNotebookPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'document') return null;
+      if (artifactPreviewExtension(value) !== 'ipynb') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 256 * 1024;
+      if (content.length > byteLimit) return null;
+
+      let root;
+      try {
+        root = JSON.parse(content);
+      } catch {
+        return null;
+      }
+      if (!root || typeof root !== 'object' || !Array.isArray(root.cells)) return null;
+
+      const counts = root.cells.reduce((accumulator, cell) => {
+        const type = cell && typeof cell === 'object' ? cell.cell_type : null;
+        if (type === 'code') accumulator.code += 1;
+        else if (type === 'markdown') accumulator.markdown += 1;
+        else accumulator.raw += 1;
+        return accumulator;
+      }, { code: 0, markdown: 0, raw: 0 });
+      const cellCount = counts.code + counts.markdown + counts.raw;
+      const language =
+        root.metadata?.language_info?.name ||
+        root.metadata?.kernelspec?.language ||
+        null;
+      const version = Number.isInteger(root.nbformat)
+        ? Number.isInteger(root.nbformat_minor) ? `${root.nbformat}.${root.nbformat_minor}` : `${root.nbformat}`
+        : null;
+      const preview = {
+        formatLabel: 'Jupyter Notebook',
+        notebookVersionLabel: version,
+        languageLabel: typeof language === 'string' && language.trim() ? jsonPreviewKeyLabel(language) : null,
+        codeCellCount: counts.code,
+        markdownCellCount: counts.markdown,
+        rawCellCount: counts.raw,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        preview.notebookVersionLabel ? `Version: ${preview.notebookVersionLabel}` : null,
+        preview.languageLabel ? `Language: ${preview.languageLabel}` : null,
+        `${cellCount} cell${cellCount === 1 ? '' : 's'}`,
+        preview.codeCellCount > 0 ? `${preview.codeCellCount} code` : null,
+        preview.markdownCellCount > 0 ? `${preview.markdownCellCount} markdown` : null,
+        preview.rawCellCount > 0 ? `${preview.rawCellCount} raw` : null,
+        `Size: ${preview.byteSizeLabel}`
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
     }
 
     function artifactJSONLinesPreview(value, kind, documentPreview) {
@@ -12508,6 +12564,16 @@
                   ${keyList}
                 </div>` : '';
         };
+        const renderNotebookPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-notebook-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return metadata ? `
+                <div class="artifact-office-preview" data-testid="tool-card-notebook-preview">
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
         const renderJSONLinesPreview = preview => {
           if (!preview) return '';
           const metadata = (preview.metadataLines || [])
@@ -12777,6 +12843,7 @@
                 ${renderWebAssemblyPreview(artifact.webAssemblyPreview)}
                 ${renderFontPreview(artifact.fontPreview)}
                 ${renderExecutablePreview(artifact.executablePreview)}
+                ${renderNotebookPreview(artifact.notebookPreview)}
                 ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
                 ${renderArchivePreview(artifact.archivePreview)}
@@ -23623,6 +23690,7 @@
         newConfidentialChat();
         return;
       }
+      if (!attachments.length && runInstantNewChatSlashCommand(text)) return;
       if (!attachments.length && runInstantStopSlashCommand(text)) return;
       if (!attachments.length) {
         const sideSlash = sideConversationSlash(text);
@@ -23681,6 +23749,20 @@
     function runInstantStopSlashCommand(text) {
       if (!/^\/(stop|cancel|abort)\b/i.test(text)) return false;
       runInstantSlashCommand(text, 'stop-all');
+      return true;
+    }
+
+    function runInstantNewChatSlashCommand(text) {
+      if (!/^\/(?:new(?:\s|$)|new-chat\b|newchat\b)/i.test(text)) return false;
+      if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
+      state.composer.draft = '';
+      state.composer.attachments = [];
+      state.composer.canSend = false;
+      state.composer.slashActiveIndex = 0;
+      state.composer.historyRecallIndex = null;
+      state.composer.historySavedDraft = null;
+      state.runtimeIssue = null;
+      newChat();
       return true;
     }
 
@@ -24509,6 +24591,30 @@
           }, null, 2)
         });
         addMessage('assistant', `Downloaded to \`${path}\`.`);
+      } else if (text.toLowerCase().includes('notebook artifact') || text.toLowerCase().includes('jupyter artifact')) {
+        const path = '/mock/QuillCode/notebooks/analysis.ipynb';
+        state.mockFiles[path] = JSON.stringify({
+          cells: [
+            { cell_type: 'markdown', metadata: {}, source: ['# Analysis\n'] },
+            { cell_type: 'code', execution_count: null, metadata: {}, outputs: [], source: ['print("hello")\n'] },
+            { cell_type: 'code', execution_count: null, metadata: {}, outputs: [], source: ['1 + 1\n'] },
+            { cell_type: 'raw', metadata: {}, source: ['launch notes\n'] }
+          ],
+          metadata: {
+            kernelspec: { display_name: 'Python 3', language: 'python', name: 'python3' },
+            language_info: { name: 'python', version: '3.12' }
+          },
+          nbformat: 4,
+          nbformat_minor: 5
+        }, null, 2);
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/x-ipynb+json' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `analysis.ipynb`.');
       } else if (text.toLowerCase().includes('executable artifact') || text.toLowerCase().includes('binary artifact')) {
         const path = '/mock/QuillCode/build/libquill.so';
         state.mockFiles[path] = mockELFExecutable(0xB7, 2);

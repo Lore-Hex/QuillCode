@@ -465,6 +465,55 @@ public struct ToolArtifactJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactNotebookPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var notebookVersionLabel: String?
+    public var languageLabel: String?
+    public var codeCellCount: Int
+    public var markdownCellCount: Int
+    public var rawCellCount: Int
+    public var byteSizeLabel: String?
+
+    public var cellCount: Int {
+        codeCellCount + markdownCellCount + rawCellCount
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            notebookVersionLabel.map { "Version: \($0)" },
+            languageLabel.map { "Language: \($0)" },
+            "\(cellCount) cell\(cellCount == 1 ? "" : "s")",
+            codeCellCount > 0 ? "\(codeCellCount) code" : nil,
+            markdownCellCount > 0 ? "\(markdownCellCount) markdown" : nil,
+            rawCellCount > 0 ? "\(rawCellCount) raw" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Jupyter Notebook",
+        notebookVersionLabel: String? = nil,
+        languageLabel: String? = nil,
+        codeCellCount: Int = 0,
+        markdownCellCount: Int = 0,
+        rawCellCount: Int = 0,
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.notebookVersionLabel = notebookVersionLabel
+        self.languageLabel = languageLabel
+        self.codeCellCount = codeCellCount
+        self.markdownCellCount = markdownCellCount
+        self.rawCellCount = rawCellCount
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactJSONLinesPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var recordCountLabel: String
@@ -1087,6 +1136,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
         ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
+    }
+    public var notebookPreview: ToolArtifactNotebookPreview? {
+        ToolArtifactNotebookPreviewBuilder.notebookPreview(for: value, kind: kind)
     }
     public var jsonLinesPreview: ToolArtifactJSONLinesPreview? {
         ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: kind)
