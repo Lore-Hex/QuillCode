@@ -236,15 +236,19 @@ enum WorkspaceHTMLToolCardRenderer {
     private static func renderImagePreviews(_ artifacts: [ToolArtifactState]) -> String {
         let imageArtifacts = artifacts.filter(\.isImagePreview)
         guard !imageArtifacts.isEmpty else { return "" }
-        let previews = imageArtifacts.compactMap { artifact -> String? in
+        let previews = imageArtifacts.enumerated().compactMap { index, artifact -> String? in
             guard let src = artifact.previewURL,
                   let preview = artifact.imagePreview
             else { return nil }
+            let sequenceLabel = imageArtifacts.count > 1
+                ? #"<small data-testid="tool-card-image-preview-sequence">Image \#(index + 1) of \#(imageArtifacts.count)</small>"#
+                : ""
             return """
             <figure class="artifact-preview" data-testid="tool-card-image-preview" data-kind="image">
               <img src="\(escape(src))" alt="\(escape(artifact.label))" loading="lazy">
               <figcaption>
                 <small data-testid="tool-card-image-preview-type">\(escape(preview.typeLine))</small>
+                \(sequenceLabel)
                 <strong data-testid="tool-card-image-preview-label">\(escape(artifact.label))</strong>
                 <small data-testid="tool-card-image-preview-detail">\(escape(preview.detail))</small>
               </figcaption>

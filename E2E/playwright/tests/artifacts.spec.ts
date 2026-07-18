@@ -84,6 +84,7 @@ test('mock harness renders image artifact previews from tool cards', async ({ pa
   await expect(page.getByTestId('tool-card-image-preview')).toBeVisible();
   await expect(page.getByTestId('tool-card-image-preview')).toHaveAttribute('data-kind', 'image');
   await expect(page.getByTestId('tool-card-image-preview-type')).toHaveText('Image · PNG');
+  await expect(page.getByTestId('tool-card-image-preview-sequence')).toHaveCount(0);
   await expect(page.getByTestId('tool-card-image-preview-label')).toHaveText('screenshot.png');
   await expect(page.getByTestId('tool-card-image-preview-detail')).toHaveText('/mock/QuillCode/screenshots');
   await expect(page.getByTestId('tool-card-image-preview').locator('img')).toHaveAttribute('src', 'file:///mock/QuillCode/screenshots/screenshot.png');
@@ -147,6 +148,12 @@ test('mock harness renders BMP, WebP, TIFF, and ICO artifact dimensions', async 
     'Image · WEBP · 512 x 288 px',
     'Image · TIFF · 300 x 200 px',
     'Image · ICO · 256 x 256 px'
+  ]);
+  await expect(page.getByTestId('tool-card-image-preview-sequence')).toHaveText([
+    'Image 1 of 4',
+    'Image 2 of 4',
+    'Image 3 of 4',
+    'Image 4 of 4'
   ]);
   await expect(page.getByTestId('tool-card-image-preview-label')).toHaveText(['diagram.bmp', 'preview.webp', 'scan.tiff', 'app.ico']);
   await expect(page.getByText('Created bitmap image artifacts.')).toBeVisible();
