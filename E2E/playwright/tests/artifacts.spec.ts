@@ -314,6 +314,43 @@ test('mock harness renders JSON Lines artifact metadata previews from tool cards
   await expect(page.getByText('Created `events.jsonl`.')).toBeVisible();
 });
 
+test('mock harness renders TOML artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a toml artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('config.toml');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/.quillcode');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · TOML');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('config.toml');
+  await expect(page.getByTestId('tool-card-toml-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-toml-preview-meta')).toHaveText([
+    'Format: TOML',
+    '6 top-level keys',
+    '4 tables',
+    '2 arrays',
+    '8 values',
+    'Keys: approval_policy, disabled, extra_roots, mcp_servers, model, tools',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-toml-preview-key-title')).toHaveText('Top-level keys');
+  await expect(page.getByTestId('tool-card-toml-preview-key-item')).toHaveText([
+    'approval_policy',
+    'disabled',
+    'extra_roots',
+    'mcp_servers',
+    'model',
+    'tools'
+  ]);
+  await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText('config.toml');
+  await expect(page.getByTestId('tool-card-text-preview-content')).toContainText('model = "trustedrouter/fast"');
+  await expect(page.getByText('Created `config.toml`.')).toBeVisible();
+});
+
 test('mock harness renders office artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

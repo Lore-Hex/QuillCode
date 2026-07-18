@@ -678,6 +678,63 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesTOMLArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let quillDirectory = root.appendingPathComponent(".quillcode", isDirectory: true)
+        try FileManager.default.createDirectory(at: quillDirectory, withIntermediateDirectories: true)
+        let config = quillDirectory.appendingPathComponent("config.toml")
+        let tomlText = """
+        model = "trustedrouter/fast"
+        approval_policy = "auto"
+        disabled = false
+        extra_roots = ["../shared"]
+
+        [tools.shell]
+        timeout_seconds = 120
+
+        [mcp_servers.filesystem]
+        command = "quill-mcp"
+        args = ["--root", "."]
+        """
+        try tomlText.write(to: config, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"config.toml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote config.toml\n", artifacts: [config.path])
+        let thread = ChatThread(
+            title: "TOML artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · TOML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">config.toml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-toml-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-toml-preview-meta">Format: TOML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-toml-preview-meta">6 top-level keys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-toml-preview-meta">4 tables"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-toml-preview-key-title">Top-level keys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-toml-preview-key-item">approval_policy"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-toml-preview-key-item">tools"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">config.toml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)
