@@ -246,6 +246,38 @@ public struct ToolArtifactTablePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var entryCount: Int?
+    public var topLevelCount: Int?
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            entryCount.map { "\($0) entr\($0 == 1 ? "y" : "ies")" },
+            topLevelCount.map { "\($0) top-level item\($0 == 1 ? "" : "s")" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        entryCount: Int? = nil,
+        topLevelCount: Int? = nil,
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.entryCount = entryCount
+        self.topLevelCount = topLevelCount
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactImagePreview: Codable, Sendable, Hashable {
     public var typeLabel: String
     public var extensionLabel: String
@@ -293,6 +325,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var tablePreview: ToolArtifactTablePreview? {
         ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
+    }
+    public var archivePreview: ToolArtifactArchivePreview? {
+        ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)
     }
     public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {

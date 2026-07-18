@@ -12,6 +12,8 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactAppshotPreviewText = try Self.appSourceText(named: "ToolArtifactAppshotPreviewBuilder.swift")
         let artifactPDFPreviewText = try Self.appSourceText(named: "ToolArtifactPDFPreviewBuilder.swift")
         let artifactOfficePreviewText = try Self.appSourceText(named: "ToolArtifactOfficePreviewBuilder.swift")
+        let artifactArchivePreviewText = try Self.appSourceText(named: "ToolArtifactArchivePreviewBuilder.swift")
+        let artifactZipCentralDirectoryText = try Self.appSourceText(named: "ToolArtifactZipCentralDirectoryReader.swift")
         let artifactTablePreviewText = try Self.appSourceText(named: "ToolArtifactTablePreviewBuilder.swift")
         let artifactByteSizeText = try Self.appSourceText(named: "ToolArtifactByteSizeFormatter.swift")
         let artifactTextPreviewText = try Self.appSourceText(named: "ToolArtifactTextPreviewBuilder.swift")
@@ -33,6 +35,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "public struct ToolArtifactAppshotPreview",
             "public struct ToolArtifactPDFPreview",
             "public struct ToolArtifactOfficePreview",
+            "public struct ToolArtifactArchivePreview",
             "public struct ToolArtifactTablePreview",
             "public struct ToolArtifactImagePreview"
         ])
@@ -71,10 +74,20 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(artifactOfficePreviewText, containsAll: [
             "enum ToolArtifactOfficePreviewBuilder",
-            "zipCentralDirectory",
-            "centralDirectoryHeaderSignature",
+            "ToolArtifactZipCentralDirectoryReader.centralDirectory",
             "worksheetCount",
             "slideCount"
+        ])
+        Self.assertSource(artifactArchivePreviewText, containsAll: [
+            "enum ToolArtifactArchivePreviewBuilder",
+            "ToolArtifactZipCentralDirectoryReader.centralDirectory",
+            "topLevelCount"
+        ])
+        Self.assertSource(artifactZipCentralDirectoryText, containsAll: [
+            "enum ToolArtifactZipCentralDirectoryReader",
+            "centralDirectoryHeaderSignature",
+            "endOfCentralDirectorySearchLimit",
+            "centralDirectoryByteLimit"
         ])
         Self.assertSource(artifactTablePreviewText, containsAll: [
             "enum ToolArtifactTablePreviewBuilder",
