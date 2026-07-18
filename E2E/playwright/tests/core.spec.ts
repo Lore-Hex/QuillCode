@@ -31,7 +31,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
   const modeButtonBounds = await elementRect(page, '[data-testid="mode-picker-button"]');
   expect(modeButtonBounds.left - modelButtonBounds.right).toBeGreaterThanOrEqual(8);
   await page.getByTestId('model-picker-button').click();
-  await expect(page.getByTestId('model-category')).toHaveCount(3);
+  await expect(page.getByTestId('model-category')).toHaveCount(4);
   await page.getByTestId('model-picker-button').click();
   await expect(page.getByTestId('send-button')).toBeDisabled();
 
@@ -75,7 +75,7 @@ test('mock harness executes simple command flow', async ({ page }) => {
 
   await page.getByTestId('model-picker-button').click();
   await page.getByTestId('model-search').fill('glm');
-  await page.getByTestId('model-option').click();
+  await page.locator('[data-testid="model-option"][data-model-id="z-ai/glm-5.2"]').click();
   await expect(page.getByTestId('model-picker-button')).toHaveText('z-ai/GLM 5.2');
   await expect(page.getByTestId('mode-pill')).toHaveText('Auto');
 

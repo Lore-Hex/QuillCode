@@ -3,7 +3,7 @@ import Foundation
 public enum WorkspaceHTMLRenderer {
     public static func render(_ surface: WorkspaceSurface) -> String {
         """
-        <section \(workspaceAttributes(for: surface.chrome))>
+        <section \(workspaceAttributes(for: surface))>
           \(WorkspaceHTMLTopBarRenderer.render(surface.topBar, commands: surface.commands))
           <div class="\(workspaceGridClass(for: surface))">
             \(sidebarHTML(for: surface))
@@ -167,8 +167,10 @@ public enum WorkspaceHTMLRenderer {
         """
     }
 
-    private static func workspaceAttributes(for chrome: WorkspaceChromeSurface) -> String {
-        #"class="quillcode-workspace" data-testid="workspace" data-sidebar-visible="\#(chrome.isSidebarVisible)""#
+    private static func workspaceAttributes(for surface: WorkspaceSurface) -> String {
+        // data-confidential flips the whole DOM surface into the violet confidential ramp via the
+        // shared `[data-confidential="true"]` token overrides (see E2E/harness/index.html :root).
+        #"class="quillcode-workspace" data-testid="workspace" data-sidebar-visible="\#(surface.chrome.isSidebarVisible)" data-confidential="\#(surface.isConfidential)""#
     }
 
     private static func workspaceGridClass(for surface: WorkspaceSurface) -> String {

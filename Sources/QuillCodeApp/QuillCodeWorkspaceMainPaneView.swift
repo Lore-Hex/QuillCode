@@ -188,6 +188,9 @@ struct QuillCodeWorkspaceMainPaneView: View {
                     .frame(width: 320)
             }
         }
+        // One switch flips the whole pane into the violet confidential ramp — the transcript,
+        // composer, banner, and bubbles all read this instead of threading a flag through inits.
+        .environment(\.quillCodeConfidentialAppearance, surface.isConfidential)
     }
 
     private func runCommand(id: String) {

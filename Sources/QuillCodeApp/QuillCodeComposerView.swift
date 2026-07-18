@@ -21,6 +21,7 @@ struct QuillCodeComposerView: View {
     var onDeleteFollowUp: (UUID) -> Void = { _ in }
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.quillCodeConfidentialAppearance) private var isConfidentialAppearance
     @State private var activeSlashSuggestionIndex = 0
     @State private var activeModelCommandIndex = 0
     @State private var activeFileMentionIndex = 0
@@ -63,7 +64,7 @@ struct QuillCodeComposerView: View {
         .padding(.horizontal, 12)
         .padding(.top, 12)
         .padding(.bottom, 14)
-        .background(QuillCodePalette.background)
+        .background(isConfidentialAppearance ? QuillCodePalette.Confidential.background : QuillCodePalette.background)
         .onChange(of: draft) { _, newValue in
             activeSlashSuggestionIndex = 0
             activeModelCommandIndex = 0
@@ -140,7 +141,7 @@ struct QuillCodeComposerView: View {
             composerAccessoryBar
         }
         .padding(10)
-        .background(QuillCodePalette.panel2)
+        .background(isConfidentialAppearance ? QuillCodePalette.Confidential.panel2 : QuillCodePalette.panel2)
         .overlay(
             RoundedRectangle(cornerRadius: QuillCodeMetrics.composerSurfaceRadius, style: .continuous)
                 .stroke(composerSurfaceStroke, lineWidth: 1)

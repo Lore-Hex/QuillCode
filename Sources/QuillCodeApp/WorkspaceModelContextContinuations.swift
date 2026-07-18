@@ -329,11 +329,12 @@ extension QuillCodeWorkspaceModel {
         )
     }
 
-    /// True when the thread's effective route is the E2E model, so every auxiliary summary step must
-    /// stay on-device. The single source of truth for both the start notice and the generator choice
-    /// — split them and the copy starts lying about what the summary path did.
+    /// True when the thread's effective route is end-to-end encrypted (the E2E meta-route or a
+    /// Confidential-tier catalog model), so every auxiliary summary step must stay on-device. The
+    /// single source of truth for both the start notice and the generator choice — split them and
+    /// the copy starts lying about what the summary path did. Matches `requiresE2EOnlyTraffic`.
     private func summarizesLocallyForPrivacy(_ thread: ChatThread) -> Bool {
-        TrustedRouterDefaults.canonicalModelID(thread.model) == TrustedRouterDefaults.e2eModel
+        TrustedRouterDefaults.isE2EEligible(thread.model, catalog: root.modelCatalog)
     }
 
     private func recordContextSummaryFinished(

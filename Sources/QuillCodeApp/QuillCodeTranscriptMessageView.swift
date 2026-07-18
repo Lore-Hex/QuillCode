@@ -81,18 +81,26 @@ struct QuillCodeMessageBubble: View {
         message.role == .user ? .trailing : .leading
     }
 
+    @Environment(\.quillCodeConfidentialAppearance) private var isConfidentialAppearance
+
     // Own message: a calm, on-brand accent-tinted bubble (not the old blue→coral gradient) so "mine vs
     // the agent's" reads at a glance without shouting; agent replies sit on a clean elevated surface.
     // Mirrors .message.user / .message.assistant in E2E/harness/index.html.
     private var background: some ShapeStyle {
         message.role == .user
-            ? AnyShapeStyle(QuillCodePalette.userBubble)
-            : AnyShapeStyle(QuillCodePalette.panel2)
+            ? AnyShapeStyle(isConfidentialAppearance
+                ? QuillCodePalette.Confidential.userBubble
+                : QuillCodePalette.userBubble)
+            : AnyShapeStyle(isConfidentialAppearance
+                ? QuillCodePalette.Confidential.panel2
+                : QuillCodePalette.panel2)
     }
 
     private var borderColor: Color {
         message.role == .user
-            ? QuillCodePalette.userBubbleBorder
-            : QuillCodePalette.line
+            ? (isConfidentialAppearance
+                ? QuillCodePalette.Confidential.userBubbleBorder
+                : QuillCodePalette.userBubbleBorder)
+            : (isConfidentialAppearance ? QuillCodePalette.Confidential.line : QuillCodePalette.line)
     }
 }

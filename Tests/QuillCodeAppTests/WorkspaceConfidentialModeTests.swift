@@ -41,20 +41,116 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
         XCTAssertEqual(model.root.allSidebarItems.map(\.id), [existing.id])
     }
 
-    func testSetModelIsANoOpInsideAConfidentialChat() throws {
+    func testSetModelInsideConfidentialRefusesNonE2EModels() throws {
         let model = model(threads: [], selectedThreadID: nil)
         let defaultModelBefore = model.root.config.defaultModel
         _ = model.newConfidentialChat()
 
+        // Zeus has no Confidential privacy tier in the bundled catalog — the switch must be refused
+        // at the MODEL level (typed /model bypasses the picker's filtering).
         let returned = model.setModel(TrustedRouterDefaults.zeusModel)
 
         let selected = try XCTUnwrap(model.selectedThread)
-        XCTAssertEqual(returned, TrustedRouterDefaults.e2eModel, "the gesture reports the pinned model")
-        XCTAssertEqual(selected.model, TrustedRouterDefaults.e2eModel, "the thread's model stays pinned")
+        XCTAssertEqual(returned, TrustedRouterDefaults.e2eModel, "the gesture reports the kept model")
+        XCTAssertEqual(selected.model, TrustedRouterDefaults.e2eModel, "the thread's model stays E2E")
+        XCTAssertNotNil(model.lastError, "the refusal explains itself instead of silently no-opping")
         XCTAssertEqual(
             model.root.config.defaultModel,
             defaultModelBefore,
             "a switch attempted inside confidential must not quietly reconfigure future normal chats"
+        )
+    }
+
+    func testSetModelInsideConfidentialAllowsConfidentialTierModels() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        let defaultModelBefore = model.root.config.defaultModel
+        model.root.modelCatalog = TrustedRouterDefaults.bundledModelCatalog + [confidentialTierModel]
+        _ = model.newConfidentialChat()
+
+        let returned = model.setModel(confidentialTierModel.id)
+
+        let selected = try XCTUnwrap(model.selectedThread)
+        XCTAssertEqual(returned, confidentialTierModel.id, "an E2E-eligible exact model is a real choice")
+        XCTAssertEqual(selected.model, confidentialTierModel.id)
+        XCTAssertEqual(
+            model.root.config.defaultModel,
+            defaultModelBefore,
+            "the workspace default stays untouched even for an allowed confidential switch"
+        )
+    }
+
+    func testE2EEligibilityCoversTheMetaRouteAndConfidentialTierOnly() {
+        let catalog = TrustedRouterDefaults.bundledModelCatalog + [confidentialTierModel]
+        XCTAssertTrue(TrustedRouterDefaults.isE2EEligible(TrustedRouterDefaults.e2eModel, catalog: []))
+        XCTAssertTrue(TrustedRouterDefaults.isE2EEligible("e2e", catalog: []), "aliases resolve first")
+        XCTAssertTrue(TrustedRouterDefaults.isE2EEligible(confidentialTierModel.id, catalog: catalog))
+        XCTAssertFalse(TrustedRouterDefaults.isE2EEligible(TrustedRouterDefaults.zeusModel, catalog: catalog))
+        XCTAssertFalse(
+            TrustedRouterDefaults.isE2EEligible(confidentialTierModel.id, catalog: []),
+            "without catalog knowledge only the guaranteed route qualifies"
+        )
+    }
+
+    func testConfidentialRunClampsANonEligibleModelBackToTheE2ERoute() {
+        XCTAssertEqual(
+            WorkspaceAgentRunContextBuilder.effectiveModelID(
+                TrustedRouterDefaults.zeusModel,
+                threadIsConfidential: true,
+                catalog: TrustedRouterDefaults.bundledModelCatalog
+            ),
+            TrustedRouterDefaults.e2eModel,
+            "a confidential run may never egress on a non-E2E model, whatever mutated the thread"
+        )
+        XCTAssertEqual(
+            WorkspaceAgentRunContextBuilder.effectiveModelID(
+                confidentialTierModel.id,
+                threadIsConfidential: true,
+                catalog: TrustedRouterDefaults.bundledModelCatalog + [confidentialTierModel]
+            ),
+            confidentialTierModel.id,
+            "an eligible exact model rides as picked"
+        )
+        XCTAssertEqual(
+            WorkspaceAgentRunContextBuilder.effectiveModelID(
+                TrustedRouterDefaults.zeusModel,
+                threadIsConfidential: false,
+                catalog: TrustedRouterDefaults.bundledModelCatalog
+            ),
+            TrustedRouterDefaults.zeusModel,
+            "normal threads are untouched"
+        )
+    }
+
+    func testConfidentialPickerListsOnlyE2EEligibleModelsAndUnlocksWithAChoice() throws {
+        let model = model(threads: [], selectedThreadID: nil)
+        _ = model.newConfidentialChat()
+
+        // Bundled catalog: only the E2E route qualifies — an openable picker with one row would read
+        // as broken, so the chip renders locked.
+        XCTAssertTrue(model.surface().topBar.modelIsLocked)
+
+        // A live catalog carrying a Confidential-tier model gives a REAL choice: unlocked, and the
+        // picker's category list collapses to the eligible set.
+        model.root.modelCatalog = TrustedRouterDefaults.bundledModelCatalog + [confidentialTierModel]
+        let topBar = model.surface().topBar
+        let categoryNames = topBar.modelCategories.map(\.category)
+        XCTAssertFalse(topBar.modelIsLocked)
+        XCTAssertTrue(categoryNames.contains(confidentialTierModel.category), "\(categoryNames)")
+        XCTAssertFalse(
+            categoryNames.contains(TrustedRouterDefaults.recommendedCategory),
+            "non-eligible recommended models must not be offered inside confidential"
+        )
+    }
+
+    /// A live-catalog model TrustedRouter marks Confidential-tier (tier 3): its routing is
+    /// end-to-end encrypted, so a confidential chat may select it as an exact model.
+    private var confidentialTierModel: ModelInfo {
+        ModelInfo(
+            id: "z-ai/glm-5.2-confidential",
+            provider: "z-ai",
+            displayName: "GLM 5.2 Confidential",
+            category: "z-ai",
+            capabilities: ModelCapabilities(privacyTier: TrustedRouterDefaults.confidentialPrivacyTier)
         )
     }
 

@@ -33,13 +33,22 @@ extension QuillCodeWorkspaceModel {
 
     @discardableResult
     public func setModel(_ model: String) -> String {
-        // A confidential thread's model is pinned to the E2E-encrypted route for its lifetime: a model
-        // switch would silently break the privacy promise the mode advertises, so the gesture is a
-        // no-op (the picker renders locked, but the slash/palette paths land here too). The workspace
-        // DEFAULT is deliberately left untouched as well — a change made from inside a confidential
-        // chat should not quietly reconfigure future normal chats.
+        // Inside a confidential chat the user may still pick an EXACT model — but only one whose
+        // TrustedRouter routing is end-to-end encrypted (the E2E meta-route, or a Confidential-tier
+        // catalog model). Anything else is refused at the MODEL level (typed /model bypasses the
+        // picker's filtering), and the workspace DEFAULT is deliberately left untouched either way —
+        // a change made from inside a confidential chat must not quietly reconfigure normal chats.
         if let thread = selectedThread, thread.runtimeContext.isConfidential {
-            return thread.model
+            let canonical = TrustedRouterDefaults.canonicalModelID(model)
+            guard TrustedRouterDefaults.isE2EEligible(canonical, catalog: root.modelCatalog) else {
+                setLastError("Confidential chats only run on end-to-end encrypted models.")
+                return thread.model
+            }
+            mutateSelectedThread { thread in
+                WorkspaceConfigurationEngine.setModelID(canonical, thread: &thread)
+            }
+            refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
+            return canonical
         }
         let modelID = WorkspaceConfigurationEngine.setModel(model, config: &root.config)
         mutateSelectedThread { thread in

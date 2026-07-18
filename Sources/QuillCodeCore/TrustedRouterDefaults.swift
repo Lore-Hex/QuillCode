@@ -28,6 +28,22 @@ public enum TrustedRouterDefaults {
     public static let aristotleModelDisplayName = "Aristotle 1.0"
     public static let platoModelDisplayName = "Plato 1.0"
     public static let e2eModelDisplayName = "E2E Encrypted"
+    /// TrustedRouter's Confidential privacy tier (0 = Open, 2 = ZDR, 3 = Confidential): requests run
+    /// end-to-end encrypted, attested enclave to confidential provider. The only tier a confidential
+    /// chat may route to.
+    public static let confidentialPrivacyTier = 3
+
+    /// Whether a model may carry a confidential chat's traffic: the E2E meta-route always, or any
+    /// catalog model TrustedRouter marks Confidential-tier (its routing is end-to-end encrypted).
+    /// Without an authenticated catalog (no tiers known), only the guaranteed route qualifies.
+    public static func isE2EEligible(_ modelID: String, catalog: [ModelInfo]) -> Bool {
+        let canonical = canonicalModelID(modelID)
+        if canonical == e2eModel { return true }
+        guard let entry = catalog.first(where: { canonicalModelID($0.id) == canonical }) else {
+            return false
+        }
+        return entry.capabilities.privacyTier == confidentialPrivacyTier
+    }
     public static let zeusSlashAlias = "/zeus"
     public static let prometheusSlashAlias = "/prometheus"
     public static let socratesSlashAlias = "/socrates"
@@ -111,7 +127,13 @@ public enum TrustedRouterDefaults {
         .init(id: socratesModel, provider: trustedRouterProvider, displayName: socratesModelDisplayName, category: recommendedCategory),
         .init(id: aristotleModel, provider: trustedRouterProvider, displayName: aristotleModelDisplayName, category: recommendedCategory),
         .init(id: platoModel, provider: trustedRouterProvider, displayName: platoModelDisplayName, category: recommendedCategory),
-        .init(id: e2eModel, provider: trustedRouterProvider, displayName: e2eModelDisplayName, category: privateCategory),
+        .init(
+            id: e2eModel,
+            provider: trustedRouterProvider,
+            displayName: e2eModelDisplayName,
+            category: privateCategory,
+            capabilities: ModelCapabilities(privacyTier: confidentialPrivacyTier)
+        ),
         .init(id: minimaxM3Model, provider: "minimax", displayName: "MiniMax M3", category: "minimax"),
         .init(id: safetyPrimaryCatalogModel, provider: "z-ai", displayName: "GLM 5.2", category: safetyCategory),
         .init(id: safetyFallbackCatalogModel, provider: "moonshotai", displayName: "Kimi K2.6", category: safetyCategory)
@@ -372,7 +394,12 @@ public enum TrustedRouterDefaults {
             supportsPersonality: override.supportsPersonality ?? base.supportsPersonality,
             status: override.status ?? base.status,
             summary: override.summary ?? base.summary,
-            releaseDate: override.releaseDate ?? base.releaseDate
+            releaseDate: override.releaseDate ?? base.releaseDate,
+            // Privacy metadata must survive normalization/merging: dropping it here silently breaks
+            // confidential-mode eligibility (privacyTier) and region-only filters (regions) for
+            // every live-catalog model. The live claim wins; the curated entry is the fallback.
+            privacyTier: override.privacyTier ?? base.privacyTier,
+            regions: override.regions.isEmpty ? base.regions : override.regions
         )
     }
 

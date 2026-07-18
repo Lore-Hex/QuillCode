@@ -13,6 +13,14 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
     public var status: String?
     public var summary: String?
     public var releaseDate: Date?
+    /// TrustedRouter privacy tier for the model's routing (0 = Open, 2 = ZDR, 3 = Confidential).
+    /// nil when the catalog did not advertise one. Tier 3 marks a model as eligible for
+    /// confidential chats: every request runs end-to-end encrypted on TrustedRouter.
+    public var privacyTier: Int?
+    /// Where the model's provider routes run, normalized to lowercase region codes ("us", "eu",
+    /// "cn"). Empty when the catalog made no residency claim — an empty list is UNKNOWN, never
+    /// "everywhere", so region-only filters exclude it.
+    public var regions: [String]
 
     public var isEmpty: Bool {
         contextWindowTokens == nil
@@ -25,6 +33,8 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
             && status == nil
             && summary == nil
             && releaseDate == nil
+            && privacyTier == nil
+            && regions.isEmpty
     }
 
     public init(
@@ -37,7 +47,9 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         supportsPersonality: Bool? = nil,
         status: String? = nil,
         summary: String? = nil,
-        releaseDate: Date? = nil
+        releaseDate: Date? = nil,
+        privacyTier: Int? = nil,
+        regions: [String] = []
     ) {
         self.contextWindowTokens = contextWindowTokens.map { max(0, $0) }
         self.inputPricePerMillionTokens = inputPricePerMillionTokens.map { max(0, $0) }
@@ -49,6 +61,29 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         self.status = Self.normalizedOptional(status)
         self.summary = Self.normalizedOptional(summary)
         self.releaseDate = releaseDate
+        self.privacyTier = privacyTier.map { max(0, $0) }
+        self.regions = Self.normalizedRegions(regions)
+    }
+
+    /// Canonical region codes: lowercase, deduplicated, common synonyms folded ("usa" → "us",
+    /// "europe" → "eu", "china" → "cn") so filters and catalogs can never disagree on spelling.
+    public static func normalizedRegions(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for value in values {
+            let raw = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !raw.isEmpty else { continue }
+            let canonical: String
+            switch raw {
+            case "us", "usa", "united states", "united-states", "america": canonical = "us"
+            case "eu", "europe", "european union", "european-union": canonical = "eu"
+            case "cn", "china", "prc": canonical = "cn"
+            default: canonical = raw
+            }
+            guard seen.insert(canonical).inserted else { continue }
+            result.append(canonical)
+        }
+        return result
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -62,6 +97,8 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
         case status
         case summary
         case releaseDate
+        case privacyTier
+        case regions
     }
 
     public init(from decoder: Decoder) throws {
@@ -82,7 +119,9 @@ public struct ModelCapabilities: Codable, Sendable, Hashable {
             supportsPersonality: try container.decodeIfPresent(Bool.self, forKey: .supportsPersonality),
             status: try container.decodeIfPresent(String.self, forKey: .status),
             summary: try container.decodeIfPresent(String.self, forKey: .summary),
-            releaseDate: try container.decodeIfPresent(Date.self, forKey: .releaseDate)
+            releaseDate: try container.decodeIfPresent(Date.self, forKey: .releaseDate),
+            privacyTier: try container.decodeIfPresent(Int.self, forKey: .privacyTier),
+            regions: try container.decodeIfPresent([String].self, forKey: .regions) ?? []
         )
     }
 

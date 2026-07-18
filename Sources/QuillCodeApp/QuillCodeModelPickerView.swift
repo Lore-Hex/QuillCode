@@ -110,7 +110,7 @@ struct QuillCodeModelPickerView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Choose Model")
                 .font(.headline)
-            Text("Search provider, category, model, or state")
+            Text("Search provider, category, model, state, or us-only / eu-only / china-only")
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
             Text(topBar.modelCatalogStatusLabel)
