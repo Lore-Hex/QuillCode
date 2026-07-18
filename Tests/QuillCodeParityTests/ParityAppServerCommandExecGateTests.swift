@@ -9,8 +9,13 @@ final class ParityAppServerCommandExecGateTests: QuillCodeParityTestCase {
             "Sources/QuillCodeCLI/AppServerCommandExecManagement.swift"
         )
         let models = try text(root, "Sources/QuillCodeCLI/AppServerCommandExecModels.swift")
+        let environment = try text(
+            root,
+            "Sources/QuillCodeCLI/AppServerManagedProcessEnvironment.swift"
+        )
         let sandbox = try text(root, "Sources/QuillCodeCLI/AppServerProcessSandbox.swift")
         let tests = try text(root, "Tests/QuillCodeCLITests/AppServerCommandExecTests.swift")
+        let processTests = try text(root, "Tests/QuillCodeCLITests/AppServerProcessTests.swift")
         let smoke = try text(root, "scripts/app-server-smoke.sh")
         let parity = try Self.docsText(named: "CODEX_PARITY_MATRIX.md")
         let decisions = try Self.docsText(named: "DECISIONS.md")
@@ -35,6 +40,15 @@ final class ParityAppServerCommandExecGateTests: QuillCodeParityTestCase {
             "command/exec cannot set both outputBytesCap and disableOutputCap",
             "command/exec cannot set both timeoutMs and disableTimeout"
         ])
+        Self.assertSource(environment, containsAll: [
+            "AppServerProxyEnvironmentPolicy",
+            "allowUpstreamProxy == false",
+            "stripUpstreamProxy",
+            "http_proxy",
+            "https_proxy",
+            "all_proxy",
+            "no_proxy"
+        ])
         Self.assertSource(sandbox, containsAll: [
             "/usr/bin/sandbox-exec",
             "bwrap",
@@ -49,6 +63,11 @@ final class ParityAppServerCommandExecGateTests: QuillCodeParityTestCase {
             "testDisconnectTerminatesProcessAndSuppressesDeferredResponse",
             "testMacOSSandboxBlocksReadOnlyWritesAndScopesWorkspaceWrites"
         ])
+        Self.assertSource(tests, contains: "testManagedNetworkRequirementsStripUpstreamProxyEnvironment")
+        Self.assertSource(
+            processTests,
+            contains: "testManagedNetworkRequirementsStripUpstreamProxyEnvironmentFromSpawnedProcess"
+        )
         Self.assertSource(smoke, containsAll: [
             "command/exec",
             "command/exec/write",
@@ -59,6 +78,10 @@ final class ParityAppServerCommandExecGateTests: QuillCodeParityTestCase {
         Self.assertSource(
             decisions,
             contains: "Standalone app-server commands are connection-owned sandboxed processes"
+        )
+        Self.assertSource(
+            decisions,
+            contains: "Managed `allow_upstream_proxy = false` strips proxy environment variables"
         )
         Self.assertSource(research, contains: "experimental `command/exec`")
     }

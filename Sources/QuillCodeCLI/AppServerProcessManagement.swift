@@ -3,9 +3,11 @@ import Foundation
 extension AppServerSession {
     func spawnProcess(_ value: CLIJSONValue) throws -> String {
         try requireExperimentalAPI(for: "process/spawn")
+        let requirements = try managedRequirements()
         let request = try AppServerProcessSpawnRequest(
             params: value,
-            inheritedEnvironment: environment
+            inheritedEnvironment: environment,
+            proxyEnvironmentPolicy: AppServerProxyEnvironmentPolicy(requirements: requirements)
         )
         guard processSessions[request.processHandle] == nil else {
             throw AppServerRPCError.invalidRequest(

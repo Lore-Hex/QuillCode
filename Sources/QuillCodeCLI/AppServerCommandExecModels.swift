@@ -9,7 +9,8 @@ struct AppServerCommandExecRequest: Sendable, Equatable {
         params value: CLIJSONValue,
         cwd: URL,
         inheritedEnvironment: [String: String],
-        sandboxPolicy: AppServerSandboxPolicy
+        sandboxPolicy: AppServerSandboxPolicy,
+        proxyEnvironmentPolicy: AppServerProxyEnvironmentPolicy = .inherit
     ) throws {
         let params = try AppServerParams(value)
         let processID = try Self.optionalProcessID(from: params)
@@ -64,7 +65,8 @@ struct AppServerCommandExecRequest: Sendable, Equatable {
         self.processRequest = try AppServerProcessSpawnRequest(
             params: .object(spawnParams),
             inheritedEnvironment: inheritedEnvironment,
-            sandboxPolicy: sandboxPolicy
+            sandboxPolicy: sandboxPolicy,
+            proxyEnvironmentPolicy: proxyEnvironmentPolicy
         )
     }
 

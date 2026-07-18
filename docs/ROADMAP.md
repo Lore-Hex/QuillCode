@@ -28,8 +28,10 @@
   cwd/environment overrides, buffered or base64-streamed output, pipe and PTY input, terminal resize,
   output caps, timeouts, deferred final responses, connection-scoped process IDs, disconnect teardown,
   and reusable IDs. Built-in read-only, workspace, and danger-full-access profiles enforce macOS
-  Seatbelt or Linux bubblewrap boundaries; arbitrary configured permission profiles and managed
-  network-proxy profiles remain explicit app-server parity work.
+  Seatbelt or Linux bubblewrap boundaries; managed `allow_upstream_proxy = false` strips inherited and
+  request-supplied upstream proxy environment variables before launch. Arbitrary configured permission
+  profiles and full managed network-proxy forwarding/domain-routing profiles remain explicit app-server
+  parity work.
 - Ready MCP tools stream bounded per-call progress through stdio, Streamable HTTP, and legacy HTTP+SSE into replayable agent events, native/static tool cards, thinking/activity state, CLI JSONL, and Codex-compatible app-server `item/mcpToolCall/progress` notifications. App-server routing preserves exact turn/item identity, emits only nonempty protocol-valid messages, honors notification opt-outs, and orders progress between native MCP item start and completion. Terminal results publish immediately and cancellation closes an in-flight progress lifecycle. Thread-scoped MCP startup emits Codex-compatible `starting`, `ready`, `failed`, and `cancelled` notifications with required-before-response and optional-after-response ordering. Server-initiated standard/rich-form/URL elicitation now round-trips across stdio and both HTTP transports with interruption and disconnect cleanup.
 - App-server manual compaction now mirrors Codex's response-first
   `thread/compact/start` contract. It uses the shared live/mock compaction policy,

@@ -19,13 +19,16 @@ struct AppServerProcessSpawnRequest: Sendable, Equatable {
     init(
         params value: CLIJSONValue,
         inheritedEnvironment: [String: String],
-        sandboxPolicy: AppServerSandboxPolicy? = nil
+        sandboxPolicy: AppServerSandboxPolicy? = nil,
+        proxyEnvironmentPolicy: AppServerProxyEnvironmentPolicy = .inherit
     ) throws {
         let params = try AppServerParams(value)
         command = try Self.command(from: params)
         cwd = try Self.absoluteWorkingDirectory(from: params)
         processHandle = try params.requiredString("processHandle")
-        environment = try Self.environment(from: params, inherited: inheritedEnvironment)
+        environment = proxyEnvironmentPolicy.apply(
+            to: try Self.environment(from: params, inherited: inheritedEnvironment)
+        )
         usesPTY = try params.optionalBool("tty") ?? false
         let requestedStdinStreaming = try params.optionalBool("streamStdin") ?? false
         let requestedOutputStreaming = try params.optionalBool("streamStdoutStderr") ?? false
