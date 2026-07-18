@@ -8779,7 +8779,7 @@
     function artifactArchivePreview(value, kind, documentPreview) {
       if (kind !== 'file' || documentPreview?.kind !== 'archive') return null;
       const extension = artifactPreviewExtension(value);
-      if (extension !== 'zip') return null;
+      if (!['zip', 'tar'].includes(extension)) return null;
       const path = artifactFilePath(value);
       const packageInfo = path ? state.mockOfficePackages[path] : null;
       const fileNames = Array.isArray(packageInfo?.fileNames) ? packageInfo.fileNames : null;
@@ -8792,7 +8792,7 @@
         ? packageInfo.sizeBytes
         : (state.mockFiles[path] || '').length;
       const preview = {
-        formatLabel: 'ZIP',
+        formatLabel: extension === 'tar' ? 'TAR' : 'ZIP',
         entryCount: fileNames.length,
         topLevelCount: topLevelItems.size || null,
         byteSizeLabel: byteSizeLabel(byteSize)
@@ -22531,12 +22531,18 @@
         addMessage('assistant', 'Created media artifacts.');
       } else if (text.toLowerCase().includes('archive') && text.toLowerCase().includes('artifact')) {
         const zipPath = '/mock/QuillCode/packages/source.zip';
-        const tarPath = '/mock/QuillCode/packages/logs.tar.gz';
+        const tarPath = '/mock/QuillCode/packages/sources.tar';
+        const tarGzPath = '/mock/QuillCode/packages/logs.tar.gz';
         state.mockFiles[zipPath] = 'PK\u0003\u0004';
-        state.mockFiles[tarPath] = '\u001f\u008b';
+        state.mockFiles[tarPath] = 'ustar';
+        state.mockFiles[tarGzPath] = '\u001f\u008b';
         state.mockOfficePackages[zipPath] = {
           fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift', 'README.md'],
           sizeBytes: 4096
+        };
+        state.mockOfficePackages[tarPath] = {
+          fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift'],
+          sizeBytes: 5120
         };
         addToolCard({
           title: 'host.file.write',
@@ -22545,8 +22551,8 @@
           inputJSON: JSON.stringify({ path: 'packages', contentType: 'generated archives' }, null, 2),
           outputJSON: JSON.stringify({
             ok: true,
-            stdout: `Wrote ${zipPath} and ${tarPath}\n`,
-            artifacts: [zipPath, tarPath]
+            stdout: `Wrote ${zipPath}, ${tarPath}, and ${tarGzPath}\n`,
+            artifacts: [zipPath, tarPath, tarGzPath]
           }, null, 2)
         });
         addMessage('assistant', 'Created archive artifacts.');
