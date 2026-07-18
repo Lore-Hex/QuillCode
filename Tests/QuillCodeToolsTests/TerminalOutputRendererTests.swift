@@ -134,6 +134,18 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("x\u{1B}[5Gz"), "x   z")
     }
 
+    func testHorizontalTabAdvancesToFixedTabStop() {
+        XCTAssertEqual(render("a\tX"), "a       X")
+        XCTAssertEqual(render("abcdefgh\tX"), "abcdefgh        X")
+    }
+
+    func testCSIForwardAndBackwardTabMoveByFixedTabStops() {
+        XCTAssertEqual(render("a\u{1B}[IX"), "a       X")
+        XCTAssertEqual(render("\u{1B}[2IX"), "                X")
+        XCTAssertEqual(render("abcdefghi\u{1B}[ZX"), "abcdefghX")
+        XCTAssertEqual(render("abcdefghi\u{1B}[2ZX"), "Xbcdefghi")
+    }
+
     func testCursorAddressingIsBoundedForSparseHugeMoves() {
         let output = render("x\u{1B}[2000;2000Hz")
         let lines = output.components(separatedBy: "\n")

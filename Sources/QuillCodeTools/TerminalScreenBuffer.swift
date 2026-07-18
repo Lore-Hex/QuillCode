@@ -10,6 +10,7 @@ struct TerminalScreenBuffer {
     static let maxRows = 1_000
     static let maxCols = 1_000
     static let maxCursorParameter = 1_001
+    static let tabStopInterval = 8
 
     let ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy
     var lines: [[TerminalScreenCell]] = [[]]
@@ -46,6 +47,12 @@ struct TerminalScreenBuffer {
         var i = 0
         while i < scalars.count {
             let scalar = scalars[i]
+            if scalar.value == 0x09 {
+                horizontalTab(count: 1)
+                i += 1
+                continue
+            }
+
             switch scalar {
             case "\u{1B}":  // ESC: start of an escape sequence
                 i = handleEscape(scalars, from: i)

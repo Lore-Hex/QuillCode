@@ -24,6 +24,10 @@ extension TerminalScreenBuffer {
             col = 0
         case "G", "`":  // CHA / HPA: cursor to absolute column (1-based)
             col = clampCol(firstParam(params) - 1)
+        case "I":  // CHT: cursor forward to following tab stop
+            horizontalTab(count: firstParam(params))
+        case "Z":  // CBT: cursor backward to previous tab stop
+            backwardHorizontalTab(count: firstParam(params))
         case "d":  // VPA: cursor to absolute row (1-based)
             setRow(firstParam(params) - 1)
         case "s":
@@ -127,5 +131,27 @@ extension TerminalScreenBuffer {
     mutating func ensureRow(_ target: Int) {
         let clamped = Swift.max(0, Swift.min(target, Self.maxRows))
         while lines.count <= clamped { lines.append([]) }
+    }
+
+    mutating func horizontalTab(count requestedCount: Int) {
+        let count = boundedTabMovementCount(requestedCount)
+        guard count > 0 else { return }
+
+        for _ in 0..<count {
+            col = clampCol(((col / Self.tabStopInterval) + 1) * Self.tabStopInterval)
+        }
+    }
+
+    mutating func backwardHorizontalTab(count requestedCount: Int) {
+        let count = boundedTabMovementCount(requestedCount)
+        guard count > 0 else { return }
+
+        for _ in 0..<count {
+            col = clampCol(((Swift.max(col, 1) - 1) / Self.tabStopInterval) * Self.tabStopInterval)
+        }
+    }
+
+    private func boundedTabMovementCount(_ requestedCount: Int) -> Int {
+        Swift.max(0, Swift.min(requestedCount, (Self.maxCols / Self.tabStopInterval) + 2))
     }
 }
