@@ -741,6 +741,34 @@ public struct ToolArtifactMediaPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactSourceTextPreview: Codable, Sendable, Hashable {
+    public var typeLabel: String
+    public var lineCountLabel: String
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Type: \(typeLabel)",
+            lineCountLabel,
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview truncated" : nil
+        ].compactMap { $0 }
+    }
+
+    public init(
+        typeLabel: String,
+        lineCountLabel: String,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.typeLabel = typeLabel
+        self.lineCountLabel = lineCountLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactImagePreview: Codable, Sendable, Hashable {
     public var typeLabel: String
     public var extensionLabel: String
@@ -821,6 +849,10 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var mediaPreview: ToolArtifactMediaPreview? {
         ToolArtifactMediaPreviewBuilder.mediaPreview(for: value, kind: kind)
+    }
+    public var sourceTextPreview: ToolArtifactSourceTextPreview? {
+        guard hasTextPreview else { return nil }
+        return ToolArtifactTextPreviewBuilder.sourceTextPreview(for: value, kind: kind)
     }
     public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {

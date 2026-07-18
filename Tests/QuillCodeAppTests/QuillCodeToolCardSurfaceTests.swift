@@ -456,6 +456,8 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         ])
         XCTAssertNil(preview.metadataLines.first { $0.contains("sk-secret-value") })
         XCTAssertNil(artifact.iniPreview)
+        XCTAssertNil(artifact.textPreview)
+        XCTAssertNil(artifact.sourceTextPreview)
 
         let remoteDotenv = ToolArtifactState(value: "https://example.com/.env")
         XCTAssertNil(remoteDotenv.dotenvPreview)
@@ -1063,6 +1065,32 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(ToolArtifactTextPreviewBuilder.textPreview(for: appshotFile.path))
         XCTAssertNil(ToolArtifactTextPreviewBuilder.textPreview(for: binaryFile.path))
         XCTAssertNil(ToolArtifactTextPreviewBuilder.textPreview(for: "https://example.com/hello.txt"))
+    }
+
+    func testArtifactStateDerivesSourceTextPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let source = directory.appendingPathComponent("main.swift")
+        let sourceText = """
+        import Foundation
+
+        print("hello")
+        """
+        try sourceText.write(to: source, atomically: true, encoding: .utf8)
+
+        let textPreview = try XCTUnwrap(ToolArtifactTextPreviewBuilder.textPreview(for: source.path))
+        let artifact = ToolArtifactState(value: source.path, textPreview: textPreview)
+        let preview = try XCTUnwrap(artifact.sourceTextPreview)
+        let byteCount = try XCTUnwrap(sourceText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(preview.typeLabel, "Swift")
+        XCTAssertEqual(preview.lineCountLabel, "3 lines")
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Type: Swift",
+            "3 lines",
+            "Size: \(byteCount) bytes"
+        ])
     }
 
     private func pngHeader(width: UInt32, height: UInt32) -> Data {

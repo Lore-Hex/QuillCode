@@ -42,8 +42,10 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "public struct ToolArtifactOfficePreview",
             "public struct ToolArtifactArchivePreview",
             "public struct ToolArtifactMediaPreview",
+            "public struct ToolArtifactSourceTextPreview",
             "public struct ToolArtifactTablePreview",
             "public struct ToolArtifactImagePreview",
+            "ToolArtifactTextPreviewBuilder.sourceTextPreview",
             "ToolArtifactMediaPreviewBuilder.mediaPreview"
         ])
         Self.assertSource(artifactValueClassifierText, contains: "enum ToolArtifactValueClassifier")

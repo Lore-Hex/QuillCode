@@ -6,6 +6,7 @@ struct QuillCodeArtifactTextPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             header
+            metadata
             ScrollView(.horizontal, showsIndicators: false) {
                 Text(artifact.textPreview ?? "")
                     .font(.system(.caption, design: .monospaced))
@@ -40,6 +41,24 @@ struct QuillCodeArtifactTextPreview: View {
             Text("Preview")
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
+        }
+    }
+
+    @ViewBuilder
+    private var metadata: some View {
+        if let preview = artifact.sourceTextPreview {
+            HStack(spacing: 6) {
+                ForEach(preview.metadataLines, id: \.self) { line in
+                    Text(line)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.white.opacity(0.06))
+                        .clipShape(Capsule())
+                }
+            }
         }
     }
 }
