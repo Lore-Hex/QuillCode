@@ -282,6 +282,17 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("\u{9D}0;my title\u{9C}prompt$ "), "prompt$ ")
     }
 
+    func testStripsTerminalStringControlPayloads() {
+        XCTAssertEqual(render("a\u{1B}Pignored\u{1B}\\b"), "ab")
+        XCTAssertEqual(render("a\u{1B}Xignored\u{1B}\\b"), "ab")
+        XCTAssertEqual(render("a\u{1B}^ignored\u{1B}\\b"), "ab")
+        XCTAssertEqual(render("a\u{1B}_ignored\u{1B}\\b"), "ab")
+        XCTAssertEqual(render("a\u{90}ignored\u{9C}b"), "ab")
+        XCTAssertEqual(render("a\u{98}ignored\u{9C}b"), "ab")
+        XCTAssertEqual(render("a\u{9E}ignored\u{9C}b"), "ab")
+        XCTAssertEqual(render("a\u{9F}ignored\u{9C}b"), "ab")
+    }
+
     func testDropsIncompleteTrailingEscapeSequences() {
         // A sequence split across stream chunks: the partial tail must not render as literal text.
         XCTAssertEqual(render("text\u{1B}["), "text")
