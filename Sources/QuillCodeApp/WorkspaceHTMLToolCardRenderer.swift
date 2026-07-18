@@ -212,6 +212,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let htmlPreview = renderHTMLPreview(artifact.htmlPreview)
             let diffPreview = renderDiffPreview(artifact.diffPreview)
             let tablePreview = renderTablePreview(artifact.tablePreview)
+            let harPreview = renderHARPreview(artifact.harPreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
             let iniPreview = renderINIPreview(artifact.iniPreview)
@@ -244,6 +245,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(htmlPreview)
               \(diffPreview)
               \(tablePreview)
+              \(harPreview)
               \(jsonLinesPreview)
               \(tomlPreview)
               \(iniPreview)
@@ -551,6 +553,33 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderHARPreview(_ preview: ToolArtifactHARPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-har-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let hosts = preview.hostPreviewLabels.map {
+            #"<li data-testid="tool-card-har-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hostList = hosts.isEmpty
+            ? ""
+            : """
+              <section class="artifact-office-contents" data-testid="tool-card-har-preview-hosts">
+                <strong data-testid="tool-card-har-preview-host-title">Hosts</strong>
+                <ul>\(hosts)</ul>
+              </section>
+            """
+        guard !metadata.isEmpty || !hostList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-har-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(hostList)
         </div>
         """
     }

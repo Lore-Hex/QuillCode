@@ -8251,6 +8251,7 @@
         htmlPreview: artifactHTMLPreview(value, kind, documentPreview),
         diffPreview: artifactDiffPreview(value, kind, documentPreview),
         tablePreview: artifactTablePreview(value, kind, documentPreview),
+        harPreview: artifactHARPreview(value, kind, documentPreview),
         jsonLinesPreview: artifactJSONLinesPreview(value, kind, documentPreview),
         tomlPreview: artifactTOMLPreview(value, kind, documentPreview),
         iniPreview: artifactINIPreview(value, kind, documentPreview),
@@ -8736,6 +8737,7 @@
       ['dylib', { kind: 'data', typeLabel: 'Data', icon: 'BIN' }],
       ['env', { kind: 'data', typeLabel: 'Data', icon: 'ENV' }],
       ['exe', { kind: 'data', typeLabel: 'Data', icon: 'BIN' }],
+      ['har', { kind: 'data', typeLabel: 'Data', icon: 'HAR' }],
       ['otf', { kind: 'data', typeLabel: 'Data', icon: 'FONT' }],
       ['ini', { kind: 'data', typeLabel: 'Data', icon: 'INI' }],
       ['o', { kind: 'data', typeLabel: 'Data', icon: 'BIN' }],
@@ -9157,6 +9159,67 @@
       }
       const preview = jsonPreviewFromRoot(root, content.length);
       return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactHARPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      if (artifactPreviewExtension(value) !== 'har') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      if (content.length > 256 * 1024) return null;
+
+      let root;
+      try {
+        root = JSON.parse(content);
+      } catch {
+        return null;
+      }
+      const log = root && !Array.isArray(root) && typeof root === 'object' ? root.log : null;
+      if (!log || Array.isArray(log) || typeof log !== 'object' || !Array.isArray(log.entries)) return null;
+
+      const methods = new Set();
+      const statusGroups = new Set();
+      const hosts = new Set();
+      for (const entry of log.entries.slice(0, 200)) {
+        const request = entry && typeof entry === 'object' ? entry.request : null;
+        if (request && typeof request === 'object') {
+          const method = jsonPreviewKeyLabel(request.method || '').toUpperCase();
+          if (method) methods.add(method);
+          try {
+            const url = new URL(String(request.url || ''));
+            if (url.hostname) hosts.add(jsonPreviewKeyLabel(url.hostname.toLowerCase()));
+          } catch {}
+        }
+        const response = entry && typeof entry === 'object' ? entry.response : null;
+        const status = response && typeof response === 'object' ? Number(response.status) : NaN;
+        if (Number.isInteger(status) && status >= 100 && status <= 599) {
+          statusGroups.add(`${Math.floor(status / 100)}xx`);
+        }
+      }
+      const creator = log.creator && typeof log.creator === 'object' ? log.creator : null;
+      const creatorParts = creator
+        ? [creator.name, creator.version].map(value => jsonPreviewKeyLabel(value || '')).filter(Boolean)
+        : [];
+      const preview = {
+        versionLabel: typeof log.version === 'string' && log.version.trim() ? jsonPreviewKeyLabel(log.version) : null,
+        creatorLabel: creatorParts.length ? creatorParts.join(' ') : null,
+        entryCount: log.entries.length,
+        methodLabels: [...methods].sort().slice(0, 6),
+        statusGroupLabels: [...statusGroups].sort().slice(0, 6),
+        hostPreviewLabels: [...hosts].sort().slice(0, 6),
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        'Format: HAR',
+        preview.versionLabel ? `Version: ${preview.versionLabel}` : null,
+        preview.creatorLabel ? `Creator: ${preview.creatorLabel}` : null,
+        `${preview.entryCount} entr${preview.entryCount === 1 ? 'y' : 'ies'}`,
+        preview.methodLabels.length ? `Methods: ${preview.methodLabels.join(', ')}` : null,
+        preview.statusGroupLabels.length ? `Statuses: ${preview.statusGroupLabels.join(', ')}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.hostPreviewLabels.length ? preview : null;
     }
 
     function artifactNotebookPreview(value, kind, documentPreview) {
@@ -12717,6 +12780,25 @@
                   <div>${metadata}</div>
                 </div>` : '';
         };
+        const renderHARPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-har-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const hosts = (preview.hostPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-har-preview-host-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const hostList = hosts ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-har-preview-hosts">
+                    <strong data-testid="tool-card-har-preview-host-title">Hosts</strong>
+                    <ul>${hosts}</ul>
+                  </section>` : '';
+          return metadata || hostList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-har-preview">
+                  <div>${metadata}</div>
+                  ${hostList}
+                </div>` : '';
+        };
         const renderWebAssemblyPreview = preview => {
           if (!preview) return '';
           const metadata = (preview.metadataLines || [])
@@ -12840,6 +12922,7 @@
                 ${renderXMLPreview(artifact.xmlPreview)}
                 ${renderPropertyListPreview(artifact.propertyListPreview)}
                 ${renderSQLitePreview(artifact.sqlitePreview)}
+                ${renderHARPreview(artifact.harPreview)}
                 ${renderWebAssemblyPreview(artifact.webAssemblyPreview)}
                 ${renderFontPreview(artifact.fontPreview)}
                 ${renderExecutablePreview(artifact.executablePreview)}
@@ -25017,6 +25100,36 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `cache.sqlite3`.');
+      } else if (text.toLowerCase().includes('har artifact') || text.toLowerCase().includes('network trace artifact')) {
+        const path = '/mock/QuillCode/network/network.har';
+        state.mockFiles[path] = JSON.stringify({
+          log: {
+            version: '1.2',
+            creator: { name: 'QuillCode', version: '1.0' },
+            entries: [
+              {
+                request: { method: 'GET', url: 'https://api.trustedrouter.com/v1/models?token=secret' },
+                response: { status: 200 }
+              },
+              {
+                request: { method: 'POST', url: 'https://quillos.cloud/api/relay' },
+                response: { status: 201 }
+              },
+              {
+                request: { method: 'GET', url: 'https://api.trustedrouter.com/v1/chat/completions' },
+                response: { status: 429 }
+              }
+            ]
+          }
+        }, null, 2);
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/json' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `network.har`.');
       } else if (text.toLowerCase().includes('wasm artifact') || text.toLowerCase().includes('webassembly artifact')) {
         const path = '/mock/QuillCode/build/module.wasm';
         state.mockFiles[path] = mockWebAssemblyModule(1);

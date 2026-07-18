@@ -465,6 +465,50 @@ public struct ToolArtifactJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactHARPreview: Codable, Sendable, Hashable {
+    public var versionLabel: String?
+    public var creatorLabel: String?
+    public var entryCount: Int
+    public var methodLabels: [String]
+    public var statusGroupLabels: [String]
+    public var hostPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: HAR",
+            versionLabel.map { "Version: \($0)" },
+            creatorLabel.map { "Creator: \($0)" },
+            "\(entryCount) entr\(entryCount == 1 ? "y" : "ies")",
+            methodLabels.isEmpty ? nil : "Methods: \(methodLabels.joined(separator: ", "))",
+            statusGroupLabels.isEmpty ? nil : "Statuses: \(statusGroupLabels.joined(separator: ", "))",
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        entryCount > 0 || !metadataLines.isEmpty || !hostPreviewLabels.isEmpty
+    }
+
+    public init(
+        versionLabel: String? = nil,
+        creatorLabel: String? = nil,
+        entryCount: Int,
+        methodLabels: [String] = [],
+        statusGroupLabels: [String] = [],
+        hostPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.versionLabel = versionLabel
+        self.creatorLabel = creatorLabel
+        self.entryCount = entryCount
+        self.methodLabels = methodLabels
+        self.statusGroupLabels = statusGroupLabels
+        self.hostPreviewLabels = hostPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactNotebookPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var notebookVersionLabel: String?
@@ -1136,6 +1180,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
         ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
+    }
+    public var harPreview: ToolArtifactHARPreview? {
+        ToolArtifactHARPreviewBuilder.harPreview(for: value, kind: kind)
     }
     public var notebookPreview: ToolArtifactNotebookPreview? {
         ToolArtifactNotebookPreviewBuilder.notebookPreview(for: value, kind: kind)

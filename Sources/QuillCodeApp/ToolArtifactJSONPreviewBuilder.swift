@@ -4,6 +4,7 @@ enum ToolArtifactJSONPreviewBuilder {
     static func jsonPreview(for value: String, kind: ToolArtifactKind) -> ToolArtifactJSONPreview? {
         guard kind == .file,
               ToolArtifactDocumentPreviewBuilder.documentPreview(for: value, kind: kind)?.kind == .data,
+              ToolArtifactValueClassifier.pathExtension(for: value) == "json",
               let fileURL = localArtifactFileURL(for: value)
         else {
             return nil

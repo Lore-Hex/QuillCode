@@ -63,6 +63,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             diffContent(diffPreview)
         } else if let tablePreview = artifact.tablePreview {
             tableContent(tablePreview)
+        } else if let harPreview = artifact.harPreview {
+            harContent(harPreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
             jsonLinesContent(jsonLinesPreview)
         } else if let tomlPreview = artifact.tomlPreview {
@@ -177,6 +179,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(jsonPreview.metadataLines)
             artifactContentList(title: "Top keys", labels: jsonPreview.keyPreviewLabels)
+        }
+    }
+
+    private func harContent(_ harPreview: ToolArtifactHARPreview) -> some View {
+        previewSurface(minHeight: harPreview.hostPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "network")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(harPreview.metadataLines)
+            artifactContentList(title: "Hosts", labels: harPreview.hostPreviewLabels)
         }
     }
 
