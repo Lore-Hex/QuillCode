@@ -453,6 +453,60 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJSON.jsonPreview)
     }
 
+    func testArtifactStateDerivesNotebookPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let notebook = directory.appendingPathComponent("analysis.ipynb")
+        let notebookText = """
+        {
+          "cells": [
+            {"cell_type": "markdown", "metadata": {}, "source": ["# Analysis\\n"]},
+            {"cell_type": "code", "execution_count": null, "metadata": {}, "outputs": [], "source": ["print('hello')\\n"]},
+            {"cell_type": "code", "execution_count": null, "metadata": {}, "outputs": [], "source": ["1 + 1\\n"]},
+            {"cell_type": "raw", "metadata": {}, "source": ["notes\\n"]}
+          ],
+          "metadata": {
+            "kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
+            "language_info": {"name": "python", "version": "3.12"}
+          },
+          "nbformat": 4,
+          "nbformat_minor": 5
+        }
+        """
+        try notebookText.write(to: notebook, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: notebook.path)
+        let preview = try XCTUnwrap(artifact.notebookPreview)
+        let byteCount = try XCTUnwrap(notebookText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .document)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "IPYNB")
+        XCTAssertEqual(preview.formatLabel, "Jupyter Notebook")
+        XCTAssertEqual(preview.notebookVersionLabel, "4.5")
+        XCTAssertEqual(preview.languageLabel, "python")
+        XCTAssertEqual(preview.codeCellCount, 2)
+        XCTAssertEqual(preview.markdownCellCount, 1)
+        XCTAssertEqual(preview.rawCellCount, 1)
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Jupyter Notebook",
+            "Version: 4.5",
+            "Language: python",
+            "4 cells",
+            "2 code",
+            "1 markdown",
+            "1 raw",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let invalidNotebook = directory.appendingPathComponent("broken.ipynb")
+        try #"{"metadata":{}}"#.write(to: invalidNotebook, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: invalidNotebook.path).notebookPreview)
+
+        let remoteNotebook = ToolArtifactState(value: "https://example.com/analysis.ipynb")
+        XCTAssertNil(remoteNotebook.notebookPreview)
+    }
+
     func testArtifactStateDerivesJSONLinesPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let events = directory.appendingPathComponent("events.jsonl")

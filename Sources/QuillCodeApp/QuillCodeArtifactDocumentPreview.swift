@@ -97,6 +97,11 @@ struct QuillCodeArtifactDocumentPreview: View {
                 title: artifact.label,
                 metadataLines: executablePreview.metadataLines
             )
+        } else if let notebookPreview = artifact.notebookPreview {
+            metadataContent(
+                title: artifact.label,
+                metadataLines: notebookPreview.metadataLines
+            )
         } else if let jsonPreview = artifact.jsonPreview {
             jsonContent(jsonPreview)
         } else if let archivePreview = artifact.archivePreview {
