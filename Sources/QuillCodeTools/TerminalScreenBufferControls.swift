@@ -46,6 +46,8 @@ extension TerminalScreenBuffer {
             deleteCharacters(count: firstParam(params))
         case "X":  // ECH: erase characters at cursor without shifting the suffix
             eraseCharacters(count: firstParam(params))
+        case "b":  // REP: repeat the preceding graphic character
+            repeatPreviousCharacter(count: firstParam(params))
         case "K":
             eraseLine(params)
         case "J":
