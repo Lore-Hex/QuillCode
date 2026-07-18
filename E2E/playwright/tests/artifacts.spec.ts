@@ -120,6 +120,36 @@ test('mock harness renders common project manifest artifacts with specific sourc
   await expect(page.getByText('Created project manifest artifacts.')).toBeVisible();
 });
 
+test('mock harness renders build control artifacts with specific source labels', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make build control artifacts');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText([
+    '.dockerignore',
+    'Justfile',
+    'WORKSPACE',
+    'flake.nix'
+  ]);
+  await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText([
+    '.dockerignore',
+    'Justfile',
+    'WORKSPACE',
+    'flake.nix'
+  ]);
+  await expect(page.getByTestId('tool-card-text-preview').nth(0).getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: Docker ignore');
+  await expect(page.getByTestId('tool-card-text-preview').nth(1).getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: Justfile');
+  await expect(page.getByTestId('tool-card-text-preview').nth(2).getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: Bazel workspace');
+  await expect(page.getByTestId('tool-card-text-preview').nth(3).getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: Nix flake');
+  await expect(page.getByTestId('tool-card-text-preview-content').nth(0)).toContainText('DerivedData');
+  await expect(page.getByTestId('tool-card-text-preview-content').nth(1)).toContainText('swift test');
+  await expect(page.getByTestId('tool-card-text-preview-content').nth(2)).toContainText('workspace(name = "quillcode")');
+  await expect(page.getByTestId('tool-card-text-preview-content').nth(3)).toContainText('description = "QuillCode"');
+  await expect(page.getByText('Created build control artifacts.')).toBeVisible();
+});
+
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
