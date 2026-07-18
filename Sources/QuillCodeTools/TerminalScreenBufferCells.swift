@@ -4,6 +4,48 @@ extension TerminalScreenBuffer {
         while lines[row].count <= clamped { lines[row].append(.blank) }
     }
 
+    mutating func insertCharacters(count requestedCount: Int) {
+        let count = boundedCharacterMutationCount(requestedCount)
+        guard count > 0 else { return }
+
+        ensureColumn(col)
+        clearContinuationBoundary(at: col)
+        let blanks = Array(repeating: TerminalScreenCell.blank(style: currentStyle), count: count)
+        lines[row].insert(contentsOf: blanks, at: col)
+        trimCurrentLineToScreenWidth()
+    }
+
+    mutating func deleteCharacters(count requestedCount: Int) {
+        let count = boundedCharacterMutationCount(requestedCount)
+        guard count > 0, col < lines[row].count else { return }
+
+        clearContinuationBoundary(at: col)
+        let end = Swift.min(lines[row].count, col + count)
+        if end < lines[row].count {
+            clearContinuationBoundary(at: end)
+        }
+        lines[row].removeSubrange(col..<end)
+        lines[row].append(contentsOf: Array(repeating: .blank(style: currentStyle), count: end - col))
+        trimCurrentLineToScreenWidth()
+    }
+
+    private func boundedCharacterMutationCount(_ requestedCount: Int) -> Int {
+        Swift.max(0, Swift.min(requestedCount, Self.maxCols - col + 1))
+    }
+
+    private mutating func trimCurrentLineToScreenWidth() {
+        guard lines[row].count > Self.maxCols + 1 else { return }
+        if Self.maxCols + 1 < lines[row].count {
+            clearCellCluster(at: Self.maxCols)
+        }
+        lines[row].removeSubrange((Self.maxCols + 1)..<lines[row].count)
+    }
+
+    private mutating func clearContinuationBoundary(at column: Int) {
+        guard column >= 0, column < lines[row].count, lines[row][column].isContinuation else { return }
+        clearCellCluster(at: column)
+    }
+
     mutating func clearCellCluster(at column: Int) {
         guard column >= 0, column < lines[row].count else { return }
         if lines[row][column].isContinuation {

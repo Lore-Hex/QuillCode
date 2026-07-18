@@ -40,6 +40,10 @@ extension TerminalScreenBuffer {
             insertLines(count: firstParam(params))
         case "M":  // DL: delete lines
             deleteLines(count: firstParam(params))
+        case "@":  // ICH: insert blank characters at cursor
+            insertCharacters(count: firstParam(params))
+        case "P":  // DCH: delete characters at cursor
+            deleteCharacters(count: firstParam(params))
         case "K":
             eraseLine(params)
         case "J":
