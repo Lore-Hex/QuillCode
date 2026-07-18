@@ -54,6 +54,11 @@ struct QuillCodeArtifactDocumentPreview: View {
                 title: rtfPreview.title ?? artifact.label,
                 metadataLines: rtfPreview.metadataLines
             )
+        } else if let htmlPreview = artifact.htmlPreview {
+            metadataContent(
+                title: htmlPreview.title ?? htmlPreview.heading ?? artifact.label,
+                metadataLines: htmlPreview.metadataLines
+            )
         } else if let tablePreview = artifact.tablePreview {
             tableContent(tablePreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
