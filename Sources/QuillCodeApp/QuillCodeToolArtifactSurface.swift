@@ -881,6 +881,42 @@ public struct ToolArtifactFontPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactExecutablePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var architectureLabel: String?
+    public var bitnessLabel: String?
+    public var endianLabel: String?
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            architectureLabel.map { "Architecture: \($0)" },
+            bitnessLabel.map { "Class: \($0)" },
+            endianLabel.map { "Endian: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        architectureLabel: String? = nil,
+        bitnessLabel: String? = nil,
+        endianLabel: String? = nil,
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.architectureLabel = architectureLabel
+        self.bitnessLabel = bitnessLabel
+        self.endianLabel = endianLabel
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var entryCount: Int?
@@ -1081,6 +1117,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var fontPreview: ToolArtifactFontPreview? {
         ToolArtifactFontPreviewBuilder.fontPreview(for: value, kind: kind)
+    }
+    public var executablePreview: ToolArtifactExecutablePreview? {
+        ToolArtifactExecutablePreviewBuilder.executablePreview(for: value, kind: kind)
     }
     public var archivePreview: ToolArtifactArchivePreview? {
         ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)

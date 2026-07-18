@@ -748,6 +748,34 @@ test('mock harness renders font artifact metadata previews from tool cards', asy
   await expect(page.getByText('Created `Inter.woff2`.')).toBeVisible();
 });
 
+test('mock harness renders executable artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make an executable artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('libquill.so');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/build');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · SO');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('libquill.so');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/build/libquill.so'
+  );
+  await expect(page.getByTestId('tool-card-executable-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-executable-preview-meta')).toHaveText([
+    'Format: ELF',
+    'Architecture: ARM64',
+    'Class: 64-bit',
+    'Endian: Little',
+    'Size: 64 bytes'
+  ]);
+  await expect(page.getByText('Created `libquill.so`.')).toBeVisible();
+});
+
 test('mock harness renders XML artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

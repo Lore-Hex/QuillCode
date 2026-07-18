@@ -967,6 +967,101 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         return data
     }
 
+    func testArtifactStateDerivesExecutablePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let sharedObject = directory.appendingPathComponent("libquill.so")
+        let bytes = elfFixture(machine: 0xB7, bitness: 2, littleEndian: true)
+        try bytes.write(to: sharedObject)
+
+        let artifact = ToolArtifactState(value: sharedObject.path)
+        let preview = try XCTUnwrap(artifact.executablePreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "SO")
+        XCTAssertEqual(preview.formatLabel, "ELF")
+        XCTAssertEqual(preview.architectureLabel, "ARM64")
+        XCTAssertEqual(preview.bitnessLabel, "64-bit")
+        XCTAssertEqual(preview.endianLabel, "Little")
+        XCTAssertEqual(preview.byteSizeLabel, ToolArtifactByteSizeFormatter.label(for: bytes.count))
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: ELF",
+            "Architecture: ARM64",
+            "Class: 64-bit",
+            "Endian: Little",
+            "Size: \(try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: bytes.count)))"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+        XCTAssertNil(artifact.tomlPreview)
+        XCTAssertNil(artifact.yamlPreview)
+        XCTAssertNil(artifact.propertyListPreview)
+        XCTAssertNil(artifact.sqlitePreview)
+        XCTAssertNil(artifact.webAssemblyPreview)
+        XCTAssertNil(artifact.fontPreview)
+
+        let executable = directory.appendingPathComponent("quill.exe")
+        try peFixture(machine: 0x8664).write(to: executable)
+        let pePreview = try XCTUnwrap(ToolArtifactState(value: executable.path).executablePreview)
+        XCTAssertEqual(pePreview.formatLabel, "PE")
+        XCTAssertEqual(pePreview.architectureLabel, "x86_64")
+        XCTAssertEqual(pePreview.bitnessLabel, "64-bit")
+
+        let dylib = directory.appendingPathComponent("QuillCode.dylib")
+        try machOFixture(magicBytes: [0xCF, 0xFA, 0xED, 0xFE], cpuType: 0x0100000C).write(to: dylib)
+        let machOPreview = try XCTUnwrap(ToolArtifactState(value: dylib.path).executablePreview)
+        XCTAssertEqual(machOPreview.formatLabel, "Mach-O")
+        XCTAssertEqual(machOPreview.architectureLabel, "ARM64")
+
+        let corruptBinary = directory.appendingPathComponent("corrupt.so")
+        try Data(repeating: 0, count: 128).write(to: corruptBinary)
+        XCTAssertNil(ToolArtifactState(value: corruptBinary.path).executablePreview)
+
+        let remoteBinary = ToolArtifactState(value: "https://example.com/tool.exe")
+        XCTAssertNil(remoteBinary.executablePreview)
+    }
+
+    private func elfFixture(machine: UInt16, bitness: UInt8, littleEndian: Bool) -> Data {
+        var data = Data(repeating: 0, count: 64)
+        data[0] = 0x7F
+        data[1] = 0x45
+        data[2] = 0x4C
+        data[3] = 0x46
+        data[4] = bitness
+        data[5] = littleEndian ? 1 : 2
+        if littleEndian {
+            data[18] = UInt8(machine & 0xFF)
+            data[19] = UInt8((machine >> 8) & 0xFF)
+        } else {
+            data[18] = UInt8((machine >> 8) & 0xFF)
+            data[19] = UInt8(machine & 0xFF)
+        }
+        return data
+    }
+
+    private func peFixture(machine: UInt16) -> Data {
+        var data = Data(repeating: 0, count: 128)
+        data[0] = 0x4D
+        data[1] = 0x5A
+        data[60] = 0x40
+        data[64] = 0x50
+        data[65] = 0x45
+        data[66] = 0
+        data[67] = 0
+        data[68] = UInt8(machine & 0xFF)
+        data[69] = UInt8((machine >> 8) & 0xFF)
+        return data
+    }
+
+    private func machOFixture(magicBytes: [UInt8], cpuType: UInt32) -> Data {
+        var data = Data()
+        data.append(contentsOf: magicBytes)
+        data.append(UInt8(cpuType & 0xFF))
+        data.append(UInt8((cpuType >> 8) & 0xFF))
+        data.append(UInt8((cpuType >> 16) & 0xFF))
+        data.append(UInt8((cpuType >> 24) & 0xFF))
+        return data
+    }
+
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let spreadsheet = directory.appendingPathComponent("budget.xlsx")
