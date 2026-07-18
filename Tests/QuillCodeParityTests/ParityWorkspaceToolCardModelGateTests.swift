@@ -81,6 +81,9 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         Self.assertSource(artifactArchivePreviewText, containsAll: [
             "enum ToolArtifactArchivePreviewBuilder",
             "ToolArtifactZipCentralDirectoryReader.centralDirectory",
+            "tarPreview",
+            "tarFileName",
+            "tarFileSize",
             "topLevelCount"
         ])
         Self.assertSource(artifactZipCentralDirectoryText, containsAll: [

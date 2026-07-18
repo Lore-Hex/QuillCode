@@ -255,6 +255,27 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             "Size: \(byteSize)"
         ])
 
+        let tarArchive = directory.appendingPathComponent("sources.tar")
+        let tarBytes = TarArchiveFixture.tarArchive(entries: [
+            ("Sources/App.swift", Data("print(\"hi\")".utf8)),
+            ("Sources/Model.swift", Data("struct Model {}".utf8)),
+            ("Tests/AppTests.swift", Data("import XCTest".utf8))
+        ])
+        try tarBytes.write(to: tarArchive)
+        let tarByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: tarBytes.count))
+
+        let tarPreview = try XCTUnwrap(ToolArtifactState(value: tarArchive.path).archivePreview)
+        XCTAssertEqual(tarPreview.formatLabel, "TAR")
+        XCTAssertEqual(tarPreview.entryCount, 3)
+        XCTAssertEqual(tarPreview.topLevelCount, 2)
+        XCTAssertEqual(tarPreview.byteSizeLabel, tarByteSize)
+        XCTAssertEqual(tarPreview.metadataLines, [
+            "Format: TAR",
+            "3 entries",
+            "2 top-level items",
+            "Size: \(tarByteSize)"
+        ])
+
         let remoteArchive = ToolArtifactState(value: "https://example.com/source.zip")
         XCTAssertNil(remoteArchive.archivePreview)
     }
