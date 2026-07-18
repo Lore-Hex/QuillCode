@@ -8258,6 +8258,7 @@
         yamlPreview: artifactYAMLPreview(value, kind, documentPreview),
         xmlPreview: artifactXMLPreview(value, kind, documentPreview),
         propertyListPreview: artifactPropertyListPreview(value, kind, documentPreview),
+        sqlitePreview: artifactSQLitePreview(value, kind, documentPreview),
         jsonPreview: artifactJSONPreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
         mediaPreview: artifactMediaPreview(value, kind, documentPreview),
@@ -8630,6 +8631,21 @@
       ]);
     }
 
+    function mockSQLiteDatabase(pageSize = 4096, pageCount = 3) {
+      const byteCount = Math.max(100, pageSize * pageCount);
+      const bytes = new Array(byteCount).fill(0);
+      Array.from('SQLite format 3\u0000').forEach((character, index) => {
+        bytes[index] = character.charCodeAt(0);
+      });
+      bytes[16] = (pageSize >> 8) & 0xFF;
+      bytes[17] = pageSize & 0xFF;
+      bytes[28] = (pageCount >> 24) & 0xFF;
+      bytes[29] = (pageCount >> 16) & 0xFF;
+      bytes[30] = (pageCount >> 8) & 0xFF;
+      bytes[31] = pageCount & 0xFF;
+      return binaryString(bytes);
+    }
+
     function mockTIFFHeader(width, height) {
       return binaryString([
         ...Array.from('II').map(character => character.charCodeAt(0)),
@@ -8670,10 +8686,13 @@
       ['ndjson', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
       ['cfg', { kind: 'data', typeLabel: 'Data', icon: 'CFG' }],
       ['conf', { kind: 'data', typeLabel: 'Data', icon: 'CONF' }],
+      ['db', { kind: 'data', typeLabel: 'Data', icon: 'DB' }],
       ['diff', { kind: 'data', typeLabel: 'Data', icon: 'DIFF' }],
       ['env', { kind: 'data', typeLabel: 'Data', icon: 'ENV' }],
       ['ini', { kind: 'data', typeLabel: 'Data', icon: 'INI' }],
       ['patch', { kind: 'data', typeLabel: 'Data', icon: 'DIFF' }],
+      ['sqlite', { kind: 'data', typeLabel: 'Data', icon: 'DB' }],
+      ['sqlite3', { kind: 'data', typeLabel: 'Data', icon: 'DB' }],
       ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
       ['yaml', { kind: 'data', typeLabel: 'Data', icon: 'YAML' }],
       ['yml', { kind: 'data', typeLabel: 'Data', icon: 'YML' }],
@@ -9568,6 +9587,36 @@
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
       return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactSQLitePreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (!['db', 'sqlite', 'sqlite3'].includes(extension)) return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || content.length < 100) return null;
+      if (!content.startsWith('SQLite format 3\u0000')) return null;
+
+      const pageSizeRaw = (content.charCodeAt(16) << 8) | content.charCodeAt(17);
+      const pageSize = pageSizeRaw === 1 ? 65536 : pageSizeRaw > 0 ? pageSizeRaw : null;
+      const pageCount = (content.charCodeAt(28) << 24)
+        | (content.charCodeAt(29) << 16)
+        | (content.charCodeAt(30) << 8)
+        | content.charCodeAt(31);
+      const preview = {
+        formatLabel: 'SQLite',
+        pageSize,
+        pageCount: pageCount > 0 ? pageCount : null,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        preview.pageSize ? `Page size: ${preview.pageSize} bytes` : null,
+        preview.pageCount ? `${preview.pageCount} page${preview.pageCount === 1 ? '' : 's'}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
     }
 
     function jsonPreviewFromRoot(root, byteSize) {
@@ -12363,6 +12412,16 @@
                   ${keyList}
                 </div>` : '';
         };
+        const renderSQLitePreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-sqlite-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return metadata ? `
+                <div class="artifact-office-preview" data-testid="tool-card-sqlite-preview">
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
         const renderMediaPreview = preview => {
           if (!preview) return '';
           const title = preview.title
@@ -12455,6 +12514,7 @@
                 ${renderYAMLPreview(artifact.yamlPreview)}
                 ${renderXMLPreview(artifact.xmlPreview)}
                 ${renderPropertyListPreview(artifact.propertyListPreview)}
+                ${renderSQLitePreview(artifact.sqlitePreview)}
                 ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
                 ${renderArchivePreview(artifact.archivePreview)}
@@ -24567,6 +24627,17 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `Info.plist`.');
+      } else if (text.toLowerCase().includes('sqlite artifact') || text.toLowerCase().includes('database artifact')) {
+        const path = '/mock/QuillCode/data/cache.sqlite3';
+        state.mockFiles[path] = mockSQLiteDatabase(4096, 3);
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/vnd.sqlite3' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `cache.sqlite3`.');
       } else if (text.toLowerCase().includes('json artifact')) {
         const path = '/mock/QuillCode/reports/build-report.json';
         state.mockFiles[path] = JSON.stringify({

@@ -804,6 +804,59 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteXML.xmlPreview)
     }
 
+    func testArtifactStateDerivesSQLitePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let database = directory.appendingPathComponent("cache.sqlite3")
+        let bytes = sqliteFixture(pageSize: 4096, pageCount: 3)
+        try bytes.write(to: database)
+
+        let artifact = ToolArtifactState(value: database.path)
+        let preview = try XCTUnwrap(artifact.sqlitePreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "SQLITE3")
+        XCTAssertEqual(preview.formatLabel, "SQLite")
+        XCTAssertEqual(preview.pageSize, 4096)
+        XCTAssertEqual(preview.pageCount, 3)
+        XCTAssertEqual(preview.byteSizeLabel, ToolArtifactByteSizeFormatter.label(for: bytes.count))
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: SQLite",
+            "Page size: 4096 bytes",
+            "3 pages",
+            "Size: \(try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: bytes.count)))"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+        XCTAssertNil(artifact.tomlPreview)
+        XCTAssertNil(artifact.yamlPreview)
+        XCTAssertNil(artifact.propertyListPreview)
+
+        let genericDB = directory.appendingPathComponent("cache.db")
+        try bytes.write(to: genericDB)
+        XCTAssertEqual(ToolArtifactState(value: genericDB.path).sqlitePreview?.pageCount, 3)
+
+        let corruptDatabase = directory.appendingPathComponent("corrupt.sqlite3")
+        try Data(repeating: 0, count: 128).write(to: corruptDatabase)
+        XCTAssertNil(ToolArtifactState(value: corruptDatabase.path).sqlitePreview)
+
+        let remoteDatabase = ToolArtifactState(value: "https://example.com/cache.sqlite3")
+        XCTAssertNil(remoteDatabase.sqlitePreview)
+    }
+
+    private func sqliteFixture(pageSize: Int, pageCount: Int) -> Data {
+        let byteCount = max(100, pageSize * pageCount)
+        var data = Data(repeating: 0, count: byteCount)
+        let magic = Data("SQLite format 3\u{0000}".utf8)
+        data.replaceSubrange(0..<magic.count, with: magic)
+        data[16] = UInt8((pageSize >> 8) & 0xFF)
+        data[17] = UInt8(pageSize & 0xFF)
+        data[28] = UInt8((pageCount >> 24) & 0xFF)
+        data[29] = UInt8((pageCount >> 16) & 0xFF)
+        data[30] = UInt8((pageCount >> 8) & 0xFF)
+        data[31] = UInt8(pageCount & 0xFF)
+        return data
+    }
+
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let spreadsheet = directory.appendingPathComponent("budget.xlsx")

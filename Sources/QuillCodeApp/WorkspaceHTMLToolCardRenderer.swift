@@ -219,6 +219,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
             let xmlPreview = renderXMLPreview(artifact.xmlPreview)
             let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
+            let sqlitePreview = renderSQLitePreview(artifact.sqlitePreview)
             let jsonPreview = renderJSONPreview(artifact.jsonPreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             let archivePreview = renderArchivePreview(artifact.archivePreview)
@@ -246,6 +247,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(yamlPreview)
               \(xmlPreview)
               \(propertyListPreview)
+              \(sqlitePreview)
               \(jsonPreview)
               \(appshotPreview)
               \(archivePreview)
@@ -716,6 +718,21 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderSQLitePreview(_ preview: ToolArtifactSQLitePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-sqlite-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !metadata.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-sqlite-preview">
+          <div>
+            \(metadata)
+          </div>
         </div>
         """
     }
