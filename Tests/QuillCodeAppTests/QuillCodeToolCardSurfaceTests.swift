@@ -261,6 +261,56 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteRTF.rtfPreview)
     }
 
+    func testArtifactStateDerivesHTMLPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let htmlFile = directory.appendingPathComponent("dashboard.html")
+        let htmlText = """
+        <!doctype html>
+        <html>
+          <head>
+            <title>Quill Dashboard &amp; Metrics</title>
+            <style>body { font-family: sans-serif; }</style>
+          </head>
+          <body>
+            <h1>Launch Readiness</h1>
+            <a href="/logs">Logs</a>
+            <a href="/settings">Settings</a>
+            <script>window.ready = true;</script>
+          </body>
+        </html>
+        """
+        try htmlText.write(to: htmlFile, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: htmlFile.path, textPreview: ToolArtifactTextPreviewBuilder.textPreview(for: htmlFile.path))
+        let preview = try XCTUnwrap(artifact.htmlPreview)
+        let byteCount = try XCTUnwrap(htmlText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .document)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "HTML")
+        XCTAssertEqual(preview.title, "Quill Dashboard & Metrics")
+        XCTAssertEqual(preview.heading, "Launch Readiness")
+        XCTAssertEqual(preview.linkCount, 2)
+        XCTAssertEqual(preview.scriptCount, 1)
+        XCTAssertEqual(preview.styleCount, 1)
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: HTML",
+            "2 links",
+            "1 script",
+            "1 style block",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNotNil(artifact.sourceTextPreview)
+
+        let plainHTMLFile = directory.appendingPathComponent("plain.html")
+        try "not html".write(to: plainHTMLFile, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: plainHTMLFile.path).htmlPreview)
+
+        let remoteHTML = ToolArtifactState(value: "https://example.com/dashboard.html")
+        XCTAssertNil(remoteHTML.htmlPreview)
+    }
+
     func testArtifactStateDerivesJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("build-report.json")

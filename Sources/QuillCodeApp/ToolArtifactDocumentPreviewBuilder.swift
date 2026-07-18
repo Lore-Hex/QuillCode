@@ -63,6 +63,8 @@ enum ToolArtifactDocumentPreviewBuilder {
         "plist": .data,
         "doc": .document,
         "docx": .document,
+        "htm": .document,
+        "html": .document,
         "odt": .document,
         "pages": .document,
         "rtf": .document,

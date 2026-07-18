@@ -300,6 +300,49 @@ public struct ToolArtifactRTFPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactHTMLPreview: Codable, Sendable, Hashable {
+    public var title: String?
+    public var heading: String?
+    public var linkCount: Int
+    public var scriptCount: Int
+    public var styleCount: Int
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: HTML",
+            linkCount > 0 ? "\(linkCount) link\(linkCount == 1 ? "" : "s")" : nil,
+            scriptCount > 0 ? "\(scriptCount) script\(scriptCount == 1 ? "" : "s")" : nil,
+            styleCount > 0 ? "\(styleCount) style block\(styleCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 64 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil || heading != nil || !metadataLines.isEmpty
+    }
+
+    public init(
+        title: String? = nil,
+        heading: String? = nil,
+        linkCount: Int = 0,
+        scriptCount: Int = 0,
+        styleCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.title = title
+        self.heading = heading
+        self.linkCount = linkCount
+        self.scriptCount = scriptCount
+        self.styleCount = styleCount
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactTablePreview: Codable, Sendable, Hashable {
     public var delimiterLabel: String
     public var rowCountLabel: String
@@ -854,6 +897,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var rtfPreview: ToolArtifactRTFPreview? {
         ToolArtifactRTFPreviewBuilder.rtfPreview(for: value, kind: kind)
+    }
+    public var htmlPreview: ToolArtifactHTMLPreview? {
+        ToolArtifactHTMLPreviewBuilder.htmlPreview(for: value, kind: kind)
     }
     public var tablePreview: ToolArtifactTablePreview? {
         ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
