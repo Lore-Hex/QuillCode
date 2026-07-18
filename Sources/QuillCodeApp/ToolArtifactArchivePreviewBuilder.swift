@@ -20,6 +20,26 @@ enum ToolArtifactArchivePreviewBuilder {
             switch documentPreview.extensionLabel.lowercased() {
             case "zip":
                 preview = try zipPreview(from: fileURL, fileSize: fileSize)
+            case "7z":
+                preview = try magicOnlyPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: "7Z",
+                    memberName: nil,
+                    includesSingleMemberCounts: false,
+                    minimumSize: sevenZipMagic.count,
+                    magicValidator: hasSevenZipMagic
+                )
+            case "rar":
+                preview = try magicOnlyPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: "RAR",
+                    memberName: nil,
+                    includesSingleMemberCounts: false,
+                    minimumSize: rarMinimumSize,
+                    magicValidator: hasRarMagic
+                )
             case "tar":
                 preview = try tarPreview(from: fileURL, fileSize: fileSize)
             case "gz":
@@ -386,6 +406,18 @@ enum ToolArtifactArchivePreviewBuilder {
         data.count >= zstandardMagic.count && Array(data.prefix(zstandardMagic.count)) == zstandardMagic
     }
 
+    private static func hasSevenZipMagic(_ data: Data) -> Bool {
+        data.count >= sevenZipMagic.count && Array(data.prefix(sevenZipMagic.count)) == sevenZipMagic
+    }
+
+    private static func hasRarMagic(_ data: Data) -> Bool {
+        guard data.count >= rarV4Magic.count else { return false }
+        if Array(data.prefix(rarV4Magic.count)) == rarV4Magic {
+            return true
+        }
+        return data.count >= rarV5Magic.count && Array(data.prefix(rarV5Magic.count)) == rarV5Magic
+    }
+
     private static func gzipLittleEndianUInt32(_ data: Data) -> UInt32 {
         UInt32(data[0])
             | (UInt32(data[1]) << 8)
@@ -465,6 +497,10 @@ enum ToolArtifactArchivePreviewBuilder {
     private static let gzipOriginalNameFlag: UInt8 = 0x08
     private static let gzipReservedFlags: UInt8 = 0xe0
     private static let bzip2MinimumSize = 4
+    private static let sevenZipMagic: [UInt8] = [0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c]
+    private static let rarV4Magic: [UInt8] = [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00]
+    private static let rarV5Magic: [UInt8] = [0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00]
+    private static let rarMinimumSize = rarV5Magic.count
     private static let xzHeaderMagic: [UInt8] = [0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00]
     private static let xzFooterMagic: [UInt8] = [0x59, 0x5a]
     private static let xzMinimumSize = 12

@@ -9623,6 +9623,8 @@
       const extension = artifactPreviewExtension(value);
       if (![
         'zip',
+        '7z',
+        'rar',
         'tar',
         'gz',
         'tar.gz',
@@ -9640,6 +9642,9 @@
       ].includes(extension)) return null;
       const path = artifactFilePath(value);
       const packageInfo = path ? state.mockOfficePackages[path] : null;
+      if (['7z', 'rar'].includes(extension)) {
+        return artifactContainerOnlyPreview(path, packageInfo, extension);
+      }
       if (['gz', 'tar.gz', 'tgz'].includes(extension)) {
         return artifactGzipPreview(path, packageInfo, extension);
       }
@@ -9678,6 +9683,26 @@
           ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
           : null,
         preview.entryPreviewLabel ? `Entries: ${preview.entryPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
+    }
+
+    function artifactContainerOnlyPreview(path, packageInfo, extension) {
+      if (!packageInfo || packageInfo.format !== extension) return null;
+      const byteSize = Number.isFinite(packageInfo.sizeBytes)
+        ? packageInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const preview = {
+        formatLabel: extension === '7z' ? '7Z' : extension.toUpperCase(),
+        entryCount: null,
+        topLevelCount: null,
+        entryPreviewLabel: null,
+        entryPreviewLabels: [],
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
       return preview.metadataLines.length ? preview : null;
@@ -24674,6 +24699,8 @@
         addMessage('assistant', 'Created media artifacts.');
       } else if (text.toLowerCase().includes('archive') && text.toLowerCase().includes('artifact')) {
         const zipPath = '/mock/QuillCode/packages/source.zip';
+        const sevenZipPath = '/mock/QuillCode/packages/sources.7z';
+        const rarPath = '/mock/QuillCode/packages/sources.rar';
         const tarPath = '/mock/QuillCode/packages/sources.tar';
         const gzipPath = '/mock/QuillCode/packages/report.txt.gz';
         const tarGzPath = '/mock/QuillCode/packages/logs.tar.gz';
@@ -24684,6 +24711,8 @@
         const zstdPath = '/mock/QuillCode/packages/report.txt.zst';
         const tarZstdPath = '/mock/QuillCode/packages/logs.tar.zst';
         state.mockFiles[zipPath] = 'PK\u0003\u0004';
+        state.mockFiles[sevenZipPath] = '7z\u00bc\u00af\u0027\u001c';
+        state.mockFiles[rarPath] = 'Rar!\u001a\u0007\u0001\u0000';
         state.mockFiles[tarPath] = 'ustar';
         state.mockFiles[gzipPath] = '\u001f\u008b\u0008\u0008';
         state.mockFiles[tarGzPath] = '\u001f\u008b\u0008\u0008';
@@ -24696,6 +24725,14 @@
         state.mockOfficePackages[zipPath] = {
           fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift', 'README.md'],
           sizeBytes: 4096
+        };
+        state.mockOfficePackages[sevenZipPath] = {
+          format: '7z',
+          sizeBytes: 72
+        };
+        state.mockOfficePackages[rarPath] = {
+          format: 'rar',
+          sizeBytes: 80
         };
         state.mockOfficePackages[tarPath] = {
           fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift'],
@@ -24751,11 +24788,13 @@
           outputJSON: JSON.stringify({
             ok: true,
             stdout: [
-              `Wrote ${zipPath}, ${tarPath}, ${gzipPath}, ${tarGzPath}, ${xzPath}, ${tarXzPath},`,
+              `Wrote ${zipPath}, ${sevenZipPath}, ${rarPath}, ${tarPath}, ${gzipPath}, ${tarGzPath}, ${xzPath}, ${tarXzPath},`,
               `${bzipPath}, ${tarBzipPath}, ${zstdPath}, and ${tarZstdPath}\n`
             ].join(' '),
             artifacts: [
               zipPath,
+              sevenZipPath,
+              rarPath,
               tarPath,
               gzipPath,
               tarGzPath,

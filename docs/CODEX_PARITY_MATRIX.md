@@ -83,6 +83,9 @@
   EditorConfig, Prettier config, CMake, Justfile, Taskfile, Bazel BUILD/WORKSPACE, Nix, Meson,
   Homebrew, Procfile, pnpm, and Yarn files with specific labels in SwiftUI and the Playwright
   harness.
+- Archive artifact previews now include bounded local 7z/RAR container cards by validating
+  signature bytes and rendering truthful format/size metadata without extraction or synthetic
+  entry listings.
 - The app server exposes Codex-compatible response-first `thread/compact/start`.
 - The app server exposes Codex-compatible one-shot and live-session fuzzy file search with bounded
   shared indexing, exact wire fields, match scores/indices, cancellation, and disconnect cleanup.
