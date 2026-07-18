@@ -62,6 +62,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "dylib": .data,
         "env": .data,
         "exe": .data,
+        "har": .data,
         "otf": .data,
         "ini": .data,
         "o": .data,

@@ -453,6 +453,65 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJSON.jsonPreview)
     }
 
+    func testArtifactStateDerivesHARPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let trace = directory.appendingPathComponent("network.har")
+        let harText = """
+        {
+          "log": {
+            "version": "1.2",
+            "creator": {"name": "QuillCode", "version": "1.0"},
+            "entries": [
+              {
+                "request": {"method": "GET", "url": "https://api.trustedrouter.com/v1/models?token=secret"},
+                "response": {"status": 200}
+              },
+              {
+                "request": {"method": "POST", "url": "https://quillos.cloud/api/relay"},
+                "response": {"status": 201}
+              },
+              {
+                "request": {"method": "GET", "url": "https://api.trustedrouter.com/v1/chat/completions"},
+                "response": {"status": 429}
+              }
+            ]
+          }
+        }
+        """
+        try harText.write(to: trace, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: trace.path)
+        let preview = try XCTUnwrap(artifact.harPreview)
+        let byteCount = try XCTUnwrap(harText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "HAR")
+        XCTAssertEqual(preview.versionLabel, "1.2")
+        XCTAssertEqual(preview.creatorLabel, "QuillCode 1.0")
+        XCTAssertEqual(preview.entryCount, 3)
+        XCTAssertEqual(preview.methodLabels, ["GET", "POST"])
+        XCTAssertEqual(preview.statusGroupLabels, ["2xx", "4xx"])
+        XCTAssertEqual(preview.hostPreviewLabels, ["api.trustedrouter.com", "quillos.cloud"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: HAR",
+            "Version: 1.2",
+            "Creator: QuillCode 1.0",
+            "3 entries",
+            "Methods: GET, POST",
+            "Statuses: 2xx, 4xx",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let corruptHAR = directory.appendingPathComponent("corrupt.har")
+        try #"{"entries":[]}"#.write(to: corruptHAR, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: corruptHAR.path).harPreview)
+
+        let remoteHAR = ToolArtifactState(value: "https://example.com/network.har")
+        XCTAssertNil(remoteHAR.harPreview)
+    }
+
     func testArtifactStateDerivesNotebookPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let notebook = directory.appendingPathComponent("analysis.ipynb")

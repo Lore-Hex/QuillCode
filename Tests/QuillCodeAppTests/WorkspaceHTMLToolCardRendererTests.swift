@@ -701,6 +701,72 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesHARArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let trace = reports.appendingPathComponent("network.har")
+        let harText = """
+        {
+          "log": {
+            "version": "1.2",
+            "creator": {"name": "QuillCode", "version": "1.0"},
+            "entries": [
+              {
+                "request": {"method": "GET", "url": "https://api.trustedrouter.com/v1/models"},
+                "response": {"status": 200}
+              },
+              {
+                "request": {"method": "POST", "url": "https://quillos.cloud/api/relay"},
+                "response": {"status": 201}
+              },
+              {
+                "request": {"method": "GET", "url": "https://api.trustedrouter.com/v1/chat/completions"},
+                "response": {"status": 429}
+              }
+            ]
+          }
+        }
+        """
+        try harText.write(to: trace, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"network.har"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote network.har\n", artifacts: [trace.path])
+        let thread = ChatThread(
+            title: "HAR artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · HAR"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">network.har"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-har-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-har-preview-meta">Format: HAR"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-har-preview-meta">3 entries"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-har-preview-meta">Methods: GET, POST"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-har-preview-meta">Statuses: 2xx, 4xx"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-har-preview-host-title">Hosts"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-har-preview-host-item">api.trustedrouter.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-har-preview-host-item">quillos.cloud"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesJSONLinesArtifactPreview() throws {
         let root = try makeTempDirectory()
         let logs = root.appendingPathComponent("logs", isDirectory: true)

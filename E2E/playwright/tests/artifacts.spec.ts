@@ -728,6 +728,37 @@ test('mock harness renders SQLite artifact metadata previews from tool cards', a
   await expect(page.getByText('Created `cache.sqlite3`.')).toBeVisible();
 });
 
+test('mock harness renders HAR artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a har artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('network.har');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/network');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · HAR');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('network.har');
+  await expect(page.getByTestId('tool-card-har-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-har-preview-meta')).toHaveText([
+    'Format: HAR',
+    'Version: 1.2',
+    'Creator: QuillCode 1.0',
+    '3 entries',
+    'Methods: GET, POST',
+    'Statuses: 2xx, 4xx',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-har-preview-host-title')).toHaveText('Hosts');
+  await expect(page.getByTestId('tool-card-har-preview-host-item')).toHaveText([
+    'api.trustedrouter.com',
+    'quillos.cloud'
+  ]);
+  await expect(page.getByText('Created `network.har`.')).toBeVisible();
+});
+
 test('mock harness renders WebAssembly artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

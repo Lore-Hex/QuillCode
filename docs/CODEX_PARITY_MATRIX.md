@@ -70,6 +70,9 @@
 - Artifact previews now include bounded local WebAssembly metadata for `.wasm` files by validating
   the 8-byte module header and rendering module version plus file size without disassembly or
   shelling out.
+- Artifact previews now include bounded local HTTP Archive metadata for `.har` browser/network traces:
+  HAR version, creator, entry count, observed methods, status groups, host previews, and file size
+  without rendering request/response headers, cookies, bodies, or query values.
 - Artifact previews now include bounded local font metadata for `.ttf`, `.otf`, `.ttc`, `.woff`,
   and `.woff2` files by validating fixed headers and rendering format, flavor, table count,
   declared size, and file size without parsing tables or decompressing webfont payloads.
