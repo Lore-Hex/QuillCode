@@ -57,7 +57,8 @@ final class ParityAppServerThreadControlGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(settingsUpdate, containsAll: [
             "func updateThreadSettings",
-            "thread/settings/updated"
+            "thread/settings/updated",
+            "AppServerSandboxPolicyParser.parse"
         ])
         Self.assertSource(models, containsAll: [
             "struct AppServerThreadGitInfo",
@@ -83,6 +84,7 @@ final class ParityAppServerThreadControlGateTests: QuillCodeParityTestCase {
             "testElicitationCountersAreConnectionScopedAndMatchCodexErrors",
             "testGitMetadataPatchPersistsOmittedAndClearedFields",
             "testSettingsUpdatePersistsFullProjectionAndNotifiesAfterResponseOnlyOnChange",
+            "testExternalSandboxPolicyIsExplicitUnsupportedBoundary",
             "testDisabledMemoryIsHiddenFromModelWithoutDeletingStoredNotes"
         ])
         Self.assertSource(smoke, containsAll: [

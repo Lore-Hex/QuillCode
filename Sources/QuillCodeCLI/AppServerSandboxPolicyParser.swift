@@ -1,6 +1,9 @@
 import Foundation
 
 enum AppServerSandboxPolicyParser {
+    static let unsupportedExternalSandboxMessage =
+        "Invalid request: external sandbox policies are not supported yet; use readOnly, workspaceWrite, dangerFullAccess, or a managed permission profile"
+
     static func parse(_ value: CLIJSONValue) throws -> AppServerSandboxPolicy {
         guard let object = value.objectValue,
               let type = object["type"]?.stringValue else {
@@ -32,6 +35,8 @@ enum AppServerSandboxPolicyParser {
             )
         case "dangerFullAccess":
             return AppServerSandboxPolicy(mode: .dangerFullAccess)
+        case "external", "externalSandbox", "external-sandbox":
+            throw unsupportedExternalSandbox()
         default:
             throw AppServerRPCError.invalidRequest(
                 "Invalid request: unsupported sandbox policy `\(type)`"
@@ -64,5 +69,9 @@ enum AppServerSandboxPolicyParser {
             )
         }
         return boolean
+    }
+
+    static func unsupportedExternalSandbox() -> AppServerRPCError {
+        AppServerRPCError.invalidRequest(unsupportedExternalSandboxMessage)
     }
 }

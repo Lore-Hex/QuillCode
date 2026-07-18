@@ -450,6 +450,48 @@ final class AppServerThreadControlTests: XCTestCase {
         XCTAssertEqual(granular["request_permissions"]?.boolValue, false)
     }
 
+    func testExternalSandboxPolicyIsExplicitUnsupportedBoundary() async throws {
+        let fixture = try await makeFixture(llm: ThreadControlEchoLLM())
+        try await initialize(fixture)
+
+        try await request(
+            fixture,
+            id: 1,
+            method: "thread/start",
+            params: [
+                "cwd": fixture.workspace.path,
+                "model": "trustedrouter/fast",
+                "sandbox": ["type": "externalSandbox", "owner": "codex"]
+            ]
+        )
+
+        var records = try await fixture.output.records()
+        XCTAssertEqual(
+            error(1, records)?["message"]?.stringValue,
+            AppServerSandboxPolicyParser.unsupportedExternalSandboxMessage
+        )
+
+        await fixture.output.reset()
+        let threadID = try await startThread(fixture, requestID: 2)
+        await fixture.output.reset()
+
+        try await request(
+            fixture,
+            id: 3,
+            method: "thread/settings/update",
+            params: [
+                "threadId": threadID,
+                "sandboxPolicy": ["type": "external", "owner": "codex"]
+            ]
+        )
+
+        records = try await fixture.output.records()
+        XCTAssertEqual(
+            error(3, records)?["message"]?.stringValue,
+            AppServerSandboxPolicyParser.unsupportedExternalSandboxMessage
+        )
+    }
+
     func testDisabledMemoryIsHiddenFromModelWithoutDeletingStoredNotes() async throws {
         let observer = ThreadControlMemoryObserver()
         let fixture = try await makeFixture(llm: observer)

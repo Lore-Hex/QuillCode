@@ -33,7 +33,8 @@ final class ParityAppServerCommandExecGateTests: QuillCodeParityTestCase {
             "command/exec/outputDelta",
             "func terminateAllCommandExecProcesses",
             "duplicate active command/exec process id",
-            "`permissionProfile` cannot be combined with `sandboxPolicy`"
+            "`permissionProfile` cannot be combined with `sandboxPolicy`",
+            "AppServerSandboxPolicyParser.parse"
         ])
         Self.assertSource(models, containsAll: [
             "command/exec tty or streaming requires a client-supplied processId",
@@ -61,7 +62,8 @@ final class ParityAppServerCommandExecGateTests: QuillCodeParityTestCase {
             "testPTYSupportsInitialSizeResizeAndInteractiveInput",
             "testDuplicateProcessIDIsRejectedThenReusableAfterExit",
             "testDisconnectTerminatesProcessAndSuppressesDeferredResponse",
-            "testMacOSSandboxBlocksReadOnlyWritesAndScopesWorkspaceWrites"
+            "testMacOSSandboxBlocksReadOnlyWritesAndScopesWorkspaceWrites",
+            "AppServerSandboxPolicyParser.unsupportedExternalSandboxMessage"
         ])
         Self.assertSource(tests, contains: "testManagedNetworkRequirementsStripUpstreamProxyEnvironment")
         Self.assertSource(
