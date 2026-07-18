@@ -368,6 +368,22 @@ test('mock harness renders archive artifact previews from tool cards', async ({ 
     'Uncompressed: 8 KB',
     'Size: 44 bytes',
   ]);
+  await expect(page.getByTestId('tool-card-archive-preview-entry-title')).toHaveText([
+    'Contents',
+    'Contents',
+    'Contents',
+    'Contents'
+  ]);
+  await expect(page.getByTestId('tool-card-archive-preview-entry-item')).toHaveText([
+    'Sources/App.swift',
+    'Sources/Model.swift',
+    'Tests/AppTests.swift',
+    'Sources/App.swift',
+    'Sources/Model.swift',
+    'Tests/AppTests.swift',
+    'report.txt',
+    'logs.tar'
+  ]);
   await expect(page.getByTestId('tool-card-document-preview-open').nth(0)).toHaveAttribute(
     'href',
     'file:///mock/QuillCode/packages/source.zip'

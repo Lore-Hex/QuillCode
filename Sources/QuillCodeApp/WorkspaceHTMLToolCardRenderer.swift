@@ -310,12 +310,22 @@ enum WorkspaceHTMLToolCardRenderer {
         let metadata = preview.metadataLines.map {
             #"<small data-testid="tool-card-archive-preview-meta">\#(escape($0))</small>"#
         }.joined(separator: "")
-        guard !metadata.isEmpty else { return "" }
+        let contents = preview.entryPreviewLabels.map {
+            #"<li data-testid="tool-card-archive-preview-entry-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let contentList = contents.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-archive-preview-entries">
+                <strong data-testid="tool-card-archive-preview-entry-title">Contents</strong>
+                <ul>\(contents)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !contentList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-archive-preview">
           <div>
             \(metadata)
           </div>
+          \(contentList)
         </div>
         """
     }

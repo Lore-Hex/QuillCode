@@ -52,7 +52,7 @@ struct QuillCodeArtifactDocumentPreview: View {
         } else if let tablePreview = artifact.tablePreview {
             tableContent(tablePreview)
         } else if let archivePreview = artifact.archivePreview {
-            metadataContent(title: artifact.label, metadataLines: archivePreview.metadataLines)
+            archiveContent(archivePreview)
         } else if let mediaPreview = artifact.mediaPreview {
             metadataContent(
                 title: mediaPreview.title ?? artifact.label,
@@ -124,6 +124,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(officePreview.metadataLines)
             officeContentList(officePreview.contentPreviewLabels)
+        }
+    }
+
+    private func archiveContent(_ archivePreview: ToolArtifactArchivePreview) -> some View {
+        previewSurface(minHeight: archivePreview.entryPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "archivebox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(archivePreview.metadataLines)
+            artifactContentList(title: "Contents", labels: archivePreview.entryPreviewLabels)
         }
     }
 
@@ -341,9 +355,14 @@ struct QuillCodeArtifactDocumentPreview: View {
 
     @ViewBuilder
     private func officeContentList(_ labels: [String]) -> some View {
+        artifactContentList(title: "Contents", labels: labels)
+    }
+
+    @ViewBuilder
+    private func artifactContentList(title: String, labels: [String]) -> some View {
         if !labels.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
-                Text("Contents")
+                Text(title)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 ForEach(labels, id: \.self) { label in

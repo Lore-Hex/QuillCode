@@ -58,6 +58,7 @@ enum ToolArtifactArchivePreviewBuilder {
             entryCount: directory.fileNames.count,
             topLevelCount: topLevelCount(in: directory.fileNames),
             entryPreviewLabel: entryPreviewLabel(in: directory.fileNames),
+            entryPreviewLabels: entryPreviewLabels(in: directory.fileNames),
             byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
         )
     }
@@ -99,6 +100,7 @@ enum ToolArtifactArchivePreviewBuilder {
             entryCount: fileNames.count,
             topLevelCount: topLevelCount(in: fileNames),
             entryPreviewLabel: entryPreviewLabel(in: fileNames),
+            entryPreviewLabels: entryPreviewLabels(in: fileNames),
             byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
         )
     }
@@ -141,12 +143,25 @@ enum ToolArtifactArchivePreviewBuilder {
             entryCount: includesSingleMemberCounts ? 1 : nil,
             topLevelCount: includesSingleMemberCounts && memberName != nil ? 1 : nil,
             entryPreviewLabel: memberName,
+            entryPreviewLabels: memberName.map { [$0] } ?? [],
             uncompressedByteSizeLabel: ToolArtifactByteSizeFormatter.label(for: Int(uncompressedSize)),
             byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
         )
     }
 
     private static func entryPreviewLabel(in fileNames: [String]) -> String? {
+        let previewNames = entryPreviewLabels(in: fileNames)
+        guard !previewNames.isEmpty else { return nil }
+
+        let remainingCount = max(fileNames.count - previewNames.count, 0)
+        let previewText = previewNames.joined(separator: ", ")
+        if remainingCount > 0 {
+            return "\(previewText), +\(remainingCount) more"
+        }
+        return previewText
+    }
+
+    private static func entryPreviewLabels(in fileNames: [String]) -> [String] {
         var previewNames: [String] = []
         for fileName in fileNames {
             let previewName = sanitizedEntryName(fileName)
@@ -157,14 +172,7 @@ enum ToolArtifactArchivePreviewBuilder {
                 break
             }
         }
-        guard !previewNames.isEmpty else { return nil }
-
-        let remainingCount = max(fileNames.count - previewNames.count, 0)
-        let previewText = previewNames.joined(separator: ", ")
-        if remainingCount > 0 {
-            return "\(previewText), +\(remainingCount) more"
-        }
-        return previewText
+        return previewNames
     }
 
     private static func sanitizedEntryName(_ fileName: String) -> String {
