@@ -381,6 +381,38 @@ test('mock harness renders INI artifact metadata previews from tool cards', asyn
   await expect(page.getByText('Created `quillcode.ini`.')).toBeVisible();
 });
 
+test('mock harness renders dotenv artifact metadata previews without values', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a dotenv artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('.env.local');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · ENV');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('.env.local');
+  await expect(page.getByTestId('tool-card-dotenv-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-dotenv-preview-meta')).toHaveText([
+    'Format: DOTENV',
+    '4 variables',
+    '1 exported',
+    'Keys: TRUSTEDROUTER_API_KEY, QUILLCODE_MODEL, QUILLCODE_DEBUG, EMPTY_VALUE',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-dotenv-preview-key-title')).toHaveText('Variable names');
+  await expect(page.getByTestId('tool-card-dotenv-preview-key-item')).toHaveText([
+    'TRUSTEDROUTER_API_KEY',
+    'QUILLCODE_MODEL',
+    'QUILLCODE_DEBUG',
+    'EMPTY_VALUE'
+  ]);
+  await expect(page.getByText('sk-secret-value')).toHaveCount(0);
+  await expect(page.getByText('Created `.env.local`.')).toBeVisible();
+});
+
 test('mock harness renders YAML artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

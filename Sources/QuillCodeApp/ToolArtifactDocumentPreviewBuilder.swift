@@ -25,6 +25,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         } else {
             filename = URL(fileURLWithPath: value).lastPathComponent.lowercased()
         }
+        if filename == ".env" || filename.hasPrefix(".env.") {
+            return "env"
+        }
         for compoundExtension in compoundPreviewExtensions {
             if filename.hasSuffix(".\(compoundExtension.suffix)") {
                 return compoundExtension.previewExtension
@@ -51,6 +54,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "ndjson": .data,
         "cfg": .data,
         "conf": .data,
+        "env": .data,
         "ini": .data,
         "toml": .data,
         "yaml": .data,

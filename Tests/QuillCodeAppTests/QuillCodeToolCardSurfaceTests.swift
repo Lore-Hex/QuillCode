@@ -417,6 +417,50 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteINI.iniPreview)
     }
 
+    func testArtifactStateDerivesDotenvPreviewMetadataWithoutValues() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let dotenv = directory.appendingPathComponent(".env.local")
+        let dotenvText = """
+        # Local development settings
+        TRUSTEDROUTER_API_KEY=sk-secret-value
+        QUILLCODE_MODEL=trustedrouter/fast
+        export QUILLCODE_DEBUG=true
+        EMPTY_VALUE=
+        INVALID-NAME=ignored
+        """
+        try dotenvText.write(to: dotenv, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: dotenv.path)
+        let preview = try XCTUnwrap(artifact.dotenvPreview)
+        let byteCount = try XCTUnwrap(dotenvText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "ENV")
+        XCTAssertEqual(preview.variableCount, 4)
+        XCTAssertEqual(preview.exportedVariableCount, 1)
+        XCTAssertEqual(preview.keyPreviewLabels, [
+            "TRUSTEDROUTER_API_KEY",
+            "QUILLCODE_MODEL",
+            "QUILLCODE_DEBUG",
+            "EMPTY_VALUE"
+        ])
+        XCTAssertEqual(preview.keyPreviewLabel, "TRUSTEDROUTER_API_KEY, QUILLCODE_MODEL, QUILLCODE_DEBUG, EMPTY_VALUE")
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: DOTENV",
+            "4 variables",
+            "1 exported",
+            "Keys: TRUSTEDROUTER_API_KEY, QUILLCODE_MODEL, QUILLCODE_DEBUG, EMPTY_VALUE",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNil(preview.metadataLines.first { $0.contains("sk-secret-value") })
+        XCTAssertNil(artifact.iniPreview)
+
+        let remoteDotenv = ToolArtifactState(value: "https://example.com/.env")
+        XCTAssertNil(remoteDotenv.dotenvPreview)
+    }
+
     func testArtifactStateDerivesYAMLPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let workflow = directory.appendingPathComponent("ci.yml")

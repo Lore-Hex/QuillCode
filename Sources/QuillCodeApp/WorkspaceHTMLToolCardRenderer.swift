@@ -206,6 +206,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
             let iniPreview = renderINIPreview(artifact.iniPreview)
+            let dotenvPreview = renderDotenvPreview(artifact.dotenvPreview)
             let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
             let xmlPreview = renderXMLPreview(artifact.xmlPreview)
             let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
@@ -229,6 +230,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(jsonLinesPreview)
               \(tomlPreview)
               \(iniPreview)
+              \(dotenvPreview)
               \(yamlPreview)
               \(xmlPreview)
               \(propertyListPreview)
@@ -539,6 +541,31 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(sectionList)
+        </div>
+        """
+    }
+
+    private static func renderDotenvPreview(_ preview: ToolArtifactDotenvPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-dotenv-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let keys = preview.keyPreviewLabels.map {
+            #"<li data-testid="tool-card-dotenv-preview-key-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let keyList = keys.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-dotenv-preview-keys">
+                <strong data-testid="tool-card-dotenv-preview-key-title">Variable names</strong>
+                <ul>\(keys)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-dotenv-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(keyList)
         </div>
         """
     }

@@ -6,6 +6,7 @@ enum ToolArtifactTextPreviewBuilder {
         guard artifact.kind == .file,
               !artifact.isImagePreview,
               artifact.documentPreview?.kind != .appshot,
+              artifact.documentPreview?.extensionLabel.lowercased() != "env",
               artifact.tablePreview == nil
         else { return nil }
         guard let fileURL = localArtifactFileURL(for: value) else { return nil }
@@ -69,7 +70,6 @@ enum ToolArtifactTextPreviewBuilder {
     private static let byteLimit = 6 * 1024
     private static let lineLimit = 80
     private static let filenames: Set<String> = [
-        ".env.example",
         ".gitignore",
         "dockerfile",
         "gemfile",

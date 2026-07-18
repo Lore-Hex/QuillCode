@@ -8208,6 +8208,7 @@
         jsonLinesPreview: artifactJSONLinesPreview(value, kind, documentPreview),
         tomlPreview: artifactTOMLPreview(value, kind, documentPreview),
         iniPreview: artifactINIPreview(value, kind, documentPreview),
+        dotenvPreview: artifactDotenvPreview(value, kind, documentPreview),
         yamlPreview: artifactYAMLPreview(value, kind, documentPreview),
         xmlPreview: artifactXMLPreview(value, kind, documentPreview),
         propertyListPreview: artifactPropertyListPreview(value, kind, documentPreview),
@@ -8620,6 +8621,7 @@
       ['ndjson', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
       ['cfg', { kind: 'data', typeLabel: 'Data', icon: 'CFG' }],
       ['conf', { kind: 'data', typeLabel: 'Data', icon: 'CONF' }],
+      ['env', { kind: 'data', typeLabel: 'Data', icon: 'ENV' }],
       ['ini', { kind: 'data', typeLabel: 'Data', icon: 'INI' }],
       ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
       ['yaml', { kind: 'data', typeLabel: 'Data', icon: 'YAML' }],
@@ -8685,6 +8687,7 @@
       } catch {
         filename = (value.split('/').filter(Boolean).at(-1) || '').toLowerCase();
       }
+      if (filename === '.env' || filename.startsWith('.env.')) return 'env';
       const compoundExtensions = new Map([
         ['appshot.json', 'appshot'],
         ['tar.gz', 'tar.gz'],
@@ -9173,6 +9176,76 @@
         preview.isTruncated ? 'Preview truncated' : null
       ].filter(Boolean);
       return preview.metadataLines.length || preview.sectionPreviewLabels.length ? preview : null;
+    }
+
+    function artifactDotenvPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      if (artifactPreviewExtension(value) !== 'env') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const keys = [];
+      const seenKeys = new Set();
+      let variableCount = 0;
+      let exportedVariableCount = 0;
+      let processedLines = 0;
+      let isTruncated = false;
+      for (const rawLine of content.split(/\r?\n/)) {
+        processedLines += 1;
+        if (processedLines > 2000) {
+          isTruncated = true;
+          break;
+        }
+        const assignment = dotenvAssignment(rawLine);
+        if (!assignment) continue;
+        variableCount += 1;
+        if (assignment.isExported) exportedVariableCount += 1;
+        if (!seenKeys.has(assignment.key)) {
+          seenKeys.add(assignment.key);
+          keys.push(assignment.key);
+        }
+      }
+      if (variableCount === 0) return null;
+      const visibleKeys = keys.slice(0, 8);
+      const remainder = keys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        variableCount,
+        exportedVariableCount,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated
+      };
+      preview.metadataLines = [
+        'Format: DOTENV',
+        `${preview.variableCount} variable${preview.variableCount === 1 ? '' : 's'}`,
+        preview.exportedVariableCount > 0 ? `${preview.exportedVariableCount} exported` : null,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null,
+        preview.isTruncated ? 'Preview truncated' : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function dotenvAssignment(rawLine) {
+      let line = rawLine.trim();
+      if (!line || line.startsWith('#')) return null;
+      let isExported = false;
+      if (line.startsWith('export ')) {
+        isExported = true;
+        line = line.slice('export '.length).trim();
+      }
+      const delimiterIndex = line.indexOf('=');
+      if (delimiterIndex <= 0) return null;
+      const key = line.slice(0, delimiterIndex).trim();
+      if (!/^[_A-Za-z][_A-Za-z0-9]*$/.test(key)) return null;
+      return { key: key.slice(0, 80), isExported };
     }
 
     function artifactYAMLPreview(value, kind, documentPreview) {
@@ -9824,7 +9897,7 @@
       'xml', 'yaml', 'yml'
     ]);
     const textPreviewFilenames = new Set([
-      '.env.example', '.gitignore', 'dockerfile', 'gemfile', 'license', 'makefile', 'podfile', 'readme'
+      '.gitignore', 'dockerfile', 'gemfile', 'license', 'makefile', 'podfile', 'readme'
     ]);
 
     function artifactFilePath(value) {
@@ -9843,6 +9916,7 @@
       if (!path) return null;
       const name = path.split('/').filter(Boolean).at(-1)?.toLowerCase() || '';
       if (name.endsWith('.appshot') || name.endsWith('.appshot.json')) return null;
+      if (artifactPreviewExtension(value) === 'env') return null;
       const extension = name.includes('.') ? name.split('.').pop() : '';
       if (extension === 'csv' || extension === 'tsv') return null;
       if (!textPreviewFilenames.has(name) && !textPreviewExtensions.has(extension)) return null;
@@ -11702,6 +11776,25 @@
                   ${sectionList}
                 </div>` : '';
         };
+        const renderDotenvPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-dotenv-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-dotenv-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-dotenv-preview-keys">
+                    <strong data-testid="tool-card-dotenv-preview-key-title">Variable names</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-dotenv-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
         const renderYAMLPreview = preview => {
           if (!preview) return '';
           const metadata = (preview.metadataLines || [])
@@ -11844,6 +11937,7 @@
                 ${renderJSONLinesPreview(artifact.jsonLinesPreview)}
                 ${renderTOMLPreview(artifact.tomlPreview)}
                 ${renderINIPreview(artifact.iniPreview)}
+                ${renderDotenvPreview(artifact.dotenvPreview)}
                 ${renderYAMLPreview(artifact.yamlPreview)}
                 ${renderXMLPreview(artifact.xmlPreview)}
                 ${renderPropertyListPreview(artifact.propertyListPreview)}
@@ -23625,6 +23719,24 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `quillcode.ini`.');
+      } else if (text.toLowerCase().includes('dotenv artifact') || text.toLowerCase().includes('env artifact')) {
+        const path = '/mock/QuillCode/.env.local';
+        state.mockFiles[path] = [
+          '# QuillCode local environment',
+          'TRUSTEDROUTER_API_KEY=sk-secret-value',
+          'QUILLCODE_MODEL=trustedrouter/fast',
+          'export QUILLCODE_DEBUG=true',
+          'EMPTY_VALUE=',
+          'INVALID-NAME=ignored'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/dotenv' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `.env.local`.');
       } else if (text.toLowerCase().includes('plist artifact')) {
         const path = '/mock/QuillCode/Info.plist';
         state.mockFiles[path] = [

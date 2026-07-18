@@ -467,6 +467,46 @@ public struct ToolArtifactINIPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactDotenvPreview: Codable, Sendable, Hashable {
+    public var variableCount: Int
+    public var exportedVariableCount: Int
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: DOTENV",
+            "\(variableCount) variable\(variableCount == 1 ? "" : "s")",
+            exportedVariableCount > 0 ? "\(exportedVariableCount) exported" : nil,
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview truncated" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        variableCount: Int,
+        exportedVariableCount: Int = 0,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.variableCount = variableCount
+        self.exportedVariableCount = exportedVariableCount
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactYAMLPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var rootLabel: String
@@ -763,6 +803,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var iniPreview: ToolArtifactINIPreview? {
         ToolArtifactINIPreviewBuilder.iniPreview(for: value, kind: kind)
+    }
+    public var dotenvPreview: ToolArtifactDotenvPreview? {
+        ToolArtifactDotenvPreviewBuilder.dotenvPreview(for: value, kind: kind)
     }
     public var yamlPreview: ToolArtifactYAMLPreview? {
         ToolArtifactYAMLPreviewBuilder.yamlPreview(for: value, kind: kind)
