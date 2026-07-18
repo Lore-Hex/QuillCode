@@ -226,6 +226,11 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("abcdef\u{1B}[1;3H\u{1B}[X"), "ab def")
     }
 
+    func testRepeatPreviousCharacterAppendsAtCursor() {
+        XCTAssertEqual(render("ab\u{1B}[3b"), "abbbb")
+        XCTAssertEqual(render("\u{1B}[3bX"), "X")
+    }
+
     func testInsertAndDeleteCharactersRespectWideCellBoundaries() {
         XCTAssertEqual(render("界XYZ\u{1B}[1;2H\u{1B}[PX"), " XYZ ")
         XCTAssertEqual(render("界XYZ\u{1B}[1;2H\u{1B}[@A"), " A XYZ")
@@ -234,6 +239,11 @@ final class TerminalOutputRendererTests: XCTestCase {
     func testEraseCharactersRespectWideCellBoundaries() {
         XCTAssertEqual(render("A界Z\u{1B}[1;2H\u{1B}[X"), "A  Z")
         XCTAssertEqual(render("A界Z\u{1B}[1;3H\u{1B}[X"), "A  Z")
+    }
+
+    func testRepeatPreviousCharacterUsesWideGlyphStart() {
+        XCTAssertEqual(render("界\u{1B}[2b"), "界界界")
+        XCTAssertEqual(render("A界Z\u{1B}[1;4H\u{1B}[2b"), "A界界界")
     }
 
     func testAlternateScreenExitPreservesLatestFrameForTranscriptScrollback() {

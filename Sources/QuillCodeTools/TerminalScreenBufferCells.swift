@@ -42,8 +42,32 @@ extension TerminalScreenBuffer {
         }
     }
 
+    mutating func repeatPreviousCharacter(count requestedCount: Int) {
+        let count = boundedCharacterMutationCount(requestedCount)
+        guard count > 0, let character = previousGraphicCharacter() else { return }
+
+        for _ in 0..<count {
+            put(character)
+        }
+    }
+
     private func boundedCharacterMutationCount(_ requestedCount: Int) -> Int {
         Swift.max(0, Swift.min(requestedCount, Self.maxCols - col + 1))
+    }
+
+    private func previousGraphicCharacter() -> Character? {
+        guard col > 0 else { return nil }
+
+        var previousCol = Swift.min(col - 1, lines[row].count - 1)
+        if previousCol < 0 { return nil }
+        if lines[row][previousCol].isContinuation {
+            previousCol -= 1
+        }
+        guard previousCol >= 0, previousCol < lines[row].count else { return nil }
+
+        let text = lines[row][previousCol].text
+        guard !text.isEmpty, let character = text.first, String(character) == text else { return nil }
+        return character
     }
 
     private mutating func trimCurrentLineToScreenWidth() {
