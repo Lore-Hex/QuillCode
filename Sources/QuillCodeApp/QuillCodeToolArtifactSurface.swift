@@ -251,6 +251,7 @@ public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     public var entryCount: Int?
     public var topLevelCount: Int?
     public var entryPreviewLabel: String?
+    public var uncompressedByteSizeLabel: String?
     public var byteSizeLabel: String?
 
     public var metadataLines: [String] {
@@ -259,6 +260,7 @@ public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
             entryCount.map { "\($0) entr\($0 == 1 ? "y" : "ies")" },
             topLevelCount.map { "\($0) top-level item\($0 == 1 ? "" : "s")" },
             entryPreviewLabel.map { "Entries: \($0)" },
+            uncompressedByteSizeLabel.map { "Uncompressed: \($0)" },
             byteSizeLabel.map { "Size: \($0)" }
         ].compactMap { $0 }
     }
@@ -272,12 +274,14 @@ public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
         entryCount: Int? = nil,
         topLevelCount: Int? = nil,
         entryPreviewLabel: String? = nil,
+        uncompressedByteSizeLabel: String? = nil,
         byteSizeLabel: String? = nil
     ) {
         self.formatLabel = formatLabel
         self.entryCount = entryCount
         self.topLevelCount = topLevelCount
         self.entryPreviewLabel = entryPreviewLabel
+        self.uncompressedByteSizeLabel = uncompressedByteSizeLabel
         self.byteSizeLabel = byteSizeLabel
     }
 }

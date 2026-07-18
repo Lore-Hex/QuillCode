@@ -22,6 +22,8 @@ enum ToolArtifactArchivePreviewBuilder {
                 preview = try zipPreview(from: fileURL, fileSize: fileSize)
             case "tar":
                 preview = try tarPreview(from: fileURL, fileSize: fileSize)
+            case "gz":
+                preview = try gzipPreview(from: fileURL, fileSize: fileSize)
             default:
                 preview = nil
             }
@@ -89,6 +91,44 @@ enum ToolArtifactArchivePreviewBuilder {
         )
     }
 
+    private static func gzipPreview(from fileURL: URL, fileSize: Int) throws -> ToolArtifactArchivePreview? {
+        guard fileSize >= gzipMinimumSize else { return nil }
+
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+
+        let headerReadCount = min(fileSize, gzipHeaderReadLimit)
+        guard let header = try handle.read(upToCount: headerReadCount),
+              header.count >= gzipFixedHeaderSize,
+              header[0] == gzipMagicByte0,
+              header[1] == gzipMagicByte1,
+              header[2] == gzipDeflateMethod
+        else {
+            return nil
+        }
+
+        let flags = header[3]
+        guard flags & gzipReservedFlags == 0 else { return nil }
+
+        let memberName = gzipOriginalFileName(from: header, flags: flags)
+        try handle.seek(toOffset: UInt64(fileSize - gzipTrailerISizeLength))
+        guard let trailer = try handle.read(upToCount: gzipTrailerISizeLength),
+              trailer.count == gzipTrailerISizeLength
+        else {
+            return nil
+        }
+
+        let uncompressedSize = gzipLittleEndianUInt32(trailer)
+        return ToolArtifactArchivePreview(
+            formatLabel: "GZIP",
+            entryCount: 1,
+            topLevelCount: memberName == nil ? nil : 1,
+            entryPreviewLabel: memberName,
+            uncompressedByteSizeLabel: ToolArtifactByteSizeFormatter.label(for: Int(uncompressedSize)),
+            byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
+        )
+    }
+
     private static func entryPreviewLabel(in fileNames: [String]) -> String? {
         var previewNames: [String] = []
         for fileName in fileNames {
@@ -116,6 +156,38 @@ enum ToolArtifactArchivePreviewBuilder {
             .replacingOccurrences(of: "\r", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return String(singleLineName.prefix(entryNameCharacterLimit))
+    }
+
+    private static func gzipOriginalFileName(from header: Data, flags: UInt8) -> String? {
+        var offset = gzipFixedHeaderSize
+        if flags & gzipExtraFieldFlag != 0 {
+            guard offset + 2 <= header.count else { return nil }
+            let extraLength = Int(header[offset]) | (Int(header[offset + 1]) << 8)
+            offset += 2 + extraLength
+            guard offset <= header.count else { return nil }
+        }
+        guard flags & gzipOriginalNameFlag != 0 else { return nil }
+
+        var nameBytes: [UInt8] = []
+        while offset < header.count {
+            let byte = header[offset]
+            offset += 1
+            if byte == 0 {
+                return sanitizedEntryName(String(decoding: nameBytes, as: UTF8.self))
+            }
+            nameBytes.append(byte)
+            if nameBytes.count == entryNameCharacterLimit {
+                break
+            }
+        }
+        return nameBytes.isEmpty ? nil : sanitizedEntryName(String(decoding: nameBytes, as: UTF8.self))
+    }
+
+    private static func gzipLittleEndianUInt32(_ data: Data) -> UInt32 {
+        UInt32(data[0])
+            | (UInt32(data[1]) << 8)
+            | (UInt32(data[2]) << 16)
+            | (UInt32(data[3]) << 24)
     }
 
     private static func topLevelCount(in fileNames: [String]) -> Int? {
@@ -179,4 +251,14 @@ enum ToolArtifactArchivePreviewBuilder {
     private static let tarEntryLimit = 10_000
     private static let entryPreviewLimit = 3
     private static let entryNameCharacterLimit = 80
+    private static let gzipHeaderReadLimit = 64 * 1_024
+    private static let gzipMinimumSize = 18
+    private static let gzipFixedHeaderSize = 10
+    private static let gzipTrailerISizeLength = 4
+    private static let gzipMagicByte0: UInt8 = 0x1f
+    private static let gzipMagicByte1: UInt8 = 0x8b
+    private static let gzipDeflateMethod: UInt8 = 8
+    private static let gzipExtraFieldFlag: UInt8 = 0x04
+    private static let gzipOriginalNameFlag: UInt8 = 0x08
+    private static let gzipReservedFlags: UInt8 = 0xe0
 }

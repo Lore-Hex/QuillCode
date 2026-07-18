@@ -306,6 +306,7 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         try FileManager.default.createDirectory(at: packagesDirectory, withIntermediateDirectories: true)
         let zip = packagesDirectory.appendingPathComponent("source.zip")
         let tar = packagesDirectory.appendingPathComponent("sources.tar")
+        let gzip = packagesDirectory.appendingPathComponent("report.txt.gz")
         let tarGz = packagesDirectory.appendingPathComponent("logs.tar.gz")
         try OfficePackageFixture.zipPackage(fileNames: [
             "Sources/App.swift",
@@ -318,9 +319,14 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
             ("Sources/Model.swift", Data("struct Model {}".utf8)),
             ("Tests/AppTests.swift", Data("import XCTest".utf8))
         ]).write(to: tar)
+        try GzipArchiveFixture.gzipArchive(
+            originalName: "report.txt",
+            compressedBytes: Data("compressed".utf8),
+            uncompressedByteCount: 2_048
+        ).write(to: gzip)
         try Data("gz".utf8).write(to: tarGz)
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"packages"}"#)
-        let result = ToolResult(ok: true, stdout: "Wrote archives\n", artifacts: [zip.path, tar.path, tarGz.path])
+        let result = ToolResult(ok: true, stdout: "Wrote archives\n", artifacts: [zip.path, tar.path, gzip.path, tarGz.path])
         let thread = ChatThread(
             title: "Archive artifacts",
             events: [
@@ -346,9 +352,11 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-kind="archive""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · ZIP"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · GZ"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR.GZ"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">source.zip"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">sources.tar"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">report.txt.gz"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">logs.tar.gz"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: ZIP"#))
@@ -359,8 +367,13 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">3 entries"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">2 top-level items"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Entries: Sources/App.swift, Sources/Model.swift, Tests/AppTests.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: GZIP"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">1 entry"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Entries: report.txt"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Uncompressed: 2 KB"#))
         XCTAssertTrue(html.contains(#"href="\#(zip.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(tar.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"href="\#(gzip.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(tarGz.standardizedFileURL.absoluteString)""#))
     }
 
