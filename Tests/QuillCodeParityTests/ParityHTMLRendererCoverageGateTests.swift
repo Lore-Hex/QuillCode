@@ -35,6 +35,7 @@ final class ParityHTMLRendererCoverageGateTests: QuillCodeParityTestCase {
             "testHTMLRendererIncludesToolCardArtifacts",
             "testHTMLRendererIncludesImageArtifactPreview",
             "testHTMLRendererIncludesDocumentArtifactPreview",
+            "testHTMLRendererIncludesDelimitedTableArtifactPreview",
             "testHTMLRendererIncludesAppshotArtifactPreview",
             "testHTMLRendererKeepsToolCardsInTranscriptOrder"
         ]

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuillCodeArtifactImagePreview: View {
     var artifact: ToolArtifactState
+    var sequenceLabel: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -53,6 +54,12 @@ struct QuillCodeArtifactImagePreview: View {
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(QuillCodePalette.blue)
                     .lineLimit(1)
+                if let sequenceLabel {
+                    Text(sequenceLabel)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(QuillCodePalette.muted)
+                        .lineLimit(1)
+                }
                 Text(artifact.label)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.text)

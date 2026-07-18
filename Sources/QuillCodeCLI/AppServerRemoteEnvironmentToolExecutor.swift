@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
 
 actor AppServerRemoteEnvironmentToolExecutor {
@@ -28,6 +29,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
 
     private let client: any AppServerExecServerClient
     private let sandbox: AppServerExecServerSandboxContext
+    private let managedNetwork: AppServerManagedNetworkPolicy
     private var readFileURIs: Set<String> = []
 
     init(
@@ -35,6 +37,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
         cwd: String,
         environmentInfo: AppServerEnvironmentInfo,
         sandboxPolicy: AppServerSandboxPolicy,
+        requirements: ManagedRequirements? = nil,
         client: any AppServerExecServerClient
     ) throws {
         self.environmentID = environmentID
@@ -48,6 +51,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
             policy: sandboxPolicy,
             workspace: workspace
         )
+        self.managedNetwork = AppServerManagedNetworkPolicy(requirements: requirements)
         self.client = client
     }
 
@@ -88,6 +92,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
             cwdURI: canonicalCWD.uri,
             environment: [:],
             sandbox: sandbox,
+            managedNetwork: managedNetwork,
             timeoutSeconds: try validatedInternalShellTimeout(timeoutSeconds)
         ))
     }
@@ -149,7 +154,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
         }
 
         let temporary = try await temporaryFile(data: Data(standardInput.utf8), suffix: "stdin")
-        let wrapped = "(\(command)) < \(shellSingleQuoted(temporary.nativePath))"
+        let wrapped = "(\(command)) < \(shellQuotedPath(temporary.nativePath))"
         let result: ToolResult
         do {
             result = try await runCommand(
@@ -344,7 +349,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
         }
 
         let temporary = try await temporaryFile(data: Data(patch.utf8), suffix: "patch")
-        let quoted = shellSingleQuoted(temporary.relativePath)
+        let quoted = shellQuotedPath(temporary.nativePath)
         let strict = "git apply --check \(quoted) && git apply \(quoted)"
         let executionResult: ToolResult
         do {
@@ -410,6 +415,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
             cwdURI: cwd.uri,
             environment: environment,
             sandbox: sandbox,
+            managedNetwork: managedNetwork,
             timeoutSeconds: timeout
         ))
         return Self.toolResult(from: process)
@@ -538,8 +544,15 @@ actor AppServerRemoteEnvironmentToolExecutor {
         return input
     }
 
-    private func shellSingleQuoted(_ value: String) -> String {
-        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    private func shellQuotedPath(_ value: String) -> String {
+        switch environmentInfo.shell.name.lowercased() {
+        case "powershell", "pwsh":
+            return "'" + value.replacingOccurrences(of: "'", with: "''") + "'"
+        case "cmd", "cmd.exe":
+            return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        default:
+            return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        }
     }
 
     private static func shellArguments(

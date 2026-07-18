@@ -7,9 +7,14 @@ public enum ToolArtifactKind: String, Codable, Sendable, Hashable {
 public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
     case appshot
     case pdf
+    case markdown
+    case data
     case document
     case spreadsheet
     case presentation
+    case audio
+    case video
+    case archive
 
     public var label: String {
         switch self {
@@ -17,12 +22,22 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
             return "Appshot"
         case .pdf:
             return "PDF"
+        case .markdown:
+            return "Markdown"
+        case .data:
+            return "Data"
         case .document:
             return "Document"
         case .spreadsheet:
             return "Spreadsheet"
         case .presentation:
             return "Presentation"
+        case .audio:
+            return "Audio"
+        case .video:
+            return "Video"
+        case .archive:
+            return "Archive"
         }
     }
 
@@ -32,12 +47,22 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
             return "camera.viewfinder"
         case .pdf:
             return "doc.richtext"
+        case .markdown:
+            return "text.document"
+        case .data:
+            return "curlybraces"
         case .document:
             return "doc.text"
         case .spreadsheet:
             return "tablecells"
         case .presentation:
             return "rectangle.on.rectangle"
+        case .audio:
+            return "waveform"
+        case .video:
+            return "play.rectangle"
+        case .archive:
+            return "archivebox"
         }
     }
 }
@@ -64,13 +89,22 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
     public var capturedAt: String?
     public var viewportLabel: String?
     public var windowCount: Int?
+    public var actionCount: Int?
+    public var frameCount: Int?
+    public var eventCount: Int?
     public var screenshotURL: String?
+    public var actionLabels: [String]
+    public var frameLabels: [String]
+    public var eventLabels: [String]
 
     public var metadataLines: [String] {
         [
             appLabel.map { "App: \($0)" },
             viewportLabel.map { "Viewport: \($0)" },
             windowCount.map { "\($0) window\($0 == 1 ? "" : "s")" },
+            actionCount.map { "\($0) action\($0 == 1 ? "" : "s")" },
+            frameCount.map { "\($0) frame\($0 == 1 ? "" : "s")" },
+            eventCount.map { "\($0) event\($0 == 1 ? "" : "s")" },
             capturedAt.map { "Captured: \($0)" }
         ].compactMap { $0 }
     }
@@ -82,7 +116,13 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
             || capturedAt != nil
             || viewportLabel != nil
             || windowCount != nil
+            || actionCount != nil
+            || frameCount != nil
+            || eventCount != nil
             || screenshotURL != nil
+            || !actionLabels.isEmpty
+            || !frameLabels.isEmpty
+            || !eventLabels.isEmpty
     }
 
     public init(
@@ -92,7 +132,13 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
         capturedAt: String? = nil,
         viewportLabel: String? = nil,
         windowCount: Int? = nil,
-        screenshotURL: String? = nil
+        actionCount: Int? = nil,
+        frameCount: Int? = nil,
+        eventCount: Int? = nil,
+        screenshotURL: String? = nil,
+        actionLabels: [String] = [],
+        frameLabels: [String] = [],
+        eventLabels: [String] = []
     ) {
         self.title = title
         self.appLabel = appLabel
@@ -100,7 +146,13 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
         self.capturedAt = capturedAt
         self.viewportLabel = viewportLabel
         self.windowCount = windowCount
+        self.actionCount = actionCount
+        self.frameCount = frameCount
+        self.eventCount = eventCount
         self.screenshotURL = screenshotURL
+        self.actionLabels = actionLabels
+        self.frameLabels = frameLabels
+        self.eventLabels = eventLabels
     }
 }
 
@@ -143,12 +195,44 @@ public struct ToolArtifactPDFPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactMarkdownPreview: Codable, Sendable, Hashable {
+    public var title: String?
+    public var headingCount: Int
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            headingCount > 0 ? "\(headingCount) heading\(headingCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 64 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil || !metadataLines.isEmpty
+    }
+
+    public init(
+        title: String? = nil,
+        headingCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.title = title
+        self.headingCount = headingCount
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
 public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var entryCount: Int?
     public var worksheetCount: Int?
     public var slideCount: Int?
     public var byteSizeLabel: String?
+    public var contentPreviewLabels: [String]
 
     public var metadataLines: [String] {
         [
@@ -161,7 +245,7 @@ public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
     }
 
     public var hasDisplayContent: Bool {
-        !metadataLines.isEmpty
+        !metadataLines.isEmpty || !contentPreviewLabels.isEmpty
     }
 
     public init(
@@ -169,13 +253,643 @@ public struct ToolArtifactOfficePreview: Codable, Sendable, Hashable {
         entryCount: Int? = nil,
         worksheetCount: Int? = nil,
         slideCount: Int? = nil,
-        byteSizeLabel: String? = nil
+        byteSizeLabel: String? = nil,
+        contentPreviewLabels: [String] = []
     ) {
         self.formatLabel = formatLabel
         self.entryCount = entryCount
         self.worksheetCount = worksheetCount
         self.slideCount = slideCount
         self.byteSizeLabel = byteSizeLabel
+        self.contentPreviewLabels = contentPreviewLabels
+    }
+}
+
+public struct ToolArtifactRTFPreview: Codable, Sendable, Hashable {
+    public var title: String?
+    public var formatLabel: String
+    public var encodingLabel: String?
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            encodingLabel.map { "Encoding: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 64 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil || !metadataLines.isEmpty
+    }
+
+    public init(
+        title: String? = nil,
+        formatLabel: String = "RTF",
+        encodingLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.title = title
+        self.formatLabel = formatLabel
+        self.encodingLabel = encodingLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
+public struct ToolArtifactHTMLPreview: Codable, Sendable, Hashable {
+    public var title: String?
+    public var heading: String?
+    public var linkCount: Int
+    public var scriptCount: Int
+    public var styleCount: Int
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: HTML",
+            linkCount > 0 ? "\(linkCount) link\(linkCount == 1 ? "" : "s")" : nil,
+            scriptCount > 0 ? "\(scriptCount) script\(scriptCount == 1 ? "" : "s")" : nil,
+            styleCount > 0 ? "\(styleCount) style block\(styleCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 64 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil || heading != nil || !metadataLines.isEmpty
+    }
+
+    public init(
+        title: String? = nil,
+        heading: String? = nil,
+        linkCount: Int = 0,
+        scriptCount: Int = 0,
+        styleCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.title = title
+        self.heading = heading
+        self.linkCount = linkCount
+        self.scriptCount = scriptCount
+        self.styleCount = styleCount
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
+public struct ToolArtifactDiffPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var hunkCount: Int
+    public var additionCount: Int
+    public var deletionCount: Int
+    public var changedFileLabels: [String]
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(hunkCount) hunk\(hunkCount == 1 ? "" : "s")",
+            "+\(additionCount) / -\(deletionCount)",
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 128 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0 || hunkCount > 0 || additionCount > 0 || deletionCount > 0 || !changedFileLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Unified diff",
+        fileCount: Int = 0,
+        hunkCount: Int = 0,
+        additionCount: Int = 0,
+        deletionCount: Int = 0,
+        changedFileLabels: [String] = [],
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.hunkCount = hunkCount
+        self.additionCount = additionCount
+        self.deletionCount = deletionCount
+        self.changedFileLabels = changedFileLabels
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
+public struct ToolArtifactTablePreview: Codable, Sendable, Hashable {
+    public var delimiterLabel: String
+    public var rowCountLabel: String
+    public var columnCount: Int
+    public var headers: [String]
+    public var rows: [[String]]
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(delimiterLabel)",
+            "\(rowCountLabel), \(columnCount) column\(columnCount == 1 ? "" : "s")",
+            isTruncated ? "Preview: first \(rows.count) rows" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !headers.isEmpty || !rows.isEmpty
+    }
+
+    public init(
+        delimiterLabel: String,
+        rowCountLabel: String,
+        columnCount: Int,
+        headers: [String],
+        rows: [[String]],
+        isTruncated: Bool = false
+    ) {
+        self.delimiterLabel = delimiterLabel
+        self.rowCountLabel = rowCountLabel
+        self.columnCount = columnCount
+        self.headers = headers
+        self.rows = rows
+        self.isTruncated = isTruncated
+    }
+}
+
+public struct ToolArtifactJSONPreview: Codable, Sendable, Hashable {
+    public var rootLabel: String
+    public var itemCount: Int?
+    public var keyCount: Int?
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Root: \(rootLabel)",
+            keyCount.map { "\($0) key\($0 == 1 ? "" : "s")" },
+            itemCount.map { "\($0) item\($0 == 1 ? "" : "s")" },
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        rootLabel: String,
+        itemCount: Int? = nil,
+        keyCount: Int? = nil,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.rootLabel = rootLabel
+        self.itemCount = itemCount
+        self.keyCount = keyCount
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactJSONLinesPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var recordCountLabel: String
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            recordCountLabel,
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 64 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        recordCountLabel: String,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.formatLabel = formatLabel
+        self.recordCountLabel = recordCountLabel
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
+public struct ToolArtifactTOMLPreview: Codable, Sendable, Hashable {
+    public var topLevelKeyCount: Int
+    public var tableCount: Int
+    public var arrayCount: Int
+    public var scalarCount: Int
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: TOML",
+            "\(topLevelKeyCount) top-level key\(topLevelKeyCount == 1 ? "" : "s")",
+            tableCount > 0 ? "\(tableCount) table\(tableCount == 1 ? "" : "s")" : nil,
+            arrayCount > 0 ? "\(arrayCount) array\(arrayCount == 1 ? "" : "s")" : nil,
+            scalarCount > 0 ? "\(scalarCount) value\(scalarCount == 1 ? "" : "s")" : nil,
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        topLevelKeyCount: Int,
+        tableCount: Int = 0,
+        arrayCount: Int = 0,
+        scalarCount: Int = 0,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.topLevelKeyCount = topLevelKeyCount
+        self.tableCount = tableCount
+        self.arrayCount = arrayCount
+        self.scalarCount = scalarCount
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactINIPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var sectionCount: Int
+    public var keyCount: Int
+    public var sectionPreviewLabel: String?
+    public var sectionPreviewLabels: [String]
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(sectionCount) section\(sectionCount == 1 ? "" : "s")",
+            "\(keyCount) key\(keyCount == 1 ? "" : "s")",
+            sectionPreviewLabel.map { "Sections: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview truncated" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !sectionPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        sectionCount: Int,
+        keyCount: Int,
+        sectionPreviewLabel: String? = nil,
+        sectionPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.formatLabel = formatLabel
+        self.sectionCount = sectionCount
+        self.keyCount = keyCount
+        self.sectionPreviewLabel = sectionPreviewLabel
+        self.sectionPreviewLabels = sectionPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
+public struct ToolArtifactDotenvPreview: Codable, Sendable, Hashable {
+    public var variableCount: Int
+    public var exportedVariableCount: Int
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Format: DOTENV",
+            "\(variableCount) variable\(variableCount == 1 ? "" : "s")",
+            exportedVariableCount > 0 ? "\(exportedVariableCount) exported" : nil,
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview truncated" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        variableCount: Int,
+        exportedVariableCount: Int = 0,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.variableCount = variableCount
+        self.exportedVariableCount = exportedVariableCount
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+    }
+}
+
+public struct ToolArtifactYAMLPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var rootLabel: String
+    public var keyCount: Int?
+    public var itemCount: Int?
+    public var mappingCount: Int
+    public var sequenceCount: Int
+    public var scalarCount: Int
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "Root: \(rootLabel)",
+            keyCount.map { "\($0) key\($0 == 1 ? "" : "s")" },
+            itemCount.map { "\($0) item\($0 == 1 ? "" : "s")" },
+            mappingCount > 0 ? "\(mappingCount) mapping\(mappingCount == 1 ? "" : "s")" : nil,
+            sequenceCount > 0 ? "\(sequenceCount) sequence\(sequenceCount == 1 ? "" : "s")" : nil,
+            scalarCount > 0 ? "\(scalarCount) value\(scalarCount == 1 ? "" : "s")" : nil,
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        rootLabel: String,
+        keyCount: Int? = nil,
+        itemCount: Int? = nil,
+        mappingCount: Int = 0,
+        sequenceCount: Int = 0,
+        scalarCount: Int = 0,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.rootLabel = rootLabel
+        self.keyCount = keyCount
+        self.itemCount = itemCount
+        self.mappingCount = mappingCount
+        self.sequenceCount = sequenceCount
+        self.scalarCount = scalarCount
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactXMLPreview: Codable, Sendable, Hashable {
+    public var rootElementLabel: String
+    public var elementCount: Int
+    public var attributeCount: Int
+    public var namespaceCount: Int
+    public var childPreviewLabel: String?
+    public var childPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: XML",
+            "Root: \(rootElementLabel)",
+            "\(elementCount) element\(elementCount == 1 ? "" : "s")",
+            attributeCount > 0 ? "\(attributeCount) attribute\(attributeCount == 1 ? "" : "s")" : nil,
+            namespaceCount > 0 ? "\(namespaceCount) namespace\(namespaceCount == 1 ? "" : "s")" : nil,
+            childPreviewLabel.map { "Children: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !childPreviewLabels.isEmpty
+    }
+
+    public init(
+        rootElementLabel: String,
+        elementCount: Int,
+        attributeCount: Int = 0,
+        namespaceCount: Int = 0,
+        childPreviewLabel: String? = nil,
+        childPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.rootElementLabel = rootElementLabel
+        self.elementCount = elementCount
+        self.attributeCount = attributeCount
+        self.namespaceCount = namespaceCount
+        self.childPreviewLabel = childPreviewLabel
+        self.childPreviewLabels = childPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactPropertyListPreview: Codable, Sendable, Hashable {
+    public var rootLabel: String
+    public var formatLabel: String?
+    public var keyCount: Int?
+    public var itemCount: Int?
+    public var dictionaryCount: Int
+    public var arrayCount: Int
+    public var scalarCount: Int
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel ?? "PLIST")",
+            "Root: \(rootLabel)",
+            keyCount.map { "\($0) key\($0 == 1 ? "" : "s")" },
+            itemCount.map { "\($0) item\($0 == 1 ? "" : "s")" },
+            dictionaryCount > 0 ? "\(dictionaryCount) dictionar\(dictionaryCount == 1 ? "y" : "ies")" : nil,
+            arrayCount > 0 ? "\(arrayCount) array\(arrayCount == 1 ? "" : "s")" : nil,
+            scalarCount > 0 ? "\(scalarCount) value\(scalarCount == 1 ? "" : "s")" : nil,
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        rootLabel: String,
+        formatLabel: String? = nil,
+        keyCount: Int? = nil,
+        itemCount: Int? = nil,
+        dictionaryCount: Int = 0,
+        arrayCount: Int = 0,
+        scalarCount: Int = 0,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.rootLabel = rootLabel
+        self.formatLabel = formatLabel
+        self.keyCount = keyCount
+        self.itemCount = itemCount
+        self.dictionaryCount = dictionaryCount
+        self.arrayCount = arrayCount
+        self.scalarCount = scalarCount
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var entryCount: Int?
+    public var topLevelCount: Int?
+    public var entryPreviewLabel: String?
+    public var entryPreviewLabels: [String]
+    public var uncompressedByteSizeLabel: String?
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            entryCount.map { "\($0) entr\($0 == 1 ? "y" : "ies")" },
+            topLevelCount.map { "\($0) top-level item\($0 == 1 ? "" : "s")" },
+            entryPreviewLabel.map { "Entries: \($0)" },
+            uncompressedByteSizeLabel.map { "Uncompressed: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !entryPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        entryCount: Int? = nil,
+        topLevelCount: Int? = nil,
+        entryPreviewLabel: String? = nil,
+        entryPreviewLabels: [String] = [],
+        uncompressedByteSizeLabel: String? = nil,
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.entryCount = entryCount
+        self.topLevelCount = topLevelCount
+        self.entryPreviewLabel = entryPreviewLabel
+        self.entryPreviewLabels = entryPreviewLabels
+        self.uncompressedByteSizeLabel = uncompressedByteSizeLabel
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactMediaPreview: Codable, Sendable, Hashable {
+    public var kind: ToolArtifactDocumentKind?
+    public var formatLabel: String
+    public var title: String?
+    public var artist: String?
+    public var byteSizeLabel: String?
+    public var playbackURL: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            artist.map { "Artist: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil || !metadataLines.isEmpty
+    }
+
+    public init(
+        kind: ToolArtifactDocumentKind? = nil,
+        formatLabel: String,
+        title: String? = nil,
+        artist: String? = nil,
+        byteSizeLabel: String? = nil,
+        playbackURL: String? = nil
+    ) {
+        self.kind = kind
+        self.formatLabel = formatLabel
+        self.title = title
+        self.artist = artist
+        self.byteSizeLabel = byteSizeLabel
+        self.playbackURL = playbackURL
+    }
+}
+
+public struct ToolArtifactSourceTextPreview: Codable, Sendable, Hashable {
+    public var typeLabel: String
+    public var lineCountLabel: String
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+
+    public var metadataLines: [String] {
+        [
+            "Type: \(typeLabel)",
+            lineCountLabel,
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview truncated" : nil
+        ].compactMap { $0 }
+    }
+
+    public init(
+        typeLabel: String,
+        lineCountLabel: String,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false
+    ) {
+        self.typeLabel = typeLabel
+        self.lineCountLabel = lineCountLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
     }
 }
 
@@ -221,8 +935,57 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var pdfPreview: ToolArtifactPDFPreview? {
         ToolArtifactPDFPreviewBuilder.pdfPreview(for: value, kind: kind)
     }
+    public var markdownPreview: ToolArtifactMarkdownPreview? {
+        ToolArtifactMarkdownPreviewBuilder.markdownPreview(for: value, kind: kind)
+    }
     public var officePreview: ToolArtifactOfficePreview? {
         ToolArtifactOfficePreviewBuilder.officePreview(for: value, kind: kind)
+    }
+    public var rtfPreview: ToolArtifactRTFPreview? {
+        ToolArtifactRTFPreviewBuilder.rtfPreview(for: value, kind: kind)
+    }
+    public var htmlPreview: ToolArtifactHTMLPreview? {
+        ToolArtifactHTMLPreviewBuilder.htmlPreview(for: value, kind: kind)
+    }
+    public var diffPreview: ToolArtifactDiffPreview? {
+        ToolArtifactDiffPreviewBuilder.diffPreview(for: value, kind: kind)
+    }
+    public var tablePreview: ToolArtifactTablePreview? {
+        ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
+    }
+    public var jsonPreview: ToolArtifactJSONPreview? {
+        ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
+    }
+    public var jsonLinesPreview: ToolArtifactJSONLinesPreview? {
+        ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: kind)
+    }
+    public var tomlPreview: ToolArtifactTOMLPreview? {
+        ToolArtifactTOMLPreviewBuilder.tomlPreview(for: value, kind: kind)
+    }
+    public var iniPreview: ToolArtifactINIPreview? {
+        ToolArtifactINIPreviewBuilder.iniPreview(for: value, kind: kind)
+    }
+    public var dotenvPreview: ToolArtifactDotenvPreview? {
+        ToolArtifactDotenvPreviewBuilder.dotenvPreview(for: value, kind: kind)
+    }
+    public var yamlPreview: ToolArtifactYAMLPreview? {
+        ToolArtifactYAMLPreviewBuilder.yamlPreview(for: value, kind: kind)
+    }
+    public var xmlPreview: ToolArtifactXMLPreview? {
+        ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
+    }
+    public var propertyListPreview: ToolArtifactPropertyListPreview? {
+        ToolArtifactPropertyListPreviewBuilder.propertyListPreview(for: value, kind: kind)
+    }
+    public var archivePreview: ToolArtifactArchivePreview? {
+        ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)
+    }
+    public var mediaPreview: ToolArtifactMediaPreview? {
+        ToolArtifactMediaPreviewBuilder.mediaPreview(for: value, kind: kind)
+    }
+    public var sourceTextPreview: ToolArtifactSourceTextPreview? {
+        guard hasTextPreview else { return nil }
+        return ToolArtifactTextPreviewBuilder.sourceTextPreview(for: value, kind: kind)
     }
     public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {

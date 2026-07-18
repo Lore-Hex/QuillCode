@@ -1,6 +1,7 @@
 import Foundation
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
 
 struct AppServerThreadEnvironmentSubscription: Sendable {
@@ -99,7 +100,8 @@ extension AppServerSession {
     }
 
     func executionEnvironment(
-        for settings: AppServerThreadSettings
+        for settings: AppServerThreadSettings,
+        requirements: ManagedRequirements?
     ) async throws -> AppServerExecutionEnvironment {
         if settings.environments?.isEmpty == true {
             return AppServerExecutionEnvironment(
@@ -141,6 +143,7 @@ extension AppServerSession {
                 cwd: explicitSelection?.cwd ?? "",
                 environmentInfo: info,
                 sandboxPolicy: settings.effectiveSandboxPolicy,
+                requirements: requirements,
                 client: client
             )
             return AppServerExecutionEnvironment(

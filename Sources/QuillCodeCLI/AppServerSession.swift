@@ -386,7 +386,7 @@ actor AppServerSession {
             case "plugin/read": result = try readPlugin(params)
             case "plugin/install": result = try await installPlugin(params)
             case "plugin/uninstall": result = try await uninstallPlugin(params)
-            case "plugin/skill/read": result = try readRemotePluginSkill(params)
+            case "plugin/skill/read": result = try readPluginSkill(params)
             case "skills/list": result = try listSkills(params)
             case "skills/extraRoots/set": result = try await setSkillExtraRoots(params)
             case "skills/config/write": result = try await writeSkillConfig(params)
@@ -617,7 +617,10 @@ actor AppServerSession {
         for record: AppServerThreadRecord,
         includesMCP: Bool = true
     ) async throws -> AppServerConfiguredRunner {
-        let executionEnvironment = try await executionEnvironment(for: record.settings)
+        let executionEnvironment = try await executionEnvironment(
+            for: record.settings,
+            requirements: try managedRequirements()
+        )
         let runRequest = CLIRunRequest(
             style: .exec,
             prompt: "",

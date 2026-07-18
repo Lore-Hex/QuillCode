@@ -5,7 +5,17 @@ struct QuillCodeArtifactDocumentPreview: View {
 
     @ViewBuilder
     var body: some View {
-        if let url = artifactURL {
+        if let pdfPreview = artifact.pdfPreview,
+           let previewURL = artifactURL {
+            pdfContent(pdfPreview, previewURL: previewURL)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(accessibilityLabel)
+        } else if let mediaPreview = artifact.mediaPreview,
+           let playbackURL = mediaPreview.playbackURL.flatMap(URL.init(string:)) {
+            mediaContent(mediaPreview, playbackURL: playbackURL)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(accessibilityLabel)
+        } else if let url = artifactURL {
             Link(destination: url) {
                 content
                     .quillCodeLinkTarget(minWidth: 160, alignment: .leading, radius: 18)
@@ -32,8 +42,50 @@ struct QuillCodeArtifactDocumentPreview: View {
                 title: pdfPreview.title ?? artifact.label,
                 metadataLines: pdfPreview.metadataLines
             )
+        } else if let markdownPreview = artifact.markdownPreview {
+            metadataContent(
+                title: markdownPreview.title ?? artifact.label,
+                metadataLines: markdownPreview.metadataLines
+            )
         } else if let officePreview = artifact.officePreview {
-            metadataContent(title: artifact.label, metadataLines: officePreview.metadataLines)
+            officeContent(officePreview)
+        } else if let rtfPreview = artifact.rtfPreview {
+            metadataContent(
+                title: rtfPreview.title ?? artifact.label,
+                metadataLines: rtfPreview.metadataLines
+            )
+        } else if let htmlPreview = artifact.htmlPreview {
+            metadataContent(
+                title: htmlPreview.title ?? htmlPreview.heading ?? artifact.label,
+                metadataLines: htmlPreview.metadataLines
+            )
+        } else if let diffPreview = artifact.diffPreview {
+            diffContent(diffPreview)
+        } else if let tablePreview = artifact.tablePreview {
+            tableContent(tablePreview)
+        } else if let jsonLinesPreview = artifact.jsonLinesPreview {
+            jsonLinesContent(jsonLinesPreview)
+        } else if let tomlPreview = artifact.tomlPreview {
+            tomlContent(tomlPreview)
+        } else if let iniPreview = artifact.iniPreview {
+            iniContent(iniPreview)
+        } else if let dotenvPreview = artifact.dotenvPreview {
+            dotenvContent(dotenvPreview)
+        } else if let yamlPreview = artifact.yamlPreview {
+            yamlContent(yamlPreview)
+        } else if let xmlPreview = artifact.xmlPreview {
+            xmlContent(xmlPreview)
+        } else if let propertyListPreview = artifact.propertyListPreview {
+            propertyListContent(propertyListPreview)
+        } else if let jsonPreview = artifact.jsonPreview {
+            jsonContent(jsonPreview)
+        } else if let archivePreview = artifact.archivePreview {
+            archiveContent(archivePreview)
+        } else if let mediaPreview = artifact.mediaPreview {
+            metadataContent(
+                title: mediaPreview.title ?? artifact.label,
+                metadataLines: mediaPreview.metadataLines
+            )
         } else {
             genericContent
         }
@@ -71,6 +123,223 @@ struct QuillCodeArtifactDocumentPreview: View {
                 subtitleLineLimit: 2
             )
             appshotMetadata(appshotPreview.metadataLines)
+            appshotReplayTimeline(appshotPreview)
+        }
+    }
+
+    private func tableContent(_ tablePreview: ToolArtifactTablePreview) -> some View {
+        previewSurface(minHeight: 116) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "tablecells")
+                },
+                title: artifact.label,
+                subtitle: tablePreview.metadataLines.joined(separator: " · "),
+                subtitleLineLimit: 2
+            )
+            tableGrid(tablePreview)
+        }
+    }
+
+    private func jsonContent(_ jsonPreview: ToolArtifactJSONPreview) -> some View {
+        previewSurface(minHeight: jsonPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "curlybraces")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(jsonPreview.metadataLines)
+            artifactContentList(title: "Top keys", labels: jsonPreview.keyPreviewLabels)
+        }
+    }
+
+    private func diffContent(_ diffPreview: ToolArtifactDiffPreview) -> some View {
+        previewSurface(minHeight: diffPreview.changedFileLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "plus.forwardslash.minus")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(diffPreview.metadataLines)
+            artifactContentList(title: "Changed files", labels: diffPreview.changedFileLabels)
+        }
+    }
+
+    private func jsonLinesContent(_ jsonLinesPreview: ToolArtifactJSONLinesPreview) -> some View {
+        previewSurface(minHeight: jsonLinesPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "curlybraces")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(jsonLinesPreview.metadataLines)
+            artifactContentList(title: "Observed keys", labels: jsonLinesPreview.keyPreviewLabels)
+        }
+    }
+
+    private func tomlContent(_ tomlPreview: ToolArtifactTOMLPreview) -> some View {
+        previewSurface(minHeight: tomlPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "curlybraces")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(tomlPreview.metadataLines)
+            artifactContentList(title: "Top-level keys", labels: tomlPreview.keyPreviewLabels)
+        }
+    }
+
+    private func iniContent(_ iniPreview: ToolArtifactINIPreview) -> some View {
+        previewSurface(minHeight: iniPreview.sectionPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "gearshape")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(iniPreview.metadataLines)
+            artifactContentList(title: "Sections", labels: iniPreview.sectionPreviewLabels)
+        }
+    }
+
+    private func dotenvContent(_ dotenvPreview: ToolArtifactDotenvPreview) -> some View {
+        previewSurface(minHeight: dotenvPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "key")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(dotenvPreview.metadataLines)
+            artifactContentList(title: "Variable names", labels: dotenvPreview.keyPreviewLabels)
+        }
+    }
+
+    private func yamlContent(_ yamlPreview: ToolArtifactYAMLPreview) -> some View {
+        previewSurface(minHeight: yamlPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "curlybraces")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(yamlPreview.metadataLines)
+            artifactContentList(title: "Top-level keys", labels: yamlPreview.keyPreviewLabels)
+        }
+    }
+
+    private func xmlContent(_ xmlPreview: ToolArtifactXMLPreview) -> some View {
+        previewSurface(minHeight: xmlPreview.childPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chevron.left.forwardslash.chevron.right")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(xmlPreview.metadataLines)
+            artifactContentList(title: "Root children", labels: xmlPreview.childPreviewLabels)
+        }
+    }
+
+    private func propertyListContent(_ propertyListPreview: ToolArtifactPropertyListPreview) -> some View {
+        previewSurface(minHeight: propertyListPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "curlybraces")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(propertyListPreview.metadataLines)
+            artifactContentList(title: "Top-level keys", labels: propertyListPreview.keyPreviewLabels)
+        }
+    }
+
+    private func officeContent(_ officePreview: ToolArtifactOfficePreview) -> some View {
+        previewSurface(minHeight: officePreview.contentPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "doc.text")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(officePreview.metadataLines)
+            officeContentList(officePreview.contentPreviewLabels)
+        }
+    }
+
+    private func archiveContent(_ archivePreview: ToolArtifactArchivePreview) -> some View {
+        previewSurface(minHeight: archivePreview.entryPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "archivebox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(archivePreview.metadataLines)
+            artifactContentList(title: "Contents", labels: archivePreview.entryPreviewLabels)
+        }
+    }
+
+    private func pdfContent(_ pdfPreview: ToolArtifactPDFPreview, previewURL: URL) -> some View {
+        previewSurface(minHeight: 252) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "doc.richtext")
+                },
+                title: pdfPreview.title ?? artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            QuillCodeArtifactPDFPagePreviewView(url: previewURL)
+            HStack(alignment: .center, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                metadataPills(pdfPreview.metadataLines)
+                Spacer(minLength: 4)
+                Link(destination: previewURL) {
+                    Label("Open", systemImage: "arrow.up.right")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .quillCodeLinkTarget(minWidth: 74, alignment: .center, radius: 12)
+                .accessibilityLabel("Open \(artifact.label)")
+            }
+        }
+    }
+
+    private func mediaContent(_ mediaPreview: ToolArtifactMediaPreview, playbackURL: URL) -> some View {
+        previewSurface(minHeight: mediaPreview.kind == .video ? 230 : 146) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "play.rectangle")
+                },
+                title: mediaPreview.title ?? artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            QuillCodeArtifactMediaPlaybackView(preview: mediaPreview, url: playbackURL)
+            HStack(alignment: .center, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                metadataPills(mediaPreview.metadataLines)
+                Spacer(minLength: 4)
+                Link(destination: playbackURL) {
+                    Label("Open", systemImage: "arrow.up.right")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .quillCodeLinkTarget(minWidth: 74, alignment: .center, radius: 12)
+                .accessibilityLabel("Open \(artifact.label)")
+            }
         }
     }
 
@@ -202,6 +471,106 @@ struct QuillCodeArtifactDocumentPreview: View {
                 }
             }
             .padding(.leading, 2)
+        }
+    }
+
+    @ViewBuilder
+    private func appshotReplayTimeline(_ appshotPreview: ToolArtifactAppshotPreview) -> some View {
+        let groups = [
+            ("Actions", appshotPreview.actionLabels),
+            ("Frames", appshotPreview.frameLabels),
+            ("Events", appshotPreview.eventLabels)
+        ].filter { !$0.1.isEmpty }
+        if !groups.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(groups, id: \.0) { title, labels in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.muted)
+                        ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text("\(index + 1)")
+                                    .font(.caption2.monospacedDigit().weight(.bold))
+                                    .foregroundStyle(QuillCodePalette.blue)
+                                    .frame(width: 18, alignment: .trailing)
+                                Text(label)
+                                    .font(.caption)
+                                    .foregroundStyle(QuillCodePalette.text)
+                                    .lineLimit(2)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    @ViewBuilder
+    private func officeContentList(_ labels: [String]) -> some View {
+        artifactContentList(title: "Contents", labels: labels)
+    }
+
+    @ViewBuilder
+    private func artifactContentList(title: String, labels: [String]) -> some View {
+        if !labels.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(QuillCodePalette.muted)
+                ForEach(labels, id: \.self) { label in
+                    HStack(spacing: 7) {
+                        Circle()
+                            .fill(QuillCodePalette.blue)
+                            .frame(width: 5, height: 5)
+                        Text(label)
+                            .font(.caption)
+                            .foregroundStyle(QuillCodePalette.text)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .padding(.top, 2)
+        }
+    }
+
+    private func tableGrid(_ tablePreview: ToolArtifactTablePreview) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            tableRow(tablePreview.headers, isHeader: true)
+            ForEach(Array(tablePreview.rows.enumerated()), id: \.offset) { _, row in
+                tableRow(row, isHeader: false)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private func tableRow(_ row: [String], isHeader: Bool) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                Text(cell.isEmpty ? " " : cell)
+                    .font(.caption2.weight(isHeader ? .semibold : .regular))
+                    .foregroundStyle(isHeader ? QuillCodePalette.text : QuillCodePalette.muted)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .overlay(alignment: .trailing) {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.05))
+                            .frame(width: 1)
+                    }
+            }
+        }
+        .background(isHeader ? Color.white.opacity(0.06) : Color.white.opacity(0.025))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.05))
+                .frame(height: 1)
         }
     }
 

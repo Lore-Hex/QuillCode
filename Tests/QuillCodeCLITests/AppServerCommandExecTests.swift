@@ -2,6 +2,7 @@ import Foundation
 import QuillCodeAgent
 @testable import QuillCodeCLI
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeSafety
 import XCTest
 
@@ -41,6 +42,51 @@ final class AppServerCommandExecTests: XCTestCase {
         XCTAssertEqual(result["stdout"]?.stringValue, "nested:set")
         XCTAssertEqual(result["stderr"]?.stringValue, "unset")
         XCTAssertFalse(records.contains { $0["method"]?.stringValue == "command/exec/outputDelta" })
+    }
+
+    func testManagedNetworkRequirementsStripUpstreamProxyEnvironment() async throws {
+        let fixture = try await makeFixture(
+            environment: [
+                "PATH": defaultPath,
+                "HTTP_PROXY": "http://proxy.example",
+                "https_proxy": "http://secure-proxy.example",
+                "ALL_PROXY": "socks5://proxy.example",
+                "no_proxy": "localhost",
+                "QC_KEEP": "kept"
+            ],
+            requirements: """
+            [experimental_network]
+            allow_upstream_proxy = false
+            """
+        )
+
+        try await sendRequest(
+            id: 2,
+            method: "command/exec",
+            params: execParams(
+                command: [
+                    "/bin/sh", "-c",
+                    "printf '%s:%s:%s:%s:%s' "
+                        + "\"${HTTP_PROXY-unset}\" "
+                        + "\"${https_proxy-unset}\" "
+                        + "\"${ALL_PROXY-unset}\" "
+                        + "\"${no_proxy-unset}\" "
+                        + "\"$QC_KEEP\""
+                ],
+                extra: [
+                    "env": [
+                        "HTTP_PROXY": "http://request-proxy.example",
+                        "QC_KEEP": "override-kept"
+                    ]
+                ]
+            ),
+            to: fixture.session
+        )
+
+        let records = try await waitForResponse(id: 2, output: fixture.output)
+        let result = try XCTUnwrap(response(id: 2, in: records)?["result"]?.objectValue)
+        XCTAssertEqual(result["exitCode"]?.numberValue, 0)
+        XCTAssertEqual(result["stdout"]?.stringValue, "unset:unset:unset:unset:override-kept")
     }
 
     func testStreamingOutputPrecedesFinalResponseAndIsNotDuplicated() async throws {
@@ -325,6 +371,16 @@ final class AppServerCommandExecTests: XCTestCase {
                 ["processId": ""],
                 -32_602,
                 "Invalid params: processId must be a non-empty string"
+            ),
+            (
+                20,
+                "command/exec",
+                [
+                    "command": ["/bin/echo", "hello"],
+                    "sandboxPolicy": ["type": "externalSandbox", "owner": "codex"]
+                ],
+                -32_600,
+                AppServerSandboxPolicyParser.unsupportedExternalSandboxMessage
             )
         ]
         for request in requests {
@@ -435,10 +491,17 @@ private extension AppServerCommandExecTests {
 
     func makeFixture(
         experimentalAPI: Bool = true,
-        environment: [String: String]? = nil
+        environment: [String: String]? = nil,
+        requirements: String? = nil
     ) async throws -> CommandExecFixture {
         let home = try temporaryDirectory(prefix: "command-exec-home")
         let workspace = try temporaryDirectory(prefix: "command-exec-workspace")
+        var hookPaths = HookConfigurationPaths(userQuillCodeDirectory: home)
+        if let requirements {
+            let file = home.appendingPathComponent("requirements.toml")
+            try requirements.write(to: file, atomically: true, encoding: .utf8)
+            hookPaths.managedRequirementFiles = [file]
+        }
         let output = CommandExecOutputCollector()
         let session = try AppServerSession(
             request: CLIAppServerRequest(live: false, home: home),
@@ -451,6 +514,7 @@ private extension AppServerCommandExecTests {
                     maxToolSteps: configuration.appConfig.maxToolSteps
                 )
             },
+            paths: QuillCodePaths(home: home, hookConfigurationPaths: hookPaths),
             sink: { line in await output.append(line) }
         )
         try await sendRequest(

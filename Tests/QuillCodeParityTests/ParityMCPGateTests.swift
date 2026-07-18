@@ -1,6 +1,62 @@
 import XCTest
 
 final class ParityMCPGateTests: QuillCodeParityTestCase {
+    func testMCPServerRunInputAcceptsCommonCodexAliasesAndRejectsConflicts() throws {
+        let toolInputText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("Sources/QuillCodeCLI")
+                .appendingPathComponent("MCPServerToolInput.swift"),
+            encoding: .utf8
+        )
+        let configTestsText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("Tests/QuillCodeCLITests")
+                .appendingPathComponent("MCPServerConfigOverlayTests.swift"),
+            encoding: .utf8
+        )
+        let catalogText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("Sources/QuillCodeCLI")
+                .appendingPathComponent("MCPServerToolCatalog.swift"),
+            encoding: .utf8
+        )
+        let catalogTestsText = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("Tests/QuillCodeCLITests")
+                .appendingPathComponent("MCPServerToolCatalogTests.swift"),
+            encoding: .utf8
+        )
+        let parityText = try Self.docsText(named: "CODEX_PARITY_MATRIX.md")
+        let decisionsText = try Self.docsText(named: "DECISIONS.md")
+
+        Self.assertSource(toolInputText, containsAll: [
+            "canonicalName: \"approval-policy\"",
+            "static let approvalPolicyArgumentAliases",
+            "\"approval_policy\"",
+            "\"approvalPolicy\"",
+            "static let sandboxArgumentAliases",
+            "\"sandbox_mode\"",
+            "\"sandboxMode\"",
+            "static let baseInstructionsArgumentAliases",
+            "\"baseInstructions\"",
+            "static let developerInstructionsArgumentAliases",
+            "\"developerInstructions\"",
+            "conflicting codex argument aliases"
+        ])
+        Self.assertSource(configTestsText, containsAll: [
+            "testRunInputAcceptsCodexStyleTopLevelAliases",
+            "testRunInputRejectsConflictingTopLevelAliases"
+        ])
+        Self.assertSource(catalogText, containsAll: [
+            "MCPServerRunInput.approvalPolicyArgumentAliases",
+            "MCPServerRunInput.sandboxArgumentAliases",
+            "properties[alias] = schema"
+        ])
+        Self.assertSource(catalogTestsText, contains: "aliasProperties")
+        Self.assertSource(parityText, contains: "Top-level MCP run arguments accept and advertise")
+        Self.assertSource(decisionsText, contains: "MCP run input aliases are compatible but fail closed")
+    }
+
     func testWorkspaceModelDelegatesMCPSupportTypes() throws {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let mcpSurfaceText = try Self.appSourceText(named: "QuillCodeMCPSurface.swift")

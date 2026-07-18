@@ -91,6 +91,7 @@ with open(os.path.join(plugin_skill, "SKILL.md"), "w", encoding="utf-8") as mani
 name: smoke-plugin-skill
 description: Exercise plugin detail discovery.
 ---
+Use this plugin skill in the app-server smoke.
 """)
 os.makedirs(os.path.join(catalog_plugin_root, "hooks"), exist_ok=True)
 with open(
@@ -599,6 +600,18 @@ assert detail["hooks"] == [{
 }], plugin_read
 assert [app["id"] for app in detail["apps"]] == ["smoke-app"], plugin_read
 assert detail["mcpServers"] == ["smoke-mcp"], plugin_read
+
+send({"id": 56, "method": "plugin/skill/read", "params": {
+    "marketplacePath": os.path.join(marketplace_directory, "marketplace.json"),
+    "pluginName": "smoke-tools",
+    "skillName": "smoke-tools:smoke-plugin-skill",
+}})
+plugin_skill_read, _ = read_until(lambda record: record.get("id") == 56)
+skill_detail = plugin_skill_read["result"]["skill"]
+assert skill_detail["name"] == "smoke-tools:smoke-plugin-skill", plugin_skill_read
+assert skill_detail["description"] == "Exercise plugin detail discovery.", plugin_skill_read
+assert "Use this plugin skill in the app-server smoke." in skill_detail["content"], \
+    plugin_skill_read
 
 send({"id": 47, "method": "plugin/install", "params": {
     "marketplacePath": os.path.join(marketplace_directory, "marketplace.json"),

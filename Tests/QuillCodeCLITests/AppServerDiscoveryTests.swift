@@ -131,8 +131,8 @@ final class AppServerDiscoveryTests: XCTestCase {
         let yesterday = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: today))
         let earlier = try XCTUnwrap(calendar.date(byAdding: .day, value: -3, to: today))
         let thread = ChatThread(events: [
-            usageEvent(tokens: 100, createdAt: today.addingTimeInterval(300)),
-            usageEvent(tokens: 200, createdAt: yesterday.addingTimeInterval(300)),
+            usageEvent(prompt: 40, completion: 60, createdAt: today.addingTimeInterval(300)),
+            usageEvent(prompt: 120, completion: 80, createdAt: yesterday.addingTimeInterval(300)),
             usageEvent(tokens: 50, createdAt: earlier.addingTimeInterval(300))
         ])
         let fixture = try await makeSession(threads: [thread])
@@ -142,6 +142,9 @@ final class AppServerDiscoveryTests: XCTestCase {
         let response = try XCTUnwrap(result(for: 1, in: records))
         let summary = try XCTUnwrap(response["summary"]?.objectValue)
         XCTAssertEqual(summary["lifetimeTokens"]?.numberValue, 350)
+        XCTAssertEqual(summary["lifetimePromptTokens"]?.numberValue, 160)
+        XCTAssertEqual(summary["lifetimeCompletionTokens"]?.numberValue, 140)
+        XCTAssertEqual(summary["lifetimeContextTokens"]?.numberValue, 350)
         XCTAssertEqual(summary["peakDailyTokens"]?.numberValue, 200)
         XCTAssertEqual(summary["currentStreakDays"]?.numberValue, 2)
         XCTAssertEqual(summary["longestStreakDays"]?.numberValue, 2)
@@ -149,6 +152,9 @@ final class AppServerDiscoveryTests: XCTestCase {
         let buckets = try XCTUnwrap(response["dailyUsageBuckets"]?.arrayValue?.compactMap(\.objectValue))
         XCTAssertEqual(buckets.count, 3)
         XCTAssertEqual(buckets.map { $0["tokens"]?.numberValue }, [50, 200, 100])
+        XCTAssertEqual(buckets.map { $0["promptTokens"]?.numberValue }, [0, 120, 40])
+        XCTAssertEqual(buckets.map { $0["completionTokens"]?.numberValue }, [0, 80, 60])
+        XCTAssertEqual(buckets.map { $0["contextTokens"]?.numberValue }, [50, 200, 100])
         XCTAssertEqual(buckets.last?["startDate"]?.stringValue, utcDayString(today))
     }
 
@@ -838,6 +844,14 @@ final class AppServerDiscoveryTests: XCTestCase {
 
     private func usageEvent(tokens: Int, createdAt: Date) -> ThreadEvent {
         var event = ModelTokenUsageEvent.event(usage: ModelTokenUsage(totalTokens: tokens))
+        event.createdAt = createdAt
+        return event
+    }
+
+    private func usageEvent(prompt: Int, completion: Int, createdAt: Date) -> ThreadEvent {
+        var event = ModelTokenUsageEvent.event(
+            usage: ModelTokenUsage(promptTokens: prompt, completionTokens: completion)
+        )
         event.createdAt = createdAt
         return event
     }

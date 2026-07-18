@@ -11,7 +11,18 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactDocumentPreviewText = try Self.appSourceText(named: "ToolArtifactDocumentPreviewBuilder.swift")
         let artifactAppshotPreviewText = try Self.appSourceText(named: "ToolArtifactAppshotPreviewBuilder.swift")
         let artifactPDFPreviewText = try Self.appSourceText(named: "ToolArtifactPDFPreviewBuilder.swift")
+        let artifactPDFPagePreviewText = try Self.appSourceText(named: "QuillCodeArtifactPDFPagePreviewView.swift")
         let artifactOfficePreviewText = try Self.appSourceText(named: "ToolArtifactOfficePreviewBuilder.swift")
+        let artifactRTFPreviewText = try Self.appSourceText(named: "ToolArtifactRTFPreviewBuilder.swift")
+        let artifactHTMLPreviewText = try Self.appSourceText(named: "ToolArtifactHTMLPreviewBuilder.swift")
+        let artifactDiffPreviewText = try Self.appSourceText(named: "ToolArtifactDiffPreviewBuilder.swift")
+        let artifactArchivePreviewText = try Self.appSourceText(named: "ToolArtifactArchivePreviewBuilder.swift")
+        let artifactMediaPreviewText = try Self.appSourceText(named: "ToolArtifactMediaPreviewBuilder.swift")
+        let artifactMediaPlaybackText = try Self.appSourceText(named: "QuillCodeArtifactMediaPlaybackView.swift")
+        let artifactDocumentPreviewViewText = try Self.appSourceText(named: "QuillCodeArtifactDocumentPreview.swift")
+        let toolCardViewText = try Self.appSourceText(named: "QuillCodeToolCardView.swift")
+        let artifactZipCentralDirectoryText = try Self.appSourceText(named: "ToolArtifactZipCentralDirectoryReader.swift")
+        let artifactTablePreviewText = try Self.appSourceText(named: "ToolArtifactTablePreviewBuilder.swift")
         let artifactByteSizeText = try Self.appSourceText(named: "ToolArtifactByteSizeFormatter.swift")
         let artifactTextPreviewText = try Self.appSourceText(named: "ToolArtifactTextPreviewBuilder.swift")
         let transcriptBuilderText = try Self.appSourceText(named: "WorkspaceTranscriptSurfaceBuilder.swift")
@@ -27,28 +38,71 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "ToolArtifactAppshotPreviewBuilder.appshotPreview",
             "ToolArtifactPDFPreviewBuilder.pdfPreview",
             "ToolArtifactOfficePreviewBuilder.officePreview",
+            "ToolArtifactRTFPreviewBuilder.rtfPreview",
+            "ToolArtifactHTMLPreviewBuilder.htmlPreview",
+            "ToolArtifactDiffPreviewBuilder.diffPreview",
+            "ToolArtifactTablePreviewBuilder.tablePreview",
             "public struct ToolArtifactDocumentPreview",
             "public struct ToolArtifactAppshotPreview",
             "public struct ToolArtifactPDFPreview",
             "public struct ToolArtifactOfficePreview",
-            "public struct ToolArtifactImagePreview"
+            "public struct ToolArtifactRTFPreview",
+            "public struct ToolArtifactHTMLPreview",
+            "public struct ToolArtifactDiffPreview",
+            "public struct ToolArtifactArchivePreview",
+            "public struct ToolArtifactMediaPreview",
+            "public struct ToolArtifactSourceTextPreview",
+            "public struct ToolArtifactTablePreview",
+            "public struct ToolArtifactImagePreview",
+            "ToolArtifactTextPreviewBuilder.sourceTextPreview",
+            "ToolArtifactMediaPreviewBuilder.mediaPreview"
         ])
         Self.assertSource(artifactValueClassifierText, contains: "enum ToolArtifactValueClassifier")
         Self.assertSource(artifactImagePreviewText, contains: "enum ToolArtifactImagePreviewBuilder")
         Self.assertSource(artifactImagePreviewText, contains: "ToolArtifactImageMetadataReader.dimensionsLabel")
+        Self.assertSource(toolCardViewText, containsAll: [
+            "imagePreviewSequenceLabel(index:",
+            "Image \\(index + 1) of \\(count)",
+            "QuillCodeArtifactImagePreview("
+        ])
         Self.assertSource(artifactImageMetadataText, containsAll: [
             "enum ToolArtifactImageMetadataReader",
             "maximumHeaderBytes",
             "pngDimensions",
             "gifDimensions",
-            "jpegDimensions"
+            "jpegDimensions",
+            "icoDimensions",
+            "tiffDimensions",
+            "bmpDimensions",
+            "webpDimensions"
         ])
-        Self.assertSource(artifactDocumentPreviewText, contains: "enum ToolArtifactDocumentPreviewBuilder")
+        Self.assertSource(artifactDocumentPreviewText, containsAll: [
+            "enum ToolArtifactDocumentPreviewBuilder",
+            "compoundPreviewExtensions",
+            #""mdx": .markdown"#,
+            ".audio",
+            ".video",
+            ".archive"
+        ])
         Self.assertSource(artifactAppshotPreviewText, containsAll: [
             "enum ToolArtifactAppshotPreviewBuilder",
             "byteLimit",
             "appshotRoot",
-            "screenshotURL"
+            "screenshotURL",
+            "replayLabels",
+            "ReplayLabelKind",
+            "replayLabelLimit"
+        ])
+        Self.assertSource(toolArtifactSurfaceText, containsAll: [
+            "actionLabels: [String]",
+            "frameLabels: [String]",
+            "eventLabels: [String]"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "appshotReplayTimeline(appshotPreview)",
+            "appshotPreview.actionLabels",
+            "appshotPreview.frameLabels",
+            "appshotPreview.eventLabels"
         ])
         Self.assertSource(artifactPDFPreviewText, containsAll: [
             "enum ToolArtifactPDFPreviewBuilder",
@@ -56,15 +110,123 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "parsedPageCount",
             "parsedTitle"
         ])
+        Self.assertSource(artifactPDFPagePreviewText, containsAll: [
+            "struct QuillCodeArtifactPDFPagePreviewView",
+            "PDFPagePreviewRepresentable",
+            "PDFView",
+            "PDFDocument(url:",
+            "displayMode = .singlePage"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "pdfContent(pdfPreview, previewURL:",
+            "QuillCodeArtifactPDFPagePreviewView(url: previewURL)",
+            "Open \\(artifact.label)"
+        ])
         Self.assertSource(artifactOfficePreviewText, containsAll: [
             "enum ToolArtifactOfficePreviewBuilder",
-            "zipCentralDirectory",
-            "centralDirectoryHeaderSignature",
+            "ToolArtifactZipCentralDirectoryReader.centralDirectory",
             "worksheetCount",
-            "slideCount"
+            "slideCount",
+            "contentPreviewLabels"
+        ])
+        Self.assertSource(toolArtifactSurfaceText, containsAll: [
+            "contentPreviewLabels: [String]"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "officeContent(officePreview)",
+            "officeContentList(officePreview.contentPreviewLabels)"
+        ])
+        Self.assertSource(artifactRTFPreviewText, containsAll: [
+            "enum ToolArtifactRTFPreviewBuilder",
+            "byteLimit",
+            "parsedTitle",
+            "parsedEncoding",
+            "text.hasPrefix"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "rtfPreview.title ?? artifact.label",
+            "rtfPreview.metadataLines"
+        ])
+        Self.assertSource(artifactHTMLPreviewText, containsAll: [
+            "enum ToolArtifactHTMLPreviewBuilder",
+            "byteLimit",
+            "firstHTMLCapture",
+            "htmlTagCount",
+            "looksLikeHTML"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "htmlPreview.title ?? htmlPreview.heading ?? artifact.label",
+            "htmlPreview.metadataLines"
+        ])
+        Self.assertSource(artifactDiffPreviewText, containsAll: [
+            "enum ToolArtifactDiffPreviewBuilder",
+            "byteLimit",
+            "parseDiff",
+            "looksLikeDiff",
+            "changedFileLimit"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "diffContent(diffPreview)",
+            "diffPreview.changedFileLabels"
+        ])
+        Self.assertSource(artifactArchivePreviewText, containsAll: [
+            "enum ToolArtifactArchivePreviewBuilder",
+            "ToolArtifactZipCentralDirectoryReader.centralDirectory",
+            "tarPreview",
+            "gzipPreview",
+            "tarFileName",
+            "tarFileSize",
+            "gzipOriginalFileName",
+            "includesSingleMemberCounts",
+            "uncompressedByteSizeLabel",
+            "entryPreviewLabel",
+            "entryPreviewLabels",
+            "topLevelCount"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "archiveContent(archivePreview)",
+            "artifactContentList(title: \"Contents\", labels: archivePreview.entryPreviewLabels)"
+        ])
+        Self.assertSource(artifactMediaPreviewText, containsAll: [
+            "enum ToolArtifactMediaPreviewBuilder",
+            "id3Metadata",
+            "id3TextFrame",
+            "fileSizeLimit",
+            "id3ReadLimit",
+            "id3SyncSafeInteger"
+        ])
+        Self.assertSource(artifactMediaPlaybackText, containsAll: [
+            "struct QuillCodeArtifactMediaPlaybackView",
+            "VideoPlayer(player:",
+            "AVPlayer(url:",
+            "togglePlayback",
+            "Pause audio",
+            "Play audio"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "mediaContent(mediaPreview, playbackURL:",
+            "QuillCodeArtifactMediaPlaybackView(preview: mediaPreview, url: playbackURL)",
+            "Open \\(artifact.label)"
+        ])
+        Self.assertSource(artifactZipCentralDirectoryText, containsAll: [
+            "enum ToolArtifactZipCentralDirectoryReader",
+            "centralDirectoryHeaderSignature",
+            "endOfCentralDirectorySearchLimit",
+            "centralDirectoryByteLimit"
+        ])
+        Self.assertSource(artifactTablePreviewText, containsAll: [
+            "enum ToolArtifactTablePreviewBuilder",
+            "byteLimit",
+            "rowLimit",
+            "columnLimit",
+            "parseRows"
         ])
         Self.assertSource(artifactByteSizeText, contains: "enum ToolArtifactByteSizeFormatter")
-        Self.assertSource(artifactTextPreviewText, contains: "enum ToolArtifactTextPreviewBuilder")
+        Self.assertSource(artifactTextPreviewText, containsAll: [
+            "enum ToolArtifactTextPreviewBuilder",
+            #""mdx""#,
+            #""MDX""#
+        ])
         Self.assertSource(toolCardReducerText, containsAll: [
             "struct WorkspaceToolCardEventReducer",
             "WorkspaceToolCardProjection"

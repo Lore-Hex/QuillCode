@@ -17,7 +17,13 @@ enum ToolArtifactAppshotPreviewBuilder {
             capturedAt: nestedString(in: root, keys: ["capturedAt", "createdAt", "timestamp"]),
             viewportLabel: viewportLabel(from: root),
             windowCount: (root["windows"] as? [Any])?.count,
-            screenshotURL: screenshotURL(from: root, relativeTo: fileURL.deletingLastPathComponent())
+            actionCount: firstArrayCount(in: root, keys: ["actions", "steps", "commands"]),
+            frameCount: firstArrayCount(in: root, keys: ["frames", "screenshots", "captures"]),
+            eventCount: firstArrayCount(in: root, keys: ["events", "timeline"]),
+            screenshotURL: screenshotURL(from: root, relativeTo: fileURL.deletingLastPathComponent()),
+            actionLabels: replayLabels(in: root, keys: ["actions", "steps", "commands"], kind: .action),
+            frameLabels: replayLabels(in: root, keys: ["frames", "screenshots", "captures"], kind: .frame),
+            eventLabels: replayLabels(in: root, keys: ["events", "timeline"], kind: .event)
         )
         return preview.hasDisplayContent ? preview : nil
     }
@@ -73,6 +79,63 @@ enum ToolArtifactAppshotPreviewBuilder {
             }
         }
         return nil
+    }
+
+    private static func firstArrayCount(in root: [String: Any], keys: [String]) -> Int? {
+        for key in keys {
+            if let array = root[key] as? [Any], !array.isEmpty {
+                return array.count
+            }
+        }
+        return nil
+    }
+
+    private static func replayLabels(in root: [String: Any], keys: [String], kind: ReplayLabelKind) -> [String] {
+        for key in keys {
+            guard let values = root[key] as? [Any], !values.isEmpty else { continue }
+            return values
+                .prefix(replayLabelLimit)
+                .compactMap { replayLabel(from: $0, kind: kind) }
+        }
+        return []
+    }
+
+    private static func replayLabel(from value: Any, kind: ReplayLabelKind) -> String? {
+        if let string = string(from: value, nestedKeys: []) {
+            return boundedReplayLabel(string)
+        }
+        guard let object = value as? [String: Any] else { return nil }
+        let primary = firstString(in: object, keys: kind.primaryKeys)
+        let secondary = firstString(in: object, keys: kind.secondaryKeys)
+        switch (primary, secondary) {
+        case (.some(let primary), .some(let secondary)) where primary != secondary:
+            return boundedReplayLabel("\(primary): \(secondary)")
+        case (.some(let primary), _):
+            return boundedReplayLabel(primary)
+        case (_, .some(let secondary)):
+            return boundedReplayLabel(secondary)
+        default:
+            return nil
+        }
+    }
+
+    private static func firstString(in object: [String: Any], keys: [String]) -> String? {
+        for key in keys {
+            if let value = string(from: object[key], nestedKeys: ["value", "text", "name", "path", "url"]) {
+                return value
+            }
+        }
+        return nil
+    }
+
+    private static func boundedReplayLabel(_ label: String) -> String? {
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.count <= replayLabelCharacterLimit {
+            return trimmed
+        }
+        let index = trimmed.index(trimmed.startIndex, offsetBy: replayLabelCharacterLimit)
+        return String(trimmed[..<index]) + "..."
     }
 
     private static func resolvedImageFileURL(from candidate: String, relativeTo directory: URL) -> URL? {
@@ -157,6 +220,8 @@ enum ToolArtifactAppshotPreviewBuilder {
     }
 
     private static let byteLimit = 128 * 1024
+    private static let replayLabelLimit = 4
+    private static let replayLabelCharacterLimit = 80
     private static let screenshotKeys = [
         "screenshot",
         "screenshotPath",
@@ -167,4 +232,32 @@ enum ToolArtifactAppshotPreviewBuilder {
         "preview",
         "previewImage"
     ]
+
+    private enum ReplayLabelKind {
+        case action
+        case frame
+        case event
+
+        var primaryKeys: [String] {
+            switch self {
+            case .action:
+                return ["type", "action", "name", "title"]
+            case .frame:
+                return ["title", "name", "screenshot", "path", "url"]
+            case .event:
+                return ["name", "type", "event", "title"]
+            }
+        }
+
+        var secondaryKeys: [String] {
+            switch self {
+            case .action:
+                return ["target", "selector", "text", "value", "label"]
+            case .frame:
+                return ["screenshot", "path", "url", "image"]
+            case .event:
+                return ["target", "detail", "summary", "text"]
+            }
+        }
+    }
 }

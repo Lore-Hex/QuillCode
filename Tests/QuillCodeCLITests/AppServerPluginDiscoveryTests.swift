@@ -531,6 +531,113 @@ final class AppServerPluginDiscoveryTests: XCTestCase {
         XCTAssertTrue(invalidPathMessage?.contains("unsupported marketplace path") == true)
     }
 
+    func testPluginSkillReadReturnsBoundedLocalSkillContent() async throws {
+        let fixture = try await makeFixture()
+        try writeMarketplace(
+            #"{"name":"local","plugins":[{"name":"demo","source":"./plugins/demo"}]}"#,
+            in: fixture.workspace
+        )
+        try writePackage(#"{"name":"demo"}"#, at: "plugins/demo", in: fixture.workspace)
+        try write(
+            """
+            ---
+            name: review
+            description: Review a focused code change
+            short_description: Review diff
+            ---
+            Use this skill to review a small change.
+            """,
+            to: "plugins/demo/skills/review/SKILL.md",
+            in: fixture.workspace
+        )
+        try write(
+            """
+            interface:
+              display_name: Review Skill
+              default_prompt: Review this patch
+              brand_color: "#31A8FF"
+            policy:
+              products:
+                - CODEX
+            """,
+            to: "plugins/demo/skills/review/agents/openai.yaml",
+            in: fixture.workspace
+        )
+        try write(
+            """
+            ---
+            name: chatgpt-only
+            description: Hidden skill
+            ---
+            """,
+            to: "plugins/demo/skills/chatgpt-only/SKILL.md",
+            in: fixture.workspace
+        )
+        try write(
+            """
+            policy:
+              products:
+                - CHATGPT
+            """,
+            to: "plugins/demo/skills/chatgpt-only/agents/openai.yaml",
+            in: fixture.workspace
+        )
+
+        let catalog = fixture.workspace.appendingPathComponent(
+            ".agents/plugins/marketplace.json"
+        ).path
+        try await fixture.request(
+            id: 87,
+            method: "skills/config/write",
+            params: ["name": "demo:review", "enabled": false]
+        )
+        try await fixture.request(
+            id: 88,
+            method: "plugin/skill/read",
+            params: [
+                "marketplacePath": catalog,
+                "pluginName": "demo",
+                "skillName": "demo:review"
+            ]
+        )
+        try await fixture.request(
+            id: 89,
+            method: "plugin/skill/read",
+            params: [
+                "marketplacePath": catalog,
+                "pluginName": "demo",
+                "skillName": "chatgpt-only"
+            ]
+        )
+
+        let skillResult = try await fixture.result(id: 88)
+        let skill = try XCTUnwrap(skillResult?["skill"]?.objectValue)
+        XCTAssertEqual(skill["marketplaceName"], .string("local"))
+        XCTAssertEqual(skill["pluginName"], .string("demo"))
+        XCTAssertEqual(skill["name"], .string("demo:review"))
+        XCTAssertEqual(skill["skillName"], .string("review"))
+        XCTAssertEqual(skill["description"], .string("Review a focused code change"))
+        XCTAssertEqual(skill["shortDescription"], .string("Review diff"))
+        XCTAssertEqual(skill["enabled"], .bool(false))
+        XCTAssertEqual(skill["truncated"], .bool(false))
+        XCTAssertEqual(
+            skill["path"],
+            .string(fixture.workspace.appendingPathComponent(
+                "plugins/demo/skills/review/SKILL.md"
+            ).path)
+        )
+        XCTAssertTrue(
+            skill["content"]?.stringValue?.contains("Use this skill to review a small change.") == true
+        )
+        let interface = try XCTUnwrap(skill["interface"]?.objectValue)
+        XCTAssertEqual(interface["displayName"], .string("Review Skill"))
+        XCTAssertEqual(interface["defaultPrompt"], .string("Review this patch"))
+        XCTAssertEqual(interface["brandColor"], .string("#31A8FF"))
+
+        let hiddenSkillMessage = try await fixture.errorMessage(id: 89)
+        XCTAssertTrue(hiddenSkillMessage?.contains("was not found in plugin") == true)
+    }
+
     func testPluginInstallActivatesGlobalPackageAndUninstallIsIdempotent() async throws {
         let fixture = try await makeFixture()
         try writeMarketplace(

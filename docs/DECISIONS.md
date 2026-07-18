@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-07-17: MCP run input aliases are compatible but fail closed
+
+- **Compatibility boundary:** The public `codex` MCP tool accepts and advertises Codex-style
+  kebab-case, snake_case, and camelCase spellings for top-level run arguments that clients commonly
+  vary: approval policy, sandbox mode, base instructions, compact prompt, and developer
+  instructions.
+- **Conflict boundary:** Alias groups are mutually exclusive. If a client sends two spellings for the
+  same semantic field, QuillCode rejects the call before creating or persisting a task instead of
+  choosing one silently.
+- **Safety boundary:** The broader config object remains allowlisted and continues to reject
+  account, secret, and unknown keys. Alias compatibility does not become arbitrary config passthrough.
+- **Evidence:** Focused MCP catalog/config-overlay tests prove snake/camel aliases are visible in the
+  JSON schema, normalize correctly, and conflicting aliases fail closed; the parity matrix records
+  that full MCP parity still excludes complete native Codex event coverage and true OS-sandbox
+  `on-failure` retry semantics.
+
 ## 2026-07-16: Experimental feature state uses one real precedence chain
 
 - **Catalog boundary:** One typed core registry owns canonical names, lifecycle stage, presentation
@@ -102,7 +118,8 @@
 - **Compatibility boundary:** Built-in `:read-only`, `:workspace`, and `:danger-full-access`
   permission profiles are supported. Custom profiles and Codex's external-sandbox policy remain
   explicit future app-server work because QuillCode does not yet have equivalent configured profile
-  or external-sandbox owners.
+  or external-sandbox owners. External sandbox policy requests are rejected with a dedicated
+  app-server error instead of being folded into a generic unsupported policy failure.
 - **Evidence:** Isolated Codex 0.142.5 probes define response/error/null/ordering behavior. Focused
   actor tests cover connection isolation, event filtering, resume, patch persistence, validation,
   reconstruction, and actual model memory visibility; the real JSONL smoke exercises all six method
@@ -282,8 +299,9 @@
 
 - **Decision:** Codex-compatible `plugin/read` accepts exactly one local or remote marketplace source.
   Local reads project the 0.142.5 `PluginDetail` shape from the shared marketplace entry and a lazy
-  package-detail loader. Remote reads and remote-only `plugin/skill/read` return explicit invalid-request
-  errors until QuillCode has a genuine remote plugin service.
+  package-detail loader. Local `plugin/skill/read` re-resolves the same marketplace/package boundary
+  before returning bounded `SKILL.md` content and metadata. Remote reads still return explicit
+  invalid-request errors until QuillCode has a genuine remote plugin service.
 - **Progressive disclosure:** Detail discovery parses skill frontmatter and optional interface policy,
   but never reads `SKILL.md` bodies into model context. It filters skills to the Codex product, applies
   namespaced persistent enablement, and projects exact hook keys, app metadata, and usable MCP names.
@@ -293,8 +311,9 @@
   An explicit invalid component path never falls back to a default component directory.
 - **Evidence:** Dedicated loader tests cover default and explicit components, product filters, hook order,
   inline manifests, malformed and oversized data, path traversal, and root/nested symlinks. Protocol tests
-  cover the exact local response and every source/error boundary. The shipped-binary stdio smoke performs
-  a real `plugin/read` and verifies the explicit remote skill-read error.
+  cover the exact local plugin response, local skill-content response, Codex product filtering, and every
+  source/error boundary. The shipped-binary stdio smoke performs a real `plugin/read` and verifies the
+  explicit remote skill-read error.
 
 ## 2026-07-15: App-server plugin discovery reuses the desktop's data-only catalog
 
@@ -1530,9 +1549,11 @@
   TrustedRouter credential exists. It returns the schema-compatible `apiKey` account kind but never
   serializes the credential itself; externally managed refresh requests are type-checked and ignored.
 - **Usage contract:** `account/usage/read` aggregates only persisted local model-usage receipts into
-  UTC daily buckets and streaks. `account/rateLimits/read` exposes configured QuillCode day/week/month
-  spend controls under `quillcode-local-*` IDs and names every row as local. Neither method claims to
-  represent TrustedRouter account history, balances, or provider quotas.
+  UTC daily buckets, streaks, and prompt/completion/context token totals. Legacy total-only receipts
+  still contribute their total as context so old transcripts stay visible in accounting.
+  `account/rateLimits/read` exposes configured QuillCode day/week/month spend controls under
+  `quillcode-local-*` IDs and names every row as local. Neither method claims to represent
+  TrustedRouter account history, balances, or provider quotas.
 - **Config contract (superseded 2026-07-15):** This slice initially projected only effective model,
   reviewer, sandbox, and web-search state. The later structured-document decision above adds true
   per-key origins, raw user layers, and general value/batch mutation.
@@ -1821,13 +1842,20 @@
   under Apache 2.0; Linux uses bubblewrap and fails closed when restrictive execution cannot be
   enforced. `/var` and `/tmp` rules include macOS `/private` aliases so allowed temporary/workspace
   writes work without broadening access. Danger full access deliberately launches directly.
-- **Compatibility boundary:** Arbitrary configured permission profiles, managed network proxies,
-  Windows restricted-token behavior, and a remotely disabled local environment are not fabricated;
-  they remain explicit work in the broader app-server parity row.
+- **Network boundary:** Managed `allow_upstream_proxy = false` strips proxy environment variables
+  (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `NO_PROXY`, case-insensitively) after request overrides
+  are applied, so both inherited and client-supplied upstream proxies are excluded from `command/exec`
+  and lower-level process launches. Selected remote exec-server process starts also forward the
+  structured managed-network profile with `enforceManagedNetwork`, leaving enforcement to the target
+  exec server instead of silently dropping policy.
+- **Compatibility boundary:** Arbitrary configured permission profiles, full managed proxy profiles
+  with enforced local forwarding/domain routing, Windows restricted-token behavior, and a remotely
+  disabled local environment are not fabricated; they remain explicit work in the broader app-server
+  parity row.
 - **Evidence:** Focused tests cover buffered and streaming execution, pipe and PTY control, output caps,
-  timeout, validation including empty process IDs, ID lifecycle, disconnect teardown, and real Seatbelt
-  denial/allow boundaries. The executable JSONL smoke proves streamed stdin/output ordering through the
-  packaged protocol path.
+  timeout, validation including empty process IDs, ID lifecycle, disconnect teardown, managed upstream
+  proxy stripping, and real Seatbelt denial/allow boundaries. The executable JSONL smoke proves streamed
+  stdin/output ordering through the packaged protocol path.
 
 ## 2026-07-16: Global memory reset preserves project-owned memory
 
@@ -2084,8 +2112,9 @@
   root read access; workspace-write adds project roots, allowed temporary roots, explicit writable
   roots, and read-only project metadata; danger-full-access uses the protocol's disabled profile.
   Every process and filesystem request carries that context explicitly. Cross-drive Windows roots
-  fail closed, and process launch sends false/null managed-network fields until QuillCode owns a real
-  managed proxy rather than claiming enforcement it cannot provide.
+  fail closed. Process launches forward the structured managed-network profile and
+  `enforceManagedNetwork` when managed requirements define one, while enforcement remains target-owned
+  rather than claimed by the local client.
 - **Remote search boundary:** Remote `host.file.search` uses exec-server filesystem RPCs rather
   than target shell commands. The scanner canonicalizes the selected root, walks bounded directory
   entries, skips build/dependency directories plus oversized or non-UTF-8 files, and returns the same

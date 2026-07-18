@@ -177,9 +177,15 @@ enum WorkspaceHTMLToolCardRenderer {
         let textArtifacts = artifacts.filter(\.hasTextPreview)
         guard !textArtifacts.isEmpty else { return "" }
         let previews = textArtifacts.map { artifact in
-            """
+            let metadata = artifact.sourceTextPreview?.metadataLines.map {
+                #"<small data-testid="tool-card-text-preview-meta">\#(escape($0))</small>"#
+            }.joined(separator: "\n") ?? ""
+            return """
             <figure class="artifact-text-preview" data-testid="tool-card-text-preview">
               <figcaption data-testid="tool-card-text-preview-label">\(escape(artifact.label))</figcaption>
+              <div class="artifact-text-preview-meta" data-testid="tool-card-text-preview-metadata">
+                \(metadata)
+              </div>
               <pre data-testid="tool-card-text-preview-content">\(escape(artifact.textPreview ?? ""))</pre>
             </figure>
             """
@@ -199,9 +205,24 @@ enum WorkspaceHTMLToolCardRenderer {
             let openLink = artifact.href.map {
                 #"<a\#(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link)) data-testid="tool-card-document-preview-open" href="\#(escape($0))">Open</a>"#
             } ?? ""
-            let pdfPreview = renderPDFPreview(artifact.pdfPreview)
+            let pdfPreview = renderPDFPreview(artifact.pdfPreview, href: artifact.href)
+            let markdownPreview = renderMarkdownPreview(artifact.markdownPreview)
             let officePreview = renderOfficePreview(artifact.officePreview)
+            let rtfPreview = renderRTFPreview(artifact.rtfPreview)
+            let htmlPreview = renderHTMLPreview(artifact.htmlPreview)
+            let diffPreview = renderDiffPreview(artifact.diffPreview)
+            let tablePreview = renderTablePreview(artifact.tablePreview)
+            let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
+            let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
+            let iniPreview = renderINIPreview(artifact.iniPreview)
+            let dotenvPreview = renderDotenvPreview(artifact.dotenvPreview)
+            let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
+            let xmlPreview = renderXMLPreview(artifact.xmlPreview)
+            let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
+            let jsonPreview = renderJSONPreview(artifact.jsonPreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
+            let archivePreview = renderArchivePreview(artifact.archivePreview)
+            let mediaPreview = renderMediaPreview(artifact.mediaPreview)
             return """
             <figure class="artifact-document-preview" data-testid="tool-card-document-preview" data-kind="\(escape(preview.kind.rawValue))">
               <span class="artifact-document-icon" aria-hidden="true">\(documentIcon(for: preview.kind))</span>
@@ -212,8 +233,23 @@ enum WorkspaceHTMLToolCardRenderer {
               </figcaption>
               \(openLink)
               \(pdfPreview)
+              \(markdownPreview)
               \(officePreview)
+              \(rtfPreview)
+              \(htmlPreview)
+              \(diffPreview)
+              \(tablePreview)
+              \(jsonLinesPreview)
+              \(tomlPreview)
+              \(iniPreview)
+              \(dotenvPreview)
+              \(yamlPreview)
+              \(xmlPreview)
+              \(propertyListPreview)
+              \(jsonPreview)
               \(appshotPreview)
+              \(archivePreview)
+              \(mediaPreview)
             </figure>
             """
         }.joined(separator: "\n")
@@ -228,15 +264,19 @@ enum WorkspaceHTMLToolCardRenderer {
     private static func renderImagePreviews(_ artifacts: [ToolArtifactState]) -> String {
         let imageArtifacts = artifacts.filter(\.isImagePreview)
         guard !imageArtifacts.isEmpty else { return "" }
-        let previews = imageArtifacts.compactMap { artifact -> String? in
+        let previews = imageArtifacts.enumerated().compactMap { index, artifact -> String? in
             guard let src = artifact.previewURL,
                   let preview = artifact.imagePreview
             else { return nil }
+            let sequenceLabel = imageArtifacts.count > 1
+                ? #"<small data-testid="tool-card-image-preview-sequence">Image \#(index + 1) of \#(imageArtifacts.count)</small>"#
+                : ""
             return """
             <figure class="artifact-preview" data-testid="tool-card-image-preview" data-kind="image">
               <img src="\(escape(src))" alt="\(escape(artifact.label))" loading="lazy">
               <figcaption>
                 <small data-testid="tool-card-image-preview-type">\(escape(preview.typeLine))</small>
+                \(sequenceLabel)
                 <strong data-testid="tool-card-image-preview-label">\(escape(artifact.label))</strong>
                 <small data-testid="tool-card-image-preview-detail">\(escape(preview.detail))</small>
               </figcaption>
@@ -256,9 +296,40 @@ enum WorkspaceHTMLToolCardRenderer {
         let metadata = preview.metadataLines.map {
             #"<small data-testid="tool-card-office-preview-meta">\#(escape($0))</small>"#
         }.joined(separator: "")
-        guard !metadata.isEmpty else { return "" }
+        let contents = preview.contentPreviewLabels.map {
+            #"<li data-testid="tool-card-office-preview-content-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let contentList = contents.isEmpty
+            ? ""
+            : """
+              <section class="artifact-office-contents" data-testid="tool-card-office-preview-contents">
+                <strong data-testid="tool-card-office-preview-content-title">Contents</strong>
+                <ul>\(contents)</ul>
+              </section>
+            """
+        guard !metadata.isEmpty || !contentList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-office-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(contentList)
+        </div>
+        """
+    }
+
+    private static func renderRTFPreview(_ preview: ToolArtifactRTFPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let title = preview.title.map {
+            #"<strong data-testid="tool-card-rtf-preview-title">\#(escape($0))</strong>"#
+        } ?? ""
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-rtf-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !title.isEmpty || !metadata.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-rtf-preview">
+          \(title)
           <div>
             \(metadata)
           </div>
@@ -266,7 +337,128 @@ enum WorkspaceHTMLToolCardRenderer {
         """
     }
 
-    private static func renderPDFPreview(_ preview: ToolArtifactPDFPreview?) -> String {
+    private static func renderHTMLPreview(_ preview: ToolArtifactHTMLPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let title = (preview.title ?? preview.heading).map {
+            #"<strong data-testid="tool-card-html-preview-title">\#(escape($0))</strong>"#
+        } ?? ""
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-html-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !title.isEmpty || !metadata.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-html-preview">
+          \(title)
+          <div>
+            \(metadata)
+          </div>
+        </div>
+        """
+    }
+
+    private static func renderDiffPreview(_ preview: ToolArtifactDiffPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-diff-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let changedFiles = preview.changedFileLabels.map {
+            #"<li data-testid="tool-card-diff-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let changedFileList = changedFiles.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-diff-preview-files">
+                <strong data-testid="tool-card-diff-preview-file-title">Changed files</strong>
+                <ul>\(changedFiles)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !changedFileList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-diff-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(changedFileList)
+        </div>
+        """
+    }
+
+    private static func renderMarkdownPreview(_ preview: ToolArtifactMarkdownPreview?) -> String {
+        guard let preview else { return "" }
+        let title = preview.title.map {
+            #"<strong data-testid="tool-card-markdown-preview-title">\#(escape($0))</strong>"#
+        } ?? ""
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-markdown-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !title.isEmpty || !metadata.isEmpty else { return "" }
+        return """
+        <div class="artifact-markdown-preview" data-testid="tool-card-markdown-preview">
+          \(title)
+          <div>
+            \(metadata)
+          </div>
+        </div>
+        """
+    }
+
+    private static func renderArchivePreview(_ preview: ToolArtifactArchivePreview?) -> String {
+        guard let preview else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-archive-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let contents = preview.entryPreviewLabels.map {
+            #"<li data-testid="tool-card-archive-preview-entry-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let contentList = contents.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-archive-preview-entries">
+                <strong data-testid="tool-card-archive-preview-entry-title">Contents</strong>
+                <ul>\(contents)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !contentList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-archive-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(contentList)
+        </div>
+        """
+    }
+
+    private static func renderMediaPreview(_ preview: ToolArtifactMediaPreview?) -> String {
+        guard let preview else { return "" }
+        let title = preview.title.map {
+            #"<strong data-testid="tool-card-media-preview-title">\#(escape($0))</strong>"#
+        } ?? ""
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-media-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let player = renderMediaPlayer(preview)
+        guard !title.isEmpty || !metadata.isEmpty || !player.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-media-preview">
+          \(title)
+          <div>
+            \(metadata)
+          </div>
+          \(player)
+        </div>
+        """
+    }
+
+    private static func renderMediaPlayer(_ preview: ToolArtifactMediaPreview) -> String {
+        guard let playbackURL = preview.playbackURL else { return "" }
+        switch preview.kind {
+        case .audio:
+            return #"<audio class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="\#(escape(playbackURL))"></audio>"#
+        case .video:
+            return #"<video class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="\#(escape(playbackURL))"></video>"#
+        default:
+            return ""
+        }
+    }
+
+    private static func renderPDFPreview(_ preview: ToolArtifactPDFPreview?, href: String?) -> String {
         guard let preview else { return "" }
         let title = preview.title.map {
             #"<strong data-testid="tool-card-pdf-preview-title">\#(escape($0))</strong>"#
@@ -274,7 +466,8 @@ enum WorkspaceHTMLToolCardRenderer {
         let metadata = preview.metadataLines.map {
             #"<small data-testid="tool-card-pdf-preview-meta">\#(escape($0))</small>"#
         }.joined(separator: "")
-        guard !title.isEmpty || !metadata.isEmpty else {
+        let pagePreview = renderLocalPDFPagePreview(href: href)
+        guard !title.isEmpty || !metadata.isEmpty || !pagePreview.isEmpty else {
             return ""
         }
         return """
@@ -283,6 +476,246 @@ enum WorkspaceHTMLToolCardRenderer {
           <div>
             \(metadata)
           </div>
+          \(pagePreview)
+        </div>
+        """
+    }
+
+    private static func renderLocalPDFPagePreview(href: String?) -> String {
+        guard let href,
+              let url = URL(string: href),
+              url.isFileURL
+        else { return "" }
+        return """
+        <object class="artifact-pdf-page-preview" data-testid="tool-card-pdf-page-preview" type="application/pdf" data="\(escape(href))#page=1">
+          <a\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link)) data-testid="tool-card-pdf-page-preview-fallback" href="\(escape(href))">Open PDF preview</a>
+        </object>
+        """
+    }
+
+    private static func renderTablePreview(_ preview: ToolArtifactTablePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let headers = preview.headers.map {
+            #"<th data-testid="tool-card-table-preview-header">\#(escape($0))</th>"#
+        }.joined(separator: "")
+        let rows = preview.rows.map { row in
+            let cells = row.map {
+                #"<td data-testid="tool-card-table-preview-cell">\#(escape($0))</td>"#
+            }.joined(separator: "")
+            return "<tr>\(cells)</tr>"
+        }.joined(separator: "")
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-table-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        return """
+        <div class="artifact-table-preview" data-testid="tool-card-table-preview">
+          <div>
+            \(metadata)
+          </div>
+          <table>
+            <thead><tr>\(headers)</tr></thead>
+            <tbody>\(rows)</tbody>
+          </table>
+        </div>
+        """
+    }
+
+    private static func renderJSONPreview(_ preview: ToolArtifactJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let keys = preview.keyPreviewLabels.map {
+            #"<li data-testid="tool-card-json-preview-key-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let keyList = keys.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-json-preview-keys">
+                <strong data-testid="tool-card-json-preview-key-title">Top keys</strong>
+                <ul>\(keys)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderJSONLinesPreview(_ preview: ToolArtifactJSONLinesPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-json-lines-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let keys = preview.keyPreviewLabels.map {
+            #"<li data-testid="tool-card-json-lines-preview-key-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let keyList = keys.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-json-lines-preview-keys">
+                <strong data-testid="tool-card-json-lines-preview-key-title">Observed keys</strong>
+                <ul>\(keys)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-json-lines-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderTOMLPreview(_ preview: ToolArtifactTOMLPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-toml-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let keys = preview.keyPreviewLabels.map {
+            #"<li data-testid="tool-card-toml-preview-key-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let keyList = keys.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-toml-preview-keys">
+                <strong data-testid="tool-card-toml-preview-key-title">Top-level keys</strong>
+                <ul>\(keys)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-toml-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderINIPreview(_ preview: ToolArtifactINIPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-ini-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let sections = preview.sectionPreviewLabels.map {
+            #"<li data-testid="tool-card-ini-preview-section-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sectionList = sections.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-ini-preview-sections">
+                <strong data-testid="tool-card-ini-preview-section-title">Sections</strong>
+                <ul>\(sections)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !sectionList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-ini-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(sectionList)
+        </div>
+        """
+    }
+
+    private static func renderDotenvPreview(_ preview: ToolArtifactDotenvPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-dotenv-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let keys = preview.keyPreviewLabels.map {
+            #"<li data-testid="tool-card-dotenv-preview-key-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let keyList = keys.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-dotenv-preview-keys">
+                <strong data-testid="tool-card-dotenv-preview-key-title">Variable names</strong>
+                <ul>\(keys)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-dotenv-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderYAMLPreview(_ preview: ToolArtifactYAMLPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-yaml-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let keys = preview.keyPreviewLabels.map {
+            #"<li data-testid="tool-card-yaml-preview-key-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let keyList = keys.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-yaml-preview-keys">
+                <strong data-testid="tool-card-yaml-preview-key-title">Top-level keys</strong>
+                <ul>\(keys)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-yaml-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderXMLPreview(_ preview: ToolArtifactXMLPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-xml-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let children = preview.childPreviewLabels.map {
+            #"<li data-testid="tool-card-xml-preview-child-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let childList = children.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-xml-preview-children">
+                <strong data-testid="tool-card-xml-preview-child-title">Root children</strong>
+                <ul>\(children)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !childList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-xml-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(childList)
+        </div>
+        """
+    }
+
+    private static func renderPropertyListPreview(_ preview: ToolArtifactPropertyListPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-plist-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let keys = preview.keyPreviewLabels.map {
+            #"<li data-testid="tool-card-plist-preview-key-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let keyList = keys.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-plist-preview-keys">
+                <strong data-testid="tool-card-plist-preview-key-title">Top-level keys</strong>
+                <ul>\(keys)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-plist-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(keyList)
         </div>
         """
     }
@@ -301,7 +734,8 @@ enum WorkspaceHTMLToolCardRenderer {
         let metadata = preview.metadataLines.map {
             #"<small data-testid="tool-card-appshot-preview-meta">\#(escape($0))</small>"#
         }.joined(separator: "")
-        guard !image.isEmpty || !title.isEmpty || !summary.isEmpty || !metadata.isEmpty else {
+        let replay = renderAppshotReplay(preview)
+        guard !image.isEmpty || !title.isEmpty || !summary.isEmpty || !metadata.isEmpty || !replay.isEmpty else {
             return ""
         }
         return """
@@ -312,8 +746,29 @@ enum WorkspaceHTMLToolCardRenderer {
             \(summary)
             \(metadata)
           </div>
+          \(replay)
         </div>
         """
+    }
+
+    private static func renderAppshotReplay(_ preview: ToolArtifactAppshotPreview) -> String {
+        let groups = [
+            ("Actions", preview.actionLabels),
+            ("Frames", preview.frameLabels),
+            ("Events", preview.eventLabels)
+        ].filter { !$0.1.isEmpty }
+        guard !groups.isEmpty else { return "" }
+        return groups.map { title, labels in
+            let items = labels.enumerated().map { index, label in
+                #"<li data-testid="tool-card-appshot-replay-item"><span>\#(index + 1)</span>\#(escape(label))</li>"#
+            }.joined(separator: "")
+            return """
+            <section class="artifact-appshot-replay-group" data-testid="tool-card-appshot-replay-group">
+              <strong data-testid="tool-card-appshot-replay-title">\(escape(title))</strong>
+              <ol>\(items)</ol>
+            </section>
+            """
+        }.joined(separator: "")
     }
 
     private static func documentIcon(for kind: ToolArtifactDocumentKind) -> String {
@@ -322,12 +777,22 @@ enum WorkspaceHTMLToolCardRenderer {
             return "APP"
         case .pdf:
             return "PDF"
+        case .markdown:
+            return "MD"
+        case .data:
+            return "JSON"
         case .document:
             return "DOC"
         case .spreadsheet:
             return "XLS"
         case .presentation:
             return "PPT"
+        case .audio:
+            return "AUD"
+        case .video:
+            return "VID"
+        case .archive:
+            return "ARC"
         }
     }
 

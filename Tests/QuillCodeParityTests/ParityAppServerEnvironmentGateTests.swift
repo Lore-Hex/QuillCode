@@ -119,6 +119,8 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "process/start",
             "process/read",
             "process/terminate",
+            "enforceManagedNetwork",
+            "request.managedNetwork.rpcValue",
             "request.sandbox.rpcValue",
             "nextSequence - 1",
             "if closed || terminalFailure != nil || sandboxDenied",
@@ -142,6 +144,7 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             "readFileURIs",
             "canonicalized",
             "AppServerExecServerSandboxContext",
+            "AppServerManagedNetworkPolicy",
             "sandbox: sandbox"
         ])
         Self.assertSource(userShell, containsAll: [
@@ -162,8 +165,17 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
             containsAll: [
                 "testConcurrentRPCsRouteResponsesAndReconnectResumesSession",
                 "testFileSystemRequestsForwardSandboxContext",
+                "testProcessStartForwardsManagedNetworkProfile",
                 "testStatusProbeUsesExistingConnectionAndIdleClosePublishesFutureTransitions",
                 "testProcessReadsAdvanceWithLastObservedSequenceWithoutSkippingOutput"
+            ]
+        )
+        Self.assertSource(
+            try text(root, "Tests/QuillCodeCLITests/AppServerRemoteEnvironmentToolExecutorTests.swift"),
+            containsAll: [
+                "testShellForwardsManagedNetworkRequirementsToRemoteProcess",
+                "testShellStdinUsesTargetNativeTemporaryPathForWindowsRemote",
+                "testApplyPatchUsesTargetNativeTemporaryPathForWindowsRemote"
             ]
         )
         Self.assertSource(processSessionTests, containsAll: [

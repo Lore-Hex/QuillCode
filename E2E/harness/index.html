@@ -3721,8 +3721,46 @@
       font-size: 11px;
       font-weight: 650;
     }
+    .artifact-appshot-replay-group {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .artifact-appshot-replay-group strong {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+    .artifact-appshot-replay-group ol {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .artifact-appshot-replay-group li {
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr);
+      gap: 8px;
+      min-width: 0;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .artifact-appshot-replay-group li span {
+      color: var(--blue);
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+      text-align: right;
+    }
     .artifact-pdf-preview,
-    .artifact-office-preview {
+    .artifact-markdown-preview,
+    .artifact-office-preview,
+    .artifact-table-preview {
       grid-column: 1 / -1;
       display: flex;
       align-items: center;
@@ -3734,6 +3772,7 @@
       border-top: 1px solid rgba(255,255,255,.08);
     }
     .artifact-pdf-preview strong,
+    .artifact-markdown-preview strong,
     .artifact-office-preview strong {
       min-width: 0;
       max-width: 100%;
@@ -3743,14 +3782,18 @@
       overflow-wrap: anywhere;
     }
     .artifact-pdf-preview div,
-    .artifact-office-preview div {
+    .artifact-markdown-preview div,
+    .artifact-office-preview div,
+    .artifact-table-preview div {
       display: flex;
       gap: 6px;
       flex-wrap: wrap;
       min-width: 0;
     }
     .artifact-pdf-preview small,
-    .artifact-office-preview small {
+    .artifact-markdown-preview small,
+    .artifact-office-preview small,
+    .artifact-table-preview small {
       display: inline-flex;
       align-items: center;
       min-height: 24px;
@@ -3761,6 +3804,68 @@
       font-size: 11px;
       font-weight: 650;
       white-space: nowrap;
+    }
+    .artifact-office-contents {
+      flex-basis: 100%;
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .artifact-office-contents strong {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+    .artifact-office-contents ul {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .artifact-office-contents li {
+      min-width: 0;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 650;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .artifact-table-preview {
+      display: grid;
+      align-items: stretch;
+    }
+    .artifact-table-preview table {
+      width: 100%;
+      table-layout: fixed;
+      border-collapse: separate;
+      border-spacing: 0;
+      overflow: hidden;
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+    .artifact-table-preview th,
+    .artifact-table-preview td {
+      padding: 5px 8px;
+      border-right: 1px solid rgba(255,255,255,.06);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      font-size: 11px;
+      line-height: 1.25;
+      overflow: hidden;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .artifact-table-preview th {
+      color: var(--text);
+      background: rgba(255,255,255,.06);
+      font-weight: 750;
+    }
+    .artifact-table-preview td {
+      color: var(--muted);
+      background: rgba(255,255,255,.025);
+      font-weight: 550;
     }
     .artifact-preview {
       margin: 0;
@@ -3810,6 +3915,21 @@
       color: var(--muted);
       font-size: 11px;
       font-weight: 650;
+    }
+    .artifact-pdf-page-preview {
+      flex-basis: 100%;
+      width: 100%;
+      min-height: 252px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+      background: rgba(0,0,0,.16);
+    }
+    .artifact-media-player {
+      grid-column: 1 / -1;
+      width: min(100%, 520px);
+      max-height: 220px;
+      border-radius: 10px;
+      background: rgba(0,0,0,.24);
     }
     .artifact-preview small:first-child {
       color: #75d7ff;
@@ -8114,6 +8234,9 @@
         previewURL: isImagePreview ? artifactPreviewURL(value, kind) : null,
         textPreview: isImagePreview ? null : artifactTextPreview(value, kind)
       };
+      artifact.sourceTextPreview = artifact.textPreview
+        ? artifactSourceTextPreview(value, kind, artifact.textPreview)
+        : null;
       const detail = artifactDetail(artifact);
       const documentPreview = artifactDocumentPreview(value, kind, detail);
       return {
@@ -8123,7 +8246,22 @@
         documentPreview,
         appshotPreview: artifactAppshotPreview(value, kind, documentPreview),
         pdfPreview: artifactPDFPreview(value, kind, documentPreview),
-        officePreview: artifactOfficePreview(value, kind, documentPreview)
+        officePreview: artifactOfficePreview(value, kind, documentPreview),
+        rtfPreview: artifactRTFPreview(value, kind, documentPreview),
+        htmlPreview: artifactHTMLPreview(value, kind, documentPreview),
+        diffPreview: artifactDiffPreview(value, kind, documentPreview),
+        tablePreview: artifactTablePreview(value, kind, documentPreview),
+        jsonLinesPreview: artifactJSONLinesPreview(value, kind, documentPreview),
+        tomlPreview: artifactTOMLPreview(value, kind, documentPreview),
+        iniPreview: artifactINIPreview(value, kind, documentPreview),
+        dotenvPreview: artifactDotenvPreview(value, kind, documentPreview),
+        yamlPreview: artifactYAMLPreview(value, kind, documentPreview),
+        xmlPreview: artifactXMLPreview(value, kind, documentPreview),
+        propertyListPreview: artifactPropertyListPreview(value, kind, documentPreview),
+        jsonPreview: artifactJSONPreview(value, kind, documentPreview),
+        archivePreview: artifactArchivePreview(value, kind, documentPreview),
+        mediaPreview: artifactMediaPreview(value, kind, documentPreview),
+        markdownPreview: artifactMarkdownPreview(value, kind, documentPreview)
       };
     }
 
@@ -8155,7 +8293,7 @@
     function artifactIsImagePreview(value, kind) {
       if (value.toLowerCase().startsWith('data:image/')) return true;
       if (kind !== 'file' && kind !== 'url') return false;
-      return ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'tif', 'tiff', 'bmp'].includes(artifactPathExtension(value));
+      return ['png', 'jpg', 'jpeg', 'gif', 'ico', 'webp', 'heic', 'svg', 'tif', 'tiff', 'bmp'].includes(artifactPathExtension(value));
     }
 
     function artifactPreviewURL(value, kind) {
@@ -8169,9 +8307,13 @@
 
     function artifactImagePreview(value, kind, detail) {
       if (!artifactIsImagePreview(value, kind)) return null;
+      const dimensionsLabel = artifactImageDimensionsLabel(value, kind);
+      const typeLine = ['Image', artifactImageExtension(value), dimensionsLabel].filter(Boolean).join(' · ');
       return {
         typeLabel: 'Image',
         extensionLabel: artifactImageExtension(value),
+        dimensionsLabel,
+        typeLine,
         detail
       };
     }
@@ -8193,6 +8335,323 @@
       return base.toUpperCase();
     }
 
+    function artifactImageDimensionsLabel(value, kind) {
+      if (kind !== 'file') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || content.length > 64 * 1024) return null;
+      const extension = artifactPathExtension(value);
+      const dimensions = extension === 'svg'
+        ? svgDimensions(content)
+        : extension === 'ico'
+          ? icoDimensions(content)
+          : extension === 'bmp'
+            ? bmpDimensions(content)
+            : extension === 'webp'
+              ? webpDimensions(content)
+              : extension === 'tif' || extension === 'tiff'
+                ? tiffDimensions(content)
+                : null;
+      return dimensions ? `${dimensions.width} x ${dimensions.height} px` : null;
+    }
+
+    function icoDimensions(content) {
+      if (
+        content.length < 6
+        || littleEndianUInt16(content, 0) !== 0
+        || littleEndianUInt16(content, 2) !== 1
+      ) {
+        return null;
+      }
+      const entryCount = littleEndianUInt16(content, 4);
+      if (entryCount < 1 || entryCount > 1024 || 6 + entryCount * 16 > content.length) return null;
+
+      let largest = null;
+      for (let index = 0; index < entryCount; index += 1) {
+        const entryOffset = 6 + index * 16;
+        if (byteAt(content, entryOffset + 3) !== 0) continue;
+        const candidate = validDimensions(
+          icoDimensionSide(byteAt(content, entryOffset)),
+          icoDimensionSide(byteAt(content, entryOffset + 1))
+        );
+        if (!candidate) continue;
+        if (!largest || candidate.width * candidate.height > largest.width * largest.height) {
+          largest = candidate;
+        }
+      }
+      return largest;
+    }
+
+    function icoDimensionSide(value) {
+      return value === 0 ? 256 : value;
+    }
+
+    function bmpDimensions(content) {
+      if (content.length < 26 || asciiAt(content, 0, 2) !== 'BM') return null;
+      const dibHeaderSize = littleEndianUInt32(content, 14);
+      if (dibHeaderSize === 12) {
+        return validDimensions(littleEndianUInt16(content, 18), littleEndianUInt16(content, 20));
+      }
+      if (dibHeaderSize < 40) return null;
+      const width = littleEndianInt32(content, 18);
+      const height = littleEndianInt32(content, 22);
+      return width > 0 && height !== 0 ? validDimensions(width, Math.abs(height)) : null;
+    }
+
+    function webpDimensions(content) {
+      if (content.length < 20 || asciiAt(content, 0, 4) !== 'RIFF' || asciiAt(content, 8, 4) !== 'WEBP') {
+        return null;
+      }
+      let offset = 12;
+      while (offset + 8 <= content.length) {
+        const chunkType = asciiAt(content, offset, 4);
+        const chunkSize = littleEndianUInt32(content, offset + 4);
+        const payloadOffset = offset + 8;
+        if (payloadOffset > content.length) return null;
+        if (chunkType === 'VP8X') {
+          if (chunkSize < 10 || payloadOffset + 10 > content.length) return null;
+          return validDimensions(
+            littleEndianUInt24(content, payloadOffset + 4) + 1,
+            littleEndianUInt24(content, payloadOffset + 7) + 1
+          );
+        }
+        if (chunkType === 'VP8L') {
+          if (chunkSize < 5 || payloadOffset + 5 > content.length || byteAt(content, payloadOffset) !== 0x2F) {
+            return null;
+          }
+          const b0 = byteAt(content, payloadOffset + 1);
+          const b1 = byteAt(content, payloadOffset + 2);
+          const b2 = byteAt(content, payloadOffset + 3);
+          const b3 = byteAt(content, payloadOffset + 4);
+          return validDimensions(
+            1 + b0 + ((b1 & 0x3F) << 8),
+            1 + ((b1 & 0xC0) >> 6) + (b2 << 2) + ((b3 & 0x0F) << 10)
+          );
+        }
+        if (chunkType === 'VP8 ') {
+          if (
+            chunkSize < 10
+            || payloadOffset + 10 > content.length
+            || byteAt(content, payloadOffset + 3) !== 0x9D
+            || byteAt(content, payloadOffset + 4) !== 0x01
+            || byteAt(content, payloadOffset + 5) !== 0x2A
+          ) {
+            return null;
+          }
+          return validDimensions(
+            littleEndianUInt16(content, payloadOffset + 6) & 0x3FFF,
+            littleEndianUInt16(content, payloadOffset + 8) & 0x3FFF
+          );
+        }
+        offset = payloadOffset + chunkSize + (chunkSize % 2);
+      }
+      return null;
+    }
+
+    function tiffDimensions(content) {
+      if (content.length < 10) return null;
+      const byteOrder = asciiAt(content, 0, 2) === 'II'
+        ? 'little'
+        : asciiAt(content, 0, 2) === 'MM'
+          ? 'big'
+          : null;
+      if (!byteOrder || tiffUInt16(content, 2, byteOrder) !== 42) return null;
+
+      const firstIFDOffset = tiffUInt32(content, 4, byteOrder);
+      if (firstIFDOffset < 8 || firstIFDOffset + 2 > content.length) return null;
+      const entryCount = tiffUInt16(content, firstIFDOffset, byteOrder);
+      if (entryCount > 1024) return null;
+
+      let width = null;
+      let height = null;
+      for (let index = 0; index < entryCount; index += 1) {
+        const entryOffset = firstIFDOffset + 2 + index * 12;
+        if (entryOffset + 12 > content.length) return null;
+        const tag = tiffUInt16(content, entryOffset, byteOrder);
+        if (tag !== 256 && tag !== 257) continue;
+        const value = tiffScalarValue(content, entryOffset, byteOrder);
+        if (!value) continue;
+        if (tag === 256) width = value;
+        if (tag === 257) height = value;
+        if (width && height) return validDimensions(width, height);
+      }
+      return null;
+    }
+
+    function tiffScalarValue(content, entryOffset, byteOrder) {
+      const fieldType = tiffUInt16(content, entryOffset + 2, byteOrder);
+      const valueCount = tiffUInt32(content, entryOffset + 4, byteOrder);
+      if (valueCount !== 1) return null;
+      if (fieldType === 3) return tiffUInt16(content, entryOffset + 8, byteOrder);
+      if (fieldType === 4) return tiffUInt32(content, entryOffset + 8, byteOrder);
+      return null;
+    }
+
+    function svgDimensions(content) {
+      const svgMatch = content.slice(0, 4096).match(/<svg\b([^>]*)>/i);
+      if (!svgMatch) return null;
+      const tag = svgMatch[1] || '';
+      const width = svgLengthAttribute(tag, 'width');
+      const height = svgLengthAttribute(tag, 'height');
+      if (width && height) return { width, height };
+      const viewBox = svgAttribute(tag, 'viewBox');
+      if (!viewBox) return null;
+      const values = viewBox.replaceAll(',', ' ').trim().split(/\s+/).map(Number);
+      if (values.length !== 4 || values.some(value => !Number.isFinite(value))) return null;
+      const viewBoxWidth = Math.round(values[2]);
+      const viewBoxHeight = Math.round(values[3]);
+      return viewBoxWidth > 0 && viewBoxHeight > 0 ? { width: viewBoxWidth, height: viewBoxHeight } : null;
+    }
+
+    function svgLengthAttribute(tag, name) {
+      const value = svgAttribute(tag, name);
+      if (!value) return null;
+      const match = value.match(/^\s*([0-9]+(?:\.[0-9]+)?)/);
+      if (!match) return null;
+      const rounded = Math.round(Number(match[1]));
+      return rounded > 0 ? rounded : null;
+    }
+
+    function svgAttribute(tag, name) {
+      const match = tag.match(new RegExp(`${name}\\s*=\\s*["']([^"']+)["']`, 'i'))
+        || tag.match(new RegExp(`${name}\\s*=\\s*([^\\s>]+)`, 'i'));
+      return match ? String(match[1] || '').trim() || null : null;
+    }
+
+    function validDimensions(width, height) {
+      return width > 0 && height > 0 ? { width, height } : null;
+    }
+
+    function asciiAt(content, offset, length) {
+      if (offset < 0 || length < 0 || offset + length > content.length) return null;
+      return content.slice(offset, offset + length);
+    }
+
+    function byteAt(content, offset) {
+      return content.charCodeAt(offset) & 0xFF;
+    }
+
+    function littleEndianUInt16(content, offset) {
+      return byteAt(content, offset) | (byteAt(content, offset + 1) << 8);
+    }
+
+    function littleEndianUInt24(content, offset) {
+      return byteAt(content, offset) | (byteAt(content, offset + 1) << 8) | (byteAt(content, offset + 2) << 16);
+    }
+
+    function littleEndianUInt32(content, offset) {
+      return (byteAt(content, offset)
+        | (byteAt(content, offset + 1) << 8)
+        | (byteAt(content, offset + 2) << 16)
+        | (byteAt(content, offset + 3) << 24)) >>> 0;
+    }
+
+    function littleEndianInt32(content, offset) {
+      return littleEndianUInt32(content, offset) | 0;
+    }
+
+    function tiffUInt16(content, offset, byteOrder) {
+      return byteOrder === 'little'
+        ? littleEndianUInt16(content, offset)
+        : ((byteAt(content, offset) << 8) | byteAt(content, offset + 1));
+    }
+
+    function tiffUInt32(content, offset, byteOrder) {
+      return byteOrder === 'little'
+        ? littleEndianUInt32(content, offset)
+        : ((byteAt(content, offset) << 24)
+          | (byteAt(content, offset + 1) << 16)
+          | (byteAt(content, offset + 2) << 8)
+          | byteAt(content, offset + 3)) >>> 0;
+    }
+
+    function binaryString(bytes) {
+      return String.fromCharCode(...bytes);
+    }
+
+    function littleEndianBytes(value) {
+      return [
+        value & 0xFF,
+        (value >> 8) & 0xFF,
+        (value >> 16) & 0xFF,
+        (value >> 24) & 0xFF
+      ];
+    }
+
+    function littleEndian24Bytes(value) {
+      return [
+        value & 0xFF,
+        (value >> 8) & 0xFF,
+        (value >> 16) & 0xFF
+      ];
+    }
+
+    function mockBMPHeader(width, height) {
+      return binaryString([
+        ...Array.from('BM').map(character => character.charCodeAt(0)),
+        ...littleEndianBytes(54),
+        0, 0, 0, 0,
+        ...littleEndianBytes(54),
+        ...littleEndianBytes(40),
+        ...littleEndianBytes(width),
+        ...littleEndianBytes(height),
+        1, 0, 24, 0,
+        ...Array(24).fill(0)
+      ]);
+    }
+
+    function mockWebPVP8XHeader(width, height) {
+      return binaryString([
+        ...Array.from('RIFF').map(character => character.charCodeAt(0)),
+        ...littleEndianBytes(30),
+        ...Array.from('WEBPVP8X').map(character => character.charCodeAt(0)),
+        ...littleEndianBytes(10),
+        0, 0, 0, 0,
+        ...littleEndian24Bytes(width - 1),
+        ...littleEndian24Bytes(height - 1)
+      ]);
+    }
+
+    function mockICOHeader() {
+      return binaryString([
+        0, 0,
+        1, 0,
+        2, 0,
+        16, 16, 0, 0,
+        1, 0,
+        32, 0,
+        ...littleEndianBytes(4),
+        ...littleEndianBytes(38),
+        0, 0, 0, 0,
+        1, 0,
+        32, 0,
+        ...littleEndianBytes(4),
+        ...littleEndianBytes(42)
+      ]);
+    }
+
+    function mockTIFFHeader(width, height) {
+      return binaryString([
+        ...Array.from('II').map(character => character.charCodeAt(0)),
+        42, 0,
+        ...littleEndianBytes(8),
+        2, 0,
+        ...mockTIFFEntry(256, width),
+        ...mockTIFFEntry(257, height),
+        ...littleEndianBytes(0)
+      ]);
+    }
+
+    function mockTIFFEntry(tag, value) {
+      return [
+        tag & 0xFF,
+        (tag >> 8) & 0xFF,
+        4, 0,
+        1, 0, 0, 0,
+        ...littleEndianBytes(value)
+      ];
+    }
+
     const documentPreviewKinds = new Map([
       ['appshot', { kind: 'appshot', typeLabel: 'Appshot', icon: 'APP' }],
       ['pdf', { kind: 'pdf', typeLabel: 'PDF', icon: 'PDF' }],
@@ -8201,14 +8660,65 @@
       ['odt', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['pages', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
       ['rtf', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
+      ['htm', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
+      ['html', { kind: 'document', typeLabel: 'Document', icon: 'DOC' }],
+      ['markdown', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
+      ['md', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
+      ['mdx', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MDX' }],
+      ['json', { kind: 'data', typeLabel: 'Data', icon: 'JSON' }],
+      ['jsonl', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
+      ['ndjson', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
+      ['cfg', { kind: 'data', typeLabel: 'Data', icon: 'CFG' }],
+      ['conf', { kind: 'data', typeLabel: 'Data', icon: 'CONF' }],
+      ['diff', { kind: 'data', typeLabel: 'Data', icon: 'DIFF' }],
+      ['env', { kind: 'data', typeLabel: 'Data', icon: 'ENV' }],
+      ['ini', { kind: 'data', typeLabel: 'Data', icon: 'INI' }],
+      ['patch', { kind: 'data', typeLabel: 'Data', icon: 'DIFF' }],
+      ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
+      ['yaml', { kind: 'data', typeLabel: 'Data', icon: 'YAML' }],
+      ['yml', { kind: 'data', typeLabel: 'Data', icon: 'YML' }],
+      ['xml', { kind: 'data', typeLabel: 'Data', icon: 'XML' }],
+      ['plist', { kind: 'data', typeLabel: 'Data', icon: 'PLIST' }],
       ['numbers', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
+      ['csv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['ods', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
+      ['tsv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['xls', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['xlsx', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['key', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }],
       ['odp', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }],
       ['ppt', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }],
-      ['pptx', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }]
+      ['pptx', { kind: 'presentation', typeLabel: 'Presentation', icon: 'PPT' }],
+      ['aac', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['aif', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['aiff', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['flac', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['m4a', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['mp3', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['ogg', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['opus', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['wav', { kind: 'audio', typeLabel: 'Audio', icon: 'AUD' }],
+      ['webm', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
+      ['m4v', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
+      ['mov', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
+      ['mp4', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
+      ['7z', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['bz2', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['gz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['rar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar.bz2', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar.gz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar.xz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar.zst', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tbz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tbz2', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tgz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tzst', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['txz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['xz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['zip', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['zst', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }]
     ]);
 
     function artifactPathExtension(value) {
@@ -8228,7 +8738,17 @@
       } catch {
         filename = (value.split('/').filter(Boolean).at(-1) || '').toLowerCase();
       }
-      if (filename.endsWith('.appshot.json')) return 'appshot';
+      if (filename === '.env' || filename.startsWith('.env.')) return 'env';
+      const compoundExtensions = new Map([
+        ['appshot.json', 'appshot'],
+        ['tar.gz', 'tar.gz'],
+        ['tar.bz2', 'tar.bz2'],
+        ['tar.xz', 'tar.xz'],
+        ['tar.zst', 'tar.zst']
+      ]);
+      for (const [suffix, previewExtension] of compoundExtensions) {
+        if (filename.endsWith(`.${suffix}`)) return previewExtension;
+      }
       return artifactPathExtension(value);
     }
 
@@ -8265,12 +8785,21 @@
         capturedAt: appshotString(root, ['capturedAt', 'createdAt', 'timestamp']),
         viewportLabel: appshotViewportLabel(root),
         windowCount: Array.isArray(root.windows) ? root.windows.length : null,
-        screenshotURL: appshotScreenshotURL(root, path)
+        actionCount: appshotFirstArrayCount(root, ['actions', 'steps', 'commands']),
+        frameCount: appshotFirstArrayCount(root, ['frames', 'screenshots', 'captures']),
+        eventCount: appshotFirstArrayCount(root, ['events', 'timeline']),
+        screenshotURL: appshotScreenshotURL(root, path),
+        actionLabels: appshotReplayLabels(root, ['actions', 'steps', 'commands'], 'action'),
+        frameLabels: appshotReplayLabels(root, ['frames', 'screenshots', 'captures'], 'frame'),
+        eventLabels: appshotReplayLabels(root, ['events', 'timeline'], 'event')
       };
       preview.metadataLines = [
         preview.appLabel ? `App: ${preview.appLabel}` : null,
         preview.viewportLabel ? `Viewport: ${preview.viewportLabel}` : null,
         Number.isInteger(preview.windowCount) ? `${preview.windowCount} window${preview.windowCount === 1 ? '' : 's'}` : null,
+        Number.isInteger(preview.actionCount) ? `${preview.actionCount} action${preview.actionCount === 1 ? '' : 's'}` : null,
+        Number.isInteger(preview.frameCount) ? `${preview.frameCount} frame${preview.frameCount === 1 ? '' : 's'}` : null,
+        Number.isInteger(preview.eventCount) ? `${preview.eventCount} event${preview.eventCount === 1 ? '' : 's'}` : null,
         preview.capturedAt ? `Captured: ${preview.capturedAt}` : null
       ].filter(Boolean);
       const hasDisplayContent = [
@@ -8280,7 +8809,13 @@
         preview.capturedAt,
         preview.viewportLabel,
         preview.screenshotURL,
-        Number.isInteger(preview.windowCount) ? String(preview.windowCount) : null
+        preview.actionLabels.length ? preview.actionLabels.join(' ') : null,
+        preview.frameLabels.length ? preview.frameLabels.join(' ') : null,
+        preview.eventLabels.length ? preview.eventLabels.join(' ') : null,
+        Number.isInteger(preview.windowCount) ? String(preview.windowCount) : null,
+        Number.isInteger(preview.actionCount) ? String(preview.actionCount) : null,
+        Number.isInteger(preview.frameCount) ? String(preview.frameCount) : null,
+        Number.isInteger(preview.eventCount) ? String(preview.eventCount) : null
       ].some(Boolean);
       return hasDisplayContent ? preview : null;
     }
@@ -8318,6 +8853,29 @@
       return hasDisplayContent ? preview : null;
     }
 
+    function artifactMarkdownPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'markdown') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+
+      const limit = 64 * 1024;
+      const sample = content.slice(0, limit).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const headings = sample
+        .split('\n')
+        .map(line => line.match(/^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/))
+        .filter(Boolean);
+      const firstHeading = headings[0]?.[1]?.trim() || null;
+      const metadataLines = [
+        `${headings.length} ${headings.length === 1 ? 'heading' : 'headings'}`,
+        `Size: ${byteSizeLabel(content.length)}`,
+        content.length > limit ? 'Preview truncated' : null
+      ].filter(Boolean);
+      return firstHeading || metadataLines.length
+        ? { title: firstHeading, metadataLines }
+        : null;
+    }
+
     function artifactOfficePreview(value, kind, documentPreview) {
       if (kind !== 'file' || !['document', 'spreadsheet', 'presentation'].includes(documentPreview?.kind)) {
         return null;
@@ -8351,7 +8909,8 @@
         entryCount: fileNames.length,
         worksheetCount: worksheetCount || null,
         slideCount: slideCount || null,
-        byteSizeLabel: byteSizeLabel(byteSize)
+        byteSizeLabel: byteSizeLabel(byteSize),
+        contentPreviewLabels: officeContentPreviewLabels(fileNames, extension)
       };
       preview.metadataLines = [
         `Format: ${preview.formatLabel}`,
@@ -8366,7 +8925,1071 @@
           : null,
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
+      return preview.metadataLines.length || preview.contentPreviewLabels.length ? preview : null;
+    }
+
+    function artifactRTFPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'document' || artifactPreviewExtension(value) !== 'rtf') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.startsWith('{\\rtf') || content.includes('\u0000')) return null;
+
+      const limit = 64 * 1024;
+      const sample = content.slice(0, limit);
+      const titleMatch = sample.match(/\{\\title\s+((?:\\.|[^{}]){1,240})\}/);
+      const title = titleMatch ? decodeRTFText(titleMatch[1]).trim().slice(0, 160) || null : null;
+      const header = sample.slice(0, 256);
+      const encodingLabel = header.includes('\\ansi')
+        ? 'ANSI'
+        : header.includes('\\mac')
+          ? 'Mac'
+          : header.includes('\\pca')
+            ? 'PC ANSI'
+            : header.includes('\\pc')
+              ? 'PC'
+              : null;
+      const preview = {
+        title,
+        formatLabel: 'RTF',
+        encodingLabel,
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated: content.length > limit
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        preview.encodingLabel ? `Encoding: ${preview.encodingLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null,
+        preview.isTruncated ? 'Preview: first 64 KB scanned' : null
+      ].filter(Boolean);
+      return preview.title || preview.metadataLines.length ? preview : null;
+    }
+
+    function decodeRTFText(text) {
+      return String(text || '')
+        .replace(/\\\{/g, '{')
+        .replace(/\\\}/g, '}')
+        .replace(/\\\\/g, '\\')
+        .replace(/\\'[0-9A-Fa-f]{2}/g, '')
+        .replace(/\\[a-zA-Z]+\d*\s?/g, '')
+        .replace(/\s+/g, ' ');
+    }
+
+    function officeContentPreviewLabels(fileNames, extension) {
+      if (extension === 'docx') {
+        const labels = [];
+        const checks = [
+          ['word/document.xml', 'Document body'],
+          ['word/comments.xml', 'Comments'],
+          ['word/footnotes.xml', 'Footnotes'],
+          ['word/endnotes.xml', 'Endnotes']
+        ];
+        checks.forEach(([path, label]) => {
+          if (fileNames.includes(path)) labels.push(label);
+        });
+        const headerCount = fileNames.filter(fileName => numberedOfficeEntryIndex(fileName, 'word/header', '.xml') !== null).length;
+        const footerCount = fileNames.filter(fileName => numberedOfficeEntryIndex(fileName, 'word/footer', '.xml') !== null).length;
+        if (headerCount > 0) labels.push(`${headerCount} header${headerCount === 1 ? '' : 's'}`);
+        if (footerCount > 0) labels.push(`${footerCount} footer${footerCount === 1 ? '' : 's'}`);
+        return labels.slice(0, 5);
+      }
+      if (extension === 'xlsx') {
+        return numberedOfficeLabels(fileNames, 'xl/worksheets/sheet', '.xml', 'Sheet');
+      }
+      if (extension === 'pptx') {
+        return numberedOfficeLabels(fileNames, 'ppt/slides/slide', '.xml', 'Slide');
+      }
+      return [];
+    }
+
+    function numberedOfficeLabels(fileNames, prefix, suffix, label) {
+      return fileNames
+        .map(fileName => [numberedOfficeEntryIndex(fileName, prefix, suffix), fileName])
+        .filter(([index]) => index !== null)
+        .sort(([left], [right]) => left - right)
+        .slice(0, 5)
+        .map(([index]) => `${label} ${index}`);
+    }
+
+    function numberedOfficeEntryIndex(fileName, prefix, suffix) {
+      if (!fileName.startsWith(prefix) || !fileName.endsWith(suffix) || fileName.includes('/_rels/')) return null;
+      const raw = fileName.slice(prefix.length, fileName.length - suffix.length);
+      return /^\d+$/.test(raw) ? Number(raw) : null;
+    }
+
+    function artifactTablePreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'spreadsheet') return null;
+      const extension = artifactPreviewExtension(value);
+      const delimiter = extension === 'csv' ? ',' : extension === 'tsv' ? '\t' : null;
+      if (!delimiter) return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+
+      const byteLimit = 64 * 1024;
+      const rowLimit = 8;
+      const columnLimit = 6;
+      const rows = parseDelimitedRows(content.slice(0, byteLimit), delimiter)
+        .filter(row => row.some(cell => String(cell || '').trim()));
+      if (!rows.length) return null;
+
+      const limitedRows = rows.slice(0, rowLimit);
+      const maxColumns = Math.max(...rows.map(row => row.length));
+      const columnCount = Math.min(Math.max(...limitedRows.map(row => row.length)), columnLimit);
+      const normalize = row => Array.from({ length: columnCount }, (_, index) =>
+        String(row[index] || '').trim().slice(0, 80)
+      );
+      const headers = normalize(limitedRows[0]).map((cell, index) => cell || `Column ${index + 1}`);
+      const preview = {
+        delimiterLabel: extension === 'csv' ? 'CSV' : 'TSV',
+        rowCountLabel: content.length > byteLimit ? `${rows.length}+ rows` : `${rows.length} row${rows.length === 1 ? '' : 's'}`,
+        columnCount,
+        headers,
+        rows: limitedRows.slice(1).map(normalize),
+        isTruncated: content.length > byteLimit || rows.length > rowLimit || maxColumns > columnLimit
+      };
+      preview.metadataLines = [
+        `Format: ${preview.delimiterLabel}`,
+        `${preview.rowCountLabel}, ${preview.columnCount} column${preview.columnCount === 1 ? '' : 's'}`,
+        preview.isTruncated ? `Preview: first ${preview.rows.length} rows` : null
+      ].filter(Boolean);
+      return preview;
+    }
+
+    function artifactJSONPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'json') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      let root;
+      try {
+        root = JSON.parse(content);
+      } catch {
+        return null;
+      }
+      const preview = jsonPreviewFromRoot(root, content.length);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactJSONLinesPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (!['jsonl', 'ndjson'].includes(extension)) return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      const scannedContent = content.slice(0, byteLimit);
+      const lines = scannedContent
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+      if (!lines.length) return null;
+      const keys = new Set();
+      try {
+        for (const line of lines.slice(0, 20)) {
+          const root = JSON.parse(line);
+          if (root && !Array.isArray(root) && typeof root === 'object') {
+            Object.keys(root).forEach(key => keys.add(key));
+          }
+        }
+      } catch {
+        return null;
+      }
+      const sortedKeys = [...keys].sort();
+      const visibleKeys = sortedKeys.slice(0, 6).map(jsonPreviewKeyLabel);
+      const remainder = sortedKeys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const isTruncated = content.length > byteLimit;
+      const preview = {
+        formatLabel: extension.toUpperCase(),
+        recordCountLabel: isTruncated
+          ? `${lines.length}+ records`
+          : `${lines.length} record${lines.length === 1 ? '' : 's'}`,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        preview.recordCountLabel,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null,
+        preview.isTruncated ? 'Preview: first 64 KB scanned' : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactTOMLPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'toml') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const topKeys = new Set();
+      const tables = new Set();
+      let arrayCount = 0;
+      let scalarCount = 0;
+      let currentSection = [];
+      for (const rawLine of content.split(/\r?\n/)) {
+        const line = stripTOMLComment(rawLine).trim();
+        if (!line) continue;
+        const sectionMatch = line.match(/^\[([^\]]+)\]$/);
+        if (sectionMatch) {
+          currentSection = sectionMatch[1].split('.').map(part => part.trim()).filter(Boolean);
+          if (currentSection.length) topKeys.add(currentSection[0]);
+          for (let index = 0; index < currentSection.length; index += 1) {
+            tables.add(currentSection.slice(0, index + 1).join('.'));
+          }
+          continue;
+        }
+        const equalsIndex = line.indexOf('=');
+        if (equalsIndex <= 0) return null;
+        const key = line.slice(0, equalsIndex).trim();
+        const value = line.slice(equalsIndex + 1).trim();
+        const topKey = currentSection[0] || key.split('.')[0].trim();
+        if (topKey) topKeys.add(topKey);
+        const arrayItems = tomlArrayItemCount(value);
+        if (arrayItems !== null) {
+          arrayCount += 1;
+          scalarCount += arrayItems;
+        } else {
+          scalarCount += 1;
+        }
+      }
+      if (!topKeys.size) return null;
+      const keys = [...topKeys].sort();
+      const visibleKeys = keys.slice(0, 6).map(jsonPreviewKeyLabel);
+      const remainder = keys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        topLevelKeyCount: keys.length,
+        tableCount: tables.size,
+        arrayCount,
+        scalarCount,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        'Format: TOML',
+        `${preview.topLevelKeyCount} top-level key${preview.topLevelKeyCount === 1 ? '' : 's'}`,
+        preview.tableCount > 0 ? `${preview.tableCount} table${preview.tableCount === 1 ? '' : 's'}` : null,
+        preview.arrayCount > 0 ? `${preview.arrayCount} array${preview.arrayCount === 1 ? '' : 's'}` : null,
+        preview.scalarCount > 0 ? `${preview.scalarCount} value${preview.scalarCount === 1 ? '' : 's'}` : null,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function stripTOMLComment(rawLine) {
+      let quoted = false;
+      for (let index = 0; index < rawLine.length; index += 1) {
+        const character = rawLine[index];
+        if (character === '"' && rawLine[index - 1] !== '\\') quoted = !quoted;
+        if (character === '#' && !quoted) return rawLine.slice(0, index);
+      }
+      return rawLine;
+    }
+
+    function tomlArrayItemCount(value) {
+      if (!value.startsWith('[') || !value.endsWith(']')) return null;
+      const body = value.slice(1, -1).trim();
+      if (!body) return 0;
+      return body.split(',').map(item => item.trim()).filter(Boolean).length;
+    }
+
+    function artifactINIPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (!['cfg', 'conf', 'ini'].includes(extension)) return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const sections = [];
+      const seenSections = new Set();
+      let keyCount = 0;
+      let processedLines = 0;
+      let isTruncated = false;
+      for (const rawLine of content.split(/\r?\n/)) {
+        processedLines += 1;
+        if (processedLines > 2000) {
+          isTruncated = true;
+          break;
+        }
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#') || line.startsWith(';')) continue;
+        const sectionMatch = line.match(/^\[([^\]]*)\]/);
+        if (sectionMatch) {
+          const label = jsonPreviewKeyLabel(sectionMatch[1] || '(empty section)');
+          if (!seenSections.has(label)) {
+            seenSections.add(label);
+            sections.push(label);
+          }
+          continue;
+        }
+        const delimiterIndex = Math.min(
+          ...[line.indexOf('='), line.indexOf(':')].filter(index => index >= 0)
+        );
+        if (delimiterIndex > 0 && line.slice(0, delimiterIndex).trim()) keyCount += 1;
+      }
+      const visibleSections = sections.slice(0, 6);
+      const remainder = sections.length - visibleSections.length;
+      const sectionPreviewLabel = visibleSections.length
+        ? `${visibleSections.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        formatLabel: extension.toUpperCase(),
+        sectionCount: sections.length,
+        keyCount,
+        sectionPreviewLabel,
+        sectionPreviewLabels: visibleSections,
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        `${preview.sectionCount} section${preview.sectionCount === 1 ? '' : 's'}`,
+        `${preview.keyCount} key${preview.keyCount === 1 ? '' : 's'}`,
+        preview.sectionPreviewLabel ? `Sections: ${preview.sectionPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null,
+        preview.isTruncated ? 'Preview truncated' : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.sectionPreviewLabels.length ? preview : null;
+    }
+
+    function artifactDotenvPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      if (artifactPreviewExtension(value) !== 'env') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const keys = [];
+      const seenKeys = new Set();
+      let variableCount = 0;
+      let exportedVariableCount = 0;
+      let processedLines = 0;
+      let isTruncated = false;
+      for (const rawLine of content.split(/\r?\n/)) {
+        processedLines += 1;
+        if (processedLines > 2000) {
+          isTruncated = true;
+          break;
+        }
+        const assignment = dotenvAssignment(rawLine);
+        if (!assignment) continue;
+        variableCount += 1;
+        if (assignment.isExported) exportedVariableCount += 1;
+        if (!seenKeys.has(assignment.key)) {
+          seenKeys.add(assignment.key);
+          keys.push(assignment.key);
+        }
+      }
+      if (variableCount === 0) return null;
+      const visibleKeys = keys.slice(0, 8);
+      const remainder = keys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        variableCount,
+        exportedVariableCount,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated
+      };
+      preview.metadataLines = [
+        'Format: DOTENV',
+        `${preview.variableCount} variable${preview.variableCount === 1 ? '' : 's'}`,
+        preview.exportedVariableCount > 0 ? `${preview.exportedVariableCount} exported` : null,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null,
+        preview.isTruncated ? 'Preview truncated' : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function dotenvAssignment(rawLine) {
+      let line = rawLine.trim();
+      if (!line || line.startsWith('#')) return null;
+      let isExported = false;
+      if (line.startsWith('export ')) {
+        isExported = true;
+        line = line.slice('export '.length).trim();
+      }
+      const delimiterIndex = line.indexOf('=');
+      if (delimiterIndex <= 0) return null;
+      const key = line.slice(0, delimiterIndex).trim();
+      if (!/^[_A-Za-z][_A-Za-z0-9]*$/.test(key)) return null;
+      return { key: key.slice(0, 80), isExported };
+    }
+
+    function artifactYAMLPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'yaml' && extension !== 'yml') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const lines = content
+        .split(/\r?\n/)
+        .map(rawLine => stripTOMLComment(rawLine))
+        .map(rawLine => ({ rawLine, line: rawLine.trim(), indent: rawLine.match(/^\s*/)[0].length }))
+        .filter(entry => entry.line);
+      if (!lines.length) return null;
+
+      const topKeys = new Set();
+      let mappingCount = 0;
+      let sequenceCount = 0;
+      let scalarCount = 0;
+      let hasRootMapping = false;
+      const mappingIndents = new Set();
+      const sequenceIndents = new Set();
+      for (let index = 0; index < lines.length; index += 1) {
+        const entry = lines[index];
+        const sequenceMatch = entry.line.match(/^-\s+([^:]+):(?:\s*(.*))?$/);
+        if (sequenceMatch) {
+          if (!mappingIndents.has(`item:${entry.indent}:${index}`)) {
+            mappingIndents.add(`item:${entry.indent}:${index}`);
+            mappingCount += 1;
+          }
+          if ((sequenceMatch[2] || '').trim()) scalarCount += 1;
+          continue;
+        }
+
+        const keyMatch = entry.line.match(/^([^:]+):(?:\s*(.*))?$/);
+        if (!keyMatch) return null;
+        const key = keyMatch[1].trim();
+        const rawValue = (keyMatch[2] || '').trim();
+        if (entry.indent === 0) {
+          topKeys.add(key);
+          hasRootMapping = true;
+        }
+        if (!rawValue) {
+          const next = lines.slice(index + 1).find(candidate => candidate.indent > entry.indent);
+          if (next?.line.startsWith('-')) {
+            if (!sequenceIndents.has(entry.indent)) {
+              sequenceIndents.add(entry.indent);
+              sequenceCount += 1;
+            }
+          } else if (!mappingIndents.has(entry.indent)) {
+            mappingIndents.add(entry.indent);
+            mappingCount += 1;
+          }
+          continue;
+        }
+        const arrayItems = tomlArrayItemCount(rawValue);
+        if (arrayItems !== null) {
+          sequenceCount += 1;
+          scalarCount += arrayItems;
+        } else {
+          scalarCount += 1;
+        }
+      }
+      if (hasRootMapping) mappingCount += 1;
+      if (!topKeys.size) return null;
+
+      const keys = [...topKeys].sort();
+      const visibleKeys = keys.slice(0, 6).map(jsonPreviewKeyLabel);
+      const remainder = keys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        formatLabel: extension.toUpperCase(),
+        rootLabel: 'Mapping',
+        keyCount: keys.length,
+        itemCount: null,
+        mappingCount,
+        sequenceCount,
+        scalarCount,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        `Root: ${preview.rootLabel}`,
+        `${preview.keyCount} key${preview.keyCount === 1 ? '' : 's'}`,
+        preview.mappingCount > 0 ? `${preview.mappingCount} mapping${preview.mappingCount === 1 ? '' : 's'}` : null,
+        preview.sequenceCount > 0 ? `${preview.sequenceCount} sequence${preview.sequenceCount === 1 ? '' : 's'}` : null,
+        preview.scalarCount > 0 ? `${preview.scalarCount} value${preview.scalarCount === 1 ? '' : 's'}` : null,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactXMLPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'xml') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const parser = new DOMParser();
+      const document = parser.parseFromString(content, 'application/xml');
+      if (document.querySelector('parsererror') || !document.documentElement) return null;
+      const root = document.documentElement;
+      const elements = [...document.getElementsByTagName('*')];
+      const namespaceNames = new Set();
+      let attributeCount = 0;
+      for (const element of elements) {
+        for (const attribute of [...element.attributes]) {
+          if (attribute.name === 'xmlns' || attribute.name.startsWith('xmlns:')) {
+            namespaceNames.add(attribute.name);
+          } else {
+            attributeCount += 1;
+          }
+        }
+      }
+      const childLabels = [...new Set([...root.children].map(child => jsonPreviewKeyLabel(child.tagName)))].sort();
+      const visibleChildren = childLabels.slice(0, 6);
+      const remainder = childLabels.length - visibleChildren.length;
+      const childPreviewLabel = visibleChildren.length
+        ? `${visibleChildren.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        rootElementLabel: jsonPreviewKeyLabel(root.tagName),
+        elementCount: elements.length,
+        attributeCount,
+        namespaceCount: namespaceNames.size,
+        childPreviewLabel,
+        childPreviewLabels: visibleChildren,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        'Format: XML',
+        `Root: ${preview.rootElementLabel}`,
+        `${preview.elementCount} element${preview.elementCount === 1 ? '' : 's'}`,
+        preview.attributeCount > 0 ? `${preview.attributeCount} attribute${preview.attributeCount === 1 ? '' : 's'}` : null,
+        preview.namespaceCount > 0 ? `${preview.namespaceCount} namespace${preview.namespaceCount === 1 ? '' : 's'}` : null,
+        preview.childPreviewLabel ? `Children: ${preview.childPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.childPreviewLabels.length ? preview : null;
+    }
+
+    function artifactPropertyListPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'plist') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const keyMatches = [...content.matchAll(/<key>([^<]+)<\/key>/g)].map(match => match[1].trim());
+      if (!keyMatches.length) return null;
+      const topKeys = [];
+      let rootDepth = 0;
+      for (const rawLine of content.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (line === '<dict>') {
+          rootDepth += 1;
+          continue;
+        }
+        if (line === '</dict>') {
+          rootDepth = Math.max(0, rootDepth - 1);
+          continue;
+        }
+        const keyMatch = line.match(/^<key>([^<]+)<\/key>$/);
+        if (keyMatch && rootDepth === 1) topKeys.push(keyMatch[1].trim());
+      }
+      const dictionaryCount = (content.match(/<dict>/g) || []).length;
+      const arrayCount = (content.match(/<array>/g) || []).length;
+      const scalarCount = (content.match(/<(string|true|false|integer|real|date|data)(?:>|\/>)/g) || []).length;
+      const keys = topKeys.length ? [...new Set(topKeys)].sort() : [...new Set(keyMatches)].sort();
+      const visibleKeys = keys.slice(0, 6).map(jsonPreviewKeyLabel);
+      const remainder = keys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        rootLabel: 'Dictionary',
+        formatLabel: 'XML PLIST',
+        keyCount: keys.length,
+        itemCount: null,
+        dictionaryCount,
+        arrayCount,
+        scalarCount,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        `Root: ${preview.rootLabel}`,
+        `${preview.keyCount} key${preview.keyCount === 1 ? '' : 's'}`,
+        preview.dictionaryCount > 0
+          ? `${preview.dictionaryCount} dictionar${preview.dictionaryCount === 1 ? 'y' : 'ies'}`
+          : null,
+        preview.arrayCount > 0 ? `${preview.arrayCount} array${preview.arrayCount === 1 ? '' : 's'}` : null,
+        preview.scalarCount > 0 ? `${preview.scalarCount} value${preview.scalarCount === 1 ? '' : 's'}` : null,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function jsonPreviewFromRoot(root, byteSize) {
+      if (root && !Array.isArray(root) && typeof root === 'object') {
+        const keys = Object.keys(root).sort();
+        const visibleKeys = keys.slice(0, 6).map(jsonPreviewKeyLabel);
+        const remainder = keys.length - visibleKeys.length;
+        const keyPreviewLabel = visibleKeys.length
+          ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+          : null;
+        const preview = {
+          rootLabel: 'Object',
+          keyCount: keys.length,
+          itemCount: null,
+          keyPreviewLabel,
+          keyPreviewLabels: visibleKeys,
+          byteSizeLabel: byteSizeLabel(byteSize)
+        };
+        preview.metadataLines = jsonPreviewMetadataLines(preview);
+        return preview;
+      }
+      if (Array.isArray(root)) {
+        const preview = {
+          rootLabel: 'Array',
+          keyCount: null,
+          itemCount: root.length,
+          keyPreviewLabel: null,
+          keyPreviewLabels: [],
+          byteSizeLabel: byteSizeLabel(byteSize)
+        };
+        preview.metadataLines = jsonPreviewMetadataLines(preview);
+        return preview;
+      }
+      const preview = {
+        rootLabel: root === null ? 'Null' : typeof root === 'string' ? 'String' : 'Scalar',
+        keyCount: null,
+        itemCount: null,
+        keyPreviewLabel: null,
+        keyPreviewLabels: [],
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = jsonPreviewMetadataLines(preview);
+      return preview;
+    }
+
+    function jsonPreviewMetadataLines(preview) {
+      return [
+        `Root: ${preview.rootLabel}`,
+        Number.isInteger(preview.keyCount) ? `${preview.keyCount} key${preview.keyCount === 1 ? '' : 's'}` : null,
+        Number.isInteger(preview.itemCount) ? `${preview.itemCount} item${preview.itemCount === 1 ? '' : 's'}` : null,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+    }
+
+    function jsonPreviewKeyLabel(key) {
+      const label = String(key || '').replace(/\s+/g, ' ').trim();
+      return (label || '(empty key)').slice(0, 80);
+    }
+
+    function artifactArchivePreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'archive') return null;
+      const extension = artifactPreviewExtension(value);
+      if (![
+        'zip',
+        'tar',
+        'gz',
+        'tar.gz',
+        'tgz',
+        'bz2',
+        'tar.bz2',
+        'tbz',
+        'tbz2',
+        'xz',
+        'tar.xz',
+        'txz',
+        'zst',
+        'tar.zst',
+        'tzst'
+      ].includes(extension)) return null;
+      const path = artifactFilePath(value);
+      const packageInfo = path ? state.mockOfficePackages[path] : null;
+      if (['gz', 'tar.gz', 'tgz'].includes(extension)) {
+        return artifactGzipPreview(path, packageInfo, extension);
+      }
+      if (['bz2', 'tar.bz2', 'tbz', 'tbz2'].includes(extension)) {
+        return artifactMagicOnlyPreview(path, packageInfo, extension, 'bzip2');
+      }
+      if (['xz', 'tar.xz', 'txz'].includes(extension)) {
+        return artifactMagicOnlyPreview(path, packageInfo, extension, 'xz');
+      }
+      if (['zst', 'tar.zst', 'tzst'].includes(extension)) {
+        return artifactMagicOnlyPreview(path, packageInfo, extension, 'zstd');
+      }
+      const fileNames = Array.isArray(packageInfo?.fileNames) ? packageInfo.fileNames : null;
+      if (!fileNames) return null;
+
+      const topLevelItems = new Set(fileNames
+        .map(fileName => String(fileName || '').replace(/^\/+|\/+$/g, '').split('/')[0])
+        .filter(Boolean));
+      const byteSize = Number.isFinite(packageInfo.sizeBytes)
+        ? packageInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const preview = {
+        formatLabel: extension === 'tar' ? 'TAR' : 'ZIP',
+        entryCount: fileNames.length,
+        topLevelCount: topLevelItems.size || null,
+        entryPreviewLabel: archiveEntryPreviewLabel(fileNames),
+        entryPreviewLabels: archiveEntryPreviewLabels(fileNames),
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        Number.isInteger(preview.entryCount)
+          ? `${preview.entryCount} ${preview.entryCount === 1 ? 'entry' : 'entries'}`
+          : null,
+        Number.isInteger(preview.topLevelCount)
+          ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
+          : null,
+        preview.entryPreviewLabel ? `Entries: ${preview.entryPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
       return preview.metadataLines.length ? preview : null;
+    }
+
+    function artifactHTMLPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'document') return null;
+      const extension = artifactPreviewExtension(value);
+      if (!['html', 'htm'].includes(extension)) return null;
+
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+
+      const limit = 64 * 1024;
+      const sample = content.slice(0, limit);
+      if (!artifactLooksLikeHTML(sample)) return null;
+
+      const title = firstHTMLTextCapture(sample, /<title[^>]*>(.*?)<\/title>/is);
+      const heading = firstHTMLTextCapture(sample, /<h[1-2][^>]*>(.*?)<\/h[1-2]>/is);
+      const preview = {
+        title,
+        heading,
+        linkCount: htmlTagCount('a', sample),
+        scriptCount: htmlTagCount('script', sample),
+        styleCount: htmlTagCount('style', sample),
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated: content.length > limit
+      };
+      preview.metadataLines = [
+        'Format: HTML',
+        preview.linkCount > 0 ? `${preview.linkCount} link${preview.linkCount === 1 ? '' : 's'}` : null,
+        preview.scriptCount > 0 ? `${preview.scriptCount} script${preview.scriptCount === 1 ? '' : 's'}` : null,
+        preview.styleCount > 0 ? `${preview.styleCount} style block${preview.styleCount === 1 ? '' : 's'}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null,
+        preview.isTruncated ? 'Preview: first 64 KB scanned' : null
+      ].filter(Boolean);
+      return preview.title || preview.heading || preview.metadataLines.length ? preview : null;
+    }
+
+    function artifactLooksLikeHTML(content) {
+      const prefix = content.slice(0, 512).toLowerCase();
+      return prefix.includes('<!doctype html')
+        || prefix.includes('<html')
+        || prefix.includes('<head')
+        || prefix.includes('<body');
+    }
+
+    function firstHTMLTextCapture(content, pattern) {
+      const match = content.match(pattern);
+      if (!match?.[1]) return null;
+      const text = cleanArtifactHTMLText(match[1]);
+      return text ? text.slice(0, 160) : null;
+    }
+
+    function htmlTagCount(tag, content) {
+      const pattern = new RegExp(`<${tag}(?:\\s|>|/)`, 'gi');
+      return content.match(pattern)?.length || 0;
+    }
+
+    function cleanArtifactHTMLText(text) {
+      return text
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function artifactDiffPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (!['diff', 'patch'].includes(extension)) return null;
+
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+
+      const limit = 128 * 1024;
+      const sample = content.slice(0, limit);
+      if (!artifactLooksLikeDiff(sample)) return null;
+
+      const changedFileLabels = [];
+      const seenChangedFiles = new Set();
+      let hunkCount = 0;
+      let additionCount = 0;
+      let deletionCount = 0;
+      for (const line of sample.split('\n')) {
+        if (line.startsWith('diff --git ')) {
+          appendDiffPath(gitDiffPath(line), changedFileLabels, seenChangedFiles);
+        } else if (line.startsWith('+++ ')) {
+          appendDiffPath(fileHeaderDiffPath(line), changedFileLabels, seenChangedFiles);
+        } else if (line.startsWith('@@')) {
+          hunkCount += 1;
+        } else if (line.startsWith('+') && !line.startsWith('+++')) {
+          additionCount += 1;
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          deletionCount += 1;
+        }
+      }
+
+      const preview = {
+        formatLabel: 'Unified diff',
+        fileCount: seenChangedFiles.size,
+        hunkCount,
+        additionCount,
+        deletionCount,
+        changedFileLabels: changedFileLabels.slice(0, 8),
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated: content.length > limit
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        `${preview.fileCount} file${preview.fileCount === 1 ? '' : 's'}`,
+        `${preview.hunkCount} hunk${preview.hunkCount === 1 ? '' : 's'}`,
+        `+${preview.additionCount} / -${preview.deletionCount}`,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null,
+        preview.isTruncated ? 'Preview: first 128 KB scanned' : null
+      ].filter(Boolean);
+      return preview.fileCount || preview.hunkCount || preview.additionCount || preview.deletionCount
+        ? preview
+        : null;
+    }
+
+    function artifactLooksLikeDiff(content) {
+      const prefix = content.slice(0, 4096);
+      return prefix.includes('diff --git ')
+        || prefix.includes('\n@@ ')
+        || prefix.includes('\n--- ')
+        || prefix.includes('\n+++ ');
+    }
+
+    function appendDiffPath(path, changedFileLabels, seenChangedFiles) {
+      if (!path || path === '/dev/null' || seenChangedFiles.has(path)) return;
+      seenChangedFiles.add(path);
+      changedFileLabels.push(path);
+    }
+
+    function gitDiffPath(line) {
+      const parts = line.trim().split(/\s+/);
+      return parts.length >= 4 ? normalizedDiffPath(parts[3]) : null;
+    }
+
+    function fileHeaderDiffPath(line) {
+      return normalizedDiffPath(line.slice(4).split('\t')[0]);
+    }
+
+    function normalizedDiffPath(path) {
+      let value = String(path || '').trim();
+      if (value.startsWith('"') && value.endsWith('"') && value.length >= 2) {
+        value = value.slice(1, -1);
+      }
+      if (value.startsWith('a/') || value.startsWith('b/')) {
+        value = value.slice(2);
+      }
+      return value;
+    }
+
+    function artifactMagicOnlyPreview(path, packageInfo, extension, expectedFormat) {
+      if (!packageInfo || packageInfo.format !== expectedFormat) return null;
+      const memberName = packageInfo.originalName ? archiveEntryPreviewLabel([packageInfo.originalName]) : null;
+      const byteSize = Number.isFinite(packageInfo.sizeBytes)
+        ? packageInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const includesSingleMemberCounts = !extension.startsWith('tar.') && !['tgz', 'tbz', 'tbz2', 'txz', 'tzst'].includes(extension);
+      const preview = {
+        formatLabel: compressedArchiveFormatLabel(extension, expectedFormat),
+        entryCount: includesSingleMemberCounts ? 1 : null,
+        topLevelCount: includesSingleMemberCounts && memberName ? 1 : null,
+        entryPreviewLabel: memberName,
+        entryPreviewLabels: memberName ? [memberName] : [],
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        Number.isInteger(preview.entryCount) ? '1 entry' : null,
+        Number.isInteger(preview.topLevelCount)
+          ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
+          : null,
+        preview.entryPreviewLabel ? `Entries: ${preview.entryPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
+    }
+
+    function compressedArchiveFormatLabel(extension, format) {
+      if (extension.startsWith('tar.') || ['tgz', 'tbz', 'tbz2', 'txz', 'tzst'].includes(extension)) {
+        return extension.toUpperCase();
+      }
+      if (format === 'bzip2') return 'BZIP2';
+      if (format === 'zstd') return 'ZSTD';
+      return extension.toUpperCase();
+    }
+
+    function artifactMediaPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || !['audio', 'video'].includes(documentPreview?.kind)) return null;
+      const path = artifactFilePath(value);
+      if (!path) return null;
+      const mediaInfo = state.mockOfficePackages[path] || {};
+      const byteSize = Number.isFinite(mediaInfo.sizeBytes)
+        ? mediaInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const preview = {
+        kind: documentPreview.kind,
+        formatLabel: artifactPreviewExtension(value).toUpperCase(),
+        title: mediaInfo.title || null,
+        artist: mediaInfo.artist || null,
+        byteSizeLabel: byteSizeLabel(byteSize),
+        playbackURL: artifactHref({ kind, value }) || null
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        preview.artist ? `Artist: ${preview.artist}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.title || preview.metadataLines.length ? preview : null;
+    }
+
+    function artifactGzipPreview(path, packageInfo, extension) {
+      if (!packageInfo || packageInfo.format !== 'gzip') return null;
+      const memberName = packageInfo.originalName ? archiveEntryPreviewLabel([packageInfo.originalName]) : null;
+      const byteSize = Number.isFinite(packageInfo.sizeBytes)
+        ? packageInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const includesSingleMemberCounts = extension === 'gz';
+      const preview = {
+        formatLabel: extension === 'gz' ? 'GZIP' : extension.toUpperCase(),
+        entryCount: includesSingleMemberCounts ? 1 : null,
+        topLevelCount: includesSingleMemberCounts && memberName ? 1 : null,
+        entryPreviewLabel: memberName,
+        entryPreviewLabels: memberName ? [memberName] : [],
+        uncompressedByteSizeLabel: Number.isFinite(packageInfo.uncompressedBytes)
+          ? byteSizeLabel(packageInfo.uncompressedBytes)
+          : null,
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        Number.isInteger(preview.entryCount) ? '1 entry' : null,
+        Number.isInteger(preview.topLevelCount)
+          ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
+          : null,
+        preview.entryPreviewLabel ? `Entries: ${preview.entryPreviewLabel}` : null,
+        preview.uncompressedByteSizeLabel ? `Uncompressed: ${preview.uncompressedByteSizeLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
+    }
+
+    function archiveEntryPreviewLabel(fileNames) {
+      const previewNames = archiveEntryPreviewLabels(fileNames);
+      if (!previewNames.length) return null;
+      const remainingCount = Math.max(fileNames.length - previewNames.length, 0);
+      const previewText = previewNames.join(', ');
+      return remainingCount > 0 ? `${previewText}, +${remainingCount} more` : previewText;
+    }
+
+    function archiveEntryPreviewLabels(fileNames) {
+      const previewNames = [];
+      for (const fileName of fileNames) {
+        const previewName = String(fileName || '')
+          .replace(/[\r\n]+/g, ' ')
+          .trim()
+          .slice(0, 80);
+        if (previewName) previewNames.push(previewName);
+        if (previewNames.length === 3) break;
+      }
+      return previewNames;
+    }
+
+    function parseDelimitedRows(text, delimiter) {
+      const rows = [];
+      let row = [];
+      let field = '';
+      let quoted = false;
+      for (let index = 0; index < text.length; index += 1) {
+        const character = text[index];
+        if (quoted) {
+          if (character === '"') {
+            if (text[index + 1] === '"') {
+              field += '"';
+              index += 1;
+            } else {
+              quoted = false;
+            }
+          } else {
+            field += character;
+          }
+        } else if (character === '"') {
+          quoted = true;
+        } else if (character === delimiter) {
+          row.push(field);
+          field = '';
+        } else if (character === '\n') {
+          row.push(field);
+          rows.push(row);
+          row = [];
+          field = '';
+          if (rows.length > 9) break;
+        } else if (character !== '\r') {
+          field += character;
+        }
+      }
+      if (field || row.length) {
+        row.push(field);
+        rows.push(row);
+      }
+      return rows;
     }
 
     function unescapePDFLiteral(value) {
@@ -8443,6 +10066,61 @@
       return null;
     }
 
+    function appshotFirstArrayCount(root, keys) {
+      for (const key of keys) {
+        if (Array.isArray(root[key]) && root[key].length > 0) return root[key].length;
+      }
+      return null;
+    }
+
+    function appshotReplayLabels(root, keys, kind) {
+      for (const key of keys) {
+        if (!Array.isArray(root[key]) || root[key].length === 0) continue;
+        return root[key].slice(0, 4).map(value => appshotReplayLabel(value, kind)).filter(Boolean);
+      }
+      return [];
+    }
+
+    function appshotReplayLabel(value, kind) {
+      const stringValue = appshotStringValue(value, []);
+      if (stringValue) return boundedAppshotReplayLabel(stringValue);
+      if (!value || Array.isArray(value) || typeof value !== 'object') return null;
+      const fields = {
+        action: [
+          ['type', 'action', 'name', 'title'],
+          ['target', 'selector', 'text', 'value', 'label']
+        ],
+        frame: [
+          ['title', 'name', 'screenshot', 'path', 'url'],
+          ['screenshot', 'path', 'url', 'image']
+        ],
+        event: [
+          ['name', 'type', 'event', 'title'],
+          ['target', 'detail', 'summary', 'text']
+        ]
+      }[kind];
+      const primary = firstAppshotString(value, fields[0]);
+      const secondary = firstAppshotString(value, fields[1]);
+      if (primary && secondary && primary !== secondary) {
+        return boundedAppshotReplayLabel(`${primary}: ${secondary}`);
+      }
+      return boundedAppshotReplayLabel(primary || secondary || '');
+    }
+
+    function firstAppshotString(object, keys) {
+      for (const key of keys) {
+        const value = appshotStringValue(object[key], ['value', 'text', 'name', 'path', 'url']);
+        if (value) return value;
+      }
+      return null;
+    }
+
+    function boundedAppshotReplayLabel(label) {
+      const trimmed = String(label || '').trim();
+      if (!trimmed) return null;
+      return trimmed.length > 80 ? `${trimmed.slice(0, 80)}...` : trimmed;
+    }
+
     function appshotImageURL(value, appshotPath) {
       if (!value || value.includes('://') && !value.startsWith('file://')) return null;
       const appshotDirectory = appshotPath.split('/').slice(0, -1).join('/');
@@ -8467,14 +10145,79 @@
     }
 
     const textPreviewExtensions = new Set([
-      'c', 'cc', 'conf', 'cpp', 'css', 'csv', 'go', 'h', 'hpp', 'html',
-      'java', 'js', 'json', 'jsx', 'kt', 'log', 'm', 'md', 'mm', 'py',
-      'rb', 'rs', 'sh', 'sql', 'swift', 'toml', 'ts', 'tsx', 'txt',
-      'xml', 'yaml', 'yml'
+      'astro', 'c', 'cc', 'conf', 'cpp', 'cs', 'csproj', 'css', 'csv', 'diff',
+      'fs', 'fsproj', 'go', 'h', 'hpp', 'html', 'java', 'js', 'json', 'jsonl',
+      'jsx', 'kt', 'kts', 'log', 'm', 'md', 'mdx', 'mm', 'ndjson', 'py', 'patch',
+      'php', 'rb', 'rs', 'sh', 'sql', 'svelte', 'swift', 'toml', 'ts', 'tsx',
+      'txt', 'vue', 'xml', 'yaml', 'yml'
     ]);
     const textPreviewFilenames = new Set([
-      '.env.example', '.gitignore', 'dockerfile', 'gemfile', 'license', 'makefile', 'podfile', 'readme'
+      '.gitignore', 'build.gradle', 'build.gradle.kts', 'dockerfile', 'gemfile',
+      'go.mod', 'go.sum', 'license', 'makefile', 'podfile', 'readme',
+      'settings.gradle', 'settings.gradle.kts'
     ]);
+    const textPreviewFilenameLabels = {
+      '.gitignore': 'Git ignore',
+      'build.gradle': 'Gradle',
+      'build.gradle.kts': 'Gradle Kotlin',
+      dockerfile: 'Dockerfile',
+      gemfile: 'Gemfile',
+      'go.mod': 'Go module',
+      'go.sum': 'Go checksum',
+      license: 'License',
+      makefile: 'Makefile',
+      podfile: 'Podfile',
+      readme: 'README',
+      'settings.gradle': 'Gradle settings',
+      'settings.gradle.kts': 'Gradle Kotlin settings'
+    };
+    const textPreviewExtensionLabels = {
+      astro: 'Astro',
+      c: 'C',
+      cc: 'C++',
+      conf: 'Config',
+      cpp: 'C++',
+      cs: 'C#',
+      csproj: 'C# project',
+      css: 'CSS',
+      csv: 'CSV',
+      diff: 'Diff',
+      fs: 'F#',
+      fsproj: 'F# project',
+      go: 'Go',
+      h: 'C/C++ header',
+      hpp: 'C++ header',
+      html: 'HTML',
+      java: 'Java',
+      js: 'JavaScript',
+      json: 'JSON',
+      jsonl: 'JSON Lines',
+      jsx: 'React JSX',
+      kt: 'Kotlin',
+      kts: 'Kotlin Script',
+      log: 'Log',
+      m: 'Objective-C',
+      md: 'Markdown',
+      mdx: 'MDX',
+      mm: 'Objective-C++',
+      ndjson: 'NDJSON',
+      patch: 'Patch',
+      py: 'Python',
+      rb: 'Ruby',
+      rs: 'Rust',
+      sh: 'Shell',
+      sql: 'SQL',
+      svelte: 'Svelte',
+      swift: 'Swift',
+      toml: 'TOML',
+      ts: 'TypeScript',
+      tsx: 'React TSX',
+      txt: 'Text',
+      vue: 'Vue',
+      xml: 'XML',
+      yaml: 'YAML',
+      yml: 'YAML'
+    };
 
     function artifactFilePath(value) {
       if (value.startsWith('/')) return value;
@@ -8492,7 +10235,9 @@
       if (!path) return null;
       const name = path.split('/').filter(Boolean).at(-1)?.toLowerCase() || '';
       if (name.endsWith('.appshot') || name.endsWith('.appshot.json')) return null;
+      if (artifactPreviewExtension(value) === 'env') return null;
       const extension = name.includes('.') ? name.split('.').pop() : '';
+      if (extension === 'csv' || extension === 'tsv') return null;
       if (!textPreviewFilenames.has(name) && !textPreviewExtensions.has(extension)) return null;
       const text = state.mockFiles[path];
       if (typeof text !== 'string' || !text.trim() || text.includes('\u0000')) return null;
@@ -8506,6 +10251,41 @@
       }
       if (truncated) preview += `${preview.endsWith('\n') ? '' : '\n'}...`;
       return preview;
+    }
+
+    function artifactSourceTextPreview(value, kind, textPreview) {
+      if (kind !== 'file') return null;
+      const path = artifactFilePath(value);
+      if (!path || !textPreview) return null;
+      const name = path.split('/').filter(Boolean).at(-1)?.toLowerCase() || '';
+      const extension = name.includes('.') ? name.split('.').pop() : '';
+      const typeLabel = textPreviewFilenameLabels[name] || textPreviewExtensionLabels[extension] || 'Text';
+      const wasTruncated = textPreview.endsWith('\n...');
+      let lines = textPreview.replace(/\n\.\.\.$/, '').split('\n');
+      if (lines.at(-1) === '') lines = lines.slice(0, -1);
+      const lineCount = Math.max(lines.length, 1);
+      const lineCountLabel = `${lineCount}${wasTruncated ? '+' : ''} ${lineCount === 1 ? 'line' : 'lines'}`;
+      const byteSize = state.mockFiles[path]?.length || 0;
+      const metadataLines = [
+        `Type: ${typeLabel}`,
+        lineCountLabel,
+        byteSize > 0 ? `Size: ${formatByteCount(byteSize)}` : null,
+        wasTruncated ? 'Preview truncated' : null
+      ].filter(Boolean);
+      return { typeLabel, lineCountLabel, byteSizeLabel: byteSize > 0 ? formatByteCount(byteSize) : null, wasTruncated, metadataLines };
+    }
+
+    function formatByteCount(byteCount) {
+      if (byteCount === 1) return '1 byte';
+      if (byteCount < 1024) return `${byteCount} bytes`;
+      const kilobytes = byteCount / 1024;
+      if (kilobytes < 1024) return `${formatByteUnit(kilobytes)} KB`;
+      return `${formatByteUnit(kilobytes / 1024)} MB`;
+    }
+
+    function formatByteUnit(value) {
+      const rounded = Math.round(value * 10) / 10;
+      return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
     }
 
     function countLabel(count, singular) {
@@ -10152,11 +11932,12 @@
         const previews = (artifacts || []).filter(artifact => artifact.isImagePreview && artifact.previewURL && artifact.imagePreview);
         return previews.length ? `
           <div class="tool-artifact-previews" data-testid="tool-card-image-previews" aria-label="Image previews">
-            ${previews.map(artifact => `
+            ${previews.map((artifact, index) => `
               <figure class="artifact-preview" data-testid="tool-card-image-preview" data-kind="image">
                 <img src="${escapeHTML(artifact.previewURL)}" alt="${escapeHTML(artifact.label)}" loading="lazy">
                 <figcaption>
-                  <small data-testid="tool-card-image-preview-type">${escapeHTML(artifact.imagePreview.typeLabel)} · ${escapeHTML(artifact.imagePreview.extensionLabel)}</small>
+                  <small data-testid="tool-card-image-preview-type">${escapeHTML(artifact.imagePreview.typeLine)}</small>
+                  ${previews.length > 1 ? `<small data-testid="tool-card-image-preview-sequence">Image ${index + 1} of ${previews.length}</small>` : ''}
                   <strong data-testid="tool-card-image-preview-label">${escapeHTML(artifact.label)}</strong>
                   <small data-testid="tool-card-image-preview-detail">${escapeHTML(artifact.imagePreview.detail)}</small>
                 </figcaption>
@@ -10168,17 +11949,31 @@
         const previews = (artifacts || []).filter(artifact => artifact.textPreview);
         return previews.length ? `
           <div class="tool-artifact-text-previews" data-testid="tool-card-text-previews" aria-label="Text previews">
-            ${previews.map(artifact => `
+            ${previews.map(artifact => {
+              const metadata = (artifact.sourceTextPreview?.metadataLines || [])
+                .map(line => `<small data-testid="tool-card-text-preview-meta">${escapeHTML(line)}</small>`)
+                .join('');
+              return `
               <figure class="artifact-text-preview" data-testid="tool-card-text-preview">
                 <figcaption data-testid="tool-card-text-preview-label">${escapeHTML(artifact.label)}</figcaption>
+                <div class="artifact-text-preview-meta" data-testid="tool-card-text-preview-metadata">
+                  ${metadata}
+                </div>
                 <pre data-testid="tool-card-text-preview-content">${escapeHTML(artifact.textPreview)}</pre>
-              </figure>
-            `).join('')}
+              </figure>`;
+            }).join('')}
           </div>` : '';
       };
       const renderDocumentPreviews = artifacts => {
         const previews = (artifacts || []).filter(artifact => artifact.documentPreview);
-        const renderPDFPreview = preview => {
+        const localPDFPreviewObject = href => {
+          if (!href || !href.startsWith('file://')) return '';
+          return `
+                <object class="artifact-pdf-page-preview" data-testid="tool-card-pdf-page-preview" type="application/pdf" data="${escapeHTML(href)}#page=1">
+                  <a class="hit-target-link" data-testid="tool-card-pdf-page-preview-fallback" href="${escapeHTML(href)}">Open PDF preview</a>
+                </object>`;
+        };
+        const renderPDFPreview = (preview, href) => {
           if (!preview) return '';
           const title = preview.title
             ? `<strong data-testid="tool-card-pdf-preview-title">${escapeHTML(preview.title)}</strong>`
@@ -10186,8 +11981,24 @@
           const metadata = (preview.metadataLines || [])
             .map(line => `<small data-testid="tool-card-pdf-preview-meta">${escapeHTML(line)}</small>`)
             .join('');
-          return title || metadata ? `
+          const pagePreview = localPDFPreviewObject(href);
+          return title || metadata || pagePreview ? `
                 <div class="artifact-pdf-preview" data-testid="tool-card-pdf-preview">
+                  ${title}
+                  <div>${metadata}</div>
+                  ${pagePreview}
+                </div>` : '';
+        };
+        const renderMarkdownPreview = preview => {
+          if (!preview) return '';
+          const title = preview.title
+            ? `<strong data-testid="tool-card-markdown-preview-title">${escapeHTML(preview.title)}</strong>`
+            : '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-markdown-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return title || metadata ? `
+                <div class="artifact-markdown-preview" data-testid="tool-card-markdown-preview">
                   ${title}
                   <div>${metadata}</div>
                 </div>` : '';
@@ -10197,10 +12008,283 @@
           const metadata = (preview.metadataLines || [])
             .map(line => `<small data-testid="tool-card-office-preview-meta">${escapeHTML(line)}</small>`)
             .join('');
-          return metadata ? `
+          const contents = (preview.contentPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-office-preview-content-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const contentList = contents ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-office-preview-contents">
+                    <strong data-testid="tool-card-office-preview-content-title">Contents</strong>
+                    <ul>${contents}</ul>
+                  </section>` : '';
+          return metadata || contentList ? `
                 <div class="artifact-office-preview" data-testid="tool-card-office-preview">
                   <div>${metadata}</div>
+                  ${contentList}
                 </div>` : '';
+        };
+        const renderRTFPreview = preview => {
+          if (!preview) return '';
+          const title = preview.title
+            ? `<strong data-testid="tool-card-rtf-preview-title">${escapeHTML(preview.title)}</strong>`
+            : '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-rtf-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return title || metadata ? `
+                <div class="artifact-office-preview" data-testid="tool-card-rtf-preview">
+                  ${title}
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
+        const renderHTMLPreview = preview => {
+          if (!preview) return '';
+          const title = preview.title || preview.heading
+            ? `<strong data-testid="tool-card-html-preview-title">${escapeHTML(preview.title || preview.heading)}</strong>`
+            : '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-html-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return title || metadata ? `
+                <div class="artifact-office-preview" data-testid="tool-card-html-preview">
+                  ${title}
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
+        const renderDiffPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-diff-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const files = (preview.changedFileLabels || [])
+            .map(label => `<li data-testid="tool-card-diff-preview-file-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const fileList = files ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-diff-preview-files">
+                    <strong data-testid="tool-card-diff-preview-file-title">Changed files</strong>
+                    <ul>${files}</ul>
+                  </section>` : '';
+          return metadata || fileList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-diff-preview">
+                  <div>${metadata}</div>
+                  ${fileList}
+                </div>` : '';
+        };
+        const renderTablePreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-table-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const headers = (preview.headers || [])
+            .map(cell => `<th data-testid="tool-card-table-preview-header">${escapeHTML(cell)}</th>`)
+            .join('');
+          const rows = (preview.rows || [])
+            .map(row => `<tr>${row.map(cell => `<td data-testid="tool-card-table-preview-cell">${escapeHTML(cell)}</td>`).join('')}</tr>`)
+            .join('');
+          return headers || rows ? `
+                <div class="artifact-table-preview" data-testid="tool-card-table-preview">
+                  <div>${metadata}</div>
+                  <table>
+                    <thead><tr>${headers}</tr></thead>
+                    <tbody>${rows}</tbody>
+                  </table>
+                </div>` : '';
+        };
+        const renderArchivePreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-archive-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const contents = (preview.entryPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-archive-preview-entry-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const contentList = contents ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-archive-preview-entries">
+                    <strong data-testid="tool-card-archive-preview-entry-title">Contents</strong>
+                    <ul>${contents}</ul>
+                  </section>` : '';
+          return metadata || contentList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-archive-preview">
+                  <div>${metadata}</div>
+                  ${contentList}
+                </div>` : '';
+        };
+        const renderJSONPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-json-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-json-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-json-preview-keys">
+                    <strong data-testid="tool-card-json-preview-key-title">Top keys</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-json-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
+        const renderJSONLinesPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-json-lines-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-json-lines-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-json-lines-preview-keys">
+                    <strong data-testid="tool-card-json-lines-preview-key-title">Observed keys</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-json-lines-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
+        const renderTOMLPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-toml-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-toml-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-toml-preview-keys">
+                    <strong data-testid="tool-card-toml-preview-key-title">Top-level keys</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-toml-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
+        const renderINIPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-ini-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const sections = (preview.sectionPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-ini-preview-section-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const sectionList = sections ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-ini-preview-sections">
+                    <strong data-testid="tool-card-ini-preview-section-title">Sections</strong>
+                    <ul>${sections}</ul>
+                  </section>` : '';
+          return metadata || sectionList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-ini-preview">
+                  <div>${metadata}</div>
+                  ${sectionList}
+                </div>` : '';
+        };
+        const renderDotenvPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-dotenv-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-dotenv-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-dotenv-preview-keys">
+                    <strong data-testid="tool-card-dotenv-preview-key-title">Variable names</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-dotenv-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
+        const renderYAMLPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-yaml-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-yaml-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-yaml-preview-keys">
+                    <strong data-testid="tool-card-yaml-preview-key-title">Top-level keys</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-yaml-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
+        const renderXMLPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-xml-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const children = (preview.childPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-xml-preview-child-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const childList = children ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-xml-preview-children">
+                    <strong data-testid="tool-card-xml-preview-child-title">Root children</strong>
+                    <ul>${children}</ul>
+                  </section>` : '';
+          return metadata || childList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-xml-preview">
+                  <div>${metadata}</div>
+                  ${childList}
+                </div>` : '';
+        };
+        const renderPropertyListPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-plist-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-plist-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-plist-preview-keys">
+                    <strong data-testid="tool-card-plist-preview-key-title">Top-level keys</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-plist-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
+        const renderMediaPreview = preview => {
+          if (!preview) return '';
+          const title = preview.title
+            ? `<strong data-testid="tool-card-media-preview-title">${escapeHTML(preview.title)}</strong>`
+            : '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-media-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const player = renderMediaPlayer(preview);
+          return title || metadata || player ? `
+                <div class="artifact-office-preview" data-testid="tool-card-media-preview">
+                  ${title}
+                  <div>${metadata}</div>
+                  ${player}
+                </div>` : '';
+        };
+        const renderMediaPlayer = preview => {
+          if (!preview?.playbackURL) return '';
+          if (preview.kind === 'audio') {
+            return `<audio class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="${escapeHTML(preview.playbackURL)}"></audio>`;
+          }
+          if (preview.kind === 'video') {
+            return `<video class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="${escapeHTML(preview.playbackURL)}"></video>`;
+          }
+          return '';
         };
         const renderAppshotPreview = preview => {
           if (!preview) return '';
@@ -10216,7 +12300,8 @@
           const metadata = (preview.metadataLines || [])
             .map(line => `<small data-testid="tool-card-appshot-preview-meta">${escapeHTML(line)}</small>`)
             .join('');
-          return image || title || summary || metadata ? `
+          const replay = renderAppshotReplay(preview);
+          return image || title || summary || metadata || replay ? `
                 <div class="artifact-appshot-preview" data-testid="tool-card-appshot-preview">
                   ${image}
                   <div>
@@ -10224,7 +12309,20 @@
                     ${summary}
                     ${metadata}
                   </div>
+                  ${replay}
                 </div>` : '';
+        };
+        const renderAppshotReplay = preview => {
+          const groups = [
+            ['Actions', preview.actionLabels || []],
+            ['Frames', preview.frameLabels || []],
+            ['Events', preview.eventLabels || []]
+          ].filter(([, labels]) => labels.length);
+          return groups.map(([title, labels]) => `
+                <section class="artifact-appshot-replay-group" data-testid="tool-card-appshot-replay-group">
+                  <strong data-testid="tool-card-appshot-replay-title">${escapeHTML(title)}</strong>
+                  <ol>${labels.map((label, index) => `<li data-testid="tool-card-appshot-replay-item"><span>${index + 1}</span>${escapeHTML(label)}</li>`).join('')}</ol>
+                </section>`).join('');
         };
         return previews.length ? `
           <div class="tool-artifact-document-previews" data-testid="tool-card-document-previews" aria-label="Document previews">
@@ -10240,9 +12338,24 @@
                   <small data-testid="tool-card-document-preview-detail">${escapeHTML(preview.detail)}</small>
                 </figcaption>
                 ${href ? `<a class="hit-target-link" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
-                ${renderPDFPreview(artifact.pdfPreview)}
+                ${renderPDFPreview(artifact.pdfPreview, href)}
+                ${renderMarkdownPreview(artifact.markdownPreview)}
                 ${renderOfficePreview(artifact.officePreview)}
+                ${renderRTFPreview(artifact.rtfPreview)}
+                ${renderHTMLPreview(artifact.htmlPreview)}
+                ${renderDiffPreview(artifact.diffPreview)}
+                ${renderTablePreview(artifact.tablePreview)}
+                ${renderJSONLinesPreview(artifact.jsonLinesPreview)}
+                ${renderTOMLPreview(artifact.tomlPreview)}
+                ${renderINIPreview(artifact.iniPreview)}
+                ${renderDotenvPreview(artifact.dotenvPreview)}
+                ${renderYAMLPreview(artifact.yamlPreview)}
+                ${renderXMLPreview(artifact.xmlPreview)}
+                ${renderPropertyListPreview(artifact.propertyListPreview)}
+                ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
+                ${renderArchivePreview(artifact.archivePreview)}
+                ${renderMediaPreview(artifact.mediaPreview)}
               </figure>`;
             }).join('')}
           </div>` : '';
@@ -13927,6 +16040,10 @@
       return goal || null;
     }
 
+    function normalizedWorkflowRecordingGoal(text) {
+      return workflowRecordingGoal(text) || String(text || '').trim();
+    }
+
     function workflowSkillSlug(goal) {
       return String(goal || 'recorded-workflow')
         .toLowerCase()
@@ -13936,6 +16053,7 @@
     }
 
     function requestWorkflowRecording(goal) {
+      goal = normalizedWorkflowRecordingGoal(goal);
       const requestID = `workflow-recording-${crypto.randomUUID()}`;
       addToolCard({
         title: 'host.workflow.record.start',
@@ -13954,6 +16072,7 @@
     }
 
     function beginWorkflowRecording(goal) {
+      goal = normalizedWorkflowRecordingGoal(goal);
       const recording = state.extensions.workflowRecording;
       recording.phase = 'recording';
       recording.goal = goal;
@@ -15142,6 +17261,7 @@
         <span data-testid="extensions-count">${countLabel(state.extensions.hookCount || 0, 'hook')}</span>`;
       const recording = state.extensions.workflowRecording || {};
       const recordingIsActive = recording.phase === 'recording';
+      const recordingGoal = normalizedWorkflowRecordingGoal(recording.goal || 'Untitled workflow') || 'Untitled workflow';
       const recordingAction = !focusedKind && recording.isAvailable && !recordingIsActive
         ? `<button type="button" class="workflow-recording-button hit-target-capsule" data-testid="workflow-recording-start" data-command-id="workflow-recording-create">Record a skill</button>`
         : '';
@@ -15150,7 +17270,7 @@
           <span class="workflow-recording-indicator" aria-hidden="true"></span>
           <div class="workflow-recording-copy">
             <strong>Recording workflow</strong>
-            <p data-testid="workflow-recording-goal">${escapeHTML(recording.goal || 'Untitled workflow')}</p>
+            <p data-testid="workflow-recording-goal">${escapeHTML(recordingGoal)}</p>
           </div>
           <button type="button" class="workflow-recording-stop hit-target-capsule" data-testid="workflow-recording-stop" data-command-id="workflow-recording-stop">Stop</button>
         </article>` : '';
@@ -21964,6 +24084,347 @@
           }, null, 2)
         });
         addMessage('assistant', `Downloaded to \`${path}\`.`);
+      } else if (text.toLowerCase().includes('csv') || text.toLowerCase().includes('table artifact')) {
+        const path = '/mock/QuillCode/reports/revenue.csv';
+        state.mockFiles[path] = [
+          'Quarter,Revenue,Notes',
+          'Q1,12000,Launch',
+          'Q2,18500,"Expansion, EU"',
+          'Q3,22400,Retention'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/csv' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `revenue.csv`.');
+      } else if (text.toLowerCase().includes('vue artifact') || text.toLowerCase().includes('web component source')) {
+        const vuePath = '/mock/QuillCode/src/Dashboard.vue';
+        const goModPath = '/mock/QuillCode/go.mod';
+        state.mockFiles[vuePath] = [
+          '<template>',
+          '  <main>{{ title }}</main>',
+          '</template>',
+          '',
+          '<script setup lang="ts">',
+          'const title = "QuillCode"',
+          '<\\/script>'
+        ].join('\n');
+        state.mockFiles[goModPath] = [
+          'module example.com/quillcode',
+          '',
+          'go 1.23'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ paths: [vuePath, goModPath] }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${vuePath} and ${goModPath}\n`, artifacts: [vuePath, goModPath] }, null, 2)
+        });
+        addMessage('assistant', 'Created `Dashboard.vue` and `go.mod`.');
+      } else if (text.toLowerCase().includes('markdown') || text.toLowerCase().includes('md artifact')) {
+        const path = '/mock/QuillCode/docs/setup.md';
+        state.mockFiles[path] = [
+          '# Setup Guide',
+          '',
+          'Use this checklist before shipping a new QuillCode build.',
+          '',
+          '## Smoke Test',
+          '',
+          '- Launch the app.',
+          '- Run a mock LLM turn.',
+          '- Verify artifact previews.'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/markdown' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `setup.md`.');
+      } else if (text.toLowerCase().includes('mdx') || text.toLowerCase().includes('component artifact')) {
+        const path = '/mock/QuillCode/docs/component.mdx';
+        state.mockFiles[path] = [
+          '# Component Guide',
+          '',
+          'import { Callout } from "./Callout"',
+          '',
+          '<Callout tone="info">Ship the preview.</Callout>',
+          '',
+          '## Props',
+          '',
+          '- `tone` controls the status color.'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/mdx' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `component.mdx`.');
+      } else if (text.toLowerCase().includes('rtf') || text.toLowerCase().includes('rich text artifact')) {
+        const path = '/mock/QuillCode/docs/summary.rtf';
+        state.mockFiles[path] = '{\\rtf1\\ansi{\\info{\\title Launch Notes}}{\\fonttbl{\\f0 Helvetica;}}\\f0 Hello world.}';
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/rtf' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `summary.rtf`.');
+      } else if (text.toLowerCase().includes('html') || text.toLowerCase().includes('web page artifact')) {
+        const path = '/mock/QuillCode/docs/dashboard.html';
+        state.mockFiles[path] = [
+          '<!doctype html>',
+          '<html lang="en">',
+          '<head>',
+          '  <meta charset="utf-8">',
+          '  <title>Quill Dashboard &amp; Metrics</title>',
+          '  <style>body { font-family: system-ui; }</style>',
+          '</head>',
+          '<body>',
+          '  <h1>Launch Readiness</h1>',
+          '  <nav><a href="/status">Status</a><a href="/runs">Runs</a></nav>',
+          '  <script>window.__quill = true;<\\/script>',
+          '</body>',
+          '</html>'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/html' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `dashboard.html`.');
+      } else if (text.toLowerCase().includes('diff artifact') || text.toLowerCase().includes('patch artifact')) {
+        const path = '/mock/QuillCode/changes/refactor.diff';
+        state.mockFiles[path] = [
+          'diff --git a/Sources/App.swift b/Sources/App.swift',
+          'index 1111111..2222222 100644',
+          '--- a/Sources/App.swift',
+          '+++ b/Sources/App.swift',
+          '@@ -1,3 +1,4 @@',
+          ' import SwiftUI',
+          '-let title = "Old"',
+          '+let title = "QuillCode"',
+          '+let subtitle = "Fast"',
+          ' struct AppView: View {}',
+          '@@ -10,2 +11,2 @@',
+          '-print("old")',
+          '+print("new")',
+          'diff --git a/Tests/AppTests.swift b/Tests/AppTests.swift',
+          'index 3333333..4444444 100644',
+          '--- a/Tests/AppTests.swift',
+          '+++ b/Tests/AppTests.swift',
+          '@@ -4,2 +4,3 @@',
+          ' func testTitle() {',
+          '+    XCTAssertEqual(title, "QuillCode")',
+          ' }'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/x-diff' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `refactor.diff`.');
+      } else if (text.toLowerCase().includes('jsonl') || text.toLowerCase().includes('json lines')) {
+        const path = '/mock/QuillCode/logs/events.jsonl';
+        state.mockFiles[path] = [
+          JSON.stringify({ event: 'started', level: 'info', runId: 'run_123' }),
+          JSON.stringify({ event: 'tool.completed', level: 'info', tool: 'shell.run' }),
+          JSON.stringify({ event: 'finished', level: 'info', durationMs: 1284 })
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/x-ndjson' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `events.jsonl`.');
+      } else if (text.toLowerCase().includes('toml artifact')) {
+        const path = '/mock/QuillCode/.quillcode/config.toml';
+        state.mockFiles[path] = [
+          'model = "trustedrouter/fast"',
+          'approval_policy = "auto"',
+          'disabled = false',
+          'extra_roots = ["../shared"]',
+          '',
+          '[tools.shell]',
+          'timeout_seconds = 120',
+          '',
+          '[mcp_servers.filesystem]',
+          'command = "quill-mcp"',
+          'args = ["--root", "."]'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/toml' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `config.toml`.');
+      } else if (text.toLowerCase().includes('yaml artifact')) {
+        const path = '/mock/QuillCode/.github/workflows/ci.yml';
+        state.mockFiles[path] = [
+          'name: CI',
+          'on: [push, pull_request]',
+          '',
+          'jobs:',
+          '  test:',
+          '    runs-on: ubuntu-latest',
+          '    steps:',
+          '      - uses: actions/checkout@v4',
+          '      - run: swift test'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/yaml' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `ci.yml`.');
+      } else if (text.toLowerCase().includes('xml artifact')) {
+        const path = '/mock/QuillCode/manifest.xml';
+        state.mockFiles[path] = [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<project xmlns="https://quillcode.dev/schema" name="QuillCode" version="1.0">',
+          '  <module name="QuillCodeApp">',
+          '    <target platform="macOS" />',
+          '    <target platform="Linux" />',
+          '  </module>',
+          '  <dependencies>',
+          '    <dependency id="TrustedRouterSwift" />',
+          '  </dependencies>',
+          '  <settings>',
+          '    <setting key="model" value="trustedrouter/fast" />',
+          '  </settings>',
+          '</project>'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/xml' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `manifest.xml`.');
+      } else if (text.toLowerCase().includes('config artifact') || text.toLowerCase().includes('ini artifact')) {
+        const path = '/mock/QuillCode/config/quillcode.ini';
+        state.mockFiles[path] = [
+          '; QuillCode mock configuration',
+          'root = /mock/QuillCode',
+          'model = trustedrouter/fast',
+          '',
+          '[trustedrouter]',
+          'base_url = https://api.trustedrouter.com/v1',
+          'timeout = 60',
+          '',
+          '[workspace]',
+          'auto_save = true',
+          'default_branch = main',
+          '',
+          '[tools]',
+          'shell = enabled',
+          'browser = enabled',
+          'computer_use = review'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'text/ini' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `quillcode.ini`.');
+      } else if (text.toLowerCase().includes('dotenv artifact') || text.toLowerCase().includes('env artifact')) {
+        const path = '/mock/QuillCode/.env.local';
+        state.mockFiles[path] = [
+          '# QuillCode local environment',
+          'TRUSTEDROUTER_API_KEY=sk-secret-value',
+          'QUILLCODE_MODEL=trustedrouter/fast',
+          'export QUILLCODE_DEBUG=true',
+          'EMPTY_VALUE=',
+          'INVALID-NAME=ignored'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/dotenv' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `.env.local`.');
+      } else if (text.toLowerCase().includes('plist artifact')) {
+        const path = '/mock/QuillCode/Info.plist';
+        state.mockFiles[path] = [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+          '<plist version="1.0">',
+          '<dict>',
+          '  <key>CFBundleIdentifier</key>',
+          '  <string>co.lorehex.QuillCode</string>',
+          '  <key>CFBundleName</key>',
+          '  <string>QuillCode</string>',
+          '  <key>CFBundleURLTypes</key>',
+          '  <array>',
+          '    <dict>',
+          '      <key>CFBundleURLName</key>',
+          '      <string>TrustedRouter</string>',
+          '      <key>CFBundleURLSchemes</key>',
+          '      <array>',
+          '        <string>quillcode</string>',
+          '      </array>',
+          '    </dict>',
+          '  </array>',
+          '  <key>LSMinimumSystemVersion</key>',
+          '  <string>14.0</string>',
+          '  <key>NSPrincipalClass</key>',
+          '  <string>NSApplication</string>',
+          '</dict>',
+          '</plist>'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/x-plist' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `Info.plist`.');
+      } else if (text.toLowerCase().includes('json artifact')) {
+        const path = '/mock/QuillCode/reports/build-report.json';
+        state.mockFiles[path] = JSON.stringify({
+          status: 'passed',
+          commit: 'abc1234',
+          durationMs: 1284,
+          artifacts: ['app.log', 'coverage.json'],
+          summary: {
+            tests: 42,
+            failures: 0
+          },
+          generatedAt: '2026-07-18T10:00:00Z',
+          platform: 'macOS'
+        }, null, 2);
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/json' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `build-report.json`.');
       } else if (text.toLowerCase().includes('spreadsheet') || text.toLowerCase().includes('xlsx')) {
         const path = '/mock/QuillCode/reports/budget.xlsx';
         const fileNames = [
@@ -22016,6 +24477,19 @@
           windows: [
             { title: 'Checkout', app: 'QuillCode' }
           ],
+          actions: [
+            { type: 'click', target: 'Email' },
+            { type: 'type', text: 'user@example.com' }
+          ],
+          frames: [
+            { screenshot: 'checkout-start.png' },
+            { screenshot: 'checkout.png' }
+          ],
+          events: [
+            { name: 'navigation' },
+            { name: 'form-fill' },
+            { name: 'capture' }
+          ],
           capturedAt: '2026-06-21T12:00:00Z'
         }, null, 2);
         addToolCard({
@@ -22026,6 +24500,160 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Captured ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Captured appshot `checkout.appshot.json`.');
+      } else if (text.toLowerCase().includes('svg') && text.toLowerCase().includes('artifact')) {
+        const path = '/mock/QuillCode/artifacts/logo.svg';
+        state.mockFiles[path] = '<svg width="320" height="180" viewBox="0 0 320 180" xmlns="http://www.w3.org/2000/svg"><rect width="320" height="180"/></svg>';
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path: 'artifacts/logo.svg', contentType: 'image/svg+xml' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `logo.svg`.');
+      } else if (text.toLowerCase().includes('bitmap') && text.toLowerCase().includes('artifact')) {
+        const bmpPath = '/mock/QuillCode/artifacts/diagram.bmp';
+        const webpPath = '/mock/QuillCode/artifacts/preview.webp';
+        const tiffPath = '/mock/QuillCode/artifacts/scan.tiff';
+        const icoPath = '/mock/QuillCode/artifacts/app.ico';
+        state.mockFiles[bmpPath] = mockBMPHeader(640, 360);
+        state.mockFiles[webpPath] = mockWebPVP8XHeader(512, 288);
+        state.mockFiles[tiffPath] = mockTIFFHeader(300, 200);
+        state.mockFiles[icoPath] = mockICOHeader();
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path: 'artifacts', contentType: 'generated image headers' }, null, 2),
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: `Wrote ${bmpPath}, ${webpPath}, ${tiffPath}, and ${icoPath}\n`,
+            artifacts: [bmpPath, webpPath, tiffPath, icoPath]
+          }, null, 2)
+        });
+        addMessage('assistant', 'Created bitmap image artifacts.');
+      } else if (text.toLowerCase().includes('media') && text.toLowerCase().includes('artifact')) {
+        const audioPath = '/mock/QuillCode/media/voice-note.mp3';
+        const videoPath = '/mock/QuillCode/media/demo.mp4';
+        state.mockFiles[audioPath] = 'ID3';
+        state.mockFiles[videoPath] = '\u0000\u0000\u0000\u0018ftypmp42';
+        state.mockOfficePackages[audioPath] = {
+          title: 'Morning Notes',
+          artist: 'Quill',
+          sizeBytes: 4096
+        };
+        state.mockOfficePackages[videoPath] = {
+          sizeBytes: 8192
+        };
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path: 'media', contentType: 'generated media' }, null, 2),
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: `Wrote ${audioPath} and ${videoPath}\n`,
+            artifacts: [audioPath, videoPath]
+          }, null, 2)
+        });
+        addMessage('assistant', 'Created media artifacts.');
+      } else if (text.toLowerCase().includes('archive') && text.toLowerCase().includes('artifact')) {
+        const zipPath = '/mock/QuillCode/packages/source.zip';
+        const tarPath = '/mock/QuillCode/packages/sources.tar';
+        const gzipPath = '/mock/QuillCode/packages/report.txt.gz';
+        const tarGzPath = '/mock/QuillCode/packages/logs.tar.gz';
+        const xzPath = '/mock/QuillCode/packages/report.txt.xz';
+        const tarXzPath = '/mock/QuillCode/packages/logs.tar.xz';
+        const bzipPath = '/mock/QuillCode/packages/report.txt.bz2';
+        const tarBzipPath = '/mock/QuillCode/packages/logs.tar.bz2';
+        const zstdPath = '/mock/QuillCode/packages/report.txt.zst';
+        const tarZstdPath = '/mock/QuillCode/packages/logs.tar.zst';
+        state.mockFiles[zipPath] = 'PK\u0003\u0004';
+        state.mockFiles[tarPath] = 'ustar';
+        state.mockFiles[gzipPath] = '\u001f\u008b\u0008\u0008';
+        state.mockFiles[tarGzPath] = '\u001f\u008b\u0008\u0008';
+        state.mockFiles[xzPath] = '\u00fd7zXZ\u0000';
+        state.mockFiles[tarXzPath] = '\u00fd7zXZ\u0000';
+        state.mockFiles[bzipPath] = 'BZh9';
+        state.mockFiles[tarBzipPath] = 'BZh9';
+        state.mockFiles[zstdPath] = '\u0028\u00b5\u002f\u00fd';
+        state.mockFiles[tarZstdPath] = '\u0028\u00b5\u002f\u00fd';
+        state.mockOfficePackages[zipPath] = {
+          fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift', 'README.md'],
+          sizeBytes: 4096
+        };
+        state.mockOfficePackages[tarPath] = {
+          fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift'],
+          sizeBytes: 5120
+        };
+        state.mockOfficePackages[gzipPath] = {
+          format: 'gzip',
+          originalName: 'report.txt',
+          uncompressedBytes: 2048,
+          sizeBytes: 36
+        };
+        state.mockOfficePackages[tarGzPath] = {
+          format: 'gzip',
+          originalName: 'logs.tar',
+          uncompressedBytes: 8192,
+          sizeBytes: 44
+        };
+        state.mockOfficePackages[xzPath] = {
+          format: 'xz',
+          originalName: 'report.txt',
+          sizeBytes: 48
+        };
+        state.mockOfficePackages[tarXzPath] = {
+          format: 'xz',
+          originalName: 'logs.tar',
+          sizeBytes: 56
+        };
+        state.mockOfficePackages[bzipPath] = {
+          format: 'bzip2',
+          originalName: 'report.txt',
+          sizeBytes: 52
+        };
+        state.mockOfficePackages[tarBzipPath] = {
+          format: 'bzip2',
+          originalName: 'logs.tar',
+          sizeBytes: 60
+        };
+        state.mockOfficePackages[zstdPath] = {
+          format: 'zstd',
+          originalName: 'report.txt',
+          sizeBytes: 40
+        };
+        state.mockOfficePackages[tarZstdPath] = {
+          format: 'zstd',
+          originalName: 'logs.tar',
+          sizeBytes: 64
+        };
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path: 'packages', contentType: 'generated archives' }, null, 2),
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: [
+              `Wrote ${zipPath}, ${tarPath}, ${gzipPath}, ${tarGzPath}, ${xzPath}, ${tarXzPath},`,
+              `${bzipPath}, ${tarBzipPath}, ${zstdPath}, and ${tarZstdPath}\n`
+            ].join(' '),
+            artifacts: [
+              zipPath,
+              tarPath,
+              gzipPath,
+              tarGzPath,
+              xzPath,
+              tarXzPath,
+              bzipPath,
+              tarBzipPath,
+              zstdPath,
+              tarZstdPath
+            ]
+          }, null, 2)
+        });
+        addMessage('assistant', 'Created archive artifacts.');
       } else if (fileWriteRequest) {
         const { path, content } = fileWriteRequest;
         if (isRemoteProject) {

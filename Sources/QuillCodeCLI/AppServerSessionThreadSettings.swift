@@ -161,6 +161,8 @@ extension AppServerSession {
             return .workspaceWrite
         case "danger-full-access", "dangerFullAccess":
             return .dangerFullAccess
+        case "external", "externalSandbox", "external-sandbox":
+            throw AppServerSandboxPolicyParser.unsupportedExternalSandbox()
         default:
             throw AppServerRPCError.invalidParams("unsupported sandbox policy")
         }

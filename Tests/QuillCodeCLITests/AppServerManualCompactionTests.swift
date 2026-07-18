@@ -102,8 +102,11 @@ final class AppServerManualCompactionTests: XCTestCase {
             to: fixture.session
         )
         await summarizer.waitUntilStarted()
-        let activeRecords = Array(try await fixture.output.records().dropFirst(baseline))
-        let started = try lifecycleParams(for: "turn/started", in: activeRecords)
+        let started = try await waitForLifecycleParams(
+            method: "turn/started",
+            fixture: fixture,
+            after: baseline
+        )
         let turnID = try XCTUnwrap(started["turn"]?.objectValue?["id"]?.stringValue)
 
         try await sendRequest(
@@ -160,10 +163,13 @@ final class AppServerManualCompactionTests: XCTestCase {
             to: fixture.session
         )
         await summarizer.waitUntilStarted()
-        let activeRecords = Array(try await fixture.output.records().dropFirst(baseline))
+        let started = try await waitForLifecycleParams(
+            method: "turn/started",
+            fixture: fixture,
+            after: baseline
+        )
         let turnID = try XCTUnwrap(
-            try lifecycleParams(for: "turn/started", in: activeRecords)["turn"]?
-                .objectValue?["id"]?.stringValue
+            started["turn"]?.objectValue?["id"]?.stringValue
         )
 
         try await sendRequest(
@@ -408,6 +414,22 @@ final class AppServerManualCompactionTests: XCTestCase {
         throw CompactionTestError.missingUserShellCompletion
     }
 
+    private func waitForLifecycleParams(
+        method: String,
+        fixture: CompactionFixture,
+        after baseline: Int
+    ) async throws -> [String: CLIJSONValue] {
+        for _ in 0..<400 {
+            let records = Array(try await fixture.output.records().dropFirst(baseline))
+            let record = records.first { $0["method"]?.stringValue == method }
+            if let params = record?["params"]?.objectValue {
+                return params
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        throw CompactionTestError.missingLifecycleEvent(method)
+    }
+
     private func threadStore(for fixture: CompactionFixture) -> JSONThreadStore {
         JSONThreadStore(directory: fixture.home.appendingPathComponent("threads"))
     }
@@ -462,6 +484,7 @@ private actor CompactionOutputCollector {
 private enum CompactionTestError: Error {
     case invalidRecord
     case missingUserShellCompletion
+    case missingLifecycleEvent(String)
 }
 
 private struct CompactionEchoLLM: LLMClient {

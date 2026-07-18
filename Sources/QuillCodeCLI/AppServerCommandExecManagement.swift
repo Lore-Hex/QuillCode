@@ -16,7 +16,8 @@ extension AppServerSession {
             params: value,
             cwd: cwd,
             inheritedEnvironment: environment,
-            sandboxPolicy: sandboxPolicy
+            sandboxPolicy: sandboxPolicy,
+            proxyEnvironmentPolicy: AppServerProxyEnvironmentPolicy(requirements: requirements)
         )
         let registryKey = request.processID ?? request.sessionHandle
         if let processID = request.processID, commandExecSessions[registryKey] != nil {
