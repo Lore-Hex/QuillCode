@@ -25,10 +25,12 @@ enum ToolArtifactMediaPreviewBuilder {
             }
 
             let preview = ToolArtifactMediaPreview(
+                kind: documentPreview.kind,
                 formatLabel: documentPreview.extensionLabel.uppercased(),
                 title: title,
                 artist: artist,
-                byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
+                byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize),
+                playbackURL: fileURL.absoluteString
             )
             return preview.hasDisplayContent ? preview : nil
         } catch {

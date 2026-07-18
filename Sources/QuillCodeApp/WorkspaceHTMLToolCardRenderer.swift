@@ -316,15 +316,29 @@ enum WorkspaceHTMLToolCardRenderer {
         let metadata = preview.metadataLines.map {
             #"<small data-testid="tool-card-media-preview-meta">\#(escape($0))</small>"#
         }.joined(separator: "")
-        guard !title.isEmpty || !metadata.isEmpty else { return "" }
+        let player = renderMediaPlayer(preview)
+        guard !title.isEmpty || !metadata.isEmpty || !player.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-media-preview">
           \(title)
           <div>
             \(metadata)
           </div>
+          \(player)
         </div>
         """
+    }
+
+    private static func renderMediaPlayer(_ preview: ToolArtifactMediaPreview) -> String {
+        guard let playbackURL = preview.playbackURL else { return "" }
+        switch preview.kind {
+        case .audio:
+            return #"<audio class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="\#(escape(playbackURL))"></audio>"#
+        case .video:
+            return #"<video class="artifact-media-player" data-testid="tool-card-media-player" controls preload="metadata" src="\#(escape(playbackURL))"></video>"#
+        default:
+            return ""
+        }
     }
 
     private static func renderPDFPreview(_ preview: ToolArtifactPDFPreview?) -> String {

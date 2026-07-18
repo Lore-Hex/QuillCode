@@ -384,9 +384,11 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         let audioPreview = try XCTUnwrap(ToolArtifactState(value: audio.path).mediaPreview)
         let audioByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: audioBytes.count))
         XCTAssertEqual(audioPreview.formatLabel, "MP3")
+        XCTAssertEqual(audioPreview.kind, .audio)
         XCTAssertEqual(audioPreview.title, "Morning Notes")
         XCTAssertEqual(audioPreview.artist, "Quill")
         XCTAssertEqual(audioPreview.byteSizeLabel, audioByteSize)
+        XCTAssertEqual(audioPreview.playbackURL, audio.absoluteString)
         XCTAssertEqual(audioPreview.metadataLines, [
             "Format: MP3",
             "Artist: Quill",
@@ -396,9 +398,11 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         let videoPreview = try XCTUnwrap(ToolArtifactState(value: video.path).mediaPreview)
         let videoByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: videoBytes.count))
         XCTAssertEqual(videoPreview.formatLabel, "MP4")
+        XCTAssertEqual(videoPreview.kind, .video)
         XCTAssertNil(videoPreview.title)
         XCTAssertNil(videoPreview.artist)
         XCTAssertEqual(videoPreview.byteSizeLabel, videoByteSize)
+        XCTAssertEqual(videoPreview.playbackURL, video.absoluteString)
         XCTAssertEqual(videoPreview.metadataLines, [
             "Format: MP4",
             "Size: \(videoByteSize)"
