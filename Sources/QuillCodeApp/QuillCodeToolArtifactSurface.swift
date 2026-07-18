@@ -817,6 +817,34 @@ public struct ToolArtifactSQLitePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactWebAssemblyPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var version: UInt32?
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            version.map { "Version: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "WebAssembly",
+        version: UInt32? = nil,
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.version = version
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var entryCount: Int?
@@ -1011,6 +1039,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var sqlitePreview: ToolArtifactSQLitePreview? {
         ToolArtifactSQLitePreviewBuilder.sqlitePreview(for: value, kind: kind)
+    }
+    public var webAssemblyPreview: ToolArtifactWebAssemblyPreview? {
+        ToolArtifactWebAssemblyPreviewBuilder.webAssemblyPreview(for: value, kind: kind)
     }
     public var archivePreview: ToolArtifactArchivePreview? {
         ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)

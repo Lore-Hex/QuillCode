@@ -67,6 +67,9 @@
 - Artifact previews now include bounded local SQLite database metadata for `.db`, `.sqlite`, and
   `.sqlite3` files by validating the 100-byte SQLite header and rendering page size, page count,
   and file size without opening tables or shelling out.
+- Artifact previews now include bounded local WebAssembly metadata for `.wasm` files by validating
+  the 8-byte module header and rendering module version plus file size without disassembly or
+  shelling out.
 - Artifact previews now include bounded local XML metadata using native XML parsing:
   root element, element/attribute/namespace counts, file size, and capped root-child previews.
 - Artifact previews now include bounded local INI-style config metadata for `.ini`, `.cfg`, and `.conf`:

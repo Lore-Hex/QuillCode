@@ -694,6 +694,32 @@ test('mock harness renders SQLite artifact metadata previews from tool cards', a
   await expect(page.getByText('Created `cache.sqlite3`.')).toBeVisible();
 });
 
+test('mock harness renders WebAssembly artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a wasm artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('module.wasm');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/build');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · WASM');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('module.wasm');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/build/module.wasm'
+  );
+  await expect(page.getByTestId('tool-card-wasm-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-wasm-preview-meta')).toHaveText([
+    'Format: WebAssembly',
+    'Version: 1',
+    'Size: 8 bytes'
+  ]);
+  await expect(page.getByText('Created `module.wasm`.')).toBeVisible();
+});
+
 test('mock harness renders XML artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
