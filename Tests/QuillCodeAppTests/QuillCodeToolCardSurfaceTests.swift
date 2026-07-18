@@ -124,6 +124,13 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(appshotBundle.documentPreview?.extensionLabel, "APPSHOT")
         XCTAssertEqual(appshotBundle.documentPreview?.detail, "/tmp/quillcode/appshots")
 
+        let jsonReport = ToolArtifactState(value: "/tmp/quillcode/reports/build-report.json")
+        XCTAssertTrue(jsonReport.isDocumentPreview)
+        XCTAssertEqual(jsonReport.documentPreview?.kind, .data)
+        XCTAssertEqual(jsonReport.documentPreview?.typeLabel, "Data")
+        XCTAssertEqual(jsonReport.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(jsonReport.documentPreview?.detail, "/tmp/quillcode/reports")
+
         let audioFile = ToolArtifactState(value: "/tmp/quillcode/audio/voice-note.mp3")
         XCTAssertTrue(audioFile.isDocumentPreview)
         XCTAssertEqual(audioFile.documentPreview?.kind, .audio)
@@ -221,6 +228,50 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
 
         let remotePDF = ToolArtifactState(value: "https://example.com/briefing.pdf")
         XCTAssertNil(remotePDF.pdfPreview)
+    }
+
+    func testArtifactStateDerivesJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("build-report.json")
+        let jsonText = """
+        {
+          "artifacts": ["app.log", "coverage.json"],
+          "commit": "abc1234",
+          "durationMs": 1284,
+          "generatedAt": "2026-07-18T10:00:00Z",
+          "platform": "macOS",
+          "status": "passed",
+          "summary": {"tests": 42, "failures": 0}
+        }
+        """
+        try jsonText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.jsonPreview)
+        let byteCount = try XCTUnwrap(jsonText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(preview.rootLabel, "Object")
+        XCTAssertEqual(preview.keyCount, 7)
+        XCTAssertNil(preview.itemCount)
+        XCTAssertEqual(preview.keyPreviewLabels, [
+            "artifacts",
+            "commit",
+            "durationMs",
+            "generatedAt",
+            "platform",
+            "status"
+        ])
+        XCTAssertEqual(preview.keyPreviewLabel, "artifacts, commit, durationMs, generatedAt, platform, status, +1 more")
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Root: Object",
+            "7 keys",
+            "Keys: artifacts, commit, durationMs, generatedAt, platform, status, +1 more",
+            "Size: \(byteCount) bytes"
+        ])
+
+        let remoteJSON = ToolArtifactState(value: "https://example.com/build-report.json")
+        XCTAssertNil(remoteJSON.jsonPreview)
     }
 
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {

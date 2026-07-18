@@ -237,6 +237,45 @@ test('mock harness renders markdown artifact metadata previews from tool cards',
   await expect(page.getByText('Created `setup.md`.')).toBeVisible();
 });
 
+test('mock harness renders JSON artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a json artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('build-report.json');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode/reports');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · JSON');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('build-report.json');
+  await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText('/mock/QuillCode/reports');
+  await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/reports/build-report.json'
+  );
+  await expect(page.getByTestId('tool-card-json-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-json-preview-meta')).toHaveText([
+    'Root: Object',
+    '7 keys',
+    'Keys: artifacts, commit, durationMs, generatedAt, platform, status, +1 more',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-json-preview-key-title')).toHaveText('Top keys');
+  await expect(page.getByTestId('tool-card-json-preview-key-item')).toHaveText([
+    'artifacts',
+    'commit',
+    'durationMs',
+    'generatedAt',
+    'platform',
+    'status'
+  ]);
+  await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText('build-report.json');
+  await expect(page.getByTestId('tool-card-text-preview-content')).toContainText('"status": "passed"');
+  await expect(page.getByText('Created `build-report.json`.')).toBeVisible();
+});
+
 test('mock harness renders office artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

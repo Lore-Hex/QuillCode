@@ -203,6 +203,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let markdownPreview = renderMarkdownPreview(artifact.markdownPreview)
             let officePreview = renderOfficePreview(artifact.officePreview)
             let tablePreview = renderTablePreview(artifact.tablePreview)
+            let jsonPreview = renderJSONPreview(artifact.jsonPreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             let archivePreview = renderArchivePreview(artifact.archivePreview)
             let mediaPreview = renderMediaPreview(artifact.mediaPreview)
@@ -219,6 +220,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(markdownPreview)
               \(officePreview)
               \(tablePreview)
+              \(jsonPreview)
               \(appshotPreview)
               \(archivePreview)
               \(mediaPreview)
@@ -429,6 +431,31 @@ enum WorkspaceHTMLToolCardRenderer {
         """
     }
 
+    private static func renderJSONPreview(_ preview: ToolArtifactJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let keys = preview.keyPreviewLabels.map {
+            #"<li data-testid="tool-card-json-preview-key-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let keyList = keys.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-json-preview-keys">
+                <strong data-testid="tool-card-json-preview-key-title">Top keys</strong>
+                <ul>\(keys)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(keyList)
+        </div>
+        """
+    }
+
     private static func renderAppshotPreview(_ preview: ToolArtifactAppshotPreview?) -> String {
         guard let preview else { return "" }
         let image = preview.screenshotURL.map {
@@ -488,6 +515,8 @@ enum WorkspaceHTMLToolCardRenderer {
             return "PDF"
         case .markdown:
             return "MD"
+        case .data:
+            return "JSON"
         case .document:
             return "DOC"
         case .spreadsheet:
