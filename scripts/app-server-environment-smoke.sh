@@ -78,6 +78,31 @@ def response(request_id, timeout=RESPONSE_TIMEOUT):
     return read_until(lambda record: record.get("id") == request_id, timeout=timeout)
 
 
+def environment_status(request_id):
+    send({
+        "id": request_id,
+        "method": "environment/status",
+        "params": {"environmentId": "remote"},
+    })
+    return response(request_id)["result"]
+
+
+def wait_for_ready_status(request_id, timeout=RESPONSE_TIMEOUT):
+    deadline = time.monotonic() + timeout
+    last_status = None
+    while time.monotonic() < deadline:
+        last_status = environment_status(request_id)
+        if last_status == {"status": "ready", "error": None}:
+            return last_status
+        request_id += 1
+        time.sleep(0.05)
+    raise AssertionError(
+        "remote environment did not become ready after reconnect: "
+        f"last_status={last_status!r} records={records[-12:]!r} "
+        f"exec_methods={server.methods[-12:]!r}"
+    )
+
+
 try:
     send({
         "id": 1,
@@ -199,12 +224,7 @@ try:
         "threadId": thread_id,
         "environmentId": "remote",
     }, connected
-    send({
-        "id": 9,
-        "method": "environment/status",
-        "params": {"environmentId": "remote"},
-    })
-    assert response(9)["result"] == {"status": "ready", "error": None}
+    wait_for_ready_status(9000)
 
     background_commands = {
         "printf quillcode-background-smoke-one",
@@ -373,7 +393,7 @@ assert server.methods[:2] == ["initialize", "initialized"], (
 )
 assert server.methods.count("initialize") >= 2, server.methods
 assert server.methods.count("initialize") == server.methods.count("initialized"), server.methods
-assert server.methods.count("environment/status") == 2, server.methods
+assert server.methods.count("environment/status") >= 2, server.methods
 assert server.methods.count("environment/info") >= 3, server.methods
 assert server.methods.count("process/terminate") == 2, server.methods
 PY

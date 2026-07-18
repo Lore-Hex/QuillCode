@@ -172,7 +172,11 @@ final class ParityAppServerEnvironmentGateTests: QuillCodeParityTestCase {
         )
         Self.assertSource(
             try text(root, "Tests/QuillCodeCLITests/AppServerRemoteEnvironmentToolExecutorTests.swift"),
-            contains: "testShellForwardsManagedNetworkRequirementsToRemoteProcess"
+            containsAll: [
+                "testShellForwardsManagedNetworkRequirementsToRemoteProcess",
+                "testShellStdinUsesTargetNativeTemporaryPathForWindowsRemote",
+                "testApplyPatchUsesTargetNativeTemporaryPathForWindowsRemote"
+            ]
         )
         Self.assertSource(processSessionTests, containsAll: [
             "testProcessSessionStreamsBeforeExitAndTerminatesTheStableProcessID",
