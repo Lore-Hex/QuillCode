@@ -206,6 +206,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
             let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
+            let xmlPreview = renderXMLPreview(artifact.xmlPreview)
             let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
             let jsonPreview = renderJSONPreview(artifact.jsonPreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
@@ -227,6 +228,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(jsonLinesPreview)
               \(tomlPreview)
               \(yamlPreview)
+              \(xmlPreview)
               \(propertyListPreview)
               \(jsonPreview)
               \(appshotPreview)
@@ -535,6 +537,31 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderXMLPreview(_ preview: ToolArtifactXMLPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-xml-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let children = preview.childPreviewLabels.map {
+            #"<li data-testid="tool-card-xml-preview-child-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let childList = children.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-xml-preview-children">
+                <strong data-testid="tool-card-xml-preview-child-title">Root children</strong>
+                <ul>\(children)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !childList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-xml-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(childList)
         </div>
         """
     }

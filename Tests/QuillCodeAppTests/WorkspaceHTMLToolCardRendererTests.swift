@@ -845,6 +845,63 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-plist-preview-key-item">NSPrincipalClass"#))
     }
 
+    func testHTMLRendererIncludesXMLArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let manifest = root.appendingPathComponent("manifest.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <project xmlns="https://quillcode.dev/schema" name="QuillCode" version="1.0">
+          <module name="QuillCodeApp">
+            <target platform="macOS" />
+            <target platform="Linux" />
+          </module>
+          <dependencies>
+            <dependency id="TrustedRouterSwift" />
+          </dependencies>
+          <settings>
+            <setting key="model" value="trustedrouter/fast" />
+          </settings>
+        </project>
+        """.write(to: manifest, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"manifest.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote manifest.xml\n", artifacts: [manifest.path])
+        let thread = ChatThread(
+            title: "XML artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">manifest.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-meta">Format: XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-meta">Root: project"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-meta">8 elements"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-meta">8 attributes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-meta">1 namespace"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-child-title">Root children"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-child-item">dependencies"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-child-item">module"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-child-item">settings"#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)

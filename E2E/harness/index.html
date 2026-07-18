@@ -8208,6 +8208,7 @@
         jsonLinesPreview: artifactJSONLinesPreview(value, kind, documentPreview),
         tomlPreview: artifactTOMLPreview(value, kind, documentPreview),
         yamlPreview: artifactYAMLPreview(value, kind, documentPreview),
+        xmlPreview: artifactXMLPreview(value, kind, documentPreview),
         propertyListPreview: artifactPropertyListPreview(value, kind, documentPreview),
         jsonPreview: artifactJSONPreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
@@ -8619,6 +8620,7 @@
       ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
       ['yaml', { kind: 'data', typeLabel: 'Data', icon: 'YAML' }],
       ['yml', { kind: 'data', typeLabel: 'Data', icon: 'YML' }],
+      ['xml', { kind: 'data', typeLabel: 'Data', icon: 'XML' }],
       ['plist', { kind: 'data', typeLabel: 'Data', icon: 'PLIST' }],
       ['numbers', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['csv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
@@ -9204,6 +9206,59 @@
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
       return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactXMLPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'xml') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const parser = new DOMParser();
+      const document = parser.parseFromString(content, 'application/xml');
+      if (document.querySelector('parsererror') || !document.documentElement) return null;
+      const root = document.documentElement;
+      const elements = [...document.getElementsByTagName('*')];
+      const namespaceNames = new Set();
+      let attributeCount = 0;
+      for (const element of elements) {
+        for (const attribute of [...element.attributes]) {
+          if (attribute.name === 'xmlns' || attribute.name.startsWith('xmlns:')) {
+            namespaceNames.add(attribute.name);
+          } else {
+            attributeCount += 1;
+          }
+        }
+      }
+      const childLabels = [...new Set([...root.children].map(child => jsonPreviewKeyLabel(child.tagName)))].sort();
+      const visibleChildren = childLabels.slice(0, 6);
+      const remainder = childLabels.length - visibleChildren.length;
+      const childPreviewLabel = visibleChildren.length
+        ? `${visibleChildren.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        rootElementLabel: jsonPreviewKeyLabel(root.tagName),
+        elementCount: elements.length,
+        attributeCount,
+        namespaceCount: namespaceNames.size,
+        childPreviewLabel,
+        childPreviewLabels: visibleChildren,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        'Format: XML',
+        `Root: ${preview.rootElementLabel}`,
+        `${preview.elementCount} element${preview.elementCount === 1 ? '' : 's'}`,
+        preview.attributeCount > 0 ? `${preview.attributeCount} attribute${preview.attributeCount === 1 ? '' : 's'}` : null,
+        preview.namespaceCount > 0 ? `${preview.namespaceCount} namespace${preview.namespaceCount === 1 ? '' : 's'}` : null,
+        preview.childPreviewLabel ? `Children: ${preview.childPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.childPreviewLabels.length ? preview : null;
     }
 
     function artifactPropertyListPreview(value, kind, documentPreview) {
@@ -11581,6 +11636,25 @@
                   ${keyList}
                 </div>` : '';
         };
+        const renderXMLPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-xml-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const children = (preview.childPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-xml-preview-child-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const childList = children ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-xml-preview-children">
+                    <strong data-testid="tool-card-xml-preview-child-title">Root children</strong>
+                    <ul>${children}</ul>
+                  </section>` : '';
+          return metadata || childList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-xml-preview">
+                  <div>${metadata}</div>
+                  ${childList}
+                </div>` : '';
+        };
         const renderPropertyListPreview = preview => {
           if (!preview) return '';
           const metadata = (preview.metadataLines || [])
@@ -11685,6 +11759,7 @@
                 ${renderJSONLinesPreview(artifact.jsonLinesPreview)}
                 ${renderTOMLPreview(artifact.tomlPreview)}
                 ${renderYAMLPreview(artifact.yamlPreview)}
+                ${renderXMLPreview(artifact.xmlPreview)}
                 ${renderPropertyListPreview(artifact.propertyListPreview)}
                 ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
@@ -23411,6 +23486,31 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `ci.yml`.');
+      } else if (text.toLowerCase().includes('xml artifact')) {
+        const path = '/mock/QuillCode/manifest.xml';
+        state.mockFiles[path] = [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<project xmlns="https://quillcode.dev/schema" name="QuillCode" version="1.0">',
+          '  <module name="QuillCodeApp">',
+          '    <target platform="macOS" />',
+          '    <target platform="Linux" />',
+          '  </module>',
+          '  <dependencies>',
+          '    <dependency id="TrustedRouterSwift" />',
+          '  </dependencies>',
+          '  <settings>',
+          '    <setting key="model" value="trustedrouter/fast" />',
+          '  </settings>',
+          '</project>'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/xml' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `manifest.xml`.');
       } else if (text.toLowerCase().includes('plist artifact')) {
         const path = '/mock/QuillCode/Info.plist';
         state.mockFiles[path] = [

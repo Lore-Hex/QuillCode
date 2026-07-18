@@ -477,6 +477,57 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePlist.propertyListPreview)
     }
 
+    func testArtifactStateDerivesXMLPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let manifest = directory.appendingPathComponent("manifest.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <project xmlns="https://quillcode.dev/schema" name="QuillCode" version="1.0">
+          <module name="QuillCodeApp">
+            <target platform="macOS" />
+            <target platform="Linux" />
+          </module>
+          <dependencies>
+            <dependency id="TrustedRouterSwift" />
+          </dependencies>
+          <settings>
+            <setting key="model" value="trustedrouter/fast" />
+          </settings>
+        </project>
+        """
+        try content.write(to: manifest, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: manifest.path)
+        let preview = try XCTUnwrap(artifact.xmlPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.rootElementLabel, "project")
+        XCTAssertEqual(preview.elementCount, 8)
+        XCTAssertEqual(preview.attributeCount, 8)
+        XCTAssertEqual(preview.namespaceCount, 1)
+        XCTAssertEqual(preview.childPreviewLabels, ["dependencies", "module", "settings"])
+        XCTAssertEqual(preview.childPreviewLabel, "dependencies, module, settings")
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: XML",
+            "Root: project",
+            "8 elements",
+            "8 attributes",
+            "1 namespace",
+            "Children: dependencies, module, settings",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+        XCTAssertNil(artifact.tomlPreview)
+        XCTAssertNil(artifact.yamlPreview)
+        XCTAssertNil(artifact.propertyListPreview)
+
+        let remoteXML = ToolArtifactState(value: "https://example.com/manifest.xml")
+        XCTAssertNil(remoteXML.xmlPreview)
+    }
+
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let spreadsheet = directory.appendingPathComponent("budget.xlsx")

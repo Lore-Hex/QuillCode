@@ -479,6 +479,50 @@ public struct ToolArtifactYAMLPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactXMLPreview: Codable, Sendable, Hashable {
+    public var rootElementLabel: String
+    public var elementCount: Int
+    public var attributeCount: Int
+    public var namespaceCount: Int
+    public var childPreviewLabel: String?
+    public var childPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: XML",
+            "Root: \(rootElementLabel)",
+            "\(elementCount) element\(elementCount == 1 ? "" : "s")",
+            attributeCount > 0 ? "\(attributeCount) attribute\(attributeCount == 1 ? "" : "s")" : nil,
+            namespaceCount > 0 ? "\(namespaceCount) namespace\(namespaceCount == 1 ? "" : "s")" : nil,
+            childPreviewLabel.map { "Children: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !childPreviewLabels.isEmpty
+    }
+
+    public init(
+        rootElementLabel: String,
+        elementCount: Int,
+        attributeCount: Int = 0,
+        namespaceCount: Int = 0,
+        childPreviewLabel: String? = nil,
+        childPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.rootElementLabel = rootElementLabel
+        self.elementCount = elementCount
+        self.attributeCount = attributeCount
+        self.namespaceCount = namespaceCount
+        self.childPreviewLabel = childPreviewLabel
+        self.childPreviewLabels = childPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactPropertyListPreview: Codable, Sendable, Hashable {
     public var rootLabel: String
     public var formatLabel: String?
@@ -676,6 +720,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var yamlPreview: ToolArtifactYAMLPreview? {
         ToolArtifactYAMLPreviewBuilder.yamlPreview(for: value, kind: kind)
+    }
+    public var xmlPreview: ToolArtifactXMLPreview? {
+        ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
     }
     public var propertyListPreview: ToolArtifactPropertyListPreview? {
         ToolArtifactPropertyListPreviewBuilder.propertyListPreview(for: value, kind: kind)

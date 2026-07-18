@@ -417,6 +417,38 @@ test('mock harness renders property list artifact metadata previews from tool ca
   await expect(page.getByText('Created `Info.plist`.')).toBeVisible();
 });
 
+test('mock harness renders XML artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make an xml artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('manifest.xml');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · XML');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('manifest.xml');
+  await expect(page.getByTestId('tool-card-xml-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-xml-preview-meta')).toHaveText([
+    'Format: XML',
+    'Root: project',
+    '8 elements',
+    '8 attributes',
+    '1 namespace',
+    'Children: dependencies, module, settings',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-xml-preview-child-title')).toHaveText('Root children');
+  await expect(page.getByTestId('tool-card-xml-preview-child-item')).toHaveText([
+    'dependencies',
+    'module',
+    'settings'
+  ]);
+  await expect(page.getByText('Created `manifest.xml`.')).toBeVisible();
+});
+
 test('mock harness renders office artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
