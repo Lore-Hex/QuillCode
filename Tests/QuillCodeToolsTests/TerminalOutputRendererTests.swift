@@ -221,9 +221,19 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("abcdef\u{1B}[1;3H\u{1B}[2P"), "abef  ")
     }
 
+    func testEraseCharactersBlanksCellsWithoutShiftingSuffix() {
+        XCTAssertEqual(render("abcdef\u{1B}[1;3H\u{1B}[2X"), "ab  ef")
+        XCTAssertEqual(render("abcdef\u{1B}[1;3H\u{1B}[X"), "ab def")
+    }
+
     func testInsertAndDeleteCharactersRespectWideCellBoundaries() {
         XCTAssertEqual(render("界XYZ\u{1B}[1;2H\u{1B}[PX"), " XYZ ")
         XCTAssertEqual(render("界XYZ\u{1B}[1;2H\u{1B}[@A"), " A XYZ")
+    }
+
+    func testEraseCharactersRespectWideCellBoundaries() {
+        XCTAssertEqual(render("A界Z\u{1B}[1;2H\u{1B}[X"), "A  Z")
+        XCTAssertEqual(render("A界Z\u{1B}[1;3H\u{1B}[X"), "A  Z")
     }
 
     func testAlternateScreenExitPreservesLatestFrameForTranscriptScrollback() {
