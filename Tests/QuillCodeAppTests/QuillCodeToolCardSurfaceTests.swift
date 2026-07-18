@@ -857,6 +857,50 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         return data
     }
 
+    func testArtifactStateDerivesWebAssemblyPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let module = directory.appendingPathComponent("module.wasm")
+        let bytes = wasmFixture(version: 1)
+        try bytes.write(to: module)
+
+        let artifact = ToolArtifactState(value: module.path)
+        let preview = try XCTUnwrap(artifact.webAssemblyPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "WASM")
+        XCTAssertEqual(preview.formatLabel, "WebAssembly")
+        XCTAssertEqual(preview.version, 1)
+        XCTAssertEqual(preview.byteSizeLabel, ToolArtifactByteSizeFormatter.label(for: bytes.count))
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: WebAssembly",
+            "Version: 1",
+            "Size: \(try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: bytes.count)))"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+        XCTAssertNil(artifact.tomlPreview)
+        XCTAssertNil(artifact.yamlPreview)
+        XCTAssertNil(artifact.propertyListPreview)
+        XCTAssertNil(artifact.sqlitePreview)
+
+        let corruptModule = directory.appendingPathComponent("corrupt.wasm")
+        try Data(repeating: 0, count: 8).write(to: corruptModule)
+        XCTAssertNil(ToolArtifactState(value: corruptModule.path).webAssemblyPreview)
+
+        let remoteModule = ToolArtifactState(value: "https://example.com/module.wasm")
+        XCTAssertNil(remoteModule.webAssemblyPreview)
+    }
+
+    private func wasmFixture(version: UInt32) -> Data {
+        Data([
+            0x00, 0x61, 0x73, 0x6D,
+            UInt8(version & 0xFF),
+            UInt8((version >> 8) & 0xFF),
+            UInt8((version >> 16) & 0xFF),
+            UInt8((version >> 24) & 0xFF)
+        ])
+    }
+
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let spreadsheet = directory.appendingPathComponent("budget.xlsx")

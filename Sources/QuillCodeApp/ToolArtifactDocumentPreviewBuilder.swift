@@ -63,6 +63,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "sqlite": .data,
         "sqlite3": .data,
         "toml": .data,
+        "wasm": .data,
         "yaml": .data,
         "yml": .data,
         "xml": .data,

@@ -8259,6 +8259,7 @@
         xmlPreview: artifactXMLPreview(value, kind, documentPreview),
         propertyListPreview: artifactPropertyListPreview(value, kind, documentPreview),
         sqlitePreview: artifactSQLitePreview(value, kind, documentPreview),
+        webAssemblyPreview: artifactWebAssemblyPreview(value, kind, documentPreview),
         jsonPreview: artifactJSONPreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
         mediaPreview: artifactMediaPreview(value, kind, documentPreview),
@@ -8646,6 +8647,16 @@
       return binaryString(bytes);
     }
 
+    function mockWebAssemblyModule(version = 1) {
+      return binaryString([
+        0x00, 0x61, 0x73, 0x6D,
+        version & 0xFF,
+        (version >> 8) & 0xFF,
+        (version >> 16) & 0xFF,
+        (version >> 24) & 0xFF
+      ]);
+    }
+
     function mockTIFFHeader(width, height) {
       return binaryString([
         ...Array.from('II').map(character => character.charCodeAt(0)),
@@ -8694,6 +8705,7 @@
       ['sqlite', { kind: 'data', typeLabel: 'Data', icon: 'DB' }],
       ['sqlite3', { kind: 'data', typeLabel: 'Data', icon: 'DB' }],
       ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
+      ['wasm', { kind: 'data', typeLabel: 'Data', icon: 'WASM' }],
       ['yaml', { kind: 'data', typeLabel: 'Data', icon: 'YAML' }],
       ['yml', { kind: 'data', typeLabel: 'Data', icon: 'YML' }],
       ['xml', { kind: 'data', typeLabel: 'Data', icon: 'XML' }],
@@ -9614,6 +9626,36 @@
         `Format: ${preview.formatLabel}`,
         preview.pageSize ? `Page size: ${preview.pageSize} bytes` : null,
         preview.pageCount ? `${preview.pageCount} page${preview.pageCount === 1 ? '' : 's'}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
+    }
+
+    function artifactWebAssemblyPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      if (artifactPreviewExtension(value) !== 'wasm') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || content.length < 8) return null;
+      if (content.charCodeAt(0) !== 0x00
+          || content.charCodeAt(1) !== 0x61
+          || content.charCodeAt(2) !== 0x73
+          || content.charCodeAt(3) !== 0x6D) {
+        return null;
+      }
+
+      const version = content.charCodeAt(4)
+        | (content.charCodeAt(5) << 8)
+        | (content.charCodeAt(6) << 16)
+        | (content.charCodeAt(7) << 24);
+      const preview = {
+        formatLabel: 'WebAssembly',
+        version: version >>> 0,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        `Version: ${preview.version}`,
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
       return preview.metadataLines.length ? preview : null;
@@ -12422,6 +12464,16 @@
                   <div>${metadata}</div>
                 </div>` : '';
         };
+        const renderWebAssemblyPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-wasm-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return metadata ? `
+                <div class="artifact-office-preview" data-testid="tool-card-wasm-preview">
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
         const renderMediaPreview = preview => {
           if (!preview) return '';
           const title = preview.title
@@ -12515,6 +12567,7 @@
                 ${renderXMLPreview(artifact.xmlPreview)}
                 ${renderPropertyListPreview(artifact.propertyListPreview)}
                 ${renderSQLitePreview(artifact.sqlitePreview)}
+                ${renderWebAssemblyPreview(artifact.webAssemblyPreview)}
                 ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
                 ${renderArchivePreview(artifact.archivePreview)}
@@ -24638,6 +24691,17 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `cache.sqlite3`.');
+      } else if (text.toLowerCase().includes('wasm artifact') || text.toLowerCase().includes('webassembly artifact')) {
+        const path = '/mock/QuillCode/build/module.wasm';
+        state.mockFiles[path] = mockWebAssemblyModule(1);
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/wasm' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `module.wasm`.');
       } else if (text.toLowerCase().includes('json artifact')) {
         const path = '/mock/QuillCode/reports/build-report.json';
         state.mockFiles[path] = JSON.stringify({
