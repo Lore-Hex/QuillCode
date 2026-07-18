@@ -86,6 +86,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "tarFileName",
             "tarFileSize",
             "gzipOriginalFileName",
+            "includesSingleMemberCounts",
             "uncompressedByteSizeLabel",
             "entryPreviewLabel",
             "topLevelCount"

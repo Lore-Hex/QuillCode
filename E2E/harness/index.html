@@ -8779,11 +8779,11 @@
     function artifactArchivePreview(value, kind, documentPreview) {
       if (kind !== 'file' || documentPreview?.kind !== 'archive') return null;
       const extension = artifactPreviewExtension(value);
-      if (!['zip', 'tar', 'gz'].includes(extension)) return null;
+      if (!['zip', 'tar', 'gz', 'tar.gz', 'tgz'].includes(extension)) return null;
       const path = artifactFilePath(value);
       const packageInfo = path ? state.mockOfficePackages[path] : null;
-      if (extension === 'gz') {
-        return artifactGzipPreview(path, packageInfo);
+      if (['gz', 'tar.gz', 'tgz'].includes(extension)) {
+        return artifactGzipPreview(path, packageInfo, extension);
       }
       const fileNames = Array.isArray(packageInfo?.fileNames) ? packageInfo.fileNames : null;
       if (!fileNames) return null;
@@ -8815,16 +8815,17 @@
       return preview.metadataLines.length ? preview : null;
     }
 
-    function artifactGzipPreview(path, packageInfo) {
+    function artifactGzipPreview(path, packageInfo, extension) {
       if (!packageInfo || packageInfo.format !== 'gzip') return null;
       const memberName = packageInfo.originalName ? archiveEntryPreviewLabel([packageInfo.originalName]) : null;
       const byteSize = Number.isFinite(packageInfo.sizeBytes)
         ? packageInfo.sizeBytes
         : (state.mockFiles[path] || '').length;
+      const includesSingleMemberCounts = extension === 'gz';
       const preview = {
-        formatLabel: 'GZIP',
-        entryCount: 1,
-        topLevelCount: memberName ? 1 : null,
+        formatLabel: extension === 'gz' ? 'GZIP' : extension.toUpperCase(),
+        entryCount: includesSingleMemberCounts ? 1 : null,
+        topLevelCount: includesSingleMemberCounts && memberName ? 1 : null,
         entryPreviewLabel: memberName,
         uncompressedByteSizeLabel: Number.isFinite(packageInfo.uncompressedBytes)
           ? byteSizeLabel(packageInfo.uncompressedBytes)
@@ -8833,7 +8834,7 @@
       };
       preview.metadataLines = [
         `Format: ${preview.formatLabel}`,
-        '1 entry',
+        Number.isInteger(preview.entryCount) ? '1 entry' : null,
         Number.isInteger(preview.topLevelCount)
           ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
           : null,
@@ -22587,7 +22588,7 @@
         state.mockFiles[zipPath] = 'PK\u0003\u0004';
         state.mockFiles[tarPath] = 'ustar';
         state.mockFiles[gzipPath] = '\u001f\u008b\u0008\u0008';
-        state.mockFiles[tarGzPath] = '\u001f\u008b';
+        state.mockFiles[tarGzPath] = '\u001f\u008b\u0008\u0008';
         state.mockOfficePackages[zipPath] = {
           fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift', 'README.md'],
           sizeBytes: 4096
@@ -22601,6 +22602,12 @@
           originalName: 'report.txt',
           uncompressedBytes: 2048,
           sizeBytes: 36
+        };
+        state.mockOfficePackages[tarGzPath] = {
+          format: 'gzip',
+          originalName: 'logs.tar',
+          uncompressedBytes: 8192,
+          sizeBytes: 44
         };
         addToolCard({
           title: 'host.file.write',

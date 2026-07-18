@@ -23,7 +23,19 @@ enum ToolArtifactArchivePreviewBuilder {
             case "tar":
                 preview = try tarPreview(from: fileURL, fileSize: fileSize)
             case "gz":
-                preview = try gzipPreview(from: fileURL, fileSize: fileSize)
+                preview = try gzipPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: "GZIP",
+                    includesSingleMemberCounts: true
+                )
+            case "tar.gz", "tgz":
+                preview = try gzipPreview(
+                    from: fileURL,
+                    fileSize: fileSize,
+                    formatLabel: documentPreview.extensionLabel.uppercased(),
+                    includesSingleMemberCounts: false
+                )
             default:
                 preview = nil
             }
@@ -91,7 +103,12 @@ enum ToolArtifactArchivePreviewBuilder {
         )
     }
 
-    private static func gzipPreview(from fileURL: URL, fileSize: Int) throws -> ToolArtifactArchivePreview? {
+    private static func gzipPreview(
+        from fileURL: URL,
+        fileSize: Int,
+        formatLabel: String,
+        includesSingleMemberCounts: Bool
+    ) throws -> ToolArtifactArchivePreview? {
         guard fileSize >= gzipMinimumSize else { return nil }
 
         let handle = try FileHandle(forReadingFrom: fileURL)
@@ -120,9 +137,9 @@ enum ToolArtifactArchivePreviewBuilder {
 
         let uncompressedSize = gzipLittleEndianUInt32(trailer)
         return ToolArtifactArchivePreview(
-            formatLabel: "GZIP",
-            entryCount: 1,
-            topLevelCount: memberName == nil ? nil : 1,
+            formatLabel: formatLabel,
+            entryCount: includesSingleMemberCounts ? 1 : nil,
+            topLevelCount: includesSingleMemberCounts && memberName != nil ? 1 : nil,
             entryPreviewLabel: memberName,
             uncompressedByteSizeLabel: ToolArtifactByteSizeFormatter.label(for: Int(uncompressedSize)),
             byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize)
