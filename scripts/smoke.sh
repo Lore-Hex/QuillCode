@@ -35,6 +35,10 @@ if [[ -n "$ARTIFACT_DIR" ]]; then
   ARTIFACT_DIR="$(cd "$ARTIFACT_DIR" && pwd)"
 fi
 
+log_step() {
+  printf '==> [%s] %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$1"
+}
+
 write_manifest() {
   local exit_code="$1"
   local detail="$2"
@@ -293,29 +297,29 @@ prepare_git_workspace() {
 FINAL_DETAIL="mock CLI git fixture setup failed"
 prepare_git_workspace
 
-echo "==> Running Swift test suite"
+log_step "Running Swift test suite"
 SWIFT_TESTS_STATUS="running"
 FINAL_DETAIL="Swift test suite failed"
 swift test
 SWIFT_TESTS_STATUS="passed"
 
-echo "==> Running non-interactive CLI process smoke"
+log_step "Running non-interactive CLI process smoke"
 FINAL_DETAIL="non-interactive CLI process smoke failed"
 "$ROOT_DIR/scripts/cli-exec-smoke.sh"
 
-echo "==> Running CLI doctor process smoke"
+log_step "Running CLI doctor process smoke"
 CLI_DOCTOR_STATUS="running"
 FINAL_DETAIL="CLI doctor process smoke failed"
 "$ROOT_DIR/scripts/cli-doctor-smoke.sh"
 CLI_DOCTOR_STATUS="passed"
 
-echo "==> Running CLI review process smoke"
+log_step "Running CLI review process smoke"
 CLI_REVIEW_STATUS="running"
 FINAL_DETAIL="CLI review process smoke failed"
 "$ROOT_DIR/scripts/cli-review-smoke.sh"
 CLI_REVIEW_STATUS="passed"
 
-echo "==> Running app-server protocol smoke"
+log_step "Running app-server protocol smoke"
 APP_SERVER_STATUS="running"
 FINAL_DETAIL="app-server protocol smoke failed"
 "$ROOT_DIR/scripts/app-server-smoke.sh"
@@ -324,13 +328,13 @@ QUILLCODE_SKIP_BUILD=1 "$ROOT_DIR/scripts/app-server-websocket-smoke.sh"
 QUILLCODE_SKIP_BUILD=1 "$ROOT_DIR/scripts/app-server-environment-smoke.sh"
 APP_SERVER_STATUS="passed"
 
-echo "==> Running Codex-compatible MCP server protocol smoke"
+log_step "Running Codex-compatible MCP server protocol smoke"
 MCP_SERVER_STATUS="running"
 FINAL_DETAIL="MCP server protocol smoke failed"
 QUILLCODE_SKIP_BUILD=1 "$ROOT_DIR/scripts/mcp-server-smoke.sh"
 MCP_SERVER_STATUS="passed"
 
-echo "==> Running mock CLI shell command"
+log_step "Running mock CLI shell command"
 CLI_SHELL_STATUS="running"
 FINAL_DETAIL="mock CLI shell command failed"
 whoami_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "run whoami")"
@@ -347,7 +351,7 @@ polite_bare_output="$(swift run quill-code \
 assert_cli_output_contains "$polite_bare_output" "quillcode_polite_smoke" "polite bare command"
 CLI_SHELL_STATUS="passed"
 
-echo "==> Running mock CLI natural diagnostic prompts"
+log_step "Running mock CLI natural diagnostic prompts"
 CLI_DIAGNOSTICS_STATUS="running"
 FINAL_DETAIL="mock CLI natural diagnostic prompts failed"
 whoami_question_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "whoami?")"
@@ -371,7 +375,7 @@ openclaw_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKS
 assert_cli_output_contains "$openclaw_output" "openclaw" "Do you have openclaw?"
 CLI_DIAGNOSTICS_STATUS="passed"
 
-echo "==> Running mock CLI git read prompts"
+log_step "Running mock CLI git read prompts"
 CLI_GIT_READ_STATUS="running"
 FINAL_DETAIL="mock CLI git read prompts failed"
 git_status_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Please check git status.")"
@@ -384,7 +388,7 @@ assert_cli_output_contains "$git_diff_output" "tracked.txt" "what changed?"
 assert_cli_output_contains "$git_diff_output" "+after" "what changed?"
 CLI_GIT_READ_STATUS="passed"
 
-echo "==> Running mock CLI natural file read prompt"
+log_step "Running mock CLI natural file read prompt"
 CLI_FILE_READ_STATUS="running"
 FINAL_DETAIL="mock CLI natural file read prompt failed"
 file_read_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "What is in README.md?")"
@@ -392,7 +396,7 @@ assert_cli_output_contains "$file_read_output" 'Contents of `README.md`' "What i
 assert_cli_output_contains "$file_read_output" "QuillCode smoke README" "What is in README.md"
 CLI_FILE_READ_STATUS="passed"
 
-echo "==> Running mock CLI natural file search prompt"
+log_step "Running mock CLI natural file search prompt"
 CLI_FILE_SEARCH_STATUS="running"
 FINAL_DETAIL="mock CLI natural file search prompt failed"
 file_search_output="$(swift run quill-code \
@@ -406,7 +410,7 @@ assert_cli_output_contains \
 assert_cli_output_contains "$file_search_output" 'Sources/SmokeSearch.swift:1' "Where is SmokeSearchSymbol defined"
 CLI_FILE_SEARCH_STATUS="passed"
 
-echo "==> Running mock CLI negative action prompts"
+log_step "Running mock CLI negative action prompts"
 CLI_NEGATIVE_ACTION_STATUS="running"
 FINAL_DETAIL="mock CLI negative action prompts failed"
 negated_run_output="$(swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "Do not run whoami.")"
@@ -438,7 +442,7 @@ if [[ -e "$SMOKE_WORKSPACE/downloads/forbidden.html" ]]; then
 fi
 CLI_NEGATIVE_ACTION_STATUS="passed"
 
-echo "==> Running mock CLI file creation"
+log_step "Running mock CLI file creation"
 CLI_FILE_CREATION_STATUS="running"
 FINAL_DETAIL="mock CLI file creation failed"
 swift run quill-code --home "$SMOKE_HOME" --cwd "$SMOKE_WORKSPACE" "make a file that says hello world" >/dev/null
@@ -452,7 +456,7 @@ if [[ "$(tr -d '\r' < "$SMOKE_WORKSPACE/hello.txt")" != "hello world" ]]; then
 fi
 CLI_FILE_CREATION_STATUS="passed"
 
-echo "==> Running mock CLI workspace follow-up"
+log_step "Running mock CLI workspace follow-up"
 CLI_WORKSPACE_FOLLOWUP_STATUS="running"
 FINAL_DETAIL="mock CLI workspace follow-up failed"
 list_output="$(swift run quill-code \
@@ -468,7 +472,7 @@ read_output="$(swift run quill-code \
 assert_cli_output_contains "$read_output" "hello world" "read created hello.txt"
 CLI_WORKSPACE_FOLLOWUP_STATUS="passed"
 
-echo "==> Running mock CLI local download"
+log_step "Running mock CLI local download"
 CLI_DOWNLOAD_STATUS="running"
 FINAL_DETAIL="mock CLI local download failed"
 DOWNLOAD_SOURCE="$SMOKE_ROOT/source.html"
@@ -490,7 +494,7 @@ if ! grep -q "QuillCode smoke" "$SMOKE_WORKSPACE/downloads/example.html"; then
 fi
 CLI_DOWNLOAD_STATUS="passed"
 
-echo "==> Verifying CLI live-mode errors are readable"
+log_step "Verifying CLI live-mode errors are readable"
 LIVE_ERROR_STATUS="running"
 FINAL_DETAIL="CLI live-mode missing-key error check failed"
 LIVE_ERROR_STDOUT="$SMOKE_ROOT/live-error.stdout"
@@ -517,6 +521,7 @@ if grep -q "Fatal error" "$LIVE_ERROR_STDERR"; then
 fi
 LIVE_ERROR_STATUS="passed"
 
+log_step "Running native desktop smoke"
 NATIVE_DESKTOP_STATUS="running"
 FINAL_DETAIL="native desktop smoke failed"
 QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/native-desktop}" \
@@ -524,6 +529,7 @@ QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/nativ
 NATIVE_DESKTOP_STATUS="passed"
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
+  log_step "Running packaged macOS smoke"
   PACKAGED_MACOS_STATUS="running"
   PACKAGED_MACOS_DETAIL="running"
   FINAL_DETAIL="packaged macOS smoke failed"
@@ -534,7 +540,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
 fi
 
 if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then
-  echo "==> Running Playwright E2E suite"
+  log_step "Running Playwright E2E suite"
   PLAYWRIGHT_STATUS="running"
   PLAYWRIGHT_DETAIL="running"
   FINAL_DETAIL="Playwright E2E failed"
@@ -556,7 +562,7 @@ elif is_truthy "$REQUIRE_PLAYWRIGHT"; then
 else
   PLAYWRIGHT_STATUS="skipped"
   PLAYWRIGHT_DETAIL="E2E/playwright/node_modules is missing and Playwright is not required"
-  echo "==> Skipping Playwright E2E; run npm install in E2E/playwright to include it"
+  log_step "Skipping Playwright E2E; run npm install in E2E/playwright to include it"
 fi
 
 FINAL_DETAIL="completed"
