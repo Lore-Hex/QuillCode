@@ -490,6 +490,9 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(preview.actionCount, 2)
         XCTAssertEqual(preview.frameCount, 2)
         XCTAssertEqual(preview.eventCount, 3)
+        XCTAssertEqual(preview.actionLabels, ["click: Email", "type: user@example.com"])
+        XCTAssertEqual(preview.frameLabels, ["checkout-start.png", "checkout.png"])
+        XCTAssertEqual(preview.eventLabels, ["navigation", "form-fill", "capture"])
         XCTAssertEqual(preview.capturedAt, "2026-06-21T12:00:00Z")
         XCTAssertEqual(preview.metadataLines, [
             "App: QuillCode",

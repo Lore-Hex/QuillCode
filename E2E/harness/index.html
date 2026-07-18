@@ -3691,6 +3691,42 @@
       font-size: 11px;
       font-weight: 650;
     }
+    .artifact-appshot-replay-group {
+      grid-column: 1 / -1;
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .artifact-appshot-replay-group strong {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+    }
+    .artifact-appshot-replay-group ol {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .artifact-appshot-replay-group li {
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr);
+      gap: 8px;
+      min-width: 0;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .artifact-appshot-replay-group li span {
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+      text-align: right;
+    }
     .artifact-pdf-preview,
     .artifact-markdown-preview,
     .artifact-office-preview,
@@ -8650,7 +8686,10 @@
         actionCount: appshotFirstArrayCount(root, ['actions', 'steps', 'commands']),
         frameCount: appshotFirstArrayCount(root, ['frames', 'screenshots', 'captures']),
         eventCount: appshotFirstArrayCount(root, ['events', 'timeline']),
-        screenshotURL: appshotScreenshotURL(root, path)
+        screenshotURL: appshotScreenshotURL(root, path),
+        actionLabels: appshotReplayLabels(root, ['actions', 'steps', 'commands'], 'action'),
+        frameLabels: appshotReplayLabels(root, ['frames', 'screenshots', 'captures'], 'frame'),
+        eventLabels: appshotReplayLabels(root, ['events', 'timeline'], 'event')
       };
       preview.metadataLines = [
         preview.appLabel ? `App: ${preview.appLabel}` : null,
@@ -8668,6 +8707,9 @@
         preview.capturedAt,
         preview.viewportLabel,
         preview.screenshotURL,
+        preview.actionLabels.length ? preview.actionLabels.join(' ') : null,
+        preview.frameLabels.length ? preview.frameLabels.join(' ') : null,
+        preview.eventLabels.length ? preview.eventLabels.join(' ') : null,
         Number.isInteger(preview.windowCount) ? String(preview.windowCount) : null,
         Number.isInteger(preview.actionCount) ? String(preview.actionCount) : null,
         Number.isInteger(preview.frameCount) ? String(preview.frameCount) : null,
@@ -9050,6 +9092,54 @@
         if (Array.isArray(root[key]) && root[key].length > 0) return root[key].length;
       }
       return null;
+    }
+
+    function appshotReplayLabels(root, keys, kind) {
+      for (const key of keys) {
+        if (!Array.isArray(root[key]) || root[key].length === 0) continue;
+        return root[key].slice(0, 4).map(value => appshotReplayLabel(value, kind)).filter(Boolean);
+      }
+      return [];
+    }
+
+    function appshotReplayLabel(value, kind) {
+      const stringValue = appshotStringValue(value, []);
+      if (stringValue) return boundedAppshotReplayLabel(stringValue);
+      if (!value || Array.isArray(value) || typeof value !== 'object') return null;
+      const fields = {
+        action: [
+          ['type', 'action', 'name', 'title'],
+          ['target', 'selector', 'text', 'value', 'label']
+        ],
+        frame: [
+          ['title', 'name', 'screenshot', 'path', 'url'],
+          ['screenshot', 'path', 'url', 'image']
+        ],
+        event: [
+          ['name', 'type', 'event', 'title'],
+          ['target', 'detail', 'summary', 'text']
+        ]
+      }[kind];
+      const primary = firstAppshotString(value, fields[0]);
+      const secondary = firstAppshotString(value, fields[1]);
+      if (primary && secondary && primary !== secondary) {
+        return boundedAppshotReplayLabel(`${primary}: ${secondary}`);
+      }
+      return boundedAppshotReplayLabel(primary || secondary || '');
+    }
+
+    function firstAppshotString(object, keys) {
+      for (const key of keys) {
+        const value = appshotStringValue(object[key], ['value', 'text', 'name', 'path', 'url']);
+        if (value) return value;
+      }
+      return null;
+    }
+
+    function boundedAppshotReplayLabel(label) {
+      const trimmed = String(label || '').trim();
+      if (!trimmed) return null;
+      return trimmed.length > 80 ? `${trimmed.slice(0, 80)}...` : trimmed;
     }
 
     function appshotImageURL(value, appshotPath) {
@@ -10905,7 +10995,8 @@
           const metadata = (preview.metadataLines || [])
             .map(line => `<small data-testid="tool-card-appshot-preview-meta">${escapeHTML(line)}</small>`)
             .join('');
-          return image || title || summary || metadata ? `
+          const replay = renderAppshotReplay(preview);
+          return image || title || summary || metadata || replay ? `
                 <div class="artifact-appshot-preview" data-testid="tool-card-appshot-preview">
                   ${image}
                   <div>
@@ -10913,7 +11004,20 @@
                     ${summary}
                     ${metadata}
                   </div>
+                  ${replay}
                 </div>` : '';
+        };
+        const renderAppshotReplay = preview => {
+          const groups = [
+            ['Actions', preview.actionLabels || []],
+            ['Frames', preview.frameLabels || []],
+            ['Events', preview.eventLabels || []]
+          ].filter(([, labels]) => labels.length);
+          return groups.map(([title, labels]) => `
+                <section class="artifact-appshot-replay-group" data-testid="tool-card-appshot-replay-group">
+                  <strong data-testid="tool-card-appshot-replay-title">${escapeHTML(title)}</strong>
+                  <ol>${labels.map((label, index) => `<li data-testid="tool-card-appshot-replay-item"><span>${index + 1}</span>${escapeHTML(label)}</li>`).join('')}</ol>
+                </section>`).join('');
         };
         return previews.length ? `
           <div class="tool-artifact-document-previews" data-testid="tool-card-document-previews" aria-label="Document previews">

@@ -88,6 +88,9 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
     public var frameCount: Int?
     public var eventCount: Int?
     public var screenshotURL: String?
+    public var actionLabels: [String]
+    public var frameLabels: [String]
+    public var eventLabels: [String]
 
     public var metadataLines: [String] {
         [
@@ -112,6 +115,9 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
             || frameCount != nil
             || eventCount != nil
             || screenshotURL != nil
+            || !actionLabels.isEmpty
+            || !frameLabels.isEmpty
+            || !eventLabels.isEmpty
     }
 
     public init(
@@ -124,7 +130,10 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
         actionCount: Int? = nil,
         frameCount: Int? = nil,
         eventCount: Int? = nil,
-        screenshotURL: String? = nil
+        screenshotURL: String? = nil,
+        actionLabels: [String] = [],
+        frameLabels: [String] = [],
+        eventLabels: [String] = []
     ) {
         self.title = title
         self.appLabel = appLabel
@@ -136,6 +145,9 @@ public struct ToolArtifactAppshotPreview: Codable, Sendable, Hashable {
         self.frameCount = frameCount
         self.eventCount = eventCount
         self.screenshotURL = screenshotURL
+        self.actionLabels = actionLabels
+        self.frameLabels = frameLabels
+        self.eventLabels = eventLabels
     }
 }
 

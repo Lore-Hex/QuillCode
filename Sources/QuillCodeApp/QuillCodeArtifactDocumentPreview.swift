@@ -95,6 +95,7 @@ struct QuillCodeArtifactDocumentPreview: View {
                 subtitleLineLimit: 2
             )
             appshotMetadata(appshotPreview.metadataLines)
+            appshotReplayTimeline(appshotPreview)
         }
     }
 
@@ -288,6 +289,39 @@ struct QuillCodeArtifactDocumentPreview: View {
                 }
             }
             .padding(.leading, 2)
+        }
+    }
+
+    @ViewBuilder
+    private func appshotReplayTimeline(_ appshotPreview: ToolArtifactAppshotPreview) -> some View {
+        let groups = [
+            ("Actions", appshotPreview.actionLabels),
+            ("Frames", appshotPreview.frameLabels),
+            ("Events", appshotPreview.eventLabels)
+        ].filter { !$0.1.isEmpty }
+        if !groups.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(groups, id: \.0) { title, labels in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(QuillCodePalette.muted)
+                        ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text("\(index + 1)")
+                                    .font(.caption2.monospacedDigit().weight(.bold))
+                                    .foregroundStyle(QuillCodePalette.blue)
+                                    .frame(width: 18, alignment: .trailing)
+                                Text(label)
+                                    .font(.caption)
+                                    .foregroundStyle(QuillCodePalette.text)
+                                    .lineLimit(2)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(.top, 2)
         }
     }
 

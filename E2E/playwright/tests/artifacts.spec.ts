@@ -433,6 +433,16 @@ test('mock harness renders appshot artifact previews from tool cards', async ({ 
     'src',
     'file:///mock/QuillCode/appshots/checkout.png'
   );
+  await expect(page.getByTestId('tool-card-appshot-replay-title')).toHaveText(['Actions', 'Frames', 'Events']);
+  await expect(page.getByTestId('tool-card-appshot-replay-item')).toHaveText([
+    '1click: Email',
+    '2type: user@example.com',
+    '1checkout-start.png',
+    '2checkout.png',
+    '1navigation',
+    '2form-fill',
+    '3capture'
+  ]);
   await expect(page.getByTestId('tool-card-document-preview-open')).toHaveAttribute('href', 'file:///mock/QuillCode/appshots/checkout.appshot.json');
   await expect(page.getByTestId('tool-card-text-previews')).toHaveCount(0);
   await expect(page.getByText('Captured appshot `checkout.appshot.json`.')).toBeVisible();

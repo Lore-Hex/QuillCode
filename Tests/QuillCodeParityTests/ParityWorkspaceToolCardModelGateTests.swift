@@ -70,7 +70,21 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "enum ToolArtifactAppshotPreviewBuilder",
             "byteLimit",
             "appshotRoot",
-            "screenshotURL"
+            "screenshotURL",
+            "replayLabels",
+            "ReplayLabelKind",
+            "replayLabelLimit"
+        ])
+        Self.assertSource(toolArtifactSurfaceText, containsAll: [
+            "actionLabels: [String]",
+            "frameLabels: [String]",
+            "eventLabels: [String]"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "appshotReplayTimeline(appshotPreview)",
+            "appshotPreview.actionLabels",
+            "appshotPreview.frameLabels",
+            "appshotPreview.eventLabels"
         ])
         Self.assertSource(artifactPDFPreviewText, containsAll: [
             "enum ToolArtifactPDFPreviewBuilder",

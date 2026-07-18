@@ -571,6 +571,13 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-meta">Captured: 2026-06-21T12:00:00Z"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-preview-image""#))
         XCTAssertTrue(html.contains(#"src="\#(appshots.appendingPathComponent("checkout.png").standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-replay-group""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-replay-title">Actions"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-replay-title">Frames"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-appshot-replay-title">Events"#))
+        XCTAssertTrue(html.contains("click"))
+        XCTAssertTrue(html.contains("checkout.png"))
+        XCTAssertTrue(html.contains("capture"))
         XCTAssertTrue(html.contains(#"href="\#(appshot.standardizedFileURL.absoluteString)""#))
         XCTAssertFalse(html.contains(#"data-testid="tool-card-text-preview-label">checkout.appshot.json"#))
     }

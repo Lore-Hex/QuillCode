@@ -417,7 +417,8 @@ enum WorkspaceHTMLToolCardRenderer {
         let metadata = preview.metadataLines.map {
             #"<small data-testid="tool-card-appshot-preview-meta">\#(escape($0))</small>"#
         }.joined(separator: "")
-        guard !image.isEmpty || !title.isEmpty || !summary.isEmpty || !metadata.isEmpty else {
+        let replay = renderAppshotReplay(preview)
+        guard !image.isEmpty || !title.isEmpty || !summary.isEmpty || !metadata.isEmpty || !replay.isEmpty else {
             return ""
         }
         return """
@@ -428,8 +429,29 @@ enum WorkspaceHTMLToolCardRenderer {
             \(summary)
             \(metadata)
           </div>
+          \(replay)
         </div>
         """
+    }
+
+    private static func renderAppshotReplay(_ preview: ToolArtifactAppshotPreview) -> String {
+        let groups = [
+            ("Actions", preview.actionLabels),
+            ("Frames", preview.frameLabels),
+            ("Events", preview.eventLabels)
+        ].filter { !$0.1.isEmpty }
+        guard !groups.isEmpty else { return "" }
+        return groups.map { title, labels in
+            let items = labels.enumerated().map { index, label in
+                #"<li data-testid="tool-card-appshot-replay-item"><span>\#(index + 1)</span>\#(escape(label))</li>"#
+            }.joined(separator: "")
+            return """
+            <section class="artifact-appshot-replay-group" data-testid="tool-card-appshot-replay-group">
+              <strong data-testid="tool-card-appshot-replay-title">\(escape(title))</strong>
+              <ol>\(items)</ol>
+            </section>
+            """
+        }.joined(separator: "")
     }
 
     private static func documentIcon(for kind: ToolArtifactDocumentKind) -> String {
