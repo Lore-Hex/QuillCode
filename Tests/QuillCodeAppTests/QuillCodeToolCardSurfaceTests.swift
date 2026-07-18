@@ -1334,6 +1334,30 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             typeLabel: "Gradle Kotlin",
             lineCountLabel: "3 lines"
         )
+        try assertSourcePreview(
+            filename: "package.json",
+            contents: "{\n  \"name\": \"quillcode\"\n}\n",
+            typeLabel: "npm package",
+            lineCountLabel: "3 lines"
+        )
+        try assertSourcePreview(
+            filename: "tsconfig.json",
+            contents: "{\n  \"compilerOptions\": {}\n}\n",
+            typeLabel: "TypeScript config",
+            lineCountLabel: "3 lines"
+        )
+        try assertSourcePreview(
+            filename: "Cargo.toml",
+            contents: "[package]\nname = \"quillcode\"\n",
+            typeLabel: "Cargo manifest",
+            lineCountLabel: "2 lines"
+        )
+        try assertSourcePreview(
+            filename: "requirements.txt",
+            contents: "pytest==8.0.0\nplaywright==1.54.0\n",
+            typeLabel: "Python requirements",
+            lineCountLabel: "2 lines"
+        )
     }
 
     private func pngHeader(width: UInt32, height: UInt32) -> Data {

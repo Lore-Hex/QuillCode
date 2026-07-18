@@ -10112,24 +10112,52 @@
       'txt', 'vue', 'xml', 'yaml', 'yml'
     ]);
     const textPreviewFilenames = new Set([
-      '.gitignore', 'build.gradle', 'build.gradle.kts', 'dockerfile', 'gemfile',
-      'go.mod', 'go.sum', 'license', 'makefile', 'podfile', 'readme',
-      'settings.gradle', 'settings.gradle.kts'
+      '.gitignore', '.npmrc', 'build.gradle', 'build.gradle.kts', 'cargo.lock',
+      'cargo.toml', 'composer.json', 'composer.lock', 'dockerfile',
+      'eslint.config.js', 'eslint.config.mjs', 'eslint.config.ts', 'gemfile',
+      'go.mod', 'go.sum', 'license', 'makefile', 'next.config.js',
+      'next.config.mjs', 'next.config.ts', 'package-lock.json', 'package.json',
+      'podfile', 'poetry.lock', 'pyproject.toml', 'readme', 'requirements.txt',
+      'settings.gradle', 'settings.gradle.kts', 'tailwind.config.js',
+      'tailwind.config.ts', 'tsconfig.json', 'vite.config.js', 'vite.config.mjs',
+      'vite.config.ts'
     ]);
     const textPreviewFilenameLabels = {
       '.gitignore': 'Git ignore',
+      '.npmrc': 'npm config',
       'build.gradle': 'Gradle',
       'build.gradle.kts': 'Gradle Kotlin',
+      'cargo.lock': 'Cargo lockfile',
+      'cargo.toml': 'Cargo manifest',
+      'composer.json': 'Composer package',
+      'composer.lock': 'Composer lockfile',
       dockerfile: 'Dockerfile',
+      'eslint.config.js': 'ESLint config',
+      'eslint.config.mjs': 'ESLint config',
+      'eslint.config.ts': 'ESLint config',
       gemfile: 'Gemfile',
       'go.mod': 'Go module',
       'go.sum': 'Go checksum',
       license: 'License',
       makefile: 'Makefile',
+      'next.config.js': 'Next.js config',
+      'next.config.mjs': 'Next.js config',
+      'next.config.ts': 'Next.js config',
+      'package-lock.json': 'npm lockfile',
+      'package.json': 'npm package',
       podfile: 'Podfile',
+      'poetry.lock': 'Poetry lockfile',
+      'pyproject.toml': 'Python project',
       readme: 'README',
+      'requirements.txt': 'Python requirements',
       'settings.gradle': 'Gradle settings',
-      'settings.gradle.kts': 'Gradle Kotlin settings'
+      'settings.gradle.kts': 'Gradle Kotlin settings',
+      'tailwind.config.js': 'Tailwind config',
+      'tailwind.config.ts': 'Tailwind config',
+      'tsconfig.json': 'TypeScript config',
+      'vite.config.js': 'Vite config',
+      'vite.config.mjs': 'Vite config',
+      'vite.config.ts': 'Vite config'
     };
     const textPreviewExtensionLabels = {
       astro: 'Astro',
@@ -23989,6 +24017,40 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${vuePath} and ${goModPath}\n`, artifacts: [vuePath, goModPath] }, null, 2)
         });
         addMessage('assistant', 'Created `Dashboard.vue` and `go.mod`.');
+      } else if (text.toLowerCase().includes('manifest artifacts') || text.toLowerCase().includes('project manifests')) {
+        const packagePath = '/mock/QuillCode/package.json';
+        const tsconfigPath = '/mock/QuillCode/tsconfig.json';
+        const cargoPath = '/mock/QuillCode/Cargo.toml';
+        state.mockFiles[packagePath] = [
+          '{',
+          '  "name": "quillcode",',
+          '  "scripts": { "test": "swift test" }',
+          '}'
+        ].join('\n');
+        state.mockFiles[tsconfigPath] = [
+          '{',
+          '  "compilerOptions": {',
+          '    "strict": true',
+          '  }',
+          '}'
+        ].join('\n');
+        state.mockFiles[cargoPath] = [
+          '[package]',
+          'name = "quillcode"',
+          'version = "0.1.0"'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ paths: [packagePath, tsconfigPath, cargoPath] }, null, 2),
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: `Wrote ${packagePath}, ${tsconfigPath}, and ${cargoPath}\n`,
+            artifacts: [packagePath, tsconfigPath, cargoPath]
+          }, null, 2)
+        });
+        addMessage('assistant', 'Created project manifest artifacts.');
       } else if (text.toLowerCase().includes('markdown') || text.toLowerCase().includes('md artifact')) {
         const path = '/mock/QuillCode/docs/setup.md';
         state.mockFiles[path] = [
