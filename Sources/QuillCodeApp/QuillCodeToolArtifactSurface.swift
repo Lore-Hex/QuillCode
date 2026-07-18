@@ -380,6 +380,50 @@ public struct ToolArtifactJSONLinesPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactTOMLPreview: Codable, Sendable, Hashable {
+    public var topLevelKeyCount: Int
+    public var tableCount: Int
+    public var arrayCount: Int
+    public var scalarCount: Int
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: TOML",
+            "\(topLevelKeyCount) top-level key\(topLevelKeyCount == 1 ? "" : "s")",
+            tableCount > 0 ? "\(tableCount) table\(tableCount == 1 ? "" : "s")" : nil,
+            arrayCount > 0 ? "\(arrayCount) array\(arrayCount == 1 ? "" : "s")" : nil,
+            scalarCount > 0 ? "\(scalarCount) value\(scalarCount == 1 ? "" : "s")" : nil,
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        topLevelKeyCount: Int,
+        tableCount: Int = 0,
+        arrayCount: Int = 0,
+        scalarCount: Int = 0,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.topLevelKeyCount = topLevelKeyCount
+        self.tableCount = tableCount
+        self.arrayCount = arrayCount
+        self.scalarCount = scalarCount
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var entryCount: Int?
@@ -516,6 +560,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jsonLinesPreview: ToolArtifactJSONLinesPreview? {
         ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: kind)
+    }
+    public var tomlPreview: ToolArtifactTOMLPreview? {
+        ToolArtifactTOMLPreviewBuilder.tomlPreview(for: value, kind: kind)
     }
     public var archivePreview: ToolArtifactArchivePreview? {
         ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)

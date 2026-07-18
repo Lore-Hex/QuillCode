@@ -312,6 +312,60 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJSONLines.jsonLinesPreview)
     }
 
+    func testArtifactStateDerivesTOMLPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let config = directory.appendingPathComponent("config.toml")
+        let tomlText = """
+        model = "trustedrouter/fast"
+        approval_policy = "auto"
+        disabled = false
+        extra_roots = ["../shared"]
+
+        [tools.shell]
+        timeout_seconds = 120
+
+        [mcp_servers.filesystem]
+        command = "quill-mcp"
+        args = ["--root", "."]
+        """
+        try tomlText.write(to: config, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: config.path)
+        let preview = try XCTUnwrap(artifact.tomlPreview)
+        let byteCount = try XCTUnwrap(tomlText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "TOML")
+        XCTAssertEqual(preview.topLevelKeyCount, 6)
+        XCTAssertEqual(preview.tableCount, 4)
+        XCTAssertEqual(preview.arrayCount, 2)
+        XCTAssertEqual(preview.scalarCount, 8)
+        XCTAssertEqual(preview.keyPreviewLabels, [
+            "approval_policy",
+            "disabled",
+            "extra_roots",
+            "mcp_servers",
+            "model",
+            "tools"
+        ])
+        XCTAssertEqual(preview.keyPreviewLabel, "approval_policy, disabled, extra_roots, mcp_servers, model, tools")
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: TOML",
+            "6 top-level keys",
+            "4 tables",
+            "2 arrays",
+            "8 values",
+            "Keys: approval_policy, disabled, extra_roots, mcp_servers, model, tools",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+
+        let remoteTOML = ToolArtifactState(value: "https://example.com/config.toml")
+        XCTAssertNil(remoteTOML.tomlPreview)
+    }
+
     func testArtifactStateDerivesOfficePackagePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let spreadsheet = directory.appendingPathComponent("budget.xlsx")

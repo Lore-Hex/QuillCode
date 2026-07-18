@@ -8206,6 +8206,7 @@
         officePreview: artifactOfficePreview(value, kind, documentPreview),
         tablePreview: artifactTablePreview(value, kind, documentPreview),
         jsonLinesPreview: artifactJSONLinesPreview(value, kind, documentPreview),
+        tomlPreview: artifactTOMLPreview(value, kind, documentPreview),
         jsonPreview: artifactJSONPreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
         mediaPreview: artifactMediaPreview(value, kind, documentPreview),
@@ -8613,6 +8614,7 @@
       ['json', { kind: 'data', typeLabel: 'Data', icon: 'JSON' }],
       ['jsonl', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
       ['ndjson', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
+      ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
       ['numbers', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['csv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['ods', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
@@ -9012,6 +9014,92 @@
         preview.isTruncated ? 'Preview: first 64 KB scanned' : null
       ].filter(Boolean);
       return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactTOMLPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (extension !== 'toml') return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      if (content.length > byteLimit) return null;
+
+      const topKeys = new Set();
+      const tables = new Set();
+      let arrayCount = 0;
+      let scalarCount = 0;
+      let currentSection = [];
+      for (const rawLine of content.split(/\r?\n/)) {
+        const line = stripTOMLComment(rawLine).trim();
+        if (!line) continue;
+        const sectionMatch = line.match(/^\[([^\]]+)\]$/);
+        if (sectionMatch) {
+          currentSection = sectionMatch[1].split('.').map(part => part.trim()).filter(Boolean);
+          if (currentSection.length) topKeys.add(currentSection[0]);
+          for (let index = 0; index < currentSection.length; index += 1) {
+            tables.add(currentSection.slice(0, index + 1).join('.'));
+          }
+          continue;
+        }
+        const equalsIndex = line.indexOf('=');
+        if (equalsIndex <= 0) return null;
+        const key = line.slice(0, equalsIndex).trim();
+        const value = line.slice(equalsIndex + 1).trim();
+        const topKey = currentSection[0] || key.split('.')[0].trim();
+        if (topKey) topKeys.add(topKey);
+        const arrayItems = tomlArrayItemCount(value);
+        if (arrayItems !== null) {
+          arrayCount += 1;
+          scalarCount += arrayItems;
+        } else {
+          scalarCount += 1;
+        }
+      }
+      if (!topKeys.size) return null;
+      const keys = [...topKeys].sort();
+      const visibleKeys = keys.slice(0, 6).map(jsonPreviewKeyLabel);
+      const remainder = keys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const preview = {
+        topLevelKeyCount: keys.length,
+        tableCount: tables.size,
+        arrayCount,
+        scalarCount,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length)
+      };
+      preview.metadataLines = [
+        'Format: TOML',
+        `${preview.topLevelKeyCount} top-level key${preview.topLevelKeyCount === 1 ? '' : 's'}`,
+        preview.tableCount > 0 ? `${preview.tableCount} table${preview.tableCount === 1 ? '' : 's'}` : null,
+        preview.arrayCount > 0 ? `${preview.arrayCount} array${preview.arrayCount === 1 ? '' : 's'}` : null,
+        preview.scalarCount > 0 ? `${preview.scalarCount} value${preview.scalarCount === 1 ? '' : 's'}` : null,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function stripTOMLComment(rawLine) {
+      let quoted = false;
+      for (let index = 0; index < rawLine.length; index += 1) {
+        const character = rawLine[index];
+        if (character === '"' && rawLine[index - 1] !== '\\') quoted = !quoted;
+        if (character === '#' && !quoted) return rawLine.slice(0, index);
+      }
+      return rawLine;
+    }
+
+    function tomlArrayItemCount(value) {
+      if (!value.startsWith('[') || !value.endsWith(']')) return null;
+      const body = value.slice(1, -1).trim();
+      if (!body) return 0;
+      return body.split(',').map(item => item.trim()).filter(Boolean).length;
     }
 
     function jsonPreviewFromRoot(root, byteSize) {
@@ -11288,6 +11376,25 @@
                   ${keyList}
                 </div>` : '';
         };
+        const renderTOMLPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-toml-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-toml-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-toml-preview-keys">
+                    <strong data-testid="tool-card-toml-preview-key-title">Top-level keys</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-toml-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
         const renderMediaPreview = preview => {
           if (!preview) return '';
           const title = preview.title
@@ -11371,6 +11478,7 @@
                 ${renderOfficePreview(artifact.officePreview)}
                 ${renderTablePreview(artifact.tablePreview)}
                 ${renderJSONLinesPreview(artifact.jsonLinesPreview)}
+                ${renderTOMLPreview(artifact.tomlPreview)}
                 ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
                 ${renderArchivePreview(artifact.archivePreview)}
@@ -23052,6 +23160,29 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `events.jsonl`.');
+      } else if (text.toLowerCase().includes('toml artifact')) {
+        const path = '/mock/QuillCode/.quillcode/config.toml';
+        state.mockFiles[path] = [
+          'model = "trustedrouter/fast"',
+          'approval_policy = "auto"',
+          'disabled = false',
+          'extra_roots = ["../shared"]',
+          '',
+          '[tools.shell]',
+          'timeout_seconds = 120',
+          '',
+          '[mcp_servers.filesystem]',
+          'command = "quill-mcp"',
+          'args = ["--root", "."]'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/toml' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `config.toml`.');
       } else if (text.toLowerCase().includes('json artifact')) {
         const path = '/mock/QuillCode/reports/build-report.json';
         state.mockFiles[path] = JSON.stringify({

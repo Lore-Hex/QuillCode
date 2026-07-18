@@ -204,6 +204,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let officePreview = renderOfficePreview(artifact.officePreview)
             let tablePreview = renderTablePreview(artifact.tablePreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
+            let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
             let jsonPreview = renderJSONPreview(artifact.jsonPreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             let archivePreview = renderArchivePreview(artifact.archivePreview)
@@ -222,6 +223,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(officePreview)
               \(tablePreview)
               \(jsonLinesPreview)
+              \(tomlPreview)
               \(jsonPreview)
               \(appshotPreview)
               \(archivePreview)
@@ -475,6 +477,31 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-json-lines-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderTOMLPreview(_ preview: ToolArtifactTOMLPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-toml-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let keys = preview.keyPreviewLabels.map {
+            #"<li data-testid="tool-card-toml-preview-key-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let keyList = keys.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-toml-preview-keys">
+                <strong data-testid="tool-card-toml-preview-key-title">Top-level keys</strong>
+                <ul>\(keys)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !keyList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-toml-preview">
           <div>
             \(metadata)
           </div>
