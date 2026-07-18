@@ -71,6 +71,8 @@ final class ParityHTMLToolCardRendererGateTests: QuillCodeParityTestCase {
             "preview.contentPreviewLabels",
             #"data-testid="tool-card-office-preview-contents""#,
             #"data-testid="tool-card-office-preview-content-item""#,
+            "renderRTFPreview(artifact.rtfPreview)",
+            #"data-testid="tool-card-rtf-preview-meta""#,
             "preview.entryPreviewLabels",
             #"data-testid="tool-card-archive-preview-entries""#,
             #"data-testid="tool-card-archive-preview-entry-item""#
@@ -92,6 +94,9 @@ final class ParityHTMLToolCardRendererGateTests: QuillCodeParityTestCase {
             "officeContentPreviewLabels",
             #"data-testid="tool-card-office-preview-contents""#,
             #"data-testid="tool-card-office-preview-content-item""#,
+            "artifactRTFPreview(value, kind, documentPreview)",
+            "const renderRTFPreview",
+            #"data-testid="tool-card-rtf-preview-meta""#,
             "archiveEntryPreviewLabels",
             #"data-testid="tool-card-archive-preview-entries""#,
             #"data-testid="tool-card-archive-preview-entry-item""#

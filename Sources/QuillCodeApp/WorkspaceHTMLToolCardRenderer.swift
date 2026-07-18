@@ -208,6 +208,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let pdfPreview = renderPDFPreview(artifact.pdfPreview, href: artifact.href)
             let markdownPreview = renderMarkdownPreview(artifact.markdownPreview)
             let officePreview = renderOfficePreview(artifact.officePreview)
+            let rtfPreview = renderRTFPreview(artifact.rtfPreview)
             let tablePreview = renderTablePreview(artifact.tablePreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
@@ -232,6 +233,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(pdfPreview)
               \(markdownPreview)
               \(officePreview)
+              \(rtfPreview)
               \(tablePreview)
               \(jsonLinesPreview)
               \(tomlPreview)
@@ -308,6 +310,25 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(contentList)
+        </div>
+        """
+    }
+
+    private static func renderRTFPreview(_ preview: ToolArtifactRTFPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let title = preview.title.map {
+            #"<strong data-testid="tool-card-rtf-preview-title">\#(escape($0))</strong>"#
+        } ?? ""
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-rtf-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !title.isEmpty || !metadata.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-rtf-preview">
+          \(title)
+          <div>
+            \(metadata)
+          </div>
         </div>
         """
     }
