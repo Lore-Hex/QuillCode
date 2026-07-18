@@ -75,6 +75,7 @@ final class ParityWorkspacePlaywrightFocusedSpecGateTests: QuillCodeParityTestCa
             "renders BMP, WebP, TIFF, and ICO artifact dimensions",
             "renders document artifact previews from tool cards",
             "renders media artifact previews from tool cards",
+            "renders archive artifact previews from tool cards",
             "renders delimited table artifact previews from tool cards",
             "renders appshot artifact previews from tool cards"
         ]
