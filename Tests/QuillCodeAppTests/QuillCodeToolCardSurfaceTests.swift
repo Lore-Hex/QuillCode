@@ -306,6 +306,11 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(preview.formatLabel, "ZIP")
         XCTAssertEqual(preview.entryCount, 4)
         XCTAssertEqual(preview.topLevelCount, 3)
+        XCTAssertEqual(preview.entryPreviewLabels, [
+            "Sources/App.swift",
+            "Sources/Model.swift",
+            "Tests/AppTests.swift"
+        ])
         XCTAssertEqual(preview.byteSizeLabel, byteSize)
         XCTAssertEqual(preview.metadataLines, [
             "Format: ZIP",
@@ -328,6 +333,11 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(tarPreview.formatLabel, "TAR")
         XCTAssertEqual(tarPreview.entryCount, 3)
         XCTAssertEqual(tarPreview.topLevelCount, 2)
+        XCTAssertEqual(tarPreview.entryPreviewLabels, [
+            "Sources/App.swift",
+            "Sources/Model.swift",
+            "Tests/AppTests.swift"
+        ])
         XCTAssertEqual(tarPreview.byteSizeLabel, tarByteSize)
         XCTAssertEqual(tarPreview.metadataLines, [
             "Format: TAR",
@@ -351,6 +361,7 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(gzipPreview.entryCount, 1)
         XCTAssertEqual(gzipPreview.topLevelCount, 1)
         XCTAssertEqual(gzipPreview.entryPreviewLabel, "report.txt")
+        XCTAssertEqual(gzipPreview.entryPreviewLabels, ["report.txt"])
         XCTAssertEqual(gzipPreview.uncompressedByteSizeLabel, "2 KB")
         XCTAssertEqual(gzipPreview.byteSizeLabel, gzipByteSize)
         XCTAssertEqual(gzipPreview.metadataLines, [
@@ -376,6 +387,7 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(compressedTarPreview.entryCount)
         XCTAssertNil(compressedTarPreview.topLevelCount)
         XCTAssertEqual(compressedTarPreview.entryPreviewLabel, "logs.tar")
+        XCTAssertEqual(compressedTarPreview.entryPreviewLabels, ["logs.tar"])
         XCTAssertEqual(compressedTarPreview.uncompressedByteSizeLabel, "8 KB")
         XCTAssertEqual(compressedTarPreview.byteSizeLabel, compressedTarByteSize)
         XCTAssertEqual(compressedTarPreview.metadataLines, [

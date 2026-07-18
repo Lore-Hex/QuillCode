@@ -129,7 +129,12 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "includesSingleMemberCounts",
             "uncompressedByteSizeLabel",
             "entryPreviewLabel",
+            "entryPreviewLabels",
             "topLevelCount"
+        ])
+        Self.assertSource(artifactDocumentPreviewViewText, containsAll: [
+            "archiveContent(archivePreview)",
+            "artifactContentList(title: \"Contents\", labels: archivePreview.entryPreviewLabels)"
         ])
         Self.assertSource(artifactMediaPreviewText, containsAll: [
             "enum ToolArtifactMediaPreviewBuilder",

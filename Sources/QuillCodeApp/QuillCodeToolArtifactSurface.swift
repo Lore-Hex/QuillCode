@@ -302,6 +302,7 @@ public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     public var entryCount: Int?
     public var topLevelCount: Int?
     public var entryPreviewLabel: String?
+    public var entryPreviewLabels: [String]
     public var uncompressedByteSizeLabel: String?
     public var byteSizeLabel: String?
 
@@ -317,7 +318,7 @@ public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     }
 
     public var hasDisplayContent: Bool {
-        !metadataLines.isEmpty
+        !metadataLines.isEmpty || !entryPreviewLabels.isEmpty
     }
 
     public init(
@@ -325,6 +326,7 @@ public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
         entryCount: Int? = nil,
         topLevelCount: Int? = nil,
         entryPreviewLabel: String? = nil,
+        entryPreviewLabels: [String] = [],
         uncompressedByteSizeLabel: String? = nil,
         byteSizeLabel: String? = nil
     ) {
@@ -332,6 +334,7 @@ public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
         self.entryCount = entryCount
         self.topLevelCount = topLevelCount
         self.entryPreviewLabel = entryPreviewLabel
+        self.entryPreviewLabels = entryPreviewLabels
         self.uncompressedByteSizeLabel = uncompressedByteSizeLabel
         self.byteSizeLabel = byteSizeLabel
     }

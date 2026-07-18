@@ -8957,6 +8957,7 @@
         entryCount: fileNames.length,
         topLevelCount: topLevelItems.size || null,
         entryPreviewLabel: archiveEntryPreviewLabel(fileNames),
+        entryPreviewLabels: archiveEntryPreviewLabels(fileNames),
         byteSizeLabel: byteSizeLabel(byteSize)
       };
       preview.metadataLines = [
@@ -9009,6 +9010,7 @@
         entryCount: includesSingleMemberCounts ? 1 : null,
         topLevelCount: includesSingleMemberCounts && memberName ? 1 : null,
         entryPreviewLabel: memberName,
+        entryPreviewLabels: memberName ? [memberName] : [],
         uncompressedByteSizeLabel: Number.isFinite(packageInfo.uncompressedBytes)
           ? byteSizeLabel(packageInfo.uncompressedBytes)
           : null,
@@ -9028,6 +9030,14 @@
     }
 
     function archiveEntryPreviewLabel(fileNames) {
+      const previewNames = archiveEntryPreviewLabels(fileNames);
+      if (!previewNames.length) return null;
+      const remainingCount = Math.max(fileNames.length - previewNames.length, 0);
+      const previewText = previewNames.join(', ');
+      return remainingCount > 0 ? `${previewText}, +${remainingCount} more` : previewText;
+    }
+
+    function archiveEntryPreviewLabels(fileNames) {
       const previewNames = [];
       for (const fileName of fileNames) {
         const previewName = String(fileName || '')
@@ -9037,10 +9047,7 @@
         if (previewName) previewNames.push(previewName);
         if (previewNames.length === 3) break;
       }
-      if (!previewNames.length) return null;
-      const remainingCount = Math.max(fileNames.length - previewNames.length, 0);
-      const previewText = previewNames.join(', ');
-      return remainingCount > 0 ? `${previewText}, +${remainingCount} more` : previewText;
+      return previewNames;
     }
 
     function parseDelimitedRows(text, delimiter) {
@@ -11029,9 +11036,18 @@
           const metadata = (preview.metadataLines || [])
             .map(line => `<small data-testid="tool-card-archive-preview-meta">${escapeHTML(line)}</small>`)
             .join('');
-          return metadata ? `
+          const contents = (preview.entryPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-archive-preview-entry-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const contentList = contents ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-archive-preview-entries">
+                    <strong data-testid="tool-card-archive-preview-entry-title">Contents</strong>
+                    <ul>${contents}</ul>
+                  </section>` : '';
+          return metadata || contentList ? `
                 <div class="artifact-office-preview" data-testid="tool-card-archive-preview">
                   <div>${metadata}</div>
+                  ${contentList}
                 </div>` : '';
         };
         const renderMediaPreview = preview => {
