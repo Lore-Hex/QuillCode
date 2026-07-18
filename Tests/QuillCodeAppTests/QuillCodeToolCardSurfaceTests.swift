@@ -1272,6 +1272,70 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         ])
     }
 
+    func testArtifactStateDerivesCommonCodingSourcePreviewLabels() throws {
+        let directory = try makeQuillCodeTestDirectory()
+
+        func assertSourcePreview(
+            filename: String,
+            contents: String,
+            typeLabel: String,
+            lineCountLabel: String,
+            file: StaticString = #filePath,
+            line: UInt = #line
+        ) throws {
+            let source = directory.appendingPathComponent(filename)
+            try contents.write(to: source, atomically: true, encoding: .utf8)
+            let textPreview = try XCTUnwrap(
+                ToolArtifactTextPreviewBuilder.textPreview(for: source.path),
+                file: file,
+                line: line
+            )
+            let artifact = ToolArtifactState(value: source.path, textPreview: textPreview)
+            let preview = try XCTUnwrap(artifact.sourceTextPreview, file: file, line: line)
+
+            XCTAssertEqual(preview.typeLabel, typeLabel, file: file, line: line)
+            XCTAssertEqual(preview.lineCountLabel, lineCountLabel, file: file, line: line)
+            XCTAssertFalse(preview.isTruncated, file: file, line: line)
+        }
+
+        try assertSourcePreview(
+            filename: "Dashboard.vue",
+            contents: "<template>\n  <main>{{ title }}</main>\n</template>\n",
+            typeLabel: "Vue",
+            lineCountLabel: "3 lines"
+        )
+        try assertSourcePreview(
+            filename: "Panel.svelte",
+            contents: "<script>\n  export let title\n</script>\n<h1>{title}</h1>\n",
+            typeLabel: "Svelte",
+            lineCountLabel: "4 lines"
+        )
+        try assertSourcePreview(
+            filename: "page.astro",
+            contents: "---\nconst title = 'QuillCode'\n---\n<h1>{title}</h1>\n",
+            typeLabel: "Astro",
+            lineCountLabel: "4 lines"
+        )
+        try assertSourcePreview(
+            filename: "Program.cs",
+            contents: "Console.WriteLine(\"hello\");\n",
+            typeLabel: "C#",
+            lineCountLabel: "1 line"
+        )
+        try assertSourcePreview(
+            filename: "go.mod",
+            contents: "module example.com/quill\n\ngo 1.23\n",
+            typeLabel: "Go module",
+            lineCountLabel: "3 lines"
+        )
+        try assertSourcePreview(
+            filename: "build.gradle.kts",
+            contents: "plugins {\n  kotlin(\"jvm\") version \"2.0.0\"\n}\n",
+            typeLabel: "Gradle Kotlin",
+            lineCountLabel: "3 lines"
+        )
+    }
+
     private func pngHeader(width: UInt32, height: UInt32) -> Data {
         var bytes: [UInt8] = [
             0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,

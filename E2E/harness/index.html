@@ -10105,31 +10105,45 @@
     }
 
     const textPreviewExtensions = new Set([
-      'c', 'cc', 'conf', 'cpp', 'css', 'csv', 'diff', 'go', 'h', 'hpp', 'html',
-      'java', 'js', 'json', 'jsonl', 'jsx', 'kt', 'log', 'm', 'md', 'mdx', 'mm', 'ndjson', 'py',
-      'patch', 'rb', 'rs', 'sh', 'sql', 'swift', 'toml', 'ts', 'tsx', 'txt',
-      'xml', 'yaml', 'yml'
+      'astro', 'c', 'cc', 'conf', 'cpp', 'cs', 'csproj', 'css', 'csv', 'diff',
+      'fs', 'fsproj', 'go', 'h', 'hpp', 'html', 'java', 'js', 'json', 'jsonl',
+      'jsx', 'kt', 'kts', 'log', 'm', 'md', 'mdx', 'mm', 'ndjson', 'py', 'patch',
+      'php', 'rb', 'rs', 'sh', 'sql', 'svelte', 'swift', 'toml', 'ts', 'tsx',
+      'txt', 'vue', 'xml', 'yaml', 'yml'
     ]);
     const textPreviewFilenames = new Set([
-      '.gitignore', 'dockerfile', 'gemfile', 'license', 'makefile', 'podfile', 'readme'
+      '.gitignore', 'build.gradle', 'build.gradle.kts', 'dockerfile', 'gemfile',
+      'go.mod', 'go.sum', 'license', 'makefile', 'podfile', 'readme',
+      'settings.gradle', 'settings.gradle.kts'
     ]);
     const textPreviewFilenameLabels = {
       '.gitignore': 'Git ignore',
+      'build.gradle': 'Gradle',
+      'build.gradle.kts': 'Gradle Kotlin',
       dockerfile: 'Dockerfile',
       gemfile: 'Gemfile',
+      'go.mod': 'Go module',
+      'go.sum': 'Go checksum',
       license: 'License',
       makefile: 'Makefile',
       podfile: 'Podfile',
-      readme: 'README'
+      readme: 'README',
+      'settings.gradle': 'Gradle settings',
+      'settings.gradle.kts': 'Gradle Kotlin settings'
     };
     const textPreviewExtensionLabels = {
+      astro: 'Astro',
       c: 'C',
       cc: 'C++',
       conf: 'Config',
       cpp: 'C++',
+      cs: 'C#',
+      csproj: 'C# project',
       css: 'CSS',
       csv: 'CSV',
       diff: 'Diff',
+      fs: 'F#',
+      fsproj: 'F# project',
       go: 'Go',
       h: 'C/C++ header',
       hpp: 'C++ header',
@@ -10140,6 +10154,7 @@
       jsonl: 'JSON Lines',
       jsx: 'React JSX',
       kt: 'Kotlin',
+      kts: 'Kotlin Script',
       log: 'Log',
       m: 'Objective-C',
       md: 'Markdown',
@@ -10152,11 +10167,13 @@
       rs: 'Rust',
       sh: 'Shell',
       sql: 'SQL',
+      svelte: 'Svelte',
       swift: 'Swift',
       toml: 'TOML',
       ts: 'TypeScript',
       tsx: 'React TSX',
       txt: 'Text',
+      vue: 'Vue',
       xml: 'XML',
       yaml: 'YAML',
       yml: 'YAML'
@@ -15925,6 +15942,10 @@
       return goal || null;
     }
 
+    function normalizedWorkflowRecordingGoal(text) {
+      return workflowRecordingGoal(text) || String(text || '').trim();
+    }
+
     function workflowSkillSlug(goal) {
       return String(goal || 'recorded-workflow')
         .toLowerCase()
@@ -15934,6 +15955,7 @@
     }
 
     function requestWorkflowRecording(goal) {
+      goal = normalizedWorkflowRecordingGoal(goal);
       const requestID = `workflow-recording-${crypto.randomUUID()}`;
       addToolCard({
         title: 'host.workflow.record.start',
@@ -15952,6 +15974,7 @@
     }
 
     function beginWorkflowRecording(goal) {
+      goal = normalizedWorkflowRecordingGoal(goal);
       const recording = state.extensions.workflowRecording;
       recording.phase = 'recording';
       recording.goal = goal;
@@ -17140,6 +17163,7 @@
         <span data-testid="extensions-count">${countLabel(state.extensions.hookCount || 0, 'hook')}</span>`;
       const recording = state.extensions.workflowRecording || {};
       const recordingIsActive = recording.phase === 'recording';
+      const recordingGoal = normalizedWorkflowRecordingGoal(recording.goal || 'Untitled workflow') || 'Untitled workflow';
       const recordingAction = !focusedKind && recording.isAvailable && !recordingIsActive
         ? `<button type="button" class="workflow-recording-button hit-target-capsule" data-testid="workflow-recording-start" data-command-id="workflow-recording-create">Record a skill</button>`
         : '';
@@ -17148,7 +17172,7 @@
           <span class="workflow-recording-indicator" aria-hidden="true"></span>
           <div class="workflow-recording-copy">
             <strong>Recording workflow</strong>
-            <p data-testid="workflow-recording-goal">${escapeHTML(recording.goal || 'Untitled workflow')}</p>
+            <p data-testid="workflow-recording-goal">${escapeHTML(recordingGoal)}</p>
           </div>
           <button type="button" class="workflow-recording-stop hit-target-capsule" data-testid="workflow-recording-stop" data-command-id="workflow-recording-stop">Stop</button>
         </article>` : '';
@@ -23940,6 +23964,31 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `revenue.csv`.');
+      } else if (text.toLowerCase().includes('vue artifact') || text.toLowerCase().includes('web component source')) {
+        const vuePath = '/mock/QuillCode/src/Dashboard.vue';
+        const goModPath = '/mock/QuillCode/go.mod';
+        state.mockFiles[vuePath] = [
+          '<template>',
+          '  <main>{{ title }}</main>',
+          '</template>',
+          '',
+          '<script setup lang="ts">',
+          'const title = "QuillCode"',
+          '<\\/script>'
+        ].join('\n');
+        state.mockFiles[goModPath] = [
+          'module example.com/quillcode',
+          '',
+          'go 1.23'
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ paths: [vuePath, goModPath] }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${vuePath} and ${goModPath}\n`, artifacts: [vuePath, goModPath] }, null, 2)
+        });
+        addMessage('assistant', 'Created `Dashboard.vue` and `go.mod`.');
       } else if (text.toLowerCase().includes('markdown') || text.toLowerCase().includes('md artifact')) {
         const path = '/mock/QuillCode/docs/setup.md';
         state.mockFiles[path] = [
