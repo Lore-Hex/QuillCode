@@ -5,7 +5,12 @@ struct QuillCodeArtifactDocumentPreview: View {
 
     @ViewBuilder
     var body: some View {
-        if let mediaPreview = artifact.mediaPreview,
+        if let pdfPreview = artifact.pdfPreview,
+           let previewURL = artifactURL {
+            pdfContent(pdfPreview, previewURL: previewURL)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(accessibilityLabel)
+        } else if let mediaPreview = artifact.mediaPreview,
            let playbackURL = mediaPreview.playbackURL.flatMap(URL.init(string:)) {
             mediaContent(mediaPreview, playbackURL: playbackURL)
                 .accessibilityElement(children: .contain)
@@ -104,6 +109,30 @@ struct QuillCodeArtifactDocumentPreview: View {
                 subtitleLineLimit: 2
             )
             tableGrid(tablePreview)
+        }
+    }
+
+    private func pdfContent(_ pdfPreview: ToolArtifactPDFPreview, previewURL: URL) -> some View {
+        previewSurface(minHeight: 252) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "doc.richtext")
+                },
+                title: pdfPreview.title ?? artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            QuillCodeArtifactPDFPagePreviewView(url: previewURL)
+            HStack(alignment: .center, spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                metadataPills(pdfPreview.metadataLines)
+                Spacer(minLength: 4)
+                Link(destination: previewURL) {
+                    Label("Open", systemImage: "arrow.up.right")
+                        .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(QuillCodePressableButtonStyle())
+                .quillCodeLinkTarget(minWidth: 74, alignment: .center, radius: 12)
+                .accessibilityLabel("Open \(artifact.label)")
+            }
         }
     }
 
