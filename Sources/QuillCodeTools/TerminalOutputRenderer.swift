@@ -7,8 +7,9 @@ import Foundation
 /// pile up across the transcript instead of repainting in place.
 ///
 /// Scope: this is a stateless, single-page screen buffer. It models common cursor addressing,
-/// bounded scroll regions, insert/delete line, styled text, and alternate-screen latest-frame
-/// preservation well enough for status dashboards and simple full-screen redraws.
+/// bounded scroll regions, insert/delete line, insert/delete character, styled text, and
+/// alternate-screen latest-frame preservation well enough for status dashboards and simple
+/// full-screen redraws.
 /// It is not a full terminal emulator: mouse tracking and complete curses semantics remain out of
 /// scope. Unhandled CSI/OSC sequences are stripped rather than shown,
 /// which keeps colored output, git output, build logs, and TUI status output readable.
