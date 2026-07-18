@@ -8123,7 +8123,8 @@
         pdfPreview: artifactPDFPreview(value, kind, documentPreview),
         officePreview: artifactOfficePreview(value, kind, documentPreview),
         tablePreview: artifactTablePreview(value, kind, documentPreview),
-        archivePreview: artifactArchivePreview(value, kind, documentPreview)
+        archivePreview: artifactArchivePreview(value, kind, documentPreview),
+        mediaPreview: artifactMediaPreview(value, kind, documentPreview)
       };
     }
 
@@ -8813,6 +8814,28 @@
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
       return preview.metadataLines.length ? preview : null;
+    }
+
+    function artifactMediaPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || !['audio', 'video'].includes(documentPreview?.kind)) return null;
+      const path = artifactFilePath(value);
+      if (!path) return null;
+      const mediaInfo = state.mockOfficePackages[path] || {};
+      const byteSize = Number.isFinite(mediaInfo.sizeBytes)
+        ? mediaInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const preview = {
+        formatLabel: artifactPreviewExtension(value).toUpperCase(),
+        title: mediaInfo.title || null,
+        artist: mediaInfo.artist || null,
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        preview.artist ? `Artist: ${preview.artist}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.title || preview.metadataLines.length ? preview : null;
     }
 
     function artifactGzipPreview(path, packageInfo, extension) {
@@ -10772,6 +10795,20 @@
                   <div>${metadata}</div>
                 </div>` : '';
         };
+        const renderMediaPreview = preview => {
+          if (!preview) return '';
+          const title = preview.title
+            ? `<strong data-testid="tool-card-media-preview-title">${escapeHTML(preview.title)}</strong>`
+            : '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-media-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return title || metadata ? `
+                <div class="artifact-office-preview" data-testid="tool-card-media-preview">
+                  ${title}
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
         const renderAppshotPreview = preview => {
           if (!preview) return '';
           const image = preview.screenshotURL
@@ -10815,6 +10852,7 @@
                 ${renderTablePreview(artifact.tablePreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
                 ${renderArchivePreview(artifact.archivePreview)}
+                ${renderMediaPreview(artifact.mediaPreview)}
               </figure>`;
             }).join('')}
           </div>` : '';
@@ -22568,6 +22606,14 @@
         const videoPath = '/mock/QuillCode/media/demo.mp4';
         state.mockFiles[audioPath] = 'ID3';
         state.mockFiles[videoPath] = '\u0000\u0000\u0000\u0018ftypmp42';
+        state.mockOfficePackages[audioPath] = {
+          title: 'Morning Notes',
+          artist: 'Quill',
+          sizeBytes: 4096
+        };
+        state.mockOfficePackages[videoPath] = {
+          sizeBytes: 8192
+        };
         addToolCard({
           title: 'host.file.write',
           subtitle: 'Completed',

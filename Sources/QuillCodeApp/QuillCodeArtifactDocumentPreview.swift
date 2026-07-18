@@ -38,6 +38,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             tableContent(tablePreview)
         } else if let archivePreview = artifact.archivePreview {
             metadataContent(title: artifact.label, metadataLines: archivePreview.metadataLines)
+        } else if let mediaPreview = artifact.mediaPreview {
+            metadataContent(title: mediaPreview.title ?? artifact.label, metadataLines: mediaPreview.metadataLines)
         } else {
             genericContent
         }

@@ -13,6 +13,7 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         let artifactPDFPreviewText = try Self.appSourceText(named: "ToolArtifactPDFPreviewBuilder.swift")
         let artifactOfficePreviewText = try Self.appSourceText(named: "ToolArtifactOfficePreviewBuilder.swift")
         let artifactArchivePreviewText = try Self.appSourceText(named: "ToolArtifactArchivePreviewBuilder.swift")
+        let artifactMediaPreviewText = try Self.appSourceText(named: "ToolArtifactMediaPreviewBuilder.swift")
         let artifactZipCentralDirectoryText = try Self.appSourceText(named: "ToolArtifactZipCentralDirectoryReader.swift")
         let artifactTablePreviewText = try Self.appSourceText(named: "ToolArtifactTablePreviewBuilder.swift")
         let artifactByteSizeText = try Self.appSourceText(named: "ToolArtifactByteSizeFormatter.swift")
@@ -36,8 +37,10 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "public struct ToolArtifactPDFPreview",
             "public struct ToolArtifactOfficePreview",
             "public struct ToolArtifactArchivePreview",
+            "public struct ToolArtifactMediaPreview",
             "public struct ToolArtifactTablePreview",
-            "public struct ToolArtifactImagePreview"
+            "public struct ToolArtifactImagePreview",
+            "ToolArtifactMediaPreviewBuilder.mediaPreview"
         ])
         Self.assertSource(artifactValueClassifierText, contains: "enum ToolArtifactValueClassifier")
         Self.assertSource(artifactImagePreviewText, contains: "enum ToolArtifactImagePreviewBuilder")
@@ -90,6 +93,14 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "uncompressedByteSizeLabel",
             "entryPreviewLabel",
             "topLevelCount"
+        ])
+        Self.assertSource(artifactMediaPreviewText, containsAll: [
+            "enum ToolArtifactMediaPreviewBuilder",
+            "id3Metadata",
+            "id3TextFrame",
+            "fileSizeLimit",
+            "id3ReadLimit",
+            "id3SyncSafeInteger"
         ])
         Self.assertSource(artifactZipCentralDirectoryText, containsAll: [
             "enum ToolArtifactZipCentralDirectoryReader",

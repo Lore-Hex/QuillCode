@@ -204,6 +204,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let tablePreview = renderTablePreview(artifact.tablePreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             let archivePreview = renderArchivePreview(artifact.archivePreview)
+            let mediaPreview = renderMediaPreview(artifact.mediaPreview)
             return """
             <figure class="artifact-document-preview" data-testid="tool-card-document-preview" data-kind="\(escape(preview.kind.rawValue))">
               <span class="artifact-document-icon" aria-hidden="true">\(documentIcon(for: preview.kind))</span>
@@ -218,6 +219,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(tablePreview)
               \(appshotPreview)
               \(archivePreview)
+              \(mediaPreview)
             </figure>
             """
         }.joined(separator: "\n")
@@ -278,6 +280,25 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-archive-preview">
+          <div>
+            \(metadata)
+          </div>
+        </div>
+        """
+    }
+
+    private static func renderMediaPreview(_ preview: ToolArtifactMediaPreview?) -> String {
+        guard let preview else { return "" }
+        let title = preview.title.map {
+            #"<strong data-testid="tool-card-media-preview-title">\#(escape($0))</strong>"#
+        } ?? ""
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-media-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !title.isEmpty || !metadata.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-media-preview">
+          \(title)
           <div>
             \(metadata)
           </div>

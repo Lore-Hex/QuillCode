@@ -266,8 +266,11 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         try FileManager.default.createDirectory(at: mediaDirectory, withIntermediateDirectories: true)
         let audio = mediaDirectory.appendingPathComponent("voice-note.mp3")
         let video = mediaDirectory.appendingPathComponent("demo.mp4")
-        try Data("id3".utf8).write(to: audio)
-        try Data("mp4".utf8).write(to: video)
+        let audioBytes = ID3MediaFixture.mp3(title: "Morning Notes", artist: "Quill")
+        var videoBytes = Data([0x00, 0x00, 0x00, 0x18])
+        videoBytes.append(Data("ftypmp42".utf8))
+        try audioBytes.write(to: audio)
+        try videoBytes.write(to: video)
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"media"}"#)
         let result = ToolResult(ok: true, stdout: "Wrote media\n", artifacts: [audio.path, video.path])
         let thread = ChatThread(
@@ -298,6 +301,13 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Video · MP4"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">voice-note.mp3"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">demo.mp4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview-title">Morning Notes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview-meta">Format: MP3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview-meta">Artist: Quill"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview-meta">Size: \#(audioBytes.count) bytes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview-meta">Format: MP4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-media-preview-meta">Size: \#(videoBytes.count) bytes"#))
     }
 
     func testHTMLRendererIncludesArchiveArtifactPreviews() throws {
