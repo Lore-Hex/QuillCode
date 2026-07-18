@@ -8779,9 +8779,12 @@
     function artifactArchivePreview(value, kind, documentPreview) {
       if (kind !== 'file' || documentPreview?.kind !== 'archive') return null;
       const extension = artifactPreviewExtension(value);
-      if (!['zip', 'tar'].includes(extension)) return null;
+      if (!['zip', 'tar', 'gz'].includes(extension)) return null;
       const path = artifactFilePath(value);
       const packageInfo = path ? state.mockOfficePackages[path] : null;
+      if (extension === 'gz') {
+        return artifactGzipPreview(path, packageInfo);
+      }
       const fileNames = Array.isArray(packageInfo?.fileNames) ? packageInfo.fileNames : null;
       if (!fileNames) return null;
 
@@ -8807,6 +8810,35 @@
           ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
           : null,
         preview.entryPreviewLabel ? `Entries: ${preview.entryPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
+    }
+
+    function artifactGzipPreview(path, packageInfo) {
+      if (!packageInfo || packageInfo.format !== 'gzip') return null;
+      const memberName = packageInfo.originalName ? archiveEntryPreviewLabel([packageInfo.originalName]) : null;
+      const byteSize = Number.isFinite(packageInfo.sizeBytes)
+        ? packageInfo.sizeBytes
+        : (state.mockFiles[path] || '').length;
+      const preview = {
+        formatLabel: 'GZIP',
+        entryCount: 1,
+        topLevelCount: memberName ? 1 : null,
+        entryPreviewLabel: memberName,
+        uncompressedByteSizeLabel: Number.isFinite(packageInfo.uncompressedBytes)
+          ? byteSizeLabel(packageInfo.uncompressedBytes)
+          : null,
+        byteSizeLabel: byteSizeLabel(byteSize)
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        '1 entry',
+        Number.isInteger(preview.topLevelCount)
+          ? `${preview.topLevelCount} top-level item${preview.topLevelCount === 1 ? '' : 's'}`
+          : null,
+        preview.entryPreviewLabel ? `Entries: ${preview.entryPreviewLabel}` : null,
+        preview.uncompressedByteSizeLabel ? `Uncompressed: ${preview.uncompressedByteSizeLabel}` : null,
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
       return preview.metadataLines.length ? preview : null;
@@ -22550,9 +22582,11 @@
       } else if (text.toLowerCase().includes('archive') && text.toLowerCase().includes('artifact')) {
         const zipPath = '/mock/QuillCode/packages/source.zip';
         const tarPath = '/mock/QuillCode/packages/sources.tar';
+        const gzipPath = '/mock/QuillCode/packages/report.txt.gz';
         const tarGzPath = '/mock/QuillCode/packages/logs.tar.gz';
         state.mockFiles[zipPath] = 'PK\u0003\u0004';
         state.mockFiles[tarPath] = 'ustar';
+        state.mockFiles[gzipPath] = '\u001f\u008b\u0008\u0008';
         state.mockFiles[tarGzPath] = '\u001f\u008b';
         state.mockOfficePackages[zipPath] = {
           fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift', 'README.md'],
@@ -22562,6 +22596,12 @@
           fileNames: ['Sources/App.swift', 'Sources/Model.swift', 'Tests/AppTests.swift'],
           sizeBytes: 5120
         };
+        state.mockOfficePackages[gzipPath] = {
+          format: 'gzip',
+          originalName: 'report.txt',
+          uncompressedBytes: 2048,
+          sizeBytes: 36
+        };
         addToolCard({
           title: 'host.file.write',
           subtitle: 'Completed',
@@ -22569,8 +22609,8 @@
           inputJSON: JSON.stringify({ path: 'packages', contentType: 'generated archives' }, null, 2),
           outputJSON: JSON.stringify({
             ok: true,
-            stdout: `Wrote ${zipPath}, ${tarPath}, and ${tarGzPath}\n`,
-            artifacts: [zipPath, tarPath, tarGzPath]
+            stdout: `Wrote ${zipPath}, ${tarPath}, ${gzipPath}, and ${tarGzPath}\n`,
+            artifacts: [zipPath, tarPath, gzipPath, tarGzPath]
           }, null, 2)
         });
         addMessage('assistant', 'Created archive artifacts.');

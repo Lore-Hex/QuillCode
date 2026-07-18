@@ -278,6 +278,31 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             "Size: \(tarByteSize)"
         ])
 
+        let gzipArchive = directory.appendingPathComponent("report.txt.gz")
+        let gzipBytes = GzipArchiveFixture.gzipArchive(
+            originalName: "report.txt",
+            compressedBytes: Data("compressed".utf8),
+            uncompressedByteCount: 2_048
+        )
+        try gzipBytes.write(to: gzipArchive)
+        let gzipByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: gzipBytes.count))
+
+        let gzipPreview = try XCTUnwrap(ToolArtifactState(value: gzipArchive.path).archivePreview)
+        XCTAssertEqual(gzipPreview.formatLabel, "GZIP")
+        XCTAssertEqual(gzipPreview.entryCount, 1)
+        XCTAssertEqual(gzipPreview.topLevelCount, 1)
+        XCTAssertEqual(gzipPreview.entryPreviewLabel, "report.txt")
+        XCTAssertEqual(gzipPreview.uncompressedByteSizeLabel, "2 KB")
+        XCTAssertEqual(gzipPreview.byteSizeLabel, gzipByteSize)
+        XCTAssertEqual(gzipPreview.metadataLines, [
+            "Format: GZIP",
+            "1 entry",
+            "1 top-level item",
+            "Entries: report.txt",
+            "Uncompressed: 2 KB",
+            "Size: \(gzipByteSize)"
+        ])
+
         let remoteArchive = ToolArtifactState(value: "https://example.com/source.zip")
         XCTAssertNil(remoteArchive.archivePreview)
     }

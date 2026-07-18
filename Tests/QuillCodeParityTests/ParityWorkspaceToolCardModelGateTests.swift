@@ -82,8 +82,11 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
             "enum ToolArtifactArchivePreviewBuilder",
             "ToolArtifactZipCentralDirectoryReader.centralDirectory",
             "tarPreview",
+            "gzipPreview",
             "tarFileName",
             "tarFileSize",
+            "gzipOriginalFileName",
+            "uncompressedByteSizeLabel",
             "entryPreviewLabel",
             "topLevelCount"
         ])
