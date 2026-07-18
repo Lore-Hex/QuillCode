@@ -1845,7 +1845,9 @@
 - **Network boundary:** Managed `allow_upstream_proxy = false` strips proxy environment variables
   (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, and `NO_PROXY`, case-insensitively) after request overrides
   are applied, so both inherited and client-supplied upstream proxies are excluded from `command/exec`
-  and lower-level process launches.
+  and lower-level process launches. Selected remote exec-server process starts also forward the
+  structured managed-network profile with `enforceManagedNetwork`, leaving enforcement to the target
+  exec server instead of silently dropping policy.
 - **Compatibility boundary:** Arbitrary configured permission profiles, full managed proxy profiles
   with enforced local forwarding/domain routing, Windows restricted-token behavior, and a remotely
   disabled local environment are not fabricated; they remain explicit work in the broader app-server
@@ -2110,8 +2112,9 @@
   root read access; workspace-write adds project roots, allowed temporary roots, explicit writable
   roots, and read-only project metadata; danger-full-access uses the protocol's disabled profile.
   Every process and filesystem request carries that context explicitly. Cross-drive Windows roots
-  fail closed, and process launch sends false/null managed-network fields until QuillCode owns a real
-  managed proxy rather than claiming enforcement it cannot provide.
+  fail closed. Process launches forward the structured managed-network profile and
+  `enforceManagedNetwork` when managed requirements define one, while enforcement remains target-owned
+  rather than claimed by the local client.
 - **Remote search boundary:** Remote `host.file.search` uses exec-server filesystem RPCs rather
   than target shell commands. The scanner canonicalizes the selected root, walks bounded directory
   entries, skips build/dependency directories plus oversized or non-UTF-8 files, and returns the same

@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodePersistence
 
 struct AppServerEnvironmentInfo: Sendable, Equatable {
     struct Shell: Sendable, Equatable {
@@ -69,7 +70,52 @@ struct AppServerRemoteProcessRequest: Sendable, Equatable {
     var cwdURI: String
     var environment: [String: String]
     var sandbox: AppServerExecServerSandboxContext
+    var managedNetwork: AppServerManagedNetworkPolicy = .disabled
     var timeoutSeconds: TimeInterval
+}
+
+struct AppServerManagedNetworkPolicy: Sendable, Equatable {
+    static let disabled = AppServerManagedNetworkPolicy(network: nil)
+
+    var network: ManagedNetworkRequirements?
+
+    init(requirements: ManagedRequirements?) {
+        guard let network = requirements?.network,
+              network.enabled != false else {
+            self.network = nil
+            return
+        }
+        self.network = network
+    }
+
+    private init(network: ManagedNetworkRequirements?) {
+        self.network = network
+    }
+
+    var enforceManagedNetwork: Bool { network != nil }
+
+    var rpcValue: CLIJSONValue {
+        guard let network else { return .null }
+        return .object([
+            "enabled": network.enabled.map(CLIJSONValue.bool) ?? .null,
+            "httpPort": network.httpPort.map { .number(Double($0)) } ?? .null,
+            "socksPort": network.socksPort.map { .number(Double($0)) } ?? .null,
+            "allowUpstreamProxy": network.allowUpstreamProxy.map(CLIJSONValue.bool) ?? .null,
+            "dangerouslyAllowNonLoopbackProxy": network.dangerouslyAllowNonLoopbackProxy
+                .map(CLIJSONValue.bool) ?? .null,
+            "dangerouslyAllowAllUnixSockets": network.dangerouslyAllowAllUnixSockets
+                .map(CLIJSONValue.bool) ?? .null,
+            "domains": network.domains.map {
+                .object($0.mapValues(CLIJSONValue.string))
+            } ?? .null,
+            "managedAllowedDomainsOnly": network.managedAllowedDomainsOnly
+                .map(CLIJSONValue.bool) ?? .null,
+            "unixSockets": network.unixSockets.map {
+                .object($0.mapValues(CLIJSONValue.string))
+            } ?? .null,
+            "allowLocalBinding": network.allowLocalBinding.map(CLIJSONValue.bool) ?? .null
+        ])
+    }
 }
 
 struct AppServerRemoteProcessResult: Sendable, Equatable {

@@ -1,5 +1,6 @@
 import Foundation
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
 
 actor AppServerRemoteEnvironmentToolExecutor {
@@ -28,6 +29,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
 
     private let client: any AppServerExecServerClient
     private let sandbox: AppServerExecServerSandboxContext
+    private let managedNetwork: AppServerManagedNetworkPolicy
     private var readFileURIs: Set<String> = []
 
     init(
@@ -35,6 +37,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
         cwd: String,
         environmentInfo: AppServerEnvironmentInfo,
         sandboxPolicy: AppServerSandboxPolicy,
+        requirements: ManagedRequirements? = nil,
         client: any AppServerExecServerClient
     ) throws {
         self.environmentID = environmentID
@@ -48,6 +51,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
             policy: sandboxPolicy,
             workspace: workspace
         )
+        self.managedNetwork = AppServerManagedNetworkPolicy(requirements: requirements)
         self.client = client
     }
 
@@ -88,6 +92,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
             cwdURI: canonicalCWD.uri,
             environment: [:],
             sandbox: sandbox,
+            managedNetwork: managedNetwork,
             timeoutSeconds: try validatedInternalShellTimeout(timeoutSeconds)
         ))
     }
@@ -410,6 +415,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
             cwdURI: cwd.uri,
             environment: environment,
             sandbox: sandbox,
+            managedNetwork: managedNetwork,
             timeoutSeconds: timeout
         ))
         return Self.toolResult(from: process)
