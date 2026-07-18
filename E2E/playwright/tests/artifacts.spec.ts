@@ -248,6 +248,35 @@ test('mock harness renders media artifact previews from tool cards', async ({ pa
   await expect(page.getByText('Created media artifacts.')).toBeVisible();
 });
 
+test('mock harness renders archive artifact previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make archive artifacts');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText(['source.zip', 'logs.tar.gz']);
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card-document-preview').nth(0)).toHaveAttribute('data-kind', 'archive');
+  await expect(page.getByTestId('tool-card-document-preview').nth(1)).toHaveAttribute('data-kind', 'archive');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText(['Archive · ZIP', 'Archive · TAR.GZ']);
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText(['source.zip', 'logs.tar.gz']);
+  await expect(page.getByTestId('tool-card-document-preview-detail')).toHaveText([
+    '/mock/QuillCode/packages',
+    '/mock/QuillCode/packages'
+  ]);
+  await expect(page.getByTestId('tool-card-document-preview-open').nth(0)).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/packages/source.zip'
+  );
+  await expect(page.getByTestId('tool-card-document-preview-open').nth(1)).toHaveAttribute(
+    'href',
+    'file:///mock/QuillCode/packages/logs.tar.gz'
+  );
+  await expect(page.getByText('Created archive artifacts.')).toBeVisible();
+});
+
 test('mock harness renders delimited table artifact previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 

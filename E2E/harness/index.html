@@ -8543,7 +8543,21 @@
       ['webm', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
       ['m4v', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
       ['mov', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
-      ['mp4', { kind: 'video', typeLabel: 'Video', icon: 'VID' }]
+      ['mp4', { kind: 'video', typeLabel: 'Video', icon: 'VID' }],
+      ['7z', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['bz2', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['gz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['rar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar.bz2', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar.gz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar.xz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tar.zst', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['tgz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['txz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['xz', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['zip', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }],
+      ['zst', { kind: 'archive', typeLabel: 'Archive', icon: 'ARC' }]
     ]);
 
     function artifactPathExtension(value) {
@@ -8563,7 +8577,16 @@
       } catch {
         filename = (value.split('/').filter(Boolean).at(-1) || '').toLowerCase();
       }
-      if (filename.endsWith('.appshot.json')) return 'appshot';
+      const compoundExtensions = new Map([
+        ['appshot.json', 'appshot'],
+        ['tar.gz', 'tar.gz'],
+        ['tar.bz2', 'tar.bz2'],
+        ['tar.xz', 'tar.xz'],
+        ['tar.zst', 'tar.zst']
+      ]);
+      for (const [suffix, previewExtension] of compoundExtensions) {
+        if (filename.endsWith(`.${suffix}`)) return previewExtension;
+      }
       return artifactPathExtension(value);
     }
 
@@ -22460,6 +22483,23 @@
           }, null, 2)
         });
         addMessage('assistant', 'Created media artifacts.');
+      } else if (text.toLowerCase().includes('archive') && text.toLowerCase().includes('artifact')) {
+        const zipPath = '/mock/QuillCode/packages/source.zip';
+        const tarPath = '/mock/QuillCode/packages/logs.tar.gz';
+        state.mockFiles[zipPath] = 'PK\u0003\u0004';
+        state.mockFiles[tarPath] = '\u001f\u008b';
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path: 'packages', contentType: 'generated archives' }, null, 2),
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: `Wrote ${zipPath} and ${tarPath}\n`,
+            artifacts: [zipPath, tarPath]
+          }, null, 2)
+        });
+        addMessage('assistant', 'Created archive artifacts.');
       } else if (fileWriteRequest) {
         const { path, content } = fileWriteRequest;
         if (isRemoteProject) {

@@ -138,6 +138,20 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(videoURL.documentPreview?.extensionLabel, "MP4")
         XCTAssertEqual(videoURL.documentPreview?.detail, "example.com/artifacts/demo.mp4")
 
+        let archiveFile = ToolArtifactState(value: "/tmp/quillcode/packages/source.zip")
+        XCTAssertTrue(archiveFile.isDocumentPreview)
+        XCTAssertEqual(archiveFile.documentPreview?.kind, .archive)
+        XCTAssertEqual(archiveFile.documentPreview?.typeLabel, "Archive")
+        XCTAssertEqual(archiveFile.documentPreview?.extensionLabel, "ZIP")
+        XCTAssertEqual(archiveFile.documentPreview?.detail, "/tmp/quillcode/packages")
+
+        let compoundArchiveURL = ToolArtifactState(value: "https://example.com/artifacts/logs.tar.gz?download=1")
+        XCTAssertTrue(compoundArchiveURL.isDocumentPreview)
+        XCTAssertEqual(compoundArchiveURL.documentPreview?.kind, .archive)
+        XCTAssertEqual(compoundArchiveURL.documentPreview?.typeLabel, "Archive")
+        XCTAssertEqual(compoundArchiveURL.documentPreview?.extensionLabel, "TAR.GZ")
+        XCTAssertEqual(compoundArchiveURL.documentPreview?.detail, "example.com/artifacts/logs.tar.gz")
+
         let textFile = ToolArtifactState(value: "/tmp/quillcode/notes.md", textPreview: "# Notes\n")
         XCTAssertFalse(textFile.isDocumentPreview)
         XCTAssertTrue(textFile.hasTextPreview)

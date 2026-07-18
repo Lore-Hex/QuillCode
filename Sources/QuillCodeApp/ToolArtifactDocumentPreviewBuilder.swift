@@ -25,11 +25,21 @@ enum ToolArtifactDocumentPreviewBuilder {
         } else {
             filename = URL(fileURLWithPath: value).lastPathComponent.lowercased()
         }
-        if filename.hasSuffix(".appshot.json") {
-            return "appshot"
+        for compoundExtension in compoundPreviewExtensions {
+            if filename.hasSuffix(".\(compoundExtension.suffix)") {
+                return compoundExtension.previewExtension
+            }
         }
         return ToolArtifactValueClassifier.pathExtension(for: value)
     }
+
+    private static let compoundPreviewExtensions: [(suffix: String, previewExtension: String)] = [
+        ("appshot.json", "appshot"),
+        ("tar.gz", "tar.gz"),
+        ("tar.bz2", "tar.bz2"),
+        ("tar.xz", "tar.xz"),
+        ("tar.zst", "tar.zst")
+    ]
 
     private static let documentKindsByExtension: [String: ToolArtifactDocumentKind] = [
         "appshot": .appshot,
@@ -61,6 +71,20 @@ enum ToolArtifactDocumentPreviewBuilder {
         "webm": .video,
         "m4v": .video,
         "mov": .video,
-        "mp4": .video
+        "mp4": .video,
+        "7z": .archive,
+        "bz2": .archive,
+        "gz": .archive,
+        "rar": .archive,
+        "tar": .archive,
+        "tar.bz2": .archive,
+        "tar.gz": .archive,
+        "tar.xz": .archive,
+        "tar.zst": .archive,
+        "tgz": .archive,
+        "txz": .archive,
+        "xz": .archive,
+        "zip": .archive,
+        "zst": .archive
     ]
 }

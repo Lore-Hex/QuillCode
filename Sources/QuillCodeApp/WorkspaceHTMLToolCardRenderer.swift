@@ -361,6 +361,8 @@ enum WorkspaceHTMLToolCardRenderer {
             return "AUD"
         case .video:
             return "VID"
+        case .archive:
+            return "ARC"
         }
     }
 

@@ -12,6 +12,7 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
     case presentation
     case audio
     case video
+    case archive
 
     public var label: String {
         switch self {
@@ -29,6 +30,8 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
             return "Audio"
         case .video:
             return "Video"
+        case .archive:
+            return "Archive"
         }
     }
 
@@ -48,6 +51,8 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
             return "waveform"
         case .video:
             return "play.rectangle"
+        case .archive:
+            return "archivebox"
         }
     }
 }

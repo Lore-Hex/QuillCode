@@ -52,8 +52,10 @@ final class ParityWorkspaceToolCardModelGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(artifactDocumentPreviewText, containsAll: [
             "enum ToolArtifactDocumentPreviewBuilder",
+            "compoundPreviewExtensions",
             ".audio",
-            ".video"
+            ".video",
+            ".archive"
         ])
         Self.assertSource(artifactAppshotPreviewText, containsAll: [
             "enum ToolArtifactAppshotPreviewBuilder",

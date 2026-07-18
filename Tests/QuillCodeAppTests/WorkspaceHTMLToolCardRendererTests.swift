@@ -300,6 +300,47 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">demo.mp4"#))
     }
 
+    func testHTMLRendererIncludesArchiveArtifactPreviews() throws {
+        let root = try makeTempDirectory()
+        let packagesDirectory = root.appendingPathComponent("packages", isDirectory: true)
+        try FileManager.default.createDirectory(at: packagesDirectory, withIntermediateDirectories: true)
+        let zip = packagesDirectory.appendingPathComponent("source.zip")
+        let tarGz = packagesDirectory.appendingPathComponent("logs.tar.gz")
+        try Data("PK".utf8).write(to: zip)
+        try Data("gz".utf8).write(to: tarGz)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"packages"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote archives\n", artifacts: [zip.path, tarGz.path])
+        let thread = ChatThread(
+            title: "Archive artifacts",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="archive""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · ZIP"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Archive · TAR.GZ"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">source.zip"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">logs.tar.gz"#))
+        XCTAssertTrue(html.contains(#"href="\#(zip.standardizedFileURL.absoluteString)""#))
+        XCTAssertTrue(html.contains(#"href="\#(tarGz.standardizedFileURL.absoluteString)""#))
+    }
+
     func testHTMLRendererIncludesOfficeArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
