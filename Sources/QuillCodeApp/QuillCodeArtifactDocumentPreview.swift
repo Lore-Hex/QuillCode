@@ -57,6 +57,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             tomlContent(tomlPreview)
         } else if let iniPreview = artifact.iniPreview {
             iniContent(iniPreview)
+        } else if let dotenvPreview = artifact.dotenvPreview {
+            dotenvContent(dotenvPreview)
         } else if let yamlPreview = artifact.yamlPreview {
             yamlContent(yamlPreview)
         } else if let xmlPreview = artifact.xmlPreview {
@@ -180,6 +182,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(iniPreview.metadataLines)
             artifactContentList(title: "Sections", labels: iniPreview.sectionPreviewLabels)
+        }
+    }
+
+    private func dotenvContent(_ dotenvPreview: ToolArtifactDotenvPreview) -> some View {
+        previewSurface(minHeight: dotenvPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "key")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(dotenvPreview.metadataLines)
+            artifactContentList(title: "Variable names", labels: dotenvPreview.keyPreviewLabels)
         }
     }
 

@@ -795,6 +795,52 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-ini-preview-section-item">tools"#))
     }
 
+    func testHTMLRendererIncludesDotenvArtifactPreviewWithoutValues() throws {
+        let root = try makeTempDirectory()
+        let dotenv = root.appendingPathComponent(".env")
+        try """
+        TRUSTEDROUTER_API_KEY=sk-secret-value
+        QUILLCODE_MODEL=trustedrouter/fast
+        export QUILLCODE_DEBUG=true
+        EMPTY_VALUE=
+        """.write(to: dotenv, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":".env"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote .env\n", artifacts: [dotenv.path])
+        let thread = ChatThread(
+            title: "Dotenv artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · ENV"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">.env"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-dotenv-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-dotenv-preview-meta">Format: DOTENV"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-dotenv-preview-meta">4 variables"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-dotenv-preview-meta">1 exported"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-dotenv-preview-key-title">Variable names"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-dotenv-preview-key-item">TRUSTEDROUTER_API_KEY"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-dotenv-preview-key-item">QUILLCODE_MODEL"#))
+        XCTAssertFalse(html.contains("sk-secret-value"))
+    }
+
     func testHTMLRendererIncludesYAMLArtifactPreview() throws {
         let root = try makeTempDirectory()
         let workflows = root

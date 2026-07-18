@@ -68,6 +68,9 @@
   root element, element/attribute/namespace counts, file size, and capped root-child previews.
 - Artifact previews now include bounded local INI-style config metadata for `.ini`, `.cfg`, and `.conf`:
   section/key counts, file size, truncation state, and capped section previews.
+- Artifact previews now include bounded local dotenv metadata for `.env` and `.env.*` files:
+  variable/export counts, file size, truncation state, and capped variable-name previews without
+  rendering raw dotenv values in artifact cards.
 - The app server exposes Codex-compatible response-first `thread/compact/start`.
 - The app server exposes Codex-compatible one-shot and live-session fuzzy file search with bounded
   shared indexing, exact wire fields, match scores/indices, cancellation, and disconnect cleanup.
