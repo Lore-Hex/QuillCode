@@ -94,6 +94,32 @@ test('mock harness renders common coding source artifacts as text previews', asy
   await expect(page.getByText('Created `Dashboard.vue` and `go.mod`.')).toBeVisible();
 });
 
+test('mock harness renders common project manifest artifacts with specific source labels', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make project manifests');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText([
+    'package.json',
+    'tsconfig.json',
+    'Cargo.toml'
+  ]);
+  await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText([
+    'package.json',
+    'tsconfig.json',
+    'Cargo.toml'
+  ]);
+  await expect(page.getByTestId('tool-card-text-preview').nth(0).getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: npm package');
+  await expect(page.getByTestId('tool-card-text-preview').nth(1).getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: TypeScript config');
+  await expect(page.getByTestId('tool-card-text-preview').nth(2).getByTestId('tool-card-text-preview-meta').first()).toHaveText('Type: Cargo manifest');
+  await expect(page.getByTestId('tool-card-text-preview-content').nth(0)).toContainText('"name": "quillcode"');
+  await expect(page.getByTestId('tool-card-text-preview-content').nth(1)).toContainText('"strict": true');
+  await expect(page.getByTestId('tool-card-text-preview-content').nth(2)).toContainText('[package]');
+  await expect(page.getByText('Created project manifest artifacts.')).toBeVisible();
+});
+
 test('mock harness renders image artifact previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
