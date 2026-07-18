@@ -10,8 +10,8 @@ protocol QuillCodeDesktopComputerUseSettingsOpening {
 extension MacSystemSettingsOpener: QuillCodeDesktopComputerUseSettingsOpening {}
 
 @MainActor
-struct QuillCodeDesktopComputerUseCoordinator {
-    private let backend: any ComputerUseBackend
+final class QuillCodeDesktopComputerUseCoordinator {
+    private var backend: any ComputerUseBackend
     private let systemSettingsOpener: any QuillCodeDesktopComputerUseSettingsOpening
 
     init(
@@ -24,6 +24,23 @@ struct QuillCodeDesktopComputerUseCoordinator {
 
     func install(on model: QuillCodeWorkspaceModel) {
         model.setComputerUseBackend(backend)
+        refreshForegroundApplication(on: model)
+    }
+
+    /// Opt-in upgrade to the cua-driver backend (background computer use — no focus/cursor steal).
+    /// The native backend is already installed by `install(on:)`, so startup is never blocked on the
+    /// driver subprocess; this swaps the live backend only when cua is both preferred (env) and
+    /// installed. No-op otherwise, keeping native behavior unchanged for everyone else.
+    func resolvePreferredBackend(
+        on model: QuillCodeWorkspaceModel,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        locator: CuaDriverLocator = CuaDriverLocator()
+    ) async {
+        guard ComputerUseBackendFactory.cuaDriverPreferred(environment: environment) else { return }
+        guard let cua = await locator.makeBackendIfAvailable(environment: environment) else { return }
+        backend = cua
+        model.setComputerUseBackend(cua)
+        model.setComputerUseStatus(cua.status)
         refreshForegroundApplication(on: model)
     }
 
