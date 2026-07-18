@@ -245,6 +245,15 @@ test('mock harness renders media artifact previews from tool cards', async ({ pa
     'href',
     'file:///mock/QuillCode/media/demo.mp4'
   );
+  await expect(page.getByTestId('tool-card-media-preview')).toHaveCount(2);
+  await expect(page.getByTestId('tool-card-media-preview-title')).toHaveText('Morning Notes');
+  await expect(page.getByTestId('tool-card-media-preview-meta')).toHaveText([
+    'Format: MP3',
+    'Artist: Quill',
+    'Size: 4 KB',
+    'Format: MP4',
+    'Size: 8 KB'
+  ]);
   await expect(page.getByText('Created media artifacts.')).toBeVisible();
 });
 

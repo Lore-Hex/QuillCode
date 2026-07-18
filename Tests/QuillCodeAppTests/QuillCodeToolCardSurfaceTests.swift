@@ -330,6 +330,43 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteArchive.archivePreview)
     }
 
+    func testArtifactStateDerivesMediaPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let audio = directory.appendingPathComponent("voice-note.mp3")
+        let video = directory.appendingPathComponent("demo.mp4")
+        let audioBytes = ID3MediaFixture.mp3(title: "Morning Notes", artist: "Quill")
+        var videoBytes = Data([0x00, 0x00, 0x00, 0x18])
+        videoBytes.append(Data("ftypmp42".utf8))
+        try audioBytes.write(to: audio)
+        try videoBytes.write(to: video)
+
+        let audioPreview = try XCTUnwrap(ToolArtifactState(value: audio.path).mediaPreview)
+        let audioByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: audioBytes.count))
+        XCTAssertEqual(audioPreview.formatLabel, "MP3")
+        XCTAssertEqual(audioPreview.title, "Morning Notes")
+        XCTAssertEqual(audioPreview.artist, "Quill")
+        XCTAssertEqual(audioPreview.byteSizeLabel, audioByteSize)
+        XCTAssertEqual(audioPreview.metadataLines, [
+            "Format: MP3",
+            "Artist: Quill",
+            "Size: \(audioByteSize)"
+        ])
+
+        let videoPreview = try XCTUnwrap(ToolArtifactState(value: video.path).mediaPreview)
+        let videoByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: videoBytes.count))
+        XCTAssertEqual(videoPreview.formatLabel, "MP4")
+        XCTAssertNil(videoPreview.title)
+        XCTAssertNil(videoPreview.artist)
+        XCTAssertEqual(videoPreview.byteSizeLabel, videoByteSize)
+        XCTAssertEqual(videoPreview.metadataLines, [
+            "Format: MP4",
+            "Size: \(videoByteSize)"
+        ])
+
+        let remoteAudio = ToolArtifactState(value: "https://example.com/voice-note.mp3")
+        XCTAssertNil(remoteAudio.mediaPreview)
+    }
+
     func testArtifactStateDerivesDelimitedTablePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let csv = directory.appendingPathComponent("revenue.csv")

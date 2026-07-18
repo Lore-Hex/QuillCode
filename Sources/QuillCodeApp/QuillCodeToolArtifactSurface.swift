@@ -286,6 +286,37 @@ public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactMediaPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var title: String?
+    public var artist: String?
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            artist.map { "Artist: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        title != nil || !metadataLines.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        title: String? = nil,
+        artist: String? = nil,
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.title = title
+        self.artist = artist
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactImagePreview: Codable, Sendable, Hashable {
     public var typeLabel: String
     public var extensionLabel: String
@@ -336,6 +367,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var archivePreview: ToolArtifactArchivePreview? {
         ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)
+    }
+    public var mediaPreview: ToolArtifactMediaPreview? {
+        ToolArtifactMediaPreviewBuilder.mediaPreview(for: value, kind: kind)
     }
     public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {
