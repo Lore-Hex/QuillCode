@@ -19,7 +19,7 @@ public struct CuaDriverLocator: Sendable {
 
     public init(
         runProcess: @escaping @Sendable (_ arguments: [String], _ stdin: Data?) async throws -> CuaDriverProcessClient.ProcessRunResult = CuaDriverProcessClient.defaultRunProcess,
-        fileExists: @escaping @Sendable (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+        fileExists: @escaping @Sendable (String) -> Bool = { CuaDriverLocator.isSafeExecutable($0) }
     ) {
         self.runProcess = runProcess
         self.fileExists = fileExists
@@ -50,11 +50,23 @@ public struct CuaDriverLocator: Sendable {
         guard let path = resolvedDriverPath(explicitPath: explicitPath, environment: environment) else {
             return nil
         }
-        // Best-effort, idempotent: keep automation metadata on-device.
-        _ = try? await runProcess([path, "telemetry", "disable"], nil)
+        // Best-effort, idempotent, and PERSISTED: cua writes the disabled flag to its config file
+        // (`telemetry status` reports `source: persisted`), so this one call covers every subsequent
+        // one-shot `call` process. We don't hard-block cua on its result — cua telemetry is an
+        // anonymous install ping, not per-action automation content — but we no longer bury a genuine
+        // failure: a non-zero exit is surfaced so a regression is visible.
+        if let result = try? await runProcess([path, "telemetry", "disable"], nil), result.exitCode != 0 {
+            let message = String(data: result.stderr, encoding: .utf8) ?? ""
+            NSLog("cua-driver telemetry disable exited \(result.exitCode): \(message.prefix(200))")
+        }
 
         let client = CuaDriverProcessClient(driverPath: path, runProcess: runProcess)
-        let status = await probeStatus(client: client)
+        // A probe FAILURE (driver errored / unexpected shape) returns nil so the caller keeps the
+        // already-working native backend, rather than clobbering it with a dead cua backend. A valid
+        // "needs Accessibility" status is NOT a failure — that's a usable cua backend the user grants.
+        guard let status = await probeStatus(client: client) else {
+            return nil
+        }
         return CuaDriverComputerUseBackend(
             client: client,
             status: status,
@@ -63,19 +75,16 @@ public struct CuaDriverLocator: Sendable {
         )
     }
 
-    private func probeStatus(client: CuaDriverProcessClient) async -> ComputerUseStatus {
-        do {
-            let result = try await client.callTool(
+    private func probeStatus(client: CuaDriverProcessClient) async -> ComputerUseStatus? {
+        guard
+            let result = try? await client.callTool(
                 name: "check_permissions",
                 argumentsJSON: CuaJSON.encode(["prompt": false])
             )
-            guard let status = Self.status(fromCheckPermissions: result) else {
-                return .unavailable("cua-driver check_permissions returned an unexpected shape.")
-            }
-            return status
-        } catch {
-            return .unavailable("cua-driver could not be probed: \(error)")
+        else {
+            return nil
         }
+        return Self.status(fromCheckPermissions: result)
     }
 
     // MARK: - Pure helpers (unit-tested without a subprocess)
@@ -112,8 +121,8 @@ public struct CuaDriverLocator: Sendable {
     public static func status(fromCheckPermissions data: Data) -> ComputerUseStatus? {
         guard let object = CuaJSON.object(from: data) else { return nil }
         guard
-            let accessibility = object["accessibility"] as? Bool,
-            let screenRecording = object["screen_recording"] as? Bool
+            let accessibility = boolValue(object["accessibility"]),
+            let screenRecording = boolValue(object["screen_recording"])
         else {
             return nil
         }
@@ -121,5 +130,42 @@ public struct CuaDriverLocator: Sendable {
             screenRecordingGranted: screenRecording,
             accessibilityGranted: accessibility
         )
+    }
+
+    /// Tolerant boolean coercion (JSON bool, 0/1, "true"/"false") so a driver reporting grants as
+    /// numbers/strings doesn't cause the whole backend to read as `.unavailable`.
+    static func boolValue(_ value: Any?) -> Bool? {
+        switch value {
+        case let bool as Bool: return bool
+        case let number as NSNumber: return number.boolValue
+        case let string as String:
+            switch string.lowercased() {
+            case "true", "1", "yes": return true
+            case "false", "0", "no": return false
+            default: return nil
+            }
+        default: return nil
+        }
+    }
+
+    /// Guards against executing a planted binary with QuillCode's Accessibility + Screen-Recording
+    /// grants: the discovered file must be executable, NOT world-writable, and owned by the current
+    /// user or root. This blocks the "malware drops `~/.quillcode/tools/cua-driver`" escalation while
+    /// leaving normal user/Homebrew installs untouched. (An explicit `QUILLCODE_CUA_DRIVER_PATH` is
+    /// user intent, but is held to the same bar — cheap and catches a world-writable target.)
+    public static func isSafeExecutable(_ path: String) -> Bool {
+        guard FileManager.default.isExecutableFile(atPath: path) else { return false }
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path) else { return false }
+        if let permissions = (attributes[.posixPermissions] as? NSNumber)?.intValue,
+           permissions & 0o002 != 0 {
+            return false // world-writable
+        }
+        #if canImport(Glibc) || canImport(Darwin)
+        if let owner = (attributes[.ownerAccountID] as? NSNumber)?.uint32Value {
+            let currentUser = getuid()
+            if owner != currentUser && owner != 0 { return false } // not owned by this user or root
+        }
+        #endif
+        return true
     }
 }

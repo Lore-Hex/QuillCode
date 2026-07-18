@@ -74,6 +74,24 @@ Needs verification in the **packaged QuillCode app** (holds Accessibility for th
 5. Ask the agent to type into a focused text field; confirm the text lands (closes the AX-write item).
 6. Confirm that a pure screenshot does **not** raise/front the observed app (background read).
 
+## Known safety limitation (increment-2 blocker for default-on)
+
+**Background desktop-click can bypass the Approved-Apps gate.** The gate identifies the app to approve
+via the *frontmost* app (`foregroundApplication()`), but `leftClick` issues a `click{scope:desktop,x,y}`
+that actuates whatever window sits at that absolute coordinate **without raising it**. So a click can
+drive a control in a background, unapproved app while the gate approved the frontmost one. Under the
+native CGEvent backend this is mitigated because a click raises the target app (the gate then catches
+it on the next action); cua's background click removes that mitigation. This only affects users who
+configured a restrictive `ComputerUseAppApprovalPolicy` (the default is `.unrestricted`), and cua is
+itself opt-in — but **gating cua on by default is blocked** on hit-testing the click coordinate to its
+owning app (cua exposes `get_accessibility_tree`/`list_windows` bounds for this) so the gate evaluates
+the app actually being actuated. Tracked as the top increment-2 safety item.
+
+Adjacent honesty note: cua returns `effect:"unverifiable"` for input events it cannot self-confirm
+(a keystroke). The backend surfaces an *explicit* driver failure (`error` field / `effect:"failed"`)
+as a thrown error, but an unverifiable-yet-didn't-land keystroke (the AX-focus case above) cannot be
+detected by cua and will read as success — another reason the AX-write path needs packaged-app QA.
+
 ## Increment roadmap
 
 1. **(this)** one-shot `call` transport behind the seam; env-gated; read path proven live.

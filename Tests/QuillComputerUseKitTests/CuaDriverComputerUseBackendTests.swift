@@ -156,6 +156,75 @@ final class CuaDriverComputerUseBackendTests: XCTestCase {
         XCTAssertEqual(click["y"] as? Int, 20)
     }
 
+    func testNonUniformDownscaleScalesEachAxisIndependently() async throws {
+        let base64 = Data("bigimage".utf8).base64EncodedString()
+        let (backend, driver) = makeBackend(
+            responses: [
+                "get_desktop_state": json([
+                    "screenshot_png_b64": base64, "screenshot_width": 200, "screenshot_height": 100,
+                ]),
+                "click": json([:]),
+            ],
+            maxScreenshotDimension: 100,
+            // Deliberately non-aspect-preserving: 200x100 -> 100x40 (scaleX=2.0, scaleY=2.5).
+            downscaler: { _, _ in
+                CuaScreenshotDownscaler.Output(pngData: Data("small".utf8), width: 100, height: 40)
+            }
+        )
+        _ = try await backend.screenshot()
+        try await backend.leftClick(x: 10, y: 20)
+        let click = args(await driver.firstCallJSON("click"))
+        XCTAssertEqual(click["x"] as? Int, 20, "x scaled by 200/100")
+        XCTAssertEqual(click["y"] as? Int, 50, "y scaled by 100/40 (independent of x)")
+    }
+
+    func testExplicitDriverErrorFieldThrows() async throws {
+        let (backend, _) = makeBackend(responses: [
+            "list_apps": listAppsResponse,
+            "type_text": json(["error": "target pid not found"]),
+        ])
+        do {
+            try await backend.type("x")
+            XCTFail("expected toolFailed on explicit error field")
+        } catch let error as CuaDriverError {
+            guard case let .toolFailed(_, message) = error else { return XCTFail("wrong error: \(error)") }
+            XCTAssertTrue(message.contains("target pid not found"))
+        }
+    }
+
+    func testEffectFailedThrows() async throws {
+        let (backend, _) = makeBackend(responses: [
+            "click": json(["effect": "failed", "message": "click rejected"]),
+        ])
+        do {
+            try await backend.leftClick(x: 1, y: 1)
+            XCTFail("expected toolFailed on effect=failed")
+        } catch let error as CuaDriverError {
+            guard case .toolFailed = error else { return XCTFail("wrong error: \(error)") }
+        }
+    }
+
+    func testEffectUnverifiableIsNotAFailure() async throws {
+        // cua returns effect:"unverifiable" for keystrokes it can't self-confirm — that is success.
+        let (backend, _) = makeBackend(responses: [
+            "list_apps": listAppsResponse,
+            "type_text": json(["effect": "unverifiable"]),
+        ])
+        try await backend.type("hello") // must NOT throw
+    }
+
+    func testForegroundAppNilWhenNoAppIsActive() async throws {
+        // Apps present but none marked active: must fail closed (nil), never pick an arbitrary app.
+        let (backend, _) = makeBackend(responses: [
+            "list_apps": json(["apps": [
+                ["active": false, "pid": 100, "name": "Finder", "bundle_id": "com.apple.finder"],
+                ["pid": 200, "name": "Safari", "bundle_id": "com.apple.Safari"],
+            ]]),
+        ])
+        let app = await backend.foregroundApplication()
+        XCTAssertNil(app, "must not fall back to the first-listed app")
+    }
+
     func testScreenshotMalformedResultThrows() async throws {
         let (backend, _) = makeBackend(responses: [
             "get_desktop_state": json(["screenshot_width": 10]), // missing b64 + height

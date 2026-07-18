@@ -102,6 +102,53 @@ final class CuaDriverLocatorTests: XCTestCase {
         XCTAssertNil(backend)
     }
 
+    func testMakeBackendReturnsNilWhenPermissionProbeFails() async {
+        // Binary present, but check_permissions returns garbage -> keep the native backend (nil here),
+        // never clobber a working native with a dead cua backend.
+        let locator = CuaDriverLocator(
+            runProcess: { arguments, _ in
+                if arguments.contains("call") {
+                    return .init(exitCode: 0, stdout: Data("not json".utf8), stderr: Data())
+                }
+                return .init(exitCode: 0, stdout: Data(), stderr: Data())
+            },
+            fileExists: { $0 == "/opt/homebrew/bin/cua-driver" }
+        )
+        let backend = await locator.makeBackendIfAvailable(environment: ["HOME": "/Users/me"])
+        XCTAssertNil(backend, "probe failure must fall back to native")
+    }
+
+    func testStatusToleratesNumericBooleanGrants() throws {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "accessibility": 1, "screen_recording": 0,
+        ])
+        let status = try XCTUnwrap(CuaDriverLocator.status(fromCheckPermissions: data))
+        XCTAssertTrue(status.accessibilityGranted)
+        XCTAssertFalse(status.screenRecordingGranted)
+    }
+
+    func testIsSafeExecutableRejectsWorldWritableAndAcceptsNormal() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cua-safe-exec-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let normal = dir.appendingPathComponent("cua-driver")
+        try Data("#!/bin/sh\n".utf8).write(to: normal)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: normal.path)
+        XCTAssertTrue(CuaDriverLocator.isSafeExecutable(normal.path), "user-owned 0755 must be accepted")
+
+        let worldWritable = dir.appendingPathComponent("cua-driver-bad")
+        try Data("#!/bin/sh\n".utf8).write(to: worldWritable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o757], ofItemAtPath: worldWritable.path)
+        XCTAssertFalse(CuaDriverLocator.isSafeExecutable(worldWritable.path), "world-writable must be rejected")
+
+        let nonExecutable = dir.appendingPathComponent("cua-driver-noexec")
+        try Data("x".utf8).write(to: nonExecutable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: nonExecutable.path)
+        XCTAssertFalse(CuaDriverLocator.isSafeExecutable(nonExecutable.path), "non-executable must be rejected")
+    }
+
     func testMakeBackendDisablesTelemetryAndProbesPermissions() async throws {
         let recorder = ProcessCallRecorder()
         let locator = CuaDriverLocator(

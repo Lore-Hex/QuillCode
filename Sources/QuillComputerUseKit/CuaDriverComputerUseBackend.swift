@@ -37,9 +37,12 @@ public actor CuaDriverComputerUseBackend: ComputerUseBackend, ComputerUseForegro
     private let downscaler: @Sendable (Data, Int) -> CuaScreenshotDownscaler.Output
 
     private var didApplyDesktopScope = false
-    /// Multiply an incoming model coordinate by this to reach cua's native pixel space. Updated on
+    /// Multiply an incoming model coordinate by these to reach cua's native pixel space. Stored per
+    /// axis (not one scalar) so a downscaler that doesn't preserve aspect ratio — or the ±1px rounding
+    /// difference between an independently-rounded width and height — can't skew the Y axis. Updated on
     /// every `screenshot()`; defaults to 1.0 so a click before any screenshot is passed through as-is.
-    private var coordinateScale: Double = 1.0
+    private var coordinateScaleX: Double = 1.0
+    private var coordinateScaleY: Double = 1.0
 
     public init(
         client: any CuaDriverToolInvoking,
@@ -78,7 +81,8 @@ public actor CuaDriverComputerUseBackend: ComputerUseBackend, ComputerUseForegro
         }
 
         guard let maxScreenshotDimension, max(nativeWidth, nativeHeight) > maxScreenshotDimension else {
-            coordinateScale = 1.0
+            coordinateScaleX = 1.0
+            coordinateScaleY = 1.0
             return ComputerScreenshot(width: nativeWidth, height: nativeHeight, pngBase64: base64)
         }
 
@@ -86,11 +90,13 @@ public actor CuaDriverComputerUseBackend: ComputerUseBackend, ComputerUseForegro
         // Downscale failed (or produced a degenerate size): report native full-res and keep scale 1.0
         // rather than mis-scaling every coordinate against a zero/garbage width.
         guard scaled.width > 0, scaled.height > 0 else {
-            coordinateScale = 1.0
+            coordinateScaleX = 1.0
+            coordinateScaleY = 1.0
             return ComputerScreenshot(width: nativeWidth, height: nativeHeight, pngBase64: base64)
         }
-        // Scale from model space (downscaled) back up to cua's native pixel space.
-        coordinateScale = Double(nativeWidth) / Double(scaled.width)
+        // Scale each axis from model space (downscaled) back up to cua's native pixel space.
+        coordinateScaleX = Double(nativeWidth) / Double(scaled.width)
+        coordinateScaleY = Double(nativeHeight) / Double(scaled.height)
         return ComputerScreenshot(
             width: scaled.width,
             height: scaled.height,
@@ -99,6 +105,13 @@ public actor CuaDriverComputerUseBackend: ComputerUseBackend, ComputerUseForegro
     }
 
     public func leftClick(x: Int, y: Int) async throws {
+        // KNOWN LIMITATION (increment 2): a desktop-scope click actuates whatever window is at the
+        // absolute coordinate WITHOUT raising it, so it can drive a background window while the
+        // Approved-Apps gate (which only inspects the frontmost app) approves a different one. This is
+        // the safety cost of background actuation; under the native CGEvent backend a click raises the
+        // target, so the gate catches it on the next action. Gating cua by default is blocked on
+        // hit-testing the click coordinate to its owning app. Only affects users who configured a
+        // restrictive approval policy (default is unrestricted). See docs/CUA_COMPUTER_USE_TEST_PLAN.md.
         try await ensureDesktopScope()
         let native = toNativeCoordinate(x: x, y: y)
         _ = try await call("click", [
@@ -163,8 +176,11 @@ public actor CuaDriverComputerUseBackend: ComputerUseBackend, ComputerUseForegro
     }
 
     private func toNativeCoordinate(x: Int, y: Int) -> (x: Int, y: Int) {
-        guard coordinateScale != 1.0 else { return (x, y) }
-        return (Int((Double(x) * coordinateScale).rounded()), Int((Double(y) * coordinateScale).rounded()))
+        guard coordinateScaleX != 1.0 || coordinateScaleY != 1.0 else { return (x, y) }
+        return (
+            Int((Double(x) * coordinateScaleX).rounded()),
+            Int((Double(y) * coordinateScaleY).rounded())
+        )
     }
 
     private func frontmostProcessID() async throws -> Int {
@@ -174,25 +190,65 @@ public actor CuaDriverComputerUseBackend: ComputerUseBackend, ComputerUseForegro
         return pid
     }
 
+    /// The frontmost app, or nil if none is marked active. Deliberately does NOT fall back to an
+    /// arbitrary first-listed app: input actions resolve their pid through here, and
+    /// `foregroundApplication()` feeds the Approved-Apps gate — targeting or approving the *wrong* app
+    /// would be worse than failing closed (and matches `MacComputerUseBackend`, which returns nil).
     private func frontmostApp() async throws -> [String: Any]? {
         let result = try await call("list_apps", [:])
         guard let object = CuaJSON.object(from: result), let apps = object["apps"] as? [Any] else {
             return nil
         }
-        let dictionaries = apps.compactMap { $0 as? [String: Any] }
-        return dictionaries.first { ($0["active"] as? Bool) == true } ?? dictionaries.first
+        return apps
+            .compactMap { $0 as? [String: Any] }
+            .first { boolValue($0["active"]) == true }
     }
 
+    /// Runs a cua tool and surfaces an explicit driver-reported failure. cua returns
+    /// `effect: "unverifiable"` for input events it cannot self-confirm (a keystroke), which is NOT a
+    /// failure and stays `ok`; but an `error` field or `effect: "failed"` in a 0-exit result means the
+    /// action was rejected, and the executor must see that rather than report a false success.
+    @discardableResult
     private func call(_ tool: String, _ arguments: [String: Any]) async throws -> Data {
-        try await client.callTool(name: tool, argumentsJSON: CuaJSON.encode(arguments))
+        let result = try await client.callTool(name: tool, argumentsJSON: CuaJSON.encode(arguments))
+        if let object = CuaJSON.object(from: result) {
+            if let error = object["error"] as? String, !error.isEmpty {
+                throw CuaDriverError.toolFailed(tool: tool, message: String(error.prefix(400)))
+            }
+            if (object["effect"] as? String) == "failed" {
+                let detail = (object["message"] as? String) ?? "driver reported effect=failed"
+                throw CuaDriverError.toolFailed(tool: tool, message: String(detail.prefix(400)))
+            }
+        }
+        return result
     }
 
+    /// Non-trapping numeric coercion. `Int(exactly:)` on the bridged `Double` avoids a fatal error if a
+    /// buggy/hostile driver emits a non-finite or out-of-range number (e.g. `1e400` → `+inf`).
     private nonisolated func intValue(_ value: Any?) -> Int? {
         switch value {
         case let int as Int: return int
-        case let double as Double: return Int(double)
-        case let number as NSNumber: return number.intValue
+        // `Int(exactly:)` returns nil (never traps) for non-finite or out-of-range values.
+        case let number as NSNumber: return Int(exactly: number.doubleValue.rounded())
+        case let double as Double: return Int(exactly: double.rounded())
         case let string as String: return Int(string)
+        default: return nil
+        }
+    }
+
+    /// Tolerant boolean coercion, mirroring `intValue`'s tolerance: accepts JSON bool, 0/1, and
+    /// "true"/"false" so a driver that reports flags as numbers or strings doesn't silently disable
+    /// features (grants → permanently `.unavailable`; `active` → wrong-app targeting).
+    private nonisolated func boolValue(_ value: Any?) -> Bool? {
+        switch value {
+        case let bool as Bool: return bool
+        case let number as NSNumber: return number.boolValue
+        case let string as String:
+            switch string.lowercased() {
+            case "true", "1", "yes": return true
+            case "false", "0", "no": return false
+            default: return nil
+            }
         default: return nil
         }
     }

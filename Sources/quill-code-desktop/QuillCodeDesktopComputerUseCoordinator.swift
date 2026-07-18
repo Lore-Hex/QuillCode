@@ -13,6 +13,9 @@ extension MacSystemSettingsOpener: QuillCodeDesktopComputerUseSettingsOpening {}
 final class QuillCodeDesktopComputerUseCoordinator {
     private var backend: any ComputerUseBackend
     private let systemSettingsOpener: any QuillCodeDesktopComputerUseSettingsOpening
+    /// Monotonic token so an in-flight foreground-app lookup that resolves late (e.g. the native
+    /// lookup spawned at install time) can't overwrite a newer one (the cua lookup after the swap).
+    private var foregroundRefreshGeneration = 0
 
     init(
         backend: any ComputerUseBackend = ComputerUseBackendFactory.platformDefault().backend(),
@@ -39,8 +42,7 @@ final class QuillCodeDesktopComputerUseCoordinator {
         guard ComputerUseBackendFactory.cuaDriverPreferred(environment: environment) else { return }
         guard let cua = await locator.makeBackendIfAvailable(environment: environment) else { return }
         backend = cua
-        model.setComputerUseBackend(cua)
-        model.setComputerUseStatus(cua.status)
+        model.setComputerUseBackend(cua) // also sets status
         refreshForegroundApplication(on: model)
     }
 
@@ -60,13 +62,18 @@ final class QuillCodeDesktopComputerUseCoordinator {
     }
 
     private func refreshForegroundApplication(on model: QuillCodeWorkspaceModel) {
+        foregroundRefreshGeneration += 1
+        let generation = foregroundRefreshGeneration
         guard let provider = backend as? any ComputerUseForegroundApplicationProviding else {
             model.setComputerUseForegroundApplication(nil)
             return
         }
-        Task {
+        Task { [weak self] in
             let application = await provider.foregroundApplication()
             await MainActor.run {
+                // Drop the result if a newer refresh has since started (e.g. a backend swap), so a
+                // slow native lookup can't overwrite the live cua backend's foreground app.
+                guard let self, self.foregroundRefreshGeneration == generation else { return }
                 model.setComputerUseForegroundApplication(application)
             }
         }
