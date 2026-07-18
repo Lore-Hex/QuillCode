@@ -29,7 +29,8 @@ public enum TerminalOutputRenderer {
         ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .narrow
     ) -> TerminalRenderedFrame {
         guard raw.contains(where: {
-            $0 == "\u{1B}" || $0 == "\r" || $0 == "\u{08}" || $0 == "\u{09}" || $0 == "\u{07}"
+            $0 == "\u{1B}" || $0 == "\u{9B}" || $0 == "\u{9D}" || $0 == "\r" || $0 == "\u{08}"
+                || $0 == "\u{09}" || $0 == "\u{07}"
         }) else {
             return TerminalRenderedFrame(
                 text: raw,

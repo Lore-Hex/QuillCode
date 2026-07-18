@@ -19,6 +19,11 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("\u{1B}[1;32mbold green\u{1B}[0m done"), "bold green done")
     }
 
+    func testC1CSISequencesShareTheNormalCSIParser() {
+        XCTAssertEqual(render("\u{9B}31mred\u{9B}0m"), "red")
+        XCTAssertEqual(render("abc\u{9B}1;2HXY"), "aXY")
+    }
+
     func testPreservesSGRColorsAndEmphasisAsStyledRuns() {
         let frame = TerminalOutputRenderer.renderFrame(
             "plain \u{1B}[1;3;4;31;44mstyled\u{1B}[22;23;24;39;49m done"
@@ -272,6 +277,9 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("ding\u{07}dong"), "dingdong")
         // OSC set-title terminated by BEL.
         XCTAssertEqual(render("\u{1B}]0;my title\u{07}prompt$ "), "prompt$ ")
+        XCTAssertEqual(render("\u{1B}]0;my title\u{1B}\\prompt$ "), "prompt$ ")
+        XCTAssertEqual(render("\u{9D}0;my title\u{07}prompt$ "), "prompt$ ")
+        XCTAssertEqual(render("\u{9D}0;my title\u{9C}prompt$ "), "prompt$ ")
     }
 
     func testDropsIncompleteTrailingEscapeSequences() {
