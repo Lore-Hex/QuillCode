@@ -366,6 +366,57 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteTOML.tomlPreview)
     }
 
+    func testArtifactStateDerivesINIPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let ini = directory.appendingPathComponent("quillcode.ini")
+        let iniText = """
+        ; QuillCode mock configuration
+        root = /tmp/quillcode
+        model = trustedrouter/fast
+
+        [trustedrouter]
+        base_url = https://api.trustedrouter.com/v1
+        timeout = 60
+
+        [workspace]
+        auto_save = true
+        default_branch = main
+
+        [tools]
+        shell = enabled
+        browser = enabled
+        computer_use = review
+        """
+        try iniText.write(to: ini, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: ini.path)
+        let preview = try XCTUnwrap(artifact.iniPreview)
+        let byteCount = try XCTUnwrap(iniText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "INI")
+        XCTAssertEqual(preview.formatLabel, "INI")
+        XCTAssertEqual(preview.sectionCount, 3)
+        XCTAssertEqual(preview.keyCount, 9)
+        XCTAssertEqual(preview.sectionPreviewLabels, ["trustedrouter", "workspace", "tools"])
+        XCTAssertEqual(preview.sectionPreviewLabel, "trustedrouter, workspace, tools")
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: INI",
+            "3 sections",
+            "9 keys",
+            "Sections: trustedrouter, workspace, tools",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+        XCTAssertNil(artifact.tomlPreview)
+
+        let remoteINI = ToolArtifactState(value: "https://example.com/quillcode.ini")
+        XCTAssertNil(remoteINI.iniPreview)
+    }
+
     func testArtifactStateDerivesYAMLPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let workflow = directory.appendingPathComponent("ci.yml")
