@@ -792,6 +792,59 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesPropertyListArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let plist = root.appendingPathComponent("Info.plist")
+        let payload: [String: Any] = [
+            "CFBundleIdentifier": "co.lorehex.QuillCode",
+            "CFBundleName": "QuillCode",
+            "CFBundleURLTypes": [
+                [
+                    "CFBundleURLName": "TrustedRouter",
+                    "CFBundleURLSchemes": ["quillcode"]
+                ]
+            ],
+            "LSMinimumSystemVersion": "14.0",
+            "NSPrincipalClass": "NSApplication"
+        ]
+        let data = try PropertyListSerialization.data(fromPropertyList: payload, format: .xml, options: 0)
+        try data.write(to: plist)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Info.plist"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Info.plist\n", artifacts: [plist.path])
+        let thread = ChatThread(
+            title: "Property list artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · PLIST"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Info.plist"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-plist-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-plist-preview-meta">Format: XML PLIST"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-plist-preview-meta">Root: Dictionary"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-plist-preview-meta">5 keys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-plist-preview-key-title">Top-level keys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-plist-preview-key-item">CFBundleIdentifier"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-plist-preview-key-item">NSPrincipalClass"#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)

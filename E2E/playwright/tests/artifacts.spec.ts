@@ -382,6 +382,41 @@ test('mock harness renders YAML artifact metadata previews from tool cards', asy
   await expect(page.getByText('Created `ci.yml`.')).toBeVisible();
 });
 
+test('mock harness renders property list artifact metadata previews from tool cards', async ({ page }) => {
+  await page.goto(harnessURL());
+
+  await page.getByLabel('Message').fill('make a plist artifact');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByTestId('tool-card-title')).toHaveText('host.file.write');
+  await expect(page.getByTestId('tool-card-artifact-label')).toHaveText('Info.plist');
+  await expect(page.getByTestId('tool-card-artifact-detail')).toHaveText('/mock/QuillCode');
+  await expect(page.getByTestId('tool-card-document-previews')).toBeVisible();
+  await expect(page.getByTestId('tool-card-document-preview')).toHaveAttribute('data-kind', 'data');
+  await expect(page.getByTestId('tool-card-document-preview-type')).toHaveText('Data · PLIST');
+  await expect(page.getByTestId('tool-card-document-preview-label')).toHaveText('Info.plist');
+  await expect(page.getByTestId('tool-card-plist-preview')).toBeVisible();
+  await expect(page.getByTestId('tool-card-plist-preview-meta')).toHaveText([
+    'Format: XML PLIST',
+    'Root: Dictionary',
+    '5 keys',
+    '2 dictionaries',
+    '2 arrays',
+    '6 values',
+    'Keys: CFBundleIdentifier, CFBundleName, CFBundleURLTypes, LSMinimumSystemVersion, NSPrincipalClass',
+    /Size: \d+ bytes/
+  ]);
+  await expect(page.getByTestId('tool-card-plist-preview-key-title')).toHaveText('Top-level keys');
+  await expect(page.getByTestId('tool-card-plist-preview-key-item')).toHaveText([
+    'CFBundleIdentifier',
+    'CFBundleName',
+    'CFBundleURLTypes',
+    'LSMinimumSystemVersion',
+    'NSPrincipalClass'
+  ]);
+  await expect(page.getByText('Created `Info.plist`.')).toBeVisible();
+});
+
 test('mock harness renders office artifact metadata previews from tool cards', async ({ page }) => {
   await page.goto(harnessURL());
 
