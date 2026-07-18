@@ -64,6 +64,8 @@
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:
   root kind, key/item counts, dictionary/array/value counts, file size, and capped key previews.
+- Artifact previews now include bounded local XML metadata using native XML parsing:
+  root element, element/attribute/namespace counts, file size, and capped root-child previews.
 - The app server exposes Codex-compatible response-first `thread/compact/start`.
 - The app server exposes Codex-compatible one-shot and live-session fuzzy file search with bounded
   shared indexing, exact wire fields, match scores/indices, cancellation, and disconnect cleanup.
