@@ -324,7 +324,11 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
             compressedBytes: Data("compressed".utf8),
             uncompressedByteCount: 2_048
         ).write(to: gzip)
-        try Data("gz".utf8).write(to: tarGz)
+        try GzipArchiveFixture.gzipArchive(
+            originalName: "logs.tar",
+            compressedBytes: Data("compressed tar".utf8),
+            uncompressedByteCount: 8_192
+        ).write(to: tarGz)
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"packages"}"#)
         let result = ToolResult(ok: true, stdout: "Wrote archives\n", artifacts: [zip.path, tar.path, gzip.path, tarGz.path])
         let thread = ChatThread(
@@ -371,6 +375,9 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">1 entry"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Entries: report.txt"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Uncompressed: 2 KB"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Format: TAR.GZ"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Entries: logs.tar"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-archive-preview-meta">Uncompressed: 8 KB"#))
         XCTAssertTrue(html.contains(#"href="\#(zip.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(tar.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"href="\#(gzip.standardizedFileURL.absoluteString)""#))

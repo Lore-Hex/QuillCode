@@ -285,7 +285,7 @@ test('mock harness renders archive artifact previews from tool cards', async ({ 
     '/mock/QuillCode/packages',
     '/mock/QuillCode/packages'
   ]);
-  await expect(page.getByTestId('tool-card-archive-preview')).toHaveCount(3);
+  await expect(page.getByTestId('tool-card-archive-preview')).toHaveCount(4);
   await expect(page.getByTestId('tool-card-archive-preview-meta')).toHaveText([
     'Format: ZIP',
     '4 entries',
@@ -303,6 +303,10 @@ test('mock harness renders archive artifact previews from tool cards', async ({ 
     'Entries: report.txt',
     'Uncompressed: 2 KB',
     'Size: 36 bytes',
+    'Format: TAR.GZ',
+    'Entries: logs.tar',
+    'Uncompressed: 8 KB',
+    'Size: 44 bytes',
   ]);
   await expect(page.getByTestId('tool-card-document-preview-open').nth(0)).toHaveAttribute(
     'href',
