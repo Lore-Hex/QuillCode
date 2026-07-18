@@ -845,6 +845,42 @@ public struct ToolArtifactWebAssemblyPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactFontPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var flavorLabel: String?
+    public var tableCount: Int?
+    public var byteSizeLabel: String?
+    public var declaredByteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            flavorLabel.map { "Flavor: \($0)" },
+            tableCount.map { "\($0) table\($0 == 1 ? "" : "s")" },
+            declaredByteSizeLabel.map { "Declared size: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        flavorLabel: String? = nil,
+        tableCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        declaredByteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.flavorLabel = flavorLabel
+        self.tableCount = tableCount
+        self.byteSizeLabel = byteSizeLabel
+        self.declaredByteSizeLabel = declaredByteSizeLabel
+    }
+}
+
 public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var entryCount: Int?
@@ -1042,6 +1078,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var webAssemblyPreview: ToolArtifactWebAssemblyPreview? {
         ToolArtifactWebAssemblyPreviewBuilder.webAssemblyPreview(for: value, kind: kind)
+    }
+    public var fontPreview: ToolArtifactFontPreview? {
+        ToolArtifactFontPreviewBuilder.fontPreview(for: value, kind: kind)
     }
     public var archivePreview: ToolArtifactArchivePreview? {
         ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)

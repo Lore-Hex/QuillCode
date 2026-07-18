@@ -8260,6 +8260,7 @@
         propertyListPreview: artifactPropertyListPreview(value, kind, documentPreview),
         sqlitePreview: artifactSQLitePreview(value, kind, documentPreview),
         webAssemblyPreview: artifactWebAssemblyPreview(value, kind, documentPreview),
+        fontPreview: artifactFontPreview(value, kind, documentPreview),
         jsonPreview: artifactJSONPreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
         mediaPreview: artifactMediaPreview(value, kind, documentPreview),
@@ -8657,6 +8658,21 @@
       ]);
     }
 
+    function mockWOFF2Font(tableCount = 7, declaredSize = 32) {
+      return binaryString([
+        ...Array.from('wOF2').map(character => character.charCodeAt(0)),
+        ...Array.from('OTTO').map(character => character.charCodeAt(0)),
+        (declaredSize >> 24) & 0xFF,
+        (declaredSize >> 16) & 0xFF,
+        (declaredSize >> 8) & 0xFF,
+        declaredSize & 0xFF,
+        (tableCount >> 8) & 0xFF,
+        tableCount & 0xFF,
+        0,
+        0
+      ]);
+    }
+
     function mockTIFFHeader(width, height) {
       return binaryString([
         ...Array.from('II').map(character => character.charCodeAt(0)),
@@ -8700,12 +8716,17 @@
       ['db', { kind: 'data', typeLabel: 'Data', icon: 'DB' }],
       ['diff', { kind: 'data', typeLabel: 'Data', icon: 'DIFF' }],
       ['env', { kind: 'data', typeLabel: 'Data', icon: 'ENV' }],
+      ['otf', { kind: 'data', typeLabel: 'Data', icon: 'FONT' }],
       ['ini', { kind: 'data', typeLabel: 'Data', icon: 'INI' }],
       ['patch', { kind: 'data', typeLabel: 'Data', icon: 'DIFF' }],
       ['sqlite', { kind: 'data', typeLabel: 'Data', icon: 'DB' }],
       ['sqlite3', { kind: 'data', typeLabel: 'Data', icon: 'DB' }],
+      ['ttc', { kind: 'data', typeLabel: 'Data', icon: 'FONT' }],
+      ['ttf', { kind: 'data', typeLabel: 'Data', icon: 'FONT' }],
       ['toml', { kind: 'data', typeLabel: 'Data', icon: 'TOML' }],
       ['wasm', { kind: 'data', typeLabel: 'Data', icon: 'WASM' }],
+      ['woff', { kind: 'data', typeLabel: 'Data', icon: 'FONT' }],
+      ['woff2', { kind: 'data', typeLabel: 'Data', icon: 'FONT' }],
       ['yaml', { kind: 'data', typeLabel: 'Data', icon: 'YAML' }],
       ['yml', { kind: 'data', typeLabel: 'Data', icon: 'YML' }],
       ['xml', { kind: 'data', typeLabel: 'Data', icon: 'XML' }],
@@ -9659,6 +9680,76 @@
         preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
       ].filter(Boolean);
       return preview.metadataLines.length ? preview : null;
+    }
+
+    function artifactFontPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      if (!['otf', 'ttc', 'ttf', 'woff', 'woff2'].includes(artifactPreviewExtension(value))) return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || content.length < 12) return null;
+
+      const signature = content.slice(0, 4);
+      let formatLabel = null;
+      let flavorLabel = null;
+      let tableCount = null;
+      let declaredByteSizeLabel = null;
+      if (signature === 'wOFF' || signature === 'wOF2') {
+        if (content.length < 16) return null;
+        formatLabel = signature === 'wOF2' ? 'WOFF2' : 'WOFF';
+        flavorLabel = fontFlavorLabel(content.slice(4, 8));
+        tableCount = bigEndian16(content, 12);
+        declaredByteSizeLabel = byteSizeLabel(bigEndian32(content, 8));
+      } else {
+        const sfnt = sfntFontLabels(signature);
+        if (!sfnt) return null;
+        formatLabel = sfnt.formatLabel;
+        flavorLabel = sfnt.flavorLabel;
+        tableCount = bigEndian16(content, 4);
+      }
+      const preview = {
+        formatLabel,
+        flavorLabel,
+        tableCount,
+        byteSizeLabel: byteSizeLabel(content.length),
+        declaredByteSizeLabel
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        preview.flavorLabel ? `Flavor: ${preview.flavorLabel}` : null,
+        preview.tableCount != null ? `${preview.tableCount} table${preview.tableCount === 1 ? '' : 's'}` : null,
+        preview.declaredByteSizeLabel ? `Declared size: ${preview.declaredByteSizeLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null
+      ].filter(Boolean);
+      return preview.metadataLines.length ? preview : null;
+    }
+
+    function fontFlavorLabel(signature) {
+      if (signature === '\u0000\u0001\u0000\u0000') return 'TrueType';
+      if (signature === 'OTTO') return 'OpenType CFF';
+      if (signature === 'true') return 'Classic Mac TrueType';
+      if (signature === 'typ1') return 'Classic Mac Type 1';
+      return null;
+    }
+
+    function sfntFontLabels(signature) {
+      if (signature === '\u0000\u0001\u0000\u0000') return { formatLabel: 'TrueType', flavorLabel: 'sfnt' };
+      if (signature === 'OTTO') return { formatLabel: 'OpenType', flavorLabel: 'CFF' };
+      if (signature === 'ttcf') return { formatLabel: 'TrueType Collection', flavorLabel: 'Collection' };
+      if (signature === 'true') return { formatLabel: 'TrueType', flavorLabel: 'Classic Mac' };
+      if (signature === 'typ1') return { formatLabel: 'PostScript Type 1', flavorLabel: 'Classic Mac' };
+      return null;
+    }
+
+    function bigEndian16(content, offset) {
+      return (content.charCodeAt(offset) << 8) | content.charCodeAt(offset + 1);
+    }
+
+    function bigEndian32(content, offset) {
+      return ((content.charCodeAt(offset) << 24)
+        | (content.charCodeAt(offset + 1) << 16)
+        | (content.charCodeAt(offset + 2) << 8)
+        | content.charCodeAt(offset + 3)) >>> 0;
     }
 
     function jsonPreviewFromRoot(root, byteSize) {
@@ -12474,6 +12565,16 @@
                   <div>${metadata}</div>
                 </div>` : '';
         };
+        const renderFontPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-font-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          return metadata ? `
+                <div class="artifact-office-preview" data-testid="tool-card-font-preview">
+                  <div>${metadata}</div>
+                </div>` : '';
+        };
         const renderMediaPreview = preview => {
           if (!preview) return '';
           const title = preview.title
@@ -12568,6 +12669,7 @@
                 ${renderPropertyListPreview(artifact.propertyListPreview)}
                 ${renderSQLitePreview(artifact.sqlitePreview)}
                 ${renderWebAssemblyPreview(artifact.webAssemblyPreview)}
+                ${renderFontPreview(artifact.fontPreview)}
                 ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
                 ${renderArchivePreview(artifact.archivePreview)}
@@ -24702,6 +24804,17 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `module.wasm`.');
+      } else if (text.toLowerCase().includes('font artifact') || text.toLowerCase().includes('woff artifact')) {
+        const path = '/mock/QuillCode/assets/Inter.woff2';
+        state.mockFiles[path] = mockWOFF2Font(7, 32);
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'font/woff2' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `Inter.woff2`.');
       } else if (text.toLowerCase().includes('json artifact')) {
         const path = '/mock/QuillCode/reports/build-report.json';
         state.mockFiles[path] = JSON.stringify({
