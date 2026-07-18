@@ -44,6 +44,8 @@ extension TerminalScreenBuffer {
             insertCharacters(count: firstParam(params))
         case "P":  // DCH: delete characters at cursor
             deleteCharacters(count: firstParam(params))
+        case "X":  // ECH: erase characters at cursor without shifting the suffix
+            eraseCharacters(count: firstParam(params))
         case "K":
             eraseLine(params)
         case "J":

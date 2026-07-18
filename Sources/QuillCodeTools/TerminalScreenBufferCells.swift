@@ -29,6 +29,19 @@ extension TerminalScreenBuffer {
         trimCurrentLineToScreenWidth()
     }
 
+    mutating func eraseCharacters(count requestedCount: Int) {
+        let count = boundedCharacterMutationCount(requestedCount)
+        guard count > 0 else { return }
+
+        let end = Swift.min(Self.maxCols + 1, col + count)
+        ensureColumn(end - 1)
+
+        for targetCol in col..<end {
+            clearCellCluster(at: targetCol)
+            lines[row][targetCol] = .blank(style: currentStyle)
+        }
+    }
+
     private func boundedCharacterMutationCount(_ requestedCount: Int) -> Int {
         Swift.max(0, Swift.min(requestedCount, Self.maxCols - col + 1))
     }
