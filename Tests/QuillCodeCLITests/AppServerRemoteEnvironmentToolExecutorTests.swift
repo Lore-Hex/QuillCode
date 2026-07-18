@@ -98,6 +98,93 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
         XCTAssertTrue(snapshot.removedURIs[0].hasPrefix("file:///workspace/.quillcode/tmp/"))
     }
 
+    func testShellStdinUsesTargetNativeTemporaryPathForWindowsRemote() async throws {
+        let root = "file:///C:/workspace"
+        let client = AppServerFakeExecServerClient(
+            info: Self.windowsInfo(root: root),
+            processResults: [
+                .init(
+                    stdout: "hello\n",
+                    stderr: "",
+                    exitCode: 0,
+                    failure: nil,
+                    sandboxDenied: false
+                )
+            ],
+            directories: [root]
+        )
+        let executor = try windowsExecutor(client: client)
+
+        let result = await executor.execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"Get-Content -Raw","stdin":"hello\n"}"#
+        ))
+
+        XCTAssertTrue(result.ok)
+        let snapshot = await client.snapshot()
+        let request = try XCTUnwrap(snapshot.processRequests.first)
+        XCTAssertTrue(
+            request.argv.last?.contains("< 'C:\\workspace\\.quillcode\\tmp\\") == true,
+            request.argv.last ?? ""
+        )
+        XCTAssertEqual(snapshot.removedURIs.count, 1)
+        XCTAssertTrue(snapshot.removedURIs[0].hasPrefix("file:///C:/workspace/.quillcode/tmp/"))
+        XCTAssertTrue(snapshot.fileSystemRequests.contains {
+            $0.method == "fs/createDirectory"
+                && $0.pathURI == "file:///C:/workspace/.quillcode/tmp"
+        })
+    }
+
+    func testApplyPatchUsesTargetNativeTemporaryPathForWindowsRemote() async throws {
+        let root = "file:///C:/workspace"
+        let readme = "file:///C:/workspace/README.md"
+        let client = AppServerFakeExecServerClient(
+            info: Self.windowsInfo(root: root),
+            processResults: [
+                .init(
+                    stdout: "",
+                    stderr: "",
+                    exitCode: 0,
+                    failure: nil,
+                    sandboxDenied: false
+                )
+            ],
+            files: [
+                readme: Data("old\n".utf8)
+            ],
+            directories: [root]
+        )
+        let executor = try windowsExecutor(client: client)
+        let read = await executor.execute(ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: #"{"path":"README.md"}"#
+        ))
+        XCTAssertTrue(read.ok, read.error ?? "")
+
+        let patch = """
+        diff --git a/README.md b/README.md
+        --- a/README.md
+        +++ b/README.md
+        @@ -1 +1 @@
+        -old
+        +new
+        """
+        let result = await executor.execute(ToolCall(
+            name: ToolDefinition.applyPatch.name,
+            argumentsJSON: #"{"patch":\#(try Self.jsonStringLiteral(patch))}"#
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        let snapshot = await client.snapshot()
+        let request = try XCTUnwrap(snapshot.processRequests.first)
+        XCTAssertTrue(
+            request.argv.last?.contains("git apply --check 'C:\\workspace\\.quillcode\\tmp\\") == true,
+            request.argv.last ?? ""
+        )
+        XCTAssertEqual(snapshot.removedURIs.count, 1)
+        XCTAssertTrue(snapshot.removedURIs[0].hasPrefix("file:///C:/workspace/.quillcode/tmp/"))
+    }
+
     func testExistingRemoteFileMustBeReadBeforeWrite() async throws {
         let readme = "file:///workspace/README.md"
         let client = AppServerFakeExecServerClient(files: [
@@ -282,6 +369,30 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
             requirements: requirements,
             client: client
         )
+    }
+
+    private func windowsExecutor(
+        client: AppServerFakeExecServerClient
+    ) throws -> AppServerRemoteEnvironmentToolExecutor {
+        try AppServerRemoteEnvironmentToolExecutor(
+            environmentID: "windows",
+            cwd: "C:\\workspace",
+            environmentInfo: Self.windowsInfo(root: "file:///C:/workspace"),
+            sandboxPolicy: .init(mode: .workspaceWrite),
+            client: client
+        )
+    }
+
+    private static func windowsInfo(root: String) -> AppServerEnvironmentInfo {
+        .init(
+            shell: .init(name: "pwsh", path: "C:\\Program Files\\PowerShell\\7\\pwsh.exe"),
+            cwd: root
+        )
+    }
+
+    private static func jsonStringLiteral(_ value: String) throws -> String {
+        let data = try JSONEncoder().encode(value)
+        return String(decoding: data, as: UTF8.self)
     }
 
     private func sandbox(

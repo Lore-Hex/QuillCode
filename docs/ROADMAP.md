@@ -32,7 +32,9 @@
   request-supplied upstream proxy environment variables before launch. Selected remote exec-server
   process starts forward the structured managed-network profile plus `enforceManagedNetwork` so
   target-side policy is not lost. Arbitrary configured permission profiles and local managed
-  network-proxy forwarding/domain-routing enforcement remain explicit app-server parity work.
+  network-proxy forwarding/domain-routing enforcement remain explicit app-server parity work. Remote
+  stdin and patch helpers now stage temporary files inside the selected remote workspace using the
+  target shell's native path quoting, including Windows PowerShell remotes.
 - Ready MCP tools stream bounded per-call progress through stdio, Streamable HTTP, and legacy HTTP+SSE into replayable agent events, native/static tool cards, thinking/activity state, CLI JSONL, and Codex-compatible app-server `item/mcpToolCall/progress` notifications. App-server routing preserves exact turn/item identity, emits only nonempty protocol-valid messages, honors notification opt-outs, and orders progress between native MCP item start and completion. Terminal results publish immediately and cancellation closes an in-flight progress lifecycle. Thread-scoped MCP startup emits Codex-compatible `starting`, `ready`, `failed`, and `cancelled` notifications with required-before-response and optional-after-response ordering. Server-initiated standard/rich-form/URL elicitation now round-trips across stdio and both HTTP transports with interruption and disconnect cleanup.
 - App-server manual compaction now mirrors Codex's response-first
   `thread/compact/start` contract. It uses the shared live/mock compaction policy,

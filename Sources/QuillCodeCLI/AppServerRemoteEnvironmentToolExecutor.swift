@@ -154,7 +154,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
         }
 
         let temporary = try await temporaryFile(data: Data(standardInput.utf8), suffix: "stdin")
-        let wrapped = "(\(command)) < \(shellSingleQuoted(temporary.nativePath))"
+        let wrapped = "(\(command)) < \(shellQuotedPath(temporary.nativePath))"
         let result: ToolResult
         do {
             result = try await runCommand(
@@ -349,7 +349,7 @@ actor AppServerRemoteEnvironmentToolExecutor {
         }
 
         let temporary = try await temporaryFile(data: Data(patch.utf8), suffix: "patch")
-        let quoted = shellSingleQuoted(temporary.relativePath)
+        let quoted = shellQuotedPath(temporary.nativePath)
         let strict = "git apply --check \(quoted) && git apply \(quoted)"
         let executionResult: ToolResult
         do {
@@ -544,8 +544,15 @@ actor AppServerRemoteEnvironmentToolExecutor {
         return input
     }
 
-    private func shellSingleQuoted(_ value: String) -> String {
-        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    private func shellQuotedPath(_ value: String) -> String {
+        switch environmentInfo.shell.name.lowercased() {
+        case "powershell", "pwsh":
+            return "'" + value.replacingOccurrences(of: "'", with: "''") + "'"
+        case "cmd", "cmd.exe":
+            return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        default:
+            return "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        }
     }
 
     private static func shellArguments(
