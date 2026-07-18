@@ -222,6 +222,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let sqlitePreview = renderSQLitePreview(artifact.sqlitePreview)
             let webAssemblyPreview = renderWebAssemblyPreview(artifact.webAssemblyPreview)
             let fontPreview = renderFontPreview(artifact.fontPreview)
+            let executablePreview = renderExecutablePreview(artifact.executablePreview)
             let jsonPreview = renderJSONPreview(artifact.jsonPreview)
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             let archivePreview = renderArchivePreview(artifact.archivePreview)
@@ -252,6 +253,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(sqlitePreview)
               \(webAssemblyPreview)
               \(fontPreview)
+              \(executablePreview)
               \(jsonPreview)
               \(appshotPreview)
               \(archivePreview)
@@ -764,6 +766,21 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-font-preview">
+          <div>
+            \(metadata)
+          </div>
+        </div>
+        """
+    }
+
+    private static func renderExecutablePreview(_ preview: ToolArtifactExecutablePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-executable-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        guard !metadata.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-executable-preview">
           <div>
             \(metadata)
           </div>
