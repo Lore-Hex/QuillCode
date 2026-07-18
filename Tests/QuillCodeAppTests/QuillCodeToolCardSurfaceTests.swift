@@ -397,6 +397,44 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             "Size: \(compressedTarByteSize)"
         ])
 
+        let xzArchive = directory.appendingPathComponent("report.txt.xz")
+        let xzBytes = XZArchiveFixture.xzArchive()
+        try xzBytes.write(to: xzArchive)
+        let xzByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: xzBytes.count))
+
+        let xzPreview = try XCTUnwrap(ToolArtifactState(value: xzArchive.path).archivePreview)
+        XCTAssertEqual(xzPreview.formatLabel, "XZ")
+        XCTAssertEqual(xzPreview.entryCount, 1)
+        XCTAssertEqual(xzPreview.topLevelCount, 1)
+        XCTAssertEqual(xzPreview.entryPreviewLabel, "report.txt")
+        XCTAssertEqual(xzPreview.entryPreviewLabels, ["report.txt"])
+        XCTAssertEqual(xzPreview.byteSizeLabel, xzByteSize)
+        XCTAssertEqual(xzPreview.metadataLines, [
+            "Format: XZ",
+            "1 entry",
+            "1 top-level item",
+            "Entries: report.txt",
+            "Size: \(xzByteSize)"
+        ])
+
+        let compressedXZTarArchive = directory.appendingPathComponent("logs.tar.xz")
+        let compressedXZTarBytes = XZArchiveFixture.xzArchive()
+        try compressedXZTarBytes.write(to: compressedXZTarArchive)
+        let compressedXZTarByteSize = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: compressedXZTarBytes.count))
+
+        let compressedXZTarPreview = try XCTUnwrap(ToolArtifactState(value: compressedXZTarArchive.path).archivePreview)
+        XCTAssertEqual(compressedXZTarPreview.formatLabel, "TAR.XZ")
+        XCTAssertNil(compressedXZTarPreview.entryCount)
+        XCTAssertNil(compressedXZTarPreview.topLevelCount)
+        XCTAssertEqual(compressedXZTarPreview.entryPreviewLabel, "logs.tar")
+        XCTAssertEqual(compressedXZTarPreview.entryPreviewLabels, ["logs.tar"])
+        XCTAssertEqual(compressedXZTarPreview.byteSizeLabel, compressedXZTarByteSize)
+        XCTAssertEqual(compressedXZTarPreview.metadataLines, [
+            "Format: TAR.XZ",
+            "Entries: logs.tar",
+            "Size: \(compressedXZTarByteSize)"
+        ])
+
         let remoteArchive = ToolArtifactState(value: "https://example.com/source.zip")
         XCTAssertNil(remoteArchive.archivePreview)
     }
