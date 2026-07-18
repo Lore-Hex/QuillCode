@@ -8205,6 +8205,7 @@
         pdfPreview: artifactPDFPreview(value, kind, documentPreview),
         officePreview: artifactOfficePreview(value, kind, documentPreview),
         tablePreview: artifactTablePreview(value, kind, documentPreview),
+        jsonLinesPreview: artifactJSONLinesPreview(value, kind, documentPreview),
         jsonPreview: artifactJSONPreview(value, kind, documentPreview),
         archivePreview: artifactArchivePreview(value, kind, documentPreview),
         mediaPreview: artifactMediaPreview(value, kind, documentPreview),
@@ -8610,6 +8611,8 @@
       ['markdown', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
       ['md', { kind: 'markdown', typeLabel: 'Markdown', icon: 'MD' }],
       ['json', { kind: 'data', typeLabel: 'Data', icon: 'JSON' }],
+      ['jsonl', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
+      ['ndjson', { kind: 'data', typeLabel: 'Data', icon: 'JSONL' }],
       ['numbers', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['csv', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
       ['ods', { kind: 'spreadsheet', typeLabel: 'Spreadsheet', icon: 'XLS' }],
@@ -8956,6 +8959,58 @@
         return null;
       }
       const preview = jsonPreviewFromRoot(root, content.length);
+      return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
+    }
+
+    function artifactJSONLinesPreview(value, kind, documentPreview) {
+      if (kind !== 'file' || documentPreview?.kind !== 'data') return null;
+      const extension = artifactPreviewExtension(value);
+      if (!['jsonl', 'ndjson'].includes(extension)) return null;
+      const path = artifactFilePath(value);
+      const content = path ? state.mockFiles[path] : null;
+      if (typeof content !== 'string' || !content.trim() || content.includes('\u0000')) return null;
+      const byteLimit = 64 * 1024;
+      const scannedContent = content.slice(0, byteLimit);
+      const lines = scannedContent
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .filter(Boolean);
+      if (!lines.length) return null;
+      const keys = new Set();
+      try {
+        for (const line of lines.slice(0, 20)) {
+          const root = JSON.parse(line);
+          if (root && !Array.isArray(root) && typeof root === 'object') {
+            Object.keys(root).forEach(key => keys.add(key));
+          }
+        }
+      } catch {
+        return null;
+      }
+      const sortedKeys = [...keys].sort();
+      const visibleKeys = sortedKeys.slice(0, 6).map(jsonPreviewKeyLabel);
+      const remainder = sortedKeys.length - visibleKeys.length;
+      const keyPreviewLabel = visibleKeys.length
+        ? `${visibleKeys.join(', ')}${remainder > 0 ? `, +${remainder} more` : ''}`
+        : null;
+      const isTruncated = content.length > byteLimit;
+      const preview = {
+        formatLabel: extension.toUpperCase(),
+        recordCountLabel: isTruncated
+          ? `${lines.length}+ records`
+          : `${lines.length} record${lines.length === 1 ? '' : 's'}`,
+        keyPreviewLabel,
+        keyPreviewLabels: visibleKeys,
+        byteSizeLabel: byteSizeLabel(content.length),
+        isTruncated
+      };
+      preview.metadataLines = [
+        `Format: ${preview.formatLabel}`,
+        preview.recordCountLabel,
+        preview.keyPreviewLabel ? `Keys: ${preview.keyPreviewLabel}` : null,
+        preview.byteSizeLabel ? `Size: ${preview.byteSizeLabel}` : null,
+        preview.isTruncated ? 'Preview: first 64 KB scanned' : null
+      ].filter(Boolean);
       return preview.metadataLines.length || preview.keyPreviewLabels.length ? preview : null;
     }
 
@@ -9388,7 +9443,7 @@
 
     const textPreviewExtensions = new Set([
       'c', 'cc', 'conf', 'cpp', 'css', 'csv', 'go', 'h', 'hpp', 'html',
-      'java', 'js', 'json', 'jsx', 'kt', 'log', 'm', 'md', 'mm', 'py',
+      'java', 'js', 'json', 'jsonl', 'jsx', 'kt', 'log', 'm', 'md', 'mm', 'ndjson', 'py',
       'rb', 'rs', 'sh', 'sql', 'swift', 'toml', 'ts', 'tsx', 'txt',
       'xml', 'yaml', 'yml'
     ]);
@@ -11214,6 +11269,25 @@
                   ${keyList}
                 </div>` : '';
         };
+        const renderJSONLinesPreview = preview => {
+          if (!preview) return '';
+          const metadata = (preview.metadataLines || [])
+            .map(line => `<small data-testid="tool-card-json-lines-preview-meta">${escapeHTML(line)}</small>`)
+            .join('');
+          const keys = (preview.keyPreviewLabels || [])
+            .map(label => `<li data-testid="tool-card-json-lines-preview-key-item">${escapeHTML(label)}</li>`)
+            .join('');
+          const keyList = keys ? `
+                  <section class="artifact-office-contents" data-testid="tool-card-json-lines-preview-keys">
+                    <strong data-testid="tool-card-json-lines-preview-key-title">Observed keys</strong>
+                    <ul>${keys}</ul>
+                  </section>` : '';
+          return metadata || keyList ? `
+                <div class="artifact-office-preview" data-testid="tool-card-json-lines-preview">
+                  <div>${metadata}</div>
+                  ${keyList}
+                </div>` : '';
+        };
         const renderMediaPreview = preview => {
           if (!preview) return '';
           const title = preview.title
@@ -11296,6 +11370,7 @@
                 ${renderMarkdownPreview(artifact.markdownPreview)}
                 ${renderOfficePreview(artifact.officePreview)}
                 ${renderTablePreview(artifact.tablePreview)}
+                ${renderJSONLinesPreview(artifact.jsonLinesPreview)}
                 ${renderJSONPreview(artifact.jsonPreview)}
                 ${renderAppshotPreview(artifact.appshotPreview)}
                 ${renderArchivePreview(artifact.archivePreview)}
@@ -22962,6 +23037,21 @@
           outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
         });
         addMessage('assistant', 'Created `setup.md`.');
+      } else if (text.toLowerCase().includes('jsonl') || text.toLowerCase().includes('json lines')) {
+        const path = '/mock/QuillCode/logs/events.jsonl';
+        state.mockFiles[path] = [
+          JSON.stringify({ event: 'started', level: 'info', runId: 'run_123' }),
+          JSON.stringify({ event: 'tool.completed', level: 'info', tool: 'shell.run' }),
+          JSON.stringify({ event: 'finished', level: 'info', durationMs: 1284 })
+        ].join('\n');
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ path, contentType: 'application/x-ndjson' }, null, 2),
+          outputJSON: JSON.stringify({ ok: true, stdout: `Wrote ${path}\n`, artifacts: [path] }, null, 2)
+        });
+        addMessage('assistant', 'Created `events.jsonl`.');
       } else if (text.toLowerCase().includes('json artifact')) {
         const path = '/mock/QuillCode/reports/build-report.json';
         state.mockFiles[path] = JSON.stringify({

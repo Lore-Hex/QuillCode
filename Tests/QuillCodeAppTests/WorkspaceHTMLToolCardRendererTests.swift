@@ -630,6 +630,54 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesJSONLinesArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let logs = root.appendingPathComponent("logs", isDirectory: true)
+        try FileManager.default.createDirectory(at: logs, withIntermediateDirectories: true)
+        let events = logs.appendingPathComponent("events.jsonl")
+        let jsonLinesText = """
+        {"event":"started","level":"info","runId":"run_123"}
+        {"event":"tool.completed","level":"info","tool":"shell.run"}
+        {"event":"finished","level":"info","durationMs":1284}
+        """
+        try jsonLinesText.write(to: events, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"events.jsonl"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote events.jsonl\n", artifacts: [events.path])
+        let thread = ChatThread(
+            title: "JSON Lines artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">events.jsonl"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-json-lines-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-json-lines-preview-meta">Format: JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-json-lines-preview-meta">3 records"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-json-lines-preview-key-title">Observed keys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-json-lines-preview-key-item">durationMs"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-json-lines-preview-key-item">tool"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">events.jsonl"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)
