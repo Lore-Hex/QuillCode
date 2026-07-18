@@ -617,7 +617,10 @@ actor AppServerSession {
         for record: AppServerThreadRecord,
         includesMCP: Bool = true
     ) async throws -> AppServerConfiguredRunner {
-        let executionEnvironment = try await executionEnvironment(for: record.settings)
+        let executionEnvironment = try await executionEnvironment(
+            for: record.settings,
+            requirements: try managedRequirements()
+        )
         let runRequest = CLIRunRequest(
             style: .exec,
             prompt: "",

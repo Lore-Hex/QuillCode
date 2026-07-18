@@ -314,7 +314,10 @@ extension AppServerSession {
         settings: AppServerThreadSettings,
         startsStandaloneTurn: Bool
     ) async throws -> UserShellLaunch {
-        let selected = try await executionEnvironment(for: settings)
+        let selected = try await executionEnvironment(
+            for: settings,
+            requirements: try managedRequirements()
+        )
         switch selected.access {
         case .disabled:
             throw AppServerRPCError.invalidRequest(

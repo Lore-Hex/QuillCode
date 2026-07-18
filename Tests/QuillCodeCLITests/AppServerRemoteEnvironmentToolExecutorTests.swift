@@ -1,6 +1,7 @@
 import Foundation
 @testable import QuillCodeCLI
 import QuillCodeCore
+import QuillCodePersistence
 import QuillCodeTools
 import XCTest
 
@@ -38,6 +39,32 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
         XCTAssertTrue(
             snapshot.fileSystemRequests.allSatisfy { $0.sandbox == expectedSandbox }
         )
+    }
+
+    func testShellForwardsManagedNetworkRequirementsToRemoteProcess() async throws {
+        let client = AppServerFakeExecServerClient()
+        let executor = try makeExecutor(
+            client: client,
+            requirements: ManagedRequirements(network: .init(
+                httpPort: 8123,
+                allowUpstreamProxy: false,
+                domains: ["example.com": "allow"]
+            ))
+        )
+
+        let result = await executor.execute(ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: #"{"cmd":"curl https://example.com"}"#
+        ))
+
+        XCTAssertTrue(result.ok)
+        let snapshot = await client.snapshot()
+        let request = try XCTUnwrap(snapshot.processRequests.first)
+        XCTAssertTrue(request.managedNetwork.enforceManagedNetwork)
+        let network = try XCTUnwrap(request.managedNetwork.network)
+        XCTAssertEqual(network.httpPort, 8123)
+        XCTAssertEqual(network.allowUpstreamProxy, false)
+        XCTAssertEqual(network.domains, ["example.com": "allow"])
     }
 
     func testShellStdinUsesRemoteTemporaryFileAndAlwaysCleansItUp() async throws {
@@ -241,7 +268,8 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
     }
 
     private func makeExecutor(
-        client: AppServerFakeExecServerClient
+        client: AppServerFakeExecServerClient,
+        requirements: ManagedRequirements? = nil
     ) throws -> AppServerRemoteEnvironmentToolExecutor {
         try AppServerRemoteEnvironmentToolExecutor(
             environmentID: "remote",
@@ -251,6 +279,7 @@ final class AppServerRemoteEnvironmentToolExecutorTests: XCTestCase {
                 cwd: "file:///workspace"
             ),
             sandboxPolicy: .init(mode: .workspaceWrite),
+            requirements: requirements,
             client: client
         )
     }

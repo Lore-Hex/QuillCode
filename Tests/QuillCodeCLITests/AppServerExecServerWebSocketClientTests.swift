@@ -1,5 +1,6 @@
 import Foundation
 @testable import QuillCodeCLI
+import QuillCodePersistence
 import QuillCodePlatform
 import XCTest
 
@@ -87,6 +88,83 @@ final class AppServerExecServerWebSocketClientTests: AppServerExecServerWebSocke
             ))
             XCTAssertEqual(process.stdout, "quill\n")
             XCTAssertEqual(process.exitCode, 0)
+            try await server.value
+        } catch {
+            server.cancel()
+            listener.close()
+            await client.close()
+            throw error
+        }
+        listener.close()
+        await client.close()
+    }
+
+    func testProcessStartForwardsManagedNetworkProfile() async throws {
+        let listener = try TCPSocketListener(host: "127.0.0.1", port: 0)
+        let server = Task.detached { @Sendable [listener] in
+            let connection = try await listener.accept()
+            defer { connection.close() }
+            let peer = try await Self.acceptPeer(connection)
+            try await peer.completeHandshake(sessionID: "managed-network-session")
+
+            let start = try await peer.readJSON()
+            XCTAssertEqual(start["method"]?.stringValue, "process/start")
+            let params = try XCTUnwrap(start["params"]?.objectValue)
+            XCTAssertEqual(params["enforceManagedNetwork"], .bool(true))
+            let network = try XCTUnwrap(params["managedNetwork"]?.objectValue)
+            XCTAssertEqual(network["enabled"], .bool(true))
+            XCTAssertEqual(network["httpPort"], .number(8181))
+            XCTAssertEqual(network["socksPort"], .number(8182))
+            XCTAssertEqual(network["allowUpstreamProxy"], .bool(false))
+            XCTAssertEqual(
+                network["domains"]?.objectValue,
+                ["example.com": .string("allow"), "tracker.example": .string("deny")]
+            )
+            XCTAssertEqual(
+                network["unixSockets"]?.objectValue,
+                ["/tmp/quill.sock": .string("allow")]
+            )
+            try await peer.respond(to: start, result: .object([
+                "processId": params["processId"] ?? .string("missing")
+            ]))
+
+            let read = try await peer.readJSON()
+            try await peer.respond(to: read, result: .object([
+                "chunks": .array([]),
+                "nextSeq": .number(1),
+                "exited": .bool(true),
+                "exitCode": .number(0),
+                "closed": .bool(true),
+                "failure": .null,
+                "sandboxDenied": .bool(false)
+            ]))
+        }
+        let client = AppServerExecServerWebSocketClient(
+            websocketURL: "ws://127.0.0.1:\(listener.port)",
+            connectTimeout: 2
+        )
+
+        do {
+            _ = try await client.runProcess(.init(
+                argv: ["/bin/zsh", "-lc", "true"],
+                cwdURI: "file:///workspace",
+                environment: [:],
+                sandbox: try Self.sandbox(),
+                managedNetwork: AppServerManagedNetworkPolicy(requirements: ManagedRequirements(
+                    network: .init(
+                        enabled: true,
+                        httpPort: 8181,
+                        socksPort: 8182,
+                        allowUpstreamProxy: false,
+                        domains: [
+                            "example.com": "allow",
+                            "tracker.example": "deny"
+                        ],
+                        unixSockets: ["/tmp/quill.sock": "allow"]
+                    )
+                )),
+                timeoutSeconds: 2
+            ))
             try await server.value
         } catch {
             server.cancel()
