@@ -79,6 +79,10 @@
 - Artifact previews now include bounded local diff/patch metadata:
   changed-file, hunk, addition/deletion, file-size, and truncation counts with capped changed-file
   labels while retaining the bounded raw source preview for inspectable content.
+- Source artifact previews now recognize common repo/build control files such as Docker ignore,
+  EditorConfig, Prettier config, CMake, Justfile, Taskfile, Bazel BUILD/WORKSPACE, Nix, Meson,
+  Homebrew, Procfile, pnpm, and Yarn files with specific labels in SwiftUI and the Playwright
+  harness.
 - The app server exposes Codex-compatible response-first `thread/compact/start`.
 - The app server exposes Codex-compatible one-shot and live-session fuzzy file search with bounded
   shared indexing, exact wire fields, match scores/indices, cancellation, and disconnect cleanup.

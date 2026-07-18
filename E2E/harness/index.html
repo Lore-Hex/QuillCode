@@ -10147,39 +10147,56 @@
     const textPreviewExtensions = new Set([
       'astro', 'c', 'cc', 'conf', 'cpp', 'cs', 'csproj', 'css', 'csv', 'diff',
       'fs', 'fsproj', 'go', 'h', 'hpp', 'html', 'java', 'js', 'json', 'jsonl',
-      'jsx', 'kt', 'kts', 'log', 'm', 'md', 'mdx', 'mm', 'ndjson', 'py', 'patch',
+      'jsx', 'kt', 'kts', 'log', 'm', 'md', 'mdx', 'mm', 'ndjson', 'nix', 'py', 'patch',
       'php', 'rb', 'rs', 'sh', 'sql', 'svelte', 'swift', 'toml', 'ts', 'tsx',
       'txt', 'vue', 'xml', 'yaml', 'yml'
     ]);
     const textPreviewFilenames = new Set([
-      '.gitignore', '.npmrc', 'build.gradle', 'build.gradle.kts', 'cargo.lock',
-      'cargo.toml', 'composer.json', 'composer.lock', 'dockerfile',
-      'eslint.config.js', 'eslint.config.mjs', 'eslint.config.ts', 'gemfile',
-      'go.mod', 'go.sum', 'license', 'makefile', 'next.config.js',
-      'next.config.mjs', 'next.config.ts', 'package-lock.json', 'package.json',
-      'podfile', 'poetry.lock', 'pyproject.toml', 'readme', 'requirements.txt',
-      'settings.gradle', 'settings.gradle.kts', 'tailwind.config.js',
-      'tailwind.config.ts', 'tsconfig.json', 'vite.config.js', 'vite.config.mjs',
-      'vite.config.ts'
+      '.gitignore', '.dockerignore', '.editorconfig', '.gitattributes', '.npmrc',
+      '.prettierrc', '.prettierrc.json', 'build', 'build.bazel', 'build.gradle',
+      'build.gradle.kts', 'brewfile', 'cargo.lock', 'cargo.toml', 'composer.json',
+      'composer.lock', 'cmakelists.txt', 'default.nix', 'dockerfile',
+      'eslint.config.js', 'eslint.config.mjs', 'eslint.config.ts', 'flake.nix',
+      'gemfile', 'go.mod', 'go.sum', 'justfile', 'license', 'makefile',
+      'meson.build', 'next.config.js', 'next.config.mjs', 'next.config.ts',
+      'package-lock.json', 'package.json', 'podfile', 'poetry.lock', 'procfile',
+      'pyproject.toml', 'readme', 'requirements.txt', 'settings.gradle',
+      'settings.gradle.kts', 'shell.nix', 'tailwind.config.js',
+      'tailwind.config.ts', 'taskfile.yml', 'taskfile.yaml', 'tsconfig.json',
+      'vite.config.js', 'vite.config.mjs', 'vite.config.ts', 'workspace',
+      'workspace.bazel', 'yarn.lock', 'pnpm-lock.yaml'
     ]);
     const textPreviewFilenameLabels = {
       '.gitignore': 'Git ignore',
+      '.dockerignore': 'Docker ignore',
+      '.editorconfig': 'EditorConfig',
+      '.gitattributes': 'Git attributes',
       '.npmrc': 'npm config',
+      '.prettierrc': 'Prettier config',
+      '.prettierrc.json': 'Prettier config',
+      build: 'Bazel build',
+      'build.bazel': 'Bazel build',
       'build.gradle': 'Gradle',
       'build.gradle.kts': 'Gradle Kotlin',
+      brewfile: 'Homebrew bundle',
       'cargo.lock': 'Cargo lockfile',
       'cargo.toml': 'Cargo manifest',
       'composer.json': 'Composer package',
       'composer.lock': 'Composer lockfile',
+      'cmakelists.txt': 'CMake',
+      'default.nix': 'Nix expression',
       dockerfile: 'Dockerfile',
       'eslint.config.js': 'ESLint config',
       'eslint.config.mjs': 'ESLint config',
       'eslint.config.ts': 'ESLint config',
+      'flake.nix': 'Nix flake',
       gemfile: 'Gemfile',
       'go.mod': 'Go module',
       'go.sum': 'Go checksum',
+      justfile: 'Justfile',
       license: 'License',
       makefile: 'Makefile',
+      'meson.build': 'Meson build',
       'next.config.js': 'Next.js config',
       'next.config.mjs': 'Next.js config',
       'next.config.ts': 'Next.js config',
@@ -10187,17 +10204,25 @@
       'package.json': 'npm package',
       podfile: 'Podfile',
       'poetry.lock': 'Poetry lockfile',
+      procfile: 'Procfile',
       'pyproject.toml': 'Python project',
       readme: 'README',
       'requirements.txt': 'Python requirements',
       'settings.gradle': 'Gradle settings',
       'settings.gradle.kts': 'Gradle Kotlin settings',
+      'shell.nix': 'Nix shell',
       'tailwind.config.js': 'Tailwind config',
       'tailwind.config.ts': 'Tailwind config',
+      'taskfile.yml': 'Taskfile',
+      'taskfile.yaml': 'Taskfile',
       'tsconfig.json': 'TypeScript config',
       'vite.config.js': 'Vite config',
       'vite.config.mjs': 'Vite config',
-      'vite.config.ts': 'Vite config'
+      'vite.config.ts': 'Vite config',
+      workspace: 'Bazel workspace',
+      'workspace.bazel': 'Bazel workspace',
+      'yarn.lock': 'Yarn lockfile',
+      'pnpm-lock.yaml': 'pnpm lockfile'
     };
     const textPreviewExtensionLabels = {
       astro: 'Astro',
@@ -10229,6 +10254,7 @@
       mdx: 'MDX',
       mm: 'Objective-C++',
       ndjson: 'NDJSON',
+      nix: 'Nix',
       patch: 'Patch',
       py: 'Python',
       rb: 'Ruby',
@@ -24187,6 +24213,33 @@
           }, null, 2)
         });
         addMessage('assistant', 'Created project manifest artifacts.');
+      } else if (text.toLowerCase().includes('build control artifacts') || text.toLowerCase().includes('repo control artifacts')) {
+        const dockerIgnorePath = '/mock/QuillCode/.dockerignore';
+        const justfilePath = '/mock/QuillCode/Justfile';
+        const workspacePath = '/mock/QuillCode/WORKSPACE';
+        const flakePath = '/mock/QuillCode/flake.nix';
+        state.mockFiles[dockerIgnorePath] = [
+          '.build',
+          'DerivedData'
+        ].join('\n');
+        state.mockFiles[justfilePath] = [
+          'test:',
+          '    swift test'
+        ].join('\n');
+        state.mockFiles[workspacePath] = 'workspace(name = "quillcode")\n';
+        state.mockFiles[flakePath] = '{ description = "QuillCode"; }\n';
+        addToolCard({
+          title: 'host.file.write',
+          subtitle: 'Completed',
+          status: 'done',
+          inputJSON: JSON.stringify({ paths: [dockerIgnorePath, justfilePath, workspacePath, flakePath] }, null, 2),
+          outputJSON: JSON.stringify({
+            ok: true,
+            stdout: `Wrote ${dockerIgnorePath}, ${justfilePath}, ${workspacePath}, and ${flakePath}\n`,
+            artifacts: [dockerIgnorePath, justfilePath, workspacePath, flakePath]
+          }, null, 2)
+        });
+        addMessage('assistant', 'Created build control artifacts.');
       } else if (text.toLowerCase().includes('markdown') || text.toLowerCase().includes('md artifact')) {
         const path = '/mock/QuillCode/docs/setup.md';
         state.mockFiles[path] = [

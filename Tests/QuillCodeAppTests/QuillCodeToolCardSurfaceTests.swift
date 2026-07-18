@@ -1358,6 +1358,42 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
             typeLabel: "Python requirements",
             lineCountLabel: "2 lines"
         )
+        try assertSourcePreview(
+            filename: ".dockerignore",
+            contents: ".build\nDerivedData\n",
+            typeLabel: "Docker ignore",
+            lineCountLabel: "2 lines"
+        )
+        try assertSourcePreview(
+            filename: "CMakeLists.txt",
+            contents: "cmake_minimum_required(VERSION 3.27)\nproject(QuillCode)\n",
+            typeLabel: "CMake",
+            lineCountLabel: "2 lines"
+        )
+        try assertSourcePreview(
+            filename: "Justfile",
+            contents: "test:\n    swift test\n",
+            typeLabel: "Justfile",
+            lineCountLabel: "2 lines"
+        )
+        try assertSourcePreview(
+            filename: "WORKSPACE",
+            contents: "workspace(name = \"quillcode\")\n",
+            typeLabel: "Bazel workspace",
+            lineCountLabel: "1 line"
+        )
+        try assertSourcePreview(
+            filename: "flake.nix",
+            contents: "{ description = \"QuillCode\"; }\n",
+            typeLabel: "Nix flake",
+            lineCountLabel: "1 line"
+        )
+        try assertSourcePreview(
+            filename: "pnpm-lock.yaml",
+            contents: "lockfileVersion: '9.0'\n",
+            typeLabel: "pnpm lockfile",
+            lineCountLabel: "1 line"
+        )
     }
 
     private func pngHeader(width: UInt32, height: UInt32) -> Data {
