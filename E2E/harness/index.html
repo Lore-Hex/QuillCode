@@ -23690,6 +23690,7 @@
         newConfidentialChat();
         return;
       }
+      if (!attachments.length && runInstantNewChatSlashCommand(text)) return;
       if (!attachments.length && runInstantStopSlashCommand(text)) return;
       if (!attachments.length) {
         const sideSlash = sideConversationSlash(text);
@@ -23748,6 +23749,20 @@
     function runInstantStopSlashCommand(text) {
       if (!/^\/(stop|cancel|abort)\b/i.test(text)) return false;
       runInstantSlashCommand(text, 'stop-all');
+      return true;
+    }
+
+    function runInstantNewChatSlashCommand(text) {
+      if (!/^\/(?:new(?:\s|$)|new-chat\b|newchat\b)/i.test(text)) return false;
+      if (state.threadDrafts) delete state.threadDrafts[state.sidebar.selectedThreadID];
+      state.composer.draft = '';
+      state.composer.attachments = [];
+      state.composer.canSend = false;
+      state.composer.slashActiveIndex = 0;
+      state.composer.historyRecallIndex = null;
+      state.composer.historySavedDraft = null;
+      state.runtimeIssue = null;
+      newChat();
       return true;
     }
 
