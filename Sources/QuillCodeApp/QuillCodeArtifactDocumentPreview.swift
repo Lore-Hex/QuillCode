@@ -51,6 +51,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             officeContent(officePreview)
         } else if let tablePreview = artifact.tablePreview {
             tableContent(tablePreview)
+        } else if let jsonPreview = artifact.jsonPreview {
+            jsonContent(jsonPreview)
         } else if let archivePreview = artifact.archivePreview {
             archiveContent(archivePreview)
         } else if let mediaPreview = artifact.mediaPreview {
@@ -110,6 +112,20 @@ struct QuillCodeArtifactDocumentPreview: View {
                 subtitleLineLimit: 2
             )
             tableGrid(tablePreview)
+        }
+    }
+
+    private func jsonContent(_ jsonPreview: ToolArtifactJSONPreview) -> some View {
+        previewSurface(minHeight: jsonPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "curlybraces")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(jsonPreview.metadataLines)
+            artifactContentList(title: "Top keys", labels: jsonPreview.keyPreviewLabels)
         }
     }
 

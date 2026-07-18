@@ -8,6 +8,7 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
     case appshot
     case pdf
     case markdown
+    case data
     case document
     case spreadsheet
     case presentation
@@ -23,6 +24,8 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
             return "PDF"
         case .markdown:
             return "Markdown"
+        case .data:
+            return "Data"
         case .document:
             return "Document"
         case .spreadsheet:
@@ -46,6 +49,8 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
             return "doc.richtext"
         case .markdown:
             return "text.document"
+        case .data:
+            return "curlybraces"
         case .document:
             return "doc.text"
         case .spreadsheet:
@@ -297,6 +302,45 @@ public struct ToolArtifactTablePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactJSONPreview: Codable, Sendable, Hashable {
+    public var rootLabel: String
+    public var itemCount: Int?
+    public var keyCount: Int?
+    public var keyPreviewLabel: String?
+    public var keyPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Root: \(rootLabel)",
+            keyCount.map { "\($0) key\($0 == 1 ? "" : "s")" },
+            itemCount.map { "\($0) item\($0 == 1 ? "" : "s")" },
+            keyPreviewLabel.map { "Keys: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !metadataLines.isEmpty || !keyPreviewLabels.isEmpty
+    }
+
+    public init(
+        rootLabel: String,
+        itemCount: Int? = nil,
+        keyCount: Int? = nil,
+        keyPreviewLabel: String? = nil,
+        keyPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.rootLabel = rootLabel
+        self.itemCount = itemCount
+        self.keyCount = keyCount
+        self.keyPreviewLabel = keyPreviewLabel
+        self.keyPreviewLabels = keyPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactArchivePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var entryCount: Int?
@@ -427,6 +471,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var tablePreview: ToolArtifactTablePreview? {
         ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
+    }
+    public var jsonPreview: ToolArtifactJSONPreview? {
+        ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
     public var archivePreview: ToolArtifactArchivePreview? {
         ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)
