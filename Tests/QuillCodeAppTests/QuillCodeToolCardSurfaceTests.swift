@@ -153,8 +153,17 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(compoundArchiveURL.documentPreview?.detail, "example.com/artifacts/logs.tar.gz")
 
         let textFile = ToolArtifactState(value: "/tmp/quillcode/notes.md", textPreview: "# Notes\n")
-        XCTAssertFalse(textFile.isDocumentPreview)
+        XCTAssertTrue(textFile.isDocumentPreview)
+        XCTAssertEqual(textFile.documentPreview?.kind, .markdown)
+        XCTAssertEqual(textFile.documentPreview?.typeLabel, "Markdown")
+        XCTAssertEqual(textFile.documentPreview?.extensionLabel, "MD")
         XCTAssertTrue(textFile.hasTextPreview)
+
+        let markdownURL = ToolArtifactState(value: "https://example.com/specs/setup.markdown?raw=1")
+        XCTAssertTrue(markdownURL.isDocumentPreview)
+        XCTAssertEqual(markdownURL.documentPreview?.kind, .markdown)
+        XCTAssertEqual(markdownURL.documentPreview?.extensionLabel, "MARKDOWN")
+        XCTAssertEqual(markdownURL.documentPreview?.detail, "example.com/specs/setup.markdown")
     }
 
     func testArtifactStateDerivesPDFPreviewMetadata() throws {

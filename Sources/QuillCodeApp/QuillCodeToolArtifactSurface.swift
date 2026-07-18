@@ -7,6 +7,7 @@ public enum ToolArtifactKind: String, Codable, Sendable, Hashable {
 public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
     case appshot
     case pdf
+    case markdown
     case document
     case spreadsheet
     case presentation
@@ -20,6 +21,8 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
             return "Appshot"
         case .pdf:
             return "PDF"
+        case .markdown:
+            return "Markdown"
         case .document:
             return "Document"
         case .spreadsheet:
@@ -41,6 +44,8 @@ public enum ToolArtifactDocumentKind: String, Codable, Sendable, Hashable {
             return "camera.viewfinder"
         case .pdf:
             return "doc.richtext"
+        case .markdown:
+            return "text.document"
         case .document:
             return "doc.text"
         case .spreadsheet:

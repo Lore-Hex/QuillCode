@@ -223,8 +223,13 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         let pdfBytes = pdfFixture(title: "Quarterly Plan", pageCount: 2)
         try pdfBytes.write(to: document, atomically: true, encoding: .isoLatin1)
         let byteCount = pdfBytes.data(using: .isoLatin1)?.count ?? 0
+        let markdown = reports.appendingPathComponent("setup.md")
+        try "# Setup\n\nRun the installer.\n".write(to: markdown, atomically: true, encoding: .utf8)
         let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"briefing.pdf"}"#)
-        let result = ToolResult(ok: true, stdout: "Wrote briefing.pdf\n", artifacts: [document.path])
+        let result = ToolResult(ok: true, stdout: "Wrote briefing.pdf and setup.md\n", artifacts: [
+            document.path,
+            markdown.path
+        ])
         let thread = ChatThread(
             title: "Document artifact",
             events: [
@@ -252,6 +257,11 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-kind="pdf""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">PDF · PDF"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">briefing.pdf"#))
+        XCTAssertTrue(html.contains(#"data-kind="markdown""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Markdown · MD"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">setup.md"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">setup.md"#))
+        XCTAssertTrue(html.contains("# Setup"))
         XCTAssertTrue(html.contains(#"href="\#(document.standardizedFileURL.absoluteString)""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview""#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-title">Quarterly Plan"#))

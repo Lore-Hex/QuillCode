@@ -389,6 +389,8 @@ enum WorkspaceHTMLToolCardRenderer {
             return "APP"
         case .pdf:
             return "PDF"
+        case .markdown:
+            return "MD"
         case .document:
             return "DOC"
         case .spreadsheet:
