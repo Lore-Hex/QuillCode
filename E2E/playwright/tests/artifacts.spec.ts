@@ -15,6 +15,12 @@ test('mock harness surfaces file artifacts from tool cards', async ({ page }) =>
   await expect(page.getByTestId('tool-card-artifact')).toHaveAttribute('href', 'file:///mock/QuillCode/hello.txt');
   await expect(page.getByTestId('tool-card-text-previews')).toBeVisible();
   await expect(page.getByTestId('tool-card-text-preview-label')).toHaveText('hello.txt');
+  await expect(page.getByTestId('tool-card-text-preview-metadata')).toBeVisible();
+  await expect(page.getByTestId('tool-card-text-preview-meta')).toHaveText([
+    'Type: Text',
+    '1 line',
+    'Size: 12 bytes'
+  ]);
   await expect(page.getByTestId('tool-card-text-preview-content')).toHaveText('hello world');
   await expect.poll(() => page.getByTestId('tool-card-details').evaluate(element => (element as HTMLDetailsElement).open)).toBe(false);
   await page.getByTestId('tool-card-details').locator('summary').click();

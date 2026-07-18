@@ -53,6 +53,8 @@ final class ParityHTMLToolCardRendererGateTests: QuillCodeParityTestCase {
     private func assertArtifactPreviewContracts(_ toolCardText: String, _ harnessText: String) {
         Self.assertSource(toolCardText, containsAll: [
             "renderPDFPreview(artifact.pdfPreview, href: artifact.href)",
+            "artifact.sourceTextPreview?.metadataLines",
+            #"data-testid="tool-card-text-preview-meta""#,
             "private static func renderLocalPDFPagePreview",
             "url.isFileURL",
             #"data-testid="tool-card-pdf-page-preview""#,
@@ -75,6 +77,8 @@ final class ParityHTMLToolCardRendererGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(harnessText, containsAll: [
             "const localPDFPreviewObject",
+            "artifact.sourceTextPreview?.metadataLines",
+            #"data-testid="tool-card-text-preview-meta""#,
             "href.startsWith('file://')",
             "renderPDFPreview(artifact.pdfPreview, href)",
             #"data-testid="tool-card-pdf-page-preview""#,

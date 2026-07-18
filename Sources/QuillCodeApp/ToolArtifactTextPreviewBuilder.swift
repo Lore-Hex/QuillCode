@@ -3,17 +3,33 @@ import Foundation
 enum ToolArtifactTextPreviewBuilder {
     static func textPreview(for value: String) -> String? {
         let artifact = ToolArtifactState(value: value)
-        guard artifact.kind == .file,
+        return payload(for: value, kind: artifact.kind)?.text
+    }
+
+    static func sourceTextPreview(for value: String, kind: ToolArtifactKind) -> ToolArtifactSourceTextPreview? {
+        payload(for: value, kind: kind).map {
+            ToolArtifactSourceTextPreview(
+                typeLabel: $0.typeLabel,
+                lineCountLabel: $0.lineCountLabel,
+                byteSizeLabel: $0.byteSizeLabel,
+                isTruncated: $0.wasTruncated
+            )
+        }
+    }
+
+    private static func payload(for value: String, kind: ToolArtifactKind) -> TextPreviewPayload? {
+        let artifact = ToolArtifactState(value: value)
+        guard kind == .file,
               !artifact.isImagePreview,
               artifact.documentPreview?.kind != .appshot,
               artifact.documentPreview?.extensionLabel.lowercased() != "env",
-              artifact.tablePreview == nil
+              artifact.tablePreview == nil,
+              let fileURL = localArtifactFileURL(for: value),
+              isTextPreviewCandidate(fileURL)
         else { return nil }
-        guard let fileURL = localArtifactFileURL(for: value) else { return nil }
-        guard isTextPreviewCandidate(fileURL) else { return nil }
 
         do {
-            let resourceValues = try fileURL.resourceValues(forKeys: [.isRegularFileKey])
+            let resourceValues = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
             guard resourceValues.isRegularFile == true else { return nil }
 
             let handle = try FileHandle(forReadingFrom: fileURL)
@@ -42,7 +58,14 @@ enum ToolArtifactTextPreviewBuilder {
                 }
                 text += "..."
             }
-            return text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : text
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return TextPreviewPayload(
+                text: text,
+                typeLabel: typeLabel(for: fileURL),
+                lineCountLabel: lineCountLabel(for: text, wasTruncated: wasTruncated),
+                byteSizeLabel: resourceValues.fileSize.flatMap(ToolArtifactByteSizeFormatter.label),
+                wasTruncated: wasTruncated
+            )
         } catch {
             return nil
         }
@@ -67,6 +90,33 @@ enum ToolArtifactTextPreviewBuilder {
         return extensions.contains(pathExtension)
     }
 
+    private static func typeLabel(for url: URL) -> String {
+        let filename = url.lastPathComponent.lowercased()
+        if let label = filenameLabels[filename] {
+            return label
+        }
+        return extensionLabels[url.pathExtension.lowercased()] ?? "Text"
+    }
+
+    private static func lineCountLabel(for text: String, wasTruncated: Bool) -> String {
+        let countedText = text.hasSuffix("\n...") ? String(text.dropLast(4)) : text
+        var lines = countedText.split(separator: "\n", omittingEmptySubsequences: false)
+        if lines.last == "" {
+            lines.removeLast()
+        }
+        let lineCount = max(lines.count, 1)
+        let suffix = lineCount == 1 ? "line" : "lines"
+        return "\(lineCount)\(wasTruncated ? "+" : "") \(suffix)"
+    }
+
+    private struct TextPreviewPayload {
+        var text: String
+        var typeLabel: String
+        var lineCountLabel: String
+        var byteSizeLabel: String?
+        var wasTruncated: Bool
+    }
+
     private static let byteLimit = 6 * 1024
     private static let lineLimit = 80
     private static let filenames: Set<String> = [
@@ -77,6 +127,15 @@ enum ToolArtifactTextPreviewBuilder {
         "makefile",
         "podfile",
         "readme"
+    ]
+    private static let filenameLabels: [String: String] = [
+        ".gitignore": "Git ignore",
+        "dockerfile": "Dockerfile",
+        "gemfile": "Gemfile",
+        "license": "License",
+        "makefile": "Makefile",
+        "podfile": "Podfile",
+        "readme": "README"
     ]
     private static let extensions: Set<String> = [
         "c",
@@ -113,5 +172,41 @@ enum ToolArtifactTextPreviewBuilder {
         "xml",
         "yaml",
         "yml"
+    ]
+    private static let extensionLabels: [String: String] = [
+        "c": "C",
+        "cc": "C++",
+        "conf": "Config",
+        "cpp": "C++",
+        "css": "CSS",
+        "csv": "CSV",
+        "go": "Go",
+        "h": "C/C++ header",
+        "hpp": "C++ header",
+        "html": "HTML",
+        "java": "Java",
+        "js": "JavaScript",
+        "json": "JSON",
+        "jsonl": "JSON Lines",
+        "jsx": "React JSX",
+        "kt": "Kotlin",
+        "log": "Log",
+        "m": "Objective-C",
+        "md": "Markdown",
+        "mm": "Objective-C++",
+        "ndjson": "NDJSON",
+        "py": "Python",
+        "rb": "Ruby",
+        "rs": "Rust",
+        "sh": "Shell",
+        "sql": "SQL",
+        "swift": "Swift",
+        "toml": "TOML",
+        "ts": "TypeScript",
+        "tsx": "React TSX",
+        "txt": "Text",
+        "xml": "XML",
+        "yaml": "YAML",
+        "yml": "YAML"
     ]
 }

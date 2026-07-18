@@ -177,9 +177,15 @@ enum WorkspaceHTMLToolCardRenderer {
         let textArtifacts = artifacts.filter(\.hasTextPreview)
         guard !textArtifacts.isEmpty else { return "" }
         let previews = textArtifacts.map { artifact in
-            """
+            let metadata = artifact.sourceTextPreview?.metadataLines.map {
+                #"<small data-testid="tool-card-text-preview-meta">\#(escape($0))</small>"#
+            }.joined(separator: "\n") ?? ""
+            return """
             <figure class="artifact-text-preview" data-testid="tool-card-text-preview">
               <figcaption data-testid="tool-card-text-preview-label">\(escape(artifact.label))</figcaption>
+              <div class="artifact-text-preview-meta" data-testid="tool-card-text-preview-metadata">
+                \(metadata)
+              </div>
               <pre data-testid="tool-card-text-preview-content">\(escape(artifact.textPreview ?? ""))</pre>
             </figure>
             """

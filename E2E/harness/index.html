@@ -8194,6 +8194,9 @@
         previewURL: isImagePreview ? artifactPreviewURL(value, kind) : null,
         textPreview: isImagePreview ? null : artifactTextPreview(value, kind)
       };
+      artifact.sourceTextPreview = artifact.textPreview
+        ? artifactSourceTextPreview(value, kind, artifact.textPreview)
+        : null;
       const detail = artifactDetail(artifact);
       const documentPreview = artifactDocumentPreview(value, kind, detail);
       return {
@@ -9899,6 +9902,51 @@
     const textPreviewFilenames = new Set([
       '.gitignore', 'dockerfile', 'gemfile', 'license', 'makefile', 'podfile', 'readme'
     ]);
+    const textPreviewFilenameLabels = {
+      '.gitignore': 'Git ignore',
+      dockerfile: 'Dockerfile',
+      gemfile: 'Gemfile',
+      license: 'License',
+      makefile: 'Makefile',
+      podfile: 'Podfile',
+      readme: 'README'
+    };
+    const textPreviewExtensionLabels = {
+      c: 'C',
+      cc: 'C++',
+      conf: 'Config',
+      cpp: 'C++',
+      css: 'CSS',
+      csv: 'CSV',
+      go: 'Go',
+      h: 'C/C++ header',
+      hpp: 'C++ header',
+      html: 'HTML',
+      java: 'Java',
+      js: 'JavaScript',
+      json: 'JSON',
+      jsonl: 'JSON Lines',
+      jsx: 'React JSX',
+      kt: 'Kotlin',
+      log: 'Log',
+      m: 'Objective-C',
+      md: 'Markdown',
+      mm: 'Objective-C++',
+      ndjson: 'NDJSON',
+      py: 'Python',
+      rb: 'Ruby',
+      rs: 'Rust',
+      sh: 'Shell',
+      sql: 'SQL',
+      swift: 'Swift',
+      toml: 'TOML',
+      ts: 'TypeScript',
+      tsx: 'React TSX',
+      txt: 'Text',
+      xml: 'XML',
+      yaml: 'YAML',
+      yml: 'YAML'
+    };
 
     function artifactFilePath(value) {
       if (value.startsWith('/')) return value;
@@ -9932,6 +9980,41 @@
       }
       if (truncated) preview += `${preview.endsWith('\n') ? '' : '\n'}...`;
       return preview;
+    }
+
+    function artifactSourceTextPreview(value, kind, textPreview) {
+      if (kind !== 'file') return null;
+      const path = artifactFilePath(value);
+      if (!path || !textPreview) return null;
+      const name = path.split('/').filter(Boolean).at(-1)?.toLowerCase() || '';
+      const extension = name.includes('.') ? name.split('.').pop() : '';
+      const typeLabel = textPreviewFilenameLabels[name] || textPreviewExtensionLabels[extension] || 'Text';
+      const wasTruncated = textPreview.endsWith('\n...');
+      let lines = textPreview.replace(/\n\.\.\.$/, '').split('\n');
+      if (lines.at(-1) === '') lines = lines.slice(0, -1);
+      const lineCount = Math.max(lines.length, 1);
+      const lineCountLabel = `${lineCount}${wasTruncated ? '+' : ''} ${lineCount === 1 ? 'line' : 'lines'}`;
+      const byteSize = state.mockFiles[path]?.length || 0;
+      const metadataLines = [
+        `Type: ${typeLabel}`,
+        lineCountLabel,
+        byteSize > 0 ? `Size: ${formatByteCount(byteSize)}` : null,
+        wasTruncated ? 'Preview truncated' : null
+      ].filter(Boolean);
+      return { typeLabel, lineCountLabel, byteSizeLabel: byteSize > 0 ? formatByteCount(byteSize) : null, wasTruncated, metadataLines };
+    }
+
+    function formatByteCount(byteCount) {
+      if (byteCount === 1) return '1 byte';
+      if (byteCount < 1024) return `${byteCount} bytes`;
+      const kilobytes = byteCount / 1024;
+      if (kilobytes < 1024) return `${formatByteUnit(kilobytes)} KB`;
+      return `${formatByteUnit(kilobytes / 1024)} MB`;
+    }
+
+    function formatByteUnit(value) {
+      const rounded = Math.round(value * 10) / 10;
+      return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
     }
 
     function countLabel(count, singular) {
@@ -11595,12 +11678,19 @@
         const previews = (artifacts || []).filter(artifact => artifact.textPreview);
         return previews.length ? `
           <div class="tool-artifact-text-previews" data-testid="tool-card-text-previews" aria-label="Text previews">
-            ${previews.map(artifact => `
+            ${previews.map(artifact => {
+              const metadata = (artifact.sourceTextPreview?.metadataLines || [])
+                .map(line => `<small data-testid="tool-card-text-preview-meta">${escapeHTML(line)}</small>`)
+                .join('');
+              return `
               <figure class="artifact-text-preview" data-testid="tool-card-text-preview">
                 <figcaption data-testid="tool-card-text-preview-label">${escapeHTML(artifact.label)}</figcaption>
+                <div class="artifact-text-preview-meta" data-testid="tool-card-text-preview-metadata">
+                  ${metadata}
+                </div>
                 <pre data-testid="tool-card-text-preview-content">${escapeHTML(artifact.textPreview)}</pre>
-              </figure>
-            `).join('')}
+              </figure>`;
+            }).join('')}
           </div>` : '';
       };
       const renderDocumentPreviews = artifacts => {
