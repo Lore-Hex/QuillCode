@@ -199,7 +199,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let openLink = artifact.href.map {
                 #"<a\#(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link)) data-testid="tool-card-document-preview-open" href="\#(escape($0))">Open</a>"#
             } ?? ""
-            let pdfPreview = renderPDFPreview(artifact.pdfPreview)
+            let pdfPreview = renderPDFPreview(artifact.pdfPreview, href: artifact.href)
             let markdownPreview = renderMarkdownPreview(artifact.markdownPreview)
             let officePreview = renderOfficePreview(artifact.officePreview)
             let tablePreview = renderTablePreview(artifact.tablePreview)
@@ -341,7 +341,7 @@ enum WorkspaceHTMLToolCardRenderer {
         }
     }
 
-    private static func renderPDFPreview(_ preview: ToolArtifactPDFPreview?) -> String {
+    private static func renderPDFPreview(_ preview: ToolArtifactPDFPreview?, href: String?) -> String {
         guard let preview else { return "" }
         let title = preview.title.map {
             #"<strong data-testid="tool-card-pdf-preview-title">\#(escape($0))</strong>"#
@@ -349,7 +349,8 @@ enum WorkspaceHTMLToolCardRenderer {
         let metadata = preview.metadataLines.map {
             #"<small data-testid="tool-card-pdf-preview-meta">\#(escape($0))</small>"#
         }.joined(separator: "")
-        guard !title.isEmpty || !metadata.isEmpty else {
+        let pagePreview = renderLocalPDFPagePreview(href: href)
+        guard !title.isEmpty || !metadata.isEmpty || !pagePreview.isEmpty else {
             return ""
         }
         return """
@@ -358,7 +359,20 @@ enum WorkspaceHTMLToolCardRenderer {
           <div>
             \(metadata)
           </div>
+          \(pagePreview)
         </div>
+        """
+    }
+
+    private static func renderLocalPDFPagePreview(href: String?) -> String {
+        guard let href,
+              let url = URL(string: href),
+              url.isFileURL
+        else { return "" }
+        return """
+        <object class="artifact-pdf-page-preview" data-testid="tool-card-pdf-page-preview" type="application/pdf" data="\(escape(href))#page=1">
+          <a\(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link)) data-testid="tool-card-pdf-page-preview-fallback" href="\(escape(href))">Open PDF preview</a>
+        </object>
         """
     }
 

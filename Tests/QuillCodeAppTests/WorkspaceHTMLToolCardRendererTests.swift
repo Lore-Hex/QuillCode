@@ -271,6 +271,10 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-meta">Version: PDF 1.7"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-meta">2 pages"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-preview-meta">Size: \#(byteCount) bytes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-page-preview""#))
+        XCTAssertTrue(html.contains(#"type="application/pdf""#))
+        XCTAssertTrue(html.contains(#"data="\#(document.standardizedFileURL.absoluteString)#page=1""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pdf-page-preview-fallback""#))
     }
 
     func testHTMLRendererIncludesMediaArtifactPreviews() throws {

@@ -3823,6 +3823,14 @@
       font-size: 11px;
       font-weight: 650;
     }
+    .artifact-pdf-page-preview {
+      flex-basis: 100%;
+      width: 100%;
+      min-height: 252px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+      background: rgba(0,0,0,.16);
+    }
     .artifact-media-player {
       grid-column: 1 / -1;
       width: min(100%, 520px);
@@ -10780,7 +10788,14 @@
       };
       const renderDocumentPreviews = artifacts => {
         const previews = (artifacts || []).filter(artifact => artifact.documentPreview);
-        const renderPDFPreview = preview => {
+        const localPDFPreviewObject = href => {
+          if (!href || !href.startsWith('file://')) return '';
+          return `
+                <object class="artifact-pdf-page-preview" data-testid="tool-card-pdf-page-preview" type="application/pdf" data="${escapeHTML(href)}#page=1">
+                  <a class="hit-target-link" data-testid="tool-card-pdf-page-preview-fallback" href="${escapeHTML(href)}">Open PDF preview</a>
+                </object>`;
+        };
+        const renderPDFPreview = (preview, href) => {
           if (!preview) return '';
           const title = preview.title
             ? `<strong data-testid="tool-card-pdf-preview-title">${escapeHTML(preview.title)}</strong>`
@@ -10788,10 +10803,12 @@
           const metadata = (preview.metadataLines || [])
             .map(line => `<small data-testid="tool-card-pdf-preview-meta">${escapeHTML(line)}</small>`)
             .join('');
-          return title || metadata ? `
+          const pagePreview = localPDFPreviewObject(href);
+          return title || metadata || pagePreview ? `
                 <div class="artifact-pdf-preview" data-testid="tool-card-pdf-preview">
                   ${title}
                   <div>${metadata}</div>
+                  ${pagePreview}
                 </div>` : '';
         };
         const renderMarkdownPreview = preview => {
@@ -10912,7 +10929,7 @@
                   <small data-testid="tool-card-document-preview-detail">${escapeHTML(preview.detail)}</small>
                 </figcaption>
                 ${href ? `<a class="hit-target-link" data-testid="tool-card-document-preview-open" href="${escapeHTML(href)}">Open</a>` : ''}
-                ${renderPDFPreview(artifact.pdfPreview)}
+                ${renderPDFPreview(artifact.pdfPreview, href)}
                 ${renderMarkdownPreview(artifact.markdownPreview)}
                 ${renderOfficePreview(artifact.officePreview)}
                 ${renderTablePreview(artifact.tablePreview)}
