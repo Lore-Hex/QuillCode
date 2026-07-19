@@ -95,6 +95,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             junitContent(junitPreview)
         } else if let trxPreview = artifact.trxPreview {
             trxContent(trxPreview)
+        } else if let xunitPreview = artifact.xunitPreview {
+            xunitContent(xunitPreview)
         } else if let coberturaPreview = artifact.coberturaPreview {
             coberturaContent(coberturaPreview)
         } else if let cloverPreview = artifact.cloverPreview {
@@ -459,6 +461,21 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(trxPreview.metadataLines)
             artifactContentList(title: "Failing tests", labels: trxPreview.failurePreviewLabels)
+        }
+    }
+
+    private func xunitContent(_ xunitPreview: ToolArtifactXUnitPreview) -> some View {
+        previewSurface(minHeight: xunitPreview.failurePreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(xunitPreview.metadataLines)
+            artifactContentList(title: "Assemblies", labels: xunitPreview.assemblyPreviewLabels)
+            artifactContentList(title: "Failing tests", labels: xunitPreview.failurePreviewLabels)
         }
     }
 

@@ -1743,6 +1743,64 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-failure-item">QuillCode.Tests.AppTests.WritesFile"#))
     }
 
+    func testHTMLRendererIncludesXUnitArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("xunit-results.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <assemblies>
+          <assembly name="/workspace/bin/Debug/net8.0/QuillCode.Tests.dll" total="3" passed="1" failed="1" skipped="1" time="3.50">
+            <collection name="QuillCode app tests">
+              <test name="QuillCode.Tests.AppTests.RendersPrompt" result="Pass" time="1.25" />
+              <test name="QuillCode.Tests.AppTests.WritesFile" result="Fail" time="2.00" />
+              <test name="QuillCode.Tests.CliTests.IsSkipped" result="Skip" time="0.25" />
+            </collection>
+          </assembly>
+        </assemblies>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"xunit-results.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote xunit-results.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "xUnit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">xunit-results.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-meta">Format: xUnit XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-meta">1 assembly"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-meta">1 collection"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-meta">Passed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-meta">Skipped: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-meta">Duration: 3.5 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-assembly-title">Assemblies"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-assembly-item">QuillCode.Tests.dll"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-xunit-preview-failure-item">QuillCode.Tests.AppTests.WritesFile"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesCoberturaArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("coverage.xml")

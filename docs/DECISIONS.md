@@ -2391,3 +2391,20 @@
   run metadata, outcome counts, duration, failing labels, non-TRX exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesTRXArtifactPreview` covers static HTML
   selectors, rendered report metadata, and failure lists.
+
+## 2026-07-19: xUnit XML artifacts render bounded test summaries
+
+- **Decision:** Local `.xml` artifacts whose root validates as `assemblies` or `assembly` render as
+  structured xUnit.net report cards. The preview shows assembly, collection, test, pass, fail, and
+  skip counts plus duration, file size, capped assembly names, and capped failing test names.
+- **Why:** .NET projects commonly emit xUnit XML when TRX is not enabled. Showing a compact report
+  keeps test artifacts useful in the transcript without asking the agent or user to inspect raw XML.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, root-gated, and
+  capped at 512 KB. It reads assembly/test attributes only, never expands failure output/stacks,
+  never opens referenced assemblies or source files, and never fetches remote XML reports. Generic
+  XML rendering is suppressed only after the xUnit report root validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesXUnitPreviewMetadata` covers
+  aggregate and per-test counts, duration, failing labels, non-xUnit exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesXUnitArtifactPreview` covers static
+  HTML selectors, rendered report metadata, assembly lists, failure lists, and generic XML
+  suppression.

@@ -233,6 +233,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let junitPreviewModel = artifact.junitPreview
             let junitPreview = renderJUnitPreview(junitPreviewModel)
             let trxPreview = renderTRXPreview(artifact.trxPreview)
+            let xunitPreviewModel = artifact.xunitPreview
+            let xunitPreview = renderXUnitPreview(xunitPreviewModel)
             let coberturaPreviewModel = artifact.coberturaPreview
             let coberturaPreview = renderCoberturaPreview(coberturaPreviewModel)
             let cloverPreviewModel = artifact.cloverPreview
@@ -240,6 +242,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let jaCoCoPreviewModel = artifact.jaCoCoPreview
             let jaCoCoPreview = renderJaCoCoPreview(jaCoCoPreviewModel)
             let xmlPreview = junitPreviewModel == nil
+                && xunitPreviewModel == nil
                 && coberturaPreviewModel == nil
                 && cloverPreviewModel == nil
                 && jaCoCoPreviewModel == nil
@@ -292,6 +295,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(yamlPreview)
               \(junitPreview)
               \(trxPreview)
+              \(xunitPreview)
               \(coberturaPreview)
               \(cloverPreview)
               \(jaCoCoPreview)
@@ -1051,6 +1055,41 @@ enum WorkspaceHTMLToolCardRenderer {
           <div>
             \(metadata)
           </div>
+          \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderXUnitPreview(_ preview: ToolArtifactXUnitPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-xunit-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let assemblies = preview.assemblyPreviewLabels.map {
+            #"<li data-testid="tool-card-xunit-preview-assembly-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-xunit-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let assemblyList = assemblies.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-xunit-preview-assemblies">
+                <strong data-testid="tool-card-xunit-preview-assembly-title">Assemblies</strong>
+                <ul>\(assemblies)</ul>
+              </section>
+        """
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-xunit-preview-failures">
+                <strong data-testid="tool-card-xunit-preview-failure-title">Failing tests</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !assemblyList.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-xunit-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(assemblyList)
           \(failureList)
         </div>
         """

@@ -1516,6 +1516,65 @@ public struct ToolArtifactTRXPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactXUnitPreview: Codable, Sendable, Hashable {
+    public var assemblyCount: Int
+    public var collectionCount: Int
+    public var testCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var skippedCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var assemblyPreviewLabels: [String]
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: xUnit XML",
+            "\(assemblyCount) assembl\(assemblyCount == 1 ? "y" : "ies")",
+            collectionCount > 0 ? "\(collectionCount) collection\(collectionCount == 1 ? "" : "s")" : nil,
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            "Passed: \(passedCount)",
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        assemblyCount > 0
+            || testCount > 0
+            || !metadataLines.isEmpty
+            || !assemblyPreviewLabels.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        assemblyCount: Int,
+        collectionCount: Int,
+        testCount: Int,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        skippedCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        assemblyPreviewLabels: [String] = [],
+        failurePreviewLabels: [String] = []
+    ) {
+        self.assemblyCount = assemblyCount
+        self.collectionCount = collectionCount
+        self.testCount = testCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.skippedCount = skippedCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.assemblyPreviewLabels = assemblyPreviewLabels
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactCoberturaPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var packageCount: Int
@@ -2217,6 +2276,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var trxPreview: ToolArtifactTRXPreview? {
         ToolArtifactTRXPreviewBuilder.trxPreview(for: value, kind: kind)
+    }
+    public var xunitPreview: ToolArtifactXUnitPreview? {
+        ToolArtifactXUnitPreviewBuilder.xunitPreview(for: value, kind: kind)
     }
     public var coberturaPreview: ToolArtifactCoberturaPreview? {
         ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: kind)
