@@ -75,6 +75,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             npmLockfileContent(npmLockfilePreview)
         } else if let swiftPMPackageResolvedPreview = artifact.swiftPMPackageResolvedPreview {
             swiftPMPackageResolvedContent(swiftPMPackageResolvedPreview)
+        } else if let yarnLockfilePreview = artifact.yarnLockfilePreview {
+            yarnLockfileContent(yarnLockfilePreview)
         } else if let cargoLockPreview = artifact.cargoLockPreview {
             cargoLockContent(cargoLockPreview)
         } else if let cycloneDXPreview = artifact.cycloneDXPreview {
@@ -340,6 +342,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(cargoLockPreview.metadataLines)
             artifactContentList(title: "Packages", labels: cargoLockPreview.packagePreviewLabels)
             artifactContentList(title: "Sources", labels: cargoLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func yarnLockfileContent(_ yarnLockfilePreview: ToolArtifactYarnLockfilePreview) -> some View {
+        let hasLists = !yarnLockfilePreview.packagePreviewLabels.isEmpty || !yarnLockfilePreview.resolvedHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(yarnLockfilePreview.metadataLines)
+            artifactContentList(title: "Packages", labels: yarnLockfilePreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: yarnLockfilePreview.resolvedHostLabels)
         }
     }
 

@@ -224,6 +224,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
             let swiftPMPackageResolvedPreviewModel = artifact.swiftPMPackageResolvedPreview
             let swiftPMPackageResolvedPreview = renderSwiftPMPackageResolvedPreview(swiftPMPackageResolvedPreviewModel)
+            let yarnLockfilePreviewModel = artifact.yarnLockfilePreview
+            let yarnLockfilePreview = renderYarnLockfilePreview(yarnLockfilePreviewModel)
             let cargoLockPreviewModel = artifact.cargoLockPreview
             let cargoLockPreview = renderCargoLockPreview(cargoLockPreviewModel)
             let cycloneDXPreviewModel = artifact.cycloneDXPreview
@@ -273,6 +275,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && jestJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
                 && swiftPMPackageResolvedPreviewModel == nil
+                && yarnLockfilePreviewModel == nil
                 && cargoLockPreviewModel == nil
                 && cycloneDXPreviewModel == nil
                 && spdxPreviewModel == nil
@@ -303,6 +306,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(jestJSONPreview)
               \(npmLockfilePreview)
               \(swiftPMPackageResolvedPreview)
+              \(yarnLockfilePreview)
               \(cargoLockPreview)
               \(cycloneDXPreview)
               \(spdxPreview)
@@ -859,6 +863,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(packageList)
           \(sourceList)
+        </div>
+        """
+    }
+
+    private static func renderYarnLockfilePreview(_ preview: ToolArtifactYarnLockfilePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-yarn-lockfile-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-yarn-lockfile-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hosts = preview.resolvedHostLabels.map {
+            #"<li data-testid="tool-card-yarn-lockfile-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-yarn-lockfile-preview-packages">
+                <strong data-testid="tool-card-yarn-lockfile-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let hostList = hosts.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-yarn-lockfile-preview-hosts">
+                <strong data-testid="tool-card-yarn-lockfile-preview-host-title">Sources</strong>
+                <ul>\(hosts)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !hostList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-yarn-lockfile-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(hostList)
         </div>
         """
     }

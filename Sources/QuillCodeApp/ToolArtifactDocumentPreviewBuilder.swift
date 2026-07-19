@@ -37,6 +37,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "package.resolved" {
             return "spm"
         }
+        if filename == "yarn.lock" {
+            return "yarn-lock"
+        }
         if filename == "cargo.lock" {
             return "cargo-lock"
         }
@@ -71,6 +74,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "sarif": .data,
         "cfg": .data,
         "conf": .data,
+        "yarn-lock": .data,
         "cargo-lock": .data,
         "bin": .data,
         "db": .data,

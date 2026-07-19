@@ -883,6 +883,57 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Cargo.lock"#))
     }
 
+    func testHTMLRendererIncludesYarnLockfileArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("yarn.lock")
+        try """
+        "@babel/code-frame@^7.0.0":
+          version "7.26.2"
+          resolved "https://registry.yarnpkg.com/@babel/code-frame/-/code-frame-7.26.2.tgz#abcdef"
+          integrity sha512-codeframe
+
+        left-pad@^1.3.0:
+          version "1.3.0"
+          resolved "https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz"
+          integrity sha512-leftpad
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"yarn.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote yarn.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Yarn lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · YARN-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">yarn.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-meta">Format: Yarn lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-meta">2 resolved"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-package-item">@babel/code-frame@7.26.2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-package-item">left-pad@1.3.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-host-item">registry.yarnpkg.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-host-item">registry.npmjs.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">yarn.lock"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")
