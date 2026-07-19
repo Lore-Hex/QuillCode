@@ -3262,6 +3262,91 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePylint.pylintJSONPreview)
     }
 
+    func testArtifactStateDerivesMypyJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("mypy-results.json")
+        let content = """
+        [
+          {
+            "file": "/repo/app/models.py",
+            "line": 7,
+            "column": 12,
+            "message": "Incompatible return value type",
+            "severity": "error",
+            "code": "return-value"
+          },
+          {
+            "file": "/repo/app/views.py",
+            "line": "22",
+            "column": 4,
+            "message": "Call to untyped function",
+            "severity": "note",
+            "code": "no-untyped-call"
+          },
+          {
+            "file": "/repo/app/models.py",
+            "line": 30,
+            "column": 8,
+            "message": "Unsupported operand types",
+            "severity": "error",
+            "code": "operator"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.mypyJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "mypy JSON")
+        XCTAssertEqual(preview.diagnosticCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.codeCount, 3)
+        XCTAssertEqual(preview.errorCount, 2)
+        XCTAssertEqual(preview.noteCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/models.py",
+            "repo/app/views.py"
+        ])
+        XCTAssertEqual(preview.codePreviewLabels, [
+            "return-value",
+            "no-untyped-call",
+            "operator"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: mypy JSON",
+            "3 diagnostics",
+            "2 files",
+            "3 codes",
+            "Errors: 2",
+            "Notes: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let jsonl = directory.appendingPathComponent("mypy-results.jsonl")
+        let jsonlContent = """
+        {"file":"/repo/pkg/a.py","line":1,"message":"Missing type annotation","severity":"error","code":"var-annotated"}
+        {"file":"/repo/pkg/b.py","line":2,"message":"Revealed type is Any","severity":"note"}
+        """
+        try jsonlContent.write(to: jsonl, atomically: true, encoding: .utf8)
+        let jsonlPreview = try XCTUnwrap(ToolArtifactState(value: jsonl.path).mypyJSONPreview)
+        XCTAssertEqual(jsonlPreview.diagnosticCount, 2)
+        XCTAssertEqual(jsonlPreview.fileCount, 2)
+        XCTAssertEqual(jsonlPreview.codeCount, 1)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"file":"/repo/app.py","message":"missing severity and line"}]"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).mypyJSONPreview)
+
+        let remoteMypy = ToolArtifactState(value: "https://example.com/mypy-results.json")
+        XCTAssertNil(remoteMypy.mypyJSONPreview)
+    }
+
     func testArtifactStateDerivesBanditJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bandit-results.json")

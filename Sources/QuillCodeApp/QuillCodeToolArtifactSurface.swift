@@ -2150,6 +2150,68 @@ public struct ToolArtifactPylintJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactMypyJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var diagnosticCount: Int
+    public var fileCount: Int
+    public var codeCount: Int
+    public var errorCount: Int
+    public var noteCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var codePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(diagnosticCount) diagnostic\(diagnosticCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(codeCount) code\(codeCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            noteCount > 0 ? "Notes: \(noteCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        diagnosticCount > 0
+            || fileCount > 0
+            || codeCount > 0
+            || errorCount > 0
+            || noteCount > 0
+            || otherSeverityCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !codePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "mypy JSON",
+        diagnosticCount: Int,
+        fileCount: Int,
+        codeCount: Int,
+        errorCount: Int = 0,
+        noteCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        codePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.diagnosticCount = diagnosticCount
+        self.fileCount = fileCount
+        self.codeCount = codeCount
+        self.errorCount = errorCount
+        self.noteCount = noteCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.codePreviewLabels = codePreviewLabels
+    }
+}
+
 public struct ToolArtifactBanditJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var issueCount: Int
@@ -4093,6 +4155,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               golangCILintJSONPreview == nil,
               ruffJSONPreview == nil,
               pylintJSONPreview == nil,
+              mypyJSONPreview == nil,
               banditJSONPreview == nil,
               semgrepJSONPreview == nil,
               codeClimateJSONPreview == nil
@@ -4179,6 +4242,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var pylintJSONPreview: ToolArtifactPylintJSONPreview? {
         ToolArtifactPylintJSONPreviewBuilder.pylintJSONPreview(for: value, kind: kind)
+    }
+    public var mypyJSONPreview: ToolArtifactMypyJSONPreview? {
+        ToolArtifactMypyJSONPreviewBuilder.mypyJSONPreview(for: value, kind: kind)
     }
     public var banditJSONPreview: ToolArtifactBanditJSONPreview? {
         ToolArtifactBanditJSONPreviewBuilder.banditJSONPreview(for: value, kind: kind)

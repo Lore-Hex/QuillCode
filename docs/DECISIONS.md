@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render mypy JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` and `.jsonl` files whose records validate as mypy JSON output
+  as a specialized Python type-check report rather than generic JSON or JSON Lines.
+- **Rationale:** mypy reports are common in Python coding sessions and CI exports. Showing
+  diagnostic/file/code/severity counts plus capped file/code labels gives useful Codex-style
+  feedback without opening the raw report.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Python
+  source files, expand diagnostic messages, load mypy configuration, shell out, or fetch remote
+  reports.
+
 ## 2026-07-19: Render Code Climate JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as Code Climate issue JSON output as

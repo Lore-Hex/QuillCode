@@ -2425,6 +2425,75 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesMypyJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("mypy-results.json")
+        let reportText = """
+        [
+          {
+            "file": "/repo/app/models.py",
+            "line": 7,
+            "column": 12,
+            "message": "Incompatible return value type",
+            "severity": "error",
+            "code": "return-value"
+          },
+          {
+            "file": "/repo/app/views.py",
+            "line": 22,
+            "column": 4,
+            "message": "Call to untyped function",
+            "severity": "note",
+            "code": "no-untyped-call"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/mypy-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/mypy-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "mypy artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">mypy-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">Format: mypy JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">2 diagnostics"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">2 codes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">Notes: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-file-item">repo/app/models.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-file-item">repo/app/views.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-code-title">Codes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-code-item">return-value"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-code-item">no-untyped-call"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesBanditJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
