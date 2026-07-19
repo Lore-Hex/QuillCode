@@ -161,6 +161,11 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render(raw), "A1\nB2\nC2")
     }
 
+    func testRelativePositionAliasesMoveCursorRightAndDown() {
+        XCTAssertEqual(render("A\u{1B}[3aZ"), "A   Z")
+        XCTAssertEqual(render("top\u{1B}[2eX"), "top\n\n   X")
+    }
+
     func testCursorForwardPadsWhenWritingPastEndOfLine() {
         XCTAssertEqual(render("x\u{1B}[5Gz"), "x   z")
     }
