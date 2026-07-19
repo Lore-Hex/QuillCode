@@ -36,13 +36,17 @@ struct MacAutomationNotifier: QuillCodeAutomationNotifying {
             content.title = notification.title
             content.body = notification.body
             content.sound = .default
-            // Approval blocks get action buttons; completed runs only need a "come look" ping.
+            // Approval blocks get action buttons; failed runs get a one-tap Retry; other completed
+            // runs only need a "come look" ping.
             if notification.kind == .needsApproval, let requestID = notification.approvalRequestID {
                 content.categoryIdentifier = QuillCodeApprovalNotification.categoryIdentifier
                 content.userInfo = QuillCodeApprovalNotification.userInfo(
                     threadID: notification.threadID,
                     requestID: requestID
                 )
+            } else if notification.kind == .failed {
+                content.categoryIdentifier = QuillCodeRetryNotification.categoryIdentifier
+                content.userInfo = QuillCodeRetryNotification.userInfo(threadID: notification.threadID)
             }
 
             let request = UNNotificationRequest(
