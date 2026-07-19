@@ -1238,6 +1238,193 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteUVLock.uvLockPreview)
     }
 
+    func testArtifactStateDerivesGemfileLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("Gemfile.lock")
+        let lockText = """
+        GEM
+          remote: https://rubygems.org/
+          specs:
+            actionpack (7.1.3)
+              actionview (= 7.1.3)
+            nokogiri (1.16.2-arm64-darwin)
+
+        GIT
+          remote: https://github.com/Lore-Hex/quill-ruby-gem.git
+          revision: 1234567890abcdef
+          specs:
+            quill-ruby-gem (0.1.0)
+
+        PLATFORMS
+          arm64-darwin-23
+          ruby
+
+        DEPENDENCIES
+          rails (~> 7.1)
+          quill-ruby-gem!
+
+        BUNDLED WITH
+           2.5.6
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.gemfileLockPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "GEMFILE-LOCK")
+        XCTAssertEqual(preview.bundledWith, "2.5.6")
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.dependencyCount, 2)
+        XCTAssertEqual(preview.platformCount, 2)
+        XCTAssertEqual(preview.sourceCount, 2)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "rubygems.org",
+            "github.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "actionpack@7.1.3",
+            "nokogiri@1.16.2-arm64-darwin",
+            "quill-ruby-gem@0.1.0"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Bundler lockfile",
+            "Bundler: 2.5.6",
+            "3 gems",
+            "2 dependencies",
+            "2 platforms",
+            "2 sources",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notGemfileLock = directory.appendingPathComponent("Gemfile")
+        try lockText.write(to: notGemfileLock, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notGemfileLock.path).gemfileLockPreview)
+
+        let remoteGemfileLock = ToolArtifactState(value: "https://example.com/Gemfile.lock")
+        XCTAssertNil(remoteGemfileLock.gemfileLockPreview)
+    }
+
+    func testArtifactStateDerivesPodfileLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("Podfile.lock")
+        let lockText = """
+        PODS:
+          - Alamofire (5.8.1)
+          - Firebase/Auth (10.24.0):
+            - Firebase/CoreOnly
+          - LocalPod (0.1.0)
+
+        DEPENDENCIES:
+          - Alamofire (~> 5.8)
+          - Firebase/Auth
+          - LocalPod (from `../LocalPod`)
+
+        SPEC REPOS:
+          trunk:
+            - Alamofire
+            - Firebase
+
+        EXTERNAL SOURCES:
+          LocalPod:
+            :path: ../LocalPod
+
+        CHECKOUT OPTIONS:
+          RemotePod:
+            :git: https://github.com/Lore-Hex/RemotePod.git
+
+        SPEC CHECKSUMS:
+          Alamofire: 1111111111111111111111111111111111111111
+          Firebase: 2222222222222222222222222222222222222222
+          LocalPod: 3333333333333333333333333333333333333333
+
+        PODFILE CHECKSUM: abcdef
+
+        COCOAPODS: 1.15.2
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.podfileLockPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "PODFILE-LOCK")
+        XCTAssertEqual(preview.cocoaPodsVersion, "1.15.2")
+        XCTAssertEqual(preview.podCount, 3)
+        XCTAssertEqual(preview.dependencyCount, 3)
+        XCTAssertEqual(preview.sourceCount, 3)
+        XCTAssertEqual(preview.checksumCount, 3)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "trunk",
+            "path: ../LocalPod",
+            "github.com"
+        ])
+        XCTAssertEqual(preview.podPreviewLabels, [
+            "Alamofire@5.8.1",
+            "Firebase/Auth@10.24.0",
+            "LocalPod@0.1.0"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: CocoaPods lockfile",
+            "CocoaPods: 1.15.2",
+            "3 pods",
+            "3 dependencies",
+            "3 sources",
+            "3 checksums",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notPodfileLock = directory.appendingPathComponent("Podfile")
+        try lockText.write(to: notPodfileLock, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notPodfileLock.path).podfileLockPreview)
+
+        let remotePodfileLock = ToolArtifactState(value: "https://example.com/Podfile.lock")
+        XCTAssertNil(remotePodfileLock.podfileLockPreview)
+
+        let manySourcesText = """
+        PODS:
+          - Alamofire (5.8.1)
+
+        DEPENDENCIES:
+          - Alamofire
+
+        SPEC REPOS:
+          repo-a:
+            - Alamofire
+          repo-b:
+            - Alamofire
+          repo-c:
+            - Alamofire
+          repo-d:
+            - Alamofire
+          repo-e:
+            - Alamofire
+          repo-f:
+            - Alamofire
+          repo-g:
+            - Alamofire
+        """
+        try manySourcesText.write(to: report, atomically: true, encoding: .utf8)
+        let manySourcesPreview = try XCTUnwrap(ToolArtifactState(value: report.path).podfileLockPreview)
+        XCTAssertEqual(manySourcesPreview.sourceCount, 7)
+        XCTAssertEqual(manySourcesPreview.sourcePreviewLabels, [
+            "repo-a",
+            "repo-b",
+            "repo-c",
+            "repo-d",
+            "repo-e",
+            "repo-f"
+        ])
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")

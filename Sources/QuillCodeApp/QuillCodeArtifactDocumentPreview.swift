@@ -85,6 +85,10 @@ struct QuillCodeArtifactDocumentPreview: View {
             pipfileLockContent(pipfileLockPreview)
         } else if let uvLockPreview = artifact.uvLockPreview {
             uvLockContent(uvLockPreview)
+        } else if let gemfileLockPreview = artifact.gemfileLockPreview {
+            gemfileLockContent(gemfileLockPreview)
+        } else if let podfileLockPreview = artifact.podfileLockPreview {
+            podfileLockContent(podfileLockPreview)
         } else if let pnpmLockfilePreview = artifact.pnpmLockfilePreview {
             pnpmLockfileContent(pnpmLockfilePreview)
         } else if let swiftPMPackageResolvedPreview = artifact.swiftPMPackageResolvedPreview {
@@ -424,6 +428,40 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(uvLockPreview.metadataLines)
             artifactContentList(title: "Packages", labels: uvLockPreview.packagePreviewLabels)
             artifactContentList(title: "Sources", labels: uvLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func gemfileLockContent(_ gemfileLockPreview: ToolArtifactGemfileLockPreview) -> some View {
+        let hasLists = !gemfileLockPreview.packagePreviewLabels.isEmpty
+            || !gemfileLockPreview.sourcePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(gemfileLockPreview.metadataLines)
+            artifactContentList(title: "Gems", labels: gemfileLockPreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: gemfileLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func podfileLockContent(_ podfileLockPreview: ToolArtifactPodfileLockPreview) -> some View {
+        let hasLists = !podfileLockPreview.podPreviewLabels.isEmpty
+            || !podfileLockPreview.sourcePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(podfileLockPreview.metadataLines)
+            artifactContentList(title: "Pods", labels: podfileLockPreview.podPreviewLabels)
+            artifactContentList(title: "Sources", labels: podfileLockPreview.sourcePreviewLabels)
         }
     }
 
