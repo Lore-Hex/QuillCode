@@ -1343,6 +1343,65 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-toml-preview""#))
     }
 
+    func testHTMLRendererIncludesGemfileLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Gemfile.lock")
+        try """
+        GEM
+          remote: https://rubygems.org/
+          specs:
+            actionpack (7.1.3)
+              actionview (= 7.1.3)
+            nokogiri (1.16.2-arm64-darwin)
+
+        PLATFORMS
+          arm64-darwin-23
+
+        DEPENDENCIES
+          rails (~> 7.1)
+
+        BUNDLED WITH
+           2.5.6
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Gemfile.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Gemfile.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "gemfile lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · GEMFILE-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Gemfile.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">Format: Bundler lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">Bundler: 2.5.6"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">2 gems"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">1 dependency"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">1 platform"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-package-item">actionpack@7.1.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-package-item">nokogiri@1.16.2-arm64-darwin"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-source-item">rubygems.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Gemfile.lock"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")
