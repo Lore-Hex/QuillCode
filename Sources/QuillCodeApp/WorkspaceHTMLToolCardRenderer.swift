@@ -222,6 +222,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
             let npmLockfilePreviewModel = artifact.npmLockfilePreview
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
+            let denoLockPreviewModel = artifact.denoLockPreview
+            let denoLockPreview = renderDenoLockPreview(denoLockPreviewModel)
             let composerLockfilePreviewModel = artifact.composerLockfilePreview
             let composerLockfilePreview = renderComposerLockfilePreview(composerLockfilePreviewModel)
             let goSumPreview = renderGoSumPreview(artifact.goSumPreview)
@@ -291,6 +293,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
+                && denoLockPreviewModel == nil
                 && composerLockfilePreviewModel == nil
                 && pipfileLockPreviewModel == nil
                 && pnpmLockfilePreviewModel == nil
@@ -325,6 +328,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(pytestJSONPreview)
               \(jestJSONPreview)
               \(npmLockfilePreview)
+              \(denoLockPreview)
               \(composerLockfilePreview)
               \(goSumPreview)
               \(pythonRequirementsPreview)
@@ -815,6 +819,41 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty || !packageList.isEmpty || !hostList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-npm-lockfile-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(hostList)
+        </div>
+        """
+    }
+
+    private static func renderDenoLockPreview(_ preview: ToolArtifactDenoLockPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-deno-lock-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-deno-lock-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hosts = preview.sourceHostLabels.map {
+            #"<li data-testid="tool-card-deno-lock-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-deno-lock-preview-packages">
+                <strong data-testid="tool-card-deno-lock-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let hostList = hosts.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-deno-lock-preview-hosts">
+                <strong data-testid="tool-card-deno-lock-preview-host-title">Sources</strong>
+                <ul>\(hosts)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !hostList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-deno-lock-preview">
           <div>
             \(metadata)
           </div>

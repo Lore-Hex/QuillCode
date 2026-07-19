@@ -73,6 +73,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             jestJSONContent(jestJSONPreview)
         } else if let npmLockfilePreview = artifact.npmLockfilePreview {
             npmLockfileContent(npmLockfilePreview)
+        } else if let denoLockPreview = artifact.denoLockPreview {
+            denoLockContent(denoLockPreview)
         } else if let composerLockfilePreview = artifact.composerLockfilePreview {
             composerLockfileContent(composerLockfilePreview)
         } else if let goSumPreview = artifact.goSumPreview {
@@ -325,6 +327,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(npmLockfilePreview.metadataLines)
             artifactContentList(title: "Packages", labels: npmLockfilePreview.packagePreviewLabels)
             artifactContentList(title: "Sources", labels: npmLockfilePreview.resolvedHostLabels)
+        }
+    }
+
+    private func denoLockContent(_ denoLockPreview: ToolArtifactDenoLockPreview) -> some View {
+        let hasLists = !denoLockPreview.packagePreviewLabels.isEmpty || !denoLockPreview.sourceHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(denoLockPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: denoLockPreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: denoLockPreview.sourceHostLabels)
         }
     }
 

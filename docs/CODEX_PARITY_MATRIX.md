@@ -96,6 +96,10 @@
   lockfile version, root package, package/dependency/dev/optional counts, file size, capped package
   labels, and capped resolved registry hosts without expanding integrity hashes, package scripts, or
   fetching remote tarballs.
+- Artifact previews now include bounded local Deno lockfile metadata for `deno.lock` files:
+  lockfile version, remote/npm/jsr/specifier/redirect counts, file size, capped package labels, and
+  capped source hosts without expanding integrity hashes, import graphs, package manifests,
+  registries, or fetching remote modules/packages.
 - Artifact previews now include bounded local Composer lockfile metadata for `composer.lock` files:
   plugin API version, content-hash prefix, package/dev-package counts, file size, capped package
   labels, and capped source hosts without expanding install scripts, autoload metadata, full hashes,
