@@ -2551,6 +2551,67 @@ public struct ToolArtifactJUnitPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCheckstylePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var issueCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var infoCount: Int
+    public var ignoreCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var sourcePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            ignoreCount > 0 ? "Ignored: \(ignoreCount)" : nil,
+            otherSeverityCount > 0 ? "Other: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || issueCount > 0
+            || !filePreviewLabels.isEmpty
+            || !sourcePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Checkstyle XML",
+        fileCount: Int,
+        issueCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        infoCount: Int = 0,
+        ignoreCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        sourcePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.issueCount = issueCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.infoCount = infoCount
+        self.ignoreCount = ignoreCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.sourcePreviewLabels = sourcePreviewLabels
+    }
+}
+
 public struct ToolArtifactTRXPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var testRunName: String?
@@ -3482,6 +3543,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var junitPreview: ToolArtifactJUnitPreview? {
         ToolArtifactJUnitPreviewBuilder.junitPreview(for: value, kind: kind)
     }
+    public var checkstylePreview: ToolArtifactCheckstylePreview? {
+        ToolArtifactCheckstylePreviewBuilder.checkstylePreview(for: value, kind: kind)
+    }
     public var trxPreview: ToolArtifactTRXPreview? {
         ToolArtifactTRXPreviewBuilder.trxPreview(for: value, kind: kind)
     }
@@ -3501,7 +3565,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactJaCoCoPreviewBuilder.jaCoCoPreview(for: value, kind: kind)
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
-        ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
+        guard checkstylePreview == nil else { return nil }
+        return ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
     }
     public var propertyListPreview: ToolArtifactPropertyListPreview? {
         ToolArtifactPropertyListPreviewBuilder.propertyListPreview(for: value, kind: kind)

@@ -131,6 +131,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             yamlContent(yamlPreview)
         } else if let junitPreview = artifact.junitPreview {
             junitContent(junitPreview)
+        } else if let checkstylePreview = artifact.checkstylePreview {
+            checkstyleContent(checkstylePreview)
         } else if let trxPreview = artifact.trxPreview {
             trxContent(trxPreview)
         } else if let xunitPreview = artifact.xunitPreview {
@@ -804,6 +806,21 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(junitPreview.metadataLines)
             artifactContentList(title: "Suites", labels: junitPreview.suitePreviewLabels)
             artifactContentList(title: "Failing tests", labels: junitPreview.failurePreviewLabels)
+        }
+    }
+
+    private func checkstyleContent(_ checkstylePreview: ToolArtifactCheckstylePreview) -> some View {
+        previewSurface(minHeight: checkstylePreview.sourcePreviewLabels.isEmpty ? 92 : 142) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "exclamationmark.triangle")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(checkstylePreview.metadataLines)
+            artifactContentList(title: "Files", labels: checkstylePreview.filePreviewLabels)
+            artifactContentList(title: "Sources", labels: checkstylePreview.sourcePreviewLabels)
         }
     }
 

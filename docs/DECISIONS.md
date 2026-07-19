@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Checkstyle XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files with a Checkstyle root as a specialized lint report
+  artifact rather than generic XML.
+- **Rationale:** Checkstyle XML is a common lint interchange format across Java, SwiftLint,
+  frontend tooling, and CI exports. A compact report card with file/issue/severity counts and
+  capped file/source labels is more useful than root-element metadata when reviewing tool output.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not open
+  referenced source files, load linter plugins, expand messages, or fetch remote reports.
+
 ## 2026-07-19: Render Stylelint JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as Stylelint formatter output as a

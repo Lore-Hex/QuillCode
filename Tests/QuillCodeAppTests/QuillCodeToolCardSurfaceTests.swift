@@ -3041,6 +3041,71 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJUnit.junitPreview)
     }
 
+    func testArtifactStateDerivesCheckstylePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("checkstyle-result.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <checkstyle version="10.12.0">
+          <file name="/repo/Sources/App.swift">
+            <error line="12" column="5" severity="error" message="Use let" source="swiftlint:prefer_let" />
+            <error line="24" column="1" severity="warning" message="Line length" source="swiftlint:line_length" />
+          </file>
+          <file name="/repo/Tests/AppTests.swift">
+            <error line="4" severity="info" message="Todo" source="custom:todo" />
+            <error line="8" severity="ignore" message="Ignored" source="custom:ignore" />
+            <error line="9" severity="notice" message="Other" source="custom:notice" />
+          </file>
+        </checkstyle>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.checkstylePreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.formatLabel, "Checkstyle XML")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.issueCount, 5)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.infoCount, 1)
+        XCTAssertEqual(preview.ignoreCount, 1)
+        XCTAssertEqual(preview.otherSeverityCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/Sources/App.swift",
+            "repo/Tests/AppTests.swift"
+        ])
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "swiftlint:prefer_let",
+            "swiftlint:line_length",
+            "custom:todo",
+            "custom:ignore",
+            "custom:notice"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Checkstyle XML",
+            "2 files",
+            "5 issues",
+            "Errors: 1",
+            "Warnings: 1",
+            "Info: 1",
+            "Ignored: 1",
+            "Other: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let generic = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).checkstylePreview)
+
+        let remoteCheckstyle = ToolArtifactState(value: "https://example.com/checkstyle-result.xml")
+        XCTAssertNil(remoteCheckstyle.checkstylePreview)
+    }
+
     func testArtifactStateDerivesTRXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("results.trx")

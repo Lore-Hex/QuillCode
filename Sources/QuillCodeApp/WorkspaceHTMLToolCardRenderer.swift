@@ -269,6 +269,8 @@ enum WorkspaceHTMLToolCardRenderer {
                 : ""
             let junitPreviewModel = artifact.junitPreview
             let junitPreview = renderJUnitPreview(junitPreviewModel)
+            let checkstylePreviewModel = artifact.checkstylePreview
+            let checkstylePreview = renderCheckstylePreview(checkstylePreviewModel)
             let trxPreview = renderTRXPreview(artifact.trxPreview)
             let xunitPreviewModel = artifact.xunitPreview
             let xunitPreview = renderXUnitPreview(xunitPreviewModel)
@@ -281,6 +283,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let jaCoCoPreviewModel = artifact.jaCoCoPreview
             let jaCoCoPreview = renderJaCoCoPreview(jaCoCoPreviewModel)
             let xmlPreview = junitPreviewModel == nil
+                && checkstylePreviewModel == nil
                 && xunitPreviewModel == nil
                 && nunitPreviewModel == nil
                 && coberturaPreviewModel == nil
@@ -366,6 +369,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(dotenvPreview)
               \(yamlPreview)
               \(junitPreview)
+              \(checkstylePreview)
               \(trxPreview)
               \(xunitPreview)
               \(nunitPreview)
@@ -1773,6 +1777,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(suiteList)
           \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderCheckstylePreview(_ preview: ToolArtifactCheckstylePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-checkstyle-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-checkstyle-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sources = preview.sourcePreviewLabels.map {
+            #"<li data-testid="tool-card-checkstyle-preview-source-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-checkstyle-preview-files">
+                <strong data-testid="tool-card-checkstyle-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let sourceList = sources.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-checkstyle-preview-sources">
+                <strong data-testid="tool-card-checkstyle-preview-source-title">Sources</strong>
+                <ul>\(sources)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !sourceList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-checkstyle-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+          \(sourceList)
         </div>
         """
     }
