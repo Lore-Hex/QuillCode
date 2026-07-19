@@ -134,6 +134,17 @@ extension TerminalScreenBuffer {
         tabStops = Self.defaultTabStops
     }
 
+    mutating func screenAlignmentPattern() {
+        let rowCount = Swift.max(Self.fallbackViewportRows, Swift.min(lines.count, Self.maxRows + 1))
+        let colCount = Swift.max(
+            Self.fallbackViewportCols,
+            Swift.min(lines.map(\.count).max() ?? 0, Self.maxCols + 1)
+        )
+        let row = Array(repeating: TerminalScreenCell.content("E", style: currentStyle), count: colCount)
+        lines = Array(repeating: row, count: rowCount)
+        setCursor(row: 0, col: 0)
+    }
+
     mutating func restoreCursor() {
         guard let savedCursor else { return }
         setCursor(row: savedCursor.row, col: savedCursor.col)
