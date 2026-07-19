@@ -2741,3 +2741,27 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesDenoLockArtifactPreview` covers static
   HTML selectors, rendered Deno metadata, package/source lists, generic JSON suppression, and
   text-preview coexistence.
+
+## 2026-07-19: Bun lockfile artifacts render bounded dependency summaries
+
+- **Decision:** Local text `bun.lock` and binary `bun.lockb` artifacts render as structured Bun
+  lockfile cards. Text lockfiles show lockfile version, workspace/package/dependency/catalog counts,
+  file size, capped package labels, and capped source hosts. Binary lockfiles show format and size
+  only.
+- **Why:** Bun 1.2+ writes text `bun.lock` by default, while older projects may still carry
+  `bun.lockb`. Both are common coding-agent dependency artifacts, and users need to distinguish
+  dependency impact from opaque binary lockfile presence without running project tooling.
+- **Boundary:** The parser is local-file-only, regular-file-only, filename-gated to `bun.lock` or
+  `bun.lockb`, and capped at 512 KB. Text `bun.lock` accepts bounded JSONC comments/trailing commas
+  and reads only shallow `lockfileVersion`, `workspaces`, `packages`, `catalog`, and `catalogs`
+  fields. Binary `bun.lockb` is not decoded or converted. The preview never runs Bun, expands
+  package graphs, validates integrity values, reads package manifests, contacts registries, or
+  fetches package tarballs.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesBunLockfilePreviewMetadata`
+  covers text JSONC parsing, filename-based document classification, workspace/package/dependency/
+  catalog counts, package labels, source hosts, non-`bun.lock` exclusion, and remote exclusion.
+  `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesBinaryBunLockfilePreviewMetadataWithoutDecoding`
+  covers binary `bun.lockb` classification without text/JSON decoding.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesBunLockfileArtifactPreview` covers
+  static HTML selectors, rendered Bun metadata, package/source lists, generic JSON suppression, and
+  text-preview coexistence.

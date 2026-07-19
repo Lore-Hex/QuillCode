@@ -586,6 +586,64 @@ public struct ToolArtifactDenoLockPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactBunLockfilePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var lockfileVersion: String?
+    public var workspaceCount: Int
+    public var packageCount: Int
+    public var dependencyCount: Int
+    public var catalogCount: Int
+    public var sourceHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            lockfileVersion.map { "Lockfile: \($0)" },
+            workspaceCount > 0 ? "\(workspaceCount) workspace\(workspaceCount == 1 ? "" : "s")" : nil,
+            packageCount > 0 ? "\(packageCount) package\(packageCount == 1 ? "" : "s")" : nil,
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            catalogCount > 0 ? "\(catalogCount) catalog entr\(catalogCount == 1 ? "y" : "ies")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !formatLabel.isEmpty
+            || lockfileVersion != nil
+            || workspaceCount > 0
+            || packageCount > 0
+            || dependencyCount > 0
+            || catalogCount > 0
+            || !metadataLines.isEmpty
+            || !sourceHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String,
+        lockfileVersion: String? = nil,
+        workspaceCount: Int = 0,
+        packageCount: Int = 0,
+        dependencyCount: Int = 0,
+        catalogCount: Int = 0,
+        sourceHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.formatLabel = formatLabel
+        self.lockfileVersion = lockfileVersion
+        self.workspaceCount = workspaceCount
+        self.packageCount = packageCount
+        self.dependencyCount = dependencyCount
+        self.catalogCount = catalogCount
+        self.sourceHostLabels = sourceHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactComposerLockfilePreview: Codable, Sendable, Hashable {
     public var pluginAPIVersion: String?
     public var contentHashPrefix: String?
@@ -3202,6 +3260,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var denoLockPreview: ToolArtifactDenoLockPreview? {
         ToolArtifactDenoLockPreviewBuilder.denoLockPreview(for: value, kind: kind)
+    }
+    public var bunLockfilePreview: ToolArtifactBunLockfilePreview? {
+        ToolArtifactBunLockfilePreviewBuilder.bunLockfilePreview(for: value, kind: kind)
     }
     public var composerLockfilePreview: ToolArtifactComposerLockfilePreview? {
         ToolArtifactComposerLockfilePreviewBuilder.composerLockfilePreview(for: value, kind: kind)
