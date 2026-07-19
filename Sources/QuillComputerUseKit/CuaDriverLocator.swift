@@ -155,6 +155,18 @@ public struct CuaDriverLocator: Sendable {
     /// user intent, but is held to the same bar — cheap and catches a world-writable target.)
     public static func isSafeExecutable(_ path: String) -> Bool {
         guard FileManager.default.isExecutableFile(atPath: path) else { return false }
+        // Validate BOTH the link and the file that actually runs: `attributesOfItem` uses lstat and
+        // does not follow the final symlink, but `Process.executableURL` runs the resolved target.
+        // Checking only the link would let a symlink to a world-writable/foreign-owned target slip
+        // through. Homebrew installs (a Cellar symlink -> a user/root-owned target) still pass both.
+        let resolved = URL(fileURLWithPath: path).resolvingSymlinksInPath().path
+        for candidate in Set([path, resolved]) {
+            guard hasSafeOwnershipAndPermissions(candidate) else { return false }
+        }
+        return true
+    }
+
+    private static func hasSafeOwnershipAndPermissions(_ path: String) -> Bool {
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: path) else { return false }
         if let permissions = (attributes[.posixPermissions] as? NSNumber)?.intValue,
            permissions & 0o002 != 0 {
