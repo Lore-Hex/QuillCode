@@ -224,7 +224,9 @@ enum WorkspaceHTMLToolCardRenderer {
             let junitPreview = renderJUnitPreview(junitPreviewModel)
             let coberturaPreviewModel = artifact.coberturaPreview
             let coberturaPreview = renderCoberturaPreview(coberturaPreviewModel)
-            let xmlPreview = junitPreviewModel == nil && coberturaPreviewModel == nil
+            let cloverPreviewModel = artifact.cloverPreview
+            let cloverPreview = renderCloverPreview(cloverPreviewModel)
+            let xmlPreview = junitPreviewModel == nil && coberturaPreviewModel == nil && cloverPreviewModel == nil
                 ? renderXMLPreview(artifact.xmlPreview)
                 : ""
             let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
@@ -263,6 +265,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(yamlPreview)
               \(junitPreview)
               \(coberturaPreview)
+              \(cloverPreview)
               \(xmlPreview)
               \(propertyListPreview)
               \(sqlitePreview)
@@ -878,6 +881,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(packageList)
           \(classList)
+        </div>
+        """
+    }
+
+    private static func renderCloverPreview(_ preview: ToolArtifactCloverPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-clover-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let projects = preview.projectPreviewLabels.map {
+            #"<li data-testid="tool-card-clover-preview-project-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-clover-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let projectList = projects.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-clover-preview-projects">
+                <strong data-testid="tool-card-clover-preview-project-title">Projects</strong>
+                <ul>\(projects)</ul>
+              </section>
+        """
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-clover-preview-files">
+                <strong data-testid="tool-card-clover-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !projectList.isEmpty || !fileList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-clover-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(projectList)
+          \(fileList)
         </div>
         """
     }

@@ -1210,12 +1210,72 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertEqual(ratePreview.lineCoverageLabel, "83.3%")
         XCTAssertEqual(ratePreview.branchCoverageLabel, "25%")
 
+        let clover = directory.appendingPathComponent("clover.xml")
+        try #"<coverage generated="1780000000"><project><metrics elements="10" coveredelements="8" /></project></coverage>"#
+            .write(to: clover, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: clover.path).coberturaPreview)
+
         let nonCobertura = directory.appendingPathComponent("manifest.xml")
         try "<project><target /></project>".write(to: nonCobertura, atomically: true, encoding: .utf8)
         XCTAssertNil(ToolArtifactState(value: nonCobertura.path).coberturaPreview)
 
         let remoteCobertura = ToolArtifactState(value: "https://example.com/coverage.xml")
         XCTAssertNil(remoteCobertura.coberturaPreview)
+    }
+
+    func testArtifactStateDerivesCloverPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("clover.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <coverage generated="1780000000" clover="4.5.0">
+          <project name="QuillCode">
+            <file name="Workspace.swift" path="Sources/QuillCodeApp/Workspace.swift" />
+            <file name="ShellToolExecutor.swift" path="Sources/QuillCodeTools/ShellToolExecutor.swift" />
+            <metrics packages="2" files="2" classes="3" methods="10" coveredmethods="8" statements="20" coveredstatements="15" conditionals="6" coveredconditionals="3" elements="36" coveredelements="26" />
+          </project>
+        </coverage>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.cloverPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.packageCount, 2)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.classCount, 3)
+        XCTAssertEqual(preview.elementCoverageLabel, "72.2% (26/36)")
+        XCTAssertEqual(preview.methodCoverageLabel, "80% (8/10)")
+        XCTAssertEqual(preview.statementCoverageLabel, "75% (15/20)")
+        XCTAssertEqual(preview.conditionalCoverageLabel, "50% (3/6)")
+        XCTAssertEqual(preview.projectPreviewLabels, ["QuillCode"])
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "Sources/QuillCodeApp/Workspace.swift",
+            "Sources/QuillCodeTools/ShellToolExecutor.swift"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Clover XML",
+            "2 packages",
+            "2 files",
+            "3 classes",
+            "Elements: 72.2% (26/36)",
+            "Methods: 80% (8/10)",
+            "Statements: 75% (15/20)",
+            "Conditionals: 50% (3/6)",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.coberturaPreview)
+        XCTAssertNil(artifact.junitPreview)
+
+        let nonClover = directory.appendingPathComponent("coverage-generic.xml")
+        try "<coverage><packages /></coverage>".write(to: nonClover, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonClover.path).cloverPreview)
+
+        let remoteClover = ToolArtifactState(value: "https://example.com/clover.xml")
+        XCTAssertNil(remoteClover.cloverPreview)
     }
 
     func testArtifactStateDerivesSQLitePreviewMetadata() throws {
