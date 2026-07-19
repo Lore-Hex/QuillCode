@@ -96,6 +96,10 @@
   lockfile version, root package, package/dependency/dev/optional counts, file size, capped package
   labels, and capped resolved registry hosts without expanding integrity hashes, package scripts, or
   fetching remote tarballs.
+- Artifact previews now include bounded local SwiftPM resolved-package metadata for `Package.resolved`
+  files: schema version, pin/version/branch/revision-only counts, file size, capped pin labels, and
+  capped source hosts without expanding full revisions, dependency source bodies, or fetching remote
+  repositories.
 - Artifact previews now include bounded local font metadata for `.ttf`, `.otf`, `.ttc`, `.woff`,
   and `.woff2` files by validating fixed headers and rendering format, flavor, table count,
   declared size, and file size without parsing tables or decompressing webfont payloads.

@@ -222,6 +222,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
             let npmLockfilePreviewModel = artifact.npmLockfilePreview
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
+            let swiftPMPackageResolvedPreviewModel = artifact.swiftPMPackageResolvedPreview
+            let swiftPMPackageResolvedPreview = renderSwiftPMPackageResolvedPreview(swiftPMPackageResolvedPreviewModel)
             let cycloneDXPreviewModel = artifact.cycloneDXPreview
             let cycloneDXPreview = renderCycloneDXPreview(cycloneDXPreviewModel)
             let spdxPreviewModel = artifact.spdxPreview
@@ -268,6 +270,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
+                && swiftPMPackageResolvedPreviewModel == nil
                 && cycloneDXPreviewModel == nil
                 && spdxPreviewModel == nil
                 ? renderJSONPreview(artifact.jsonPreview)
@@ -296,6 +299,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(pytestJSONPreview)
               \(jestJSONPreview)
               \(npmLockfilePreview)
+              \(swiftPMPackageResolvedPreview)
               \(cycloneDXPreview)
               \(spdxPreview)
               \(tapPreview)
@@ -778,6 +782,43 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(packageList)
+          \(hostList)
+        </div>
+        """
+    }
+
+    private static func renderSwiftPMPackageResolvedPreview(
+        _ preview: ToolArtifactSwiftPMPackageResolvedPreview?
+    ) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-swiftpm-resolved-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let pins = preview.pinPreviewLabels.map {
+            #"<li data-testid="tool-card-swiftpm-resolved-preview-pin-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hosts = preview.sourceHostLabels.map {
+            #"<li data-testid="tool-card-swiftpm-resolved-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let pinList = pins.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-swiftpm-resolved-preview-pins">
+                <strong data-testid="tool-card-swiftpm-resolved-preview-pin-title">Pins</strong>
+                <ul>\(pins)</ul>
+              </section>
+        """
+        let hostList = hosts.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-swiftpm-resolved-preview-hosts">
+                <strong data-testid="tool-card-swiftpm-resolved-preview-host-title">Sources</strong>
+                <ul>\(hosts)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !pinList.isEmpty || !hostList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-swiftpm-resolved-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(pinList)
           \(hostList)
         </div>
         """

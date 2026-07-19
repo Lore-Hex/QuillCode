@@ -522,6 +522,59 @@ public struct ToolArtifactNPMLockfilePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactSwiftPMPackageResolvedPreview: Codable, Sendable, Hashable {
+    public var schemaVersion: String?
+    public var pinCount: Int
+    public var versionedPinCount: Int
+    public var branchPinCount: Int
+    public var revisionOnlyPinCount: Int
+    public var sourceHostLabels: [String]
+    public var pinPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: SwiftPM resolved packages",
+            schemaVersion.map { "Schema: \($0)" },
+            "\(pinCount) pin\(pinCount == 1 ? "" : "s")",
+            versionedPinCount > 0 ? "\(versionedPinCount) versioned" : nil,
+            branchPinCount > 0 ? "\(branchPinCount) branch" : nil,
+            revisionOnlyPinCount > 0 ? "\(revisionOnlyPinCount) revision-only" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        pinCount > 0
+            || versionedPinCount > 0
+            || branchPinCount > 0
+            || revisionOnlyPinCount > 0
+            || !metadataLines.isEmpty
+            || !sourceHostLabels.isEmpty
+            || !pinPreviewLabels.isEmpty
+    }
+
+    public init(
+        schemaVersion: String? = nil,
+        pinCount: Int,
+        versionedPinCount: Int = 0,
+        branchPinCount: Int = 0,
+        revisionOnlyPinCount: Int = 0,
+        sourceHostLabels: [String] = [],
+        pinPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.schemaVersion = schemaVersion
+        self.pinCount = pinCount
+        self.versionedPinCount = versionedPinCount
+        self.branchPinCount = branchPinCount
+        self.revisionOnlyPinCount = revisionOnlyPinCount
+        self.sourceHostLabels = sourceHostLabels
+        self.pinPreviewLabels = pinPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactCycloneDXPreview: Codable, Sendable, Hashable {
     public var specVersion: String?
     public var serialNumber: String?
@@ -2477,6 +2530,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
         ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: kind)
+    }
+    public var swiftPMPackageResolvedPreview: ToolArtifactSwiftPMPackageResolvedPreview? {
+        ToolArtifactSwiftPMPackageResolvedPreviewBuilder.packageResolvedPreview(for: value, kind: kind)
     }
     public var cycloneDXPreview: ToolArtifactCycloneDXPreview? {
         ToolArtifactCycloneDXPreviewBuilder.cycloneDXPreview(for: value, kind: kind)
