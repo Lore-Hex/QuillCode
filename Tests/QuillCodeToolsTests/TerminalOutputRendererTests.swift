@@ -173,6 +173,12 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("old output\u{1B}[2Jfresh"), "fresh")
     }
 
+    func testEraseScrollbackPreservesVisiblePage() {
+        let raw = "top\nbottom\u{1B}[3J\rX"
+
+        XCTAssertEqual(render(raw), "top\nXottom")
+    }
+
     func testCursorHomeRedrawsExistingScreen() {
         let raw = "cpu: 10%\nmem: 20%\u{1B}[Hcpu: 90%"
 
@@ -316,6 +322,73 @@ final class TerminalOutputRendererTests: XCTestCase {
             + "\nnew"
 
         XCTAssertEqual(render(raw), "header\nrow2\nnew\nfooter")
+    }
+
+    func testOriginModeAddressesRowsRelativeToScrollRegion() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[1;1HX"
+
+        XCTAssertEqual(render(raw), "top\nXiddle\nbottom")
+    }
+
+    func testOriginModeResetRestoresAbsoluteAddressing() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[?6l"
+            + "\u{1B}[1;1HX"
+
+        XCTAssertEqual(render(raw), "Xop\nmiddle\nbottom")
+    }
+
+    func testOriginModeClampsAddressedRowsToScrollRegion() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom",
+            "footer"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[99;1HX"
+
+        XCTAssertEqual(render(raw), "top\nmiddle\nXottom\nfooter")
+    }
+
+    func testScrollRegionSetHomesToRegionTopWhenOriginModeIsAlreadyEnabled() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[?6h"
+            + "\u{1B}[2;3r"
+            + "X"
+
+        XCTAssertEqual(render(raw), "top\nXiddle\nbottom")
+    }
+
+    func testVerticalPositionAbsoluteHonorsOriginMode() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[1dX"
+
+        XCTAssertEqual(render(raw), "top\nXiddle\nbottom")
     }
 
     func testC0VerticalTabAndFormFeedBehaveLikeLineFeeds() {

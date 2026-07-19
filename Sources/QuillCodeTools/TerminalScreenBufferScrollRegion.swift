@@ -16,7 +16,7 @@ extension TerminalScreenBuffer {
 
         setRow(bottom)
         scrollRegion = (top, bottom)
-        setCursor(row: 0, col: 0)
+        setCursor(row: originMode ? top : 0, col: 0)
     }
 
     mutating func resetScrollRegion() {
