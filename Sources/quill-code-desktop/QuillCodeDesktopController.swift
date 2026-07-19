@@ -99,6 +99,14 @@ final class QuillCodeDesktopController: ObservableObject {
         self.workspaceRoot = workspaceRoot
         modelStateCoordinator.ensureDefaultProject(on: model, workspaceRoot: workspaceRoot)
         self.computerUseCoordinator.install(on: model)
+        // Opt-in (QUILLCODE_USE_CUA_DRIVER=1): asynchronously upgrade to the cua-driver backend so
+        // computer use runs in the background without stealing focus/cursor. Native stays live until
+        // this resolves, so startup never blocks on the driver subprocess.
+        let cuaCoordinator = self.computerUseCoordinator
+        let cuaModel = model
+        Task { @MainActor in
+            await cuaCoordinator.resolvePreferredBackend(on: cuaModel)
+        }
         // Ping the user when unattended work needs attention. The closure reads live config so
         // Settings toggles apply immediately without rebuilding the desktop controller.
         let workspaceModel = model

@@ -11,6 +11,17 @@ public struct ComputerUseBackendFactory: Sendable {
         makeBackend()
     }
 
+    /// Opt-in gate for routing Computer Use through cua-driver instead of the native CGEvent backend.
+    /// Off by default: adopting cua only changes behavior when a user explicitly sets this, so existing
+    /// installs are untouched. (A Settings toggle backed by config is the next increment.)
+    public static let cuaDriverPreferenceEnvironmentVariable = "QUILLCODE_USE_CUA_DRIVER"
+
+    public static func cuaDriverPreferred(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        environment[cuaDriverPreferenceEnvironmentVariable] == "1"
+    }
+
     public static func platformDefault() -> ComputerUseBackendFactory {
         #if canImport(AppKit) && canImport(ApplicationServices) && canImport(CoreGraphics)
         return ComputerUseBackendFactory {
