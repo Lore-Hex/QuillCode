@@ -1,8 +1,10 @@
 import Foundation
 
 /// How a model-call failure should be treated by the retry decorator. Only transient classes are
-/// retried; everything deterministic (a 400, a bad API key, a parse error, a cancellation) is `.none`
-/// and surfaces immediately.
+/// retried; everything deterministic (a 400, a bad API key, a parse error, a Swift
+/// `CancellationError` from the user stopping the run) is `.none` and surfaces immediately.
+/// (`URLError.cancelled` is different: see `isTransient` — the retry loop's cancellation check is
+/// what keeps user stops un-retried there.)
 public enum TransientFailureClass: String, Sendable, Hashable {
     /// HTTP 429 — the gateway is rate-limiting us; backing off and retrying usually clears it.
     case rateLimited
@@ -90,7 +92,14 @@ public enum RetryClassifier {
              .internationalRoamingOff,
              // A malformed HTTP response (proxy/middleware corruption, chunked-encoding blip) is
              // typically transient — a fresh connection recovers.
-             .badServerResponse:
+             .badServerResponse,
+             // -999: a cancellation surfaced by the URL loading system. A USER stop cancels the
+             // owning Swift Task, which the retry loop honors via Task.checkCancellation() BEFORE any
+             // retry — so reaching a retry with an un-cancelled task means the PEER tore the
+             // connection down (e.g. an LB/upstream HTTP/2 RST_STREAM that CFNetwork reports as
+             // URLError.cancelled): transient, retry on a fresh connection. This killed an unattended
+             // run 2s into a streaming call (coworker-program finding F6).
+             .cancelled:
             return true
         // NOTE: .secureConnectionFailed is deliberately EXCLUDED — a TLS/cert failure (expired,
         // self-signed, wrong host, pinning) is deterministic; retrying only wastes attempts and hides
