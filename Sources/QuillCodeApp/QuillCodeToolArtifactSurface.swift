@@ -509,6 +509,90 @@ public struct ToolArtifactHARPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactLCOVPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var sourceFileCount: Int
+    public var lineHitCount: Int?
+    public var lineFoundCount: Int?
+    public var branchHitCount: Int?
+    public var branchFoundCount: Int?
+    public var functionHitCount: Int?
+    public var functionFoundCount: Int?
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+    public var sourcePreviewLabels: [String]
+
+    public var lineCoverageLabel: String? {
+        coverageLabel(hit: lineHitCount, found: lineFoundCount)
+    }
+
+    public var branchCoverageLabel: String? {
+        coverageLabel(hit: branchHitCount, found: branchFoundCount)
+    }
+
+    public var functionCoverageLabel: String? {
+        coverageLabel(hit: functionHitCount, found: functionFoundCount)
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(sourceFileCount) source file\(sourceFileCount == 1 ? "" : "s")",
+            lineCoverageLabel.map { "Lines: \($0)" },
+            branchCoverageLabel.map { "Branches: \($0)" },
+            functionCoverageLabel.map { "Functions: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 512 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        sourceFileCount > 0
+            || lineCoverageLabel != nil
+            || branchCoverageLabel != nil
+            || functionCoverageLabel != nil
+            || byteSizeLabel != nil
+            || isTruncated
+            || !sourcePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "LCOV",
+        sourceFileCount: Int,
+        lineHitCount: Int? = nil,
+        lineFoundCount: Int? = nil,
+        branchHitCount: Int? = nil,
+        branchFoundCount: Int? = nil,
+        functionHitCount: Int? = nil,
+        functionFoundCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false,
+        sourcePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.sourceFileCount = sourceFileCount
+        self.lineHitCount = lineHitCount
+        self.lineFoundCount = lineFoundCount
+        self.branchHitCount = branchHitCount
+        self.branchFoundCount = branchFoundCount
+        self.functionHitCount = functionHitCount
+        self.functionFoundCount = functionFoundCount
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+        self.sourcePreviewLabels = sourcePreviewLabels
+    }
+
+    private func coverageLabel(hit: Int?, found: Int?) -> String? {
+        guard let hit, let found, found > 0 else { return nil }
+        let percent = (Double(hit) / Double(found)) * 100
+        let rounded = (percent * 10).rounded() / 10
+        let percentLabel = rounded == rounded.rounded()
+            ? "\(Int(rounded))%"
+            : String(format: "%.1f%%", rounded)
+        return "\(percentLabel) (\(hit)/\(found))"
+    }
+}
+
 public struct ToolArtifactNotebookPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var notebookVersionLabel: String?
@@ -1183,6 +1267,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var harPreview: ToolArtifactHARPreview? {
         ToolArtifactHARPreviewBuilder.harPreview(for: value, kind: kind)
+    }
+    public var lcovPreview: ToolArtifactLCOVPreview? {
+        ToolArtifactLCOVPreviewBuilder.lcovPreview(for: value, kind: kind)
     }
     public var notebookPreview: ToolArtifactNotebookPreview? {
         ToolArtifactNotebookPreviewBuilder.notebookPreview(for: value, kind: kind)

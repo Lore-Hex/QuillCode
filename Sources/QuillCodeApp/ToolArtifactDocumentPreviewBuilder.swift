@@ -28,6 +28,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == ".env" || filename.hasPrefix(".env.") {
             return "env"
         }
+        if filename == "lcov.info" {
+            return "lcov"
+        }
         for compoundExtension in compoundPreviewExtensions {
             if filename.hasSuffix(".\(compoundExtension.suffix)") {
                 return compoundExtension.previewExtension
@@ -52,6 +55,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "mdx": .markdown,
         "json": .data,
         "jsonl": .data,
+        "lcov": .data,
         "ndjson": .data,
         "cfg": .data,
         "conf": .data,
