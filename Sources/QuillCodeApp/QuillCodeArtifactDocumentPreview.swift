@@ -67,6 +67,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             harContent(harPreview)
         } else if let lcovPreview = artifact.lcovPreview {
             lcovContent(lcovPreview)
+        } else if let sarifPreview = artifact.sarifPreview {
+            sarifContent(sarifPreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
             jsonLinesContent(jsonLinesPreview)
         } else if let tomlPreview = artifact.tomlPreview {
@@ -209,6 +211,21 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(lcovPreview.metadataLines)
             artifactContentList(title: "Source files", labels: lcovPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func sarifContent(_ sarifPreview: ToolArtifactSARIFPreview) -> some View {
+        previewSurface(minHeight: sarifPreview.rulePreviewLabels.isEmpty ? 92 : 142) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist.checked")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(sarifPreview.metadataLines)
+            artifactContentList(title: "Tools", labels: sarifPreview.toolPreviewLabels)
+            artifactContentList(title: "Rules", labels: sarifPreview.rulePreviewLabels)
         }
     }
 

@@ -76,6 +76,9 @@
 - Artifact previews now include bounded local LCOV coverage-report metadata for `lcov.info` and
   `.lcov` files: source-file counts, line/branch/function coverage, file size, truncation state, and
   capped source-file previews without executing test tooling or following report paths.
+- Artifact previews now include bounded local SARIF static-analysis metadata for `.sarif` and
+  `.sarif.json` files: SARIF version, run/result counts, level counts, file size, capped tool labels,
+  and capped rule labels without fetching remote reports or following result paths.
 - Artifact previews now include bounded local font metadata for `.ttf`, `.otf`, `.ttc`, `.woff`,
   and `.woff2` files by validating fixed headers and rendering format, flavor, table count,
   declared size, and file size without parsing tables or decompressing webfont payloads.

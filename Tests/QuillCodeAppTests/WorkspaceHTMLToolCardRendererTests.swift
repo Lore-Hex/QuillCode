@@ -824,6 +824,78 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesSARIFArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reportsDirectory = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+        let report = reportsDirectory.appendingPathComponent("scan.sarif.json")
+        let sarifText = """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "CodeQL",
+                  "rules": [
+                    {"id": "swift/hardcoded-credential"},
+                    {"id": "swift/path-injection"}
+                  ]
+                }
+              },
+              "results": [
+                {"ruleId": "swift/hardcoded-credential", "level": "error"},
+                {"ruleId": "swift/path-injection", "level": "warning"},
+                {"ruleId": "swift/style", "level": "note"}
+              ]
+            }
+          ]
+        }
+        """
+        try sarifText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/scan.sarif.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/scan.sarif.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "SARIF artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · SARIF"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">scan.sarif.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-meta">Format: SARIF"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-meta">Version: 2.1.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-meta">1 run"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-meta">3 results"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-meta">Notes: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-tool-title">Tools"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-tool-item">CodeQL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-rule-item">swift/hardcoded-credential"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-sarif-preview-rule-item">swift/path-injection"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesJSONLinesArtifactPreview() throws {
         let root = try makeTempDirectory()
         let logs = root.appendingPathComponent("logs", isDirectory: true)
