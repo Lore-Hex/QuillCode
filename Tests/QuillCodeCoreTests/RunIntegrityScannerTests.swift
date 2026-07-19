@@ -672,4 +672,160 @@ final class RunIntegrityScannerTests: XCTestCase {
         XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified, "late eval output must survive the tail cap")
     }
 
+    // MARK: - Rule 2c: fabricated file artifacts (the "narrated the work instead of doing it" finding)
+
+    /// The queued -> running -> completed triple for a `host.file.write`, as the agent records it (the
+    /// queued event carries the ToolCall whose `path` arg names the file produced).
+    private func fileWrite(path: String, content: String = "…", ok: Bool = true) -> [ThreadEvent] {
+        let args = ["path": path, "content": content]
+        let data = (try? JSONSerialization.data(withJSONObject: args)) ?? Data("{}".utf8)
+        let call = ToolCall(name: RunIntegrityScanner.fileWriteToolName,
+                            argumentsJSON: String(decoding: data, as: UTF8.self))
+        let result = ToolResult(ok: ok, stdout: ok ? "Wrote \(path)" : "", stderr: "",
+                                exitCode: ok ? 0 : 1, error: ok ? nil : "write failed")
+        let callJSON = (try? JSONHelpers.encodePretty(call)) ?? "{}"
+        let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
+        return [
+            ThreadEvent(kind: .toolQueued, summary: "write queued", payloadJSON: callJSON),
+            ThreadEvent(kind: .toolRunning, summary: "write running"),
+            ThreadEvent(kind: ok ? .toolCompleted : .toolFailed, summary: "write done", payloadJSON: resultJSON),
+        ]
+    }
+
+    /// The queued -> running -> completed triple for a `host.apply_patch` (paths live inside the diff).
+    private func applyPatch(_ patch: String) -> [ThreadEvent] {
+        let args = ["patch": patch]
+        let data = (try? JSONSerialization.data(withJSONObject: args)) ?? Data("{}".utf8)
+        let call = ToolCall(name: RunIntegrityScanner.applyPatchToolName,
+                            argumentsJSON: String(decoding: data, as: UTF8.self))
+        let result = ToolResult(ok: true, stdout: "patch applied", stderr: "", exitCode: 0, error: nil)
+        let callJSON = (try? JSONHelpers.encodePretty(call)) ?? "{}"
+        let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
+        return [
+            ThreadEvent(kind: .toolQueued, summary: "patch queued", payloadJSON: callJSON),
+            ThreadEvent(kind: .toolRunning, summary: "patch running"),
+            ThreadEvent(kind: .toolCompleted, summary: "patch done", payloadJSON: resultJSON),
+        ]
+    }
+
+    /// THE live fabrication: the agent wrote a data-cleaning SCRIPT, never ran it, then reported the
+    /// OUTPUT files as produced. Neither output was ever written. -> UNVERIFIED (unbackedArtifactClaim).
+    func testClaimedOutputsNeverWrittenIsUnverified() {
+        let run = thread(
+            assistantText: ["Data cleaning complete. All outputs written to data/sales_clean.csv and findings.md."],
+            events: fileWrite(path: "data/sales_raw.csv") + fileWrite(path: "scripts/clean_sales.py")
+        )
+        let report = RunIntegrityScanner.scan(run)
+        XCTAssertEqual(report.verdict, .unverified)
+        XCTAssertEqual(report.reasons.first?.rule, .unbackedArtifactClaim)
+    }
+
+    /// A file the agent ACTUALLY wrote, then claimed. -> VERIFIED (basename backs the claim).
+    func testClaimedFileThatWasActuallyWrittenIsVerified() {
+        let run = thread(
+            assistantText: ["I created findings.md with the summary."],
+            events: fileWrite(path: "findings.md")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// A relative claim ("wrote findings.md") backed by an ABSOLUTE write path. -> VERIFIED.
+    func testRelativeClaimBackedByAbsoluteWritePath() {
+        let run = thread(
+            assistantText: ["Wrote data/sales_clean.csv with the cleaned rows."],
+            events: fileWrite(path: "/Users/x/project/data/sales_clean.csv")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// A file created by a SHELL command whose OUTPUT names it backs the claim. -> VERIFIED.
+    func testClaimedFileCreatedByShellIsBacked() {
+        let run = thread(
+            assistantText: ["Generated report.html from the template."],
+            events: shell("python build.py", exitCode: 0, stdout: "wrote report.html (2kb)")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// A file whose name appears in the COMMAND string (a shell that redirected into it) backs it. -> VERIFIED.
+    func testClaimedFileNamedInCommandIsBacked() {
+        let run = thread(
+            assistantText: ["Saved the manifest to build/out.json."],
+            events: shell("node gen.js > build/out.json", exitCode: 0, stdout: "")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// A file produced via apply_patch (paths live in the diff) backs the claim. -> VERIFIED.
+    func testClaimedFileCreatedByApplyPatchIsBacked() {
+        let patch = "*** Begin Patch\n*** Add File: Sources/App/Feature.swift\n+import Foundation\n*** End Patch"
+        let run = thread(
+            assistantText: ["Created Sources/App/Feature.swift for the new screen."],
+            events: applyPatch(patch)
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// FUTURE / PLAN phrasing is not a completion claim — no write, but no alarm either. -> VERIFIED.
+    func testFuturePlanPhrasingIsNotAnArtifactClaim() {
+        for text in [
+            "Next I will write findings.md and the cleaned csv.",
+            "Let me create data/out.csv in the next step.",
+            "I'm going to save results.json once the script runs.",
+            "I need to write report.md after review.",
+            "I plan to generate summary.txt shortly.",
+        ] {
+            let run = thread(assistantText: [text], events: [])
+            XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified, "future plan must not flag: \(text)")
+        }
+    }
+
+    /// Bare creation prose with NO file token never fires (high precision). -> VERIFIED.
+    func testCreationVerbWithNoFileTokenDoesNotFlag() {
+        for text in [
+            "I wrote the handler and saved my progress.",
+            "Created a new endpoint and produced a cleaner design.",
+            "Generated the report and saved the state.",
+        ] {
+            let run = thread(assistantText: [text], events: [])
+            XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified, "no file token must not flag: \(text)")
+        }
+    }
+
+    /// Dotted abbreviations ("e.g.", "i.e.") are not files. -> VERIFIED.
+    func testDottedAbbreviationsAreNotFiles() {
+        let run = thread(
+            assistantText: ["I created a helper, e.g. to normalize input, and saved i.e. the shared state."],
+            events: []
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// A backed file AND an unbacked file in the same claim: the unbacked one still trips it. -> UNVERIFIED.
+    func testMixedBackedAndUnbackedClaimIsUnverified() {
+        let run = thread(
+            assistantText: ["Wrote data/clean.csv and findings.md."],
+            events: fileWrite(path: "data/clean.csv") // findings.md never written
+        )
+        let report = RunIntegrityScanner.scan(run)
+        XCTAssertEqual(report.verdict, .unverified)
+        XCTAssertEqual(report.reasons.first?.rule, .unbackedArtifactClaim)
+    }
+
+    /// A run that makes no file claims at all is untouched by the rule. -> VERIFIED.
+    func testNoArtifactClaimIsUnaffected() {
+        let run = thread(
+            assistantText: ["Looked into the bug; the root cause is in the parser."],
+            events: shell("swift build", exitCode: 0, stdout: "Build complete")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// Guard: the Core-local file/patch tool names must match the real ToolDefinition literals (they
+    /// live in different modules and are duplicated on purpose to keep Core dependency-free).
+    func testFileToolNameParity() {
+        XCTAssertEqual(RunIntegrityScanner.fileWriteToolName, "host.file.write")
+        XCTAssertEqual(RunIntegrityScanner.applyPatchToolName, "host.apply_patch")
+    }
+
 }

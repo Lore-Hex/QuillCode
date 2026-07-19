@@ -71,6 +71,16 @@ public enum RunIntegrityScanner {
             return RunIntegrityReport(verdict: .unverified, reasons: reasons)
         }
 
+        // Rule 2c (UNVERIFIED): a fabricated artifact — the model says it WROTE a specific file that no
+        // file-write, patch, command, or tool output in the run ever produced or named. Catches the
+        // "narrated the work instead of doing it" failure (observed live: an agent wrote a data-cleaning
+        // SCRIPT, never ran it, then reported "outputs written to data/sales_clean.csv and findings.md" —
+        // neither file was ever created).
+        if let phantom = unbackedArtifactClaim(in: thread) {
+            reasons.append(phantom)
+            return RunIntegrityReport(verdict: .unverified, reasons: reasons)
+        }
+
         // Rule 3 (UNVERIFIED): a test command was started but never completed (silently skipped).
         if let skipped = skippedTest(in: thread) {
             reasons.append(skipped)
@@ -323,6 +333,74 @@ public enum RunIntegrityScanner {
         return corpus.contains(number + ".0%")
     }
 
+    // MARK: - Rule 2c: fabricated artifact (UNVERIFIED)
+
+    /// A reason when the assistant claims it PRODUCED a specific file (wrote/created/saved/"outputs
+    /// written to …") but that file's name appears in NONE of the run's real artifacts: no file-write
+    /// or patch tool targeted it, no command mentioned it, and no tool output named it. High-precision:
+    /// a file a tool actually wrote (or a shell actually created and printed) has its basename in the
+    /// backed corpus, so only a file the model narrated into existence goes unbacked. The claimed path
+    /// is matched by BASENAME containment, tolerating relative-vs-absolute and directory differences.
+    static func unbackedArtifactClaim(in thread: ChatThread) -> RunIntegrityReason? {
+        let claim = ClaimedArtifactLexicon.mergedClaim(inAssistantMessagesOf: thread)
+        guard !claim.paths.isEmpty else { return nil }
+        let backed = backedArtifactCorpus(in: thread)
+        for path in claim.paths {
+            let base = lastPathComponent(path).lowercased()
+            guard base.count >= 3 else { continue }
+            if !backed.contains(base) {
+                return RunIntegrityReason(
+                    rule: .unbackedArtifactClaim,
+                    detail: "Claimed to write \(path) but no tool wrote, patched, ran, or produced it — "
+                        + "the file may never have been created."
+                )
+            }
+        }
+        return nil
+    }
+
+    /// Every place a real file would leave its name: the `path` argument of each file-write call, the
+    /// full text of each patch, each command string, and all tool output. Lowercased and tail-capped so
+    /// a basename lookup is a cheap substring test and a megabyte-scale run stays bounded.
+    static func backedArtifactCorpus(in thread: ChatThread) -> String {
+        var pieces: [String] = []
+        var pendingCall: ToolCall?
+        for event in thread.events {
+            switch event.kind {
+            case .toolQueued:
+                guard let call = decodeCall(event.payloadJSON) else { pendingCall = nil; continue }
+                pendingCall = call
+                if call.name == fileWriteToolName {
+                    if let p = (try? ToolArguments(call.argumentsJSON))?.string("path") { pieces.append(p) }
+                } else if call.name == applyPatchToolName {
+                    if let patch = (try? ToolArguments(call.argumentsJSON))?.string("patch") {
+                        pieces.append(patch)
+                    }
+                } else if isCommandTool(call.name) {
+                    pieces.append(shellCommand(from: call))
+                }
+            case .toolCompleted, .toolFailed:
+                defer { pendingCall = nil }
+                if let result = decodeResult(event.payloadJSON) {
+                    pieces.append(result.stdout)
+                    pieces.append(result.stderr)
+                    if let error = result.error { pieces.append(error) }
+                }
+            default:
+                continue
+            }
+        }
+        _ = pendingCall
+        let corpus = pieces.joined(separator: "\n").lowercased()
+        guard corpus.count > maxToolOutputScanCharacters else { return corpus }
+        return String(corpus.suffix(maxToolOutputScanCharacters))
+    }
+
+    /// The final path component of a claimed path token (basename), e.g. `data/x.csv` → `x.csv`.
+    static func lastPathComponent(_ path: String) -> String {
+        path.split(separator: "/").last.map(String.init) ?? path
+    }
+
     // MARK: - Decoding helpers (never throwing, never force-unwrapping)
 
     static func decodeCall(_ payloadJSON: String?) -> ToolCall? {
@@ -340,6 +418,14 @@ public enum RunIntegrityScanner {
     /// lives in QuillCodeTools) so this scanner stays in the dependency-free Core layer. Guarded by a
     /// parity test so the two can never drift.
     public static let shellRunToolName = "host.shell.run"
+
+    /// The tool that WRITES a whole file (its `path` argument names the file produced). Duplicated as a
+    /// literal to keep this scanner in the dependency-free Core layer; guarded by a parity test.
+    public static let fileWriteToolName = "host.file.write"
+
+    /// The tool that applies a unified-diff PATCH (the file paths live inside its `patch` argument).
+    /// Duplicated as a literal for the same layering reason; guarded by a parity test.
+    public static let applyPatchToolName = "host.apply_patch"
 
     /// The set of tools that RUN a command. Kept as an inspectable predicate rather than a scattered
     /// string literal so the rule is auditable and easy to extend.
