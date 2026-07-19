@@ -611,14 +611,65 @@ final class RunIntegrityScannerTests: XCTestCase {
     }
 
     /// Precision guard: a bare decimal like a version or reward `1.0` is NOT a decisive figure (too
-    /// collision-prone), so an eval-language message citing only `1.0` — which also appears in build
-    /// output as a version string — is not flagged on that alone. -> VERIFIED.
+    /// collision-prone), so a message citing only `1.0` is not flagged on that alone. -> VERIFIED.
     func testBareDecimalIsNotADecisiveResultFigure() {
         let run = thread(
-            assistantText: ["The benchmark reward was 1.0 on average."],
+            assistantText: ["The reward was 1.0 on average; pass rate looked fine."],
             events: shell("pip install -e .", exitCode: 0, stdout: "Successfully installed tau_bench-0.1.0")
         )
         XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// Review-fix precision guard: bare ML words (reward/accuracy/benchmark) in ORDINARY coding prose
+    /// must NOT be eval-result language. "scaled the reward by 50%" must stay VERIFIED.
+    func testBareMLWordsInCodingProseAreNotResultClaims() {
+        for text in [
+            "I scaled the reward by 50% and re-ran the training loop.",
+            "The benchmark is 25% faster after the refactor.",
+            "Improved model accuracy by 12% with the new features.",
+        ] {
+            let run = thread(
+                assistantText: [text],
+                events: shell("swift build", exitCode: 0, stdout: "Build complete")
+            )
+            XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified, "must not flag: \(text)")
+        }
+    }
+
+    /// Review-fix: a ratio the eval printed with spaces ("3 / 5") backs the model's "3/5". -> VERIFIED.
+    func testSpacedRatioInOutputBacksCompactFigure() {
+        let run = thread(
+            assistantText: ["Pass rate: 3/5 tasks passed."],
+            events: shell("python run.py", exitCode: 0, stdout: "final score: 3 / 5 tasks")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// Review-fix: "100%" claim backed by a printed "100.0%". -> VERIFIED.
+    func testPercentDecimalFormattingIsTolerated() {
+        let run = thread(
+            assistantText: ["pass^1 rate: 100% across the suite."],
+            events: shell("python run.py", exitCode: 0, stdout: "Pass rate: 100.0%")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+        // …and the reverse: "80.0%" claim backed by a printed "80%".
+        let run2 = thread(
+            assistantText: ["pass rate 80.0% overall."],
+            events: shell("python run.py", exitCode: 0, stdout: "score: 80%")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run2).verdict, .verified)
+    }
+
+    /// Review-fix: the corpus keeps the TAIL — the eval runs LAST in a long run, so its output (which
+    /// backs the figures) must survive the cap even after megabytes of earlier reads. -> VERIFIED.
+    func testCorpusKeepsTailSoLateEvalOutputStillBacks() {
+        let hugeEarly = String(repeating: "x", count: RunIntegrityScanner.maxToolOutputScanCharacters + 5_000)
+        let run = thread(
+            assistantText: ["pass^1 rate: 5/5 tasks passed."],
+            events: shell("cat big.log", exitCode: 0, stdout: hugeEarly)
+                + shell("python run.py", exitCode: 0, stdout: "RESULT pass rate 5/5")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified, "late eval output must survive the tail cap")
     }
 
 }

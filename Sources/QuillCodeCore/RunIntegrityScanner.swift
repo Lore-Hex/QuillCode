@@ -251,10 +251,10 @@ public enum RunIntegrityScanner {
         guard let claim = ResultFigureLexicon.firstResultClaim(inAssistantMessagesOf: thread) else {
             return nil
         }
-        let corpus = toolOutputCorpus(in: thread)
-        // Backed if ANY cited figure appears verbatim in tool output — then we assume the result is
-        // data-backed (the model may have derived one figure the eval didn't print).
-        let anyBacked = claim.figures.contains { corpus.contains($0) }
+        let corpus = normalizedForFigureMatch(toolOutputCorpus(in: thread))
+        // Backed if ANY cited figure appears in tool output (format-tolerantly) — then we assume the
+        // result is data-backed (the model may have derived one figure the eval didn't print).
+        let anyBacked = claim.figures.contains { figureAppears($0, in: corpus) }
         guard !anyBacked else { return nil }
         let cited = claim.figures.prefix(3).joined(separator: ", ")
         return RunIntegrityReason(
@@ -264,23 +264,63 @@ public enum RunIntegrityScanner {
         )
     }
 
-    /// Concatenated stdout+stderr of every tool result in the run, bounded. This is the ground truth a
-    /// reported figure must trace back to.
+    /// Concatenated stdout+stderr+error of every tool result in the run, capped to the TAIL. A reported
+    /// figure must trace back to this ground truth. The tail (not the head) is kept because in a long
+    /// unattended run the eval runs LAST — its output, where the real figures live, is at the end
+    /// (mirrors ShellOutputCapper's tail-keep rationale).
     static func toolOutputCorpus(in thread: ChatThread) -> String {
-        var corpus = ""
+        var pieces: [String] = []
         for event in thread.events {
             guard event.kind == .toolCompleted || event.kind == .toolFailed else { continue }
             guard let result = decodeResult(event.payloadJSON) else { continue }
-            corpus += result.stdout
-            corpus += "\n"
-            corpus += result.stderr
-            corpus += "\n"
-            if let error = result.error { corpus += error; corpus += "\n" }
-            if corpus.count >= maxToolOutputScanCharacters {
-                return String(corpus.prefix(maxToolOutputScanCharacters))
-            }
+            pieces.append(result.stdout)
+            pieces.append(result.stderr)
+            if let error = result.error { pieces.append(error) }
         }
-        return corpus
+        let corpus = pieces.joined(separator: "\n")
+        guard corpus.count > maxToolOutputScanCharacters else { return corpus }
+        return String(corpus.suffix(maxToolOutputScanCharacters))
+    }
+
+    /// Collapses whitespace around `/` so a ratio the eval printed as "3 / 5" still backs the model's
+    /// "3/5" (figures are already space-stripped on extraction — normalize the corpus symmetrically).
+    static func normalizedForFigureMatch(_ corpus: String) -> String {
+        var result = ""
+        result.reserveCapacity(corpus.count)
+        let chars = Array(corpus)
+        var i = 0
+        while i < chars.count {
+            let c = chars[i]
+            if c == "/" {
+                // Drop whitespace already emitted before the slash…
+                while let last = result.last, last == " " || last == "\t" { result.removeLast() }
+                result.append("/")
+                // …and skip whitespace after it.
+                i += 1
+                while i < chars.count, chars[i] == " " || chars[i] == "\t" { i += 1 }
+                continue
+            }
+            result.append(c)
+            i += 1
+        }
+        return result
+    }
+
+    /// Whether a result figure appears in the (normalized) corpus, tolerating the `100%`↔`100.0%`
+    /// formatting the eval and the model may disagree on.
+    static func figureAppears(_ figure: String, in corpus: String) -> Bool {
+        if corpus.contains(figure) { return true }
+        guard figure.hasSuffix("%") else { return false }
+        let number = String(figure.dropLast())
+        if number.contains(".") {
+            // "80.0%" also backs a printed "80%": strip trailing zeros (and a bare trailing dot).
+            var trimmed = number
+            while trimmed.hasSuffix("0") { trimmed.removeLast() }
+            if trimmed.hasSuffix(".") { trimmed.removeLast() }
+            return corpus.contains(trimmed + "%")
+        }
+        // "100%" also backs a printed "100.0%".
+        return corpus.contains(number + ".0%")
     }
 
     // MARK: - Decoding helpers (never throwing, never force-unwrapping)

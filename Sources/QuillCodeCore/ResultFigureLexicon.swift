@@ -15,12 +15,14 @@ public enum ResultFigureLexicon {
         public var figures: [String]
     }
 
-    /// Eval-result vocabulary. Deliberately benchmark-specific (not a generic "passed"/"done") so this
-    /// only engages for reported evaluation results.
+    /// Eval-result vocabulary. Deliberately UNAMBIGUOUS eval-report phrases only — NOT bare ML words
+    /// like "reward"/"accuracy"/"benchmark", which fire on ordinary coding prose ("scaled the reward
+    /// by 50%", "the benchmark is 25% faster") and would produce false UNVERIFIED alarms. Every phrase
+    /// here reads specifically as "reporting how an evaluation scored".
     public static let resultLanguage: [String] = [
-        "pass^1", "pass@1", "pass rate", "success rate", "passrate",
-        "reward", "accuracy", "benchmark", "tasks passed", "tasks pass",
-        "% pass", "pass^",
+        "pass^1", "pass@1", "pass^k", "pass@k", "pass rate", "passrate",
+        "success rate", "tasks passed", "tasks pass", "tasks succeeded",
+        "of the tasks passed", "tests passed out of", "tasks completed successfully",
     ]
 
     /// Max assistant text scanned per message (claims live up top; keep the scan bounded).
