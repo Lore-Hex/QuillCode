@@ -73,12 +73,14 @@ public struct RetryingLLMClient<Base: UsageStreamingLLMClient>: UsageStreamingLL
             do {
                 return try await operation()
             } catch {
+                // A user Stop cancels the owning Task; the in-flight request then surfaces as e.g.
+                // URLError(.cancelled). Honor the stop FIRST — even when the budget is exhausted —
+                // so a deliberate Stop is always a CancellationError, never a spurious failure.
+                try Task.checkCancellation()
                 let failureClass = RetryClassifier.classify(error)
                 let retryNumber = attempt + 1
                 // Non-transient, or out of budget: surface the (last) error unchanged.
                 guard failureClass != .none, retryNumber < policy.maxAttempts else { throw error }
-                // Honor a cancellation that arrived while we were failing, before sleeping.
-                try Task.checkCancellation()
                 let delay = policy.delay(
                     forAttempt: attempt,
                     jitter: jitter(),

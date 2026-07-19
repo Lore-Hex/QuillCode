@@ -15,10 +15,17 @@ extension AgentRunner {
             userMessage: userMessage,
             tools: tools
         )
-        return try await Self.collectStreamingAction(
-            from: stream,
-            thread: &thread,
-            onProgress: onProgress
-        )
+        do {
+            return try await Self.collectStreamingAction(
+                from: stream,
+                thread: &thread,
+                onProgress: onProgress
+            )
+        } catch let error where RetryClassifier.classify(error) != .none {
+            // The stream died after it was obtained (mid-response transport reset). Mark it so the
+            // action resolver can re-request; parse failures and cancellations classify `.none` and
+            // pass through unchanged.
+            throw AgentStreamInterruptedError(underlying: error)
+        }
     }
 }

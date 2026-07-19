@@ -11,6 +11,10 @@ public struct AgentRunner: Sendable {
     /// spend fuse is the runaway guard. Bare `AgentRunner()` (tests, ad-hoc embedding) stays tight.
     public static let defaultMaxToolSteps = 6
     static let promisedWorkCorrectionLimit = 2
+    /// Bounded recovery for a malformed model action (garbage/mojibake tokens) or a mid-stream
+    /// transport reset: re-prompt/re-request up to this many times before the failure is terminal.
+    /// One bad sample must not kill an unattended run ([F5/F6] coworker-program findings).
+    static let malformedActionCorrectionLimit = 2
 
     public var llm: LLMClient
     public var safety: SafetyReviewer
