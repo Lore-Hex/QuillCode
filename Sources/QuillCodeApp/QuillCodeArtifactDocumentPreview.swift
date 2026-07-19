@@ -75,6 +75,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             npmLockfileContent(npmLockfilePreview)
         } else if let composerLockfilePreview = artifact.composerLockfilePreview {
             composerLockfileContent(composerLockfilePreview)
+        } else if let goSumPreview = artifact.goSumPreview {
+            goSumContent(goSumPreview)
         } else if let pnpmLockfilePreview = artifact.pnpmLockfilePreview {
             pnpmLockfileContent(pnpmLockfilePreview)
         } else if let swiftPMPackageResolvedPreview = artifact.swiftPMPackageResolvedPreview {
@@ -328,6 +330,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(composerLockfilePreview.metadataLines)
             artifactContentList(title: "Packages", labels: composerLockfilePreview.packagePreviewLabels)
             artifactContentList(title: "Sources", labels: composerLockfilePreview.resolvedHostLabels)
+        }
+    }
+
+    private func goSumContent(_ goSumPreview: ToolArtifactGoSumPreview) -> some View {
+        let hasLists = !goSumPreview.modulePreviewLabels.isEmpty || !goSumPreview.sourceHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(goSumPreview.metadataLines)
+            artifactContentList(title: "Modules", labels: goSumPreview.modulePreviewLabels)
+            artifactContentList(title: "Sources", labels: goSumPreview.sourceHostLabels)
         }
     }
 

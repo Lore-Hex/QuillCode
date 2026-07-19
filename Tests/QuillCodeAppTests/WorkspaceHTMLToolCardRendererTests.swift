@@ -1064,6 +1064,53 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">composer.lock"#))
     }
 
+    func testHTMLRendererIncludesGoSumArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("go.sum")
+        try """
+        github.com/charmbracelet/lipgloss v1.1.0 h1:lipgloss
+        github.com/charmbracelet/lipgloss v1.1.0/go.mod h1:lipglossmod
+        golang.org/x/sys v0.34.0 h1:sys
+        golang.org/x/sys v0.34.0/go.mod h1:sysmod
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"go.sum"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote go.sum\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Go checksum artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · GOSUM"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">go.sum"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">Format: Go checksum database"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">2 modules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">4 checksums"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">2 go.mod checksums"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-module-item">github.com/charmbracelet/lipgloss"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-module-item">golang.org/x/sys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-host-item">github.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-host-item">golang.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">go.sum"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")

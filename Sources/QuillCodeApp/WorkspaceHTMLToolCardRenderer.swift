@@ -224,6 +224,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
             let composerLockfilePreviewModel = artifact.composerLockfilePreview
             let composerLockfilePreview = renderComposerLockfilePreview(composerLockfilePreviewModel)
+            let goSumPreview = renderGoSumPreview(artifact.goSumPreview)
             let pnpmLockfilePreviewModel = artifact.pnpmLockfilePreview
             let pnpmLockfilePreview = renderPNPMLockfilePreview(pnpmLockfilePreviewModel)
             let swiftPMPackageResolvedPreviewModel = artifact.swiftPMPackageResolvedPreview
@@ -314,6 +315,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(jestJSONPreview)
               \(npmLockfilePreview)
               \(composerLockfilePreview)
+              \(goSumPreview)
               \(pnpmLockfilePreview)
               \(swiftPMPackageResolvedPreview)
               \(yarnLockfilePreview)
@@ -835,6 +837,41 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(packageList)
+          \(hostList)
+        </div>
+        """
+    }
+
+    private static func renderGoSumPreview(_ preview: ToolArtifactGoSumPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-go-sum-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let modules = preview.modulePreviewLabels.map {
+            #"<li data-testid="tool-card-go-sum-preview-module-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hosts = preview.sourceHostLabels.map {
+            #"<li data-testid="tool-card-go-sum-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let moduleList = modules.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-go-sum-preview-modules">
+                <strong data-testid="tool-card-go-sum-preview-module-title">Modules</strong>
+                <ul>\(modules)</ul>
+              </section>
+        """
+        let hostList = hosts.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-go-sum-preview-hosts">
+                <strong data-testid="tool-card-go-sum-preview-host-title">Sources</strong>
+                <ul>\(hosts)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !moduleList.isEmpty || !hostList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-go-sum-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(moduleList)
           \(hostList)
         </div>
         """
