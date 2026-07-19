@@ -2068,6 +2068,69 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesStylelintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("stylelint-results.json")
+        let reportText = """
+        [
+          {
+            "source": "/repo/Sources/App.css",
+            "deprecations": [{"text": "Deprecated rule"}],
+            "invalidOptionWarnings": [{"text": "Invalid option"}],
+            "parseErrors": [],
+            "errored": true,
+            "warnings": [
+              {"rule": "color-no-invalid-hex", "severity": "error", "text": "Unexpected invalid hex color"},
+              {"rule": "selector-class-pattern", "severity": "warning", "text": "Expected kebab-case"}
+            ]
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/stylelint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/stylelint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Stylelint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">stylelint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Format: Stylelint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Warnings: 2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Deprecations: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Invalid options: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-source-title">Sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-source-item">repo/Sources/App.css"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-rule-item">color-no-invalid-hex"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-rule-item">selector-class-pattern"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesTAPArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

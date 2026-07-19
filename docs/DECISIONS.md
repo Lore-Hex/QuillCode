@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Stylelint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Stylelint formatter output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** Stylelint reports are common in frontend coding sessions and need the same compact
+  Codex-style artifact treatment as ESLint: source counts, warning/error severity, parse errors,
+  deprecations, invalid option warnings, and capped rule/source labels.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read the
+  referenced stylesheets, load Stylelint plugins, or fetch remote reports.
+
 ## 2026-07-19: Render ESLint JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as ESLint formatter output as a
