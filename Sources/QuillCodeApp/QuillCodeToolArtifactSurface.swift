@@ -1805,6 +1805,68 @@ public struct ToolArtifactESLintJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactStylelintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var warningCount: Int
+    public var errorCount: Int
+    public var parseErrorCount: Int
+    public var deprecationCount: Int
+    public var invalidOptionWarningCount: Int
+    public var byteSizeLabel: String?
+    public var sourcePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            parseErrorCount > 0 ? "Parse errors: \(parseErrorCount)" : nil,
+            deprecationCount > 0 ? "Deprecations: \(deprecationCount)" : nil,
+            invalidOptionWarningCount > 0 ? "Invalid options: \(invalidOptionWarningCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || warningCount > 0
+            || errorCount > 0
+            || parseErrorCount > 0
+            || deprecationCount > 0
+            || invalidOptionWarningCount > 0
+            || byteSizeLabel != nil
+            || !sourcePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Stylelint JSON",
+        fileCount: Int,
+        warningCount: Int = 0,
+        errorCount: Int = 0,
+        parseErrorCount: Int = 0,
+        deprecationCount: Int = 0,
+        invalidOptionWarningCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        sourcePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.warningCount = warningCount
+        self.errorCount = errorCount
+        self.parseErrorCount = parseErrorCount
+        self.deprecationCount = deprecationCount
+        self.invalidOptionWarningCount = invalidOptionWarningCount
+        self.byteSizeLabel = byteSizeLabel
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -3310,7 +3372,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
-        guard eslintJSONPreview == nil else { return nil }
+        guard eslintJSONPreview == nil,
+              stylelintJSONPreview == nil
+        else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
     public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
@@ -3378,6 +3442,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
         ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)
+    }
+    public var stylelintJSONPreview: ToolArtifactStylelintJSONPreview? {
+        ToolArtifactStylelintJSONPreviewBuilder.stylelintJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)

@@ -2832,6 +2832,90 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteESLint.eslintJSONPreview)
     }
 
+    func testArtifactStateDerivesStylelintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("stylelint-results.json")
+        let content = """
+        [
+          {
+            "source": "/repo/Sources/App.css",
+            "deprecations": [
+              {"text": "Deprecated rule"}
+            ],
+            "invalidOptionWarnings": [
+              {"text": "Invalid option"}
+            ],
+            "parseErrors": [],
+            "errored": true,
+            "warnings": [
+              {
+                "line": 1,
+                "column": 1,
+                "rule": "color-no-invalid-hex",
+                "severity": "error",
+                "text": "Unexpected invalid hex color"
+              },
+              {
+                "line": 2,
+                "column": 4,
+                "rule": "selector-class-pattern",
+                "severity": "warning",
+                "text": "Expected class selector to be kebab-case"
+              }
+            ]
+          },
+          {
+            "source": "/repo/Tests/fixtures/theme.css",
+            "parseErrors": [
+              {"text": "Unexpected token"}
+            ],
+            "warnings": []
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.stylelintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Stylelint JSON")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.warningCount, 2)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.parseErrorCount, 1)
+        XCTAssertEqual(preview.deprecationCount, 1)
+        XCTAssertEqual(preview.invalidOptionWarningCount, 1)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "repo/Sources/App.css",
+            "Tests/fixtures/theme.css"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "color-no-invalid-hex",
+            "selector-class-pattern"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Stylelint JSON",
+            "2 files",
+            "Warnings: 2",
+            "Errors: 1",
+            "Parse errors: 1",
+            "Deprecations: 1",
+            "Invalid options: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"source":"/repo/file.css","status":"ok"}]"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).stylelintJSONPreview)
+
+        let remoteStylelint = ToolArtifactState(value: "https://example.com/stylelint-results.json")
+        XCTAssertNil(remoteStylelint.stylelintJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")
