@@ -41,6 +41,7 @@ enum ToolArtifactDocumentPreviewBuilder {
 
     private static let compoundPreviewExtensions: [(suffix: String, previewExtension: String)] = [
         ("appshot.json", "appshot"),
+        ("sarif.json", "sarif"),
         ("tar.gz", "tar.gz"),
         ("tar.bz2", "tar.bz2"),
         ("tar.xz", "tar.xz"),
@@ -57,6 +58,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "jsonl": .data,
         "lcov": .data,
         "ndjson": .data,
+        "sarif": .data,
         "cfg": .data,
         "conf": .data,
         "bin": .data,

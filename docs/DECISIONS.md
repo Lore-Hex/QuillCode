@@ -2179,3 +2179,21 @@
   classification, totals, fallback counts, source labels, invalid reports, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesLCOVArtifactPreview` covers the static
   HTML selectors and rendered coverage metadata.
+
+## 2026-07-18: SARIF artifacts render bounded static-analysis summaries
+
+- **Decision:** Local `.sarif` and `.sarif.json` artifacts render as structured static-analysis
+  report cards instead of generic JSON. The preview parses bounded SARIF JSON and shows SARIF
+  version, run/result counts, level counts, file size, capped tool labels, and capped rule labels.
+- **Why:** Coding agents often produce CodeQL, Semgrep, and other scanner reports while reviewing or
+  hardening code. A Codex-style artifact surface should make those reports immediately scannable
+  without requiring the model to re-open a large JSON document or invent a summary.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at 512 KB.
+  It never shells out, never follows SARIF result paths, and never fetches remote report URLs. Compound
+  `.sarif.json` files are classified as SARIF before the generic JSON preview so only one truthful
+  preview is shown.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesSARIFPreviewMetadata` covers
+  compound and direct extensions, version/count metadata, tool/rule labels, invalid reports, remote
+  exclusion, and generic JSON suppression.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesSARIFArtifactPreview` covers static HTML
+  selectors and rendered SARIF metadata.

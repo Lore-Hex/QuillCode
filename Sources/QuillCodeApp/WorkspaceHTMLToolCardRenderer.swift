@@ -214,6 +214,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let tablePreview = renderTablePreview(artifact.tablePreview)
             let harPreview = renderHARPreview(artifact.harPreview)
             let lcovPreview = renderLCOVPreview(artifact.lcovPreview)
+            let sarifPreview = renderSARIFPreview(artifact.sarifPreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
             let iniPreview = renderINIPreview(artifact.iniPreview)
@@ -248,6 +249,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(tablePreview)
               \(harPreview)
               \(lcovPreview)
+              \(sarifPreview)
               \(jsonLinesPreview)
               \(tomlPreview)
               \(iniPreview)
@@ -609,6 +611,45 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(sourceList)
+        </div>
+        """
+    }
+
+    private static func renderSARIFPreview(_ preview: ToolArtifactSARIFPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-sarif-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let tools = preview.toolPreviewLabels.map {
+            #"<li data-testid="tool-card-sarif-preview-tool-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let rules = preview.rulePreviewLabels.map {
+            #"<li data-testid="tool-card-sarif-preview-rule-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let toolList = tools.isEmpty
+            ? ""
+            : """
+              <section class="artifact-office-contents" data-testid="tool-card-sarif-preview-tools">
+                <strong data-testid="tool-card-sarif-preview-tool-title">Tools</strong>
+                <ul>\(tools)</ul>
+              </section>
+            """
+        let ruleList = rules.isEmpty
+            ? ""
+            : """
+              <section class="artifact-office-contents" data-testid="tool-card-sarif-preview-rules">
+                <strong data-testid="tool-card-sarif-preview-rule-title">Rules</strong>
+                <ul>\(rules)</ul>
+              </section>
+            """
+        guard !metadata.isEmpty || !toolList.isEmpty || !ruleList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-sarif-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(toolList)
+          \(ruleList)
         </div>
         """
     }

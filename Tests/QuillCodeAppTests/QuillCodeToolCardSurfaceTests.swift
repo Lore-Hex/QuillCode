@@ -588,6 +588,89 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(ToolArtifactState(value: invalidLCOV.path).lcovPreview)
     }
 
+    func testArtifactStateDerivesSARIFPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("codeql.sarif.json")
+        let sarifText = """
+        {
+          "version": "2.1.0",
+          "runs": [
+            {
+              "tool": {
+                "driver": {
+                  "name": "CodeQL",
+                  "rules": [
+                    {"id": "swift/hardcoded-credential"},
+                    {"id": "swift/path-injection"}
+                  ]
+                }
+              },
+              "results": [
+                {"ruleId": "swift/hardcoded-credential", "level": "error"},
+                {"ruleId": "swift/path-injection", "level": "warning"},
+                {"ruleId": "swift/style", "level": "note"},
+                {"ruleId": "swift/suppressed", "level": "none"}
+              ]
+            },
+            {
+              "tool": {"driver": {"name": "Semgrep"}},
+              "results": [
+                {"ruleId": "swift/path-injection", "level": "warning"}
+              ]
+            }
+          ]
+        }
+        """
+        try sarifText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.sarifPreview)
+        let byteCount = try XCTUnwrap(sarifText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "SARIF")
+        XCTAssertEqual(preview.versionLabel, "2.1.0")
+        XCTAssertEqual(preview.runCount, 2)
+        XCTAssertEqual(preview.resultCount, 5)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 2)
+        XCTAssertEqual(preview.noteCount, 1)
+        XCTAssertEqual(preview.noneCount, 1)
+        XCTAssertEqual(preview.toolPreviewLabels, ["CodeQL", "Semgrep"])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "swift/hardcoded-credential",
+            "swift/path-injection",
+            "swift/style",
+            "swift/suppressed"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: SARIF",
+            "Version: 2.1.0",
+            "2 runs",
+            "5 results",
+            "Errors: 1",
+            "Warnings: 2",
+            "Notes: 1",
+            "None: 1",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let extensionReport = directory.appendingPathComponent("security.sarif")
+        try sarifText.write(to: extensionReport, atomically: true, encoding: .utf8)
+        let extensionArtifact = ToolArtifactState(value: extensionReport.path)
+        XCTAssertEqual(extensionArtifact.documentPreview?.extensionLabel, "SARIF")
+        XCTAssertEqual(extensionArtifact.sarifPreview?.resultCount, 5)
+
+        let remoteSARIF = ToolArtifactState(value: "https://example.com/codeql.sarif.json")
+        XCTAssertNil(remoteSARIF.sarifPreview)
+
+        let invalidSARIF = directory.appendingPathComponent("invalid.sarif")
+        try #"{"version":"2.1.0"}"#.write(to: invalidSARIF, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: invalidSARIF.path).sarifPreview)
+    }
+
     func testArtifactStateDerivesNotebookPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let notebook = directory.appendingPathComponent("analysis.ipynb")

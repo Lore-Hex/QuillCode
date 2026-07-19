@@ -593,6 +593,65 @@ public struct ToolArtifactLCOVPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactSARIFPreview: Codable, Sendable, Hashable {
+    public var versionLabel: String?
+    public var runCount: Int
+    public var resultCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var noteCount: Int
+    public var noneCount: Int
+    public var byteSizeLabel: String?
+    public var toolPreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: SARIF",
+            versionLabel.map { "Version: \($0)" },
+            "\(runCount) run\(runCount == 1 ? "" : "s")",
+            "\(resultCount) result\(resultCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            noteCount > 0 ? "Notes: \(noteCount)" : nil,
+            noneCount > 0 ? "None: \(noneCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        runCount > 0
+            || resultCount > 0
+            || !metadataLines.isEmpty
+            || !toolPreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        versionLabel: String? = nil,
+        runCount: Int,
+        resultCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        noteCount: Int = 0,
+        noneCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        toolPreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.versionLabel = versionLabel
+        self.runCount = runCount
+        self.resultCount = resultCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.noteCount = noteCount
+        self.noneCount = noneCount
+        self.byteSizeLabel = byteSizeLabel
+        self.toolPreviewLabels = toolPreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
 public struct ToolArtifactNotebookPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var notebookVersionLabel: String?
@@ -1270,6 +1329,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var lcovPreview: ToolArtifactLCOVPreview? {
         ToolArtifactLCOVPreviewBuilder.lcovPreview(for: value, kind: kind)
+    }
+    public var sarifPreview: ToolArtifactSARIFPreview? {
+        ToolArtifactSARIFPreviewBuilder.sarifPreview(for: value, kind: kind)
     }
     public var notebookPreview: ToolArtifactNotebookPreview? {
         ToolArtifactNotebookPreviewBuilder.notebookPreview(for: value, kind: kind)
