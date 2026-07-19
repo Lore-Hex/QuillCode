@@ -81,6 +81,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             golangCILintJSONContent(golangCILintJSONPreview)
         } else if let ruffJSONPreview = artifact.ruffJSONPreview {
             ruffJSONContent(ruffJSONPreview)
+        } else if let pylintJSONPreview = artifact.pylintJSONPreview {
+            pylintJSONContent(pylintJSONPreview)
         } else if let npmLockfilePreview = artifact.npmLockfilePreview {
             npmLockfileContent(npmLockfilePreview)
         } else if let denoLockPreview = artifact.denoLockPreview {
@@ -410,6 +412,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(ruffJSONPreview.metadataLines)
             artifactContentList(title: "Files", labels: ruffJSONPreview.filePreviewLabels)
             artifactContentList(title: "Rules", labels: ruffJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func pylintJSONContent(_ pylintJSONPreview: ToolArtifactPylintJSONPreview) -> some View {
+        let hasLists = !pylintJSONPreview.filePreviewLabels.isEmpty || !pylintJSONPreview.symbolPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pylintJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: pylintJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Symbols", labels: pylintJSONPreview.symbolPreviewLabels)
         }
     }
 
