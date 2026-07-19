@@ -83,6 +83,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             ruffJSONContent(ruffJSONPreview)
         } else if let pylintJSONPreview = artifact.pylintJSONPreview {
             pylintJSONContent(pylintJSONPreview)
+        } else if let banditJSONPreview = artifact.banditJSONPreview {
+            banditJSONContent(banditJSONPreview)
         } else if let npmLockfilePreview = artifact.npmLockfilePreview {
             npmLockfileContent(npmLockfilePreview)
         } else if let denoLockPreview = artifact.denoLockPreview {
@@ -428,6 +430,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(pylintJSONPreview.metadataLines)
             artifactContentList(title: "Files", labels: pylintJSONPreview.filePreviewLabels)
             artifactContentList(title: "Symbols", labels: pylintJSONPreview.symbolPreviewLabels)
+        }
+    }
+
+    private func banditJSONContent(_ banditJSONPreview: ToolArtifactBanditJSONPreview) -> some View {
+        let hasLists = !banditJSONPreview.filePreviewLabels.isEmpty || !banditJSONPreview.testPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(banditJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: banditJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Tests", labels: banditJSONPreview.testPreviewLabels)
         }
     }
 

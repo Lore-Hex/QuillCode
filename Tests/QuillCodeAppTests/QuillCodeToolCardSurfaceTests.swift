@@ -3262,6 +3262,99 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePylint.pylintJSONPreview)
     }
 
+    func testArtifactStateDerivesBanditJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("bandit-results.json")
+        let content = """
+        {
+          "generated_at": "2026-07-19T21:45:00Z",
+          "metrics": {
+            "_totals": {
+              "CONFIDENCE.HIGH": 1,
+              "CONFIDENCE.MEDIUM": 1,
+              "SEVERITY.HIGH": 1,
+              "SEVERITY.MEDIUM": 1,
+              "loc": 42,
+              "nosec": 0,
+              "skipped_tests": 0
+            }
+          },
+          "results": [
+            {
+              "code": "1 import subprocess",
+              "filename": "/repo/app/main.py",
+              "issue_confidence": "HIGH",
+              "issue_cwe": {"id": 78, "link": "https://cwe.mitre.org/data/definitions/78.html"},
+              "issue_severity": "HIGH",
+              "issue_text": "subprocess call with shell=True identified",
+              "line_number": 14,
+              "line_range": [14],
+              "more_info": "https://bandit.readthedocs.io/en/latest/plugins/b602_subprocess_popen_with_shell_equals_true.html",
+              "test_id": "B602",
+              "test_name": "subprocess_popen_with_shell_equals_true"
+            },
+            {
+              "code": "2 password = 'secret'",
+              "filename": "/repo/tests/test_app.py",
+              "issue_confidence": "MEDIUM",
+              "issue_severity": "MEDIUM",
+              "issue_text": "Possible hardcoded password",
+              "line_number": "7",
+              "line_range": [7],
+              "more_info": "https://bandit.readthedocs.io/en/latest/plugins/b105_hardcoded_password_string.html",
+              "test_id": "B105",
+              "test_name": "hardcoded_password_string"
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.banditJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Bandit JSON")
+        XCTAssertEqual(preview.issueCount, 2)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.testCount, 2)
+        XCTAssertEqual(preview.highSeverityCount, 1)
+        XCTAssertEqual(preview.mediumSeverityCount, 1)
+        XCTAssertEqual(preview.highConfidenceCount, 1)
+        XCTAssertEqual(preview.mediumConfidenceCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/main.py",
+            "repo/tests/test_app.py"
+        ])
+        XCTAssertEqual(preview.testPreviewLabels, [
+            "B602 subprocess_popen_with_shell_equals_true",
+            "B105 hardcoded_password_string"
+        ])
+        let byteSizeLabel = try XCTUnwrap(preview.byteSizeLabel)
+        XCTAssertEqual(byteSizeLabel, "1.3 KB")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Bandit JSON",
+            "2 issues",
+            "2 files",
+            "2 tests",
+            "High severity: 1",
+            "Medium severity: 1",
+            "High confidence: 1",
+            "Medium confidence: 1",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("security-report.json")
+        try #"{"results":[{"filename":"/repo/app.py","issue_severity":"HIGH","issue_text":"missing confidence","test_id":"B602","test_name":"x","line_number":1}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).banditJSONPreview)
+
+        let remoteBandit = ToolArtifactState(value: "https://example.com/bandit-results.json")
+        XCTAssertNil(remoteBandit.banditJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")
