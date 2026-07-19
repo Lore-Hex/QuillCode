@@ -62,13 +62,20 @@ enum QuillCodeApprovalNotification {
     }
 }
 
-/// Routes a tapped Approve/Skip notification action back into the workspace on the main actor. Held
-/// strongly by the controller because `UNUserNotificationCenter.delegate` is a weak reference.
+/// Routes a tapped Approve/Skip (or failed-run Retry) notification action back into the workspace on
+/// the main actor. Held strongly by the controller because `UNUserNotificationCenter.delegate` is a
+/// weak reference. One delegate for both categories — `UNUserNotificationCenter` has a single
+/// delegate, so approval and retry actions must share it.
 final class QuillCodeApprovalNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     private let onDecision: @MainActor @Sendable (_ requestID: String, _ approve: Bool, _ threadID: UUID?) -> Void
+    private let onRetry: @MainActor @Sendable (_ threadID: UUID) -> Void
 
-    init(onDecision: @escaping @MainActor @Sendable (_ requestID: String, _ approve: Bool, _ threadID: UUID?) -> Void) {
+    init(
+        onDecision: @escaping @MainActor @Sendable (_ requestID: String, _ approve: Bool, _ threadID: UUID?) -> Void,
+        onRetry: @escaping @MainActor @Sendable (_ threadID: UUID) -> Void = { _ in }
+    ) {
         self.onDecision = onDecision
+        self.onRetry = onRetry
     }
 
     func userNotificationCenter(
@@ -77,8 +84,19 @@ final class QuillCodeApprovalNotificationDelegate: NSObject, UNUserNotificationC
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         defer { completionHandler() }
+        let userInfo = response.notification.request.content.userInfo
+
+        if QuillCodeRetryNotification.isRetryAction(response.actionIdentifier) {
+            guard let threadID = QuillCodeRetryNotification.threadID(fromUserInfo: userInfo) else { return }
+            let handler = onRetry
+            Task { @MainActor in
+                handler(threadID)
+            }
+            return
+        }
+
         guard let approve = QuillCodeApprovalNotification.decision(forActionIdentifier: response.actionIdentifier),
-              let target = QuillCodeApprovalNotification.target(fromUserInfo: response.notification.request.content.userInfo)
+              let target = QuillCodeApprovalNotification.target(fromUserInfo: userInfo)
         else {
             return
         }

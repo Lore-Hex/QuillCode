@@ -175,13 +175,16 @@ final class QuillCodeDesktopController: ObservableObject {
         // packaged .app has a bundle identifier. Notifications can't be delivered without a bundle
         // anyway, so skip registration when there isn't one.
         guard Bundle.main.bundleIdentifier != nil else { return }
-        let delegate = QuillCodeApprovalNotificationDelegate { [weak self] requestID, approve, threadID in
-            self?.decideNotificationApproval(requestID: requestID, approve: approve, threadID: threadID)
-        }
+        let delegate = QuillCodeApprovalNotificationDelegate(
+            onDecision: { [weak self] requestID, approve, threadID in
+                self?.decideNotificationApproval(requestID: requestID, approve: approve, threadID: threadID)
+            },
+            onRetry: { [weak self] threadID in self?.retryFailedRunFromNotification(threadID: threadID) }
+        )
         approvalNotificationDelegate = delegate
         let center = UNUserNotificationCenter.current()
         center.delegate = delegate
-        center.setNotificationCategories([QuillCodeApprovalNotification.category])
+        center.setNotificationCategories([QuillCodeApprovalNotification.category, QuillCodeRetryNotification.category])
     }
 
     /// Decides a blocked approval gate from a tapped notification action. Selects the gate's thread
