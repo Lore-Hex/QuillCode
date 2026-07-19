@@ -1402,6 +1402,65 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Gemfile.lock"#))
     }
 
+    func testHTMLRendererIncludesPodfileLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Podfile.lock")
+        try """
+        PODS:
+          - Alamofire (5.8.1)
+          - Firebase/Auth (10.24.0)
+
+        DEPENDENCIES:
+          - Alamofire (~> 5.8)
+
+        SPEC REPOS:
+          trunk:
+            - Alamofire
+
+        SPEC CHECKSUMS:
+          Alamofire: 1111111111111111111111111111111111111111
+
+        COCOAPODS: 1.15.2
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Podfile.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Podfile.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "podfile lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · PODFILE-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Podfile.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">Format: CocoaPods lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">CocoaPods: 1.15.2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">2 pods"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">1 dependency"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">1 checksum"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-pod-item">Alamofire@5.8.1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-pod-item">Firebase/Auth@10.24.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-source-item">trunk"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Podfile.lock"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")

@@ -918,6 +918,60 @@ public struct ToolArtifactGemfileLockPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPodfileLockPreview: Codable, Sendable, Hashable {
+    public var cocoaPodsVersion: String?
+    public var podCount: Int
+    public var dependencyCount: Int
+    public var sourceCount: Int
+    public var checksumCount: Int
+    public var sourcePreviewLabels: [String]
+    public var podPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: CocoaPods lockfile",
+            cocoaPodsVersion.map { "CocoaPods: \($0)" },
+            "\(podCount) pod\(podCount == 1 ? "" : "s")",
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            sourceCount > 0 ? "\(sourceCount) source\(sourceCount == 1 ? "" : "s")" : nil,
+            checksumCount > 0 ? "\(checksumCount) checksum\(checksumCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        cocoaPodsVersion != nil
+            || podCount > 0
+            || dependencyCount > 0
+            || sourceCount > 0
+            || checksumCount > 0
+            || !metadataLines.isEmpty
+            || !sourcePreviewLabels.isEmpty
+            || !podPreviewLabels.isEmpty
+    }
+
+    public init(
+        cocoaPodsVersion: String? = nil,
+        podCount: Int,
+        dependencyCount: Int = 0,
+        sourceCount: Int = 0,
+        checksumCount: Int = 0,
+        sourcePreviewLabels: [String] = [],
+        podPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.cocoaPodsVersion = cocoaPodsVersion
+        self.podCount = podCount
+        self.dependencyCount = dependencyCount
+        self.sourceCount = sourceCount
+        self.checksumCount = checksumCount
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.podPreviewLabels = podPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactPNPMLockfilePreview: Codable, Sendable, Hashable {
     public var lockfileVersion: String?
     public var importerCount: Int
@@ -3102,6 +3156,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var gemfileLockPreview: ToolArtifactGemfileLockPreview? {
         ToolArtifactGemfileLockPreviewBuilder.gemfileLockPreview(for: value, kind: kind)
+    }
+    public var podfileLockPreview: ToolArtifactPodfileLockPreview? {
+        ToolArtifactPodfileLockPreviewBuilder.podfileLockPreview(for: value, kind: kind)
     }
     public var pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview? {
         ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: kind)
