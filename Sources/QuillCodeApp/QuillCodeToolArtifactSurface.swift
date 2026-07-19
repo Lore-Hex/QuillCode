@@ -2016,6 +2016,58 @@ public struct ToolArtifactGolangCILintJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactRuffJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var violationCount: Int
+    public var fileCount: Int
+    public var ruleCount: Int
+    public var fixableCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(violationCount) violation\(violationCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(ruleCount) rule\(ruleCount == 1 ? "" : "s")",
+            fixableCount > 0 ? "Fixable: \(fixableCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        violationCount > 0
+            || fileCount > 0
+            || ruleCount > 0
+            || fixableCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Ruff JSON",
+        violationCount: Int,
+        fileCount: Int,
+        ruleCount: Int,
+        fixableCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.violationCount = violationCount
+        self.fileCount = fileCount
+        self.ruleCount = ruleCount
+        self.fixableCount = fixableCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -3711,7 +3763,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         guard eslintJSONPreview == nil,
               stylelintJSONPreview == nil,
               rubocopJSONPreview == nil,
-              golangCILintJSONPreview == nil
+              golangCILintJSONPreview == nil,
+              ruffJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -3789,6 +3842,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var golangCILintJSONPreview: ToolArtifactGolangCILintJSONPreview? {
         ToolArtifactGolangCILintJSONPreviewBuilder.golangCILintJSONPreview(for: value, kind: kind)
+    }
+    public var ruffJSONPreview: ToolArtifactRuffJSONPreview? {
+        ToolArtifactRuffJSONPreviewBuilder.ruffJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)

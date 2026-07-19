@@ -2280,6 +2280,72 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesRuffJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("ruff-results.json")
+        let reportText = """
+        [
+          {
+            "code": "F401",
+            "filename": "/repo/app/main.py",
+            "fix": {"applicability": "safe", "edits": []},
+            "location": {"row": 1, "column": 1},
+            "message": "`os` imported but unused"
+          },
+          {
+            "code": "E501",
+            "filename": "/repo/tests/test_app.py",
+            "fix": null,
+            "location": {"row": 12, "column": 89},
+            "message": "Line too long"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/ruff-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/ruff-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Ruff artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">ruff-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">Format: Ruff JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">2 violations"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">2 rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">Fixable: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-file-item">repo/app/main.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-file-item">repo/tests/test_app.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-rule-item">F401"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-rule-item">E501"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesTAPArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
