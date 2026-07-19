@@ -90,6 +90,9 @@
   or rendering notebook outputs.
 - Artifact previews now include bounded local XML metadata using native XML parsing:
   root element, element/attribute/namespace counts, file size, and capped root-child previews.
+- Artifact previews now include bounded local JUnit XML test-report metadata for `.xml` files whose
+  root is `testsuite` or `testsuites`: suite/test counts, failure/error/skipped counts, duration,
+  file size, suite labels, and failing-test labels without expanding testcase logs or following paths.
 - Artifact previews now include bounded local INI-style config metadata for `.ini`, `.cfg`, and `.conf`:
   section/key counts, file size, truncation state, and capped section previews.
 - Artifact previews now include bounded local dotenv metadata for `.env` and `.env.*` files:

@@ -220,7 +220,9 @@ enum WorkspaceHTMLToolCardRenderer {
             let iniPreview = renderINIPreview(artifact.iniPreview)
             let dotenvPreview = renderDotenvPreview(artifact.dotenvPreview)
             let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
-            let xmlPreview = renderXMLPreview(artifact.xmlPreview)
+            let junitPreviewModel = artifact.junitPreview
+            let junitPreview = renderJUnitPreview(junitPreviewModel)
+            let xmlPreview = junitPreviewModel == nil ? renderXMLPreview(artifact.xmlPreview) : ""
             let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
             let sqlitePreview = renderSQLitePreview(artifact.sqlitePreview)
             let webAssemblyPreview = renderWebAssemblyPreview(artifact.webAssemblyPreview)
@@ -255,6 +257,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(iniPreview)
               \(dotenvPreview)
               \(yamlPreview)
+              \(junitPreview)
               \(xmlPreview)
               \(propertyListPreview)
               \(sqlitePreview)
@@ -800,6 +803,41 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(childList)
+        </div>
+        """
+    }
+
+    private static func renderJUnitPreview(_ preview: ToolArtifactJUnitPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-junit-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let suites = preview.suitePreviewLabels.map {
+            #"<li data-testid="tool-card-junit-preview-suite-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-junit-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let suiteList = suites.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-junit-preview-suites">
+                <strong data-testid="tool-card-junit-preview-suite-title">Suites</strong>
+                <ul>\(suites)</ul>
+              </section>
+        """
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-junit-preview-failures">
+                <strong data-testid="tool-card-junit-preview-failure-title">Failing tests</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !suiteList.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-junit-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(suiteList)
+          \(failureList)
         </div>
         """
     }

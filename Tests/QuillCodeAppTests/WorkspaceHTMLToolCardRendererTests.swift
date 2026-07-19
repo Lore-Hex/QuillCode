@@ -1274,6 +1274,67 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-xml-preview-child-item">settings"#))
     }
 
+    func testHTMLRendererIncludesJUnitArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("TEST-QuillCode.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <testsuite name="QuillCodeAppTests" tests="3" failures="1" errors="1" skipped="1" time="1.25">
+          <testcase classname="QuillCodeAppTests.WorkspaceTests" name="testRendersArtifacts" />
+          <testcase classname="QuillCodeAppTests.WorkspaceTests" name="testStreamsOutput">
+            <failure message="expected streamed output" />
+          </testcase>
+          <testcase classname="QuillCodeAppTests.WorkspaceTests" name="testTimeout">
+            <error message="timed out" />
+          </testcase>
+          <testcase classname="QuillCodeAppTests.WorkspaceTests" name="testSkipped">
+            <skipped />
+          </testcase>
+        </testsuite>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"TEST-QuillCode.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote TEST-QuillCode.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "JUnit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">TEST-QuillCode.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-meta">Format: JUnit XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-meta">1 suite"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-meta">Failures: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-meta">Skipped: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-meta">Duration: 1.25 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-suite-title">Suites"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-suite-item">QuillCodeAppTests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-failure-item">QuillCodeAppTests.WorkspaceTests.testStreamsOutput"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-junit-preview-failure-item">QuillCodeAppTests.WorkspaceTests.testTimeout"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)

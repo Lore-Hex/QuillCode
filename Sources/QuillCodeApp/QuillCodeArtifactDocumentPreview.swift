@@ -79,6 +79,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             dotenvContent(dotenvPreview)
         } else if let yamlPreview = artifact.yamlPreview {
             yamlContent(yamlPreview)
+        } else if let junitPreview = artifact.junitPreview {
+            junitContent(junitPreview)
         } else if let xmlPreview = artifact.xmlPreview {
             xmlContent(xmlPreview)
         } else if let propertyListPreview = artifact.propertyListPreview {
@@ -324,6 +326,21 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(xmlPreview.metadataLines)
             artifactContentList(title: "Root children", labels: xmlPreview.childPreviewLabels)
+        }
+    }
+
+    private func junitContent(_ junitPreview: ToolArtifactJUnitPreview) -> some View {
+        previewSurface(minHeight: junitPreview.failurePreviewLabels.isEmpty ? 92 : 142) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(junitPreview.metadataLines)
+            artifactContentList(title: "Suites", labels: junitPreview.suitePreviewLabels)
+            artifactContentList(title: "Failing tests", labels: junitPreview.failurePreviewLabels)
         }
     }
 

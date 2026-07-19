@@ -2197,3 +2197,20 @@
   exclusion, and generic JSON suppression.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesSARIFArtifactPreview` covers static HTML
   selectors and rendered SARIF metadata.
+
+## 2026-07-18: JUnit XML artifacts render bounded test-report summaries
+
+- **Decision:** Local `.xml` artifacts whose root element is `testsuite` or `testsuites` render as
+  structured JUnit report cards instead of generic XML. The preview shows suite/test counts,
+  failure/error/skipped counts, aggregate duration, file size, capped suite labels, and capped failing
+  testcase labels.
+- **Why:** Coding agents frequently create JUnit XML through test runners and CI jobs. A Codex-style
+  artifact surface should make pass/fail shape immediately visible without asking the model to parse a
+  raw XML tree or flood the transcript with testcase logs.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at 512 KB.
+  It never expands testcase stdout/stderr, never follows paths or classname references, and never
+  fetches remote reports. Generic XML rendering is suppressed only when the JUnit root validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesJUnitPreviewMetadata` covers
+  aggregate attributes, testcase-observed fallback counts, failing labels, non-JUnit XML exclusion,
+  and remote exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesJUnitArtifactPreview`
+  covers static HTML selectors, rendered metadata, and generic XML suppression.

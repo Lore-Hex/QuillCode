@@ -1076,6 +1076,82 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteXML.xmlPreview)
     }
 
+    func testArtifactStateDerivesJUnitPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("TEST-QuillCode.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <testsuites>
+          <testsuite name="QuillCodeAppTests" tests="3" failures="1" errors="0" skipped="1" time="1.25">
+            <testcase classname="QuillCodeAppTests.WorkspaceTests" name="testRendersArtifacts" time="0.1" />
+            <testcase classname="QuillCodeAppTests.WorkspaceTests" name="testStreamsOutput" time="0.2">
+              <failure message="expected streamed output" />
+            </testcase>
+            <testcase classname="QuillCodeAppTests.WorkspaceTests" name="testSkipped">
+              <skipped />
+            </testcase>
+          </testsuite>
+          <testsuite name="QuillCodeToolsTests" tests="2" failures="0" errors="1" skipped="0" time="0.75">
+            <testcase classname="QuillCodeToolsTests.ShellTests" name="testWhoami" />
+            <testcase classname="QuillCodeToolsTests.ShellTests" name="testTimeout">
+              <error message="timed out" />
+            </testcase>
+          </testsuite>
+        </testsuites>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.junitPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.suiteCount, 2)
+        XCTAssertEqual(preview.testCount, 5)
+        XCTAssertEqual(preview.failureCount, 1)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "2 s")
+        XCTAssertEqual(preview.suitePreviewLabels, ["QuillCodeAppTests", "QuillCodeToolsTests"])
+        XCTAssertEqual(preview.failurePreviewLabels, [
+            "QuillCodeAppTests.WorkspaceTests.testStreamsOutput",
+            "QuillCodeToolsTests.ShellTests.testTimeout"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: JUnit XML",
+            "2 suites",
+            "5 tests",
+            "Failures: 1",
+            "Errors: 1",
+            "Skipped: 1",
+            "Duration: 2 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let fallbackReport = directory.appendingPathComponent("fallback.xml")
+        try """
+        <testsuite name="FallbackSuite">
+          <testcase classname="FallbackTests" name="testPass" />
+          <testcase classname="FallbackTests" name="testFailure"><failure /></testcase>
+          <testcase classname="FallbackTests" name="testError"><error /></testcase>
+          <testcase classname="FallbackTests" name="testSkipped"><skipped /></testcase>
+        </testsuite>
+        """.write(to: fallbackReport, atomically: true, encoding: .utf8)
+        let fallbackPreview = try XCTUnwrap(ToolArtifactState(value: fallbackReport.path).junitPreview)
+        XCTAssertEqual(fallbackPreview.testCount, 4)
+        XCTAssertEqual(fallbackPreview.failureCount, 1)
+        XCTAssertEqual(fallbackPreview.errorCount, 1)
+        XCTAssertEqual(fallbackPreview.skippedCount, 1)
+
+        let nonJUnit = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: nonJUnit, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonJUnit.path).junitPreview)
+
+        let remoteJUnit = ToolArtifactState(value: "https://example.com/TEST-QuillCode.xml")
+        XCTAssertNil(remoteJUnit.junitPreview)
+    }
+
     func testArtifactStateDerivesSQLitePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let database = directory.appendingPathComponent("cache.sqlite3")
