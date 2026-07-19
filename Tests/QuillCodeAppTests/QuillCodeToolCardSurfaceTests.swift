@@ -3355,6 +3355,112 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteBandit.banditJSONPreview)
     }
 
+    func testArtifactStateDerivesSemgrepJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("semgrep-results.json")
+        let content = """
+        {
+          "version": "1.128.0",
+          "paths": {"scanned": ["app/main.py", "tests/test_app.py"]},
+          "results": [
+            {
+              "check_id": "python.lang.security.audit.subprocess-shell-true",
+              "path": "/repo/app/main.py",
+              "start": {"line": 14, "col": 5, "offset": 120},
+              "end": {"line": 14, "col": 36, "offset": 151},
+              "extra": {
+                "message": "Found subprocess call with shell=True",
+                "severity": "ERROR",
+                "metadata": {"category": "security"}
+              }
+            },
+            {
+              "check_id": "python.django.security.audit.xss.template-var",
+              "path": "/repo/tests/test_app.py",
+              "start": {"line": 8, "col": 1, "offset": 70},
+              "end": {"line": 8, "col": 21, "offset": 90},
+              "extra": {
+                "message": "Potential template escaping issue",
+                "severity": "WARNING",
+                "metadata": {"category": "security"}
+              }
+            },
+            {
+              "check_id": "python.lang.security.audit.subprocess-shell-true",
+              "path": "/repo/tests/test_app.py",
+              "start": {"line": 18, "col": 5, "offset": 170},
+              "end": {"line": 18, "col": 36, "offset": 201},
+              "extra": {
+                "message": "Found subprocess call with shell=True",
+                "severity": "INFO",
+                "metadata": {"category": "security"}
+              }
+            }
+          ],
+          "errors": [{"type": "PartialParsing", "message": "One file skipped"}]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.semgrepJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Semgrep JSON")
+        XCTAssertEqual(preview.findingCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.ruleCount, 2)
+        XCTAssertEqual(preview.errorSeverityCount, 1)
+        XCTAssertEqual(preview.warningSeverityCount, 1)
+        XCTAssertEqual(preview.infoSeverityCount, 1)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/main.py",
+            "repo/tests/test_app.py"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "python.lang.security.audit.subprocess-shell-true",
+            "python.django.security.audit.xss.template-var"
+        ])
+        let byteSizeLabel = try XCTUnwrap(preview.byteSizeLabel)
+        XCTAssertEqual(byteSizeLabel, "1.3 KB")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Semgrep JSON",
+            "3 findings",
+            "2 files",
+            "2 rules",
+            "Error severity: 1",
+            "Warning severity: 1",
+            "Info severity: 1",
+            "Scanner errors: 1",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("generic-results.json")
+        try #"{"results":[{"check_id":"x","path":"/repo/app.py","start":{},"end":{},"extra":{"message":"missing severity"}}],"version":"1"}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).semgrepJSONPreview)
+
+        let clean = directory.appendingPathComponent("semgrep-clean.json")
+        try #"{"version":"1.128.0","paths":{"scanned":["app/main.py"]},"results":[],"errors":[]}"#
+            .write(to: clean, atomically: true, encoding: .utf8)
+        let cleanPreview = try XCTUnwrap(ToolArtifactState(value: clean.path).semgrepJSONPreview)
+        XCTAssertEqual(cleanPreview.findingCount, 0)
+        XCTAssertEqual(cleanPreview.fileCount, 0)
+        XCTAssertEqual(cleanPreview.ruleCount, 0)
+        XCTAssertEqual(cleanPreview.metadataLines.prefix(4), [
+            "Format: Semgrep JSON",
+            "0 findings",
+            "0 files",
+            "0 rules"
+        ])
+
+        let remoteSemgrep = ToolArtifactState(value: "https://example.com/semgrep-results.json")
+        XCTAssertNil(remoteSemgrep.semgrepJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")

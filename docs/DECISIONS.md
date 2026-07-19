@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Semgrep JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as native Semgrep JSON output as a
+  specialized static-analysis artifact rather than generic JSON.
+- **Rationale:** Semgrep reports are common in security and code-review sessions. Showing finding,
+  file, rule, severity, and scanner-error counts plus capped file/rule labels gives useful
+  Codex-style feedback without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read source
+  files, expand match snippets, load Semgrep rules, shell out, or fetch remote reports.
+
 ## 2026-07-19: Render Bandit JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as Bandit JSON output as a

@@ -234,6 +234,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let pylintJSONPreview = renderPylintJSONPreview(pylintJSONPreviewModel)
             let banditJSONPreviewModel = artifact.banditJSONPreview
             let banditJSONPreview = renderBanditJSONPreview(banditJSONPreviewModel)
+            let semgrepJSONPreviewModel = artifact.semgrepJSONPreview
+            let semgrepJSONPreview = renderSemgrepJSONPreview(semgrepJSONPreviewModel)
             let npmLockfilePreviewModel = artifact.npmLockfilePreview
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
             let denoLockPreviewModel = artifact.denoLockPreview
@@ -324,6 +326,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && ruffJSONPreviewModel == nil
                 && pylintJSONPreviewModel == nil
                 && banditJSONPreviewModel == nil
+                && semgrepJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
                 && denoLockPreviewModel == nil
                 && bunLockfilePreviewModel == nil
@@ -367,6 +370,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(ruffJSONPreview)
               \(pylintJSONPreview)
               \(banditJSONPreview)
+              \(semgrepJSONPreview)
               \(npmLockfilePreview)
               \(denoLockPreview)
               \(bunLockfilePreview)
@@ -1078,6 +1082,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(fileList)
           \(testList)
+        </div>
+        """
+    }
+
+    private static func renderSemgrepJSONPreview(_ preview: ToolArtifactSemgrepJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-semgrep-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-semgrep-json-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-semgrep-json-preview-files">
+                <strong data-testid="tool-card-semgrep-json-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let rules = preview.rulePreviewLabels.map {
+            #"<li data-testid="tool-card-semgrep-json-preview-rule-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let ruleList = rules.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-semgrep-json-preview-rules">
+                <strong data-testid="tool-card-semgrep-json-preview-rule-title">Rules</strong>
+                <ul>\(rules)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !ruleList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-semgrep-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+          \(ruleList)
         </div>
         """
     }

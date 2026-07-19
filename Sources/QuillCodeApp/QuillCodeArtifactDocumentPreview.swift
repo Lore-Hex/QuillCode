@@ -85,6 +85,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             pylintJSONContent(pylintJSONPreview)
         } else if let banditJSONPreview = artifact.banditJSONPreview {
             banditJSONContent(banditJSONPreview)
+        } else if let semgrepJSONPreview = artifact.semgrepJSONPreview {
+            semgrepJSONContent(semgrepJSONPreview)
         } else if let npmLockfilePreview = artifact.npmLockfilePreview {
             npmLockfileContent(npmLockfilePreview)
         } else if let denoLockPreview = artifact.denoLockPreview {
@@ -446,6 +448,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(banditJSONPreview.metadataLines)
             artifactContentList(title: "Files", labels: banditJSONPreview.filePreviewLabels)
             artifactContentList(title: "Tests", labels: banditJSONPreview.testPreviewLabels)
+        }
+    }
+
+    private func semgrepJSONContent(_ semgrepJSONPreview: ToolArtifactSemgrepJSONPreview) -> some View {
+        let hasLists = !semgrepJSONPreview.filePreviewLabels.isEmpty || !semgrepJSONPreview.rulePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(semgrepJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: semgrepJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Rules", labels: semgrepJSONPreview.rulePreviewLabels)
         }
     }
 
