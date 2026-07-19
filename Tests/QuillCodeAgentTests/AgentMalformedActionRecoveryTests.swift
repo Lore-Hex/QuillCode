@@ -180,9 +180,57 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertEqual(calls.count, 3)
     }
 
-    func testCancelledRunDoesNotReprompt() async throws {
-        let started = expectation(description: "first LLM call started")
-        let client = BlockingThenThrowingLLMClient(onFirstCall: { started.fulfill() })
+    func testEmptyStreamingResponseIsRetriedAndRunSucceeds() async throws {
+        // A clean-but-empty stream (gateway teardown before the first token, empty 200, immediate
+        // [DONE]) is the streaming twin of TrustedRouterAgentError.emptyResponse and gets a resample.
+        let client = ThrowingSequenceLLMClient(steps: [
+            .failure(AgentError.emptyStreamingResponse),
+            .action(.say("Filled in on retry.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Filled in on retry.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("Self-healing: the model returned an empty response")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 2)
+    }
+
+    func testExhaustedEmptyStreamingResponsesStayFatal() async throws {
+        let client = ThrowingSequenceLLMClient(steps: [
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        do {
+            _ = try await runner.send(
+                Self.prompt,
+                in: ChatThread(mode: .auto),
+                workspaceRoot: try makeTempDirectory()
+            )
+            XCTFail("expected emptyStreamingResponse after the retry limit")
+        } catch AgentError.emptyStreamingResponse {
+            // Correct terminal error.
+        }
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 3)
+    }
+
+    func testUserStopAtBudgetExhaustionSurfacesAsCancellationNotFailure() async throws {
+        // Both recovery attempts burned, then the user stops during the third call whose garbage
+        // arrives after the cancel: the resolver must honor the stop (CancellationError), never
+        // report a malformed-model failure for a run the user deliberately stopped.
+        let started = expectation(description: "third LLM call started")
+        let client = BlockingThenThrowingLLMClient(blockOnCall: 3, onBlockedCall: { started.fulfill() })
         let runner = AgentRunner(llm: client)
         let root = try makeTempDirectory()
 
@@ -192,7 +240,60 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         }
         await fulfillment(of: [started], timeout: 5)
         task.cancel()
-        await client.releaseFirstCall()
+        await client.releaseBlockedCall()
+
+        do {
+            _ = try await task.value
+            XCTFail("expected cancellation")
+        } catch is CancellationError {
+            // Correct: the stop wins over the exhausted-budget malformed error.
+        } catch {
+            XCTFail("expected CancellationError, got \(error)")
+        }
+        let callCount = await client.callCount()
+        XCTAssertEqual(callCount, 3)
+    }
+
+    func testCorrectiveAttemptUsageIsHarvestedOntoDurableThread() async throws {
+        // Corrective re-prompts must never be invisible to spend accounting: the scratch corrective
+        // run's token-usage event is harvested onto the durable thread.
+        let client = ScriptedUsageStreamingLLMClient(scripts: [
+            .init(text: "totally not json ���", usage: .init(promptTokens: 10, completionTokens: 5, totalTokens: 15)),
+            .init(text: #"{"type":"say","text":"Recovered with usage."}"#, usage: .init(promptTokens: 20, completionTokens: 7, totalTokens: 27)),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Recovered with usage.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("malformed action")
+        })
+        XCTAssertTrue(
+            result.thread.events.contains { $0.summary == "Model token usage" },
+            "the corrective attempt's usage event must land on the durable thread"
+        )
+        // The corrective context itself never persists.
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("totally not json") })
+    }
+
+    func testCancelledRunDoesNotReprompt() async throws {
+        let started = expectation(description: "first LLM call started")
+        let client = BlockingThenThrowingLLMClient(blockOnCall: 1, onBlockedCall: { started.fulfill() })
+        let runner = AgentRunner(llm: client)
+        let root = try makeTempDirectory()
+
+        let prompt = Self.prompt
+        let task = Task { [runner] in
+            try await runner.send(prompt, in: ChatThread(mode: .auto), workspaceRoot: root)
+        }
+        await fulfillment(of: [started], timeout: 5)
+        task.cancel()
+        await client.releaseBlockedCall()
 
         do {
             _ = try await task.value
@@ -205,15 +306,17 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
     }
 }
 
-/// First call signals, then blocks until released, then throws invalidActionJSON — so the test can
-/// cancel the owning task mid-call and prove the resolver honors the stop instead of re-prompting.
+/// Throws invalidActionJSON on every call; call number `blockOnCall` first signals, then blocks until
+/// released — so tests can cancel the owning task mid-call at a precise attempt and prove the
+/// resolver honors the stop (instead of re-prompting, or reporting a malformed failure at exhaustion).
 private actor BlockingThenThrowingLLMClientState {
     var calls = 0
     private var continuation: CheckedContinuation<Void, Never>?
     private var released = false
 
-    func enter() {
+    func enter() -> Int {
         calls += 1
+        return calls
     }
 
     func waitForRelease() async {
@@ -230,28 +333,71 @@ private actor BlockingThenThrowingLLMClientState {
 
 private struct BlockingThenThrowingLLMClient: LLMClient {
     let state = BlockingThenThrowingLLMClientState()
-    let onFirstCall: @Sendable () -> Void
+    let blockOnCall: Int
+    let onBlockedCall: @Sendable () -> Void
 
-    init(onFirstCall: @escaping @Sendable () -> Void) {
-        self.onFirstCall = onFirstCall
+    init(blockOnCall: Int, onBlockedCall: @escaping @Sendable () -> Void) {
+        self.blockOnCall = blockOnCall
+        self.onBlockedCall = onBlockedCall
     }
 
     func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
-        await state.enter()
-        let count = await state.calls
-        if count == 1 {
-            onFirstCall()
+        let count = await state.enter()
+        if count == blockOnCall {
+            onBlockedCall()
             await state.waitForRelease()
-            throw TrustedRouterAgentError.invalidActionJSON("garbage-during-cancel")
         }
-        return .say("should never be reached on a cancelled run")
+        throw TrustedRouterAgentError.invalidActionJSON("garbage-attempt-\(count)")
     }
 
-    func releaseFirstCall() async {
+    func releaseBlockedCall() async {
         await state.release()
     }
 
     func callCount() async -> Int {
         await state.calls
+    }
+}
+
+/// A scripted UsageStreamingLLMClient: each call streams its script's text then a usage event, so the
+/// production usage-accounting path (collectStreamingAction) runs for both original and corrective
+/// attempts.
+private struct ScriptedUsageStreamingLLMClient: UsageStreamingLLMClient {
+    struct Script: Sendable {
+        var text: String
+        var usage: ModelTokenUsage
+    }
+
+    private actor Progress {
+        private(set) var index = 0
+        func next() -> Int { defer { index += 1 }; return index }
+        func count() -> Int { index }
+    }
+
+    private let scripts: [Script]
+    private let progress = Progress()
+
+    init(scripts: [Script]) {
+        self.scripts = scripts
+    }
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        // Force the streaming path in tests: the resolver should never take the plain branch for a
+        // UsageStreamingLLMClient.
+        throw TrustedRouterAgentError.emptyResponse
+    }
+
+    func actionTextStream(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AsyncThrowingStream<String, Error> {
+        throw TrustedRouterAgentError.emptyResponse
+    }
+
+    func actionEventStream(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
+        let index = await progress.next()
+        let script = scripts[min(index, scripts.count - 1)]
+        return AsyncThrowingStream { continuation in
+            continuation.yield(.text(script.text))
+            continuation.yield(.usage(script.usage))
+            continuation.finish()
+        }
     }
 }

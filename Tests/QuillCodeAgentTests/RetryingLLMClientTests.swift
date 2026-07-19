@@ -285,4 +285,22 @@ final class RetryingLLMClientTests: XCTestCase {
         }
         XCTAssertLessThanOrEqual(flaky.callCount, 1, "a cancelled task must not get retry attempts")
     }
+
+    func testUserStopDuringFinalAttemptSurfacesAsCancellation() async throws {
+        // With no retry budget left the error would surface raw — unless the owning task was
+        // cancelled, in which case the stop must win even at exhaustion.
+        let flaky = FlakyClient(failures: [URLError(.cancelled)])
+        let client = makeClient(flaky, policy: RetryBackoffPolicy(maxAttempts: 1))
+        let capturedThread = thread
+        let task = Task {
+            try await client.nextAction(thread: capturedThread, userMessage: "hi", tools: [])
+        }
+        task.cancel()
+        do {
+            _ = try await task.value
+            XCTFail("expected cancellation")
+        } catch is CancellationError {
+            // Correct: a deliberate stop is never reported as a transport failure.
+        }
+    }
 }
