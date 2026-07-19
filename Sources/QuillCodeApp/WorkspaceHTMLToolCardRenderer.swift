@@ -222,6 +222,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
             let npmLockfilePreviewModel = artifact.npmLockfilePreview
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
+            let pnpmLockfilePreviewModel = artifact.pnpmLockfilePreview
+            let pnpmLockfilePreview = renderPNPMLockfilePreview(pnpmLockfilePreviewModel)
             let swiftPMPackageResolvedPreviewModel = artifact.swiftPMPackageResolvedPreview
             let swiftPMPackageResolvedPreview = renderSwiftPMPackageResolvedPreview(swiftPMPackageResolvedPreviewModel)
             let yarnLockfilePreviewModel = artifact.yarnLockfilePreview
@@ -241,7 +243,9 @@ enum WorkspaceHTMLToolCardRenderer {
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
             let iniPreview = renderINIPreview(artifact.iniPreview)
             let dotenvPreview = renderDotenvPreview(artifact.dotenvPreview)
-            let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
+            let yamlPreview = pnpmLockfilePreviewModel == nil
+                ? renderYAMLPreview(artifact.yamlPreview)
+                : ""
             let junitPreviewModel = artifact.junitPreview
             let junitPreview = renderJUnitPreview(junitPreviewModel)
             let trxPreview = renderTRXPreview(artifact.trxPreview)
@@ -274,6 +278,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
+                && pnpmLockfilePreviewModel == nil
                 && swiftPMPackageResolvedPreviewModel == nil
                 && yarnLockfilePreviewModel == nil
                 && cargoLockPreviewModel == nil
@@ -305,6 +310,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(pytestJSONPreview)
               \(jestJSONPreview)
               \(npmLockfilePreview)
+              \(pnpmLockfilePreview)
               \(swiftPMPackageResolvedPreview)
               \(yarnLockfilePreview)
               \(cargoLockPreview)
@@ -827,6 +833,53 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(pinList)
+          \(hostList)
+        </div>
+        """
+    }
+
+    private static func renderPNPMLockfilePreview(_ preview: ToolArtifactPNPMLockfilePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-pnpm-lockfile-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-pnpm-lockfile-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let importers = preview.importerPreviewLabels.map {
+            #"<li data-testid="tool-card-pnpm-lockfile-preview-importer-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hosts = preview.resolvedHostLabels.map {
+            #"<li data-testid="tool-card-pnpm-lockfile-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pnpm-lockfile-preview-packages">
+                <strong data-testid="tool-card-pnpm-lockfile-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let importerList = importers.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pnpm-lockfile-preview-importers">
+                <strong data-testid="tool-card-pnpm-lockfile-preview-importer-title">Importers</strong>
+                <ul>\(importers)</ul>
+              </section>
+        """
+        let hostList = hosts.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pnpm-lockfile-preview-hosts">
+                <strong data-testid="tool-card-pnpm-lockfile-preview-host-title">Sources</strong>
+                <ul>\(hosts)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !importerList.isEmpty || !hostList.isEmpty else {
+            return ""
+        }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-pnpm-lockfile-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(importerList)
           \(hostList)
         </div>
         """

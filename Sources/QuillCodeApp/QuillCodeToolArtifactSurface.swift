@@ -522,6 +522,63 @@ public struct ToolArtifactNPMLockfilePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPNPMLockfilePreview: Codable, Sendable, Hashable {
+    public var lockfileVersion: String?
+    public var importerCount: Int
+    public var packageCount: Int
+    public var dependencyCount: Int
+    public var integrityCount: Int
+    public var resolvedHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var importerPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: pnpm lockfile",
+            lockfileVersion.map { "Lockfile: \($0)" },
+            "\(importerCount) importer\(importerCount == 1 ? "" : "s")",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            integrityCount > 0 ? "\(integrityCount) integrit\(integrityCount == 1 ? "y" : "ies")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        importerCount > 0
+            || packageCount > 0
+            || dependencyCount > 0
+            || integrityCount > 0
+            || !metadataLines.isEmpty
+            || !resolvedHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+            || !importerPreviewLabels.isEmpty
+    }
+
+    public init(
+        lockfileVersion: String? = nil,
+        importerCount: Int = 0,
+        packageCount: Int,
+        dependencyCount: Int = 0,
+        integrityCount: Int = 0,
+        resolvedHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        importerPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.lockfileVersion = lockfileVersion
+        self.importerCount = importerCount
+        self.packageCount = packageCount
+        self.dependencyCount = dependencyCount
+        self.integrityCount = integrityCount
+        self.resolvedHostLabels = resolvedHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.importerPreviewLabels = importerPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactSwiftPMPackageResolvedPreview: Codable, Sendable, Hashable {
     public var schemaVersion: String?
     public var pinCount: Int
@@ -2628,6 +2685,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
         ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: kind)
+    }
+    public var pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview? {
+        ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: kind)
     }
     public var swiftPMPackageResolvedPreview: ToolArtifactSwiftPMPackageResolvedPreview? {
         ToolArtifactSwiftPMPackageResolvedPreviewBuilder.packageResolvedPreview(for: value, kind: kind)

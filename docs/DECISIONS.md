@@ -2540,3 +2540,24 @@
   labels, host labels, non-`yarn.lock` exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesYarnLockfileArtifactPreview` covers
   static HTML selectors, rendered Yarn metadata, package/host lists, and text-preview coexistence.
+
+## 2026-07-19: pnpm-lock.yaml artifacts render bounded package summaries
+
+- **Decision:** Local `pnpm-lock.yaml` artifacts render as structured pnpm lockfile cards. The preview
+  shows lockfile version, importer/package/dependency/integrity counts, file size, capped importer
+  labels, capped package labels, and capped resolved registry host labels. `pnpm-lock.yaml` is
+  classified as a data artifact through filename-specific detection.
+- **Why:** pnpm monorepos often produce lockfiles with multiple importers and large package sections.
+  A bounded importer/package/source summary makes dependency changes scannable without opening a
+  repetitive YAML lockfile.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `pnpm-lock.yaml`, and capped at 512 KB. It validates `lockfileVersion`, reads shallow top-level
+  `importers` and `packages` mappings plus package `resolution.integrity` and `resolution.tarball`,
+  and never expands dependency graphs, integrity values, package manifests, registry indexes, or remote
+  tarballs. Generic YAML rendering is suppressed only after the pnpm lockfile shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPNPMLockfilePreviewMetadata`
+  covers filename-based document classification, lockfile version, importer/package/dependency/
+  integrity counts, package labels, host labels, non-`pnpm-lock.yaml` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPNPMLockfileArtifactPreview` covers
+  static HTML selectors, rendered pnpm metadata, package/importer/host lists, YAML-preview suppression,
+  and text-preview coexistence.

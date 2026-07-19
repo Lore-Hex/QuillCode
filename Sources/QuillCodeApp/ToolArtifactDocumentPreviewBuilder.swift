@@ -37,6 +37,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "package.resolved" {
             return "spm"
         }
+        if filename == "pnpm-lock.yaml" {
+            return "pnpm-lock"
+        }
         if filename == "yarn.lock" {
             return "yarn-lock"
         }
@@ -74,6 +77,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "sarif": .data,
         "cfg": .data,
         "conf": .data,
+        "pnpm-lock": .data,
         "yarn-lock": .data,
         "cargo-lock": .data,
         "bin": .data,

@@ -96,6 +96,10 @@
   lockfile version, root package, package/dependency/dev/optional counts, file size, capped package
   labels, and capped resolved registry hosts without expanding integrity hashes, package scripts, or
   fetching remote tarballs.
+- Artifact previews now include bounded local pnpm lockfile metadata for `pnpm-lock.yaml` files:
+  lockfile version, importer/package/dependency/integrity counts, file size, capped importer labels,
+  capped package labels, and capped resolved registry hosts without expanding dependency graphs,
+  integrity values, package manifests, registry indexes, or fetching remote tarballs.
 - Artifact previews now include bounded local SwiftPM resolved-package metadata for `Package.resolved`
   files: schema version, pin/version/branch/revision-only counts, file size, capped pin labels, and
   capped source hosts without expanding full revisions, dependency source bodies, or fetching remote

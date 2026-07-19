@@ -729,6 +729,87 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteLock.yarnLockfilePreview)
     }
 
+    func testArtifactStateDerivesPNPMLockfilePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("pnpm-lock.yaml")
+        let lockText = """
+        lockfileVersion: '9.0'
+
+        importers:
+          .:
+            dependencies:
+              '@playwright/test':
+                specifier: ^1.55.0
+                version: 1.55.0
+              lucide-react:
+                specifier: ^0.468.0
+                version: 0.468.0
+            devDependencies:
+              typescript:
+                specifier: ^5.8.0
+                version: 5.8.3
+          apps/web:
+            optionalDependencies:
+              sharp:
+                specifier: ^0.33.5
+                version: 0.33.5
+
+        packages:
+          /@playwright/test@1.55.0:
+            resolution:
+              integrity: sha512-playwright
+              tarball: https://registry.npmjs.org/@playwright/test/-/test-1.55.0.tgz
+          /lucide-react@0.468.0:
+            resolution:
+              integrity: sha512-lucide
+              tarball: https://registry.npmjs.org/lucide-react/-/lucide-react-0.468.0.tgz
+          /sharp@0.33.5:
+            resolution:
+              integrity: sha512-sharp
+              tarball: https://registry.yarnpkg.com/sharp/-/sharp-0.33.5.tgz
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pnpmLockfilePreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "PNPM-LOCK")
+        XCTAssertEqual(preview.lockfileVersion, "9.0")
+        XCTAssertEqual(preview.importerCount, 2)
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.dependencyCount, 4)
+        XCTAssertEqual(preview.integrityCount, 3)
+        XCTAssertEqual(preview.resolvedHostLabels, [
+            "registry.npmjs.org",
+            "registry.yarnpkg.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "@playwright/test@1.55.0",
+            "lucide-react@0.468.0",
+            "sharp@0.33.5"
+        ])
+        XCTAssertEqual(preview.importerPreviewLabels, [".", "apps/web"])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: pnpm lockfile",
+            "Lockfile: 9.0",
+            "2 importers",
+            "3 packages",
+            "4 dependencies",
+            "3 integrities",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let packageYAML = directory.appendingPathComponent("package.yaml")
+        try "lockfileVersion: '9.0'\n".write(to: packageYAML, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: packageYAML.path).pnpmLockfilePreview)
+
+        let remoteLock = ToolArtifactState(value: "https://example.com/pnpm-lock.yaml")
+        XCTAssertNil(remoteLock.pnpmLockfilePreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")
