@@ -10,9 +10,9 @@ extension TerminalScreenBuffer {
             setCursor(row: targetRow, col: targetCol)
         case "A":  // CUU: cursor up
             moveRow(by: -firstParam(params))
-        case "B":  // CUD: cursor down
+        case "B", "e":  // CUD / VPR: cursor down
             moveRow(by: firstParam(params))
-        case "C":  // CUF: cursor forward
+        case "C", "a":  // CUF / HPR: cursor forward
             col = clampCol(col + firstParam(params))
         case "D":  // CUB: cursor back
             col = clampCol(col - firstParam(params))
