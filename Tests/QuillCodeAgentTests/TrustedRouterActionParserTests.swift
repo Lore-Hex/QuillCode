@@ -15,6 +15,51 @@ final class TrustedRouterActionParserTests: XCTestCase {
         XCTAssertTrue(call.argumentsJSON.contains("whoami"))
     }
 
+    func testActionParserCoercesToolNameInTypeField() throws {
+        // Observed live from a cheap route: the model put the tool name in `type` instead of the
+        // envelope `{"type":"tool","name":...}`. This must be recovered, not fail the run.
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"host.file.list","arguments":{"path":"tau-bench"}}
+        """)
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, "host.file.list")
+        XCTAssertTrue(call.argumentsJSON.contains("tau-bench"))
+    }
+
+    func testActionParserCoercesShellToolNameInTypeField() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"host.shell.run","arguments":{"cmd":"ls"}}
+        """)
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, "host.shell.run")
+        XCTAssertTrue(call.argumentsJSON.contains("ls"))
+    }
+
+    func testActionParserDoesNotCoerceUnknownTypeIntoATool() {
+        // An unknown `type` that is NOT a registered tool name must still fail — the coercion must
+        // never turn arbitrary text into a tool call.
+        XCTAssertThrowsError(try AgentActionJSONParser.parse("""
+        {"type":"totally.made.up.tool","arguments":{"x":1}}
+        """)) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action"))
+        }
+    }
+
+    func testActionParserStillParsesSayWithArguments() throws {
+        // A `say` action is not a tool name, so the presence of stray keys must not misroute it.
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"say","text":"hello there"}
+        """)
+        guard case .say(let text) = action else {
+            return XCTFail("Expected say action")
+        }
+        XCTAssertEqual(text, "hello there")
+    }
+
     func testActionParserRejectsEmptyShellArguments() {
         XCTAssertThrowsError(try AgentActionJSONParser.parse("""
         {"type":"tool","name":"host.shell.run","arguments":{}}

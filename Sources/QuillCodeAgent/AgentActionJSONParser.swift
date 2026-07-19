@@ -57,9 +57,10 @@ public enum AgentActionJSONParser {
         if toolName(in: object) != nil {
             return canonicalToolObject(from: object)
         }
-        guard let type = (object["type"] as? String)?.lowercased() else {
+        guard let rawType = object["type"] as? String else {
             return nil
         }
+        let type = rawType.lowercased()
         switch type {
         case "say":
             return object
@@ -74,7 +75,17 @@ public enum AgentActionJSONParser {
         case "tool", "tool_call", "call_tool", "function", "function_call", "tool_use":
             return canonicalToolObject(from: object)
         default:
-            return nil
+            // Tolerance for a common weak-model mistake (observed live from a cheap route): the model
+            // puts the TOOL NAME directly in the `type` field — `{"type":"host.file.list",
+            // "arguments":{...}}` — instead of the envelope `{"type":"tool","name":"...","arguments"}`.
+            // Coerce ONLY when the type is a real registered tool name, so this can never misfire on a
+            // `say`, a wrapper shape, or arbitrary text.
+            guard AgentToolNameRegistry.isKnownToolName(rawType) else {
+                return nil
+            }
+            var canonical = object
+            canonical["name"] = rawType
+            return canonicalToolObject(from: canonical)
         }
     }
 
