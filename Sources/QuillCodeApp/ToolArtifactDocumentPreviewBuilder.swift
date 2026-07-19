@@ -37,6 +37,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "package.resolved" {
             return "spm"
         }
+        if filename == "cargo.lock" {
+            return "cargo-lock"
+        }
         for compoundExtension in compoundPreviewExtensions {
             if filename.hasSuffix(".\(compoundExtension.suffix)") {
                 return compoundExtension.previewExtension
@@ -68,6 +71,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "sarif": .data,
         "cfg": .data,
         "conf": .data,
+        "cargo-lock": .data,
         "bin": .data,
         "db": .data,
         "diff": .data,

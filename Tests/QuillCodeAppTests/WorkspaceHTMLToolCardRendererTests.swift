@@ -828,6 +828,61 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Package.resolved"#))
     }
 
+    func testHTMLRendererIncludesCargoLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Cargo.lock")
+        try """
+        version = 3
+
+        [[package]]
+        name = "anyhow"
+        version = "1.0.86"
+        source = "registry+https://github.com/rust-lang/crates.io-index"
+        checksum = "b3dd4a5f5f927c364bdd2f4d3d4f99aa971ec8e4"
+
+        [[package]]
+        name = "trusted-router"
+        version = "0.2.0"
+        source = "git+https://github.com/Lore-Hex/trusted-router-rs?rev=abc#abcdef1234567890"
+        checksum = "d41d8cd98f00b204e9800998ecf8427e"
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Cargo.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Cargo.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Cargo lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · CARGO-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Cargo.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-lock-preview-meta">Format: Cargo lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-lock-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-lock-preview-meta">2 sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-lock-preview-package-item">anyhow@1.0.86"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-lock-preview-package-item">trusted-router@0.2.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-lock-preview-source-item">https://github.com/rust-lang/crates.io-index"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-lock-preview-source-item">https://github.com/Lore-Hex/trusted-router-rs"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Cargo.lock"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")
