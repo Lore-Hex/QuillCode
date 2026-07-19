@@ -2465,3 +2465,22 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesSPDXArtifactPreview` covers static HTML
   selectors, rendered SBOM metadata, package and license lists, extracted-text exclusion, and generic
   JSON suppression.
+
+## 2026-07-19: npm lockfile artifacts render bounded dependency summaries
+
+- **Decision:** Local `package-lock.json` artifacts render as structured npm lockfile cards. The
+  preview shows lockfile version, root package, package/dependency/dev/optional counts, file size,
+  capped package labels, and capped resolved registry hosts.
+- **Why:** Coding agents frequently touch JavaScript dependency graphs, and npm lockfiles are too
+  large and repetitive for raw text or generic JSON previews. A Codex-style artifact surface should
+  make dependency changes scannable without asking the model to inspect the entire lockfile.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `package-lock.json`, and capped at 512 KB. It validates `lockfileVersion` plus `packages` or
+  `dependencies`, reads only shallow package labels, counts, and resolved URL hosts, and never
+  expands integrity hashes, package scripts, dependency bodies, funding metadata, or remote tarballs.
+  Generic JSON rendering is suppressed only after the npm lockfile shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesNPMLockfilePreviewMetadata`
+  covers metadata extraction, package labels, registry host labels, non-lockfile exclusion, and remote
+  exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesNPMLockfileArtifactPreview`
+  covers static HTML selectors, rendered npm metadata, package and source lists, and generic JSON
+  suppression.

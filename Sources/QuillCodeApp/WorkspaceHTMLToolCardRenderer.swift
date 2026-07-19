@@ -220,6 +220,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let pytestJSONPreview = renderPytestJSONPreview(pytestJSONPreviewModel)
             let jestJSONPreviewModel = artifact.jestJSONPreview
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
+            let npmLockfilePreviewModel = artifact.npmLockfilePreview
+            let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
             let cycloneDXPreviewModel = artifact.cycloneDXPreview
             let cycloneDXPreview = renderCycloneDXPreview(cycloneDXPreviewModel)
             let spdxPreviewModel = artifact.spdxPreview
@@ -265,6 +267,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && coveragePyPreviewModel == nil
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
+                && npmLockfilePreviewModel == nil
                 && cycloneDXPreviewModel == nil
                 && spdxPreviewModel == nil
                 ? renderJSONPreview(artifact.jsonPreview)
@@ -292,6 +295,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(coveragePyPreview)
               \(pytestJSONPreview)
               \(jestJSONPreview)
+              \(npmLockfilePreview)
               \(cycloneDXPreview)
               \(spdxPreview)
               \(tapPreview)
@@ -740,6 +744,41 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderNPMLockfilePreview(_ preview: ToolArtifactNPMLockfilePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-npm-lockfile-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-npm-lockfile-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hosts = preview.resolvedHostLabels.map {
+            #"<li data-testid="tool-card-npm-lockfile-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-npm-lockfile-preview-packages">
+                <strong data-testid="tool-card-npm-lockfile-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let hostList = hosts.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-npm-lockfile-preview-hosts">
+                <strong data-testid="tool-card-npm-lockfile-preview-host-title">Sources</strong>
+                <ul>\(hosts)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !hostList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-npm-lockfile-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(hostList)
         </div>
         """
     }
