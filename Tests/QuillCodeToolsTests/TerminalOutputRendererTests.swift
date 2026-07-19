@@ -177,6 +177,54 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("abcdefghi\u{1B}[2ZX"), "Xbcdefghi")
     }
 
+    func testHorizontalTabStopEscapeSetsCustomStop() {
+        let raw = "\u{1B}[4G"
+            + "\u{1B}H"
+            + "\r"
+            + "X\tY"
+
+        XCTAssertEqual(render(raw), "X  Y")
+    }
+
+    func testHorizontalTabStopClearRemovesCurrentStop() {
+        let raw = "\u{1B}[4G"
+            + "\u{1B}H"
+            + "\u{1B}[g"
+            + "\r"
+            + "X\tY"
+
+        XCTAssertEqual(render(raw), "X       Y")
+    }
+
+    func testHorizontalTabStopClearAllLeavesTabsAtRightBoundary() {
+        let raw = "\u{1B}[3gX\tY"
+        let output = render(raw)
+
+        XCTAssertEqual(output.count, 1_001)
+        XCTAssertEqual(output.first, "X")
+        XCTAssertEqual(output.last, "Y")
+    }
+
+    func testBackwardTabUsesCustomStops() {
+        let raw = "\u{1B}[3g"
+            + "abcd"
+            + "\u{1B}H"
+            + "\u{1B}[12G"
+            + "Z"
+            + "\u{1B}[Z"
+            + "Y"
+
+        XCTAssertEqual(render(raw), "abcdY      Z")
+    }
+
+    func testRISResetRestoresDefaultTabStops() {
+        let raw = "\u{1B}[3g"
+            + "\u{1B}c"
+            + "X\tY"
+
+        XCTAssertEqual(render(raw), "X       Y")
+    }
+
     func testCursorAddressingIsBoundedForSparseHugeMoves() {
         let output = render("x\u{1B}[2000;2000Hz")
         let lines = output.components(separatedBy: "\n")

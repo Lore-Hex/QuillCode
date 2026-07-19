@@ -28,6 +28,8 @@ extension TerminalScreenBuffer {
             horizontalTab(count: firstParam(params))
         case "Z":  // CBT: cursor backward to previous tab stop
             backwardHorizontalTab(count: firstParam(params))
+        case "g":  // TBC: clear tab stop
+            clearHorizontalTabStop(params)
         case "d":  // VPA: cursor to absolute row (1-based)
             setRow(firstParam(params) - 1)
         case "s":
@@ -138,7 +140,7 @@ extension TerminalScreenBuffer {
         guard count > 0 else { return }
 
         for _ in 0..<count {
-            col = clampCol(((col / Self.tabStopInterval) + 1) * Self.tabStopInterval)
+            col = nextTabStop(after: col)
         }
     }
 
@@ -147,11 +149,39 @@ extension TerminalScreenBuffer {
         guard count > 0 else { return }
 
         for _ in 0..<count {
-            col = clampCol(((Swift.max(col, 1) - 1) / Self.tabStopInterval) * Self.tabStopInterval)
+            col = previousTabStop(before: col)
+        }
+    }
+
+    mutating func setHorizontalTabStop() {
+        tabStops.insert(clampCol(col))
+    }
+
+    mutating func clearHorizontalTabStop(_ params: String) {
+        let parts = csiParams(params)
+        switch parts.first ?? 0 {
+        case 0:
+            tabStops.remove(clampCol(col))
+        case 3:
+            tabStops.removeAll()
+        default:
+            break
+        }
+    }
+
+    func nextTabStop(after column: Int) -> Int {
+        tabStops.reduce(Self.maxCols) { next, stop in
+            stop > column && stop < next ? stop : next
+        }
+    }
+
+    func previousTabStop(before column: Int) -> Int {
+        tabStops.reduce(0) { previous, stop in
+            stop < column && stop > previous ? stop : previous
         }
     }
 
     private func boundedTabMovementCount(_ requestedCount: Int) -> Int {
-        Swift.max(0, Swift.min(requestedCount, (Self.maxCols / Self.tabStopInterval) + 2))
+        Swift.max(0, Swift.min(requestedCount, tabStops.count + 2))
     }
 }
