@@ -1356,6 +1356,80 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePytest.pytestJSONPreview)
     }
 
+    func testArtifactStateDerivesJestJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("jest-results.json")
+        let content = """
+        {
+          "success": false,
+          "numTotalTests": 4,
+          "numPassedTests": 2,
+          "numFailedTests": 1,
+          "numPendingTests": 1,
+          "numTodoTests": 0,
+          "numTotalTestSuites": 2,
+          "numFailedTestSuites": 1,
+          "testResults": [
+            {
+              "name": "/repo/tests/app.test.ts",
+              "perfStats": {"runtime": 1234},
+              "assertionResults": [
+                {"ancestorTitles": ["App"], "title": "renders prompt", "status": "passed"},
+                {"ancestorTitles": ["App"], "title": "writes a file", "status": "failed"}
+              ]
+            },
+            {
+              "name": "/repo/tests/cli.test.ts",
+              "perfStats": {"runtime": 2000},
+              "assertionResults": [
+                {"fullName": "CLI starts quickly", "status": "passed"},
+                {"fullName": "CLI waits for fixture", "status": "pending"}
+              ]
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.jestJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Jest JSON")
+        XCTAssertEqual(preview.success, false)
+        XCTAssertEqual(preview.totalTestCount, 4)
+        XCTAssertEqual(preview.passedTestCount, 2)
+        XCTAssertEqual(preview.failedTestCount, 1)
+        XCTAssertEqual(preview.pendingTestCount, 1)
+        XCTAssertEqual(preview.todoTestCount, 0)
+        XCTAssertEqual(preview.totalSuiteCount, 2)
+        XCTAssertEqual(preview.failedSuiteCount, 1)
+        XCTAssertEqual(preview.runtimeLabel, "3.23s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["App > writes a file"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Jest JSON",
+            "Result: failed",
+            "Runtime: 3.23s",
+            "4 tests",
+            "Passed: 2",
+            "Failed: 1",
+            "Pending: 1",
+            "TODO: 0",
+            "2 suites",
+            "Failed suites: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"success":false,"durationMs":42}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).jestJSONPreview)
+
+        let remoteJest = ToolArtifactState(value: "https://example.com/jest-results.json")
+        XCTAssertNil(remoteJest.jestJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")

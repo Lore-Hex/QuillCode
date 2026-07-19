@@ -700,6 +700,79 @@ public struct ToolArtifactPytestJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactJestJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var success: Bool?
+    public var totalTestCount: Int?
+    public var passedTestCount: Int?
+    public var failedTestCount: Int?
+    public var pendingTestCount: Int?
+    public var todoTestCount: Int?
+    public var totalSuiteCount: Int?
+    public var failedSuiteCount: Int?
+    public var runtimeLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            success.map { "Result: \($0 ? "passed" : "failed")" },
+            runtimeLabel.map { "Runtime: \($0)" },
+            totalTestCount.map { "\($0) test\($0 == 1 ? "" : "s")" },
+            passedTestCount.map { "Passed: \($0)" },
+            failedTestCount.map { "Failed: \($0)" },
+            pendingTestCount.map { "Pending: \($0)" },
+            todoTestCount.map { "TODO: \($0)" },
+            totalSuiteCount.map { "\($0) suite\($0 == 1 ? "" : "s")" },
+            failedSuiteCount.map { "Failed suites: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        success != nil
+            || totalTestCount != nil
+            || passedTestCount != nil
+            || failedTestCount != nil
+            || pendingTestCount != nil
+            || todoTestCount != nil
+            || totalSuiteCount != nil
+            || failedSuiteCount != nil
+            || runtimeLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Jest JSON",
+        success: Bool? = nil,
+        totalTestCount: Int? = nil,
+        passedTestCount: Int? = nil,
+        failedTestCount: Int? = nil,
+        pendingTestCount: Int? = nil,
+        todoTestCount: Int? = nil,
+        totalSuiteCount: Int? = nil,
+        failedSuiteCount: Int? = nil,
+        runtimeLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.success = success
+        self.totalTestCount = totalTestCount
+        self.passedTestCount = passedTestCount
+        self.failedTestCount = failedTestCount
+        self.pendingTestCount = pendingTestCount
+        self.todoTestCount = todoTestCount
+        self.totalSuiteCount = totalSuiteCount
+        self.failedSuiteCount = failedSuiteCount
+        self.runtimeLabel = runtimeLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -2043,6 +2116,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var pytestJSONPreview: ToolArtifactPytestJSONPreview? {
         ToolArtifactPytestJSONPreviewBuilder.pytestJSONPreview(for: value, kind: kind)
+    }
+    public var jestJSONPreview: ToolArtifactJestJSONPreview? {
+        ToolArtifactJestJSONPreviewBuilder.jestJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)
