@@ -2702,3 +2702,23 @@
   counts, gem labels, source labels, non-`Gemfile.lock` exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesGemfileLockArtifactPreview` covers
   static HTML selectors, rendered Bundler metadata, gem/source lists, and text-preview coexistence.
+
+## 2026-07-19: Podfile.lock artifacts render bounded CocoaPods summaries
+
+- **Decision:** Local `Podfile.lock` artifacts render as structured CocoaPods lockfile cards. The
+  preview shows CocoaPods version, pod, dependency, source, and checksum counts, file size, capped
+  pod labels, and capped source labels. `Podfile.lock` is classified as a data artifact through
+  filename-specific detection.
+- **Why:** iOS and Apple-platform projects commonly expose dependency changes through
+  `Podfile.lock`; a bounded pod/source summary keeps those artifacts scannable without opening a
+  long generated file.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `Podfile.lock`, and capped at 512 KB. It reads only shallow CocoaPods sections for `PODS`,
+  `DEPENDENCIES`, `SPEC REPOS`, `EXTERNAL SOURCES`, `CHECKOUT OPTIONS`, `SPEC CHECKSUMS`, and
+  `COCOAPODS`; it never runs CocoaPods, expands dependency graphs, validates checksums, reads
+  podspecs, contacts spec repos, or fetches distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPodfileLockPreviewMetadata`
+  covers filename-based document classification, CocoaPods version, pod/dependency/source/checksum
+  counts, pod labels, source labels, non-`Podfile.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPodfileLockArtifactPreview` covers
+  static HTML selectors, rendered CocoaPods metadata, pod/source lists, and text-preview coexistence.
