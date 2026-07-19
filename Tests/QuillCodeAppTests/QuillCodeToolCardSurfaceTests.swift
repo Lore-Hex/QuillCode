@@ -1675,6 +1675,71 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteXUnit.xunitPreview)
     }
 
+    func testArtifactStateDerivesNUnitPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("TestResult.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <test-run id="2" name="QuillCode NUnit Tests" total="4" passed="2" failed="1" inconclusive="0" skipped="1" duration="4.25">
+          <test-suite type="Assembly" name="QuillCode.Tests.dll">
+            <test-case id="0-1001" fullname="QuillCode.Tests.AppTests.RendersPrompt" result="Passed" duration="1.25" />
+            <test-case id="0-1002" fullname="QuillCode.Tests.AppTests.WritesFile" result="Failed" duration="2.00" />
+            <test-case id="0-1003" fullname="QuillCode.Tests.CliTests.IsSkipped" result="Skipped" duration="0.25" />
+          </test-suite>
+        </test-run>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.nunitPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.runName, "QuillCode NUnit Tests")
+        XCTAssertEqual(preview.testCount, 4)
+        XCTAssertEqual(preview.passedCount, 2)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.inconclusiveCount, 0)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "4.25 s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["QuillCode.Tests.AppTests.WritesFile"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: NUnit XML",
+            "Run: QuillCode NUnit Tests",
+            "4 tests",
+            "Passed: 2",
+            "Failed: 1",
+            "Skipped: 1",
+            "Duration: 4.25 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let fallbackReport = directory.appendingPathComponent("nunit-fallback.xml")
+        try """
+        <test-run name="Fallback NUnit">
+          <test-case fullname="FallbackTests.Pass" result="Passed" duration="0.25" />
+          <test-case fullname="FallbackTests.Fail" result="Failed" duration="0.75" />
+          <test-case fullname="FallbackTests.Inconclusive" result="Inconclusive" duration="0.50" />
+          <test-case fullname="FallbackTests.Skip" result="Skipped" duration="0.00" />
+        </test-run>
+        """.write(to: fallbackReport, atomically: true, encoding: .utf8)
+        let fallbackPreview = try XCTUnwrap(ToolArtifactState(value: fallbackReport.path).nunitPreview)
+        XCTAssertEqual(fallbackPreview.testCount, 4)
+        XCTAssertEqual(fallbackPreview.passedCount, 1)
+        XCTAssertEqual(fallbackPreview.failedCount, 1)
+        XCTAssertEqual(fallbackPreview.inconclusiveCount, 1)
+        XCTAssertEqual(fallbackPreview.skippedCount, 1)
+        XCTAssertEqual(fallbackPreview.durationLabel, "1.5 s")
+
+        let nonNUnit = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: nonNUnit, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonNUnit.path).nunitPreview)
+
+        let remoteNUnit = ToolArtifactState(value: "https://example.com/TestResult.xml")
+        XCTAssertNil(remoteNUnit.nunitPreview)
+    }
+
     func testArtifactStateDerivesCoberturaPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("coverage.xml")
