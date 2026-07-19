@@ -40,6 +40,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "requirements.txt" || (filename.hasPrefix("requirements-") && filename.hasSuffix(".txt")) {
             return "requirements"
         }
+        if filename == "poetry.lock" {
+            return "poetry-lock"
+        }
         if filename == "package.resolved" {
             return "spm"
         }
@@ -84,6 +87,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "gocover": .data,
         "gosum": .data,
         "requirements": .data,
+        "poetry-lock": .data,
         "ndjson": .data,
         "sarif": .data,
         "cfg": .data,

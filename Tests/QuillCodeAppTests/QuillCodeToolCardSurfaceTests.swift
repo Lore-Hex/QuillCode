@@ -1010,6 +1010,80 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteRequirements.pythonRequirementsPreview)
     }
 
+    func testArtifactStateDerivesPoetryLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("poetry.lock")
+        let lockText = """
+        [[package]]
+        name = "requests"
+        version = "2.32.3"
+        optional = false
+        groups = ["main"]
+        files = [{file = "requests-2.32.3.tar.gz", hash = "sha256:aaa"}]
+
+        [[package]]
+        name = "pytest"
+        version = "8.3.4"
+        optional = false
+        category = "dev"
+        source = { type = "legacy", url = "https://packages.example.com/simple" }
+        files = [
+            {file = "pytest-8.3.4-py3-none-any.whl", hash = "sha256:bbb"},
+            {file = "pytest-8.3.4.tar.gz", hash = "sha256:ccc"},
+        ]
+
+        [[package]]
+        name = "uvicorn"
+        version = "0.35.0"
+        optional = true
+        groups = ["main", "dev"]
+        source = { type = "git", url = "git+https://github.com/encode/uvicorn.git" }
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.poetryLockPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "POETRY-LOCK")
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.versionedPackageCount, 3)
+        XCTAssertEqual(preview.devPackageCount, 2)
+        XCTAssertEqual(preview.optionalPackageCount, 1)
+        XCTAssertEqual(preview.sourceCount, 2)
+        XCTAssertEqual(preview.hashCount, 3)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "packages.example.com",
+            "github.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "pytest@8.3.4",
+            "requests@2.32.3",
+            "uvicorn@0.35.0"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Poetry lockfile",
+            "3 packages",
+            "3 versioned",
+            "2 dev packages",
+            "1 optional package",
+            "2 sources",
+            "3 hashes",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notPoetryLock = directory.appendingPathComponent("poetry.toml")
+        try lockText.write(to: notPoetryLock, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notPoetryLock.path).poetryLockPreview)
+
+        let remotePoetryLock = ToolArtifactState(value: "https://example.com/poetry.lock")
+        XCTAssertNil(remotePoetryLock.poetryLockPreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")
