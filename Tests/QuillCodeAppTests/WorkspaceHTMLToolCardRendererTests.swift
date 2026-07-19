@@ -779,6 +779,91 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesSPDXArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("sbom.spdx.json")
+        try """
+        {
+          "spdxVersion": "SPDX-2.3",
+          "SPDXID": "SPDXRef-DOCUMENT",
+          "name": "QuillCode SBOM",
+          "documentNamespace": "https://lorehex.example/spdx/quillcode-2026",
+          "creationInfo": {
+            "creators": [
+              "Tool: quill-code"
+            ]
+          },
+          "packages": [
+            {
+              "name": "QuillCode",
+              "SPDXID": "SPDXRef-Package-QuillCode",
+              "versionInfo": "0.1.0",
+              "licenseConcluded": "Apache-2.0"
+            },
+            {
+              "name": "trusted-router-swift",
+              "SPDXID": "SPDXRef-Package-TrustedRouterSwift",
+              "versionInfo": "1.2.3",
+              "licenseDeclared": "MIT"
+            }
+          ],
+          "files": [
+            { "fileName": "Sources/QuillCodeApp/App.swift", "SPDXID": "SPDXRef-File-App" }
+          ],
+          "relationships": [
+            {
+              "spdxElementId": "SPDXRef-DOCUMENT",
+              "relationshipType": "DESCRIBES",
+              "relatedSpdxElement": "SPDXRef-Package-QuillCode"
+            }
+          ],
+          "hasExtractedLicensingInfos": [
+            { "licenseId": "LicenseRef-Lore-Hex-Notice", "extractedText": "Do not render this text" }
+          ]
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"sbom.spdx.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote sbom.spdx.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "SPDX artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">sbom.spdx.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-meta">Format: SPDX"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-meta">Spec: SPDX-2.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-meta">Document: QuillCode SBOM"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-meta">1 relationship"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-meta">1 extracted license"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-package-title">Packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-package-item">QuillCode@0.1.0 · SPDXRef-Package-QuillCode"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-license-title">Licenses"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spdx-preview-license-item">Apache-2.0"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesIstanbulArtifactPreview() throws {
         let root = try makeTempDirectory()
         let coverageDirectory = root.appendingPathComponent("coverage", isDirectory: true)
