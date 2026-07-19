@@ -65,6 +65,28 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(frame.runs, [TerminalTextRun(text: "X       Y")])
     }
 
+    func testScreenAlignmentPatternFillsFallbackViewport() {
+        let frame = TerminalOutputRenderer.renderFrame("old\u{1B}#8")
+        let lines = frame.text.components(separatedBy: "\n")
+
+        XCTAssertEqual(lines.count, 24)
+        XCTAssertTrue(lines.allSatisfy { $0 == String(repeating: "E", count: 80) })
+    }
+
+    func testScreenAlignmentPatternPreservesCurrentStyleAndHomesCursor() {
+        let raw = "\u{1B}[32m"
+            + "\u{1B}#8"
+            + "\u{1B}[0m"
+            + "X"
+        let frame = TerminalOutputRenderer.renderFrame(raw)
+
+        XCTAssertTrue(frame.text.hasPrefix("X" + String(repeating: "E", count: 79)))
+        XCTAssertEqual(frame.runs.first?.text, "X")
+        XCTAssertEqual(frame.runs.first?.style, .plain)
+        XCTAssertEqual(frame.runs.dropFirst().first?.text.prefix(3), "EEE")
+        XCTAssertEqual(frame.runs.dropFirst().first?.style.foreground, .green)
+    }
+
     func testPreservesSGRColorsAndEmphasisAsStyledRuns() {
         let frame = TerminalOutputRenderer.renderFrame(
             "plain \u{1B}[1;3;4;31;44mstyled\u{1B}[22;23;24;39;49m done"
