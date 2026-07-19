@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render RuboCop JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as RuboCop formatter output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** RuboCop JSON is common in Ruby coding sessions and CI exports. A compact card with
+  file/offense/severity/correctable counts plus capped file/cop labels gives the user useful
+  Codex-style feedback without opening a raw report.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Ruby
+  source files, load cops, expand offense messages, or fetch remote reports.
+
 ## 2026-07-19: Render PMD XML As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.xml` files with a PMD root as a specialized lint report artifact
