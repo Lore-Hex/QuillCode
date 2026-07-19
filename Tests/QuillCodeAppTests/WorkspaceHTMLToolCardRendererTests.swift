@@ -1217,6 +1217,69 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">poetry.lock"#))
     }
 
+    func testHTMLRendererIncludesPipfileLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Pipfile.lock")
+        try """
+        {
+          "_meta": {
+            "hash": { "sha256": "abc" },
+            "pipfile-spec": 6,
+            "sources": [
+              { "name": "pypi", "url": "https://pypi.org/simple", "verify_ssl": true }
+            ]
+          },
+          "default": {
+            "requests": { "version": "==2.32.3", "hashes": ["sha256:aaa"] },
+            "uvicorn": { "version": "==0.35.0" }
+          },
+          "develop": {
+            "pytest": { "version": "==8.3.4", "hashes": ["sha256:bbb"] }
+          }
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Pipfile.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Pipfile.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Pipfile lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · PIPFILE-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Pipfile.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">Format: Pipfile lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">3 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">2 default"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">1 develop"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">3 pinned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">2 hashes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-package-item">pytest==8.3.4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-package-item">requests==2.32.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-package-item">uvicorn==0.35.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-source-item">pypi.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Pipfile.lock"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")

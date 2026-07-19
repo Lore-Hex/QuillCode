@@ -43,6 +43,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "poetry.lock" {
             return "poetry-lock"
         }
+        if filename == "pipfile.lock" {
+            return "pipfile-lock"
+        }
         if filename == "package.resolved" {
             return "spm"
         }
@@ -88,6 +91,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "gosum": .data,
         "requirements": .data,
         "poetry-lock": .data,
+        "pipfile-lock": .data,
         "ndjson": .data,
         "sarif": .data,
         "cfg": .data,

@@ -1084,6 +1084,83 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePoetryLock.poetryLockPreview)
     }
 
+    func testArtifactStateDerivesPipfileLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("Pipfile.lock")
+        let lockText = """
+        {
+          "_meta": {
+            "hash": { "sha256": "abc" },
+            "pipfile-spec": 6,
+            "requires": { "python_version": "3.11" },
+            "sources": [
+              { "name": "pypi", "url": "https://pypi.org/simple", "verify_ssl": true },
+              { "name": "internal", "url": "https://packages.example.com/simple", "verify_ssl": true }
+            ]
+          },
+          "default": {
+            "requests": { "version": "==2.32.3", "hashes": ["sha256:aaa", "sha256:bbb"] },
+            "uvicorn": { "version": "==0.35.0", "index": "pypi" }
+          },
+          "develop": {
+            "pytest": { "version": "==8.3.4", "hashes": ["sha256:ccc"] },
+            "quillcode": {
+              "git": "https://github.com/Lore-Hex/QuillCode.git",
+              "editable": true,
+              "ref": "main"
+            }
+          }
+        }
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pipfileLockPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "PIPFILE-LOCK")
+        XCTAssertEqual(preview.packageCount, 4)
+        XCTAssertEqual(preview.defaultPackageCount, 2)
+        XCTAssertEqual(preview.developPackageCount, 2)
+        XCTAssertEqual(preview.pinnedPackageCount, 3)
+        XCTAssertEqual(preview.editablePackageCount, 1)
+        XCTAssertEqual(preview.hashCount, 3)
+        XCTAssertEqual(preview.sourceCount, 3)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "pypi.org",
+            "packages.example.com",
+            "github.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "pytest==8.3.4",
+            "quillcode",
+            "requests==2.32.3",
+            "uvicorn==0.35.0"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Pipfile lockfile",
+            "4 packages",
+            "2 default",
+            "2 develop",
+            "3 pinned",
+            "1 editable",
+            "3 sources",
+            "3 hashes",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notPipfileLock = directory.appendingPathComponent("Pipfile.json")
+        try lockText.write(to: notPipfileLock, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notPipfileLock.path).pipfileLockPreview)
+
+        let remotePipfileLock = ToolArtifactState(value: "https://example.com/Pipfile.lock")
+        XCTAssertNil(remotePipfileLock.pipfileLockPreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")

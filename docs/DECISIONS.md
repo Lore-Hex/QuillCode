@@ -2641,3 +2641,24 @@
   package labels, source labels, non-`poetry.lock` exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPoetryLockArtifactPreview` covers static
   HTML selectors, rendered Poetry metadata, package/source lists, and text-preview coexistence.
+
+## 2026-07-19: Pipfile.lock artifacts render bounded Python lockfile summaries
+
+- **Decision:** Local `Pipfile.lock` artifacts render as structured Pipfile lockfile cards. The
+  preview shows package, default-package, develop-package, pinned, editable, source, and hash counts,
+  file size, capped package labels, and capped source labels. `Pipfile.lock` is classified as a data
+  artifact through filename-specific detection.
+- **Why:** Pipenv projects expose dependency impact through `Pipfile.lock`; a bounded summary keeps
+  those artifacts scannable next to requirements and Poetry lockfiles without showing noisy raw JSON
+  first.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `Pipfile.lock`, and capped at 512 KB. It reads only `_meta.sources`, shallow `default` and `develop`
+  package maps, version/editable/hash/source fields, and URL hosts; it never expands dependency
+  graphs, validates hashes, reads package metadata, contacts package indexes, or fetches
+  distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPipfileLockPreviewMetadata`
+  covers filename-based document classification, default/develop/pinned/editable/source/hash counts,
+  package labels, source labels, non-`Pipfile.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPipfileLockArtifactPreview` covers
+  static HTML selectors, rendered Pipfile metadata, package/source lists, generic JSON suppression,
+  and text-preview coexistence.
