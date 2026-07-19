@@ -100,6 +100,10 @@
   lockfile version, remote/npm/jsr/specifier/redirect counts, file size, capped package labels, and
   capped source hosts without expanding integrity hashes, import graphs, package manifests,
   registries, or fetching remote modules/packages.
+- Artifact previews now include bounded local Bun lockfile metadata for text `bun.lock` and binary
+  `bun.lockb` files: text lockfile version, workspace/package/dependency/catalog counts, file size,
+  capped package labels, and capped source hosts without expanding package graphs, running Bun,
+  decoding binary lockfiles, or fetching registry/package data.
 - Artifact previews now include bounded local Composer lockfile metadata for `composer.lock` files:
   plugin API version, content-hash prefix, package/dev-package counts, file size, capped package
   labels, and capped source hosts without expanding install scripts, autoload metadata, full hashes,
