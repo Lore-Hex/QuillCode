@@ -2621,3 +2621,23 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPythonRequirementsArtifactPreview` covers
   static HTML selectors, rendered Python requirements metadata, package/host lists, and text-preview
   coexistence.
+
+## 2026-07-19: poetry.lock artifacts render bounded Python lockfile summaries
+
+- **Decision:** Local `poetry.lock` artifacts render as structured Poetry lockfile cards. The preview
+  shows package, versioned-package, dev-package, optional-package, source, and hash counts, file size,
+  capped package labels, and capped source labels. `poetry.lock` is classified as a data artifact
+  through filename-specific detection.
+- **Why:** Poetry lockfiles are common Python dependency artifacts. A bounded package/source/hash
+  summary gives the user useful dependency impact at a glance without asking the model to scan raw
+  lockfile text.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `poetry.lock`, and capped at 512 KB. It reads only shallow `[[package]]` sections and tracked scalar
+  or inline values for `name`, `version`, `category`, `groups`, `optional`, `source`, and `files`; it
+  never expands dependency tables, validates hashes, imports TOML package metadata, contacts package
+  indexes, or fetches distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPoetryLockPreviewMetadata`
+  covers filename-based document classification, package/version/dev/optional/source/hash counts,
+  package labels, source labels, non-`poetry.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPoetryLockArtifactPreview` covers static
+  HTML selectors, rendered Poetry metadata, package/source lists, and text-preview coexistence.

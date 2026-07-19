@@ -1161,6 +1161,62 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">requirements.txt"#))
     }
 
+    func testHTMLRendererIncludesPoetryLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("poetry.lock")
+        try """
+        [[package]]
+        name = "requests"
+        version = "2.32.3"
+        optional = false
+        files = [{file = "requests-2.32.3.tar.gz", hash = "sha256:aaa"}]
+
+        [[package]]
+        name = "pytest"
+        version = "8.3.4"
+        category = "dev"
+        source = { type = "legacy", url = "https://packages.example.com/simple" }
+        files = [{file = "pytest-8.3.4.tar.gz", hash = "sha256:bbb"}]
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"poetry.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote poetry.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Poetry lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · POETRY-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">poetry.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">Format: Poetry lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">2 versioned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">1 dev package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">2 hashes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-package-item">pytest@8.3.4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-package-item">requests@2.32.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-source-item">packages.example.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">poetry.lock"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")
