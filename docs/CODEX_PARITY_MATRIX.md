@@ -76,6 +76,10 @@
 - Artifact previews now include bounded local LCOV coverage-report metadata for `lcov.info` and
   `.lcov` files: source-file counts, line/branch/function coverage, file size, truncation state, and
   capped source-file previews without executing test tooling or following report paths.
+- Artifact previews now include bounded local Go coverage-profile metadata for `cover.out` and
+  `coverage.out` files: mode, source-file counts, block counts, statement coverage, file size,
+  truncation state, and capped source-file previews without running `go tool cover` or following
+  covered source paths.
 - Artifact previews now include bounded local SARIF static-analysis metadata for `.sarif` and
   `.sarif.json` files: SARIF version, run/result counts, level counts, file size, capped tool labels,
   and capped rule labels without fetching remote reports or following result paths.
@@ -104,6 +108,14 @@
   whose root is `report` plus JaCoCo package/session/counter markers: package/source/class counts,
   line/branch/method/class coverage, file size, package labels, and source-file labels without
   executing coverage tooling or following paths.
+- Artifact previews now include bounded local Istanbul/nyc JSON coverage-report metadata for
+  `coverage-final.json` and `coverage-summary.json` style artifacts: source-file counts,
+  line/statement/branch/function coverage, file size, and capped source-file previews without
+  executing coverage tooling, following report paths, or fetching remote JSON.
+- Artifact previews now include bounded local coverage.py JSON metadata for `coverage json`
+  artifacts with `meta`, `files`, and `totals`: source-file counts, line/branch coverage, file size,
+  and capped source-file previews without running coverage.py, following report paths, or fetching
+  remote JSON.
 - Artifact previews now include bounded local INI-style config metadata for `.ini`, `.cfg`, and `.conf`:
   section/key counts, file size, truncation state, and capped section previews.
 - Artifact previews now include bounded local dotenv metadata for `.env` and `.env.*` files:

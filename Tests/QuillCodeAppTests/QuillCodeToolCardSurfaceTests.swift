@@ -588,6 +588,65 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(ToolArtifactState(value: invalidLCOV.path).lcovPreview)
     }
 
+    func testArtifactStateDerivesGoCoveragePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let coverage = directory.appendingPathComponent("cover.out")
+        let coverageText = """
+        mode: atomic
+        github.com/lore/QuillCode/internal/runtime/runner.go:10.1,12.2 3 1
+        github.com/lore/QuillCode/internal/runtime/runner.go:14.1,15.2 2 0
+        github.com/lore/QuillCode/pkg/tools/shell.go:20.1,24.2 5 2
+        """
+        try coverageText.write(to: coverage, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: coverage.path)
+        let preview = try XCTUnwrap(artifact.goCoveragePreview)
+        let byteCount = try XCTUnwrap(coverageText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "GOCOVER")
+        XCTAssertEqual(preview.formatLabel, "Go coverage")
+        XCTAssertEqual(preview.modeLabel, "atomic")
+        XCTAssertEqual(preview.sourceFileCount, 2)
+        XCTAssertEqual(preview.blockCount, 3)
+        XCTAssertEqual(preview.statementCoveredCount, 8)
+        XCTAssertEqual(preview.statementTotalCount, 10)
+        XCTAssertEqual(preview.statementCoverageLabel, "80% (8/10)")
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "runtime/runner.go · 60%",
+            "tools/shell.go · 100%"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Go coverage",
+            "Mode: atomic",
+            "2 source files",
+            "3 blocks",
+            "Statements: 80% (8/10)",
+            "Size: \(byteCount) bytes"
+        ])
+
+        let coverageOut = directory.appendingPathComponent("coverage.out")
+        try coverageText.write(to: coverageOut, atomically: true, encoding: .utf8)
+        XCTAssertEqual(ToolArtifactState(value: coverageOut.path).goCoveragePreview?.sourceFileCount, 2)
+
+        let genericOut = directory.appendingPathComponent("build.out")
+        try coverageText.write(to: genericOut, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: genericOut.path).documentPreview)
+        XCTAssertNil(ToolArtifactState(value: genericOut.path).goCoveragePreview)
+
+        let invalidDirectory = directory.appendingPathComponent("invalid", isDirectory: true)
+        try FileManager.default.createDirectory(at: invalidDirectory, withIntermediateDirectories: true)
+        let invalid = invalidDirectory.appendingPathComponent("coverage.out")
+        try "mode: weird\nmain.go:1.1,2.1 1 1\n".write(to: invalid, atomically: true, encoding: .utf8)
+        XCTAssertEqual(ToolArtifactState(value: invalid.path).documentPreview?.extensionLabel, "GOCOVER")
+        XCTAssertNil(ToolArtifactState(value: invalid.path).goCoveragePreview)
+
+        let remote = ToolArtifactState(value: "https://example.com/cover.out")
+        XCTAssertNil(remote.goCoveragePreview)
+    }
+
     func testArtifactStateDerivesSARIFPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("codeql.sarif.json")
@@ -1074,6 +1133,159 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
 
         let remoteXML = ToolArtifactState(value: "https://example.com/manifest.xml")
         XCTAssertNil(remoteXML.xmlPreview)
+    }
+
+    func testArtifactStateDerivesIstanbulPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("coverage-final.json")
+        let content = """
+        {
+          "/workspace/Sources/QuillCodeApp/Workspace.swift": {
+            "statementMap": {
+              "0": {"start": {"line": 10}, "end": {"line": 10}},
+              "1": {"start": {"line": 11}, "end": {"line": 11}},
+              "2": {"start": {"line": 11}, "end": {"line": 11}}
+            },
+            "s": {"0": 1, "1": 0, "2": 2},
+            "fnMap": {"0": {"name": "render"}, "1": {"name": "send"}},
+            "f": {"0": 1, "1": 0},
+            "branchMap": {"0": {"type": "if"}, "1": {"type": "binary-expr"}},
+            "b": {"0": [1, 0], "1": [2, 1]}
+          },
+          "/workspace/Sources/QuillCodeTools/ShellToolExecutor.swift": {
+            "statementMap": {
+              "0": {"start": {"line": 20}, "end": {"line": 20}},
+              "1": {"start": {"line": 21}, "end": {"line": 21}}
+            },
+            "s": {"0": 0, "1": 0},
+            "fnMap": {"0": {"name": "run"}},
+            "f": {"0": 0},
+            "branchMap": {"0": {"type": "if"}},
+            "b": {"0": [0, 0]}
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.istanbulPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.sourceFileCount, 2)
+        XCTAssertEqual(preview.lineCoverageLabel, "50% (2/4)")
+        XCTAssertEqual(preview.statementCoverageLabel, "40% (2/5)")
+        XCTAssertEqual(preview.branchCoverageLabel, "50% (3/6)")
+        XCTAssertEqual(preview.functionCoverageLabel, "33.3% (1/3)")
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "QuillCodeApp/Workspace.swift · 100%",
+            "QuillCodeTools/ShellToolExecutor.swift · 0%"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Istanbul JSON",
+            "2 source files",
+            "Lines: 50% (2/4)",
+            "Statements: 40% (2/5)",
+            "Branches: 50% (3/6)",
+            "Functions: 33.3% (1/3)",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"status":"passed","durationMs":42}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).istanbulPreview)
+
+        let summary = directory.appendingPathComponent("coverage-summary.json")
+        try """
+        {
+          "total": {
+            "lines": {"total": 20, "covered": 18, "skipped": 0, "pct": 90},
+            "statements": {"total": 25, "covered": 20, "skipped": 0, "pct": 80},
+            "branches": {"total": 10, "covered": 7, "skipped": 0, "pct": 70},
+            "functions": {"total": 5, "covered": 4, "skipped": 0, "pct": 80}
+          },
+          "/workspace/Sources/QuillCodeApp/Workspace.swift": {
+            "lines": {"total": 10, "covered": 9, "skipped": 0, "pct": 90}
+          }
+        }
+        """.write(to: summary, atomically: true, encoding: .utf8)
+        let summaryPreview = try XCTUnwrap(ToolArtifactState(value: summary.path).istanbulPreview)
+        XCTAssertEqual(summaryPreview.lineCoverageLabel, "90% (18/20)")
+        XCTAssertEqual(summaryPreview.statementCoverageLabel, "80% (20/25)")
+        XCTAssertEqual(summaryPreview.branchCoverageLabel, "70% (7/10)")
+        XCTAssertEqual(summaryPreview.functionCoverageLabel, "80% (4/5)")
+
+        let remoteIstanbul = ToolArtifactState(value: "https://example.com/coverage-final.json")
+        XCTAssertNil(remoteIstanbul.istanbulPreview)
+    }
+
+    func testArtifactStateDerivesCoveragePyPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("coverage.json")
+        let content = """
+        {
+          "meta": {"format": 2, "version": "7.6.1", "branch_coverage": true},
+          "files": {
+            "src/quillcode/app.py": {
+              "executed_lines": [1, 2, 4],
+              "summary": {
+                "covered_lines": 3,
+                "num_statements": 4,
+                "covered_branches": 1,
+                "num_branches": 2
+              }
+            },
+            "tests/test_app.py": {
+              "executed_lines": [1, 2],
+              "summary": {
+                "covered_lines": 2,
+                "num_statements": 2,
+                "covered_branches": 0,
+                "num_branches": 0
+              }
+            }
+          },
+          "totals": {
+            "covered_lines": 5,
+            "num_statements": 6,
+            "covered_branches": 1,
+            "num_branches": 2
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.coveragePyPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "coverage.py JSON")
+        XCTAssertEqual(preview.versionLabel, "7.6.1")
+        XCTAssertEqual(preview.sourceFileCount, 2)
+        XCTAssertEqual(preview.lineCoverageLabel, "83.3% (5/6)")
+        XCTAssertEqual(preview.branchCoverageLabel, "50% (1/2)")
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "quillcode/app.py · 75%",
+            "tests/test_app.py · 100%"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: coverage.py JSON",
+            "Version: 7.6.1",
+            "2 source files",
+            "Lines: 83.3% (5/6)",
+            "Branches: 50% (1/2)",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"status":"passed","durationMs":42}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).coveragePyPreview)
+
+        let remoteCoveragePy = ToolArtifactState(value: "https://example.com/coverage.json")
+        XCTAssertNil(remoteCoveragePy.coveragePyPreview)
     }
 
     func testArtifactStateDerivesJUnitPreviewMetadata() throws {

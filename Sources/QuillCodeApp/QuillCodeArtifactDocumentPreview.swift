@@ -63,10 +63,16 @@ struct QuillCodeArtifactDocumentPreview: View {
             diffContent(diffPreview)
         } else if let tablePreview = artifact.tablePreview {
             tableContent(tablePreview)
+        } else if let istanbulPreview = artifact.istanbulPreview {
+            istanbulContent(istanbulPreview)
+        } else if let coveragePyPreview = artifact.coveragePyPreview {
+            coveragePyContent(coveragePyPreview)
         } else if let harPreview = artifact.harPreview {
             harContent(harPreview)
         } else if let lcovPreview = artifact.lcovPreview {
             lcovContent(lcovPreview)
+        } else if let goCoveragePreview = artifact.goCoveragePreview {
+            goCoverageContent(goCoveragePreview)
         } else if let sarifPreview = artifact.sarifPreview {
             sarifContent(sarifPreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
@@ -208,6 +214,34 @@ struct QuillCodeArtifactDocumentPreview: View {
         }
     }
 
+    private func istanbulContent(_ istanbulPreview: ToolArtifactIstanbulPreview) -> some View {
+        previewSurface(minHeight: istanbulPreview.filePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.bar.xaxis")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(istanbulPreview.metadataLines)
+            artifactContentList(title: "Source files", labels: istanbulPreview.filePreviewLabels)
+        }
+    }
+
+    private func coveragePyContent(_ coveragePyPreview: ToolArtifactCoveragePyPreview) -> some View {
+        previewSurface(minHeight: coveragePyPreview.filePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.bar.xaxis")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(coveragePyPreview.metadataLines)
+            artifactContentList(title: "Source files", labels: coveragePyPreview.filePreviewLabels)
+        }
+    }
+
     private func lcovContent(_ lcovPreview: ToolArtifactLCOVPreview) -> some View {
         previewSurface(minHeight: lcovPreview.sourcePreviewLabels.isEmpty ? 92 : 126) {
             header(
@@ -219,6 +253,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(lcovPreview.metadataLines)
             artifactContentList(title: "Source files", labels: lcovPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func goCoverageContent(_ goCoveragePreview: ToolArtifactGoCoveragePreview) -> some View {
+        previewSurface(minHeight: goCoveragePreview.sourcePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.bar.doc.horizontal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(goCoveragePreview.metadataLines)
+            artifactContentList(title: "Source files", labels: goCoveragePreview.sourcePreviewLabels)
         }
     }
 

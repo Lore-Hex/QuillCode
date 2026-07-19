@@ -212,8 +212,13 @@ enum WorkspaceHTMLToolCardRenderer {
             let htmlPreview = renderHTMLPreview(artifact.htmlPreview)
             let diffPreview = renderDiffPreview(artifact.diffPreview)
             let tablePreview = renderTablePreview(artifact.tablePreview)
+            let istanbulPreviewModel = artifact.istanbulPreview
+            let istanbulPreview = renderIstanbulPreview(istanbulPreviewModel)
+            let coveragePyPreviewModel = artifact.coveragePyPreview
+            let coveragePyPreview = renderCoveragePyPreview(coveragePyPreviewModel)
             let harPreview = renderHARPreview(artifact.harPreview)
             let lcovPreview = renderLCOVPreview(artifact.lcovPreview)
+            let goCoveragePreview = renderGoCoveragePreview(artifact.goCoveragePreview)
             let sarifPreview = renderSARIFPreview(artifact.sarifPreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
@@ -240,7 +245,9 @@ enum WorkspaceHTMLToolCardRenderer {
             let fontPreview = renderFontPreview(artifact.fontPreview)
             let executablePreview = renderExecutablePreview(artifact.executablePreview)
             let notebookPreview = renderNotebookPreview(artifact.notebookPreview)
-            let jsonPreview = renderJSONPreview(artifact.jsonPreview)
+            let jsonPreview = istanbulPreviewModel == nil && coveragePyPreviewModel == nil
+                ? renderJSONPreview(artifact.jsonPreview)
+                : ""
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             let archivePreview = renderArchivePreview(artifact.archivePreview)
             let mediaPreview = renderMediaPreview(artifact.mediaPreview)
@@ -260,8 +267,11 @@ enum WorkspaceHTMLToolCardRenderer {
               \(htmlPreview)
               \(diffPreview)
               \(tablePreview)
+              \(istanbulPreview)
+              \(coveragePyPreview)
               \(harPreview)
               \(lcovPreview)
+              \(goCoveragePreview)
               \(sarifPreview)
               \(jsonLinesPreview)
               \(tomlPreview)
@@ -605,6 +615,56 @@ enum WorkspaceHTMLToolCardRenderer {
         """
     }
 
+    private static func renderIstanbulPreview(_ preview: ToolArtifactIstanbulPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-istanbul-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-istanbul-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-istanbul-preview-files">
+                <strong data-testid="tool-card-istanbul-preview-file-title">Source files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-istanbul-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+        </div>
+        """
+    }
+
+    private static func renderCoveragePyPreview(_ preview: ToolArtifactCoveragePyPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-coverage-py-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-coverage-py-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-coverage-py-preview-files">
+                <strong data-testid="tool-card-coverage-py-preview-file-title">Source files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-coverage-py-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+        </div>
+        """
+    }
+
     private static func renderLCOVPreview(_ preview: ToolArtifactLCOVPreview?) -> String {
         guard let preview, preview.hasDisplayContent else { return "" }
         let metadata = preview.metadataLines.map {
@@ -624,6 +684,33 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty || !sourceList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-lcov-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(sourceList)
+        </div>
+        """
+    }
+
+    private static func renderGoCoveragePreview(_ preview: ToolArtifactGoCoveragePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-go-coverage-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let sourceFiles = preview.sourcePreviewLabels.map {
+            #"<li data-testid="tool-card-go-coverage-preview-source-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sourceList = sourceFiles.isEmpty
+            ? ""
+            : """
+              <section class="artifact-office-contents" data-testid="tool-card-go-coverage-preview-sources">
+                <strong data-testid="tool-card-go-coverage-preview-source-title">Source files</strong>
+                <ul>\(sourceFiles)</ul>
+              </section>
+            """
+        guard !metadata.isEmpty || !sourceList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-go-coverage-preview">
           <div>
             \(metadata)
           </div>

@@ -2271,3 +2271,58 @@
   report parsers, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesJaCoCoArtifactPreview` covers static
   HTML selectors, rendered coverage metadata, content lists, and generic XML suppression.
+
+## 2026-07-19: Istanbul JSON artifacts render bounded coverage summaries
+
+- **Decision:** Local JSON artifacts that match Istanbul/nyc `coverage-final.json` or
+  `coverage-summary.json` shapes render as structured Istanbul coverage cards instead of generic JSON.
+  The preview shows source-file count, line/statement/branch/function coverage, file size, and capped
+  source-file labels.
+- **Why:** JavaScript and TypeScript projects commonly emit Istanbul/nyc JSON while coding agents fix
+  test coverage. A Codex-style artifact surface should make the coverage shape visible without asking
+  the model to inspect raw JSON or re-run project tooling.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It reads only the artifact JSON, never executes coverage tools, never follows covered source
+  paths, never reads referenced source files, and never fetches remote coverage URLs. Generic JSON
+  rendering is suppressed only after an Istanbul coverage shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesIstanbulPreviewMetadata`
+  covers final-report counters, summary-report counters, source-file labels, generic JSON exclusion,
+  and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesIstanbulArtifactPreview` covers static
+  HTML selectors, rendered coverage metadata, content lists, and generic JSON suppression.
+
+## 2026-07-19: Go coverage artifacts render bounded coverage summaries
+
+- **Decision:** Local `cover.out` and `coverage.out` artifacts with a valid Go coverage `mode:`
+  header render as structured Go coverage cards instead of generic `.out` files. The preview shows
+  coverage mode, source-file count, block count, statement coverage, file size, truncation state, and
+  capped source-file labels.
+- **Why:** Go projects commonly produce coverage profiles through `go test -coverprofile=cover.out`.
+  A Codex-style artifact surface should make those reports scannable in the transcript without
+  requiring the agent to run `go tool cover` or infer coverage from raw profile lines.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It accepts only `set`, `count`, and `atomic` modes, reads only the coverage profile,
+  never executes Go tooling, never follows covered source paths, never reads referenced source files,
+  and never fetches remote coverage URLs. Other `.out` files remain unclassified.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesGoCoveragePreviewMetadata`
+  covers mode parsing, aggregate statement coverage, source labels, `coverage.out`, generic `.out`
+  exclusion, invalid-mode rejection, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesGoCoverageArtifactPreview` covers
+  static HTML selectors, rendered coverage metadata, and source-file lists.
+
+## 2026-07-19: coverage.py JSON artifacts render bounded coverage summaries
+
+- **Decision:** Local JSON artifacts with the coverage.py `meta`/`files`/`totals` shape render as
+  structured Python coverage cards instead of generic JSON. The preview shows coverage.py version,
+  source-file count, line/branch coverage, file size, and capped source-file labels.
+- **Why:** Python projects commonly emit `coverage json` reports while agents debug failing tests and
+  coverage regressions. A Codex-style artifact surface should make those reports immediately
+  scannable without asking the model to inspect raw JSON or rerun coverage.py.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It reads only the artifact JSON, never executes coverage.py, never follows covered source
+  paths, never reads referenced source files, and never fetches remote coverage URLs. Generic JSON
+  rendering is suppressed only after the coverage.py report shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesCoveragePyPreviewMetadata`
+  covers totals, source labels, generic JSON exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCoveragePyArtifactPreview` covers
+  static HTML selectors, rendered coverage metadata, source-file lists, and generic JSON suppression.

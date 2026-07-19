@@ -465,6 +465,168 @@ public struct ToolArtifactJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactIstanbulPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var sourceFileCount: Int
+    public var statementCoveredCount: Int?
+    public var statementTotalCount: Int?
+    public var branchCoveredCount: Int?
+    public var branchTotalCount: Int?
+    public var functionCoveredCount: Int?
+    public var functionTotalCount: Int?
+    public var lineCoveredCount: Int?
+    public var lineTotalCount: Int?
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+
+    public var statementCoverageLabel: String? {
+        coverageLabel(covered: statementCoveredCount, total: statementTotalCount)
+    }
+
+    public var branchCoverageLabel: String? {
+        coverageLabel(covered: branchCoveredCount, total: branchTotalCount)
+    }
+
+    public var functionCoverageLabel: String? {
+        coverageLabel(covered: functionCoveredCount, total: functionTotalCount)
+    }
+
+    public var lineCoverageLabel: String? {
+        coverageLabel(covered: lineCoveredCount, total: lineTotalCount)
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(sourceFileCount) source file\(sourceFileCount == 1 ? "" : "s")",
+            lineCoverageLabel.map { "Lines: \($0)" },
+            statementCoverageLabel.map { "Statements: \($0)" },
+            branchCoverageLabel.map { "Branches: \($0)" },
+            functionCoverageLabel.map { "Functions: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        sourceFileCount > 0
+            || lineCoverageLabel != nil
+            || statementCoverageLabel != nil
+            || branchCoverageLabel != nil
+            || functionCoverageLabel != nil
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Istanbul JSON",
+        sourceFileCount: Int,
+        statementCoveredCount: Int? = nil,
+        statementTotalCount: Int? = nil,
+        branchCoveredCount: Int? = nil,
+        branchTotalCount: Int? = nil,
+        functionCoveredCount: Int? = nil,
+        functionTotalCount: Int? = nil,
+        lineCoveredCount: Int? = nil,
+        lineTotalCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.sourceFileCount = sourceFileCount
+        self.statementCoveredCount = statementCoveredCount
+        self.statementTotalCount = statementTotalCount
+        self.branchCoveredCount = branchCoveredCount
+        self.branchTotalCount = branchTotalCount
+        self.functionCoveredCount = functionCoveredCount
+        self.functionTotalCount = functionTotalCount
+        self.lineCoveredCount = lineCoveredCount
+        self.lineTotalCount = lineTotalCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+    }
+
+    private func coverageLabel(covered: Int?, total: Int?) -> String? {
+        guard let covered, let total, total > 0 else { return nil }
+        let percent = (Double(covered) / Double(total)) * 100
+        let rounded = (percent * 10).rounded() / 10
+        let percentLabel = rounded == rounded.rounded()
+            ? "\(Int(rounded))%"
+            : String(format: "%.1f%%", rounded)
+        return "\(percentLabel) (\(covered)/\(total))"
+    }
+}
+
+public struct ToolArtifactCoveragePyPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var versionLabel: String?
+    public var sourceFileCount: Int
+    public var lineCoveredCount: Int?
+    public var lineTotalCount: Int?
+    public var branchCoveredCount: Int?
+    public var branchTotalCount: Int?
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+
+    public var lineCoverageLabel: String? {
+        coverageLabel(covered: lineCoveredCount, total: lineTotalCount)
+    }
+
+    public var branchCoverageLabel: String? {
+        coverageLabel(covered: branchCoveredCount, total: branchTotalCount)
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            versionLabel.map { "Version: \($0)" },
+            "\(sourceFileCount) source file\(sourceFileCount == 1 ? "" : "s")",
+            lineCoverageLabel.map { "Lines: \($0)" },
+            branchCoverageLabel.map { "Branches: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        sourceFileCount > 0
+            || lineCoverageLabel != nil
+            || branchCoverageLabel != nil
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "coverage.py JSON",
+        versionLabel: String? = nil,
+        sourceFileCount: Int,
+        lineCoveredCount: Int? = nil,
+        lineTotalCount: Int? = nil,
+        branchCoveredCount: Int? = nil,
+        branchTotalCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.versionLabel = versionLabel
+        self.sourceFileCount = sourceFileCount
+        self.lineCoveredCount = lineCoveredCount
+        self.lineTotalCount = lineTotalCount
+        self.branchCoveredCount = branchCoveredCount
+        self.branchTotalCount = branchTotalCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+    }
+
+    private func coverageLabel(covered: Int?, total: Int?) -> String? {
+        guard let covered, let total, total > 0 else { return nil }
+        let percent = (Double(covered) / Double(total)) * 100
+        let rounded = (percent * 10).rounded() / 10
+        let percentLabel = rounded == rounded.rounded()
+            ? "\(Int(rounded))%"
+            : String(format: "%.1f%%", rounded)
+        return "\(percentLabel) (\(covered)/\(total))"
+    }
+}
+
 public struct ToolArtifactHARPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var creatorLabel: String?
@@ -590,6 +752,75 @@ public struct ToolArtifactLCOVPreview: Codable, Sendable, Hashable {
             ? "\(Int(rounded))%"
             : String(format: "%.1f%%", rounded)
         return "\(percentLabel) (\(hit)/\(found))"
+    }
+}
+
+public struct ToolArtifactGoCoveragePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var modeLabel: String?
+    public var sourceFileCount: Int
+    public var blockCount: Int
+    public var statementCoveredCount: Int
+    public var statementTotalCount: Int
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+    public var sourcePreviewLabels: [String]
+
+    public var statementCoverageLabel: String? {
+        coverageLabel(covered: statementCoveredCount, total: statementTotalCount)
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            modeLabel.map { "Mode: \($0)" },
+            "\(sourceFileCount) source file\(sourceFileCount == 1 ? "" : "s")",
+            "\(blockCount) block\(blockCount == 1 ? "" : "s")",
+            statementCoverageLabel.map { "Statements: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 512 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        sourceFileCount > 0
+            || blockCount > 0
+            || statementCoverageLabel != nil
+            || byteSizeLabel != nil
+            || isTruncated
+            || !sourcePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Go coverage",
+        modeLabel: String? = nil,
+        sourceFileCount: Int,
+        blockCount: Int,
+        statementCoveredCount: Int,
+        statementTotalCount: Int,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false,
+        sourcePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.modeLabel = modeLabel
+        self.sourceFileCount = sourceFileCount
+        self.blockCount = blockCount
+        self.statementCoveredCount = statementCoveredCount
+        self.statementTotalCount = statementTotalCount
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+        self.sourcePreviewLabels = sourcePreviewLabels
+    }
+
+    private func coverageLabel(covered: Int, total: Int) -> String? {
+        guard total > 0 else { return nil }
+        let percent = (Double(covered) / Double(total)) * 100
+        let rounded = (percent * 10).rounded() / 10
+        let percentLabel = rounded == rounded.rounded()
+            ? "\(Int(rounded))%"
+            : String(format: "%.1f%%", rounded)
+        return "\(percentLabel) (\(covered)/\(total))"
     }
 }
 
@@ -1672,11 +1903,20 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var jsonPreview: ToolArtifactJSONPreview? {
         ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
+    public var istanbulPreview: ToolArtifactIstanbulPreview? {
+        ToolArtifactIstanbulPreviewBuilder.istanbulPreview(for: value, kind: kind)
+    }
+    public var coveragePyPreview: ToolArtifactCoveragePyPreview? {
+        ToolArtifactCoveragePyPreviewBuilder.coveragePyPreview(for: value, kind: kind)
+    }
     public var harPreview: ToolArtifactHARPreview? {
         ToolArtifactHARPreviewBuilder.harPreview(for: value, kind: kind)
     }
     public var lcovPreview: ToolArtifactLCOVPreview? {
         ToolArtifactLCOVPreviewBuilder.lcovPreview(for: value, kind: kind)
+    }
+    public var goCoveragePreview: ToolArtifactGoCoveragePreview? {
+        ToolArtifactGoCoveragePreviewBuilder.goCoveragePreview(for: value, kind: kind)
     }
     public var sarifPreview: ToolArtifactSARIFPreview? {
         ToolArtifactSARIFPreviewBuilder.sarifPreview(for: value, kind: kind)
