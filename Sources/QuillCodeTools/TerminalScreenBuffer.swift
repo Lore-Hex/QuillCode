@@ -11,6 +11,7 @@ struct TerminalScreenBuffer {
     static let maxCols = 1_000
     static let maxCursorParameter = 1_001
     static let tabStopInterval = 8
+    static let defaultTabStops = Set(stride(from: tabStopInterval, through: maxCols, by: tabStopInterval))
 
     let ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy
     var lines: [[TerminalScreenCell]] = [[]]
@@ -21,6 +22,7 @@ struct TerminalScreenBuffer {
     var scrollRegion: (top: Int, bottom: Int)?
     var savedMainBuffer: BufferSnapshot?
     var mouseModeState = TerminalMouseModeState()
+    var tabStops = Self.defaultTabStops
 
     struct BufferSnapshot {
         var lines: [[TerminalScreenCell]]
@@ -135,6 +137,9 @@ struct TerminalScreenBuffer {
         case "8":
             restoreCursor()
             return next + 1
+        case "H":  // HTS: set a horizontal tab stop at the current column
+            setHorizontalTabStop()
+            return next + 1
         case "D":  // IND: index
             lineFeed()
             return next + 1
@@ -145,9 +150,24 @@ struct TerminalScreenBuffer {
         case "M":  // RI: reverse index
             reverseIndex()
             return next + 1
+        case "c":  // RIS: reset to initial terminal state
+            reset()
+            return next + 1
         default:
             return consumePlainEscape(scalars, next: next)
         }
+    }
+
+    mutating func reset() {
+        lines = [[]]
+        row = 0
+        col = 0
+        currentStyle = .plain
+        savedCursor = nil
+        scrollRegion = nil
+        savedMainBuffer = nil
+        mouseModeState = TerminalMouseModeState()
+        tabStops = Self.defaultTabStops
     }
 
     func consumeStringControl(_ scalars: [Unicode.Scalar], bodyStart: Int) -> Int {

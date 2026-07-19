@@ -24,6 +24,32 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("abc\u{9B}1;2HXY"), "aXY")
     }
 
+    func testRISResetClearsScreenCursorStyleAndModes() {
+        let raw = "old"
+            + "\u{1B}[31m"
+            + "\u{1B}[?1000h"
+            + "\u{1B}[2;3r"
+            + "\u{1B}7"
+            + "\u{1B}c"
+            + "new"
+        let frame = TerminalOutputRenderer.renderFrame(raw)
+
+        XCTAssertEqual(frame.text, "new")
+        XCTAssertEqual(frame.runs, [TerminalTextRun(text: "new")])
+        XCTAssertEqual(frame.mouseReporting, .disabled)
+    }
+
+    func testRISResetDropsAlternateScreenSnapshot() {
+        let raw = "main"
+            + "\u{1B}[?1049h"
+            + "alternate"
+            + "\u{1B}c"
+            + "after"
+            + "\u{1B}[?1049l"
+
+        XCTAssertEqual(render(raw), "after")
+    }
+
     func testPreservesSGRColorsAndEmphasisAsStyledRuns() {
         let frame = TerminalOutputRenderer.renderFrame(
             "plain \u{1B}[1;3;4;31;44mstyled\u{1B}[22;23;24;39;49m done"
@@ -149,6 +175,54 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("\u{1B}[2IX"), "                X")
         XCTAssertEqual(render("abcdefghi\u{1B}[ZX"), "abcdefghX")
         XCTAssertEqual(render("abcdefghi\u{1B}[2ZX"), "Xbcdefghi")
+    }
+
+    func testHorizontalTabStopEscapeSetsCustomStop() {
+        let raw = "\u{1B}[4G"
+            + "\u{1B}H"
+            + "\r"
+            + "X\tY"
+
+        XCTAssertEqual(render(raw), "X  Y")
+    }
+
+    func testHorizontalTabStopClearRemovesCurrentStop() {
+        let raw = "\u{1B}[4G"
+            + "\u{1B}H"
+            + "\u{1B}[g"
+            + "\r"
+            + "X\tY"
+
+        XCTAssertEqual(render(raw), "X       Y")
+    }
+
+    func testHorizontalTabStopClearAllLeavesTabsAtRightBoundary() {
+        let raw = "\u{1B}[3gX\tY"
+        let output = render(raw)
+
+        XCTAssertEqual(output.count, 1_001)
+        XCTAssertEqual(output.first, "X")
+        XCTAssertEqual(output.last, "Y")
+    }
+
+    func testBackwardTabUsesCustomStops() {
+        let raw = "\u{1B}[3g"
+            + "abcd"
+            + "\u{1B}H"
+            + "\u{1B}[12G"
+            + "Z"
+            + "\u{1B}[Z"
+            + "Y"
+
+        XCTAssertEqual(render(raw), "abcdY      Z")
+    }
+
+    func testRISResetRestoresDefaultTabStops() {
+        let raw = "\u{1B}[3g"
+            + "\u{1B}c"
+            + "X\tY"
+
+        XCTAssertEqual(render(raw), "X       Y")
     }
 
     func testCursorAddressingIsBoundedForSparseHugeMoves() {
