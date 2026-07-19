@@ -28,11 +28,7 @@ public enum TerminalOutputRenderer {
         _ raw: String,
         ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .narrow
     ) -> TerminalRenderedFrame {
-        guard raw.contains(where: {
-            $0 == "\u{1B}" || $0 == "\u{9B}" || $0 == "\u{9D}" || $0 == "\r" || $0 == "\u{08}"
-                || $0 == "\u{09}" || $0 == "\u{0B}" || $0 == "\u{0C}" || $0 == "\u{07}"
-                || $0 == "\u{90}" || $0 == "\u{98}" || $0 == "\u{9E}" || $0 == "\u{9F}"
-        }) else {
+        guard requiresTerminalRendering(raw) else {
             return TerminalRenderedFrame(
                 text: raw,
                 runs: raw.isEmpty ? [] : [TerminalTextRun(text: raw)]
@@ -41,5 +37,13 @@ public enum TerminalOutputRenderer {
         var screen = TerminalScreenBuffer(ambiguousWidthPolicy: ambiguousWidthPolicy)
         screen.feed(raw)
         return screen.styledFrame()
+    }
+
+    static func requiresTerminalRendering(_ raw: String) -> Bool {
+        raw.unicodeScalars.contains { scalar in
+            let value = scalar.value
+            return value < 0x20 || value == 0x7F || value == 0x90 || value == 0x98
+                || value == 0x9B || value == 0x9D || value == 0x9E || value == 0x9F
+        }
     }
 }

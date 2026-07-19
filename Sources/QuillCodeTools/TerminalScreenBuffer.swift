@@ -72,7 +72,7 @@ struct TerminalScreenBuffer {
             case "\u{08}":  // backspace
                 if col > 0 { col -= 1 }
                 i += 1
-            case "\u{07}":  // bell: non-printing
+            case let control where control.value < 0x20 || control.value == 0x7F:
                 i += 1
             default:
                 if let grapheme = graphemeStarts[i] {

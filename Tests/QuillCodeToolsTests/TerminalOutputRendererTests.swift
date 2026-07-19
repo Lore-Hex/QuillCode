@@ -207,6 +207,10 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("ab\u{0C}cd"), "ab\ncd")
     }
 
+    func testStripsNonprintingC0AndDELControls() {
+        XCTAssertEqual(render("a\u{00}b\u{0E}c\u{0F}d\u{18}e\u{1A}f\u{7F}g"), "abcdefg")
+    }
+
     func testC0VerticalTabScrollsOnlyTheCurrentRegion() {
         let raw = [
             "header",
