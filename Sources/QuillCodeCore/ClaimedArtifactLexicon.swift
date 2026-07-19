@@ -37,8 +37,10 @@ public enum ClaimedArtifactLexicon {
     /// absent: they read as intent, not completion.
     static let creationVerbs: [String] = [
         "written out to", "output written to", "outputs written to", "wrote out to",
-        "written to", "saved to", "wrote to", "saved out to", "written into", "saved into",
+        "written out as", "exported to", "dumped to", "written to", "saved to", "wrote to",
+        "saved out to", "written into", "saved into",
         "wrote", "created", "saved", "generated", "produced", "written", "regenerated",
+        "exported", "dumped", "emitted", "persisted", "populated", "stored",
     ]
 
     /// Words allowed BETWEEN a creation verb and its path, or between sibling paths in a list, without
@@ -49,11 +51,15 @@ public enum ClaimedArtifactLexicon {
         "updated", "final", "cleaned", "two", "three", "all",
     ]
 
-    /// Modal / future lead-ins that turn a nearby verb into a PLAN rather than a completed action. If
-    /// any appears in the short window immediately before the verb, the occurrence is skipped.
+    /// Lead-ins that turn a nearby verb into a NON-claim: a PLAN (future) or a DESCRIPTION of some
+    /// other/prior behavior rather than something this turn did. If any appears in the short window
+    /// immediately before the verb, the occurrence is skipped. Each ends in a space so "next i " cannot
+    /// match "next i(nput)" and "used to " cannot match "used to(ken)".
     static let futureMarkers: [String] = [
         "will ", "'ll ", "going to ", "gonna ", "let me ", "plan to ", "planning to ",
-        "need to ", "want to ", "about to ", "should ", "would ", "intend to ", "next i",
+        "need to ", "want to ", "about to ", "should ", "would ", "intend to ", "next i ",
+        // Describing prior / other behavior, not this turn's action.
+        "previously ", "originally ", "used to ",
     ]
 
     /// Merged claim across ALL assistant messages: every distinct file path the assistant said it

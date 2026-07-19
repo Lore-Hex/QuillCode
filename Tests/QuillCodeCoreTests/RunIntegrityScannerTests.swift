@@ -828,4 +828,131 @@ final class RunIntegrityScannerTests: XCTestCase {
         XCTAssertEqual(RunIntegrityScanner.applyPatchToolName, "host.apply_patch")
     }
 
+    // MARK: - Rule 2c review fixes (adversarial-review repros locked in)
+
+    /// A generic tool event triple (for MCP / plugin writers and other non-shell tools).
+    private func toolCall(name: String, argsJSON: String, ok: Bool = true, stdout: String = "") -> [ThreadEvent] {
+        let call = ToolCall(name: name, argumentsJSON: argsJSON)
+        let result = ToolResult(ok: ok, stdout: stdout, stderr: "", exitCode: ok ? 0 : 1, error: ok ? nil : "err")
+        let callJSON = (try? JSONHelpers.encodePretty(call)) ?? "{}"
+        let resultJSON = (try? JSONHelpers.encodePretty(result)) ?? "{}"
+        return [
+            ThreadEvent(kind: .toolQueued, summary: "\(name) queued", payloadJSON: callJSON),
+            ThreadEvent(kind: .toolRunning, summary: "\(name) running"),
+            ThreadEvent(kind: ok ? .toolCompleted : .toolFailed, summary: "\(name) done", payloadJSON: resultJSON),
+        ]
+    }
+
+    /// Issue 1 (headline false-negative): a script CREATED via apply_patch whose BODY mentions the
+    /// output filenames must NOT back a phantom claim — only the diff HEADER path counts. -> UNVERIFIED.
+    func testApplyPatchBodyDoesNotBackClaim() {
+        let patch = """
+        *** Begin Patch
+        *** Add File: scripts/clean.py
+        +import csv
+        +# writes data/sales_clean.csv and findings.md
+        +open('data/sales_clean.csv','w')
+        *** End Patch
+        """
+        let run = thread(
+            assistantText: ["Data cleaning complete. Outputs written to data/sales_clean.csv and findings.md."],
+            events: applyPatch(patch) // no shell ever runs the script
+        )
+        let report = RunIntegrityScanner.scan(run)
+        XCTAssertEqual(report.verdict, .unverified)
+        XCTAssertEqual(report.reasons.first?.rule, .unbackedArtifactClaim)
+    }
+
+    /// Issue 2b (false-positive): once a shell command succeeds it could have produced files invisibly,
+    /// so an honest SILENT producer (empty stdout) must NOT be flagged. -> VERIFIED (abstain).
+    func testSuccessfulShellSuppressesPhantomClaim() {
+        let run = thread(
+            assistantText: ["Saved data/sales_clean.csv with the cleaned rows."],
+            events: fileWrite(path: "scripts/clean.py")
+                + shell("python scripts/clean.py", exitCode: 0, stdout: "") // silent producer
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// Issue 2a (wording): the reason must say it COULD NOT VERIFY the file — never assert it was not
+    /// created (a filesystem-blind scanner cannot know that).
+    func testUnbackedArtifactReasonWordingIsHonest() {
+        let run = thread(
+            assistantText: ["All outputs written to data/sales_clean.csv and findings.md."],
+            events: fileWrite(path: "data/sales_raw.csv") + fileWrite(path: "scripts/clean_sales.py")
+        )
+        let detail = RunIntegrityScanner.scan(run).reasons.first?.detail ?? ""
+        XCTAssertTrue(detail.contains("Could not verify"), "reason should hedge: \(detail)")
+        XCTAssertFalse(detail.lowercased().contains("never have been created"), "must not assert absence")
+    }
+
+    /// Issue 3a (false-positive): a file written by a NON-shell tool (MCP/plugin) via a path-bearing arg
+    /// backs the claim. -> VERIFIED.
+    func testPathBearingArgOfAnyToolBacksClaim() {
+        let run = thread(
+            assistantText: ["Created notes/summary.md with the notes."],
+            events: fileWrite(path: "scripts/gen.py")
+                + toolCall(name: "mcp__fs__create_file", argsJSON: #"{"path":"notes/summary.md"}"#)
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// Issue 3b (abstain): a run that used NO recognized file-producer at all abstains rather than
+    /// flagging (the file may have come from an opaque tool). -> VERIFIED.
+    func testNoRecognizedProducerAbstains() {
+        let run = thread(
+            assistantText: ["Created report.md with the results."],
+            events: [] // no file.write / apply_patch anywhere
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
+    /// Issue 5 (false-negative): basename backing is token-bounded — "data.csv" is NOT backed by a write
+    /// to "metadata.csv". -> UNVERIFIED.
+    func testBasenameBackingIsTokenBounded() {
+        let run = thread(
+            assistantText: ["Generated data.csv from the source."],
+            events: fileWrite(path: "metadata.csv") // different file; must not vouch for data.csv
+        )
+        let report = RunIntegrityScanner.scan(run)
+        XCTAssertEqual(report.verdict, .unverified)
+        XCTAssertEqual(report.reasons.first?.rule, .unbackedArtifactClaim)
+    }
+
+    /// Issue 7 (recall): past-tense synonyms (exported/dumped/emitted/…) also anchor a claim. -> UNVERIFIED.
+    func testAdditionalPastTenseVerbsAreClaims() {
+        for text in ["Emitted report.pdf for the reviewers.", "Exported results.csv with the summary.",
+                     "Persisted findings.md to the repo."] {
+            let run = thread(assistantText: [text], events: fileWrite(path: "scripts/x.py"))
+            XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .unverified, "should flag: \(text)")
+        }
+    }
+
+    /// Issue 8 (false-negative): the "next i " marker must not over-suppress "next input … wrote X".
+    /// -> UNVERIFIED (the claim is detected, not skipped).
+    func testNextInputDoesNotSuppressClaim() {
+        let run = thread(
+            assistantText: ["The next input handler wrote parser.out earlier."],
+            events: fileWrite(path: "scripts/x.py")
+        )
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .unverified)
+    }
+
+    /// Issue 4 (false-positive): describing PRIOR/other behavior ("previously it generated cache.db",
+    /// "originally it saved …") is not a claim about this turn. -> VERIFIED.
+    func testPriorBehaviorDescriptionIsNotAClaim() {
+        for text in ["Previously it generated cache.db on startup, but now it streams.",
+                     "Originally it saved output.log, but that was removed."] {
+            let run = thread(assistantText: [text], events: fileWrite(path: "scripts/x.py"))
+            XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified, "must not flag: \(text)")
+        }
+    }
+
+    /// Issue 1 positive: a file genuinely ADDED by apply_patch (header path) still backs the claim. -> VERIFIED.
+    func testApplyPatchHeaderPathStillBacks() {
+        let patch = "*** Begin Patch\n*** Add File: docs/report.md\n+# Report\n*** End Patch"
+        let run = thread(assistantText: ["Wrote docs/report.md."], events: applyPatch(patch))
+        XCTAssertEqual(RunIntegrityScanner.scan(run).verdict, .verified)
+    }
+
 }
