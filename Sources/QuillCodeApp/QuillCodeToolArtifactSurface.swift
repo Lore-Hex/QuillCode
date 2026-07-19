@@ -627,6 +627,79 @@ public struct ToolArtifactCoveragePyPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPytestJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var exitCode: Int?
+    public var durationLabel: String?
+    public var totalCount: Int?
+    public var passedCount: Int?
+    public var failedCount: Int?
+    public var errorCount: Int?
+    public var skippedCount: Int?
+    public var xfailedCount: Int?
+    public var xpassedCount: Int?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            exitCode.map { "Exit code: \($0)" },
+            durationLabel.map { "Duration: \($0)" },
+            totalCount.map { "\($0) test\($0 == 1 ? "" : "s")" },
+            passedCount.map { "Passed: \($0)" },
+            failedCount.map { "Failed: \($0)" },
+            errorCount.map { "Errors: \($0)" },
+            skippedCount.map { "Skipped: \($0)" },
+            xfailedCount.map { "XFailed: \($0)" },
+            xpassedCount.map { "XPassed: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        totalCount != nil
+            || passedCount != nil
+            || failedCount != nil
+            || errorCount != nil
+            || skippedCount != nil
+            || xfailedCount != nil
+            || xpassedCount != nil
+            || exitCode != nil
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "pytest JSON",
+        exitCode: Int? = nil,
+        durationLabel: String? = nil,
+        totalCount: Int? = nil,
+        passedCount: Int? = nil,
+        failedCount: Int? = nil,
+        errorCount: Int? = nil,
+        skippedCount: Int? = nil,
+        xfailedCount: Int? = nil,
+        xpassedCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.exitCode = exitCode
+        self.durationLabel = durationLabel
+        self.totalCount = totalCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.errorCount = errorCount
+        self.skippedCount = skippedCount
+        self.xfailedCount = xfailedCount
+        self.xpassedCount = xpassedCount
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactHARPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var creatorLabel: String?
@@ -1908,6 +1981,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var coveragePyPreview: ToolArtifactCoveragePyPreview? {
         ToolArtifactCoveragePyPreviewBuilder.coveragePyPreview(for: value, kind: kind)
+    }
+    public var pytestJSONPreview: ToolArtifactPytestJSONPreview? {
+        ToolArtifactPytestJSONPreviewBuilder.pytestJSONPreview(for: value, kind: kind)
     }
     public var harPreview: ToolArtifactHARPreview? {
         ToolArtifactHARPreviewBuilder.harPreview(for: value, kind: kind)

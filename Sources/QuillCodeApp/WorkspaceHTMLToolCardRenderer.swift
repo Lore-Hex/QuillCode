@@ -216,6 +216,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let istanbulPreview = renderIstanbulPreview(istanbulPreviewModel)
             let coveragePyPreviewModel = artifact.coveragePyPreview
             let coveragePyPreview = renderCoveragePyPreview(coveragePyPreviewModel)
+            let pytestJSONPreviewModel = artifact.pytestJSONPreview
+            let pytestJSONPreview = renderPytestJSONPreview(pytestJSONPreviewModel)
             let harPreview = renderHARPreview(artifact.harPreview)
             let lcovPreview = renderLCOVPreview(artifact.lcovPreview)
             let goCoveragePreview = renderGoCoveragePreview(artifact.goCoveragePreview)
@@ -245,7 +247,9 @@ enum WorkspaceHTMLToolCardRenderer {
             let fontPreview = renderFontPreview(artifact.fontPreview)
             let executablePreview = renderExecutablePreview(artifact.executablePreview)
             let notebookPreview = renderNotebookPreview(artifact.notebookPreview)
-            let jsonPreview = istanbulPreviewModel == nil && coveragePyPreviewModel == nil
+            let jsonPreview = istanbulPreviewModel == nil
+                && coveragePyPreviewModel == nil
+                && pytestJSONPreviewModel == nil
                 ? renderJSONPreview(artifact.jsonPreview)
                 : ""
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
@@ -269,6 +273,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(tablePreview)
               \(istanbulPreview)
               \(coveragePyPreview)
+              \(pytestJSONPreview)
               \(harPreview)
               \(lcovPreview)
               \(goCoveragePreview)
@@ -661,6 +666,31 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(fileList)
+        </div>
+        """
+    }
+
+    private static func renderPytestJSONPreview(_ preview: ToolArtifactPytestJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-pytest-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-pytest-json-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pytest-json-preview-failures">
+                <strong data-testid="tool-card-pytest-json-preview-failure-title">Failures</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-pytest-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(failureList)
         </div>
         """
     }

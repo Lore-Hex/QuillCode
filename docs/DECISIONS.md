@@ -2326,3 +2326,20 @@
   covers totals, source labels, generic JSON exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCoveragePyArtifactPreview` covers
   static HTML selectors, rendered coverage metadata, source-file lists, and generic JSON suppression.
+
+## 2026-07-19: pytest JSON artifacts render bounded test summaries
+
+- **Decision:** Local JSON artifacts with the pytest-json-report `summary`/`tests` shape render as
+  structured pytest report cards instead of generic JSON. The preview shows exit code, duration,
+  total/pass/fail/error/skip counts, file size, and capped failed/error test node IDs.
+- **Why:** Python coding-agent loops often emit pytest JSON when narrowing failures. A Codex-style
+  artifact surface should make failing tests visible immediately without requiring the model to read
+  raw JSON or expand captured logs.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It reads only the artifact JSON, never opens referenced source files, never expands
+  captured stdout/stderr/tracebacks from test phases, and never fetches remote report URLs. Generic
+  JSON rendering is suppressed only after the pytest report shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPytestJSONPreviewMetadata`
+  covers summary counts, failing labels, generic JSON exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPytestJSONArtifactPreview` covers
+  static HTML selectors, rendered report metadata, failure lists, and generic JSON suppression.
