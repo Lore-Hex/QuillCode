@@ -49,6 +49,19 @@ final class TrustedRouterActionParserTests: XCTestCase {
         }
     }
 
+    func testActionParserCoercesCoreWorkflowToolNameInTypeField() throws {
+        // The core workflow tools (plan/handoff/subagents/browser/memory/review) are always advertised
+        // and live outside ToolRouter — a weak model is most likely to fumble THESE, so they must be
+        // recovered too. planUpdate takes a `plan` array argument.
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"host.plan.update","arguments":{"plan":[{"title":"step","status":"in_progress"}]}}
+        """)
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, "host.plan.update")
+    }
+
     func testActionParserStillParsesSayWithArguments() throws {
         // A `say` action is not a tool name, so the presence of stray keys must not misroute it.
         let action = try AgentActionJSONParser.parse("""
