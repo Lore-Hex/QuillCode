@@ -522,6 +522,70 @@ public struct ToolArtifactNPMLockfilePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactDenoLockPreview: Codable, Sendable, Hashable {
+    public var lockfileVersion: String?
+    public var remoteCount: Int
+    public var npmPackageCount: Int
+    public var jsrPackageCount: Int
+    public var specifierCount: Int
+    public var redirectCount: Int
+    public var sourceHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var packageCount: Int {
+        npmPackageCount + jsrPackageCount
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: Deno lockfile",
+            lockfileVersion.map { "Lockfile: \($0)" },
+            remoteCount > 0 ? "\(remoteCount) remote module\(remoteCount == 1 ? "" : "s")" : nil,
+            packageCount > 0 ? "\(packageCount) package\(packageCount == 1 ? "" : "s")" : nil,
+            npmPackageCount > 0 ? "\(npmPackageCount) npm package\(npmPackageCount == 1 ? "" : "s")" : nil,
+            jsrPackageCount > 0 ? "\(jsrPackageCount) jsr package\(jsrPackageCount == 1 ? "" : "s")" : nil,
+            specifierCount > 0 ? "\(specifierCount) specifier\(specifierCount == 1 ? "" : "s")" : nil,
+            redirectCount > 0 ? "\(redirectCount) redirect\(redirectCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        lockfileVersion != nil
+            || remoteCount > 0
+            || npmPackageCount > 0
+            || jsrPackageCount > 0
+            || specifierCount > 0
+            || redirectCount > 0
+            || !metadataLines.isEmpty
+            || !sourceHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        lockfileVersion: String? = nil,
+        remoteCount: Int = 0,
+        npmPackageCount: Int = 0,
+        jsrPackageCount: Int = 0,
+        specifierCount: Int = 0,
+        redirectCount: Int = 0,
+        sourceHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.lockfileVersion = lockfileVersion
+        self.remoteCount = remoteCount
+        self.npmPackageCount = npmPackageCount
+        self.jsrPackageCount = jsrPackageCount
+        self.specifierCount = specifierCount
+        self.redirectCount = redirectCount
+        self.sourceHostLabels = sourceHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactComposerLockfilePreview: Codable, Sendable, Hashable {
     public var pluginAPIVersion: String?
     public var contentHashPrefix: String?
@@ -3135,6 +3199,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
         ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: kind)
+    }
+    public var denoLockPreview: ToolArtifactDenoLockPreview? {
+        ToolArtifactDenoLockPreviewBuilder.denoLockPreview(for: value, kind: kind)
     }
     public var composerLockfilePreview: ToolArtifactComposerLockfilePreview? {
         ToolArtifactComposerLockfilePreviewBuilder.composerLockfilePreview(for: value, kind: kind)

@@ -763,6 +763,68 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesDenoLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("deno.lock")
+        try """
+        {
+          "version": "4",
+          "specifiers": {
+            "jsr:@std/assert@1": "jsr:@std/assert@1.0.0",
+            "npm:zod@3": "npm:zod@3.22.4"
+          },
+          "jsr": {
+            "@std/assert@1.0.0": {"integrity": "sha512-abc"}
+          },
+          "npm": {
+            "zod@3.22.4": {"integrity": "sha512-jkl"}
+          },
+          "remote": {
+            "https://deno.land/std@0.224.0/path/mod.ts": "sha256-111"
+          }
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"deno.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote deno.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Deno lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · DENO-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">deno.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-meta">Format: Deno lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-meta">Lockfile: 4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-meta">1 remote module"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-meta">1 npm package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-meta">1 jsr package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-meta">2 specifiers"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-package-item">jsr:@std/assert@1.0.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-package-item">npm:zod@3.22.4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-deno-lock-preview-host-item">deno.land"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">deno.lock"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesSwiftPMPackageResolvedArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("Package.resolved")

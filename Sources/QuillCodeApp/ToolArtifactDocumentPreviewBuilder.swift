@@ -58,6 +58,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "package.resolved" {
             return "spm"
         }
+        if filename == "deno.lock" {
+            return "deno-lock"
+        }
         if filename == "composer.lock" {
             return "composer-lock"
         }
@@ -108,6 +111,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "sarif": .data,
         "cfg": .data,
         "conf": .data,
+        "deno-lock": .data,
         "composer-lock": .data,
         "pnpm-lock": .data,
         "yarn-lock": .data,
