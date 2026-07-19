@@ -145,9 +145,23 @@ struct TerminalScreenBuffer {
         case "M":  // RI: reverse index
             reverseIndex()
             return next + 1
+        case "c":  // RIS: reset to initial terminal state
+            reset()
+            return next + 1
         default:
             return consumePlainEscape(scalars, next: next)
         }
+    }
+
+    mutating func reset() {
+        lines = [[]]
+        row = 0
+        col = 0
+        currentStyle = .plain
+        savedCursor = nil
+        scrollRegion = nil
+        savedMainBuffer = nil
+        mouseModeState = TerminalMouseModeState()
     }
 
     func consumeStringControl(_ scalars: [Unicode.Scalar], bodyStart: Int) -> Int {
