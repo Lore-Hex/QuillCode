@@ -220,6 +220,10 @@
 - Artifact previews now include bounded local PMD XML report metadata for `.xml` files whose root
   validates as PMD output: file/violation/priority counts, file size, capped file labels, and capped
   rule labels without reading source files, running PMD, or fetching remote reports.
+- Artifact previews now include bounded local SpotBugs XML report metadata for `.xml` files whose
+  root validates as SpotBugs output: bug/class/priority counts, file size, capped bug-type labels,
+  capped category labels, and capped class labels without reading bytecode/source files, loading
+  detectors, or fetching remote reports.
 - Artifact previews now include bounded local TAP report metadata for `.tap` files: plan, assertion
   counts, pass/fail/skip/TODO counts, bailout reason, file size, and capped failing assertion labels
   without expanding diagnostics or fetching remote reports.

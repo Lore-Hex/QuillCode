@@ -3268,6 +3268,80 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePMD.pmdPreview)
     }
 
+    func testArtifactStateDerivesSpotBugsPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("spotbugs-result.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <BugCollection version="4.8.6">
+          <BugInstance type="NP_NULL_ON_SOME_PATH" priority="1" category="CORRECTNESS">
+            <Class classname="com.example.service.UserService" />
+            <Method classname="com.example.service.UserService" name="loadUser" />
+            <SourceLine classname="com.example.service.UserService" sourcefile="UserService.java" />
+          </BugInstance>
+          <BugInstance type="DM_DEFAULT_ENCODING" priority="2" category="I18N">
+            <Class classname="com.example.web.AdminController" />
+          </BugInstance>
+          <BugInstance type="DLS_DEAD_LOCAL_STORE" priority="3" category="STYLE">
+            <Class classname="com.example.web.AdminController" />
+          </BugInstance>
+          <BugInstance type="UNKNOWN_PRIORITY" priority="experimental" category="PERFORMANCE">
+            <Class classname="com.example.jobs.ReportWorker" />
+          </BugInstance>
+        </BugCollection>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.spotBugsPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.formatLabel, "SpotBugs XML")
+        XCTAssertEqual(preview.bugCount, 4)
+        XCTAssertEqual(preview.classCount, 3)
+        XCTAssertEqual(preview.priorityOneCount, 1)
+        XCTAssertEqual(preview.priorityTwoCount, 1)
+        XCTAssertEqual(preview.priorityThreeCount, 1)
+        XCTAssertEqual(preview.otherPriorityCount, 1)
+        XCTAssertEqual(preview.typePreviewLabels, [
+            "NP_NULL_ON_SOME_PATH",
+            "DM_DEFAULT_ENCODING",
+            "DLS_DEAD_LOCAL_STORE",
+            "UNKNOWN_PRIORITY"
+        ])
+        XCTAssertEqual(preview.categoryPreviewLabels, [
+            "CORRECTNESS",
+            "I18N",
+            "STYLE",
+            "PERFORMANCE"
+        ])
+        XCTAssertEqual(preview.classPreviewLabels, [
+            "example.service.UserService",
+            "example.web.AdminController",
+            "example.jobs.ReportWorker"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: SpotBugs XML",
+            "4 bugs",
+            "3 classes",
+            "Priority 1: 1",
+            "Priority 2: 1",
+            "Priority 3: 1",
+            "Other priority: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let generic = directory.appendingPathComponent("manifest.xml")
+        try "<BugCollection><Project /></BugCollection>".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).spotBugsPreview)
+
+        let remoteSpotBugs = ToolArtifactState(value: "https://example.com/spotbugs-result.xml")
+        XCTAssertNil(remoteSpotBugs.spotBugsPreview)
+    }
+
     func testArtifactStateDerivesTRXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("results.trx")

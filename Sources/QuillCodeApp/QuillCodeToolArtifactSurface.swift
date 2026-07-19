@@ -2759,6 +2759,67 @@ public struct ToolArtifactPMDPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactSpotBugsPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var bugCount: Int
+    public var classCount: Int
+    public var priorityOneCount: Int
+    public var priorityTwoCount: Int
+    public var priorityThreeCount: Int
+    public var otherPriorityCount: Int
+    public var byteSizeLabel: String?
+    public var typePreviewLabels: [String]
+    public var categoryPreviewLabels: [String]
+    public var classPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(bugCount) bug\(bugCount == 1 ? "" : "s")",
+            classCount > 0 ? "\(classCount) class\(classCount == 1 ? "" : "es")" : nil,
+            priorityOneCount > 0 ? "Priority 1: \(priorityOneCount)" : nil,
+            priorityTwoCount > 0 ? "Priority 2: \(priorityTwoCount)" : nil,
+            priorityThreeCount > 0 ? "Priority 3: \(priorityThreeCount)" : nil,
+            otherPriorityCount > 0 ? "Other priority: \(otherPriorityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        bugCount > 0
+            || classCount > 0
+            || !typePreviewLabels.isEmpty
+            || !categoryPreviewLabels.isEmpty
+            || !classPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "SpotBugs XML",
+        bugCount: Int,
+        classCount: Int = 0,
+        priorityOneCount: Int = 0,
+        priorityTwoCount: Int = 0,
+        priorityThreeCount: Int = 0,
+        otherPriorityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        typePreviewLabels: [String] = [],
+        categoryPreviewLabels: [String] = [],
+        classPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.bugCount = bugCount
+        self.classCount = classCount
+        self.priorityOneCount = priorityOneCount
+        self.priorityTwoCount = priorityTwoCount
+        self.priorityThreeCount = priorityThreeCount
+        self.otherPriorityCount = otherPriorityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.typePreviewLabels = typePreviewLabels
+        self.categoryPreviewLabels = categoryPreviewLabels
+        self.classPreviewLabels = classPreviewLabels
+    }
+}
+
 public struct ToolArtifactTRXPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var testRunName: String?
@@ -3700,6 +3761,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var pmdPreview: ToolArtifactPMDPreview? {
         ToolArtifactPMDPreviewBuilder.pmdPreview(for: value, kind: kind)
     }
+    public var spotBugsPreview: ToolArtifactSpotBugsPreview? {
+        ToolArtifactSpotBugsPreviewBuilder.spotBugsPreview(for: value, kind: kind)
+    }
     public var trxPreview: ToolArtifactTRXPreview? {
         ToolArtifactTRXPreviewBuilder.trxPreview(for: value, kind: kind)
     }
@@ -3720,7 +3784,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
         guard checkstylePreview == nil,
-              pmdPreview == nil
+              pmdPreview == nil,
+              spotBugsPreview == nil
         else { return nil }
         return ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
     }
