@@ -465,6 +465,97 @@ public struct ToolArtifactJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactIstanbulPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var sourceFileCount: Int
+    public var statementCoveredCount: Int?
+    public var statementTotalCount: Int?
+    public var branchCoveredCount: Int?
+    public var branchTotalCount: Int?
+    public var functionCoveredCount: Int?
+    public var functionTotalCount: Int?
+    public var lineCoveredCount: Int?
+    public var lineTotalCount: Int?
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+
+    public var statementCoverageLabel: String? {
+        coverageLabel(covered: statementCoveredCount, total: statementTotalCount)
+    }
+
+    public var branchCoverageLabel: String? {
+        coverageLabel(covered: branchCoveredCount, total: branchTotalCount)
+    }
+
+    public var functionCoverageLabel: String? {
+        coverageLabel(covered: functionCoveredCount, total: functionTotalCount)
+    }
+
+    public var lineCoverageLabel: String? {
+        coverageLabel(covered: lineCoveredCount, total: lineTotalCount)
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(sourceFileCount) source file\(sourceFileCount == 1 ? "" : "s")",
+            lineCoverageLabel.map { "Lines: \($0)" },
+            statementCoverageLabel.map { "Statements: \($0)" },
+            branchCoverageLabel.map { "Branches: \($0)" },
+            functionCoverageLabel.map { "Functions: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        sourceFileCount > 0
+            || lineCoverageLabel != nil
+            || statementCoverageLabel != nil
+            || branchCoverageLabel != nil
+            || functionCoverageLabel != nil
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Istanbul JSON",
+        sourceFileCount: Int,
+        statementCoveredCount: Int? = nil,
+        statementTotalCount: Int? = nil,
+        branchCoveredCount: Int? = nil,
+        branchTotalCount: Int? = nil,
+        functionCoveredCount: Int? = nil,
+        functionTotalCount: Int? = nil,
+        lineCoveredCount: Int? = nil,
+        lineTotalCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.sourceFileCount = sourceFileCount
+        self.statementCoveredCount = statementCoveredCount
+        self.statementTotalCount = statementTotalCount
+        self.branchCoveredCount = branchCoveredCount
+        self.branchTotalCount = branchTotalCount
+        self.functionCoveredCount = functionCoveredCount
+        self.functionTotalCount = functionTotalCount
+        self.lineCoveredCount = lineCoveredCount
+        self.lineTotalCount = lineTotalCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+    }
+
+    private func coverageLabel(covered: Int?, total: Int?) -> String? {
+        guard let covered, let total, total > 0 else { return nil }
+        let percent = (Double(covered) / Double(total)) * 100
+        let rounded = (percent * 10).rounded() / 10
+        let percentLabel = rounded == rounded.rounded()
+            ? "\(Int(rounded))%"
+            : String(format: "%.1f%%", rounded)
+        return "\(percentLabel) (\(covered)/\(total))"
+    }
+}
+
 public struct ToolArtifactHARPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var creatorLabel: String?
@@ -1671,6 +1762,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
         ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
+    }
+    public var istanbulPreview: ToolArtifactIstanbulPreview? {
+        ToolArtifactIstanbulPreviewBuilder.istanbulPreview(for: value, kind: kind)
     }
     public var harPreview: ToolArtifactHARPreview? {
         ToolArtifactHARPreviewBuilder.harPreview(for: value, kind: kind)

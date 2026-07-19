@@ -701,6 +701,63 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesIstanbulArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let coverageDirectory = root.appendingPathComponent("coverage", isDirectory: true)
+        try FileManager.default.createDirectory(at: coverageDirectory, withIntermediateDirectories: true)
+        let coverage = coverageDirectory.appendingPathComponent("coverage-final.json")
+        let coverageText = """
+        {
+          "/workspace/Sources/QuillCodeApp/Workspace.swift": {
+            "statementMap": {
+              "0": {"start": {"line": 10}, "end": {"line": 10}},
+              "1": {"start": {"line": 11}, "end": {"line": 11}}
+            },
+            "s": {"0": 1, "1": 0},
+            "fnMap": {"0": {"name": "render"}},
+            "f": {"0": 1},
+            "branchMap": {"0": {"type": "if"}},
+            "b": {"0": [1, 0]}
+          }
+        }
+        """
+        try coverageText.write(to: coverage, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"coverage/coverage-final.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote coverage/coverage-final.json\n", artifacts: [coverage.path])
+        let thread = ChatThread(
+            title: "Istanbul artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">coverage-final.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-istanbul-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-istanbul-preview-meta">Format: Istanbul JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-istanbul-preview-meta">1 source file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-istanbul-preview-meta">Lines: 50% (1/2)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-istanbul-preview-file-title">Source files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-istanbul-preview-file-item">QuillCodeApp/Workspace.swift · 50%"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesHARArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
