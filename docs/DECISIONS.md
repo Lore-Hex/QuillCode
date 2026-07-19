@@ -2359,3 +2359,20 @@
   plan parsing, pass/fail/skip/TODO counts, bailout labels, generic `.tap` exclusion, and remote
   exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesTAPArtifactPreview` covers
   static HTML selectors, rendered report metadata, and failure lists.
+
+## 2026-07-19: Jest JSON artifacts render bounded test summaries
+
+- **Decision:** Local `.json` artifacts with Jest-compatible `numTotalTests`/`testResults` report
+  shape render as structured Jest JSON report cards instead of generic JSON. The preview shows run
+  result, runtime, test/suite counts, file size, and capped failing assertion labels.
+- **Why:** TypeScript and JavaScript coding-agent loops commonly emit Jest or Vitest JSON reports.
+  Showing the failing assertions inline keeps generated test artifacts useful without requiring a
+  separate file open.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, shape-gated, and
+  capped at 512 KB. It reads only summary counts, suite runtime, and assertion titles, never expands
+  failure messages/stacks, never opens referenced source files, and never fetches remote JSON.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesJestJSONPreviewMetadata`
+  covers result/count/runtime parsing, failing assertion labels, generic JSON exclusion, and remote
+  exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesJestJSONArtifactPreview`
+  covers static HTML selectors, rendered report metadata, failure lists, and generic JSON
+  suppression.

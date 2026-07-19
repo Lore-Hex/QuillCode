@@ -119,6 +119,10 @@
 - Artifact previews now include bounded local pytest JSON report metadata for pytest-json-report
   artifacts: total/pass/fail/error/skip counts, exit code, duration, file size, and capped failing
   test node IDs without expanding captured logs or fetching remote JSON.
+- Artifact previews now include bounded local Jest/Vitest-style JSON report metadata for `.json`
+  files with Jest-compatible `numTotalTests`/`testResults` shape: result, runtime, test/suite
+  counts, file size, and capped failing assertion labels without expanding failure messages or
+  fetching remote JSON.
 - Artifact previews now include bounded local TAP report metadata for `.tap` files: plan, assertion
   counts, pass/fail/skip/TODO counts, bailout reason, file size, and capped failing assertion labels
   without expanding diagnostics or fetching remote reports.

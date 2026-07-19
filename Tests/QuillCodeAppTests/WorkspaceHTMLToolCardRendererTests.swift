@@ -892,6 +892,71 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesJestJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("jest-results.json")
+        let reportText = """
+        {
+          "success": false,
+          "numTotalTests": 4,
+          "numPassedTests": 2,
+          "numFailedTests": 1,
+          "numPendingTests": 1,
+          "numTotalTestSuites": 2,
+          "numFailedTestSuites": 1,
+          "testResults": [
+            {
+              "name": "/repo/tests/app.test.ts",
+              "perfStats": {"runtime": 1234},
+              "assertionResults": [
+                {"ancestorTitles": ["App"], "title": "renders prompt", "status": "passed"},
+                {"ancestorTitles": ["App"], "title": "writes a file", "status": "failed"}
+              ]
+            }
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/jest-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/jest-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Jest artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">jest-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-meta">Format: Jest JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-meta">Result: failed"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-meta">Runtime: 1.23s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-meta">4 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-failure-item">App &gt; writes a file"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesTAPArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
