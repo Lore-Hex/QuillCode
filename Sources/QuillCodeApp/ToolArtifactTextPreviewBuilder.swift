@@ -156,6 +156,7 @@ enum ToolArtifactTextPreviewBuilder {
         "package-lock.json",
         "package.json",
         "package.resolved",
+        "pipfile.lock",
         "podfile",
         "poetry.lock",
         "procfile",
@@ -176,7 +177,8 @@ enum ToolArtifactTextPreviewBuilder {
         "workspace",
         "workspace.bazel",
         "yarn.lock",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "uv.lock"
     ]
     private static let filenameLabels: [String: String] = [
         ".gitignore": "Git ignore",
@@ -215,6 +217,7 @@ enum ToolArtifactTextPreviewBuilder {
         "package-lock.json": "npm lockfile",
         "package.json": "npm package",
         "package.resolved": "SwiftPM resolved packages",
+        "pipfile.lock": "Pipfile lockfile",
         "podfile": "Podfile",
         "poetry.lock": "Poetry lockfile",
         "procfile": "Procfile",
@@ -235,7 +238,8 @@ enum ToolArtifactTextPreviewBuilder {
         "workspace": "Bazel workspace",
         "workspace.bazel": "Bazel workspace",
         "yarn.lock": "Yarn lockfile",
-        "pnpm-lock.yaml": "pnpm lockfile"
+        "pnpm-lock.yaml": "pnpm lockfile",
+        "uv.lock": "uv lockfile"
     ]
     private static let extensions: Set<String> = [
         "astro",

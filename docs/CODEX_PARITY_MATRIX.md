@@ -100,6 +100,25 @@
   plugin API version, content-hash prefix, package/dev-package counts, file size, capped package
   labels, and capped source hosts without expanding install scripts, autoload metadata, full hashes,
   or fetching Packagist/source archives.
+- Artifact previews now include bounded local Go checksum metadata for `go.sum` files: module,
+  version, checksum, and go.mod-checksum counts, file size, capped module labels, and capped source
+  hosts without validating hashes through the Go checksum database or fetching module sources.
+- Artifact previews now include bounded local Python requirements metadata for `requirements.txt`
+  and `requirements-*.txt` files: package, pinned/ranged/editable/include/option/hash counts, file
+  size, capped package labels, and capped source hosts without running pip, validating hashes,
+  expanding requirement includes, or fetching package indexes.
+- Artifact previews now include bounded local Poetry lockfile metadata for `poetry.lock` files:
+  package/version/dev/optional/source/hash counts, file size, capped package labels, and capped
+  source labels without expanding dependency tables, validating hashes, reading package metadata, or
+  fetching package indexes/distributions.
+- Artifact previews now include bounded local Pipfile lockfile metadata for `Pipfile.lock` files:
+  default/develop/pinned/editable/source/hash counts, file size, capped package labels, and capped
+  source labels without expanding dependency graphs, validating hashes, reading package metadata, or
+  fetching package indexes/distributions.
+- Artifact previews now include bounded local uv lockfile metadata for `uv.lock` files:
+  Python requirement, package/version/dependency/source/hash counts, file size, capped package labels,
+  and capped source labels without expanding dependency graphs, validating hashes, reading package
+  metadata, or fetching package indexes/distributions.
 - Artifact previews now include bounded local pnpm lockfile metadata for `pnpm-lock.yaml` files:
   lockfile version, importer/package/dependency/integrity counts, file size, capped importer labels,
   capped package labels, and capped resolved registry hosts without expanding dependency graphs,

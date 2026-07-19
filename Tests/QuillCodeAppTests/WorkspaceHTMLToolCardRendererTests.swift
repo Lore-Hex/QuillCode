@@ -1064,6 +1064,285 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">composer.lock"#))
     }
 
+    func testHTMLRendererIncludesGoSumArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("go.sum")
+        try """
+        github.com/charmbracelet/lipgloss v1.1.0 h1:lipgloss
+        github.com/charmbracelet/lipgloss v1.1.0/go.mod h1:lipglossmod
+        golang.org/x/sys v0.34.0 h1:sys
+        golang.org/x/sys v0.34.0/go.mod h1:sysmod
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"go.sum"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote go.sum\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Go checksum artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · GOSUM"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">go.sum"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">Format: Go checksum database"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">2 modules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">4 checksums"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">2 go.mod checksums"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-module-item">github.com/charmbracelet/lipgloss"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-module-item">golang.org/x/sys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-host-item">github.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-host-item">golang.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">go.sum"#))
+    }
+
+    func testHTMLRendererIncludesPythonRequirementsArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("requirements.txt")
+        try """
+        --index-url https://pypi.org/simple
+        requests==2.32.3 --hash=sha256:abc
+        rich>=13.7,<14
+        uvicorn @ https://files.pythonhosted.org/packages/uvicorn.whl
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"requirements.txt"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote requirements.txt\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Python requirements artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · REQUIREMENTS"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">requirements.txt"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">Format: Python requirements"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">3 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 pinned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 ranged"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 option"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 hash"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-package-item">requests==2.32.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-package-item">rich&gt;=13.7"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-package-item">uvicorn"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-host-item">pypi.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-host-item">files.pythonhosted.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">requirements.txt"#))
+    }
+
+    func testHTMLRendererIncludesPoetryLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("poetry.lock")
+        try """
+        [[package]]
+        name = "requests"
+        version = "2.32.3"
+        optional = false
+        files = [{file = "requests-2.32.3.tar.gz", hash = "sha256:aaa"}]
+
+        [[package]]
+        name = "pytest"
+        version = "8.3.4"
+        category = "dev"
+        source = { type = "legacy", url = "https://packages.example.com/simple" }
+        files = [{file = "pytest-8.3.4.tar.gz", hash = "sha256:bbb"}]
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"poetry.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote poetry.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Poetry lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · POETRY-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">poetry.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">Format: Poetry lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">2 versioned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">1 dev package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">2 hashes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-package-item">pytest@8.3.4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-package-item">requests@2.32.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-source-item">packages.example.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">poetry.lock"#))
+    }
+
+    func testHTMLRendererIncludesPipfileLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Pipfile.lock")
+        try """
+        {
+          "_meta": {
+            "hash": { "sha256": "abc" },
+            "pipfile-spec": 6,
+            "sources": [
+              { "name": "pypi", "url": "https://pypi.org/simple", "verify_ssl": true }
+            ]
+          },
+          "default": {
+            "requests": { "version": "==2.32.3", "hashes": ["sha256:aaa"] },
+            "uvicorn": { "version": "==0.35.0" }
+          },
+          "develop": {
+            "pytest": { "version": "==8.3.4", "hashes": ["sha256:bbb"] }
+          }
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Pipfile.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Pipfile.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Pipfile lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · PIPFILE-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Pipfile.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">Format: Pipfile lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">3 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">2 default"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">1 develop"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">3 pinned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">2 hashes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-package-item">pytest==8.3.4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-package-item">requests==2.32.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-package-item">uvicorn==0.35.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-source-item">pypi.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Pipfile.lock"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesUVLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("uv.lock")
+        try """
+        version = 1
+        requires-python = ">=3.12"
+
+        [[package]]
+        name = "anyio"
+        version = "4.7.0"
+        source = { registry = "https://pypi.org/simple" }
+        dependencies = [
+            { name = "idna" },
+        ]
+        sdist = { url = "https://files.pythonhosted.org/packages/anyio.tar.gz", hash = "sha256:aaa" }
+
+        [[package]]
+        name = "idna"
+        version = "3.10"
+        source = { registry = "https://pypi.org/simple" }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"uv.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote uv.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "uv lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · UV-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">uv.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">Format: uv lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">Python: &gt;=3.12"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">2 versioned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">1 dependency"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">2 sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">1 hash"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-package-item">anyio@4.7.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-package-item">idna@3.10"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-source-item">pypi.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-source-item">files.pythonhosted.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">uv.lock"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-toml-preview""#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")

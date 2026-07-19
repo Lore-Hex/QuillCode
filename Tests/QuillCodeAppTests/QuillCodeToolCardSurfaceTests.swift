@@ -896,6 +896,348 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteLock.composerLockfilePreview)
     }
 
+    func testArtifactStateDerivesGoSumPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("go.sum")
+        let sumText = """
+        github.com/charmbracelet/lipgloss v1.1.0 h1:lipgloss
+        github.com/charmbracelet/lipgloss v1.1.0/go.mod h1:lipglossmod
+        golang.org/x/sys v0.34.0 h1:sys
+        golang.org/x/sys v0.34.0/go.mod h1:sysmod
+        gopkg.in/yaml.v3 v3.0.1 h1:yaml
+        """
+        try sumText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.goSumPreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(sumText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "GOSUM")
+        XCTAssertEqual(preview.moduleCount, 3)
+        XCTAssertEqual(preview.versionCount, 5)
+        XCTAssertEqual(preview.checksumCount, 5)
+        XCTAssertEqual(preview.goModChecksumCount, 2)
+        XCTAssertEqual(preview.sourceHostLabels, [
+            "github.com",
+            "golang.org",
+            "gopkg.in"
+        ])
+        XCTAssertEqual(preview.modulePreviewLabels, [
+            "github.com/charmbracelet/lipgloss",
+            "golang.org/x/sys",
+            "gopkg.in/yaml.v3"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Go checksum database",
+            "3 modules",
+            "5 versions",
+            "5 checksums",
+            "2 go.mod checksums",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notGoSum = directory.appendingPathComponent("checksums.sum")
+        try sumText.write(to: notGoSum, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notGoSum.path).goSumPreview)
+
+        let remoteSum = ToolArtifactState(value: "https://example.com/go.sum")
+        XCTAssertNil(remoteSum.goSumPreview)
+    }
+
+    func testArtifactStateDerivesPythonRequirementsPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("requirements-dev.txt")
+        let requirementsText = """
+        --index-url https://pypi.org/simple
+        --extra-index-url https://packages.example.com/simple
+        -r base.txt
+        requests==2.32.3 --hash=sha256:abc
+        rich>=13.7,<14
+        fastapi[standard]~=0.115.0 ; python_version >= "3.11"
+        -e git+https://github.com/Lore-Hex/QuillCode.git#egg=quillcode
+        uvicorn @ https://files.pythonhosted.org/packages/uvicorn.whl
+        """
+        try requirementsText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pythonRequirementsPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(requirementsText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "REQUIREMENTS")
+        XCTAssertEqual(preview.packageCount, 4)
+        XCTAssertEqual(preview.pinnedCount, 1)
+        XCTAssertEqual(preview.rangedCount, 2)
+        XCTAssertEqual(preview.editableCount, 1)
+        XCTAssertEqual(preview.includeCount, 1)
+        XCTAssertEqual(preview.optionCount, 2)
+        XCTAssertEqual(preview.hashCount, 1)
+        XCTAssertEqual(preview.sourceHostLabels, [
+            "pypi.org",
+            "packages.example.com",
+            "github.com",
+            "files.pythonhosted.org"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "requests==2.32.3",
+            "rich>=13.7",
+            "fastapi~=0.115.0",
+            "quillcode",
+            "uvicorn"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Python requirements",
+            "4 packages",
+            "1 pinned",
+            "2 ranged",
+            "1 editable",
+            "1 include",
+            "2 options",
+            "1 hash",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notRequirements = directory.appendingPathComponent("deps.txt")
+        try requirementsText.write(to: notRequirements, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notRequirements.path).pythonRequirementsPreview)
+
+        let remoteRequirements = ToolArtifactState(value: "https://example.com/requirements.txt")
+        XCTAssertNil(remoteRequirements.pythonRequirementsPreview)
+    }
+
+    func testArtifactStateDerivesPoetryLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("poetry.lock")
+        let lockText = """
+        [[package]]
+        name = "requests"
+        version = "2.32.3"
+        optional = false
+        groups = ["main"]
+        files = [{file = "requests-2.32.3.tar.gz", hash = "sha256:aaa"}]
+
+        [[package]]
+        name = "pytest"
+        version = "8.3.4"
+        optional = false
+        category = "dev"
+        source = { type = "legacy", url = "https://packages.example.com/simple" }
+        files = [
+            {file = "pytest-8.3.4-py3-none-any.whl", hash = "sha256:bbb"},
+            {file = "pytest-8.3.4.tar.gz", hash = "sha256:ccc"},
+        ]
+
+        [[package]]
+        name = "uvicorn"
+        version = "0.35.0"
+        optional = true
+        groups = ["main", "dev"]
+        source = { type = "git", url = "git+https://github.com/encode/uvicorn.git" }
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.poetryLockPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "POETRY-LOCK")
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.versionedPackageCount, 3)
+        XCTAssertEqual(preview.devPackageCount, 2)
+        XCTAssertEqual(preview.optionalPackageCount, 1)
+        XCTAssertEqual(preview.sourceCount, 2)
+        XCTAssertEqual(preview.hashCount, 3)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "packages.example.com",
+            "github.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "pytest@8.3.4",
+            "requests@2.32.3",
+            "uvicorn@0.35.0"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Poetry lockfile",
+            "3 packages",
+            "3 versioned",
+            "2 dev packages",
+            "1 optional package",
+            "2 sources",
+            "3 hashes",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notPoetryLock = directory.appendingPathComponent("poetry.toml")
+        try lockText.write(to: notPoetryLock, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notPoetryLock.path).poetryLockPreview)
+
+        let remotePoetryLock = ToolArtifactState(value: "https://example.com/poetry.lock")
+        XCTAssertNil(remotePoetryLock.poetryLockPreview)
+    }
+
+    func testArtifactStateDerivesPipfileLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("Pipfile.lock")
+        let lockText = """
+        {
+          "_meta": {
+            "hash": { "sha256": "abc" },
+            "pipfile-spec": 6,
+            "requires": { "python_version": "3.11" },
+            "sources": [
+              { "name": "pypi", "url": "https://pypi.org/simple", "verify_ssl": true },
+              { "name": "internal", "url": "https://packages.example.com/simple", "verify_ssl": true }
+            ]
+          },
+          "default": {
+            "requests": { "version": "==2.32.3", "hashes": ["sha256:aaa", "sha256:bbb"] },
+            "uvicorn": { "version": "==0.35.0", "index": "pypi" }
+          },
+          "develop": {
+            "pytest": { "version": "==8.3.4", "hashes": ["sha256:ccc"] },
+            "quillcode": {
+              "git": "https://github.com/Lore-Hex/QuillCode.git",
+              "editable": true,
+              "ref": "main"
+            }
+          }
+        }
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pipfileLockPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "PIPFILE-LOCK")
+        XCTAssertEqual(preview.packageCount, 4)
+        XCTAssertEqual(preview.defaultPackageCount, 2)
+        XCTAssertEqual(preview.developPackageCount, 2)
+        XCTAssertEqual(preview.pinnedPackageCount, 3)
+        XCTAssertEqual(preview.editablePackageCount, 1)
+        XCTAssertEqual(preview.hashCount, 3)
+        XCTAssertEqual(preview.sourceCount, 3)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "pypi.org",
+            "packages.example.com",
+            "github.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "pytest==8.3.4",
+            "quillcode",
+            "requests==2.32.3",
+            "uvicorn==0.35.0"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Pipfile lockfile",
+            "4 packages",
+            "2 default",
+            "2 develop",
+            "3 pinned",
+            "1 editable",
+            "3 sources",
+            "3 hashes",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notPipfileLock = directory.appendingPathComponent("Pipfile.json")
+        try lockText.write(to: notPipfileLock, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notPipfileLock.path).pipfileLockPreview)
+
+        let remotePipfileLock = ToolArtifactState(value: "https://example.com/Pipfile.lock")
+        XCTAssertNil(remotePipfileLock.pipfileLockPreview)
+    }
+
+    func testArtifactStateDerivesUVLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("uv.lock")
+        let lockText = """
+        version = 1
+        revision = 3
+        requires-python = ">=3.12"
+
+        [[package]]
+        name = "anyio"
+        version = "4.7.0"
+        source = { registry = "https://pypi.org/simple" }
+        dependencies = [
+            { name = "idna" },
+            { name = "sniffio" },
+        ]
+        sdist = { url = "https://files.pythonhosted.org/packages/anyio.tar.gz", hash = "sha256:aaa" }
+        wheels = [
+            { url = "https://files.pythonhosted.org/packages/anyio.whl", hash = "sha256:bbb" },
+            { url = "https://files.pythonhosted.org/packages/anyio-py3-none-any.whl", hash = "sha256:ccc" },
+        ]
+
+        [[package]]
+        name = "idna"
+        version = "3.10"
+        source = { registry = "https://pypi.org/simple" }
+
+        [[package]]
+        name = "quillcode"
+        source = { git = "git+https://github.com/Lore-Hex/QuillCode.git" }
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.uvLockPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "UV-LOCK")
+        XCTAssertEqual(preview.pythonRequirement, ">=3.12")
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.versionedPackageCount, 2)
+        XCTAssertEqual(preview.dependencyCount, 2)
+        XCTAssertEqual(preview.sourceCount, 3)
+        XCTAssertEqual(preview.hashCount, 3)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "pypi.org",
+            "files.pythonhosted.org",
+            "github.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "anyio@4.7.0",
+            "idna@3.10",
+            "quillcode"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: uv lockfile",
+            "Python: >=3.12",
+            "3 packages",
+            "2 versioned",
+            "2 dependencies",
+            "3 sources",
+            "3 hashes",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notUVLock = directory.appendingPathComponent("uv.toml")
+        try lockText.write(to: notUVLock, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notUVLock.path).uvLockPreview)
+
+        let remoteUVLock = ToolArtifactState(value: "https://example.com/uv.lock")
+        XCTAssertNil(remoteUVLock.uvLockPreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")

@@ -224,6 +224,13 @@ enum WorkspaceHTMLToolCardRenderer {
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
             let composerLockfilePreviewModel = artifact.composerLockfilePreview
             let composerLockfilePreview = renderComposerLockfilePreview(composerLockfilePreviewModel)
+            let goSumPreview = renderGoSumPreview(artifact.goSumPreview)
+            let pythonRequirementsPreview = renderPythonRequirementsPreview(artifact.pythonRequirementsPreview)
+            let poetryLockPreview = renderPoetryLockPreview(artifact.poetryLockPreview)
+            let pipfileLockPreviewModel = artifact.pipfileLockPreview
+            let pipfileLockPreview = renderPipfileLockPreview(pipfileLockPreviewModel)
+            let uvLockPreviewModel = artifact.uvLockPreview
+            let uvLockPreview = renderUVLockPreview(uvLockPreviewModel)
             let pnpmLockfilePreviewModel = artifact.pnpmLockfilePreview
             let pnpmLockfilePreview = renderPNPMLockfilePreview(pnpmLockfilePreviewModel)
             let swiftPMPackageResolvedPreviewModel = artifact.swiftPMPackageResolvedPreview
@@ -242,7 +249,9 @@ enum WorkspaceHTMLToolCardRenderer {
             let goCoveragePreview = renderGoCoveragePreview(artifact.goCoveragePreview)
             let sarifPreview = renderSARIFPreview(artifact.sarifPreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
-            let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
+            let tomlPreview = uvLockPreviewModel == nil
+                ? renderTOMLPreview(artifact.tomlPreview)
+                : ""
             let iniPreview = renderINIPreview(artifact.iniPreview)
             let dotenvPreview = renderDotenvPreview(artifact.dotenvPreview)
             let yamlPreview = pnpmLockfilePreviewModel == nil
@@ -281,6 +290,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && jestJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
                 && composerLockfilePreviewModel == nil
+                && pipfileLockPreviewModel == nil
                 && pnpmLockfilePreviewModel == nil
                 && swiftPMPackageResolvedPreviewModel == nil
                 && yarnLockfilePreviewModel == nil
@@ -314,6 +324,11 @@ enum WorkspaceHTMLToolCardRenderer {
               \(jestJSONPreview)
               \(npmLockfilePreview)
               \(composerLockfilePreview)
+              \(goSumPreview)
+              \(pythonRequirementsPreview)
+              \(poetryLockPreview)
+              \(pipfileLockPreview)
+              \(uvLockPreview)
               \(pnpmLockfilePreview)
               \(swiftPMPackageResolvedPreview)
               \(yarnLockfilePreview)
@@ -836,6 +851,181 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(packageList)
           \(hostList)
+        </div>
+        """
+    }
+
+    private static func renderGoSumPreview(_ preview: ToolArtifactGoSumPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-go-sum-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let modules = preview.modulePreviewLabels.map {
+            #"<li data-testid="tool-card-go-sum-preview-module-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hosts = preview.sourceHostLabels.map {
+            #"<li data-testid="tool-card-go-sum-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let moduleList = modules.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-go-sum-preview-modules">
+                <strong data-testid="tool-card-go-sum-preview-module-title">Modules</strong>
+                <ul>\(modules)</ul>
+              </section>
+        """
+        let hostList = hosts.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-go-sum-preview-hosts">
+                <strong data-testid="tool-card-go-sum-preview-host-title">Sources</strong>
+                <ul>\(hosts)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !moduleList.isEmpty || !hostList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-go-sum-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(moduleList)
+          \(hostList)
+        </div>
+        """
+    }
+
+    private static func renderPythonRequirementsPreview(_ preview: ToolArtifactPythonRequirementsPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-python-requirements-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-python-requirements-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hosts = preview.sourceHostLabels.map {
+            #"<li data-testid="tool-card-python-requirements-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-python-requirements-preview-packages">
+                <strong data-testid="tool-card-python-requirements-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let hostList = hosts.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-python-requirements-preview-hosts">
+                <strong data-testid="tool-card-python-requirements-preview-host-title">Sources</strong>
+                <ul>\(hosts)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !hostList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-python-requirements-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(hostList)
+        </div>
+        """
+    }
+
+    private static func renderPoetryLockPreview(_ preview: ToolArtifactPoetryLockPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-poetry-lock-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-poetry-lock-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sources = preview.sourcePreviewLabels.map {
+            #"<li data-testid="tool-card-poetry-lock-preview-source-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-poetry-lock-preview-packages">
+                <strong data-testid="tool-card-poetry-lock-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let sourceList = sources.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-poetry-lock-preview-sources">
+                <strong data-testid="tool-card-poetry-lock-preview-source-title">Sources</strong>
+                <ul>\(sources)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !sourceList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-poetry-lock-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(sourceList)
+        </div>
+        """
+    }
+
+    private static func renderPipfileLockPreview(_ preview: ToolArtifactPipfileLockPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-pipfile-lock-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-pipfile-lock-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sources = preview.sourcePreviewLabels.map {
+            #"<li data-testid="tool-card-pipfile-lock-preview-source-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pipfile-lock-preview-packages">
+                <strong data-testid="tool-card-pipfile-lock-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let sourceList = sources.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pipfile-lock-preview-sources">
+                <strong data-testid="tool-card-pipfile-lock-preview-source-title">Sources</strong>
+                <ul>\(sources)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !sourceList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-pipfile-lock-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(sourceList)
+        </div>
+        """
+    }
+
+    private static func renderUVLockPreview(_ preview: ToolArtifactUVLockPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-uv-lock-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-uv-lock-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sources = preview.sourcePreviewLabels.map {
+            #"<li data-testid="tool-card-uv-lock-preview-source-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-uv-lock-preview-packages">
+                <strong data-testid="tool-card-uv-lock-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let sourceList = sources.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-uv-lock-preview-sources">
+                <strong data-testid="tool-card-uv-lock-preview-source-title">Sources</strong>
+                <ul>\(sources)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !sourceList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-uv-lock-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(sourceList)
         </div>
         """
     }
