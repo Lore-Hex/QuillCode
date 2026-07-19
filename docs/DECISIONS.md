@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render PMD XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files with a PMD root as a specialized lint report artifact
+  rather than generic XML.
+- **Rationale:** PMD XML is common in Java and CI coding workflows. Showing file/violation counts,
+  priority counts, and capped file/rule labels gives the user a useful Codex-style result card
+  without forcing them to open the raw XML.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not open
+  referenced source files, expand violation bodies, run PMD, or fetch remote reports.
+
 ## 2026-07-19: Render Checkstyle XML As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.xml` files with a Checkstyle root as a specialized lint report
