@@ -54,6 +54,8 @@ extension TerminalScreenBuffer {
             eraseCharacters(count: firstParam(params))
         case "b":  // REP: repeat the preceding graphic character
             repeatPreviousCharacter(count: firstParam(params))
+        case "p" where params.contains("!"):  // DECSTR: soft terminal reset
+            softReset()
         case "K":
             eraseLine(params)
         case "J":
@@ -122,6 +124,14 @@ extension TerminalScreenBuffer {
 
     mutating func saveCursor() {
         savedCursor = CursorSnapshot(row: row, col: col, style: currentStyle)
+    }
+
+    mutating func softReset() {
+        currentStyle = .plain
+        savedCursor = nil
+        scrollRegion = nil
+        mouseModeState = TerminalMouseModeState()
+        tabStops = Self.defaultTabStops
     }
 
     mutating func restoreCursor() {

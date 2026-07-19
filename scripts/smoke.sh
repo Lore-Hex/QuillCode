@@ -7,6 +7,9 @@ SMOKE_HOME="$SMOKE_ROOT/home"
 SMOKE_WORKSPACE="$SMOKE_ROOT/workspace"
 ARTIFACT_DIR="${QUILLCODE_SMOKE_ARTIFACT_DIR:-}"
 REQUIRE_PLAYWRIGHT="${QUILLCODE_REQUIRE_PLAYWRIGHT_SMOKE:-0}"
+NATIVE_DESKTOP_TIMEOUT_SECONDS="${QUILLCODE_NATIVE_DESKTOP_TIMEOUT_SECONDS:-900}"
+PACKAGED_MACOS_TIMEOUT_SECONDS="${QUILLCODE_PACKAGED_MACOS_TIMEOUT_SECONDS:-1200}"
+PLAYWRIGHT_TIMEOUT_SECONDS="${QUILLCODE_PLAYWRIGHT_TIMEOUT_SECONDS:-900}"
 STARTED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 FINAL_DETAIL="interrupted"
 SWIFT_TESTS_STATUS="not-run"
@@ -37,6 +40,34 @@ fi
 
 log_step() {
   printf '==> [%s] %s\n' "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" "$1"
+}
+
+run_with_timeout() {
+  local timeout_seconds="$1"
+  local label="$2"
+  shift 2
+
+  "$@" &
+  local pid="$!"
+  local elapsed=0
+  local interval=5
+
+  while kill -0 "$pid" 2>/dev/null; do
+    if [[ "$elapsed" -ge "$timeout_seconds" ]]; then
+      echo "$label timed out after ${timeout_seconds}s." >&2
+      kill "$pid" 2>/dev/null || true
+      sleep 2
+      if kill -0 "$pid" 2>/dev/null; then
+        kill -9 "$pid" 2>/dev/null || true
+      fi
+      wait "$pid" 2>/dev/null || true
+      return 124
+    fi
+    sleep "$interval"
+    elapsed=$((elapsed + interval))
+  done
+
+  wait "$pid"
 }
 
 write_manifest() {
@@ -524,7 +555,8 @@ LIVE_ERROR_STATUS="passed"
 log_step "Running native desktop smoke"
 NATIVE_DESKTOP_STATUS="running"
 FINAL_DETAIL="native desktop smoke failed"
-QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/native-desktop}" \
+run_with_timeout "$NATIVE_DESKTOP_TIMEOUT_SECONDS" "native desktop smoke" \
+  env QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/native-desktop}" \
   "$ROOT_DIR/scripts/native-desktop-smoke.sh"
 NATIVE_DESKTOP_STATUS="passed"
 
@@ -533,7 +565,8 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   PACKAGED_MACOS_STATUS="running"
   PACKAGED_MACOS_DETAIL="running"
   FINAL_DETAIL="packaged macOS smoke failed"
-  QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/packaged-macos}" \
+  run_with_timeout "$PACKAGED_MACOS_TIMEOUT_SECONDS" "packaged macOS smoke" \
+    env QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/packaged-macos}" \
     "$ROOT_DIR/scripts/packaged-macos-smoke.sh"
   PACKAGED_MACOS_STATUS="passed"
   PACKAGED_MACOS_DETAIL="completed"
@@ -544,11 +577,13 @@ if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then
   PLAYWRIGHT_STATUS="running"
   PLAYWRIGHT_DETAIL="running"
   FINAL_DETAIL="Playwright E2E failed"
-  (
+  run_with_timeout "$PLAYWRIGHT_TIMEOUT_SECONDS" "Playwright E2E suite" \
+    env ROOT_DIR="$ROOT_DIR" ARTIFACT_DIR="$ARTIFACT_DIR" bash -c '
+    set -euo pipefail
     cd "$ROOT_DIR/E2E/playwright"
     QUILLCODE_PLAYWRIGHT_REAL_WORLD_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/playwright-real-world}" \
       npm test
-  )
+  '
   assert_playwright_real_world_manifest
   PLAYWRIGHT_STATUS="passed"
   PLAYWRIGHT_DETAIL="completed"

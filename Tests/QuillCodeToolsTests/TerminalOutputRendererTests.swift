@@ -50,6 +50,21 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render(raw), "after")
     }
 
+    func testSoftResetPreservesScreenButResetsStyleModesAndTabs() {
+        let raw = "\u{1B}[3g"
+            + "\u{1B}[?1000;1006h"
+            + "\u{1B}[31mred"
+            + "\u{1B}[!p"
+            + " plain"
+            + "\r\u{1B}[2K"
+            + "X\tY"
+        let frame = TerminalOutputRenderer.renderFrame(raw)
+
+        XCTAssertEqual(frame.text, "X       Y")
+        XCTAssertEqual(frame.mouseReporting, .disabled)
+        XCTAssertEqual(frame.runs, [TerminalTextRun(text: "X       Y")])
+    }
+
     func testPreservesSGRColorsAndEmphasisAsStyledRuns() {
         let frame = TerminalOutputRenderer.renderFrame(
             "plain \u{1B}[1;3;4;31;44mstyled\u{1B}[22;23;24;39;49m done"
