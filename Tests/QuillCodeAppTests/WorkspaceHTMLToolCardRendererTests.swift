@@ -830,6 +830,68 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesPytestJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("report.json")
+        let reportText = """
+        {
+          "duration": 12.345,
+          "exitcode": 1,
+          "summary": {
+            "total": 5,
+            "passed": 2,
+            "failed": 1,
+            "error": 1,
+            "skipped": 1
+          },
+          "tests": [
+            {"nodeid": "tests/test_app.py::test_renders_prompt", "outcome": "passed"},
+            {"nodeid": "tests/test_app.py::test_writes_file", "outcome": "failed"},
+            {"nodeid": "tests/test_cli.py::test_bootstrap", "outcome": "error"}
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/report.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/report.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "pytest artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">report.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pytest-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pytest-json-preview-meta">Format: pytest JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pytest-json-preview-meta">Exit code: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pytest-json-preview-meta">Duration: 12.3s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pytest-json-preview-meta">5 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pytest-json-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pytest-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pytest-json-preview-failure-item">tests/test_app.py::test_writes_file"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesHARArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

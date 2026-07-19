@@ -67,6 +67,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             istanbulContent(istanbulPreview)
         } else if let coveragePyPreview = artifact.coveragePyPreview {
             coveragePyContent(coveragePyPreview)
+        } else if let pytestJSONPreview = artifact.pytestJSONPreview {
+            pytestJSONContent(pytestJSONPreview)
         } else if let harPreview = artifact.harPreview {
             harContent(harPreview)
         } else if let lcovPreview = artifact.lcovPreview {
@@ -239,6 +241,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(coveragePyPreview.metadataLines)
             artifactContentList(title: "Source files", labels: coveragePyPreview.filePreviewLabels)
+        }
+    }
+
+    private func pytestJSONContent(_ pytestJSONPreview: ToolArtifactPytestJSONPreview) -> some View {
+        previewSurface(minHeight: pytestJSONPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pytestJSONPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: pytestJSONPreview.failurePreviewLabels)
         }
     }
 

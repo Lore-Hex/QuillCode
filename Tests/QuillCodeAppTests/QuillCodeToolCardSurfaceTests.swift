@@ -1288,6 +1288,74 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteCoveragePy.coveragePyPreview)
     }
 
+    func testArtifactStateDerivesPytestJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("report.json")
+        let content = """
+        {
+          "created": 1780000000.0,
+          "duration": 12.345,
+          "exitcode": 1,
+          "root": "/workspace",
+          "summary": {
+            "total": 5,
+            "passed": 2,
+            "failed": 1,
+            "error": 1,
+            "skipped": 1,
+            "xfailed": 0,
+            "xpassed": 0
+          },
+          "tests": [
+            {"nodeid": "tests/test_app.py::test_renders_prompt", "outcome": "passed"},
+            {"nodeid": "tests/test_app.py::test_writes_file", "outcome": "failed"},
+            {"nodeid": "tests/test_cli.py::test_bootstrap", "outcome": "error"},
+            {"nodeid": "tests/test_cli.py::test_skip", "outcome": "skipped"}
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pytestJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "pytest JSON")
+        XCTAssertEqual(preview.exitCode, 1)
+        XCTAssertEqual(preview.durationLabel, "12.3s")
+        XCTAssertEqual(preview.totalCount, 5)
+        XCTAssertEqual(preview.passedCount, 2)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.failurePreviewLabels, [
+            "tests/test_app.py::test_writes_file",
+            "tests/test_cli.py::test_bootstrap"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: pytest JSON",
+            "Exit code: 1",
+            "Duration: 12.3s",
+            "5 tests",
+            "Passed: 2",
+            "Failed: 1",
+            "Errors: 1",
+            "Skipped: 1",
+            "XFailed: 0",
+            "XPassed: 0",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"status":"passed","durationMs":42}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).pytestJSONPreview)
+
+        let remotePytest = ToolArtifactState(value: "https://example.com/report.json")
+        XCTAssertNil(remotePytest.pytestJSONPreview)
+    }
+
     func testArtifactStateDerivesJUnitPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("TEST-QuillCode.xml")
