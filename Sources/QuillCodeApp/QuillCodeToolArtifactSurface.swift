@@ -2927,6 +2927,78 @@ public struct ToolArtifactJSONLinesPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCargoCompilerJSONLinesPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var diagnosticCount: Int
+    public var fileCount: Int
+    public var codeCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var noteCount: Int
+    public var helpCount: Int
+    public var otherLevelCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var codePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(diagnosticCount) diagnostic\(diagnosticCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(codeCount) code\(codeCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            noteCount > 0 ? "Notes: \(noteCount)" : nil,
+            helpCount > 0 ? "Help: \(helpCount)" : nil,
+            otherLevelCount > 0 ? "Other levels: \(otherLevelCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        diagnosticCount > 0
+            || fileCount > 0
+            || codeCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || noteCount > 0
+            || helpCount > 0
+            || otherLevelCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !codePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Cargo Compiler JSONL",
+        diagnosticCount: Int,
+        fileCount: Int,
+        codeCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        noteCount: Int = 0,
+        helpCount: Int = 0,
+        otherLevelCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        codePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.diagnosticCount = diagnosticCount
+        self.fileCount = fileCount
+        self.codeCount = codeCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.noteCount = noteCount
+        self.helpCount = helpCount
+        self.otherLevelCount = otherLevelCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.codePreviewLabels = codePreviewLabels
+    }
+}
+
 public struct ToolArtifactTOMLPreview: Codable, Sendable, Hashable {
     public var topLevelKeyCount: Int
     public var tableCount: Int
@@ -4345,7 +4417,11 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactNotebookPreviewBuilder.notebookPreview(for: value, kind: kind)
     }
     public var jsonLinesPreview: ToolArtifactJSONLinesPreview? {
-        ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: kind)
+        guard cargoCompilerJSONLinesPreview == nil else { return nil }
+        return ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: kind)
+    }
+    public var cargoCompilerJSONLinesPreview: ToolArtifactCargoCompilerJSONLinesPreview? {
+        ToolArtifactCargoCompilerJSONLinesPreviewBuilder.cargoCompilerJSONLinesPreview(for: value, kind: kind)
     }
     public var tomlPreview: ToolArtifactTOMLPreview? {
         ToolArtifactTOMLPreviewBuilder.tomlPreview(for: value, kind: kind)

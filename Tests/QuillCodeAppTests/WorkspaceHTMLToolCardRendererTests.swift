@@ -3136,6 +3136,60 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesCargoCompilerJSONLinesArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("cargo-clippy.jsonl")
+        let reportText = """
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"unused variable: `value`","code":{"code":"unused_variables"},"level":"warning","spans":[{"file_name":"/repo/src/lib.rs","is_primary":true}]}}
+        {"reason":"compiler-artifact","package_id":"pkg 0.1.0"}
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"mismatched types","code":{"code":"E0308"},"level":"error","spans":[{"file_name":"/repo/src/main.rs","is_primary":true}]}}
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/cargo-clippy.jsonl"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/cargo-clippy.jsonl\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Cargo artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">cargo-clippy.jsonl"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">Format: Cargo Compiler JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">2 diagnostics"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">2 codes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-file-item">repo/src/lib.rs"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-file-item">repo/src/main.rs"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-code-title">Codes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-code-item">unused_variables"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-code-item">E0308"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-lines-preview""#))
+    }
+
     func testHTMLRendererIncludesTOMLArtifactPreview() throws {
         let root = try makeTempDirectory()
         let quillDirectory = root.appendingPathComponent(".quillcode", isDirectory: true)

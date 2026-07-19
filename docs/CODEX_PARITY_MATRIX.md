@@ -151,6 +151,10 @@
   package/version/source/checksum counts, file size, capped package labels, and capped source labels
   without expanding dependency arrays, full checksums, manifests, crates, or fetching remote
   registries/repositories.
+- Artifact previews now include bounded local Cargo compiler/Clippy JSONL metadata for `.jsonl`
+  and `.ndjson` streams whose records include Cargo `compiler-message` entries: diagnostic/file/code
+  and level counts, file size, capped file labels, and capped diagnostic-code labels without reading
+  Rust source files, invoking Cargo, expanding spans, or fetching remote reports.
 - Artifact previews now include bounded local font metadata for `.ttf`, `.otf`, `.ttc`, `.woff`,
   and `.woff2` files by validating fixed headers and rendering format, flavor, table count,
   declared size, and file size without parsing tables or decompressing webfont payloads.

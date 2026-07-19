@@ -137,6 +137,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             goCoverageContent(goCoveragePreview)
         } else if let sarifPreview = artifact.sarifPreview {
             sarifContent(sarifPreview)
+        } else if let cargoCompilerJSONLinesPreview = artifact.cargoCompilerJSONLinesPreview {
+            cargoCompilerJSONLinesContent(cargoCompilerJSONLinesPreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
             jsonLinesContent(jsonLinesPreview)
         } else if let tomlPreview = artifact.tomlPreview {
@@ -891,6 +893,25 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(jsonLinesPreview.metadataLines)
             artifactContentList(title: "Observed keys", labels: jsonLinesPreview.keyPreviewLabels)
+        }
+    }
+
+    private func cargoCompilerJSONLinesContent(
+        _ cargoCompilerJSONLinesPreview: ToolArtifactCargoCompilerJSONLinesPreview
+    ) -> some View {
+        let hasLists = !cargoCompilerJSONLinesPreview.filePreviewLabels.isEmpty
+            || !cargoCompilerJSONLinesPreview.codePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 142 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(cargoCompilerJSONLinesPreview.metadataLines)
+            artifactContentList(title: "Files", labels: cargoCompilerJSONLinesPreview.filePreviewLabels)
+            artifactContentList(title: "Codes", labels: cargoCompilerJSONLinesPreview.codePreviewLabels)
         }
     }
 

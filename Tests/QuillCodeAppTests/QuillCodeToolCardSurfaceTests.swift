@@ -2141,6 +2141,58 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJSONLines.jsonLinesPreview)
     }
 
+    func testArtifactStateDerivesCargoCompilerJSONLinesPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("cargo-clippy.jsonl")
+        let content = """
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"unused variable: `value`","code":{"code":"unused_variables"},"level":"warning","spans":[{"file_name":"/repo/src/lib.rs","is_primary":true}]}}
+        {"reason":"compiler-artifact","package_id":"pkg 0.1.0"}
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"mismatched types","code":{"code":"E0308"},"level":"error","spans":[{"file_name":"/repo/src/main.rs","is_primary":true}]}}
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"consider borrowing here","level":"help","spans":[{"file_name":"/repo/src/main.rs","is_primary":false}]}}
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.cargoCompilerJSONLinesPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSONL")
+        XCTAssertEqual(preview.formatLabel, "Cargo Compiler JSONL")
+        XCTAssertEqual(preview.diagnosticCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.codeCount, 2)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.helpCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/src/lib.rs",
+            "repo/src/main.rs"
+        ])
+        XCTAssertEqual(preview.codePreviewLabels, [
+            "unused_variables",
+            "E0308"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Cargo Compiler JSONL",
+            "3 diagnostics",
+            "2 files",
+            "2 codes",
+            "Errors: 1",
+            "Warnings: 1",
+            "Help: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonLinesPreview)
+
+        let generic = directory.appendingPathComponent("events.jsonl")
+        try #"{"event":"started","level":"info"}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).cargoCompilerJSONLinesPreview)
+
+        let remoteCargo = ToolArtifactState(value: "https://example.com/cargo-clippy.jsonl")
+        XCTAssertNil(remoteCargo.cargoCompilerJSONLinesPreview)
+    }
+
     func testArtifactStateDerivesTOMLPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let config = directory.appendingPathComponent("config.toml")
