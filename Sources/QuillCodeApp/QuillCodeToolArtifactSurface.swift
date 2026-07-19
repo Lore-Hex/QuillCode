@@ -966,6 +966,61 @@ public struct ToolArtifactXMLPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactJUnitPreview: Codable, Sendable, Hashable {
+    public var suiteCount: Int
+    public var testCount: Int
+    public var failureCount: Int
+    public var errorCount: Int
+    public var skippedCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var suitePreviewLabels: [String]
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: JUnit XML",
+            "\(suiteCount) suite\(suiteCount == 1 ? "" : "s")",
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            failureCount > 0 ? "Failures: \(failureCount)" : nil,
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        suiteCount > 0
+            || testCount > 0
+            || !metadataLines.isEmpty
+            || !suitePreviewLabels.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        suiteCount: Int,
+        testCount: Int,
+        failureCount: Int = 0,
+        errorCount: Int = 0,
+        skippedCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        suitePreviewLabels: [String] = [],
+        failurePreviewLabels: [String] = []
+    ) {
+        self.suiteCount = suiteCount
+        self.testCount = testCount
+        self.failureCount = failureCount
+        self.errorCount = errorCount
+        self.skippedCount = skippedCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.suitePreviewLabels = suitePreviewLabels
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactPropertyListPreview: Codable, Sendable, Hashable {
     public var rootLabel: String
     public var formatLabel: String?
@@ -1350,6 +1405,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var yamlPreview: ToolArtifactYAMLPreview? {
         ToolArtifactYAMLPreviewBuilder.yamlPreview(for: value, kind: kind)
+    }
+    public var junitPreview: ToolArtifactJUnitPreview? {
+        ToolArtifactJUnitPreviewBuilder.junitPreview(for: value, kind: kind)
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
         ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
