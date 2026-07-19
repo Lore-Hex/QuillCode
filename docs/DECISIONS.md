@@ -2271,3 +2271,22 @@
   report parsers, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesJaCoCoArtifactPreview` covers static
   HTML selectors, rendered coverage metadata, content lists, and generic XML suppression.
+
+## 2026-07-19: Istanbul JSON artifacts render bounded coverage summaries
+
+- **Decision:** Local JSON artifacts that match Istanbul/nyc `coverage-final.json` or
+  `coverage-summary.json` shapes render as structured Istanbul coverage cards instead of generic JSON.
+  The preview shows source-file count, line/statement/branch/function coverage, file size, and capped
+  source-file labels.
+- **Why:** JavaScript and TypeScript projects commonly emit Istanbul/nyc JSON while coding agents fix
+  test coverage. A Codex-style artifact surface should make the coverage shape visible without asking
+  the model to inspect raw JSON or re-run project tooling.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It reads only the artifact JSON, never executes coverage tools, never follows covered source
+  paths, never reads referenced source files, and never fetches remote coverage URLs. Generic JSON
+  rendering is suppressed only after an Istanbul coverage shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesIstanbulPreviewMetadata`
+  covers final-report counters, summary-report counters, source-file labels, generic JSON exclusion,
+  and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesIstanbulArtifactPreview` covers static
+  HTML selectors, rendered coverage metadata, content lists, and generic JSON suppression.

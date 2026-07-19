@@ -212,6 +212,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let htmlPreview = renderHTMLPreview(artifact.htmlPreview)
             let diffPreview = renderDiffPreview(artifact.diffPreview)
             let tablePreview = renderTablePreview(artifact.tablePreview)
+            let istanbulPreviewModel = artifact.istanbulPreview
+            let istanbulPreview = renderIstanbulPreview(istanbulPreviewModel)
             let harPreview = renderHARPreview(artifact.harPreview)
             let lcovPreview = renderLCOVPreview(artifact.lcovPreview)
             let sarifPreview = renderSARIFPreview(artifact.sarifPreview)
@@ -240,7 +242,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let fontPreview = renderFontPreview(artifact.fontPreview)
             let executablePreview = renderExecutablePreview(artifact.executablePreview)
             let notebookPreview = renderNotebookPreview(artifact.notebookPreview)
-            let jsonPreview = renderJSONPreview(artifact.jsonPreview)
+            let jsonPreview = istanbulPreviewModel == nil ? renderJSONPreview(artifact.jsonPreview) : ""
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
             let archivePreview = renderArchivePreview(artifact.archivePreview)
             let mediaPreview = renderMediaPreview(artifact.mediaPreview)
@@ -260,6 +262,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(htmlPreview)
               \(diffPreview)
               \(tablePreview)
+              \(istanbulPreview)
               \(harPreview)
               \(lcovPreview)
               \(sarifPreview)
@@ -601,6 +604,31 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(hostList)
+        </div>
+        """
+    }
+
+    private static func renderIstanbulPreview(_ preview: ToolArtifactIstanbulPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-istanbul-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-istanbul-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-istanbul-preview-files">
+                <strong data-testid="tool-card-istanbul-preview-file-title">Source files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-istanbul-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
         </div>
         """
     }

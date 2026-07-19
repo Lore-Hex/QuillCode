@@ -104,6 +104,10 @@
   whose root is `report` plus JaCoCo package/session/counter markers: package/source/class counts,
   line/branch/method/class coverage, file size, package labels, and source-file labels without
   executing coverage tooling or following paths.
+- Artifact previews now include bounded local Istanbul/nyc JSON coverage-report metadata for
+  `coverage-final.json` and `coverage-summary.json` style artifacts: source-file counts,
+  line/statement/branch/function coverage, file size, and capped source-file previews without
+  executing coverage tooling, following report paths, or fetching remote JSON.
 - Artifact previews now include bounded local INI-style config metadata for `.ini`, `.cfg`, and `.conf`:
   section/key counts, file size, truncation state, and capped section previews.
 - Artifact previews now include bounded local dotenv metadata for `.env` and `.env.*` files:
