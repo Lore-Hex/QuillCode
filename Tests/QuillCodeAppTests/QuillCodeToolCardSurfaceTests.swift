@@ -1238,6 +1238,77 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteUVLock.uvLockPreview)
     }
 
+    func testArtifactStateDerivesGemfileLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("Gemfile.lock")
+        let lockText = """
+        GEM
+          remote: https://rubygems.org/
+          specs:
+            actionpack (7.1.3)
+              actionview (= 7.1.3)
+            nokogiri (1.16.2-arm64-darwin)
+
+        GIT
+          remote: https://github.com/Lore-Hex/quill-ruby-gem.git
+          revision: 1234567890abcdef
+          specs:
+            quill-ruby-gem (0.1.0)
+
+        PLATFORMS
+          arm64-darwin-23
+          ruby
+
+        DEPENDENCIES
+          rails (~> 7.1)
+          quill-ruby-gem!
+
+        BUNDLED WITH
+           2.5.6
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.gemfileLockPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "GEMFILE-LOCK")
+        XCTAssertEqual(preview.bundledWith, "2.5.6")
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.dependencyCount, 2)
+        XCTAssertEqual(preview.platformCount, 2)
+        XCTAssertEqual(preview.sourceCount, 2)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "rubygems.org",
+            "github.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "actionpack@7.1.3",
+            "nokogiri@1.16.2-arm64-darwin",
+            "quill-ruby-gem@0.1.0"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Bundler lockfile",
+            "Bundler: 2.5.6",
+            "3 gems",
+            "2 dependencies",
+            "2 platforms",
+            "2 sources",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notGemfileLock = directory.appendingPathComponent("Gemfile")
+        try lockText.write(to: notGemfileLock, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notGemfileLock.path).gemfileLockPreview)
+
+        let remoteGemfileLock = ToolArtifactState(value: "https://example.com/Gemfile.lock")
+        XCTAssertNil(remoteGemfileLock.gemfileLockPreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")

@@ -2684,3 +2684,21 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesUVLockArtifactPreview` covers static
   HTML selectors, rendered uv metadata, package/source lists, generic TOML suppression, and
   text-preview coexistence.
+
+## 2026-07-19: Gemfile.lock artifacts render bounded Bundler summaries
+
+- **Decision:** Local `Gemfile.lock` artifacts render as structured Bundler lockfile cards. The
+  preview shows Bundler version, gem, dependency, platform, and source counts, file size, capped gem
+  labels, and capped source labels. `Gemfile.lock` is classified as a data artifact through
+  filename-specific detection.
+- **Why:** Ruby projects often expose dependency changes through `Gemfile.lock`; a bounded gem/source
+  summary keeps those artifacts scannable without forcing the user to inspect raw lockfile sections.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `Gemfile.lock`, and capped at 512 KB. It reads only shallow Bundler sections for `GEM`, `GIT`,
+  `PATH`, `PLATFORMS`, `DEPENDENCIES`, and `BUNDLED WITH`; it never expands dependency graphs,
+  validates checksums, reads gem metadata, contacts gem indexes, or fetches distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesGemfileLockPreviewMetadata`
+  covers filename-based document classification, Bundler version, gem/dependency/platform/source
+  counts, gem labels, source labels, non-`Gemfile.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesGemfileLockArtifactPreview` covers
+  static HTML selectors, rendered Bundler metadata, gem/source lists, and text-preview coexistence.

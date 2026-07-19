@@ -119,6 +119,10 @@
   Python requirement, package/version/dependency/source/hash counts, file size, capped package labels,
   and capped source labels without expanding dependency graphs, validating hashes, reading package
   metadata, or fetching package indexes/distributions.
+- Artifact previews now include bounded local Bundler lockfile metadata for `Gemfile.lock` files:
+  Bundler version, gem/dependency/platform/source counts, file size, capped gem labels, and capped
+  source labels without expanding dependency graphs, validating checksums, reading gem metadata, or
+  fetching gem indexes/distributions.
 - Artifact previews now include bounded local pnpm lockfile metadata for `pnpm-lock.yaml` files:
   lockfile version, importer/package/dependency/integrity counts, file size, capped importer labels,
   capped package labels, and capped resolved registry hosts without expanding dependency graphs,
