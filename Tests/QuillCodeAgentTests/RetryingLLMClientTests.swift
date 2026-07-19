@@ -84,6 +84,9 @@ final class RetryingLLMClientTests: XCTestCase {
         XCTAssertEqual(RetryClassifier.classify(URLError(.notConnectedToInternet)), .transport)
         XCTAssertEqual(RetryClassifier.classify(URLError(.badServerResponse)), .transport)
         XCTAssertEqual(RetryClassifier.classify(URLError(.badURL)), .none)
+        // -999: a peer/LB connection teardown surfaced as URLError.cancelled is transient. User stops
+        // are still honored — the retry loop checks Task cancellation before any retry (test below).
+        XCTAssertEqual(RetryClassifier.classify(URLError(.cancelled)), .transport)
         // A TLS/cert failure is deterministic — must NOT be retried.
         XCTAssertEqual(RetryClassifier.classify(URLError(.secureConnectionFailed)), .none)
         // Raw POSIX socket faults surface as NSError and should still be treated as transport.
@@ -251,5 +254,35 @@ final class RetryingLLMClientTests: XCTestCase {
         for try await event in stream { events.append(event) }
         XCTAssertEqual(events, [.text("ok")])
         XCTAssertEqual(flaky.callCount, 2)               // 1 failure + 1 success
+    }
+
+    func testPeerCancelledURLErrorIsRetried() async throws {
+        // -999 from a peer/LB teardown (task NOT cancelled) must be retried on a fresh connection —
+        // this exact signature killed an unattended run (coworker-program finding F6).
+        let flaky = FlakyClient(failures: [URLError(.cancelled)])
+        let client = makeClient(flaky)
+        let action = try await client.nextAction(thread: thread, userMessage: "hi", tools: [])
+        XCTAssertEqual(action, .say("ok"))
+        XCTAssertEqual(flaky.callCount, 2)
+    }
+
+    func testUserStopIsNotRetriedEvenThoughItSurfacesAsCancelledURLError() async throws {
+        // A user Stop cancels the owning Swift Task; CFNetwork surfaces the in-flight request as
+        // URLError(.cancelled). The retry loop's Task.checkCancellation() must convert that into a
+        // CancellationError instead of retrying a run the user just stopped.
+        let flaky = FlakyClient(failures: [URLError(.cancelled), URLError(.cancelled), URLError(.cancelled)])
+        let client = makeClient(flaky)
+        let capturedThread = thread
+        let task = Task {
+            try await client.nextAction(thread: capturedThread, userMessage: "hi", tools: [])
+        }
+        task.cancel()
+        do {
+            _ = try await task.value
+            XCTFail("expected cancellation")
+        } catch is CancellationError {
+            // Correct: honored the stop instead of retrying.
+        }
+        XCTAssertLessThanOrEqual(flaky.callCount, 1, "a cancelled task must not get retry attempts")
     }
 }
