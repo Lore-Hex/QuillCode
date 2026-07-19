@@ -73,6 +73,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             jestJSONContent(jestJSONPreview)
         } else if let npmLockfilePreview = artifact.npmLockfilePreview {
             npmLockfileContent(npmLockfilePreview)
+        } else if let pnpmLockfilePreview = artifact.pnpmLockfilePreview {
+            pnpmLockfileContent(pnpmLockfilePreview)
         } else if let swiftPMPackageResolvedPreview = artifact.swiftPMPackageResolvedPreview {
             swiftPMPackageResolvedContent(swiftPMPackageResolvedPreview)
         } else if let yarnLockfilePreview = artifact.yarnLockfilePreview {
@@ -307,6 +309,25 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(npmLockfilePreview.metadataLines)
             artifactContentList(title: "Packages", labels: npmLockfilePreview.packagePreviewLabels)
             artifactContentList(title: "Sources", labels: npmLockfilePreview.resolvedHostLabels)
+        }
+    }
+
+    private func pnpmLockfileContent(_ pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview) -> some View {
+        let hasLists = !pnpmLockfilePreview.packagePreviewLabels.isEmpty
+            || !pnpmLockfilePreview.importerPreviewLabels.isEmpty
+            || !pnpmLockfilePreview.resolvedHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 176 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pnpmLockfilePreview.metadataLines)
+            artifactContentList(title: "Packages", labels: pnpmLockfilePreview.packagePreviewLabels)
+            artifactContentList(title: "Importers", labels: pnpmLockfilePreview.importerPreviewLabels)
+            artifactContentList(title: "Sources", labels: pnpmLockfilePreview.resolvedHostLabels)
         }
     }
 

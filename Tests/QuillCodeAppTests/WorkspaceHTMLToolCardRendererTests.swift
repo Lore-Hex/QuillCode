@@ -934,6 +934,68 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">yarn.lock"#))
     }
 
+    func testHTMLRendererIncludesPNPMLockfileArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("pnpm-lock.yaml")
+        try """
+        lockfileVersion: '9.0'
+
+        importers:
+          .:
+            dependencies:
+              '@playwright/test':
+                specifier: ^1.55.0
+                version: 1.55.0
+
+        packages:
+          /@playwright/test@1.55.0:
+            resolution:
+              integrity: sha512-playwright
+              tarball: https://registry.npmjs.org/@playwright/test/-/test-1.55.0.tgz
+          /lucide-react@0.468.0:
+            resolution:
+              integrity: sha512-lucide
+              tarball: https://registry.yarnpkg.com/lucide-react/-/lucide-react-0.468.0.tgz
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"pnpm-lock.yaml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote pnpm-lock.yaml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "pnpm lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · PNPM-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">pnpm-lock.yaml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-meta">Format: pnpm lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-meta">Lockfile: 9.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-package-item">@playwright/test@1.55.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-package-item">lucide-react@0.468.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-importer-item">."#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-host-item">registry.npmjs.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-host-item">registry.yarnpkg.com"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-yaml-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">pnpm-lock.yaml"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")
