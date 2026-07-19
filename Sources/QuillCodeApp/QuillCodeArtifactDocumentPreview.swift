@@ -65,6 +65,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             tableContent(tablePreview)
         } else if let istanbulPreview = artifact.istanbulPreview {
             istanbulContent(istanbulPreview)
+        } else if let coveragePyPreview = artifact.coveragePyPreview {
+            coveragePyContent(coveragePyPreview)
         } else if let harPreview = artifact.harPreview {
             harContent(harPreview)
         } else if let lcovPreview = artifact.lcovPreview {
@@ -223,6 +225,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(istanbulPreview.metadataLines)
             artifactContentList(title: "Source files", labels: istanbulPreview.filePreviewLabels)
+        }
+    }
+
+    private func coveragePyContent(_ coveragePyPreview: ToolArtifactCoveragePyPreview) -> some View {
+        previewSurface(minHeight: coveragePyPreview.filePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.bar.xaxis")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(coveragePyPreview.metadataLines)
+            artifactContentList(title: "Source files", labels: coveragePyPreview.filePreviewLabels)
         }
     }
 

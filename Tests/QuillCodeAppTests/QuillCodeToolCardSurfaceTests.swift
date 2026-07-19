@@ -1220,6 +1220,74 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteIstanbul.istanbulPreview)
     }
 
+    func testArtifactStateDerivesCoveragePyPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("coverage.json")
+        let content = """
+        {
+          "meta": {"format": 2, "version": "7.6.1", "branch_coverage": true},
+          "files": {
+            "src/quillcode/app.py": {
+              "executed_lines": [1, 2, 4],
+              "summary": {
+                "covered_lines": 3,
+                "num_statements": 4,
+                "covered_branches": 1,
+                "num_branches": 2
+              }
+            },
+            "tests/test_app.py": {
+              "executed_lines": [1, 2],
+              "summary": {
+                "covered_lines": 2,
+                "num_statements": 2,
+                "covered_branches": 0,
+                "num_branches": 0
+              }
+            }
+          },
+          "totals": {
+            "covered_lines": 5,
+            "num_statements": 6,
+            "covered_branches": 1,
+            "num_branches": 2
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.coveragePyPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "coverage.py JSON")
+        XCTAssertEqual(preview.versionLabel, "7.6.1")
+        XCTAssertEqual(preview.sourceFileCount, 2)
+        XCTAssertEqual(preview.lineCoverageLabel, "83.3% (5/6)")
+        XCTAssertEqual(preview.branchCoverageLabel, "50% (1/2)")
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "quillcode/app.py · 75%",
+            "tests/test_app.py · 100%"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: coverage.py JSON",
+            "Version: 7.6.1",
+            "2 source files",
+            "Lines: 83.3% (5/6)",
+            "Branches: 50% (1/2)",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"status":"passed","durationMs":42}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).coveragePyPreview)
+
+        let remoteCoveragePy = ToolArtifactState(value: "https://example.com/coverage.json")
+        XCTAssertNil(remoteCoveragePy.coveragePyPreview)
+    }
+
     func testArtifactStateDerivesJUnitPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("TEST-QuillCode.xml")

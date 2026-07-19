@@ -112,6 +112,10 @@
   `coverage-final.json` and `coverage-summary.json` style artifacts: source-file counts,
   line/statement/branch/function coverage, file size, and capped source-file previews without
   executing coverage tooling, following report paths, or fetching remote JSON.
+- Artifact previews now include bounded local coverage.py JSON metadata for `coverage json`
+  artifacts with `meta`, `files`, and `totals`: source-file counts, line/branch coverage, file size,
+  and capped source-file previews without running coverage.py, following report paths, or fetching
+  remote JSON.
 - Artifact previews now include bounded local INI-style config metadata for `.ini`, `.cfg`, and `.conf`:
   section/key counts, file size, truncation state, and capped section previews.
 - Artifact previews now include bounded local dotenv metadata for `.env` and `.env.*` files:
