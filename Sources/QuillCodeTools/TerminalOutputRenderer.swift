@@ -2,7 +2,7 @@ import Foundation
 
 /// Renders raw terminal (PTY) output into clean display text by applying the line-discipline control
 /// sequences that command output commonly relies on: SGR color/style preservation, carriage-return line
-/// overwrite, C0 line controls, backspace, fixed tab stops, cursor-addressed redraws, erase-line /
+/// overwrite, C0/C1 line controls, backspace, fixed tab stops, cursor-addressed redraws, erase-line /
 /// erase-display, and bell removal.
 /// Without this, raw PTY output shows literal escape codes (`^[[31m`) and progress bars / TUI panes
 /// pile up across the transcript instead of repainting in place.
@@ -42,8 +42,9 @@ public enum TerminalOutputRenderer {
     static func requiresTerminalRendering(_ raw: String) -> Bool {
         raw.unicodeScalars.contains { scalar in
             let value = scalar.value
-            return value < 0x20 || value == 0x7F || value == 0x90 || value == 0x98
-                || value == 0x9B || value == 0x9D || value == 0x9E || value == 0x9F
+            return value < 0x20 || value == 0x7F || value == 0x84 || value == 0x85
+                || value == 0x8D || value == 0x90 || value == 0x98 || value == 0x9B
+                || value == 0x9D || value == 0x9E || value == 0x9F
         }
     }
 }

@@ -58,6 +58,16 @@ struct TerminalScreenBuffer {
                 i = handleEscape(scalars, from: i)
             case "\u{9B}":  // C1 CSI: single-scalar Control Sequence Introducer
                 i = handleCSI(scalars, paramsStart: i + 1)
+            case "\u{84}":  // C1 IND: index
+                lineFeed()
+                i += 1
+            case "\u{85}":  // C1 NEL: next line
+                lineFeed()
+                col = 0
+                i += 1
+            case "\u{8D}":  // C1 RI: reverse index
+                reverseIndex()
+                i += 1
             case "\u{9D}":  // C1 OSC: Operating System Command
                 i = consumeStringControl(scalars, bodyStart: i + 1)
             case "\u{90}", "\u{98}", "\u{9E}", "\u{9F}":  // C1 DCS/SOS/PM/APC string controls
