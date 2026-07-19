@@ -216,6 +216,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let istanbulPreview = renderIstanbulPreview(istanbulPreviewModel)
             let harPreview = renderHARPreview(artifact.harPreview)
             let lcovPreview = renderLCOVPreview(artifact.lcovPreview)
+            let goCoveragePreview = renderGoCoveragePreview(artifact.goCoveragePreview)
             let sarifPreview = renderSARIFPreview(artifact.sarifPreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = renderTOMLPreview(artifact.tomlPreview)
@@ -265,6 +266,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(istanbulPreview)
               \(harPreview)
               \(lcovPreview)
+              \(goCoveragePreview)
               \(sarifPreview)
               \(jsonLinesPreview)
               \(tomlPreview)
@@ -652,6 +654,33 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty || !sourceList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-lcov-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(sourceList)
+        </div>
+        """
+    }
+
+    private static func renderGoCoveragePreview(_ preview: ToolArtifactGoCoveragePreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-go-coverage-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let sourceFiles = preview.sourcePreviewLabels.map {
+            #"<li data-testid="tool-card-go-coverage-preview-source-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sourceList = sourceFiles.isEmpty
+            ? ""
+            : """
+              <section class="artifact-office-contents" data-testid="tool-card-go-coverage-preview-sources">
+                <strong data-testid="tool-card-go-coverage-preview-source-title">Source files</strong>
+                <ul>\(sourceFiles)</ul>
+              </section>
+            """
+        guard !metadata.isEmpty || !sourceList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-go-coverage-preview">
           <div>
             \(metadata)
           </div>

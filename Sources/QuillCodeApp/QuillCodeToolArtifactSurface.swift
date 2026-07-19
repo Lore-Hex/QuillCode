@@ -684,6 +684,75 @@ public struct ToolArtifactLCOVPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactGoCoveragePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var modeLabel: String?
+    public var sourceFileCount: Int
+    public var blockCount: Int
+    public var statementCoveredCount: Int
+    public var statementTotalCount: Int
+    public var byteSizeLabel: String?
+    public var isTruncated: Bool
+    public var sourcePreviewLabels: [String]
+
+    public var statementCoverageLabel: String? {
+        coverageLabel(covered: statementCoveredCount, total: statementTotalCount)
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            modeLabel.map { "Mode: \($0)" },
+            "\(sourceFileCount) source file\(sourceFileCount == 1 ? "" : "s")",
+            "\(blockCount) block\(blockCount == 1 ? "" : "s")",
+            statementCoverageLabel.map { "Statements: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" },
+            isTruncated ? "Preview: first 512 KB scanned" : nil
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        sourceFileCount > 0
+            || blockCount > 0
+            || statementCoverageLabel != nil
+            || byteSizeLabel != nil
+            || isTruncated
+            || !sourcePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Go coverage",
+        modeLabel: String? = nil,
+        sourceFileCount: Int,
+        blockCount: Int,
+        statementCoveredCount: Int,
+        statementTotalCount: Int,
+        byteSizeLabel: String? = nil,
+        isTruncated: Bool = false,
+        sourcePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.modeLabel = modeLabel
+        self.sourceFileCount = sourceFileCount
+        self.blockCount = blockCount
+        self.statementCoveredCount = statementCoveredCount
+        self.statementTotalCount = statementTotalCount
+        self.byteSizeLabel = byteSizeLabel
+        self.isTruncated = isTruncated
+        self.sourcePreviewLabels = sourcePreviewLabels
+    }
+
+    private func coverageLabel(covered: Int, total: Int) -> String? {
+        guard total > 0 else { return nil }
+        let percent = (Double(covered) / Double(total)) * 100
+        let rounded = (percent * 10).rounded() / 10
+        let percentLabel = rounded == rounded.rounded()
+            ? "\(Int(rounded))%"
+            : String(format: "%.1f%%", rounded)
+        return "\(percentLabel) (\(covered)/\(total))"
+    }
+}
+
 public struct ToolArtifactSARIFPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var runCount: Int
@@ -1771,6 +1840,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var lcovPreview: ToolArtifactLCOVPreview? {
         ToolArtifactLCOVPreviewBuilder.lcovPreview(for: value, kind: kind)
+    }
+    public var goCoveragePreview: ToolArtifactGoCoveragePreview? {
+        ToolArtifactGoCoveragePreviewBuilder.goCoveragePreview(for: value, kind: kind)
     }
     public var sarifPreview: ToolArtifactSARIFPreview? {
         ToolArtifactSARIFPreviewBuilder.sarifPreview(for: value, kind: kind)

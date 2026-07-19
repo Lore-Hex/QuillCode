@@ -31,6 +31,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "lcov.info" {
             return "lcov"
         }
+        if filename == "cover.out" || filename == "coverage.out" {
+            return "gocover"
+        }
         for compoundExtension in compoundPreviewExtensions {
             if filename.hasSuffix(".\(compoundExtension.suffix)") {
                 return compoundExtension.previewExtension
@@ -57,6 +60,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "json": .data,
         "jsonl": .data,
         "lcov": .data,
+        "gocover": .data,
         "ndjson": .data,
         "sarif": .data,
         "cfg": .data,

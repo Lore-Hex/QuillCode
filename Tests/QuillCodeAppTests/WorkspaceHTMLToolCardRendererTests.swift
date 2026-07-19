@@ -881,6 +881,54 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesGoCoverageArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let coverageDirectory = root.appendingPathComponent("coverage", isDirectory: true)
+        try FileManager.default.createDirectory(at: coverageDirectory, withIntermediateDirectories: true)
+        let coverage = coverageDirectory.appendingPathComponent("cover.out")
+        let coverageText = """
+        mode: set
+        github.com/lore/QuillCode/internal/runtime/runner.go:10.1,12.2 3 1
+        github.com/lore/QuillCode/internal/runtime/runner.go:14.1,15.2 2 0
+        """
+        try coverageText.write(to: coverage, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"coverage/cover.out"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote coverage/cover.out\n", artifacts: [coverage.path])
+        let thread = ChatThread(
+            title: "Go coverage artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · GOCOVER"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">cover.out"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-coverage-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-coverage-preview-meta">Format: Go coverage"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-coverage-preview-meta">Mode: set"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-coverage-preview-meta">1 source file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-coverage-preview-meta">2 blocks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-coverage-preview-meta">Statements: 60% (3/5)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-coverage-preview-source-title">Source files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-coverage-preview-source-item">runtime/runner.go · 60%"#))
+    }
+
     func testHTMLRendererIncludesSARIFArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reportsDirectory = root.appendingPathComponent("reports", isDirectory: true)

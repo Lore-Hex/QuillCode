@@ -76,6 +76,10 @@
 - Artifact previews now include bounded local LCOV coverage-report metadata for `lcov.info` and
   `.lcov` files: source-file counts, line/branch/function coverage, file size, truncation state, and
   capped source-file previews without executing test tooling or following report paths.
+- Artifact previews now include bounded local Go coverage-profile metadata for `cover.out` and
+  `coverage.out` files: mode, source-file counts, block counts, statement coverage, file size,
+  truncation state, and capped source-file previews without running `go tool cover` or following
+  covered source paths.
 - Artifact previews now include bounded local SARIF static-analysis metadata for `.sarif` and
   `.sarif.json` files: SARIF version, run/result counts, level counts, file size, capped tool labels,
   and capped rule labels without fetching remote reports or following result paths.
