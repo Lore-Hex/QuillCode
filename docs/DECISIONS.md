@@ -2309,3 +2309,20 @@
   exclusion, invalid-mode rejection, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesGoCoverageArtifactPreview` covers
   static HTML selectors, rendered coverage metadata, and source-file lists.
+
+## 2026-07-19: coverage.py JSON artifacts render bounded coverage summaries
+
+- **Decision:** Local JSON artifacts with the coverage.py `meta`/`files`/`totals` shape render as
+  structured Python coverage cards instead of generic JSON. The preview shows coverage.py version,
+  source-file count, line/branch coverage, file size, and capped source-file labels.
+- **Why:** Python projects commonly emit `coverage json` reports while agents debug failing tests and
+  coverage regressions. A Codex-style artifact surface should make those reports immediately
+  scannable without asking the model to inspect raw JSON or rerun coverage.py.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It reads only the artifact JSON, never executes coverage.py, never follows covered source
+  paths, never reads referenced source files, and never fetches remote coverage URLs. Generic JSON
+  rendering is suppressed only after the coverage.py report shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesCoveragePyPreviewMetadata`
+  covers totals, source labels, generic JSON exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCoveragePyArtifactPreview` covers
+  static HTML selectors, rendered coverage metadata, source-file lists, and generic JSON suppression.
