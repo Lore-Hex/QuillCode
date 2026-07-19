@@ -213,6 +213,10 @@
   root validates as RuboCop formatter output: file/offense/severity/correctable counts, file size,
   capped file labels, and capped cop labels without reading Ruby source files, loading cops, or
   fetching remote JSON.
+- Artifact previews now include bounded local golangci-lint JSON report metadata for `.json` files
+  whose root validates as golangci-lint output: issue/file/linter/severity counts, file size, capped
+  file labels, and capped linter labels without reading Go source files, loading linters, or
+  fetching remote JSON.
 - Artifact previews now include bounded local Checkstyle XML report metadata for `.xml` files whose
   root validates as Checkstyle output: file/issue/severity counts, file size, capped file labels,
   and capped rule/source labels without reading source files, loading lint plugins, or fetching

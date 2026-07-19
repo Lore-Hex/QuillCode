@@ -1949,6 +1949,73 @@ public struct ToolArtifactRuboCopJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactGolangCILintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var issueCount: Int
+    public var fileCount: Int
+    public var linterCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var infoCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var linterPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(linterCount) linter\(linterCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        issueCount > 0
+            || fileCount > 0
+            || linterCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || infoCount > 0
+            || otherSeverityCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !linterPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "golangci-lint JSON",
+        issueCount: Int,
+        fileCount: Int,
+        linterCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        infoCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        linterPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.issueCount = issueCount
+        self.fileCount = fileCount
+        self.linterCount = linterCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.infoCount = infoCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.linterPreviewLabels = linterPreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -3643,7 +3710,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var jsonPreview: ToolArtifactJSONPreview? {
         guard eslintJSONPreview == nil,
               stylelintJSONPreview == nil,
-              rubocopJSONPreview == nil
+              rubocopJSONPreview == nil,
+              golangCILintJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -3718,6 +3786,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var rubocopJSONPreview: ToolArtifactRuboCopJSONPreview? {
         ToolArtifactRuboCopJSONPreviewBuilder.rubocopJSONPreview(for: value, kind: kind)
+    }
+    public var golangCILintJSONPreview: ToolArtifactGolangCILintJSONPreview? {
+        ToolArtifactGolangCILintJSONPreviewBuilder.golangCILintJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)

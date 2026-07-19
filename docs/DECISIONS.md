@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render golangci-lint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as golangci-lint output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** Go coding sessions often produce `golangci-lint run --out-format json` reports.
+  Showing issue/file/linter/severity counts plus capped file/linter labels gives useful Codex-style
+  feedback without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Go
+  source files, load linters, expand issue text, or fetch remote reports.
+
 ## 2026-07-19: Render SpotBugs XML As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.xml` files with a SpotBugs `BugCollection` root as a specialized

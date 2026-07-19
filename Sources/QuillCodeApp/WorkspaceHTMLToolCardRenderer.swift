@@ -226,6 +226,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let stylelintJSONPreview = renderStylelintJSONPreview(stylelintJSONPreviewModel)
             let rubocopJSONPreviewModel = artifact.rubocopJSONPreview
             let rubocopJSONPreview = renderRuboCopJSONPreview(rubocopJSONPreviewModel)
+            let golangCILintJSONPreviewModel = artifact.golangCILintJSONPreview
+            let golangCILintJSONPreview = renderGolangCILintJSONPreview(golangCILintJSONPreviewModel)
             let npmLockfilePreviewModel = artifact.npmLockfilePreview
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
             let denoLockPreviewModel = artifact.denoLockPreview
@@ -312,6 +314,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && eslintJSONPreviewModel == nil
                 && stylelintJSONPreviewModel == nil
                 && rubocopJSONPreviewModel == nil
+                && golangCILintJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
                 && denoLockPreviewModel == nil
                 && bunLockfilePreviewModel == nil
@@ -351,6 +354,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(eslintJSONPreview)
               \(stylelintJSONPreview)
               \(rubocopJSONPreview)
+              \(golangCILintJSONPreview)
               \(npmLockfilePreview)
               \(denoLockPreview)
               \(bunLockfilePreview)
@@ -922,6 +926,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(fileList)
           \(copList)
+        </div>
+        """
+    }
+
+    private static func renderGolangCILintJSONPreview(_ preview: ToolArtifactGolangCILintJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-golangci-lint-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-golangci-lint-json-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-golangci-lint-json-preview-files">
+                <strong data-testid="tool-card-golangci-lint-json-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let linters = preview.linterPreviewLabels.map {
+            #"<li data-testid="tool-card-golangci-lint-json-preview-linter-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let linterList = linters.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-golangci-lint-json-preview-linters">
+                <strong data-testid="tool-card-golangci-lint-json-preview-linter-title">Linters</strong>
+                <ul>\(linters)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !linterList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-golangci-lint-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+          \(linterList)
         </div>
         """
     }
