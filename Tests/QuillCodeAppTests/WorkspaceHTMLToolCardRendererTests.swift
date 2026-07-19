@@ -1393,6 +1393,64 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesCloverArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("clover.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <coverage generated="1780000000" clover="4.5.0">
+          <project name="QuillCode">
+            <file name="Workspace.swift" path="Sources/QuillCodeApp/Workspace.swift" />
+            <file name="ShellToolExecutor.swift" path="Sources/QuillCodeTools/ShellToolExecutor.swift" />
+            <metrics packages="2" files="2" classes="3" methods="10" coveredmethods="8" statements="20" coveredstatements="15" conditionals="6" coveredconditionals="3" elements="36" coveredelements="26" />
+          </project>
+        </coverage>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"clover.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote clover.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Clover artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">clover.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-meta">Format: Clover XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-meta">3 classes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-meta">Elements: 72.2% (26/36)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-meta">Methods: 80% (8/10)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-meta">Statements: 75% (15/20)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-meta">Conditionals: 50% (3/6)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-project-title">Projects"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-project-item">QuillCode"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-file-item">Sources/QuillCodeApp/Workspace.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-clover-preview-file-item">Sources/QuillCodeTools/ShellToolExecutor.swift"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-cobertura-preview""#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)

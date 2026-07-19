@@ -1,7 +1,7 @@
 import Foundation
 
-enum ToolArtifactCoberturaPreviewBuilder {
-    static func coberturaPreview(for value: String, kind: ToolArtifactKind) -> ToolArtifactCoberturaPreview? {
+enum ToolArtifactCloverPreviewBuilder {
+    static func cloverPreview(for value: String, kind: ToolArtifactKind) -> ToolArtifactCloverPreview? {
         guard kind == .file,
               let documentPreview = ToolArtifactDocumentPreviewBuilder.documentPreview(for: value, kind: kind),
               documentPreview.kind == .data,
@@ -18,7 +18,7 @@ enum ToolArtifactCoberturaPreviewBuilder {
             guard fileSize > 0, fileSize <= byteLimit else { return nil }
             let data = try Data(contentsOf: fileURL, options: [.mappedIfSafe])
             guard !data.contains(0) else { return nil }
-            let collector = CoberturaPreviewCollector()
+            let collector = CloverPreviewCollector()
             let parser = XMLParser(data: data)
             parser.delegate = collector
             parser.shouldProcessNamespaces = false
@@ -49,21 +49,23 @@ enum ToolArtifactCoberturaPreviewBuilder {
     private static let byteLimit = 512 * 1_024
 }
 
-private final class CoberturaPreviewCollector: NSObject, XMLParserDelegate {
+private final class CloverPreviewCollector: NSObject, XMLParserDelegate {
     private var depth = 0
     private var rootElementLabel: String?
-    private var versionLabel: String?
-    private var lineCoveredCount: Int?
-    private var lineValidCount: Int?
-    private var branchCoveredCount: Int?
-    private var branchValidCount: Int?
-    private var lineRateLabel: String?
-    private var branchRateLabel: String?
-    private var packageCount = 0
-    private var classCount = 0
-    private var packageLabels: [String] = []
-    private var classLabels: [String] = []
-    private var hasCoberturaMarker = false
+    private var hasCloverMarker = false
+    private var packageCount: Int?
+    private var fileCount: Int?
+    private var classCount: Int?
+    private var methodCoveredCount: Int?
+    private var methodCount: Int?
+    private var statementCoveredCount: Int?
+    private var statementCount: Int?
+    private var conditionalCoveredCount: Int?
+    private var conditionalCount: Int?
+    private var elementCoveredCount: Int?
+    private var elementCount: Int?
+    private var projectLabels: [String] = []
+    private var fileLabels: [String] = []
 
     func parser(
         _ parser: XMLParser,
@@ -75,14 +77,18 @@ private final class CoberturaPreviewCollector: NSObject, XMLParserDelegate {
         let label = qualifiedElementName(elementName: elementName, qName: qName)
         if depth == 0 {
             rootElementLabel = label
-            recordCoverage(attributeDict)
+            hasCloverMarker = attributeDict["clover"] != nil || attributeDict["generated"] != nil
         }
 
         switch label {
-        case "package":
-            recordPackage(attributeDict)
-        case "class":
-            recordClass(attributeDict)
+        case "project":
+            hasCloverMarker = true
+            appendUniqueLabel(sanitizedLabel(attributeDict["name"]), to: &projectLabels)
+        case "metrics":
+            hasCloverMarker = true
+            recordMetrics(attributeDict)
+        case "file":
+            appendUniqueLabel(fileLabel(attributeDict), to: &fileLabels)
         default:
             break
         }
@@ -98,61 +104,42 @@ private final class CoberturaPreviewCollector: NSObject, XMLParserDelegate {
         depth = max(0, depth - 1)
     }
 
-    func preview(fileSize: Int) -> ToolArtifactCoberturaPreview? {
-        guard rootElementLabel == "coverage", hasCoberturaMarker else { return nil }
-        return ToolArtifactCoberturaPreview(
-            versionLabel: versionLabel,
+    func preview(fileSize: Int) -> ToolArtifactCloverPreview? {
+        guard rootElementLabel == "coverage", hasCloverMarker else { return nil }
+        return ToolArtifactCloverPreview(
             packageCount: packageCount,
+            fileCount: fileCount,
             classCount: classCount,
-            lineCoveredCount: lineCoveredCount,
-            lineValidCount: lineValidCount,
-            branchCoveredCount: branchCoveredCount,
-            branchValidCount: branchValidCount,
-            lineRateLabel: lineRateLabel,
-            branchRateLabel: branchRateLabel,
+            methodCoveredCount: methodCoveredCount,
+            methodCount: methodCount,
+            statementCoveredCount: statementCoveredCount,
+            statementCount: statementCount,
+            conditionalCoveredCount: conditionalCoveredCount,
+            conditionalCount: conditionalCount,
+            elementCoveredCount: elementCoveredCount,
+            elementCount: elementCount,
             byteSizeLabel: ToolArtifactByteSizeFormatter.label(for: fileSize),
-            packagePreviewLabels: Array(packageLabels.prefix(previewLabelLimit)),
-            classPreviewLabels: Array(classLabels.prefix(previewLabelLimit))
+            projectPreviewLabels: Array(projectLabels.prefix(previewLabelLimit)),
+            filePreviewLabels: Array(fileLabels.prefix(previewLabelLimit))
         )
     }
 
-    private func recordCoverage(_ attributes: [String: String]) {
-        versionLabel = sanitizedLabel(attributes["version"])
-        lineCoveredCount = intAttribute("lines-covered", in: attributes)
-        lineValidCount = intAttribute("lines-valid", in: attributes)
-        branchCoveredCount = intAttribute("branches-covered", in: attributes)
-        branchValidCount = intAttribute("branches-valid", in: attributes)
-        lineRateLabel = rateLabel(attributes["line-rate"])
-        branchRateLabel = rateLabel(attributes["branch-rate"])
-        hasCoberturaMarker = attributes["line-rate"] != nil
-            || attributes["branch-rate"] != nil
-            || attributes["lines-covered"] != nil
-            || attributes["lines-valid"] != nil
-            || attributes["branches-covered"] != nil
-            || attributes["branches-valid"] != nil
+    private func recordMetrics(_ attributes: [String: String]) {
+        packageCount = intAttribute("packages", in: attributes) ?? packageCount
+        fileCount = intAttribute("files", in: attributes) ?? fileCount
+        classCount = intAttribute("classes", in: attributes) ?? classCount
+        methodCoveredCount = intAttribute("coveredmethods", in: attributes) ?? methodCoveredCount
+        methodCount = intAttribute("methods", in: attributes) ?? methodCount
+        statementCoveredCount = intAttribute("coveredstatements", in: attributes) ?? statementCoveredCount
+        statementCount = intAttribute("statements", in: attributes) ?? statementCount
+        conditionalCoveredCount = intAttribute("coveredconditionals", in: attributes) ?? conditionalCoveredCount
+        conditionalCount = intAttribute("conditionals", in: attributes) ?? conditionalCount
+        elementCoveredCount = intAttribute("coveredelements", in: attributes) ?? elementCoveredCount
+        elementCount = intAttribute("elements", in: attributes) ?? elementCount
     }
 
-    private func recordPackage(_ attributes: [String: String]) {
-        packageCount += 1
-        appendUniqueLabel(sanitizedLabel(attributes["name"]), to: &packageLabels)
-    }
-
-    private func recordClass(_ attributes: [String: String]) {
-        classCount += 1
-        let name = sanitizedLabel(attributes["name"])
-        let filename = sanitizedLabel(attributes["filename"])
-        let label: String?
-        switch (name, filename) {
-        case let (name?, filename?) where name != filename:
-            label = "\(name) · \(filename)"
-        case let (name?, _):
-            label = name
-        case let (_, filename?):
-            label = filename
-        default:
-            label = nil
-        }
-        appendUniqueLabel(label, to: &classLabels)
+    private func fileLabel(_ attributes: [String: String]) -> String? {
+        sanitizedLabel(attributes["path"]) ?? sanitizedLabel(attributes["name"])
     }
 
     private func appendUniqueLabel(_ label: String?, to labels: inout [String]) {
@@ -168,20 +155,6 @@ private final class CoberturaPreviewCollector: NSObject, XMLParserDelegate {
             return nil
         }
         return intValue
-    }
-
-    private func rateLabel(_ label: String?) -> String? {
-        guard let label = sanitizedLabel(label),
-              let rate = Double(label),
-              rate >= 0
-        else {
-            return nil
-        }
-        let percent = min(rate, 1) * 100
-        let rounded = (percent * 10).rounded() / 10
-        return rounded == rounded.rounded()
-            ? "\(Int(rounded))%"
-            : "\(rounded)%"
     }
 
     private func sanitizedLabel(_ label: String?) -> String? {

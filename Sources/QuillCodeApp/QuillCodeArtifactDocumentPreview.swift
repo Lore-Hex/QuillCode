@@ -83,6 +83,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             junitContent(junitPreview)
         } else if let coberturaPreview = artifact.coberturaPreview {
             coberturaContent(coberturaPreview)
+        } else if let cloverPreview = artifact.cloverPreview {
+            cloverContent(cloverPreview)
         } else if let xmlPreview = artifact.xmlPreview {
             xmlContent(xmlPreview)
         } else if let propertyListPreview = artifact.propertyListPreview {
@@ -358,6 +360,21 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(coberturaPreview.metadataLines)
             artifactContentList(title: "Packages", labels: coberturaPreview.packagePreviewLabels)
             artifactContentList(title: "Classes", labels: coberturaPreview.classPreviewLabels)
+        }
+    }
+
+    private func cloverContent(_ cloverPreview: ToolArtifactCloverPreview) -> some View {
+        previewSurface(minHeight: cloverPreview.filePreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.line.uptrend.xyaxis")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(cloverPreview.metadataLines)
+            artifactContentList(title: "Projects", labels: cloverPreview.projectPreviewLabels)
+            artifactContentList(title: "Files", labels: cloverPreview.filePreviewLabels)
         }
     }
 

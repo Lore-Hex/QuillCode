@@ -2232,3 +2232,23 @@
   and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCoberturaArtifactPreview` covers static
   HTML selectors, rendered coverage metadata, content lists, and generic XML suppression.
+
+## 2026-07-19: Clover XML artifacts render bounded coverage summaries
+
+- **Decision:** Local `.xml` artifacts whose root element is `coverage` and whose content has
+  Clover-style project/metrics markers render as structured Clover coverage cards instead of generic
+  XML. The preview shows package/file/class counts, element/method/statement/conditional coverage,
+  file size, capped project labels, and capped file labels.
+- **Why:** Clover and Cobertura both use a `coverage` root, but they encode coverage shape
+  differently. Codex-style artifact handling should recognize both common CI report formats without
+  treating one as the other or dumping a raw XML tree into the transcript.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It never executes coverage tools, never follows file paths from `<file>` elements, never
+  reads referenced source files, and never fetches remote coverage URLs. Cobertura detection now
+  requires Cobertura-specific coverage attributes so Clover reports are not misclassified.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesCloverPreviewMetadata` covers
+  metric-derived coverage labels, project/file labels, non-Clover XML exclusion, Cobertura
+  disambiguation, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCloverArtifactPreview` covers static
+  HTML selectors, rendered coverage metadata, content lists, Cobertura suppression, and generic XML
+  suppression.

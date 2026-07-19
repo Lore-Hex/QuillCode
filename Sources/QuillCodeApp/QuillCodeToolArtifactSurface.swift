@@ -1104,6 +1104,108 @@ public struct ToolArtifactCoberturaPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCloverPreview: Codable, Sendable, Hashable {
+    public var packageCount: Int?
+    public var fileCount: Int?
+    public var classCount: Int?
+    public var methodCoveredCount: Int?
+    public var methodCount: Int?
+    public var statementCoveredCount: Int?
+    public var statementCount: Int?
+    public var conditionalCoveredCount: Int?
+    public var conditionalCount: Int?
+    public var elementCoveredCount: Int?
+    public var elementCount: Int?
+    public var byteSizeLabel: String?
+    public var projectPreviewLabels: [String]
+    public var filePreviewLabels: [String]
+
+    public var elementCoverageLabel: String? {
+        coverageLabel(covered: elementCoveredCount, total: elementCount)
+    }
+
+    public var methodCoverageLabel: String? {
+        coverageLabel(covered: methodCoveredCount, total: methodCount)
+    }
+
+    public var statementCoverageLabel: String? {
+        coverageLabel(covered: statementCoveredCount, total: statementCount)
+    }
+
+    public var conditionalCoverageLabel: String? {
+        coverageLabel(covered: conditionalCoveredCount, total: conditionalCount)
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: Clover XML",
+            packageCount.map { "\($0) package\($0 == 1 ? "" : "s")" },
+            fileCount.map { "\($0) file\($0 == 1 ? "" : "s")" },
+            classCount.map { "\($0) class\($0 == 1 ? "" : "es")" },
+            elementCoverageLabel.map { "Elements: \($0)" },
+            methodCoverageLabel.map { "Methods: \($0)" },
+            statementCoverageLabel.map { "Statements: \($0)" },
+            conditionalCoverageLabel.map { "Conditionals: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount != nil
+            || fileCount != nil
+            || classCount != nil
+            || elementCoverageLabel != nil
+            || methodCoverageLabel != nil
+            || statementCoverageLabel != nil
+            || conditionalCoverageLabel != nil
+            || byteSizeLabel != nil
+            || !projectPreviewLabels.isEmpty
+            || !filePreviewLabels.isEmpty
+    }
+
+    public init(
+        packageCount: Int? = nil,
+        fileCount: Int? = nil,
+        classCount: Int? = nil,
+        methodCoveredCount: Int? = nil,
+        methodCount: Int? = nil,
+        statementCoveredCount: Int? = nil,
+        statementCount: Int? = nil,
+        conditionalCoveredCount: Int? = nil,
+        conditionalCount: Int? = nil,
+        elementCoveredCount: Int? = nil,
+        elementCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        projectPreviewLabels: [String] = [],
+        filePreviewLabels: [String] = []
+    ) {
+        self.packageCount = packageCount
+        self.fileCount = fileCount
+        self.classCount = classCount
+        self.methodCoveredCount = methodCoveredCount
+        self.methodCount = methodCount
+        self.statementCoveredCount = statementCoveredCount
+        self.statementCount = statementCount
+        self.conditionalCoveredCount = conditionalCoveredCount
+        self.conditionalCount = conditionalCount
+        self.elementCoveredCount = elementCoveredCount
+        self.elementCount = elementCount
+        self.byteSizeLabel = byteSizeLabel
+        self.projectPreviewLabels = projectPreviewLabels
+        self.filePreviewLabels = filePreviewLabels
+    }
+
+    private func coverageLabel(covered: Int?, total: Int?) -> String? {
+        guard let covered, let total, total > 0 else { return nil }
+        let percent = (Double(covered) / Double(total)) * 100
+        let rounded = (percent * 10).rounded() / 10
+        let percentLabel = rounded == rounded.rounded()
+            ? "\(Int(rounded))%"
+            : "\(rounded)%"
+        return "\(percentLabel) (\(covered)/\(total))"
+    }
+}
+
 public struct ToolArtifactPropertyListPreview: Codable, Sendable, Hashable {
     public var rootLabel: String
     public var formatLabel: String?
@@ -1494,6 +1596,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var coberturaPreview: ToolArtifactCoberturaPreview? {
         ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: kind)
+    }
+    public var cloverPreview: ToolArtifactCloverPreview? {
+        ToolArtifactCloverPreviewBuilder.cloverPreview(for: value, kind: kind)
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
         ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
