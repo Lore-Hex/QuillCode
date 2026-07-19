@@ -892,6 +892,58 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesTAPArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("test.tap")
+        let tapText = """
+        TAP version 13
+        1..4
+        ok 1 - loads app
+        not ok 2 - writes file
+        ok 3 - optional browser # SKIP no browser
+        not ok 4 - planned support # TODO implement later
+        Bail out! database unavailable
+        """
+        try tapText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/test.tap"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/test.tap\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "TAP artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · TAP"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">test.tap"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-tap-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-tap-preview-meta">Format: TAP"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-tap-preview-meta">Plan: 1..4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-tap-preview-meta">4 assertions"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-tap-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-tap-preview-meta">Bail out: database unavailable"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-tap-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-tap-preview-failure-item">2 - writes file"#))
+    }
+
     func testHTMLRendererIncludesHARArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

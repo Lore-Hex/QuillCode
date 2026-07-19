@@ -80,6 +80,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "sqlite": .data,
         "sqlite3": .data,
         "so": .data,
+        "tap": .data,
         "ttc": .data,
         "ttf": .data,
         "toml": .data,
