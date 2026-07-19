@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Pylint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Pylint JSON output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** Pylint reports are common in Python coding sessions and CI exports. Showing
+  message/file/symbol/type counts plus capped file/symbol labels gives useful Codex-style feedback
+  without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Python
+  source files, load Pylint plugins, expand messages, or fetch remote reports.
+
 ## 2026-07-19: Render Ruff JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as Ruff formatter output as a

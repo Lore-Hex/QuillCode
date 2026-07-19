@@ -2346,6 +2346,85 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesPylintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("pylint-results.json")
+        let reportText = """
+        [
+          {
+            "type": "warning",
+            "module": "app.main",
+            "obj": "",
+            "line": 1,
+            "column": 0,
+            "endLine": 1,
+            "endColumn": 9,
+            "path": "/repo/app/main.py",
+            "symbol": "unused-import",
+            "message": "Unused import os",
+            "message-id": "W0611"
+          },
+          {
+            "type": "error",
+            "module": "tests.test_app",
+            "obj": "",
+            "line": 18,
+            "column": 4,
+            "endLine": 18,
+            "endColumn": 9,
+            "path": "/repo/tests/test_app.py",
+            "symbol": "undefined-variable",
+            "message": "Undefined variable 'value'",
+            "message-id": "E0602"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/pylint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/pylint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Pylint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">pylint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">Format: Pylint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">2 messages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">2 symbols"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-file-item">repo/app/main.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-file-item">repo/tests/test_app.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-symbol-title">Symbols"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-symbol-item">unused-import"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-symbol-item">undefined-variable"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesTAPArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

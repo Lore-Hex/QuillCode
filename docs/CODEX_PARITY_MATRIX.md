@@ -221,6 +221,10 @@
   root validates as Ruff output: violation/file/rule/fixable counts, file size, capped file labels,
   and capped rule labels without reading Python source files, loading rules, or fetching remote
   JSON.
+- Artifact previews now include bounded local Pylint JSON report metadata for `.json` files whose
+  root validates as Pylint output: message/file/symbol/type counts, file size, capped file labels,
+  and capped symbol labels without reading Python source files, loading plugins, or fetching remote
+  JSON.
 - Artifact previews now include bounded local Checkstyle XML report metadata for `.xml` files whose
   root validates as Checkstyle output: file/issue/severity counts, file size, capped file labels,
   and capped rule/source labels without reading source files, loading lint plugins, or fetching

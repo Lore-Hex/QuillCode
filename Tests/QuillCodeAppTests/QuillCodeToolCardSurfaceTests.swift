@@ -3171,6 +3171,97 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteRuff.ruffJSONPreview)
     }
 
+    func testArtifactStateDerivesPylintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("pylint-results.json")
+        let content = """
+        [
+          {
+            "type": "warning",
+            "module": "app.main",
+            "obj": "",
+            "line": 1,
+            "column": 0,
+            "endLine": 1,
+            "endColumn": 9,
+            "path": "/repo/app/main.py",
+            "symbol": "unused-import",
+            "message": "Unused import os",
+            "message-id": "W0611"
+          },
+          {
+            "type": "convention",
+            "module": "tests.test_app",
+            "obj": "test_smoke",
+            "line": "12",
+            "column": 0,
+            "endLine": 12,
+            "endColumn": 15,
+            "path": "/repo/tests/test_app.py",
+            "symbol": "missing-function-docstring",
+            "message": "Missing function or method docstring",
+            "message-id": "C0116"
+          },
+          {
+            "type": "error",
+            "module": "tests.test_app",
+            "obj": "",
+            "line": 18,
+            "column": 4,
+            "endLine": 18,
+            "endColumn": 9,
+            "path": "/repo/tests/test_app.py",
+            "symbol": "undefined-variable",
+            "message": "Undefined variable 'value'",
+            "message-id": "E0602"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pylintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Pylint JSON")
+        XCTAssertEqual(preview.messageCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.symbolCount, 3)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.conventionCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/main.py",
+            "repo/tests/test_app.py"
+        ])
+        XCTAssertEqual(preview.symbolPreviewLabels, [
+            "unused-import",
+            "missing-function-docstring",
+            "undefined-variable"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Pylint JSON",
+            "3 messages",
+            "2 files",
+            "3 symbols",
+            "Errors: 1",
+            "Warnings: 1",
+            "Convention: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"type":"warning","path":"/repo/app.py","symbol":"unused-import","message":"missing module and id","line":1}]"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).pylintJSONPreview)
+
+        let remotePylint = ToolArtifactState(value: "https://example.com/pylint-results.json")
+        XCTAssertNil(remotePylint.pylintJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")

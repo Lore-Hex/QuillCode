@@ -2068,6 +2068,88 @@ public struct ToolArtifactRuffJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPylintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var messageCount: Int
+    public var fileCount: Int
+    public var symbolCount: Int
+    public var fatalCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var refactorCount: Int
+    public var conventionCount: Int
+    public var infoCount: Int
+    public var otherTypeCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var symbolPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(messageCount) message\(messageCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(symbolCount) symbol\(symbolCount == 1 ? "" : "s")",
+            fatalCount > 0 ? "Fatal: \(fatalCount)" : nil,
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            refactorCount > 0 ? "Refactor: \(refactorCount)" : nil,
+            conventionCount > 0 ? "Convention: \(conventionCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            otherTypeCount > 0 ? "Other types: \(otherTypeCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        messageCount > 0
+            || fileCount > 0
+            || symbolCount > 0
+            || fatalCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || refactorCount > 0
+            || conventionCount > 0
+            || infoCount > 0
+            || otherTypeCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !symbolPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Pylint JSON",
+        messageCount: Int,
+        fileCount: Int,
+        symbolCount: Int,
+        fatalCount: Int = 0,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        refactorCount: Int = 0,
+        conventionCount: Int = 0,
+        infoCount: Int = 0,
+        otherTypeCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        symbolPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.messageCount = messageCount
+        self.fileCount = fileCount
+        self.symbolCount = symbolCount
+        self.fatalCount = fatalCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.refactorCount = refactorCount
+        self.conventionCount = conventionCount
+        self.infoCount = infoCount
+        self.otherTypeCount = otherTypeCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.symbolPreviewLabels = symbolPreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -3764,7 +3846,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               stylelintJSONPreview == nil,
               rubocopJSONPreview == nil,
               golangCILintJSONPreview == nil,
-              ruffJSONPreview == nil
+              ruffJSONPreview == nil,
+              pylintJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -3845,6 +3928,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var ruffJSONPreview: ToolArtifactRuffJSONPreview? {
         ToolArtifactRuffJSONPreviewBuilder.ruffJSONPreview(for: value, kind: kind)
+    }
+    public var pylintJSONPreview: ToolArtifactPylintJSONPreview? {
+        ToolArtifactPylintJSONPreviewBuilder.pylintJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)
