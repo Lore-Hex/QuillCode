@@ -2612,6 +2612,71 @@ public struct ToolArtifactCheckstylePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPMDPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var violationCount: Int
+    public var priorityOneCount: Int
+    public var priorityTwoCount: Int
+    public var priorityThreeCount: Int
+    public var priorityFourCount: Int
+    public var priorityFiveCount: Int
+    public var otherPriorityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(violationCount) violation\(violationCount == 1 ? "" : "s")",
+            priorityOneCount > 0 ? "Priority 1: \(priorityOneCount)" : nil,
+            priorityTwoCount > 0 ? "Priority 2: \(priorityTwoCount)" : nil,
+            priorityThreeCount > 0 ? "Priority 3: \(priorityThreeCount)" : nil,
+            priorityFourCount > 0 ? "Priority 4: \(priorityFourCount)" : nil,
+            priorityFiveCount > 0 ? "Priority 5: \(priorityFiveCount)" : nil,
+            otherPriorityCount > 0 ? "Other priority: \(otherPriorityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || violationCount > 0
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "PMD XML",
+        fileCount: Int,
+        violationCount: Int,
+        priorityOneCount: Int = 0,
+        priorityTwoCount: Int = 0,
+        priorityThreeCount: Int = 0,
+        priorityFourCount: Int = 0,
+        priorityFiveCount: Int = 0,
+        otherPriorityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.violationCount = violationCount
+        self.priorityOneCount = priorityOneCount
+        self.priorityTwoCount = priorityTwoCount
+        self.priorityThreeCount = priorityThreeCount
+        self.priorityFourCount = priorityFourCount
+        self.priorityFiveCount = priorityFiveCount
+        self.otherPriorityCount = otherPriorityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
 public struct ToolArtifactTRXPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var testRunName: String?
@@ -3546,6 +3611,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var checkstylePreview: ToolArtifactCheckstylePreview? {
         ToolArtifactCheckstylePreviewBuilder.checkstylePreview(for: value, kind: kind)
     }
+    public var pmdPreview: ToolArtifactPMDPreview? {
+        ToolArtifactPMDPreviewBuilder.pmdPreview(for: value, kind: kind)
+    }
     public var trxPreview: ToolArtifactTRXPreview? {
         ToolArtifactTRXPreviewBuilder.trxPreview(for: value, kind: kind)
     }
@@ -3565,7 +3633,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactJaCoCoPreviewBuilder.jaCoCoPreview(for: value, kind: kind)
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
-        guard checkstylePreview == nil else { return nil }
+        guard checkstylePreview == nil,
+              pmdPreview == nil
+        else { return nil }
         return ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
     }
     public var propertyListPreview: ToolArtifactPropertyListPreview? {

@@ -2918,6 +2918,59 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesPMDArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("pmd-result.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <pmd version="7.0.0">
+          <file name="/repo/src/main/java/App.java">
+            <violation beginline="12" endline="12" rule="UnusedPrivateField" priority="3" />
+            <violation beginline="22" endline="22" rule="SystemPrintln" priority="2" />
+          </file>
+        </pmd>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"pmd-result.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote pmd-result.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "PMD artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">pmd-result.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">Format: PMD XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">2 violations"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">Priority 2: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">Priority 3: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-file-item">main/java/App.java"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-rule-item">UnusedPrivateField"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-rule-item">SystemPrintln"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesTRXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("results.trx")

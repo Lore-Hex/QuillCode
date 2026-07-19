@@ -3106,6 +3106,79 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteCheckstyle.checkstylePreview)
     }
 
+    func testArtifactStateDerivesPMDPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("pmd-result.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <pmd version="7.0.0" timestamp="2026-07-19T12:00:00.000">
+          <file name="/repo/src/main/java/App.java">
+            <violation beginline="12" endline="12" rule="UnusedPrivateField" ruleset="Best Practices" priority="3">
+              Avoid unused private fields.
+            </violation>
+            <violation beginline="22" endline="22" rule="SystemPrintln" ruleset="Best Practices" priority="2">
+              System.out.println is used.
+            </violation>
+          </file>
+          <file name="/repo/src/test/java/AppTest.java">
+            <violation beginline="4" endline="4" rule="JUnitAssertionsShouldIncludeMessage" priority="1" />
+            <violation beginline="8" endline="8" rule="LooseCoupling" priority="4" />
+            <violation beginline="9" endline="9" rule="ShortVariable" priority="5" />
+            <violation beginline="10" endline="10" rule="UnknownPriority" priority="critical" />
+          </file>
+        </pmd>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pmdPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.formatLabel, "PMD XML")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.violationCount, 6)
+        XCTAssertEqual(preview.priorityOneCount, 1)
+        XCTAssertEqual(preview.priorityTwoCount, 1)
+        XCTAssertEqual(preview.priorityThreeCount, 1)
+        XCTAssertEqual(preview.priorityFourCount, 1)
+        XCTAssertEqual(preview.priorityFiveCount, 1)
+        XCTAssertEqual(preview.otherPriorityCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "main/java/App.java",
+            "test/java/AppTest.java"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "UnusedPrivateField",
+            "SystemPrintln",
+            "JUnitAssertionsShouldIncludeMessage",
+            "LooseCoupling",
+            "ShortVariable",
+            "UnknownPriority"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: PMD XML",
+            "2 files",
+            "6 violations",
+            "Priority 1: 1",
+            "Priority 2: 1",
+            "Priority 3: 1",
+            "Priority 4: 1",
+            "Priority 5: 1",
+            "Other priority: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let generic = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).pmdPreview)
+
+        let remotePMD = ToolArtifactState(value: "https://example.com/pmd-result.xml")
+        XCTAssertNil(remotePMD.pmdPreview)
+    }
+
     func testArtifactStateDerivesTRXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("results.trx")
