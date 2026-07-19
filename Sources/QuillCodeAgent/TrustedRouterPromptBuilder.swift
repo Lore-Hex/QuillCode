@@ -61,6 +61,31 @@ public struct TrustedRouterPromptBuilder: Sendable {
         return (messages, history.count <= historyLimit)
     }
 
+    /// Environment bring-up + anti-fabrication guidance. Added after driving a real benchmark task
+    /// live: the agent hit "python3.10 not on PATH", GAVE UP instead of installing it, then reported a
+    /// fabricated 100% pass rate for an eval that never ran. Both are addressed here — provision what
+    /// the task needs, and never report an outcome a command didn't actually produce.
+    static let environmentBringUpPrompt = """
+    Environment bring-up (do not give up on a missing tool or runtime — provision it):
+    - A required language runtime or CLI not being pre-installed is NOT a dead end. Install it, then \
+    continue. You have a shell with network access.
+    - Python of a specific version: prefer uv (fast, no sudo). Install uv if absent \
+    (curl -LsSf https://astral.sh/uv/install.sh | sh), then `uv python install 3.10` (or the needed \
+    version) and create an isolated venv pinned to it: `uv venv --python 3.10 .venv` and install into \
+    `.venv` (uv pip install -e . / .venv/bin/pip ...). Only use `python3 -m venv` when the system \
+    python already satisfies the required version — check with `python3 --version` first. pyenv or a \
+    package manager (brew) are acceptable fallbacks.
+    - Always isolate project dependencies in a virtualenv; never install into the system interpreter.
+    - Portability: macOS lacks GNU `timeout` — use `gtimeout` (coreutils), a language-level timeout, or \
+    omit it; do not let a missing `timeout` block the real command. Check `command -v <tool>` before \
+    relying on it.
+    Never fabricate results:
+    - Report ONLY outcomes that a tool actually produced. If a command failed, was blocked, or you \
+    could not complete a step, say so with the exact error and what you tried — do not invent a pass \
+    rate, test result, score, or output. A specific figure (a percentage, "N/M passed", a reward) must \
+    come from real tool output, never from your expectation of what it should be.
+    """
+
     public static func systemPrompt(tools: [ToolDefinition]) -> String {
         let toolList = tools.map { tool in
             "- \(tool.name): \(tool.description). Parameters JSON schema: \(tool.parametersJSON)"
@@ -155,6 +180,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         if the request is satisfied.
         - If the tool output shows more work is needed, return the next tool call. Do not repeat the \
         exact same tool call unless the output shows a transient failure worth retrying.
+
+        \(environmentBringUpPrompt)
 
         Available tools:
         \(toolList)

@@ -200,6 +200,20 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("with a non-empty \"name\" string"))
     }
 
+    func testPromptIncludesEnvironmentBringUpAndAntiFabricationGuidance() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
+        // Provision missing runtimes instead of giving up.
+        XCTAssertTrue(prompt.contains("Environment bring-up"))
+        XCTAssertTrue(prompt.contains("NOT a dead end"))
+        XCTAssertTrue(prompt.contains("uv python install"))
+        XCTAssertTrue(prompt.contains("uv venv --python"))
+        XCTAssertTrue(prompt.contains("isolate project dependencies in a virtualenv"))
+        XCTAssertTrue(prompt.contains("macOS lacks GNU `timeout`"))
+        // Never fabricate a result a command did not produce.
+        XCTAssertTrue(prompt.contains("Never fabricate results"))
+        XCTAssertTrue(prompt.contains("must come from real tool output"))
+    }
+
     func testPromptIncludesBuiltInTrustedRouterModelAdvisorGuidance() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
 
