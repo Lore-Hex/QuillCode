@@ -2722,3 +2722,22 @@
   counts, pod labels, source labels, non-`Podfile.lock` exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPodfileLockArtifactPreview` covers
   static HTML selectors, rendered CocoaPods metadata, pod/source lists, and text-preview coexistence.
+
+## 2026-07-19: deno.lock artifacts render bounded Deno dependency summaries
+
+- **Decision:** Local `deno.lock` artifacts render as structured Deno lockfile cards. The preview
+  shows lockfile version, remote module/npm/jsr package/specifier/redirect counts, file size, capped
+  package labels, and capped source hosts. `deno.lock` is classified as a data artifact through
+  filename-specific detection.
+- **Why:** Deno projects often produce lockfiles containing remote modules plus npm/jsr package state;
+  compact summaries make these outputs scannable without dumping full hashes or URL maps.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `deno.lock`, and capped at 512 KB. It reads only shallow top-level `version`, `remote`, `npm`,
+  `jsr`, `specifiers`, and `redirects`; it never expands import graphs, validates integrity or
+  hashes, reads manifests, contacts registries, or fetches remote modules/packages.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesDenoLockPreviewMetadata`
+  covers filename-based document classification, lockfile version, remote/npm/jsr/specifier/redirect
+  counts, package labels, source hosts, non-`deno.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesDenoLockArtifactPreview` covers static
+  HTML selectors, rendered Deno metadata, package/source lists, generic JSON suppression, and
+  text-preview coexistence.
