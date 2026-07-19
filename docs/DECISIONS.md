@@ -2376,3 +2376,18 @@
   exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesJestJSONArtifactPreview`
   covers static HTML selectors, rendered report metadata, failure lists, and generic JSON
   suppression.
+
+## 2026-07-19: TRX artifacts render bounded test summaries
+
+- **Decision:** Local `.trx` artifacts whose XML root validates as `TestRun` and contains
+  `UnitTestResult` entries render as structured Visual Studio TRX report cards. The preview shows
+  run name, outcome counts, duration, file size, and capped failing test names.
+- **Why:** .NET and Visual Studio test loops commonly emit TRX reports. A Codex-style artifact surface
+  should make failed tests scannable without opening XML or asking the model to parse raw logs.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, root-gated, and
+  capped at 512 KB. It reads only `UnitTestResult` attributes, never expands failure output/stacks,
+  never opens referenced files, and never fetches remote TRX reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesTRXPreviewMetadata` covers
+  run metadata, outcome counts, duration, failing labels, non-TRX exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesTRXArtifactPreview` covers static HTML
+  selectors, rendered report metadata, and failure lists.

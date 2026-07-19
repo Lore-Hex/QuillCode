@@ -1555,6 +1555,57 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJUnit.junitPreview)
     }
 
+    func testArtifactStateDerivesTRXPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("results.trx")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <TestRun id="run-1" name="QuillCode .NET Tests" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+          <Results>
+            <UnitTestResult testName="QuillCode.Tests.AppTests.RendersPrompt" outcome="Passed" duration="00:00:01.1000000" />
+            <UnitTestResult testName="QuillCode.Tests.AppTests.WritesFile" outcome="Failed" duration="00:00:02.2500000" />
+            <UnitTestResult testName="QuillCode.Tests.CliTests.IsSkipped" outcome="NotExecuted" duration="00:00:00.0000000" />
+            <UnitTestResult testName="QuillCode.Tests.CliTests.IsInconclusive" outcome="Inconclusive" duration="00:00:00.5000000" />
+          </Results>
+        </TestRun>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.trxPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "TRX")
+        XCTAssertEqual(preview.formatLabel, "TRX")
+        XCTAssertEqual(preview.testRunName, "QuillCode .NET Tests")
+        XCTAssertEqual(preview.totalCount, 4)
+        XCTAssertEqual(preview.passedCount, 1)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.inconclusiveCount, 1)
+        XCTAssertEqual(preview.notExecutedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "3.85 s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["QuillCode.Tests.AppTests.WritesFile"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: TRX",
+            "Run: QuillCode .NET Tests",
+            "4 tests",
+            "Passed: 1",
+            "Failed: 1",
+            "Inconclusive: 1",
+            "Not executed: 1",
+            "Duration: 3.85 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("report.trx")
+        try "<project><target /></project>".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).trxPreview)
+
+        let remoteTRX = ToolArtifactState(value: "https://example.com/results.trx")
+        XCTAssertNil(remoteTRX.trxPreview)
+    }
+
     func testArtifactStateDerivesCoberturaPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("coverage.xml")

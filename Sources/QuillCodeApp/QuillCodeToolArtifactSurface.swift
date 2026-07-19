@@ -1457,6 +1457,65 @@ public struct ToolArtifactJUnitPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactTRXPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var testRunName: String?
+    public var totalCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var inconclusiveCount: Int
+    public var notExecutedCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            testRunName.map { "Run: \($0)" },
+            "\(totalCount) test\(totalCount == 1 ? "" : "s")",
+            "Passed: \(passedCount)",
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            inconclusiveCount > 0 ? "Inconclusive: \(inconclusiveCount)" : nil,
+            notExecutedCount > 0 ? "Not executed: \(notExecutedCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        totalCount > 0
+            || testRunName != nil
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "TRX",
+        testRunName: String? = nil,
+        totalCount: Int,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        inconclusiveCount: Int = 0,
+        notExecutedCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.testRunName = testRunName
+        self.totalCount = totalCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.inconclusiveCount = inconclusiveCount
+        self.notExecutedCount = notExecutedCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactCoberturaPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var packageCount: Int
@@ -2155,6 +2214,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var junitPreview: ToolArtifactJUnitPreview? {
         ToolArtifactJUnitPreviewBuilder.junitPreview(for: value, kind: kind)
+    }
+    public var trxPreview: ToolArtifactTRXPreview? {
+        ToolArtifactTRXPreviewBuilder.trxPreview(for: value, kind: kind)
     }
     public var coberturaPreview: ToolArtifactCoberturaPreview? {
         ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: kind)

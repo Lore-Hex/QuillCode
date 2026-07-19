@@ -1691,6 +1691,58 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesTRXArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("results.trx")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <TestRun id="run-1" name="QuillCode .NET Tests" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+          <Results>
+            <UnitTestResult testName="QuillCode.Tests.AppTests.RendersPrompt" outcome="Passed" duration="00:00:01.1000000" />
+            <UnitTestResult testName="QuillCode.Tests.AppTests.WritesFile" outcome="Failed" duration="00:00:02.2500000" />
+            <UnitTestResult testName="QuillCode.Tests.CliTests.IsSkipped" outcome="NotExecuted" duration="00:00:00.0000000" />
+          </Results>
+        </TestRun>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"results.trx"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote results.trx\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "TRX artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · TRX"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">results.trx"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-meta">Format: TRX"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-meta">Run: QuillCode .NET Tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-meta">Passed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-meta">Not executed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-meta">Duration: 3.35 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-trx-preview-failure-item">QuillCode.Tests.AppTests.WritesFile"#))
+    }
+
     func testHTMLRendererIncludesCoberturaArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("coverage.xml")
