@@ -2505,3 +2505,20 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesSwiftPMPackageResolvedArtifactPreview`
   covers static HTML selectors, rendered SwiftPM metadata, pin/source lists, and text-preview
   coexistence.
+
+## 2026-07-19: Cargo.lock artifacts render bounded dependency summaries
+
+- **Decision:** Local `Cargo.lock` artifacts render as structured Cargo lockfile cards. The preview
+  shows package count, version/source/checksum counts, file size, capped package labels, and capped
+  source labels. `Cargo.lock` is classified as a data artifact through filename-specific detection.
+- **Why:** Rust dependency changes are common coding-agent artifacts, and raw Cargo lockfiles are
+  repetitive. Users need a quick dependency/source summary before opening the full lockfile.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `Cargo.lock`, and capped at 512 KB. It reads shallow `[[package]]` fields for `name`, `version`,
+  `source`, and `checksum`, and never expands dependency arrays, full checksums, manifests, crate
+  metadata, registry indexes, or remote repositories.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesCargoLockPreviewMetadata`
+  covers filename-based document classification, package/version/source/checksum counts, package
+  labels, source labels, non-`Cargo.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCargoLockArtifactPreview` covers static
+  HTML selectors, rendered Cargo metadata, package/source lists, and text-preview coexistence.

@@ -575,6 +575,55 @@ public struct ToolArtifactSwiftPMPackageResolvedPreview: Codable, Sendable, Hash
     }
 }
 
+public struct ToolArtifactCargoLockPreview: Codable, Sendable, Hashable {
+    public var packageCount: Int
+    public var versionedPackageCount: Int
+    public var sourceCount: Int
+    public var checksumCount: Int
+    public var sourcePreviewLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Cargo lockfile",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            versionedPackageCount > 0 ? "\(versionedPackageCount) versioned" : nil,
+            sourceCount > 0 ? "\(sourceCount) source\(sourceCount == 1 ? "" : "s")" : nil,
+            checksumCount > 0 ? "\(checksumCount) checksum\(checksumCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || versionedPackageCount > 0
+            || sourceCount > 0
+            || checksumCount > 0
+            || !metadataLines.isEmpty
+            || !sourcePreviewLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        packageCount: Int,
+        versionedPackageCount: Int = 0,
+        sourceCount: Int = 0,
+        checksumCount: Int = 0,
+        sourcePreviewLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.packageCount = packageCount
+        self.versionedPackageCount = versionedPackageCount
+        self.sourceCount = sourceCount
+        self.checksumCount = checksumCount
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactCycloneDXPreview: Codable, Sendable, Hashable {
     public var specVersion: String?
     public var serialNumber: String?
@@ -2533,6 +2582,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var swiftPMPackageResolvedPreview: ToolArtifactSwiftPMPackageResolvedPreview? {
         ToolArtifactSwiftPMPackageResolvedPreviewBuilder.packageResolvedPreview(for: value, kind: kind)
+    }
+    public var cargoLockPreview: ToolArtifactCargoLockPreview? {
+        ToolArtifactCargoLockPreviewBuilder.cargoLockPreview(for: value, kind: kind)
     }
     public var cycloneDXPreview: ToolArtifactCycloneDXPreview? {
         ToolArtifactCycloneDXPreviewBuilder.cycloneDXPreview(for: value, kind: kind)
