@@ -100,6 +100,10 @@
   whose root is `coverage` plus Clover project/metrics markers: package/file/class counts,
   element/method/statement/conditional coverage, file size, project labels, and file labels without
   executing coverage tooling or following paths.
+- Artifact previews now include bounded local JaCoCo XML coverage-report metadata for `.xml` files
+  whose root is `report` plus JaCoCo package/session/counter markers: package/source/class counts,
+  line/branch/method/class coverage, file size, package labels, and source-file labels without
+  executing coverage tooling or following paths.
 - Artifact previews now include bounded local INI-style config metadata for `.ini`, `.cfg`, and `.conf`:
   section/key counts, file size, truncation state, and capped section previews.
 - Artifact previews now include bounded local dotenv metadata for `.env` and `.env.*` files:

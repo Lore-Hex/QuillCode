@@ -1278,6 +1278,70 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteClover.cloverPreview)
     }
 
+    func testArtifactStateDerivesJaCoCoPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("jacoco.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <report name="QuillCode">
+          <sessioninfo id="test-host" start="1780000000" dump="1780000100" />
+          <package name="dev/quillcode/app">
+            <class name="dev/quillcode/app/Workspace" sourcefilename="Workspace.kt" />
+            <sourcefile name="Workspace.kt" />
+          </package>
+          <package name="dev/quillcode/tools">
+            <class name="dev/quillcode/tools/ShellToolExecutor" sourcefilename="ShellToolExecutor.kt" />
+            <sourcefile name="ShellToolExecutor.kt" />
+          </package>
+          <counter type="INSTRUCTION" missed="4" covered="96" />
+          <counter type="BRANCH" missed="2" covered="6" />
+          <counter type="LINE" missed="3" covered="17" />
+          <counter type="METHOD" missed="1" covered="9" />
+          <counter type="CLASS" missed="0" covered="2" />
+        </report>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.jaCoCoPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.reportNameLabel, "QuillCode")
+        XCTAssertEqual(preview.packageCount, 2)
+        XCTAssertEqual(preview.sourceFileCount, 2)
+        XCTAssertEqual(preview.classCount, 2)
+        XCTAssertEqual(preview.lineCoverageLabel, "85% (17/20)")
+        XCTAssertEqual(preview.branchCoverageLabel, "75% (6/8)")
+        XCTAssertEqual(preview.methodCoverageLabel, "90% (9/10)")
+        XCTAssertEqual(preview.classCoverageLabel, "100% (2/2)")
+        XCTAssertEqual(preview.packagePreviewLabels, ["dev/quillcode/app", "dev/quillcode/tools"])
+        XCTAssertEqual(preview.sourceFilePreviewLabels, ["Workspace.kt", "ShellToolExecutor.kt"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: JaCoCo XML",
+            "Report: QuillCode",
+            "2 packages",
+            "2 source files",
+            "2 classes",
+            "Lines: 85% (17/20)",
+            "Branches: 75% (6/8)",
+            "Methods: 90% (9/10)",
+            "Classes: 100% (2/2)",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.junitPreview)
+        XCTAssertNil(artifact.coberturaPreview)
+        XCTAssertNil(artifact.cloverPreview)
+
+        let nonJaCoCo = directory.appendingPathComponent("report.xml")
+        try "<report><summary /></report>".write(to: nonJaCoCo, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonJaCoCo.path).jaCoCoPreview)
+
+        let remoteJaCoCo = ToolArtifactState(value: "https://example.com/jacoco.xml")
+        XCTAssertNil(remoteJaCoCo.jaCoCoPreview)
+    }
+
     func testArtifactStateDerivesSQLitePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let database = directory.appendingPathComponent("cache.sqlite3")

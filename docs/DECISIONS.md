@@ -2252,3 +2252,22 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCloverArtifactPreview` covers static
   HTML selectors, rendered coverage metadata, content lists, Cobertura suppression, and generic XML
   suppression.
+
+## 2026-07-19: JaCoCo XML artifacts render bounded coverage summaries
+
+- **Decision:** Local `.xml` artifacts whose root element is `report` and whose content has JaCoCo
+  package/session/counter markers render as structured JaCoCo coverage cards instead of generic XML.
+  The preview shows package/source/class counts, line/branch/method/class coverage, file size, capped
+  package labels, and capped source-file labels.
+- **Why:** Java and Kotlin projects often produce JaCoCo XML in CI. A Codex-style coding surface
+  should make those coverage reports immediately scannable without requiring the model to parse raw
+  XML or re-run coverage tooling.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It records only root-level aggregate counters, never executes coverage tools, never follows
+  package/source/class names as paths, never reads referenced source files, and never fetches remote
+  coverage URLs. Generic XML rendering is suppressed only after the JaCoCo root validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesJaCoCoPreviewMetadata` covers
+  aggregate counters, package/source labels, non-JaCoCo XML exclusion, non-overlap with other XML
+  report parsers, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesJaCoCoArtifactPreview` covers static
+  HTML selectors, rendered coverage metadata, content lists, and generic XML suppression.
