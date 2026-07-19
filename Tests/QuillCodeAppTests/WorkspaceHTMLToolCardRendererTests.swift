@@ -1111,6 +1111,56 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">go.sum"#))
     }
 
+    func testHTMLRendererIncludesPythonRequirementsArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("requirements.txt")
+        try """
+        --index-url https://pypi.org/simple
+        requests==2.32.3 --hash=sha256:abc
+        rich>=13.7,<14
+        uvicorn @ https://files.pythonhosted.org/packages/uvicorn.whl
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"requirements.txt"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote requirements.txt\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Python requirements artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · REQUIREMENTS"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">requirements.txt"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">Format: Python requirements"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">3 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 pinned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 ranged"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 option"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 hash"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-package-item">requests==2.32.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-package-item">rich&gt;=13.7"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-package-item">uvicorn"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-host-item">pypi.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-host-item">files.pythonhosted.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">requirements.txt"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")

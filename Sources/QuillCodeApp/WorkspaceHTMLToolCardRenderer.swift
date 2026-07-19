@@ -225,6 +225,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let composerLockfilePreviewModel = artifact.composerLockfilePreview
             let composerLockfilePreview = renderComposerLockfilePreview(composerLockfilePreviewModel)
             let goSumPreview = renderGoSumPreview(artifact.goSumPreview)
+            let pythonRequirementsPreview = renderPythonRequirementsPreview(artifact.pythonRequirementsPreview)
             let pnpmLockfilePreviewModel = artifact.pnpmLockfilePreview
             let pnpmLockfilePreview = renderPNPMLockfilePreview(pnpmLockfilePreviewModel)
             let swiftPMPackageResolvedPreviewModel = artifact.swiftPMPackageResolvedPreview
@@ -316,6 +317,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(npmLockfilePreview)
               \(composerLockfilePreview)
               \(goSumPreview)
+              \(pythonRequirementsPreview)
               \(pnpmLockfilePreview)
               \(swiftPMPackageResolvedPreview)
               \(yarnLockfilePreview)
@@ -872,6 +874,41 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(moduleList)
+          \(hostList)
+        </div>
+        """
+    }
+
+    private static func renderPythonRequirementsPreview(_ preview: ToolArtifactPythonRequirementsPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-python-requirements-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-python-requirements-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let hosts = preview.sourceHostLabels.map {
+            #"<li data-testid="tool-card-python-requirements-preview-host-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-python-requirements-preview-packages">
+                <strong data-testid="tool-card-python-requirements-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let hostList = hosts.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-python-requirements-preview-hosts">
+                <strong data-testid="tool-card-python-requirements-preview-host-title">Sources</strong>
+                <ul>\(hosts)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !hostList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-python-requirements-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
           \(hostList)
         </div>
         """

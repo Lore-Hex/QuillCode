@@ -618,6 +618,70 @@ public struct ToolArtifactGoSumPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPythonRequirementsPreview: Codable, Sendable, Hashable {
+    public var packageCount: Int
+    public var pinnedCount: Int
+    public var rangedCount: Int
+    public var editableCount: Int
+    public var includeCount: Int
+    public var optionCount: Int
+    public var hashCount: Int
+    public var sourceHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Python requirements",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            pinnedCount > 0 ? "\(pinnedCount) pinned" : nil,
+            rangedCount > 0 ? "\(rangedCount) ranged" : nil,
+            editableCount > 0 ? "\(editableCount) editable" : nil,
+            includeCount > 0 ? "\(includeCount) include\(includeCount == 1 ? "" : "s")" : nil,
+            optionCount > 0 ? "\(optionCount) option\(optionCount == 1 ? "" : "s")" : nil,
+            hashCount > 0 ? "\(hashCount) hash\(hashCount == 1 ? "" : "es")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || pinnedCount > 0
+            || rangedCount > 0
+            || editableCount > 0
+            || includeCount > 0
+            || optionCount > 0
+            || hashCount > 0
+            || !metadataLines.isEmpty
+            || !sourceHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        packageCount: Int,
+        pinnedCount: Int = 0,
+        rangedCount: Int = 0,
+        editableCount: Int = 0,
+        includeCount: Int = 0,
+        optionCount: Int = 0,
+        hashCount: Int = 0,
+        sourceHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.packageCount = packageCount
+        self.pinnedCount = pinnedCount
+        self.rangedCount = rangedCount
+        self.editableCount = editableCount
+        self.includeCount = includeCount
+        self.optionCount = optionCount
+        self.hashCount = hashCount
+        self.sourceHostLabels = sourceHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactPNPMLockfilePreview: Codable, Sendable, Hashable {
     public var lockfileVersion: String?
     public var importerCount: Int
@@ -2787,6 +2851,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var goSumPreview: ToolArtifactGoSumPreview? {
         ToolArtifactGoSumPreviewBuilder.goSumPreview(for: value, kind: kind)
+    }
+    public var pythonRequirementsPreview: ToolArtifactPythonRequirementsPreview? {
+        ToolArtifactPythonRequirementsPreviewBuilder.requirementsPreview(for: value, kind: kind)
     }
     public var pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview? {
         ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: kind)

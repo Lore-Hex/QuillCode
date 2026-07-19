@@ -77,6 +77,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             composerLockfileContent(composerLockfilePreview)
         } else if let goSumPreview = artifact.goSumPreview {
             goSumContent(goSumPreview)
+        } else if let pythonRequirementsPreview = artifact.pythonRequirementsPreview {
+            pythonRequirementsContent(pythonRequirementsPreview)
         } else if let pnpmLockfilePreview = artifact.pnpmLockfilePreview {
             pnpmLockfileContent(pnpmLockfilePreview)
         } else if let swiftPMPackageResolvedPreview = artifact.swiftPMPackageResolvedPreview {
@@ -346,6 +348,25 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(goSumPreview.metadataLines)
             artifactContentList(title: "Modules", labels: goSumPreview.modulePreviewLabels)
             artifactContentList(title: "Sources", labels: goSumPreview.sourceHostLabels)
+        }
+    }
+
+    private func pythonRequirementsContent(
+        _ pythonRequirementsPreview: ToolArtifactPythonRequirementsPreview
+    ) -> some View {
+        let hasLists = !pythonRequirementsPreview.packagePreviewLabels.isEmpty
+            || !pythonRequirementsPreview.sourceHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pythonRequirementsPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: pythonRequirementsPreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: pythonRequirementsPreview.sourceHostLabels)
         }
     }
 

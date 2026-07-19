@@ -946,6 +946,70 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteSum.goSumPreview)
     }
 
+    func testArtifactStateDerivesPythonRequirementsPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("requirements-dev.txt")
+        let requirementsText = """
+        --index-url https://pypi.org/simple
+        --extra-index-url https://packages.example.com/simple
+        -r base.txt
+        requests==2.32.3 --hash=sha256:abc
+        rich>=13.7,<14
+        fastapi[standard]~=0.115.0 ; python_version >= "3.11"
+        -e git+https://github.com/Lore-Hex/QuillCode.git#egg=quillcode
+        uvicorn @ https://files.pythonhosted.org/packages/uvicorn.whl
+        """
+        try requirementsText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pythonRequirementsPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(requirementsText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "REQUIREMENTS")
+        XCTAssertEqual(preview.packageCount, 4)
+        XCTAssertEqual(preview.pinnedCount, 1)
+        XCTAssertEqual(preview.rangedCount, 2)
+        XCTAssertEqual(preview.editableCount, 1)
+        XCTAssertEqual(preview.includeCount, 1)
+        XCTAssertEqual(preview.optionCount, 2)
+        XCTAssertEqual(preview.hashCount, 1)
+        XCTAssertEqual(preview.sourceHostLabels, [
+            "pypi.org",
+            "packages.example.com",
+            "github.com",
+            "files.pythonhosted.org"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "requests==2.32.3",
+            "rich>=13.7",
+            "fastapi~=0.115.0",
+            "quillcode",
+            "uvicorn"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Python requirements",
+            "4 packages",
+            "1 pinned",
+            "2 ranged",
+            "1 editable",
+            "1 include",
+            "2 options",
+            "1 hash",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notRequirements = directory.appendingPathComponent("deps.txt")
+        try requirementsText.write(to: notRequirements, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notRequirements.path).pythonRequirementsPreview)
+
+        let remoteRequirements = ToolArtifactState(value: "https://example.com/requirements.txt")
+        XCTAssertNil(remoteRequirements.pythonRequirementsPreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")

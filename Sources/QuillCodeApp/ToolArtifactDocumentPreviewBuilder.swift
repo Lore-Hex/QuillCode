@@ -37,6 +37,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "go.sum" {
             return "gosum"
         }
+        if filename == "requirements.txt" || (filename.hasPrefix("requirements-") && filename.hasSuffix(".txt")) {
+            return "requirements"
+        }
         if filename == "package.resolved" {
             return "spm"
         }
@@ -80,6 +83,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "lcov": .data,
         "gocover": .data,
         "gosum": .data,
+        "requirements": .data,
         "ndjson": .data,
         "sarif": .data,
         "cfg": .data,
