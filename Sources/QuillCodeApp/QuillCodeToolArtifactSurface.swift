@@ -700,6 +700,65 @@ public struct ToolArtifactPytestJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var planLabel: String?
+    public var assertionCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var skippedCount: Int
+    public var todoCount: Int
+    public var bailoutLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            planLabel.map { "Plan: \($0)" },
+            "\(assertionCount) assertion\(assertionCount == 1 ? "" : "s")",
+            "Passed: \(passedCount)",
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            todoCount > 0 ? "TODO: \(todoCount)" : nil,
+            bailoutLabel.map { "Bail out: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        assertionCount > 0
+            || planLabel != nil
+            || bailoutLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "TAP",
+        planLabel: String? = nil,
+        assertionCount: Int,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        skippedCount: Int = 0,
+        todoCount: Int = 0,
+        bailoutLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.planLabel = planLabel
+        self.assertionCount = assertionCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.skippedCount = skippedCount
+        self.todoCount = todoCount
+        self.bailoutLabel = bailoutLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactHARPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var creatorLabel: String?
@@ -1984,6 +2043,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var pytestJSONPreview: ToolArtifactPytestJSONPreview? {
         ToolArtifactPytestJSONPreviewBuilder.pytestJSONPreview(for: value, kind: kind)
+    }
+    public var tapPreview: ToolArtifactTAPPreview? {
+        ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)
     }
     public var harPreview: ToolArtifactHARPreview? {
         ToolArtifactHARPreviewBuilder.harPreview(for: value, kind: kind)

@@ -218,6 +218,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let coveragePyPreview = renderCoveragePyPreview(coveragePyPreviewModel)
             let pytestJSONPreviewModel = artifact.pytestJSONPreview
             let pytestJSONPreview = renderPytestJSONPreview(pytestJSONPreviewModel)
+            let tapPreview = renderTAPPreview(artifact.tapPreview)
             let harPreview = renderHARPreview(artifact.harPreview)
             let lcovPreview = renderLCOVPreview(artifact.lcovPreview)
             let goCoveragePreview = renderGoCoveragePreview(artifact.goCoveragePreview)
@@ -274,6 +275,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(istanbulPreview)
               \(coveragePyPreview)
               \(pytestJSONPreview)
+              \(tapPreview)
               \(harPreview)
               \(lcovPreview)
               \(goCoveragePreview)
@@ -687,6 +689,31 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty || !failureList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-pytest-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderTAPPreview(_ preview: ToolArtifactTAPPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-tap-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-tap-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-tap-preview-failures">
+                <strong data-testid="tool-card-tap-preview-failure-title">Failures</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-tap-preview">
           <div>
             \(metadata)
           </div>

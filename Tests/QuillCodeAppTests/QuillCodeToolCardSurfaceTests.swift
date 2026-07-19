@@ -1356,6 +1356,55 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePytest.pytestJSONPreview)
     }
 
+    func testArtifactStateDerivesTAPPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("test.tap")
+        let content = """
+        TAP version 13
+        1..4
+        ok 1 - loads app
+        not ok 2 - writes file
+        ok 3 - optional browser # SKIP no browser
+        not ok 4 - planned support # TODO implement later
+        Bail out! database unavailable
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.tapPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "TAP")
+        XCTAssertEqual(preview.formatLabel, "TAP")
+        XCTAssertEqual(preview.planLabel, "1..4")
+        XCTAssertEqual(preview.assertionCount, 4)
+        XCTAssertEqual(preview.passedCount, 3)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.todoCount, 1)
+        XCTAssertEqual(preview.bailoutLabel, "database unavailable")
+        XCTAssertEqual(preview.failurePreviewLabels, ["2 - writes file"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: TAP",
+            "Plan: 1..4",
+            "4 assertions",
+            "Passed: 3",
+            "Failed: 1",
+            "Skipped: 1",
+            "TODO: 1",
+            "Bail out: database unavailable",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("notes.tap")
+        try "this is not tap\n".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).tapPreview)
+
+        let remoteTAP = ToolArtifactState(value: "https://example.com/test.tap")
+        XCTAssertNil(remoteTAP.tapPreview)
+    }
+
     func testArtifactStateDerivesJUnitPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("TEST-QuillCode.xml")

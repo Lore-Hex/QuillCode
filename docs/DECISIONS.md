@@ -2343,3 +2343,19 @@
   covers summary counts, failing labels, generic JSON exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPytestJSONArtifactPreview` covers
   static HTML selectors, rendered report metadata, failure lists, and generic JSON suppression.
+
+## 2026-07-19: TAP artifacts render bounded test summaries
+
+- **Decision:** Local `.tap` artifacts that match Test Anything Protocol plan/assertion/bailout
+  lines render as structured TAP report cards instead of generic data files. The preview shows plan,
+  assertion count, pass/fail/skip/TODO counts, bailout reason, file size, and capped failing
+  assertion labels.
+- **Why:** TAP remains common in Node, Perl, and CI test output. A Codex-style artifact surface should
+  make failing assertions scannable without forcing the agent to inspect raw test protocol text.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB plus 20,000 lines. It reads only TAP protocol summary lines, never expands YAML-ish
+  diagnostics, never opens referenced source files, and never fetches remote TAP reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesTAPPreviewMetadata` covers
+  plan parsing, pass/fail/skip/TODO counts, bailout labels, generic `.tap` exclusion, and remote
+  exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesTAPArtifactPreview` covers
+  static HTML selectors, rendered report metadata, and failure lists.

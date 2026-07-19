@@ -119,6 +119,9 @@
 - Artifact previews now include bounded local pytest JSON report metadata for pytest-json-report
   artifacts: total/pass/fail/error/skip counts, exit code, duration, file size, and capped failing
   test node IDs without expanding captured logs or fetching remote JSON.
+- Artifact previews now include bounded local TAP report metadata for `.tap` files: plan, assertion
+  counts, pass/fail/skip/TODO counts, bailout reason, file size, and capped failing assertion labels
+  without expanding diagnostics or fetching remote reports.
 - Artifact previews now include bounded local INI-style config metadata for `.ini`, `.cfg`, and `.conf`:
   section/key counts, file size, truncation state, and capped section previews.
 - Artifact previews now include bounded local dotenv metadata for `.env` and `.env.*` files:
