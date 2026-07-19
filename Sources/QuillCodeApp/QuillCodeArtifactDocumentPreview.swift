@@ -81,6 +81,12 @@ struct QuillCodeArtifactDocumentPreview: View {
             yamlContent(yamlPreview)
         } else if let junitPreview = artifact.junitPreview {
             junitContent(junitPreview)
+        } else if let coberturaPreview = artifact.coberturaPreview {
+            coberturaContent(coberturaPreview)
+        } else if let cloverPreview = artifact.cloverPreview {
+            cloverContent(cloverPreview)
+        } else if let jaCoCoPreview = artifact.jaCoCoPreview {
+            jaCoCoContent(jaCoCoPreview)
         } else if let xmlPreview = artifact.xmlPreview {
             xmlContent(xmlPreview)
         } else if let propertyListPreview = artifact.propertyListPreview {
@@ -341,6 +347,51 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(junitPreview.metadataLines)
             artifactContentList(title: "Suites", labels: junitPreview.suitePreviewLabels)
             artifactContentList(title: "Failing tests", labels: junitPreview.failurePreviewLabels)
+        }
+    }
+
+    private func coberturaContent(_ coberturaPreview: ToolArtifactCoberturaPreview) -> some View {
+        previewSurface(minHeight: coberturaPreview.classPreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.bar.doc.horizontal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(coberturaPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: coberturaPreview.packagePreviewLabels)
+            artifactContentList(title: "Classes", labels: coberturaPreview.classPreviewLabels)
+        }
+    }
+
+    private func cloverContent(_ cloverPreview: ToolArtifactCloverPreview) -> some View {
+        previewSurface(minHeight: cloverPreview.filePreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.line.uptrend.xyaxis")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(cloverPreview.metadataLines)
+            artifactContentList(title: "Projects", labels: cloverPreview.projectPreviewLabels)
+            artifactContentList(title: "Files", labels: cloverPreview.filePreviewLabels)
+        }
+    }
+
+    private func jaCoCoContent(_ jaCoCoPreview: ToolArtifactJaCoCoPreview) -> some View {
+        previewSurface(minHeight: jaCoCoPreview.sourceFilePreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.bar.xaxis")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(jaCoCoPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: jaCoCoPreview.packagePreviewLabels)
+            artifactContentList(title: "Source files", labels: jaCoCoPreview.sourceFilePreviewLabels)
         }
     }
 

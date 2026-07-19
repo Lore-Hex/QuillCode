@@ -2214,3 +2214,60 @@
   aggregate attributes, testcase-observed fallback counts, failing labels, non-JUnit XML exclusion,
   and remote exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesJUnitArtifactPreview`
   covers static HTML selectors, rendered metadata, and generic XML suppression.
+
+## 2026-07-19: Cobertura XML artifacts render bounded coverage summaries
+
+- **Decision:** Local `.xml` artifacts whose root element is `coverage` render as structured
+  Cobertura coverage cards instead of generic XML. The preview shows package/class counts,
+  line/branch coverage, file size, capped package labels, and capped class labels.
+- **Why:** Coverage jobs commonly emit Cobertura XML even when LCOV is unavailable. Codex-style
+  artifact handling should make coverage shape visible in one glance without requiring the agent to
+  re-open raw XML or summarize a broad report tree in chat.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It never executes coverage tools, never follows class filenames or source paths, never reads
+  referenced files, and never fetches remote coverage URLs. Generic XML rendering is suppressed only
+  after the Cobertura root validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesCoberturaPreviewMetadata`
+  covers count-based coverage, rate-only fallback, package/class labels, non-Cobertura XML exclusion,
+  and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCoberturaArtifactPreview` covers static
+  HTML selectors, rendered coverage metadata, content lists, and generic XML suppression.
+
+## 2026-07-19: Clover XML artifacts render bounded coverage summaries
+
+- **Decision:** Local `.xml` artifacts whose root element is `coverage` and whose content has
+  Clover-style project/metrics markers render as structured Clover coverage cards instead of generic
+  XML. The preview shows package/file/class counts, element/method/statement/conditional coverage,
+  file size, capped project labels, and capped file labels.
+- **Why:** Clover and Cobertura both use a `coverage` root, but they encode coverage shape
+  differently. Codex-style artifact handling should recognize both common CI report formats without
+  treating one as the other or dumping a raw XML tree into the transcript.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It never executes coverage tools, never follows file paths from `<file>` elements, never
+  reads referenced source files, and never fetches remote coverage URLs. Cobertura detection now
+  requires Cobertura-specific coverage attributes so Clover reports are not misclassified.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesCloverPreviewMetadata` covers
+  metric-derived coverage labels, project/file labels, non-Clover XML exclusion, Cobertura
+  disambiguation, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCloverArtifactPreview` covers static
+  HTML selectors, rendered coverage metadata, content lists, Cobertura suppression, and generic XML
+  suppression.
+
+## 2026-07-19: JaCoCo XML artifacts render bounded coverage summaries
+
+- **Decision:** Local `.xml` artifacts whose root element is `report` and whose content has JaCoCo
+  package/session/counter markers render as structured JaCoCo coverage cards instead of generic XML.
+  The preview shows package/source/class counts, line/branch/method/class coverage, file size, capped
+  package labels, and capped source-file labels.
+- **Why:** Java and Kotlin projects often produce JaCoCo XML in CI. A Codex-style coding surface
+  should make those coverage reports immediately scannable without requiring the model to parse raw
+  XML or re-run coverage tooling.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It records only root-level aggregate counters, never executes coverage tools, never follows
+  package/source/class names as paths, never reads referenced source files, and never fetches remote
+  coverage URLs. Generic XML rendering is suppressed only after the JaCoCo root validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesJaCoCoPreviewMetadata` covers
+  aggregate counters, package/source labels, non-JaCoCo XML exclusion, non-overlap with other XML
+  report parsers, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesJaCoCoArtifactPreview` covers static
+  HTML selectors, rendered coverage metadata, content lists, and generic XML suppression.

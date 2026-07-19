@@ -222,7 +222,18 @@ enum WorkspaceHTMLToolCardRenderer {
             let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
             let junitPreviewModel = artifact.junitPreview
             let junitPreview = renderJUnitPreview(junitPreviewModel)
-            let xmlPreview = junitPreviewModel == nil ? renderXMLPreview(artifact.xmlPreview) : ""
+            let coberturaPreviewModel = artifact.coberturaPreview
+            let coberturaPreview = renderCoberturaPreview(coberturaPreviewModel)
+            let cloverPreviewModel = artifact.cloverPreview
+            let cloverPreview = renderCloverPreview(cloverPreviewModel)
+            let jaCoCoPreviewModel = artifact.jaCoCoPreview
+            let jaCoCoPreview = renderJaCoCoPreview(jaCoCoPreviewModel)
+            let xmlPreview = junitPreviewModel == nil
+                && coberturaPreviewModel == nil
+                && cloverPreviewModel == nil
+                && jaCoCoPreviewModel == nil
+                ? renderXMLPreview(artifact.xmlPreview)
+                : ""
             let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
             let sqlitePreview = renderSQLitePreview(artifact.sqlitePreview)
             let webAssemblyPreview = renderWebAssemblyPreview(artifact.webAssemblyPreview)
@@ -258,6 +269,9 @@ enum WorkspaceHTMLToolCardRenderer {
               \(dotenvPreview)
               \(yamlPreview)
               \(junitPreview)
+              \(coberturaPreview)
+              \(cloverPreview)
+              \(jaCoCoPreview)
               \(xmlPreview)
               \(propertyListPreview)
               \(sqlitePreview)
@@ -838,6 +852,111 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(suiteList)
           \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderCoberturaPreview(_ preview: ToolArtifactCoberturaPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-cobertura-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-cobertura-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let classes = preview.classPreviewLabels.map {
+            #"<li data-testid="tool-card-cobertura-preview-class-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-cobertura-preview-packages">
+                <strong data-testid="tool-card-cobertura-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let classList = classes.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-cobertura-preview-classes">
+                <strong data-testid="tool-card-cobertura-preview-class-title">Classes</strong>
+                <ul>\(classes)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !classList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-cobertura-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(classList)
+        </div>
+        """
+    }
+
+    private static func renderCloverPreview(_ preview: ToolArtifactCloverPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-clover-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let projects = preview.projectPreviewLabels.map {
+            #"<li data-testid="tool-card-clover-preview-project-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-clover-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let projectList = projects.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-clover-preview-projects">
+                <strong data-testid="tool-card-clover-preview-project-title">Projects</strong>
+                <ul>\(projects)</ul>
+              </section>
+        """
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-clover-preview-files">
+                <strong data-testid="tool-card-clover-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !projectList.isEmpty || !fileList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-clover-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(projectList)
+          \(fileList)
+        </div>
+        """
+    }
+
+    private static func renderJaCoCoPreview(_ preview: ToolArtifactJaCoCoPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-jacoco-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-jacoco-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sourceFiles = preview.sourceFilePreviewLabels.map {
+            #"<li data-testid="tool-card-jacoco-preview-source-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-jacoco-preview-packages">
+                <strong data-testid="tool-card-jacoco-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let sourceFileList = sourceFiles.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-jacoco-preview-source-files">
+                <strong data-testid="tool-card-jacoco-preview-source-file-title">Source files</strong>
+                <ul>\(sourceFiles)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !sourceFileList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-jacoco-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(sourceFileList)
         </div>
         """
     }
