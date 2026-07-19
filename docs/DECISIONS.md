@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Cargo Compiler JSONL As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.jsonl` and `.ndjson` files whose records include Cargo
+  `compiler-message` entries as Rust compiler/Clippy diagnostics rather than generic JSON Lines.
+- **Rationale:** Rust coding sessions commonly capture `cargo check --message-format=json` and
+  Clippy output. Showing diagnostic/file/code/level counts plus capped file/code labels gives useful
+  Codex-style feedback without opening raw line-oriented JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Rust
+  source files, expand spans, invoke Cargo, load Cargo metadata, or fetch remote reports.
+
 ## 2026-07-19: Render Pyright JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as native Pyright JSON output as a

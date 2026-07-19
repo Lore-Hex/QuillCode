@@ -276,6 +276,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let lcovPreview = renderLCOVPreview(artifact.lcovPreview)
             let goCoveragePreview = renderGoCoveragePreview(artifact.goCoveragePreview)
             let sarifPreview = renderSARIFPreview(artifact.sarifPreview)
+            let cargoCompilerJSONLinesPreviewModel = artifact.cargoCompilerJSONLinesPreview
+            let cargoCompilerJSONLinesPreview = renderCargoCompilerJSONLinesPreview(cargoCompilerJSONLinesPreviewModel)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = uvLockPreviewModel == nil
                 ? renderTOMLPreview(artifact.tomlPreview)
@@ -405,6 +407,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(lcovPreview)
               \(goCoveragePreview)
               \(sarifPreview)
+              \(cargoCompilerJSONLinesPreview)
               \(jsonLinesPreview)
               \(tomlPreview)
               \(iniPreview)
@@ -1986,6 +1989,43 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(keyList)
+        </div>
+        """
+    }
+
+    private static func renderCargoCompilerJSONLinesPreview(
+        _ preview: ToolArtifactCargoCompilerJSONLinesPreview?
+    ) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-cargo-compiler-jsonl-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-cargo-compiler-jsonl-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let codes = preview.codePreviewLabels.map {
+            #"<li data-testid="tool-card-cargo-compiler-jsonl-preview-code-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-cargo-compiler-jsonl-preview-files">
+                <strong data-testid="tool-card-cargo-compiler-jsonl-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let codeList = codes.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-cargo-compiler-jsonl-preview-codes">
+                <strong data-testid="tool-card-cargo-compiler-jsonl-preview-code-title">Codes</strong>
+                <ul>\(codes)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !codeList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-cargo-compiler-jsonl-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+          \(codeList)
         </div>
         """
     }
