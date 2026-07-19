@@ -24,6 +24,32 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("abc\u{9B}1;2HXY"), "aXY")
     }
 
+    func testRISResetClearsScreenCursorStyleAndModes() {
+        let raw = "old"
+            + "\u{1B}[31m"
+            + "\u{1B}[?1000h"
+            + "\u{1B}[2;3r"
+            + "\u{1B}7"
+            + "\u{1B}c"
+            + "new"
+        let frame = TerminalOutputRenderer.renderFrame(raw)
+
+        XCTAssertEqual(frame.text, "new")
+        XCTAssertEqual(frame.runs, [TerminalTextRun(text: "new")])
+        XCTAssertEqual(frame.mouseReporting, .disabled)
+    }
+
+    func testRISResetDropsAlternateScreenSnapshot() {
+        let raw = "main"
+            + "\u{1B}[?1049h"
+            + "alternate"
+            + "\u{1B}c"
+            + "after"
+            + "\u{1B}[?1049l"
+
+        XCTAssertEqual(render(raw), "after")
+    }
+
     func testPreservesSGRColorsAndEmphasisAsStyledRuns() {
         let frame = TerminalOutputRenderer.renderFrame(
             "plain \u{1B}[1;3;4;31;44mstyled\u{1B}[22;23;24;39;49m done"
