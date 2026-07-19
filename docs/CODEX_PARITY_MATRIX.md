@@ -96,6 +96,10 @@
   lockfile version, root package, package/dependency/dev/optional counts, file size, capped package
   labels, and capped resolved registry hosts without expanding integrity hashes, package scripts, or
   fetching remote tarballs.
+- Artifact previews now include bounded local Composer lockfile metadata for `composer.lock` files:
+  plugin API version, content-hash prefix, package/dev-package counts, file size, capped package
+  labels, and capped source hosts without expanding install scripts, autoload metadata, full hashes,
+  or fetching Packagist/source archives.
 - Artifact previews now include bounded local pnpm lockfile metadata for `pnpm-lock.yaml` files:
   lockfile version, importer/package/dependency/integrity counts, file size, capped importer labels,
   capped package labels, and capped resolved registry hosts without expanding dependency graphs,

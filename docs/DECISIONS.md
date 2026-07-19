@@ -2561,3 +2561,24 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPNPMLockfileArtifactPreview` covers
   static HTML selectors, rendered pnpm metadata, package/importer/host lists, YAML-preview suppression,
   and text-preview coexistence.
+
+## 2026-07-19: composer.lock artifacts render bounded package summaries
+
+- **Decision:** Local `composer.lock` artifacts render as structured Composer lockfile cards. The
+  preview shows plugin API version, content-hash prefix, package/dev-package counts, file size, capped
+  package labels, and capped source host labels. `composer.lock` is classified as a data artifact
+  through filename-specific detection.
+- **Why:** PHP dependency changes often produce large lockfile-only diffs. A bounded package/source
+  summary lets users inspect dependency impact without reading repetitive Composer lockfile JSON.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `composer.lock`, and capped at 512 KB. It reads shallow top-level `packages`, `packages-dev`,
+  `plugin-api-version`, and `content-hash`, plus package `name`, `version`, `source.url`, and
+  `dist.url`; it never expands autoload metadata, scripts, full hashes, package manifests, Packagist
+  metadata, source archives, or remote URLs. Generic JSON rendering is suppressed only after the
+  Composer lockfile shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesComposerLockfilePreviewMetadata`
+  covers filename-based document classification, plugin API, content-hash prefix, package/dev counts,
+  package labels, host labels, non-`composer.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesComposerLockfileArtifactPreview` covers
+  static HTML selectors, rendered Composer metadata, package/host lists, JSON-preview suppression, and
+  text-preview coexistence.

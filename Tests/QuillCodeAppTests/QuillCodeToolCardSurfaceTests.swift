@@ -810,6 +810,92 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteLock.pnpmLockfilePreview)
     }
 
+    func testArtifactStateDerivesComposerLockfilePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("composer.lock")
+        let lockText = """
+        {
+          "_readme": ["This file locks the dependencies of your project."],
+          "content-hash": "abcdef1234567890abcdef1234567890",
+          "plugin-api-version": "2.6.0",
+          "packages": [
+            {
+              "name": "guzzlehttp/guzzle",
+              "version": "7.9.2",
+              "source": {
+                "type": "git",
+                "url": "https://github.com/guzzle/guzzle.git",
+                "reference": "abc"
+              },
+              "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/abc",
+                "reference": "abc"
+              }
+            },
+            {
+              "name": "symfony/console",
+              "version": "v7.1.0",
+              "dist": {
+                "type": "zip",
+                "url": "https://codeload.github.com/symfony/console/legacy.zip/def",
+                "reference": "def"
+              }
+            }
+          ],
+          "packages-dev": [
+            {
+              "name": "phpunit/phpunit",
+              "version": "11.4.3",
+              "dist": {
+                "type": "zip",
+                "url": "https://repo.packagist.org/p2/phpunit/phpunit.json",
+                "reference": "ghi"
+              }
+            }
+          ]
+        }
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.composerLockfilePreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "COMPOSER-LOCK")
+        XCTAssertEqual(preview.pluginAPIVersion, "2.6.0")
+        XCTAssertEqual(preview.contentHashPrefix, "abcdef123456")
+        XCTAssertEqual(preview.packageCount, 2)
+        XCTAssertEqual(preview.devPackageCount, 1)
+        XCTAssertEqual(preview.resolvedHostLabels, [
+            "api.github.com",
+            "repo.packagist.org",
+            "codeload.github.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "guzzlehttp/guzzle@7.9.2",
+            "phpunit/phpunit@11.4.3",
+            "symfony/console@v7.1.0"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Composer lockfile",
+            "Plugin API: 2.6.0",
+            "Content hash: abcdef123456...",
+            "2 packages",
+            "1 dev package",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let packageJSON = directory.appendingPathComponent("composer.json")
+        try #"{"packages":[]}"#.write(to: packageJSON, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: packageJSON.path).composerLockfilePreview)
+
+        let remoteLock = ToolArtifactState(value: "https://example.com/composer.lock")
+        XCTAssertNil(remoteLock.composerLockfilePreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")
