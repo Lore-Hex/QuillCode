@@ -2494,6 +2494,77 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesPyrightJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("pyright-results.json")
+        let reportText = """
+        {
+          "version": "1.1.380",
+          "generalDiagnostics": [
+            {
+              "file": "/repo/app/models.py",
+              "severity": "error",
+              "message": "Type \\\"str\\\" is not assignable to return type \\\"int\\\"",
+              "range": {"start": {"line": 7, "character": 12}, "end": {"line": 7, "character": 22}},
+              "rule": "reportReturnType"
+            },
+            {
+              "file": "/repo/app/views.py",
+              "severity": "warning",
+              "message": "Type of parameter is unknown",
+              "range": {"start": {"line": 22, "character": 4}, "end": {"line": 22, "character": 10}},
+              "rule": "reportUnknownParameterType"
+            }
+          ],
+          "summary": {"filesAnalyzed": 12, "errorCount": 1, "warningCount": 1}
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/pyright-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/pyright-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Pyright artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">pyright-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">Format: Pyright JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">2 diagnostics"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">2 rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-file-item">repo/app/models.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-file-item">repo/app/views.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-rule-item">reportReturnType"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-rule-item">reportUnknownParameterType"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesBanditJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
