@@ -996,6 +996,74 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">pnpm-lock.yaml"#))
     }
 
+    func testHTMLRendererIncludesComposerLockfileArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("composer.lock")
+        try """
+        {
+          "content-hash": "abcdef1234567890",
+          "plugin-api-version": "2.6.0",
+          "packages": [
+            {
+              "name": "guzzlehttp/guzzle",
+              "version": "7.9.2",
+              "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/abc"
+              }
+            }
+          ],
+          "packages-dev": [
+            {
+              "name": "phpunit/phpunit",
+              "version": "11.4.3",
+              "dist": {
+                "type": "zip",
+                "url": "https://repo.packagist.org/p2/phpunit/phpunit.json"
+              }
+            }
+          ]
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"composer.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote composer.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Composer lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · COMPOSER-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">composer.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-meta">Format: Composer lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-meta">Plugin API: 2.6.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-meta">1 package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-meta">1 dev package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-package-item">guzzlehttp/guzzle@7.9.2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-package-item">phpunit/phpunit@11.4.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-host-item">api.github.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-host-item">repo.packagist.org"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">composer.lock"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")

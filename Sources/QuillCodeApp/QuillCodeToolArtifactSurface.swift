@@ -522,6 +522,53 @@ public struct ToolArtifactNPMLockfilePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactComposerLockfilePreview: Codable, Sendable, Hashable {
+    public var pluginAPIVersion: String?
+    public var contentHashPrefix: String?
+    public var packageCount: Int
+    public var devPackageCount: Int
+    public var resolvedHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Composer lockfile",
+            pluginAPIVersion.map { "Plugin API: \($0)" },
+            contentHashPrefix.map { "Content hash: \($0)..." },
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            devPackageCount > 0 ? "\(devPackageCount) dev package\(devPackageCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || devPackageCount > 0
+            || !metadataLines.isEmpty
+            || !resolvedHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        pluginAPIVersion: String? = nil,
+        contentHashPrefix: String? = nil,
+        packageCount: Int,
+        devPackageCount: Int = 0,
+        resolvedHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.pluginAPIVersion = pluginAPIVersion
+        self.contentHashPrefix = contentHashPrefix
+        self.packageCount = packageCount
+        self.devPackageCount = devPackageCount
+        self.resolvedHostLabels = resolvedHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactPNPMLockfilePreview: Codable, Sendable, Hashable {
     public var lockfileVersion: String?
     public var importerCount: Int
@@ -2685,6 +2732,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
         ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: kind)
+    }
+    public var composerLockfilePreview: ToolArtifactComposerLockfilePreview? {
+        ToolArtifactComposerLockfilePreviewBuilder.composerLockfilePreview(for: value, kind: kind)
     }
     public var pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview? {
         ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: kind)
