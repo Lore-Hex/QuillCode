@@ -2006,6 +2006,68 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesESLintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("eslint-results.json")
+        let reportText = """
+        [
+          {
+            "filePath": "/repo/Sources/App.ts",
+            "messages": [
+              {"ruleId": "no-console", "severity": 1, "message": "Unexpected console statement."},
+              {"ruleId": "@typescript-eslint/no-floating-promises", "severity": 2, "message": "Promise must be handled."}
+            ],
+            "errorCount": 1,
+            "warningCount": 1,
+            "fixableErrorCount": 0,
+            "fixableWarningCount": 0
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/eslint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/eslint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "ESLint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">eslint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">Format: ESLint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">2 messages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-file-item">repo/Sources/App.ts"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-rule-item">no-console"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-rule-item">@typescript-eslint/no-floating-promises"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesTAPArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

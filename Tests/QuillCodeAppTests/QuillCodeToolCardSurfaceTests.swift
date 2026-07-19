@@ -2749,6 +2749,89 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJest.jestJSONPreview)
     }
 
+    func testArtifactStateDerivesESLintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("eslint-results.json")
+        let content = """
+        [
+          {
+            "filePath": "/repo/Sources/App.ts",
+            "messages": [
+              {
+                "ruleId": "no-console",
+                "severity": 1,
+                "message": "Unexpected console statement.",
+                "fix": {"range": [10, 20], "text": ""}
+              },
+              {
+                "ruleId": "@typescript-eslint/no-floating-promises",
+                "severity": 2,
+                "message": "Promise must be handled."
+              }
+            ],
+            "errorCount": 1,
+            "warningCount": 1,
+            "fixableErrorCount": 0,
+            "fixableWarningCount": 1
+          },
+          {
+            "filePath": "/repo/Tests/App.test.ts",
+            "messages": [
+              {
+                "ruleId": "testing-library/no-debugging-utils",
+                "severity": 1,
+                "message": "Unexpected debug utility."
+              }
+            ],
+            "errorCount": 0,
+            "warningCount": 1,
+            "fixableErrorCount": 0,
+            "fixableWarningCount": 0
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.eslintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "ESLint JSON")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.messageCount, 3)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 2)
+        XCTAssertEqual(preview.fixableCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/Sources/App.ts",
+            "repo/Tests/App.test.ts"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "no-console",
+            "@typescript-eslint/no-floating-promises",
+            "testing-library/no-debugging-utils"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: ESLint JSON",
+            "2 files",
+            "3 messages",
+            "Errors: 1",
+            "Warnings: 2",
+            "Fixable: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"filePath":"/repo/file.ts","status":"ok"}]"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).eslintJSONPreview)
+
+        let remoteESLint = ToolArtifactState(value: "https://example.com/eslint-results.json")
+        XCTAssertNil(remoteESLint.eslintJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")
