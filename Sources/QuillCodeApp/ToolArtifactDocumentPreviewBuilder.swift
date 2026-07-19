@@ -84,6 +84,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "ttc": .data,
         "ttf": .data,
         "toml": .data,
+        "trx": .data,
         "wasm": .data,
         "woff": .data,
         "woff2": .data,

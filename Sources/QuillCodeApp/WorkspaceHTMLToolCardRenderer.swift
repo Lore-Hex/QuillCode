@@ -232,6 +232,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
             let junitPreviewModel = artifact.junitPreview
             let junitPreview = renderJUnitPreview(junitPreviewModel)
+            let trxPreview = renderTRXPreview(artifact.trxPreview)
             let coberturaPreviewModel = artifact.coberturaPreview
             let coberturaPreview = renderCoberturaPreview(coberturaPreviewModel)
             let cloverPreviewModel = artifact.cloverPreview
@@ -290,6 +291,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(dotenvPreview)
               \(yamlPreview)
               \(junitPreview)
+              \(trxPreview)
               \(coberturaPreview)
               \(cloverPreview)
               \(jaCoCoPreview)
@@ -1024,6 +1026,31 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(suiteList)
+          \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderTRXPreview(_ preview: ToolArtifactTRXPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-trx-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-trx-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-trx-preview-failures">
+                <strong data-testid="tool-card-trx-preview-failure-title">Failing tests</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-trx-preview">
+          <div>
+            \(metadata)
+          </div>
           \(failureList)
         </div>
         """
