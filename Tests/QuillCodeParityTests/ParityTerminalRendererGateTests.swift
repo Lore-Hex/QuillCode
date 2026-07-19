@@ -113,6 +113,7 @@ final class ParityTerminalRendererGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(testsText.contains("testOriginModeAddressesRowsRelativeToScrollRegion"))
         XCTAssertTrue(testsText.contains("testOriginModeResetRestoresAbsoluteAddressing"))
         XCTAssertTrue(testsText.contains("testOriginModeClampsAddressedRowsToScrollRegion"))
+        XCTAssertTrue(testsText.contains("testScrollRegionSetHomesToRegionTopWhenOriginModeIsAlreadyEnabled"))
         XCTAssertTrue(testsText.contains("testVerticalPositionAbsoluteHonorsOriginMode"))
         XCTAssertTrue(testsText.contains("testC1CSISequencesShareTheNormalCSIParser"))
         XCTAssertTrue(testsText.contains("testRelativePositionAliasesMoveCursorRightAndDown"))

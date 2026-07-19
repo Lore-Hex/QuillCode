@@ -359,6 +359,19 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render(raw), "top\nmiddle\nXottom\nfooter")
     }
 
+    func testScrollRegionSetHomesToRegionTopWhenOriginModeIsAlreadyEnabled() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[?6h"
+            + "\u{1B}[2;3r"
+            + "X"
+
+        XCTAssertEqual(render(raw), "top\nXiddle\nbottom")
+    }
+
     func testVerticalPositionAbsoluteHonorsOriginMode() {
         let raw = [
             "top",
