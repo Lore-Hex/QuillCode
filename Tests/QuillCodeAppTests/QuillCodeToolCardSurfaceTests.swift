@@ -3347,6 +3347,82 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteMypy.mypyJSONPreview)
     }
 
+    func testArtifactStateDerivesPyrightJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("pyright-results.json")
+        let content = """
+        {
+          "version": "1.1.380",
+          "time": "2026-07-19T23:05:00Z",
+          "generalDiagnostics": [
+            {
+              "file": "/repo/app/models.py",
+              "severity": "error",
+              "message": "Type \\\"str\\\" is not assignable to return type \\\"int\\\"",
+              "range": {"start": {"line": 7, "character": 12}, "end": {"line": 7, "character": 22}},
+              "rule": "reportReturnType"
+            },
+            {
+              "file": "/repo/app/views.py",
+              "severity": "warning",
+              "message": "Type of parameter is unknown",
+              "range": {"start": {"line": 22, "character": 4}, "end": {"line": 22, "character": 10}},
+              "rule": "reportUnknownParameterType"
+            },
+            {
+              "file": "/repo/app/models.py",
+              "severity": "information",
+              "message": "Type is Any",
+              "range": {"start": {"line": 30, "character": 8}, "end": {"line": 30, "character": 12}}
+            }
+          ],
+          "summary": {"filesAnalyzed": 12, "errorCount": 1, "warningCount": 1, "informationCount": 1}
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pyrightJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Pyright JSON")
+        XCTAssertEqual(preview.diagnosticCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.ruleCount, 2)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.informationCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/models.py",
+            "repo/app/views.py"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "reportReturnType",
+            "reportUnknownParameterType"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Pyright JSON",
+            "3 diagnostics",
+            "2 files",
+            "2 rules",
+            "Errors: 1",
+            "Warnings: 1",
+            "Information: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"generalDiagnostics":[{"file":"/repo/app.py","message":"missing severity and range"}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).pyrightJSONPreview)
+
+        let remotePyright = ToolArtifactState(value: "https://example.com/pyright-results.json")
+        XCTAssertNil(remotePyright.pyrightJSONPreview)
+    }
+
     func testArtifactStateDerivesBanditJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bandit-results.json")
