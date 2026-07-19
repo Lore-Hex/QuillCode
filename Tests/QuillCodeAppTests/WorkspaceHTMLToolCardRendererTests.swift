@@ -1335,6 +1335,64 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesCoberturaArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("coverage.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <coverage line-rate="0.75" branch-rate="0.5" lines-covered="3" lines-valid="4" branches-covered="1" branches-valid="2" version="1.9">
+          <packages>
+            <package name="QuillCodeApp">
+              <classes>
+                <class name="Workspace" filename="Sources/QuillCodeApp/Workspace.swift" />
+                <class name="ToolCard" filename="Sources/QuillCodeApp/ToolCard.swift" />
+              </classes>
+            </package>
+          </packages>
+        </coverage>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"coverage.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote coverage.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Cobertura artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">coverage.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-meta">Format: Cobertura XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-meta">Version: 1.9"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-meta">1 package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-meta">2 classes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-meta">Lines: 75% (3/4)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-meta">Branches: 50% (1/2)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-package-title">Packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-package-item">QuillCodeApp"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-class-title">Classes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-class-item">Workspace · Sources/QuillCodeApp/Workspace.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cobertura-preview-class-item">ToolCard · Sources/QuillCodeApp/ToolCard.swift"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)

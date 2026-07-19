@@ -81,6 +81,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             yamlContent(yamlPreview)
         } else if let junitPreview = artifact.junitPreview {
             junitContent(junitPreview)
+        } else if let coberturaPreview = artifact.coberturaPreview {
+            coberturaContent(coberturaPreview)
         } else if let xmlPreview = artifact.xmlPreview {
             xmlContent(xmlPreview)
         } else if let propertyListPreview = artifact.propertyListPreview {
@@ -341,6 +343,21 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(junitPreview.metadataLines)
             artifactContentList(title: "Suites", labels: junitPreview.suitePreviewLabels)
             artifactContentList(title: "Failing tests", labels: junitPreview.failurePreviewLabels)
+        }
+    }
+
+    private func coberturaContent(_ coberturaPreview: ToolArtifactCoberturaPreview) -> some View {
+        previewSurface(minHeight: coberturaPreview.classPreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.bar.doc.horizontal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(coberturaPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: coberturaPreview.packagePreviewLabels)
+            artifactContentList(title: "Classes", labels: coberturaPreview.classPreviewLabels)
         }
     }
 
