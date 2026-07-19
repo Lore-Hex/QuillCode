@@ -2582,3 +2582,21 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesComposerLockfileArtifactPreview` covers
   static HTML selectors, rendered Composer metadata, package/host lists, JSON-preview suppression, and
   text-preview coexistence.
+
+## 2026-07-19: go.sum artifacts render bounded checksum summaries
+
+- **Decision:** Local `go.sum` artifacts render as structured Go checksum cards. The preview shows
+  module, version, checksum, and go.mod-checksum counts, file size, capped module labels, and capped
+  source host labels. `go.sum` is classified as a data artifact through filename-specific detection.
+- **Why:** Go dependency updates frequently produce checksum-only artifacts. Users need to see the
+  module and source shape without reading a repetitive checksum file or asking the model to summarize
+  it.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `go.sum`, and capped at 512 KB. It validates only the standard three-field `module version h1:...`
+  line shape, records bounded module/version/host labels, and never expands hashes, runs Go tooling,
+  contacts the Go checksum database, or fetches module sources.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesGoSumPreviewMetadata` covers
+  filename-based document classification, module/version/checksum/go.mod counts, module labels, host
+  labels, non-`go.sum` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesGoSumArtifactPreview` covers static HTML
+  selectors, rendered Go checksum metadata, module/host lists, and text-preview coexistence.

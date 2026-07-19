@@ -896,6 +896,56 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteLock.composerLockfilePreview)
     }
 
+    func testArtifactStateDerivesGoSumPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("go.sum")
+        let sumText = """
+        github.com/charmbracelet/lipgloss v1.1.0 h1:lipgloss
+        github.com/charmbracelet/lipgloss v1.1.0/go.mod h1:lipglossmod
+        golang.org/x/sys v0.34.0 h1:sys
+        golang.org/x/sys v0.34.0/go.mod h1:sysmod
+        gopkg.in/yaml.v3 v3.0.1 h1:yaml
+        """
+        try sumText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.goSumPreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(sumText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "GOSUM")
+        XCTAssertEqual(preview.moduleCount, 3)
+        XCTAssertEqual(preview.versionCount, 5)
+        XCTAssertEqual(preview.checksumCount, 5)
+        XCTAssertEqual(preview.goModChecksumCount, 2)
+        XCTAssertEqual(preview.sourceHostLabels, [
+            "github.com",
+            "golang.org",
+            "gopkg.in"
+        ])
+        XCTAssertEqual(preview.modulePreviewLabels, [
+            "github.com/charmbracelet/lipgloss",
+            "golang.org/x/sys",
+            "gopkg.in/yaml.v3"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Go checksum database",
+            "3 modules",
+            "5 versions",
+            "5 checksums",
+            "2 go.mod checksums",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notGoSum = directory.appendingPathComponent("checksums.sum")
+        try sumText.write(to: notGoSum, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notGoSum.path).goSumPreview)
+
+        let remoteSum = ToolArtifactState(value: "https://example.com/go.sum")
+        XCTAssertNil(remoteSum.goSumPreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")

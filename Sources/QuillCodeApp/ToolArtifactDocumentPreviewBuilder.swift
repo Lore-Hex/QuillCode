@@ -34,6 +34,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "cover.out" || filename == "coverage.out" {
             return "gocover"
         }
+        if filename == "go.sum" {
+            return "gosum"
+        }
         if filename == "package.resolved" {
             return "spm"
         }
@@ -76,6 +79,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "jsonl": .data,
         "lcov": .data,
         "gocover": .data,
+        "gosum": .data,
         "ndjson": .data,
         "sarif": .data,
         "cfg": .data,

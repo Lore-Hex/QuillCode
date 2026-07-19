@@ -569,6 +569,55 @@ public struct ToolArtifactComposerLockfilePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactGoSumPreview: Codable, Sendable, Hashable {
+    public var moduleCount: Int
+    public var versionCount: Int
+    public var checksumCount: Int
+    public var goModChecksumCount: Int
+    public var sourceHostLabels: [String]
+    public var modulePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Go checksum database",
+            "\(moduleCount) module\(moduleCount == 1 ? "" : "s")",
+            versionCount > 0 ? "\(versionCount) version\(versionCount == 1 ? "" : "s")" : nil,
+            "\(checksumCount) checksum\(checksumCount == 1 ? "" : "s")",
+            goModChecksumCount > 0 ? "\(goModChecksumCount) go.mod checksum\(goModChecksumCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        moduleCount > 0
+            || versionCount > 0
+            || checksumCount > 0
+            || goModChecksumCount > 0
+            || !metadataLines.isEmpty
+            || !sourceHostLabels.isEmpty
+            || !modulePreviewLabels.isEmpty
+    }
+
+    public init(
+        moduleCount: Int,
+        versionCount: Int = 0,
+        checksumCount: Int = 0,
+        goModChecksumCount: Int = 0,
+        sourceHostLabels: [String] = [],
+        modulePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.moduleCount = moduleCount
+        self.versionCount = versionCount
+        self.checksumCount = checksumCount
+        self.goModChecksumCount = goModChecksumCount
+        self.sourceHostLabels = sourceHostLabels
+        self.modulePreviewLabels = modulePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactPNPMLockfilePreview: Codable, Sendable, Hashable {
     public var lockfileVersion: String?
     public var importerCount: Int
@@ -2735,6 +2784,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var composerLockfilePreview: ToolArtifactComposerLockfilePreview? {
         ToolArtifactComposerLockfilePreviewBuilder.composerLockfilePreview(for: value, kind: kind)
+    }
+    public var goSumPreview: ToolArtifactGoSumPreview? {
+        ToolArtifactGoSumPreviewBuilder.goSumPreview(for: value, kind: kind)
     }
     public var pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview? {
         ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: kind)
