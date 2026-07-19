@@ -600,6 +600,103 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteLockfile.denoLockPreview)
     }
 
+    func testArtifactStateDerivesBunLockfilePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("bun.lock")
+        let jsonText = """
+        {
+          // Bun's text lockfile is JSONC.
+          "lockfileVersion": 1,
+          "workspaces": {
+            "": {
+              "name": "quillcode-web",
+              "dependencies": {
+                "react": "catalog:",
+                "zod": "^3.22.4",
+              },
+              "devDependencies": {
+                "typescript": "^5.5.0"
+              }
+            },
+            "packages/app": {
+              "name": "app",
+              "optionalDependencies": {
+                "fsevents": "^2.3.3"
+              }
+            }
+          },
+          "catalog": {
+            "react": "^19.0.0"
+          },
+          "catalogs": {
+            "build": {
+              "typescript": "^5.5.0"
+            }
+          },
+          "packages": {
+            "react@19.0.0": ["react", "https://registry.npmjs.org/react/-/react-19.0.0.tgz"],
+            "zod@3.22.4": ["zod", "https://registry.npmjs.org/zod/-/zod-3.22.4.tgz"],
+            "@types/node@20.11.30": ["@types/node", "https://registry.npmjs.org/@types/node/-/node-20.11.30.tgz"]
+          }
+        }
+        """
+        try jsonText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.bunLockfilePreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(jsonText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "BUN-LOCK")
+        XCTAssertEqual(preview.formatLabel, "Bun text lockfile")
+        XCTAssertEqual(preview.lockfileVersion, "1")
+        XCTAssertEqual(preview.workspaceCount, 2)
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.dependencyCount, 4)
+        XCTAssertEqual(preview.catalogCount, 2)
+        XCTAssertEqual(preview.sourceHostLabels, ["registry.npmjs.org"])
+        XCTAssertEqual(preview.packagePreviewLabels, ["@types/node", "react", "zod"])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Bun text lockfile",
+            "Lockfile: 1",
+            "2 workspaces",
+            "3 packages",
+            "4 dependencies",
+            "2 catalog entries",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let packageJSON = directory.appendingPathComponent("package.json")
+        try #"{"lockfileVersion":1,"workspaces":{}}"#.write(to: packageJSON, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: packageJSON.path).bunLockfilePreview)
+
+        let remoteLockfile = ToolArtifactState(value: "https://example.com/bun.lock")
+        XCTAssertNil(remoteLockfile.bunLockfilePreview)
+    }
+
+    func testArtifactStateDerivesBinaryBunLockfilePreviewMetadataWithoutDecoding() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("bun.lockb")
+        try Data([0x62, 0x75, 0x6E, 0x00, 0x01, 0x02]).write(to: report)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.bunLockfilePreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "BUN-LOCKB")
+        XCTAssertEqual(preview.formatLabel, "Bun binary lockfile")
+        XCTAssertEqual(preview.packageCount, 0)
+        XCTAssertEqual(preview.workspaceCount, 0)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Bun binary lockfile",
+            "Size: 6 bytes"
+        ])
+        XCTAssertNil(artifact.textPreview)
+        XCTAssertNil(artifact.jsonPreview)
+    }
+
     func testArtifactStateDerivesSwiftPMPackageResolvedPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("Package.resolved")

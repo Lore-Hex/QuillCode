@@ -825,6 +825,70 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesBunLockfileArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("bun.lock")
+        try """
+        {
+          // JSONC comments and trailing commas are accepted.
+          "lockfileVersion": 1,
+          "workspaces": {
+            "": {
+              "dependencies": {
+                "react": "catalog:",
+                "zod": "^3.22.4",
+              }
+            }
+          },
+          "catalog": {
+            "react": "^19.0.0"
+          },
+          "packages": {
+            "react@19.0.0": ["react", "https://registry.npmjs.org/react/-/react-19.0.0.tgz"],
+            "zod@3.22.4": ["zod", "https://registry.npmjs.org/zod/-/zod-3.22.4.tgz"]
+          }
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"bun.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote bun.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Bun lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · BUN-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">bun.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview-meta">Format: Bun text lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview-meta">Lockfile: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview-meta">1 workspace"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview-meta">2 dependencies"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview-meta">1 catalog entry"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview-package-item">react"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview-package-item">zod"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bun-lockfile-preview-host-item">registry.npmjs.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">bun.lock"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesSwiftPMPackageResolvedArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("Package.resolved")
