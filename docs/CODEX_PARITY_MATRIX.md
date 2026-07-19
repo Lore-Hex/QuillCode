@@ -225,6 +225,10 @@
   root validates as Pylint output: message/file/symbol/type counts, file size, capped file labels,
   and capped symbol labels without reading Python source files, loading plugins, or fetching remote
   JSON.
+- Artifact previews now include bounded local mypy JSON report metadata for `.json` and `.jsonl`
+  files whose records validate as mypy output: diagnostic/file/code/severity counts, file size,
+  capped file labels, and capped code labels without reading Python source files, loading mypy
+  configuration, shelling out, or fetching remote JSON.
 - Artifact previews now include bounded local Bandit JSON security-report metadata for `.json`
   files whose root validates as Bandit output: issue/file/test, severity, and confidence counts,
   file size, capped file labels, and capped test labels without reading Python source files,
