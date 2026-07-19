@@ -2237,6 +2237,78 @@ public struct ToolArtifactBanditJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactSemgrepJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var findingCount: Int
+    public var fileCount: Int
+    public var ruleCount: Int
+    public var errorSeverityCount: Int
+    public var warningSeverityCount: Int
+    public var infoSeverityCount: Int
+    public var otherSeverityCount: Int
+    public var errorCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(findingCount) finding\(findingCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(ruleCount) rule\(ruleCount == 1 ? "" : "s")",
+            errorSeverityCount > 0 ? "Error severity: \(errorSeverityCount)" : nil,
+            warningSeverityCount > 0 ? "Warning severity: \(warningSeverityCount)" : nil,
+            infoSeverityCount > 0 ? "Info severity: \(infoSeverityCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            errorCount > 0 ? "Scanner errors: \(errorCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        findingCount > 0
+            || fileCount > 0
+            || ruleCount > 0
+            || errorSeverityCount > 0
+            || warningSeverityCount > 0
+            || infoSeverityCount > 0
+            || otherSeverityCount > 0
+            || errorCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Semgrep JSON",
+        findingCount: Int,
+        fileCount: Int,
+        ruleCount: Int,
+        errorSeverityCount: Int = 0,
+        warningSeverityCount: Int = 0,
+        infoSeverityCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        errorCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.findingCount = findingCount
+        self.fileCount = fileCount
+        self.ruleCount = ruleCount
+        self.errorSeverityCount = errorSeverityCount
+        self.warningSeverityCount = warningSeverityCount
+        self.infoSeverityCount = infoSeverityCount
+        self.otherSeverityCount = otherSeverityCount
+        self.errorCount = errorCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -3935,7 +4007,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               golangCILintJSONPreview == nil,
               ruffJSONPreview == nil,
               pylintJSONPreview == nil,
-              banditJSONPreview == nil
+              banditJSONPreview == nil,
+              semgrepJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -4022,6 +4095,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var banditJSONPreview: ToolArtifactBanditJSONPreview? {
         ToolArtifactBanditJSONPreviewBuilder.banditJSONPreview(for: value, kind: kind)
+    }
+    public var semgrepJSONPreview: ToolArtifactSemgrepJSONPreview? {
+        ToolArtifactSemgrepJSONPreviewBuilder.semgrepJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)

@@ -229,6 +229,10 @@
   files whose root validates as Bandit output: issue/file/test, severity, and confidence counts,
   file size, capped file labels, and capped test labels without reading Python source files,
   expanding issue code snippets, loading plugins, or fetching remote JSON.
+- Artifact previews now include bounded local Semgrep JSON static-analysis metadata for `.json`
+  files whose root validates as native Semgrep output: finding/file/rule/severity and scanner-error
+  counts, file size, capped file labels, and capped rule labels without reading source files,
+  expanding match snippets, loading rules, shelling out, or fetching remote JSON.
 - Artifact previews now include bounded local Checkstyle XML report metadata for `.xml` files whose
   root validates as Checkstyle output: file/issue/severity counts, file size, capped file labels,
   and capped rule/source labels without reading source files, loading lint plugins, or fetching

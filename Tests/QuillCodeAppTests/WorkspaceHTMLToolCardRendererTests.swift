@@ -2500,6 +2500,83 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesSemgrepJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("semgrep-results.json")
+        let reportText = """
+        {
+          "version": "1.128.0",
+          "results": [
+            {
+              "check_id": "python.lang.security.audit.subprocess-shell-true",
+              "path": "/repo/app/main.py",
+              "start": {"line": 14, "col": 5},
+              "end": {"line": 14, "col": 36},
+              "extra": {
+                "message": "Found subprocess call with shell=True",
+                "severity": "ERROR"
+              }
+            },
+            {
+              "check_id": "python.django.security.audit.xss.template-var",
+              "path": "/repo/tests/test_app.py",
+              "start": {"line": 8, "col": 1},
+              "end": {"line": 8, "col": 21},
+              "extra": {
+                "message": "Potential template escaping issue",
+                "severity": "WARNING"
+              }
+            }
+          ],
+          "errors": []
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/semgrep-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/semgrep-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Semgrep artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">semgrep-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">Format: Semgrep JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">2 findings"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">2 rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">Error severity: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">Warning severity: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-file-item">repo/app/main.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-file-item">repo/tests/test_app.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-rule-item">python.lang.security.audit.subprocess-shell-true"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-rule-item">python.django.security.audit.xss.template-var"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesTAPArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
