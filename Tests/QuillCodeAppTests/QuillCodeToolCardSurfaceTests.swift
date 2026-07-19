@@ -529,6 +529,77 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteLockfile.npmLockfilePreview)
     }
 
+    func testArtifactStateDerivesDenoLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("deno.lock")
+        let jsonText = """
+        {
+          "version": "4",
+          "specifiers": {
+            "jsr:@std/assert@1": "jsr:@std/assert@1.0.0",
+            "npm:zod@3": "npm:zod@3.22.4"
+          },
+          "jsr": {
+            "@std/assert@1.0.0": {"integrity": "sha512-abc"},
+            "@std/path@1.0.8": {"integrity": "sha512-def"}
+          },
+          "npm": {
+            "@types/node@20.11.30": {"integrity": "sha512-ghi"},
+            "zod@3.22.4": {"integrity": "sha512-jkl"}
+          },
+          "remote": {
+            "https://deno.land/std@0.224.0/path/mod.ts": "sha256-111",
+            "https://esm.sh/lodash@4.17.21": "sha256-222"
+          },
+          "redirects": {
+            "https://deno.land/std/path/mod.ts": "https://deno.land/std@0.224.0/path/mod.ts"
+          }
+        }
+        """
+        try jsonText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.denoLockPreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(jsonText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "DENO-LOCK")
+        XCTAssertEqual(preview.lockfileVersion, "4")
+        XCTAssertEqual(preview.remoteCount, 2)
+        XCTAssertEqual(preview.npmPackageCount, 2)
+        XCTAssertEqual(preview.jsrPackageCount, 2)
+        XCTAssertEqual(preview.packageCount, 4)
+        XCTAssertEqual(preview.specifierCount, 2)
+        XCTAssertEqual(preview.redirectCount, 1)
+        XCTAssertEqual(preview.sourceHostLabels, ["deno.land", "esm.sh"])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "jsr:@std/assert@1.0.0",
+            "jsr:@std/path@1.0.8",
+            "npm:@types/node@20.11.30",
+            "npm:zod@3.22.4"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Deno lockfile",
+            "Lockfile: 4",
+            "2 remote modules",
+            "4 packages",
+            "2 npm packages",
+            "2 jsr packages",
+            "2 specifiers",
+            "1 redirect",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let denoJSON = directory.appendingPathComponent("deno.json")
+        try #"{"version":"4","remote":{}}"#.write(to: denoJSON, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: denoJSON.path).denoLockPreview)
+
+        let remoteLockfile = ToolArtifactState(value: "https://example.com/deno.lock")
+        XCTAssertNil(remoteLockfile.denoLockPreview)
+    }
+
     func testArtifactStateDerivesSwiftPMPackageResolvedPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("Package.resolved")
