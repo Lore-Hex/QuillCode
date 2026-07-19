@@ -220,6 +220,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let pytestJSONPreview = renderPytestJSONPreview(pytestJSONPreviewModel)
             let jestJSONPreviewModel = artifact.jestJSONPreview
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
+            let eslintJSONPreviewModel = artifact.eslintJSONPreview
+            let eslintJSONPreview = renderESLintJSONPreview(eslintJSONPreviewModel)
             let npmLockfilePreviewModel = artifact.npmLockfilePreview
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
             let denoLockPreviewModel = artifact.denoLockPreview
@@ -294,6 +296,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && coveragePyPreviewModel == nil
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
+                && eslintJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
                 && denoLockPreviewModel == nil
                 && bunLockfilePreviewModel == nil
@@ -330,6 +333,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(coveragePyPreview)
               \(pytestJSONPreview)
               \(jestJSONPreview)
+              \(eslintJSONPreview)
               \(npmLockfilePreview)
               \(denoLockPreview)
               \(bunLockfilePreview)
@@ -793,6 +797,41 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderESLintJSONPreview(_ preview: ToolArtifactESLintJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-eslint-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-eslint-json-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-eslint-json-preview-files">
+                <strong data-testid="tool-card-eslint-json-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let rules = preview.rulePreviewLabels.map {
+            #"<li data-testid="tool-card-eslint-json-preview-rule-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let ruleList = rules.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-eslint-json-preview-rules">
+                <strong data-testid="tool-card-eslint-json-preview-rule-title">Rules</strong>
+                <ul>\(rules)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !ruleList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-eslint-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+          \(ruleList)
         </div>
         """
     }

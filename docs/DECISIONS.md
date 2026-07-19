@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render ESLint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as ESLint formatter output as a
+  specialized lint report artifact instead of falling back to generic JSON metadata.
+- **Rationale:** Codex-style coding sessions often generate lint reports. A bounded report card with
+  file/message/error/warning/fixable counts and capped file/rule labels is more useful than raw
+  top-level JSON keys while avoiding source-file reads, plugin/rule loading, or network lookups.
+- **Constraints:** Only local regular files under 512 KB are parsed; remote URLs, generic JSON
+  arrays, binary data, and non-ESLint shapes fall back to existing artifact handling.
+
 ## 2026-07-17: MCP run input aliases are compatible but fail closed
 
 - **Compatibility boundary:** The public `codex` MCP tool accepts and advertises Codex-style

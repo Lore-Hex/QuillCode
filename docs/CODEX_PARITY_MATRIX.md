@@ -201,6 +201,10 @@
   files with Jest-compatible `numTotalTests`/`testResults` shape: result, runtime, test/suite
   counts, file size, and capped failing assertion labels without expanding failure messages or
   fetching remote JSON.
+- Artifact previews now include bounded local ESLint JSON report metadata for `.json` files whose
+  root validates as ESLint formatter output: file/message/error/warning/fixable counts, file size,
+  capped file labels, and capped rule labels without reading source files, loading lint rules, or
+  fetching remote JSON.
 - Artifact previews now include bounded local TAP report metadata for `.tap` files: plan, assertion
   counts, pass/fail/skip/TODO counts, bailout reason, file size, and capped failing assertion labels
   without expanding diagnostics or fetching remote reports.

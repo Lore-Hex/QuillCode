@@ -1748,6 +1748,63 @@ public struct ToolArtifactJestJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactESLintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var messageCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var fixableCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(messageCount) message\(messageCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            fixableCount > 0 ? "Fixable: \(fixableCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || messageCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || fixableCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "ESLint JSON",
+        fileCount: Int,
+        messageCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        fixableCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.messageCount = messageCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.fixableCount = fixableCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -3253,7 +3310,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
-        ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
+        guard eslintJSONPreview == nil else { return nil }
+        return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
     public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
         ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: kind)
@@ -3317,6 +3375,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jestJSONPreview: ToolArtifactJestJSONPreview? {
         ToolArtifactJestJSONPreviewBuilder.jestJSONPreview(for: value, kind: kind)
+    }
+    public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
+        ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)

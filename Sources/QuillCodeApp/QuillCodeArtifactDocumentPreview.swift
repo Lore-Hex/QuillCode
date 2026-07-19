@@ -71,6 +71,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             pytestJSONContent(pytestJSONPreview)
         } else if let jestJSONPreview = artifact.jestJSONPreview {
             jestJSONContent(jestJSONPreview)
+        } else if let eslintJSONPreview = artifact.eslintJSONPreview {
+            eslintJSONContent(eslintJSONPreview)
         } else if let npmLockfilePreview = artifact.npmLockfilePreview {
             npmLockfileContent(npmLockfilePreview)
         } else if let denoLockPreview = artifact.denoLockPreview {
@@ -313,6 +315,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(jestJSONPreview.metadataLines)
             artifactContentList(title: "Failures", labels: jestJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func eslintJSONContent(_ eslintJSONPreview: ToolArtifactESLintJSONPreview) -> some View {
+        let hasLists = !eslintJSONPreview.filePreviewLabels.isEmpty || !eslintJSONPreview.rulePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(eslintJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: eslintJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Rules", labels: eslintJSONPreview.rulePreviewLabels)
         }
     }
 
