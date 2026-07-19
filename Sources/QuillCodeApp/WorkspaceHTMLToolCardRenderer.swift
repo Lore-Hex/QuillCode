@@ -226,7 +226,12 @@ enum WorkspaceHTMLToolCardRenderer {
             let coberturaPreview = renderCoberturaPreview(coberturaPreviewModel)
             let cloverPreviewModel = artifact.cloverPreview
             let cloverPreview = renderCloverPreview(cloverPreviewModel)
-            let xmlPreview = junitPreviewModel == nil && coberturaPreviewModel == nil && cloverPreviewModel == nil
+            let jaCoCoPreviewModel = artifact.jaCoCoPreview
+            let jaCoCoPreview = renderJaCoCoPreview(jaCoCoPreviewModel)
+            let xmlPreview = junitPreviewModel == nil
+                && coberturaPreviewModel == nil
+                && cloverPreviewModel == nil
+                && jaCoCoPreviewModel == nil
                 ? renderXMLPreview(artifact.xmlPreview)
                 : ""
             let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
@@ -266,6 +271,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(junitPreview)
               \(coberturaPreview)
               \(cloverPreview)
+              \(jaCoCoPreview)
               \(xmlPreview)
               \(propertyListPreview)
               \(sqlitePreview)
@@ -916,6 +922,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(projectList)
           \(fileList)
+        </div>
+        """
+    }
+
+    private static func renderJaCoCoPreview(_ preview: ToolArtifactJaCoCoPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-jacoco-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-jacoco-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sourceFiles = preview.sourceFilePreviewLabels.map {
+            #"<li data-testid="tool-card-jacoco-preview-source-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-jacoco-preview-packages">
+                <strong data-testid="tool-card-jacoco-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let sourceFileList = sourceFiles.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-jacoco-preview-source-files">
+                <strong data-testid="tool-card-jacoco-preview-source-file-title">Source files</strong>
+                <ul>\(sourceFiles)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !sourceFileList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-jacoco-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(sourceFileList)
         </div>
         """
     }

@@ -1451,6 +1451,67 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesJaCoCoArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("jacoco.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <report name="QuillCode">
+          <sessioninfo id="test-host" start="1780000000" dump="1780000100" />
+          <package name="dev/quillcode/app">
+            <class name="dev/quillcode/app/Workspace" sourcefilename="Workspace.kt" />
+            <sourcefile name="Workspace.kt" />
+          </package>
+          <counter type="BRANCH" missed="2" covered="6" />
+          <counter type="LINE" missed="3" covered="17" />
+          <counter type="METHOD" missed="1" covered="9" />
+          <counter type="CLASS" missed="0" covered="1" />
+        </report>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"jacoco.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote jacoco.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "JaCoCo artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">jacoco.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-meta">Format: JaCoCo XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-meta">Report: QuillCode"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-meta">1 package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-meta">1 source file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-meta">1 class"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-meta">Lines: 85% (17/20)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-meta">Branches: 75% (6/8)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-meta">Methods: 90% (9/10)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-meta">Classes: 100% (1/1)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-package-title">Packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-package-item">dev/quillcode/app"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-source-file-title">Source files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-jacoco-preview-source-file-item">Workspace.kt"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesAppshotArtifactPreview() throws {
         let root = try makeTempDirectory()
         let appshots = root.appendingPathComponent("appshots", isDirectory: true)

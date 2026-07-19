@@ -1206,6 +1206,114 @@ public struct ToolArtifactCloverPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactJaCoCoPreview: Codable, Sendable, Hashable {
+    public var reportNameLabel: String?
+    public var packageCount: Int
+    public var sourceFileCount: Int
+    public var classCount: Int
+    public var lineCoveredCount: Int?
+    public var lineMissedCount: Int?
+    public var branchCoveredCount: Int?
+    public var branchMissedCount: Int?
+    public var methodCoveredCount: Int?
+    public var methodMissedCount: Int?
+    public var classCoveredCount: Int?
+    public var classMissedCount: Int?
+    public var byteSizeLabel: String?
+    public var packagePreviewLabels: [String]
+    public var sourceFilePreviewLabels: [String]
+
+    public var lineCoverageLabel: String? {
+        coverageLabel(covered: lineCoveredCount, missed: lineMissedCount)
+    }
+
+    public var branchCoverageLabel: String? {
+        coverageLabel(covered: branchCoveredCount, missed: branchMissedCount)
+    }
+
+    public var methodCoverageLabel: String? {
+        coverageLabel(covered: methodCoveredCount, missed: methodMissedCount)
+    }
+
+    public var classCoverageLabel: String? {
+        coverageLabel(covered: classCoveredCount, missed: classMissedCount)
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: JaCoCo XML",
+            reportNameLabel.map { "Report: \($0)" },
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            "\(sourceFileCount) source file\(sourceFileCount == 1 ? "" : "s")",
+            "\(classCount) class\(classCount == 1 ? "" : "es")",
+            lineCoverageLabel.map { "Lines: \($0)" },
+            branchCoverageLabel.map { "Branches: \($0)" },
+            methodCoverageLabel.map { "Methods: \($0)" },
+            classCoverageLabel.map { "Classes: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || sourceFileCount > 0
+            || classCount > 0
+            || lineCoverageLabel != nil
+            || branchCoverageLabel != nil
+            || methodCoverageLabel != nil
+            || classCoverageLabel != nil
+            || byteSizeLabel != nil
+            || !packagePreviewLabels.isEmpty
+            || !sourceFilePreviewLabels.isEmpty
+    }
+
+    public init(
+        reportNameLabel: String? = nil,
+        packageCount: Int,
+        sourceFileCount: Int,
+        classCount: Int,
+        lineCoveredCount: Int? = nil,
+        lineMissedCount: Int? = nil,
+        branchCoveredCount: Int? = nil,
+        branchMissedCount: Int? = nil,
+        methodCoveredCount: Int? = nil,
+        methodMissedCount: Int? = nil,
+        classCoveredCount: Int? = nil,
+        classMissedCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        packagePreviewLabels: [String] = [],
+        sourceFilePreviewLabels: [String] = []
+    ) {
+        self.reportNameLabel = reportNameLabel
+        self.packageCount = packageCount
+        self.sourceFileCount = sourceFileCount
+        self.classCount = classCount
+        self.lineCoveredCount = lineCoveredCount
+        self.lineMissedCount = lineMissedCount
+        self.branchCoveredCount = branchCoveredCount
+        self.branchMissedCount = branchMissedCount
+        self.methodCoveredCount = methodCoveredCount
+        self.methodMissedCount = methodMissedCount
+        self.classCoveredCount = classCoveredCount
+        self.classMissedCount = classMissedCount
+        self.byteSizeLabel = byteSizeLabel
+        self.packagePreviewLabels = packagePreviewLabels
+        self.sourceFilePreviewLabels = sourceFilePreviewLabels
+    }
+
+    private func coverageLabel(covered: Int?, missed: Int?) -> String? {
+        guard let covered, let missed else { return nil }
+        let total = covered + missed
+        guard total > 0 else { return nil }
+        let percent = (Double(covered) / Double(total)) * 100
+        let rounded = (percent * 10).rounded() / 10
+        let percentLabel = rounded == rounded.rounded()
+            ? "\(Int(rounded))%"
+            : "\(rounded)%"
+        return "\(percentLabel) (\(covered)/\(total))"
+    }
+}
+
 public struct ToolArtifactPropertyListPreview: Codable, Sendable, Hashable {
     public var rootLabel: String
     public var formatLabel: String?
@@ -1599,6 +1707,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var cloverPreview: ToolArtifactCloverPreview? {
         ToolArtifactCloverPreviewBuilder.cloverPreview(for: value, kind: kind)
+    }
+    public var jaCoCoPreview: ToolArtifactJaCoCoPreview? {
+        ToolArtifactJaCoCoPreviewBuilder.jaCoCoPreview(for: value, kind: kind)
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
         ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
