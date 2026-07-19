@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Ruff JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Ruff formatter output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** Ruff reports are common in Python coding sessions. Showing violation/file/rule and
+  fixable counts plus capped file/rule labels gives useful Codex-style feedback without opening the
+  raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Python
+  source files, load rules, expand violation bodies, or fetch remote reports.
+
 ## 2026-07-19: Render golangci-lint JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as golangci-lint output as a

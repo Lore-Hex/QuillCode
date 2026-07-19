@@ -3092,6 +3092,85 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteGolangCILint.golangCILintJSONPreview)
     }
 
+    func testArtifactStateDerivesRuffJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("ruff-results.json")
+        let content = """
+        [
+          {
+            "cell": null,
+            "code": "F401",
+            "end_location": {"row": 1, "column": 10},
+            "filename": "/repo/app/main.py",
+            "fix": {
+              "applicability": "safe",
+              "edits": []
+            },
+            "location": {"row": 1, "column": 1},
+            "message": "`os` imported but unused",
+            "noqa_row": 1,
+            "url": "https://docs.astral.sh/ruff/rules/unused-import"
+          },
+          {
+            "cell": null,
+            "code": "E501",
+            "end_location": {"row": 12, "column": 104},
+            "filename": "/repo/tests/test_app.py",
+            "fix": null,
+            "location": {"row": 12, "column": 89},
+            "message": "Line too long"
+          },
+          {
+            "cell": null,
+            "code": "F401",
+            "end_location": {"row": 3, "column": 10},
+            "filename": "/repo/tests/test_app.py",
+            "fix": null,
+            "location": {"row": 3, "column": 1},
+            "message": "`sys` imported but unused"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.ruffJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Ruff JSON")
+        XCTAssertEqual(preview.violationCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.ruleCount, 2)
+        XCTAssertEqual(preview.fixableCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/main.py",
+            "repo/tests/test_app.py"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "F401",
+            "E501"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Ruff JSON",
+            "3 violations",
+            "2 files",
+            "2 rules",
+            "Fixable: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"code":"F401","filename":"/repo/app.py","message":"missing location"}]"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).ruffJSONPreview)
+
+        let remoteRuff = ToolArtifactState(value: "https://example.com/ruff-results.json")
+        XCTAssertNil(remoteRuff.ruffJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")

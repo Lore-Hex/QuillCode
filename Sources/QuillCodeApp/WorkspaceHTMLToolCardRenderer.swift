@@ -228,6 +228,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let rubocopJSONPreview = renderRuboCopJSONPreview(rubocopJSONPreviewModel)
             let golangCILintJSONPreviewModel = artifact.golangCILintJSONPreview
             let golangCILintJSONPreview = renderGolangCILintJSONPreview(golangCILintJSONPreviewModel)
+            let ruffJSONPreviewModel = artifact.ruffJSONPreview
+            let ruffJSONPreview = renderRuffJSONPreview(ruffJSONPreviewModel)
             let npmLockfilePreviewModel = artifact.npmLockfilePreview
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
             let denoLockPreviewModel = artifact.denoLockPreview
@@ -315,6 +317,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && stylelintJSONPreviewModel == nil
                 && rubocopJSONPreviewModel == nil
                 && golangCILintJSONPreviewModel == nil
+                && ruffJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
                 && denoLockPreviewModel == nil
                 && bunLockfilePreviewModel == nil
@@ -355,6 +358,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(stylelintJSONPreview)
               \(rubocopJSONPreview)
               \(golangCILintJSONPreview)
+              \(ruffJSONPreview)
               \(npmLockfilePreview)
               \(denoLockPreview)
               \(bunLockfilePreview)
@@ -961,6 +965,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(fileList)
           \(linterList)
+        </div>
+        """
+    }
+
+    private static func renderRuffJSONPreview(_ preview: ToolArtifactRuffJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-ruff-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-ruff-json-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-ruff-json-preview-files">
+                <strong data-testid="tool-card-ruff-json-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let rules = preview.rulePreviewLabels.map {
+            #"<li data-testid="tool-card-ruff-json-preview-rule-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let ruleList = rules.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-ruff-json-preview-rules">
+                <strong data-testid="tool-card-ruff-json-preview-rule-title">Rules</strong>
+                <ul>\(rules)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !ruleList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-ruff-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+          \(ruleList)
         </div>
         """
     }
