@@ -2865,6 +2865,59 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesCheckstyleArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("checkstyle-result.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <checkstyle version="10.12.0">
+          <file name="/repo/Sources/App.swift">
+            <error line="12" column="5" severity="error" message="Use let" source="swiftlint:prefer_let" />
+            <error line="24" column="1" severity="warning" message="Line length" source="swiftlint:line_length" />
+          </file>
+        </checkstyle>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"checkstyle-result.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote checkstyle-result.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Checkstyle artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">checkstyle-result.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">Format: Checkstyle XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-file-item">repo/Sources/App.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-source-title">Sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-source-item">swiftlint:prefer_let"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-source-item">swiftlint:line_length"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesTRXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("results.trx")
