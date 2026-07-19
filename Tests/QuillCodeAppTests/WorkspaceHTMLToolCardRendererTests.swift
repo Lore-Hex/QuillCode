@@ -2204,6 +2204,82 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesGolangCILintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("golangci-lint-results.json")
+        let reportText = """
+        {
+          "Issues": [
+            {
+              "FromLinter": "errcheck",
+              "Text": "Error return value is not checked",
+              "Severity": "error",
+              "Pos": {
+                "Filename": "/repo/cmd/server/main.go",
+                "Line": 42,
+                "Column": 5
+              }
+            },
+            {
+              "FromLinter": "govet",
+              "Text": "printf call has possible formatting directive",
+              "Severity": "warning",
+              "Pos": {
+                "Filename": "/repo/internal/http/handler.go",
+                "Line": 17,
+                "Column": 12
+              }
+            }
+          ],
+          "Report": {"Error": ""}
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/golangci-lint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/golangci-lint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "golangci-lint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">golangci-lint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">Format: golangci-lint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">2 linters"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-file-item">cmd/server/main.go"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-file-item">internal/http/handler.go"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-linter-title">Linters"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-linter-item">errcheck"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-linter-item">govet"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesTAPArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

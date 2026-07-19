@@ -3005,6 +3005,93 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteRuboCop.rubocopJSONPreview)
     }
 
+    func testArtifactStateDerivesGolangCILintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("golangci-lint-results.json")
+        let content = """
+        {
+          "Issues": [
+            {
+              "FromLinter": "errcheck",
+              "Text": "Error return value is not checked",
+              "Severity": "error",
+              "Pos": {
+                "Filename": "/repo/cmd/server/main.go",
+                "Line": 42,
+                "Column": 5
+              }
+            },
+            {
+              "FromLinter": "govet",
+              "Text": "printf call has possible formatting directive",
+              "Severity": "warning",
+              "Pos": {
+                "Filename": "/repo/internal/http/handler.go",
+                "Line": 17,
+                "Column": 12
+              }
+            },
+            {
+              "FromLinter": "errcheck",
+              "Text": "Error return value is not checked",
+              "Severity": "",
+              "Pos": {
+                "Filename": "/repo/internal/http/handler.go",
+                "Line": 24,
+                "Column": 8
+              }
+            }
+          ],
+          "Report": {
+            "Linters": [
+              {"Name": "errcheck", "Enabled": true},
+              {"Name": "govet", "Enabled": true}
+            ]
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.golangCILintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "golangci-lint JSON")
+        XCTAssertEqual(preview.issueCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.linterCount, 2)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "cmd/server/main.go",
+            "internal/http/handler.go"
+        ])
+        XCTAssertEqual(preview.linterPreviewLabels, [
+            "errcheck",
+            "govet"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: golangci-lint JSON",
+            "3 issues",
+            "2 files",
+            "2 linters",
+            "Errors: 1",
+            "Warnings: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"Issues":[{"Text":"plain build issue","Pos":{"Filename":"/repo/main.go","Line":1}}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).golangCILintJSONPreview)
+
+        let remoteGolangCILint = ToolArtifactState(value: "https://example.com/golangci-lint-results.json")
+        XCTAssertNil(remoteGolangCILint.golangCILintJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")
