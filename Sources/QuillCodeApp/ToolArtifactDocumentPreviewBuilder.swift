@@ -34,6 +34,9 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "cover.out" || filename == "coverage.out" {
             return "gocover"
         }
+        if filename == "package.resolved" {
+            return "spm"
+        }
         for compoundExtension in compoundPreviewExtensions {
             if filename.hasSuffix(".\(compoundExtension.suffix)") {
                 return compoundExtension.previewExtension
@@ -79,6 +82,7 @@ enum ToolArtifactDocumentPreviewBuilder {
         "patch": .data,
         "sqlite": .data,
         "sqlite3": .data,
+        "spm": .data,
         "so": .data,
         "tap": .data,
         "ttc": .data,

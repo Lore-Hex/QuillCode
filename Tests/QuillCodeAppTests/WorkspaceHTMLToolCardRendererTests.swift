@@ -763,6 +763,71 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesSwiftPMPackageResolvedArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Package.resolved")
+        try """
+        {
+          "pins": [
+            {
+              "identity": "swift-argument-parser",
+              "kind": "remoteSourceControl",
+              "location": "https://github.com/apple/swift-argument-parser.git",
+              "state": {
+                "revision": "26c13a1f7f961c8db7957e457602f3f9fdb69023",
+                "version": "1.5.0"
+              }
+            },
+            {
+              "identity": "trusted-router-swift",
+              "kind": "remoteSourceControl",
+              "location": "https://github.com/Lore-Hex/trusted-router-swift.git",
+              "state": {
+                "branch": "main",
+                "revision": "abcdef1234567890"
+              }
+            }
+          ],
+          "version": 2
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Package.resolved"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Package.resolved\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "SwiftPM resolved artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · SPM"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Package.resolved"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftpm-resolved-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftpm-resolved-preview-meta">Format: SwiftPM resolved packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftpm-resolved-preview-meta">2 pins"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftpm-resolved-preview-meta">1 versioned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftpm-resolved-preview-meta">1 branch"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftpm-resolved-preview-pin-item">swift-argument-parser@1.5.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftpm-resolved-preview-pin-item">trusted-router-swift · main"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftpm-resolved-preview-host-item">github.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Package.resolved"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")

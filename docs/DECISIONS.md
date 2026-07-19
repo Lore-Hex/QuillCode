@@ -2484,3 +2484,24 @@
   exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesNPMLockfileArtifactPreview`
   covers static HTML selectors, rendered npm metadata, package and source lists, and generic JSON
   suppression.
+
+## 2026-07-19: SwiftPM Package.resolved artifacts render bounded pin summaries
+
+- **Decision:** Local `Package.resolved` artifacts render as structured SwiftPM resolved-package
+  cards. The preview shows schema version, pin count, versioned/branch/revision-only counts, file
+  size, capped pin labels, and capped source hosts. `Package.resolved` is also classified as a data
+  artifact despite having no extension.
+- **Why:** QuillCode is a Swift project and Swift coding agents regularly review or update package
+  pins. The useful question is which dependencies and source hosts changed, not the full raw JSON
+  body or complete revisions.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `Package.resolved`, and capped at 512 KB. It validates the top-level `pins` array, reads only
+  identity, location/repository URL, version, branch, and short revision metadata, and never expands
+  full revisions, package manifests, dependency source bodies, or remote repositories.
+- **Evidence:**
+  `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesSwiftPMPackageResolvedPreviewMetadata`
+  covers filename-based document classification, metadata extraction, pin labels, source hosts,
+  non-`Package.resolved` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesSwiftPMPackageResolvedArtifactPreview`
+  covers static HTML selectors, rendered SwiftPM metadata, pin/source lists, and text-preview
+  coexistence.

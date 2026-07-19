@@ -529,6 +529,80 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteLockfile.npmLockfilePreview)
     }
 
+    func testArtifactStateDerivesSwiftPMPackageResolvedPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("Package.resolved")
+        let jsonText = """
+        {
+          "pins": [
+            {
+              "identity": "swift-argument-parser",
+              "kind": "remoteSourceControl",
+              "location": "https://github.com/apple/swift-argument-parser.git",
+              "state": {
+                "revision": "26c13a1f7f961c8db7957e457602f3f9fdb69023",
+                "version": "1.5.0"
+              }
+            },
+            {
+              "identity": "trusted-router-swift",
+              "kind": "remoteSourceControl",
+              "location": "https://github.com/Lore-Hex/trusted-router-swift.git",
+              "state": {
+                "branch": "main",
+                "revision": "abcdef1234567890"
+              }
+            },
+            {
+              "identity": "swift-collections",
+              "kind": "remoteSourceControl",
+              "location": "https://github.com/apple/swift-collections.git",
+              "state": {
+                "revision": "1234567890abcdef"
+              }
+            }
+          ],
+          "version": 2
+        }
+        """
+        try jsonText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.swiftPMPackageResolvedPreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(jsonText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "SPM")
+        XCTAssertEqual(preview.schemaVersion, "2")
+        XCTAssertEqual(preview.pinCount, 3)
+        XCTAssertEqual(preview.versionedPinCount, 1)
+        XCTAssertEqual(preview.branchPinCount, 1)
+        XCTAssertEqual(preview.revisionOnlyPinCount, 1)
+        XCTAssertEqual(preview.sourceHostLabels, ["github.com"])
+        XCTAssertEqual(preview.pinPreviewLabels, [
+            "swift-argument-parser@1.5.0",
+            "trusted-router-swift · main",
+            "swift-collections · 1234567890ab"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: SwiftPM resolved packages",
+            "Schema: 2",
+            "3 pins",
+            "1 versioned",
+            "1 branch",
+            "1 revision-only",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let packageJSON = directory.appendingPathComponent("package.json")
+        try #"{"pins":[],"version":2}"#.write(to: packageJSON, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: packageJSON.path).swiftPMPackageResolvedPreview)
+
+        let remoteResolved = ToolArtifactState(value: "https://example.com/Package.resolved")
+        XCTAssertNil(remoteResolved.swiftPMPackageResolvedPreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")
