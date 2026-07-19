@@ -61,6 +61,16 @@ public enum RunIntegrityScanner {
             }
         }
 
+        // Rule 2b (UNVERIFIED): a fabricated quantitative result — the model reports a benchmark pass
+        // rate / "N/M passed" / score whose figures appear in NO tool output of the run. This catches
+        // the worst unattended failure mode (a confident, specific, FALSE result that a generic
+        // success-claim check misses) — observed live when a τ-bench run that never executed reported
+        // "100% (5/5), reward 1.0".
+        if let fabricated = unbackedResultFigure(in: thread) {
+            reasons.append(fabricated)
+            return RunIntegrityReport(verdict: .unverified, reasons: reasons)
+        }
+
         // Rule 3 (UNVERIFIED): a test command was started but never completed (silently skipped).
         if let skipped = skippedTest(in: thread) {
             reasons.append(skipped)
@@ -223,6 +233,94 @@ public enum RunIntegrityScanner {
             }
         }
         return nil
+    }
+
+    // MARK: - Rule 2b: fabricated quantitative result (UNVERIFIED)
+
+    /// Hard cap on the tool-output text scanned for figure provenance, so a run that dumped megabytes
+    /// (a base64 screenshot, a huge file read) stays bounded.
+    static let maxToolOutputScanCharacters = 200_000
+
+    /// A reason when the assistant reports an explicit EVALUATION result (a benchmark pass rate,
+    /// "N/M passed", a score/reward) but NONE of the specific figures it cites appears anywhere in the
+    /// run's tool output. High-precision by construction: a genuine result's numbers are printed by the
+    /// eval (or read from its file) and therefore live in some tool output, so only figures the model
+    /// invented go unbacked. Requires eval-result LANGUAGE too, so an incidental derived percentage in
+    /// ordinary coding prose can't trip it.
+    static func unbackedResultFigure(in thread: ChatThread) -> RunIntegrityReason? {
+        guard let claim = ResultFigureLexicon.firstResultClaim(inAssistantMessagesOf: thread) else {
+            return nil
+        }
+        let corpus = normalizedForFigureMatch(toolOutputCorpus(in: thread))
+        // Backed if ANY cited figure appears in tool output (format-tolerantly) — then we assume the
+        // result is data-backed (the model may have derived one figure the eval didn't print).
+        let anyBacked = claim.figures.contains { figureAppears($0, in: corpus) }
+        guard !anyBacked else { return nil }
+        let cited = claim.figures.prefix(3).joined(separator: ", ")
+        return RunIntegrityReason(
+            rule: .unbackedResultFigure,
+            detail: "Reported result figures (\(cited)) appear in no tool output — the run may not have "
+                + "actually produced them."
+        )
+    }
+
+    /// Concatenated stdout+stderr+error of every tool result in the run, capped to the TAIL. A reported
+    /// figure must trace back to this ground truth. The tail (not the head) is kept because in a long
+    /// unattended run the eval runs LAST — its output, where the real figures live, is at the end
+    /// (mirrors ShellOutputCapper's tail-keep rationale).
+    static func toolOutputCorpus(in thread: ChatThread) -> String {
+        var pieces: [String] = []
+        for event in thread.events {
+            guard event.kind == .toolCompleted || event.kind == .toolFailed else { continue }
+            guard let result = decodeResult(event.payloadJSON) else { continue }
+            pieces.append(result.stdout)
+            pieces.append(result.stderr)
+            if let error = result.error { pieces.append(error) }
+        }
+        let corpus = pieces.joined(separator: "\n")
+        guard corpus.count > maxToolOutputScanCharacters else { return corpus }
+        return String(corpus.suffix(maxToolOutputScanCharacters))
+    }
+
+    /// Collapses whitespace around `/` so a ratio the eval printed as "3 / 5" still backs the model's
+    /// "3/5" (figures are already space-stripped on extraction — normalize the corpus symmetrically).
+    static func normalizedForFigureMatch(_ corpus: String) -> String {
+        var result = ""
+        result.reserveCapacity(corpus.count)
+        let chars = Array(corpus)
+        var i = 0
+        while i < chars.count {
+            let c = chars[i]
+            if c == "/" {
+                // Drop whitespace already emitted before the slash…
+                while let last = result.last, last == " " || last == "\t" { result.removeLast() }
+                result.append("/")
+                // …and skip whitespace after it.
+                i += 1
+                while i < chars.count, chars[i] == " " || chars[i] == "\t" { i += 1 }
+                continue
+            }
+            result.append(c)
+            i += 1
+        }
+        return result
+    }
+
+    /// Whether a result figure appears in the (normalized) corpus, tolerating the `100%`↔`100.0%`
+    /// formatting the eval and the model may disagree on.
+    static func figureAppears(_ figure: String, in corpus: String) -> Bool {
+        if corpus.contains(figure) { return true }
+        guard figure.hasSuffix("%") else { return false }
+        let number = String(figure.dropLast())
+        if number.contains(".") {
+            // "80.0%" also backs a printed "80%": strip trailing zeros (and a bare trailing dot).
+            var trimmed = number
+            while trimmed.hasSuffix("0") { trimmed.removeLast() }
+            if trimmed.hasSuffix(".") { trimmed.removeLast() }
+            return corpus.contains(trimmed + "%")
+        }
+        // "100%" also backs a printed "100.0%".
+        return corpus.contains(number + ".0%")
     }
 
     // MARK: - Decoding helpers (never throwing, never force-unwrapping)
