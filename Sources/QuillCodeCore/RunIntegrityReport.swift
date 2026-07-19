@@ -39,6 +39,9 @@ public struct RunIntegrityReason: Sendable, Hashable {
         case standingTestFailure
         /// The model claimed success but no successful test/command result backs it.
         case unbackedSuccessClaim
+        /// The model reported a specific QUANTITATIVE result (a benchmark pass rate, "N/M passed", a
+        /// score/reward) whose figures appear in NO tool output of the run — a fabricated result.
+        case unbackedResultFigure
         /// A test command was queued/started but produced no completed result.
         case skippedTest
         /// A success claim is backed by an actual successful test/command result.
@@ -77,8 +80,9 @@ public struct RunIntegrityReport: Sendable, Hashable {
             }
             return "No standing test failures or unbacked claims."
         case .unverified:
-            return reasons.first(where: { $0.rule == .unbackedSuccessClaim || $0.rule == .skippedTest })?.detail
-                ?? "A success claim is not backed by a passing test."
+            return reasons.first(where: {
+                $0.rule == .unbackedResultFigure || $0.rule == .unbackedSuccessClaim || $0.rule == .skippedTest
+            })?.detail ?? "A success claim is not backed by a passing test."
         case .red:
             return reasons.first(where: { $0.rule == .standingTestFailure })?.detail
                 ?? "A test failure was left standing."

@@ -61,6 +61,16 @@ public enum RunIntegrityScanner {
             }
         }
 
+        // Rule 2b (UNVERIFIED): a fabricated quantitative result — the model reports a benchmark pass
+        // rate / "N/M passed" / score whose figures appear in NO tool output of the run. This catches
+        // the worst unattended failure mode (a confident, specific, FALSE result that a generic
+        // success-claim check misses) — observed live when a τ-bench run that never executed reported
+        // "100% (5/5), reward 1.0".
+        if let fabricated = unbackedResultFigure(in: thread) {
+            reasons.append(fabricated)
+            return RunIntegrityReport(verdict: .unverified, reasons: reasons)
+        }
+
         // Rule 3 (UNVERIFIED): a test command was started but never completed (silently skipped).
         if let skipped = skippedTest(in: thread) {
             reasons.append(skipped)
@@ -223,6 +233,54 @@ public enum RunIntegrityScanner {
             }
         }
         return nil
+    }
+
+    // MARK: - Rule 2b: fabricated quantitative result (UNVERIFIED)
+
+    /// Hard cap on the tool-output text scanned for figure provenance, so a run that dumped megabytes
+    /// (a base64 screenshot, a huge file read) stays bounded.
+    static let maxToolOutputScanCharacters = 200_000
+
+    /// A reason when the assistant reports an explicit EVALUATION result (a benchmark pass rate,
+    /// "N/M passed", a score/reward) but NONE of the specific figures it cites appears anywhere in the
+    /// run's tool output. High-precision by construction: a genuine result's numbers are printed by the
+    /// eval (or read from its file) and therefore live in some tool output, so only figures the model
+    /// invented go unbacked. Requires eval-result LANGUAGE too, so an incidental derived percentage in
+    /// ordinary coding prose can't trip it.
+    static func unbackedResultFigure(in thread: ChatThread) -> RunIntegrityReason? {
+        guard let claim = ResultFigureLexicon.firstResultClaim(inAssistantMessagesOf: thread) else {
+            return nil
+        }
+        let corpus = toolOutputCorpus(in: thread)
+        // Backed if ANY cited figure appears verbatim in tool output — then we assume the result is
+        // data-backed (the model may have derived one figure the eval didn't print).
+        let anyBacked = claim.figures.contains { corpus.contains($0) }
+        guard !anyBacked else { return nil }
+        let cited = claim.figures.prefix(3).joined(separator: ", ")
+        return RunIntegrityReason(
+            rule: .unbackedResultFigure,
+            detail: "Reported result figures (\(cited)) appear in no tool output — the run may not have "
+                + "actually produced them."
+        )
+    }
+
+    /// Concatenated stdout+stderr of every tool result in the run, bounded. This is the ground truth a
+    /// reported figure must trace back to.
+    static func toolOutputCorpus(in thread: ChatThread) -> String {
+        var corpus = ""
+        for event in thread.events {
+            guard event.kind == .toolCompleted || event.kind == .toolFailed else { continue }
+            guard let result = decodeResult(event.payloadJSON) else { continue }
+            corpus += result.stdout
+            corpus += "\n"
+            corpus += result.stderr
+            corpus += "\n"
+            if let error = result.error { corpus += error; corpus += "\n" }
+            if corpus.count >= maxToolOutputScanCharacters {
+                return String(corpus.prefix(maxToolOutputScanCharacters))
+            }
+        }
+        return corpus
     }
 
     // MARK: - Decoding helpers (never throwing, never force-unwrapping)
