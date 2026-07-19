@@ -120,6 +120,7 @@ final class ParityTerminalRendererGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(testsText.contains("testRISResetClearsScreenCursorStyleAndModes"))
         XCTAssertTrue(testsText.contains("testRISResetDropsAlternateScreenSnapshot"))
         XCTAssertTrue(testsText.contains("testSoftResetPreservesScreenButResetsStyleModesAndTabs"))
+        XCTAssertTrue(testsText.contains("testEraseScrollbackPreservesVisiblePage"))
         XCTAssertTrue(testsText.contains("testScreenAlignmentPatternFillsFallbackViewport"))
         XCTAssertTrue(testsText.contains("testScreenAlignmentPatternPreservesCurrentStyleAndHomesCursor"))
         XCTAssertTrue(testsText.contains("testStripsTerminalStringControlPayloads"))
