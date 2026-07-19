@@ -1801,6 +1801,59 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesNUnitArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("TestResult.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <test-run id="2" name="QuillCode NUnit Tests" total="3" passed="1" failed="1" inconclusive="0" skipped="1" duration="3.50">
+          <test-suite type="Assembly" name="QuillCode.Tests.dll">
+            <test-case id="0-1001" fullname="QuillCode.Tests.AppTests.RendersPrompt" result="Passed" duration="1.25" />
+            <test-case id="0-1002" fullname="QuillCode.Tests.AppTests.WritesFile" result="Failed" duration="2.00" />
+            <test-case id="0-1003" fullname="QuillCode.Tests.CliTests.IsSkipped" result="Skipped" duration="0.25" />
+          </test-suite>
+        </test-run>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"TestResult.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote TestResult.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "NUnit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">TestResult.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-meta">Format: NUnit XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-meta">Run: QuillCode NUnit Tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-meta">Passed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-meta">Skipped: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-meta">Duration: 3.5 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-failure-item">QuillCode.Tests.AppTests.WritesFile"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesCoberturaArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("coverage.xml")

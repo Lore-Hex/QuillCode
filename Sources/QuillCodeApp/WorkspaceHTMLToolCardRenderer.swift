@@ -235,6 +235,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let trxPreview = renderTRXPreview(artifact.trxPreview)
             let xunitPreviewModel = artifact.xunitPreview
             let xunitPreview = renderXUnitPreview(xunitPreviewModel)
+            let nunitPreviewModel = artifact.nunitPreview
+            let nunitPreview = renderNUnitPreview(nunitPreviewModel)
             let coberturaPreviewModel = artifact.coberturaPreview
             let coberturaPreview = renderCoberturaPreview(coberturaPreviewModel)
             let cloverPreviewModel = artifact.cloverPreview
@@ -243,6 +245,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let jaCoCoPreview = renderJaCoCoPreview(jaCoCoPreviewModel)
             let xmlPreview = junitPreviewModel == nil
                 && xunitPreviewModel == nil
+                && nunitPreviewModel == nil
                 && coberturaPreviewModel == nil
                 && cloverPreviewModel == nil
                 && jaCoCoPreviewModel == nil
@@ -296,6 +299,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(junitPreview)
               \(trxPreview)
               \(xunitPreview)
+              \(nunitPreview)
               \(coberturaPreview)
               \(cloverPreview)
               \(jaCoCoPreview)
@@ -1090,6 +1094,31 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(assemblyList)
+          \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderNUnitPreview(_ preview: ToolArtifactNUnitPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-nunit-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-nunit-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-nunit-preview-failures">
+                <strong data-testid="tool-card-nunit-preview-failure-title">Failing tests</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-nunit-preview">
+          <div>
+            \(metadata)
+          </div>
           \(failureList)
         </div>
         """

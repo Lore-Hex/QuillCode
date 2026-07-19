@@ -1575,6 +1575,60 @@ public struct ToolArtifactXUnitPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactNUnitPreview: Codable, Sendable, Hashable {
+    public var runName: String?
+    public var testCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var inconclusiveCount: Int
+    public var skippedCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: NUnit XML",
+            runName.map { "Run: \($0)" },
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            "Passed: \(passedCount)",
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            inconclusiveCount > 0 ? "Inconclusive: \(inconclusiveCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        testCount > 0
+            || !metadataLines.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        runName: String? = nil,
+        testCount: Int,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        inconclusiveCount: Int = 0,
+        skippedCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.runName = runName
+        self.testCount = testCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.inconclusiveCount = inconclusiveCount
+        self.skippedCount = skippedCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactCoberturaPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var packageCount: Int
@@ -2279,6 +2333,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var xunitPreview: ToolArtifactXUnitPreview? {
         ToolArtifactXUnitPreviewBuilder.xunitPreview(for: value, kind: kind)
+    }
+    public var nunitPreview: ToolArtifactNUnitPreview? {
+        ToolArtifactNUnitPreviewBuilder.nunitPreview(for: value, kind: kind)
     }
     public var coberturaPreview: ToolArtifactCoberturaPreview? {
         ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: kind)

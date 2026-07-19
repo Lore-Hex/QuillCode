@@ -2408,3 +2408,20 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesXUnitArtifactPreview` covers static
   HTML selectors, rendered report metadata, assembly lists, failure lists, and generic XML
   suppression.
+
+## 2026-07-19: NUnit XML artifacts render bounded test summaries
+
+- **Decision:** Local `.xml` artifacts whose root validates as `test-run` render as structured NUnit
+  report cards. The preview shows run name, test, pass, fail, inconclusive, and skip counts plus
+  duration, file size, and capped failing test names.
+- **Why:** NUnit is a common .NET test runner and often emits `TestResult.xml` instead of TRX or
+  xUnit XML. A Codex-style artifact surface should make the useful result summary visible without
+  asking the model to inspect raw XML.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, root-gated, and
+  capped at 512 KB. It reads run and `test-case` attributes only, never expands failure output,
+  assertion messages, stack traces, source files, or referenced assemblies, and never fetches remote
+  XML reports. Generic XML rendering is suppressed only after the NUnit root validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesNUnitPreviewMetadata` covers
+  aggregate and per-test counts, duration, failing labels, non-NUnit exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesNUnitArtifactPreview` covers static
+  HTML selectors, rendered report metadata, failure lists, and generic XML suppression.
