@@ -73,6 +73,9 @@
 - Artifact previews now include bounded local HTTP Archive metadata for `.har` browser/network traces:
   HAR version, creator, entry count, observed methods, status groups, host previews, and file size
   without rendering request/response headers, cookies, bodies, or query values.
+- Artifact previews now include bounded local LCOV coverage-report metadata for `lcov.info` and
+  `.lcov` files: source-file counts, line/branch/function coverage, file size, truncation state, and
+  capped source-file previews without executing test tooling or following report paths.
 - Artifact previews now include bounded local font metadata for `.ttf`, `.otf`, `.ttc`, `.woff`,
   and `.woff2` files by validating fixed headers and rendering format, flavor, table count,
   declared size, and file size without parsing tables or decompressing webfont payloads.

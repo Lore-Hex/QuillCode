@@ -512,6 +512,82 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteHAR.harPreview)
     }
 
+    func testArtifactStateDerivesLCOVPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let coverage = directory.appendingPathComponent("lcov.info")
+        let lcovText = """
+        TN:QuillCode
+        SF:/workspace/Sources/QuillCodeApp/Workspace.swift
+        FN:10,render
+        FNDA:3,render
+        DA:10,3
+        DA:11,0
+        DA:12,5
+        LF:3
+        LH:2
+        BRDA:12,0,0,1
+        BRDA:12,0,1,0
+        BRF:2
+        BRH:1
+        FNF:1
+        FNH:1
+        end_of_record
+        SF:/workspace/Tests/QuillCodeAppTests/WorkspaceTests.swift
+        DA:20,1
+        DA:21,1
+        DA:22,0
+        end_of_record
+        """
+        try lcovText.write(to: coverage, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: coverage.path)
+        let preview = try XCTUnwrap(artifact.lcovPreview)
+        let byteCount = try XCTUnwrap(lcovText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "LCOV")
+        XCTAssertEqual(preview.formatLabel, "LCOV")
+        XCTAssertEqual(preview.sourceFileCount, 2)
+        XCTAssertEqual(preview.lineHitCount, 4)
+        XCTAssertEqual(preview.lineFoundCount, 6)
+        XCTAssertEqual(preview.branchHitCount, 1)
+        XCTAssertEqual(preview.branchFoundCount, 2)
+        XCTAssertEqual(preview.functionHitCount, 1)
+        XCTAssertEqual(preview.functionFoundCount, 1)
+        XCTAssertEqual(preview.lineCoverageLabel, "66.7% (4/6)")
+        XCTAssertEqual(preview.branchCoverageLabel, "50% (1/2)")
+        XCTAssertEqual(preview.functionCoverageLabel, "100% (1/1)")
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "QuillCodeApp/Workspace.swift · 66.7%",
+            "QuillCodeAppTests/WorkspaceTests.swift · 66.7%"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: LCOV",
+            "2 source files",
+            "Lines: 66.7% (4/6)",
+            "Branches: 50% (1/2)",
+            "Functions: 100% (1/1)",
+            "Size: \(byteCount) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+        XCTAssertNil(artifact.jsonLinesPreview)
+
+        let extensionCoverage = directory.appendingPathComponent("coverage.lcov")
+        try lcovText.write(to: extensionCoverage, atomically: true, encoding: .utf8)
+        let extensionArtifact = ToolArtifactState(value: extensionCoverage.path)
+        XCTAssertEqual(extensionArtifact.documentPreview?.extensionLabel, "LCOV")
+        XCTAssertEqual(extensionArtifact.lcovPreview?.sourceFileCount, 2)
+
+        let remoteLCOV = ToolArtifactState(value: "https://example.com/lcov.info")
+        XCTAssertNil(remoteLCOV.lcovPreview)
+
+        let invalidLCOV = directory.appendingPathComponent("empty.info")
+        try "TN:empty\n".write(to: invalidLCOV, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: invalidLCOV.path).lcovPreview)
+    }
+
     func testArtifactStateDerivesNotebookPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let notebook = directory.appendingPathComponent("analysis.ipynb")

@@ -65,6 +65,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             tableContent(tablePreview)
         } else if let harPreview = artifact.harPreview {
             harContent(harPreview)
+        } else if let lcovPreview = artifact.lcovPreview {
+            lcovContent(lcovPreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
             jsonLinesContent(jsonLinesPreview)
         } else if let tomlPreview = artifact.tomlPreview {
@@ -193,6 +195,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(harPreview.metadataLines)
             artifactContentList(title: "Hosts", labels: harPreview.hostPreviewLabels)
+        }
+    }
+
+    private func lcovContent(_ lcovPreview: ToolArtifactLCOVPreview) -> some View {
+        previewSurface(minHeight: lcovPreview.sourcePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.bar.doc.horizontal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(lcovPreview.metadataLines)
+            artifactContentList(title: "Source files", labels: lcovPreview.sourcePreviewLabels)
         }
     }
 

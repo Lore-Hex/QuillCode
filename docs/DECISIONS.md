@@ -2161,3 +2161,21 @@
 - **Evidence:** `MCPServerSessionTests` now assert path-keyed metadata for both `host.file.write` and
   `host.apply_patch` approval requests, including create/modify classification and non-execution after
   denial.
+
+## 2026-07-18: LCOV artifacts render bounded coverage summaries
+
+- **Decision:** Local `lcov.info` and `.lcov` artifacts render as structured coverage-report cards
+  instead of generic text/data files. The preview scans only the first 512 KB, parses standard LCOV
+  record lines, and shows source-file count, line/branch/function coverage, file size, truncation
+  state, and a capped source-file list.
+- **Why:** Coding agents commonly produce coverage reports while fixing tests. Codex-style artifact
+  handling should make the result immediately inspectable without asking the model to re-open the raw
+  report, and without executing test tooling or expanding arbitrary report contents.
+- **Boundary:** The parser is local-file-only, UTF-8-only, NUL-rejecting, and line-oriented. It never
+  shells out, never follows report paths, and never fetches remote coverage URLs. Explicit LCOV totals
+  (`LF`/`LH`, `BRF`/`BRH`, `FNF`/`FNH`) are preserved when present; per-line/function/branch records
+  provide fallback counts for partial reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesLCOVPreviewMetadata` covers
+  classification, totals, fallback counts, source labels, invalid reports, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesLCOVArtifactPreview` covers the static
+  HTML selectors and rendered coverage metadata.

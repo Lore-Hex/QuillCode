@@ -767,6 +767,63 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesLCOVArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let coverageDirectory = root.appendingPathComponent("coverage", isDirectory: true)
+        try FileManager.default.createDirectory(at: coverageDirectory, withIntermediateDirectories: true)
+        let coverage = coverageDirectory.appendingPathComponent("lcov.info")
+        let lcovText = """
+        SF:/workspace/Sources/QuillCodeApp/Workspace.swift
+        DA:10,3
+        DA:11,0
+        DA:12,5
+        LF:3
+        LH:2
+        BRF:2
+        BRH:1
+        FNF:1
+        FNH:1
+        end_of_record
+        """
+        try lcovText.write(to: coverage, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"coverage/lcov.info"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote coverage/lcov.info\n", artifacts: [coverage.path])
+        let thread = ChatThread(
+            title: "Coverage artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · LCOV"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">lcov.info"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-lcov-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-lcov-preview-meta">Format: LCOV"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-lcov-preview-meta">1 source file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-lcov-preview-meta">Lines: 66.7% (2/3)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-lcov-preview-meta">Branches: 50% (1/2)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-lcov-preview-meta">Functions: 100% (1/1)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-lcov-preview-source-title">Source files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-lcov-preview-source-item">QuillCodeApp/Workspace.swift · 66.7%"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesJSONLinesArtifactPreview() throws {
         let root = try makeTempDirectory()
         let logs = root.appendingPathComponent("logs", isDirectory: true)
