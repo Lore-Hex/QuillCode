@@ -71,6 +71,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             pytestJSONContent(pytestJSONPreview)
         } else if let jestJSONPreview = artifact.jestJSONPreview {
             jestJSONContent(jestJSONPreview)
+        } else if let cycloneDXPreview = artifact.cycloneDXPreview {
+            cycloneDXContent(cycloneDXPreview)
         } else if let tapPreview = artifact.tapPreview {
             tapContent(tapPreview)
         } else if let harPreview = artifact.harPreview {
@@ -279,6 +281,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(jestJSONPreview.metadataLines)
             artifactContentList(title: "Failures", labels: jestJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func cycloneDXContent(_ cycloneDXPreview: ToolArtifactCycloneDXPreview) -> some View {
+        previewSurface(minHeight: cycloneDXPreview.componentPreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(cycloneDXPreview.metadataLines)
+            artifactContentList(title: "Components", labels: cycloneDXPreview.componentPreviewLabels)
         }
     }
 

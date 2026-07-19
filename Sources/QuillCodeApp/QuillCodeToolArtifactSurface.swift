@@ -465,6 +465,79 @@ public struct ToolArtifactJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCycloneDXPreview: Codable, Sendable, Hashable {
+    public var specVersion: String?
+    public var serialNumber: String?
+    public var rootComponentLabel: String?
+    public var componentCount: Int
+    public var serviceCount: Int
+    public var dependencyCount: Int
+    public var vulnerabilityCount: Int
+    public var criticalVulnerabilityCount: Int
+    public var highVulnerabilityCount: Int
+    public var mediumVulnerabilityCount: Int
+    public var lowVulnerabilityCount: Int
+    public var byteSizeLabel: String?
+    public var componentPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: CycloneDX",
+            specVersion.map { "Spec: \($0)" },
+            rootComponentLabel.map { "Root: \($0)" },
+            serialNumber.map { "Serial: \($0)" },
+            "\(componentCount) component\(componentCount == 1 ? "" : "s")",
+            serviceCount > 0 ? "\(serviceCount) service\(serviceCount == 1 ? "" : "s")" : nil,
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            vulnerabilityCount > 0 ? "Vulnerabilities: \(vulnerabilityCount)" : nil,
+            criticalVulnerabilityCount > 0 ? "Critical: \(criticalVulnerabilityCount)" : nil,
+            highVulnerabilityCount > 0 ? "High: \(highVulnerabilityCount)" : nil,
+            mediumVulnerabilityCount > 0 ? "Medium: \(mediumVulnerabilityCount)" : nil,
+            lowVulnerabilityCount > 0 ? "Low: \(lowVulnerabilityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        componentCount > 0
+            || serviceCount > 0
+            || dependencyCount > 0
+            || vulnerabilityCount > 0
+            || !metadataLines.isEmpty
+            || !componentPreviewLabels.isEmpty
+    }
+
+    public init(
+        specVersion: String? = nil,
+        serialNumber: String? = nil,
+        rootComponentLabel: String? = nil,
+        componentCount: Int,
+        serviceCount: Int = 0,
+        dependencyCount: Int = 0,
+        vulnerabilityCount: Int = 0,
+        criticalVulnerabilityCount: Int = 0,
+        highVulnerabilityCount: Int = 0,
+        mediumVulnerabilityCount: Int = 0,
+        lowVulnerabilityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        componentPreviewLabels: [String] = []
+    ) {
+        self.specVersion = specVersion
+        self.serialNumber = serialNumber
+        self.rootComponentLabel = rootComponentLabel
+        self.componentCount = componentCount
+        self.serviceCount = serviceCount
+        self.dependencyCount = dependencyCount
+        self.vulnerabilityCount = vulnerabilityCount
+        self.criticalVulnerabilityCount = criticalVulnerabilityCount
+        self.highVulnerabilityCount = highVulnerabilityCount
+        self.mediumVulnerabilityCount = mediumVulnerabilityCount
+        self.lowVulnerabilityCount = lowVulnerabilityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.componentPreviewLabels = componentPreviewLabels
+    }
+}
+
 public struct ToolArtifactIstanbulPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var sourceFileCount: Int
@@ -2279,6 +2352,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
         ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
+    }
+    public var cycloneDXPreview: ToolArtifactCycloneDXPreview? {
+        ToolArtifactCycloneDXPreviewBuilder.cycloneDXPreview(for: value, kind: kind)
     }
     public var istanbulPreview: ToolArtifactIstanbulPreview? {
         ToolArtifactIstanbulPreviewBuilder.istanbulPreview(for: value, kind: kind)

@@ -2425,3 +2425,23 @@
   aggregate and per-test counts, duration, failing labels, non-NUnit exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesNUnitArtifactPreview` covers static
   HTML selectors, rendered report metadata, failure lists, and generic XML suppression.
+
+## 2026-07-19: CycloneDX SBOM artifacts render bounded supply-chain summaries
+
+- **Decision:** Local `.json` artifacts whose top-level `bomFormat` validates as `CycloneDX` render
+  as structured SBOM cards. The preview shows spec version, serial number, root component,
+  component/service/dependency counts, vulnerability severity counts, file size, and capped component
+  labels.
+- **Why:** Coding agents increasingly produce SBOMs during build, release, dependency audit, and
+  security workflows. A Codex-style artifact surface should make the supply-chain shape immediately
+  scannable without asking the model to read or summarize raw SBOM JSON.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It validates `bomFormat: CycloneDX`, reads only shallow metadata, component labels,
+  dependency counts, service counts, and vulnerability severities, and never expands license text,
+  hashes, evidence, references, external references, advisories, or remote SBOM URLs. Generic JSON
+  rendering is suppressed only after the CycloneDX shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesCycloneDXPreviewMetadata`
+  covers metadata extraction, vulnerability severity counts, component labels, generic JSON
+  suppression, non-CycloneDX exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCycloneDXArtifactPreview` covers static
+  HTML selectors, rendered SBOM metadata, component lists, and generic JSON suppression.
