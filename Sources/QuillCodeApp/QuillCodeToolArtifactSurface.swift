@@ -2309,6 +2309,92 @@ public struct ToolArtifactSemgrepJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCodeClimateJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var issueCount: Int
+    public var fileCount: Int
+    public var checkCount: Int
+    public var categoryCount: Int
+    public var blockerCount: Int
+    public var criticalCount: Int
+    public var majorCount: Int
+    public var minorCount: Int
+    public var infoCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var checkPreviewLabels: [String]
+    public var categoryPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(checkCount) check\(checkCount == 1 ? "" : "s")",
+            "\(categoryCount) categor\(categoryCount == 1 ? "y" : "ies")",
+            blockerCount > 0 ? "Blocker: \(blockerCount)" : nil,
+            criticalCount > 0 ? "Critical: \(criticalCount)" : nil,
+            majorCount > 0 ? "Major: \(majorCount)" : nil,
+            minorCount > 0 ? "Minor: \(minorCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        issueCount > 0
+            || fileCount > 0
+            || checkCount > 0
+            || categoryCount > 0
+            || blockerCount > 0
+            || criticalCount > 0
+            || majorCount > 0
+            || minorCount > 0
+            || infoCount > 0
+            || otherSeverityCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !checkPreviewLabels.isEmpty
+            || !categoryPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Code Climate JSON",
+        issueCount: Int,
+        fileCount: Int,
+        checkCount: Int,
+        categoryCount: Int,
+        blockerCount: Int = 0,
+        criticalCount: Int = 0,
+        majorCount: Int = 0,
+        minorCount: Int = 0,
+        infoCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        checkPreviewLabels: [String] = [],
+        categoryPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.issueCount = issueCount
+        self.fileCount = fileCount
+        self.checkCount = checkCount
+        self.categoryCount = categoryCount
+        self.blockerCount = blockerCount
+        self.criticalCount = criticalCount
+        self.majorCount = majorCount
+        self.minorCount = minorCount
+        self.infoCount = infoCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.checkPreviewLabels = checkPreviewLabels
+        self.categoryPreviewLabels = categoryPreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -4008,7 +4094,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               ruffJSONPreview == nil,
               pylintJSONPreview == nil,
               banditJSONPreview == nil,
-              semgrepJSONPreview == nil
+              semgrepJSONPreview == nil,
+              codeClimateJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -4098,6 +4185,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var semgrepJSONPreview: ToolArtifactSemgrepJSONPreview? {
         ToolArtifactSemgrepJSONPreviewBuilder.semgrepJSONPreview(for: value, kind: kind)
+    }
+    public var codeClimateJSONPreview: ToolArtifactCodeClimateJSONPreview? {
+        ToolArtifactCodeClimateJSONPreviewBuilder.codeClimateJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)

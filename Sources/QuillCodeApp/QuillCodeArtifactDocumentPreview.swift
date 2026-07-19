@@ -87,6 +87,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             banditJSONContent(banditJSONPreview)
         } else if let semgrepJSONPreview = artifact.semgrepJSONPreview {
             semgrepJSONContent(semgrepJSONPreview)
+        } else if let codeClimateJSONPreview = artifact.codeClimateJSONPreview {
+            codeClimateJSONContent(codeClimateJSONPreview)
         } else if let npmLockfilePreview = artifact.npmLockfilePreview {
             npmLockfileContent(npmLockfilePreview)
         } else if let denoLockPreview = artifact.denoLockPreview {
@@ -464,6 +466,25 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(semgrepJSONPreview.metadataLines)
             artifactContentList(title: "Files", labels: semgrepJSONPreview.filePreviewLabels)
             artifactContentList(title: "Rules", labels: semgrepJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func codeClimateJSONContent(_ codeClimateJSONPreview: ToolArtifactCodeClimateJSONPreview) -> some View {
+        let hasLists = !codeClimateJSONPreview.filePreviewLabels.isEmpty
+            || !codeClimateJSONPreview.checkPreviewLabels.isEmpty
+            || !codeClimateJSONPreview.categoryPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 176 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "exclamationmark.triangle")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(codeClimateJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: codeClimateJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Checks", labels: codeClimateJSONPreview.checkPreviewLabels)
+            artifactContentList(title: "Categories", labels: codeClimateJSONPreview.categoryPreviewLabels)
         }
     }
 

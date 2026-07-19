@@ -2577,6 +2577,82 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesCodeClimateJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("codeclimate-results.json")
+        let reportText = """
+        [
+          {
+            "type": "issue",
+            "check_name": "Rubocop/Metrics/MethodLength",
+            "description": "Method has too many lines.",
+            "categories": ["Complexity"],
+            "location": {"path": "/repo/app/services/report.rb", "lines": {"begin": 12, "end": 48}},
+            "severity": "major",
+            "fingerprint": "abc123"
+          },
+          {
+            "type": "issue",
+            "check_name": "ESLint/no-console",
+            "description": "Unexpected console statement.",
+            "categories": ["Bug Risk", "Style"],
+            "location": {"path": "/repo/web/src/main.ts", "lines": {"begin": 8, "end": 8}},
+            "severity": "minor",
+            "fingerprint": "def456"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/codeclimate-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/codeclimate-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Code Climate artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">codeclimate-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">Format: Code Climate JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">2 checks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">3 categories"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">Major: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">Minor: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-file-item">app/services/report.rb"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-file-item">web/src/main.ts"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-check-title">Checks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-check-item">Rubocop/Metrics/MethodLength"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-check-item">ESLint/no-console"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-category-title">Categories"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-category-item">Complexity"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-category-item">Bug Risk"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-category-item">Style"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesTAPArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

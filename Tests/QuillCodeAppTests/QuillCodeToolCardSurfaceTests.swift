@@ -3461,6 +3461,92 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteSemgrep.semgrepJSONPreview)
     }
 
+    func testArtifactStateDerivesCodeClimateJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("codeclimate-results.json")
+        let content = """
+        [
+          {
+            "type": "issue",
+            "check_name": "Rubocop/Metrics/MethodLength",
+            "description": "Method has too many lines.",
+            "categories": ["Complexity"],
+            "location": {"path": "/repo/app/services/report.rb", "lines": {"begin": 12, "end": 48}},
+            "severity": "major",
+            "fingerprint": "abc123"
+          },
+          {
+            "type": "issue",
+            "check_name": "ESLint/no-console",
+            "description": "Unexpected console statement.",
+            "categories": ["Bug Risk", "Style"],
+            "location": {"path": "/repo/web/src/main.ts", "lines": {"begin": 8, "end": 8}},
+            "severity": "minor",
+            "fingerprint": "def456"
+          },
+          {
+            "type": "issue",
+            "check_name": "Rubocop/Metrics/MethodLength",
+            "description": "Another method is too long.",
+            "categories": ["Complexity"],
+            "location": {"path": "/repo/app/models/user.rb", "lines": {"begin": 20, "end": 70}},
+            "severity": "critical",
+            "fingerprint": "ghi789"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.codeClimateJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Code Climate JSON")
+        XCTAssertEqual(preview.issueCount, 3)
+        XCTAssertEqual(preview.fileCount, 3)
+        XCTAssertEqual(preview.checkCount, 2)
+        XCTAssertEqual(preview.categoryCount, 3)
+        XCTAssertEqual(preview.criticalCount, 1)
+        XCTAssertEqual(preview.majorCount, 1)
+        XCTAssertEqual(preview.minorCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "app/services/report.rb",
+            "web/src/main.ts",
+            "app/models/user.rb"
+        ])
+        XCTAssertEqual(preview.checkPreviewLabels, [
+            "Rubocop/Metrics/MethodLength",
+            "ESLint/no-console"
+        ])
+        XCTAssertEqual(preview.categoryPreviewLabels, [
+            "Complexity",
+            "Bug Risk",
+            "Style"
+        ])
+        let byteSizeLabel = try XCTUnwrap(preview.byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Code Climate JSON",
+            "3 issues",
+            "3 files",
+            "2 checks",
+            "3 categories",
+            "Critical: 1",
+            "Major: 1",
+            "Minor: 1",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("generic-codeclimate-like.json")
+        try #"[{"type":"issue","check_name":"x","description":"missing location"}]"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).codeClimateJSONPreview)
+
+        let remoteCodeClimate = ToolArtifactState(value: "https://example.com/codeclimate-results.json")
+        XCTAssertNil(remoteCodeClimate.codeClimateJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")
