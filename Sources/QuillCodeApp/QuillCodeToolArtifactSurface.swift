@@ -1021,6 +1021,89 @@ public struct ToolArtifactJUnitPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCoberturaPreview: Codable, Sendable, Hashable {
+    public var versionLabel: String?
+    public var packageCount: Int
+    public var classCount: Int
+    public var lineCoveredCount: Int?
+    public var lineValidCount: Int?
+    public var branchCoveredCount: Int?
+    public var branchValidCount: Int?
+    public var lineRateLabel: String?
+    public var branchRateLabel: String?
+    public var byteSizeLabel: String?
+    public var packagePreviewLabels: [String]
+    public var classPreviewLabels: [String]
+
+    public var lineCoverageLabel: String? {
+        coverageLabel(covered: lineCoveredCount, valid: lineValidCount) ?? lineRateLabel
+    }
+
+    public var branchCoverageLabel: String? {
+        coverageLabel(covered: branchCoveredCount, valid: branchValidCount) ?? branchRateLabel
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: Cobertura XML",
+            versionLabel.map { "Version: \($0)" },
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            "\(classCount) class\(classCount == 1 ? "" : "es")",
+            lineCoverageLabel.map { "Lines: \($0)" },
+            branchCoverageLabel.map { "Branches: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || classCount > 0
+            || lineCoverageLabel != nil
+            || branchCoverageLabel != nil
+            || byteSizeLabel != nil
+            || !packagePreviewLabels.isEmpty
+            || !classPreviewLabels.isEmpty
+    }
+
+    public init(
+        versionLabel: String? = nil,
+        packageCount: Int,
+        classCount: Int,
+        lineCoveredCount: Int? = nil,
+        lineValidCount: Int? = nil,
+        branchCoveredCount: Int? = nil,
+        branchValidCount: Int? = nil,
+        lineRateLabel: String? = nil,
+        branchRateLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        packagePreviewLabels: [String] = [],
+        classPreviewLabels: [String] = []
+    ) {
+        self.versionLabel = versionLabel
+        self.packageCount = packageCount
+        self.classCount = classCount
+        self.lineCoveredCount = lineCoveredCount
+        self.lineValidCount = lineValidCount
+        self.branchCoveredCount = branchCoveredCount
+        self.branchValidCount = branchValidCount
+        self.lineRateLabel = lineRateLabel
+        self.branchRateLabel = branchRateLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.packagePreviewLabels = packagePreviewLabels
+        self.classPreviewLabels = classPreviewLabels
+    }
+
+    private func coverageLabel(covered: Int?, valid: Int?) -> String? {
+        guard let covered, let valid, valid > 0 else { return nil }
+        let percent = (Double(covered) / Double(valid)) * 100
+        let rounded = (percent * 10).rounded() / 10
+        let percentLabel = rounded == rounded.rounded()
+            ? "\(Int(rounded))%"
+            : "\(rounded)%"
+        return "\(percentLabel) (\(covered)/\(valid))"
+    }
+}
+
 public struct ToolArtifactPropertyListPreview: Codable, Sendable, Hashable {
     public var rootLabel: String
     public var formatLabel: String?
@@ -1408,6 +1491,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var junitPreview: ToolArtifactJUnitPreview? {
         ToolArtifactJUnitPreviewBuilder.junitPreview(for: value, kind: kind)
+    }
+    public var coberturaPreview: ToolArtifactCoberturaPreview? {
+        ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: kind)
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
         ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)

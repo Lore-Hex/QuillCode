@@ -222,7 +222,11 @@ enum WorkspaceHTMLToolCardRenderer {
             let yamlPreview = renderYAMLPreview(artifact.yamlPreview)
             let junitPreviewModel = artifact.junitPreview
             let junitPreview = renderJUnitPreview(junitPreviewModel)
-            let xmlPreview = junitPreviewModel == nil ? renderXMLPreview(artifact.xmlPreview) : ""
+            let coberturaPreviewModel = artifact.coberturaPreview
+            let coberturaPreview = renderCoberturaPreview(coberturaPreviewModel)
+            let xmlPreview = junitPreviewModel == nil && coberturaPreviewModel == nil
+                ? renderXMLPreview(artifact.xmlPreview)
+                : ""
             let propertyListPreview = renderPropertyListPreview(artifact.propertyListPreview)
             let sqlitePreview = renderSQLitePreview(artifact.sqlitePreview)
             let webAssemblyPreview = renderWebAssemblyPreview(artifact.webAssemblyPreview)
@@ -258,6 +262,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(dotenvPreview)
               \(yamlPreview)
               \(junitPreview)
+              \(coberturaPreview)
               \(xmlPreview)
               \(propertyListPreview)
               \(sqlitePreview)
@@ -838,6 +843,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(suiteList)
           \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderCoberturaPreview(_ preview: ToolArtifactCoberturaPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-cobertura-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-cobertura-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let classes = preview.classPreviewLabels.map {
+            #"<li data-testid="tool-card-cobertura-preview-class-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-cobertura-preview-packages">
+                <strong data-testid="tool-card-cobertura-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let classList = classes.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-cobertura-preview-classes">
+                <strong data-testid="tool-card-cobertura-preview-class-title">Classes</strong>
+                <ul>\(classes)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !classList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-cobertura-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(classList)
         </div>
         """
     }

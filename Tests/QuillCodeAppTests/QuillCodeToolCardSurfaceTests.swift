@@ -1152,6 +1152,72 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJUnit.junitPreview)
     }
 
+    func testArtifactStateDerivesCoberturaPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("coverage.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <coverage line-rate="0.75" branch-rate="0.5" lines-covered="3" lines-valid="4" branches-covered="1" branches-valid="2" version="1.9">
+          <packages>
+            <package name="QuillCodeApp">
+              <classes>
+                <class name="Workspace" filename="Sources/QuillCodeApp/Workspace.swift" />
+                <class name="ToolCard" filename="Sources/QuillCodeApp/ToolCard.swift" />
+              </classes>
+            </package>
+            <package name="QuillCodeTools">
+              <classes>
+                <class name="ShellToolExecutor" filename="Sources/QuillCodeTools/ShellToolExecutor.swift" />
+              </classes>
+            </package>
+          </packages>
+        </coverage>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.coberturaPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.versionLabel, "1.9")
+        XCTAssertEqual(preview.packageCount, 2)
+        XCTAssertEqual(preview.classCount, 3)
+        XCTAssertEqual(preview.lineCoverageLabel, "75% (3/4)")
+        XCTAssertEqual(preview.branchCoverageLabel, "50% (1/2)")
+        XCTAssertEqual(preview.packagePreviewLabels, ["QuillCodeApp", "QuillCodeTools"])
+        XCTAssertEqual(preview.classPreviewLabels, [
+            "Workspace · Sources/QuillCodeApp/Workspace.swift",
+            "ToolCard · Sources/QuillCodeApp/ToolCard.swift",
+            "ShellToolExecutor · Sources/QuillCodeTools/ShellToolExecutor.swift"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Cobertura XML",
+            "Version: 1.9",
+            "2 packages",
+            "3 classes",
+            "Lines: 75% (3/4)",
+            "Branches: 50% (1/2)",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.junitPreview)
+
+        let rateOnly = directory.appendingPathComponent("rate-only.xml")
+        try #"<coverage line-rate="0.8333" branch-rate="0.25"><packages /></coverage>"#
+            .write(to: rateOnly, atomically: true, encoding: .utf8)
+        let ratePreview = try XCTUnwrap(ToolArtifactState(value: rateOnly.path).coberturaPreview)
+        XCTAssertEqual(ratePreview.lineCoverageLabel, "83.3%")
+        XCTAssertEqual(ratePreview.branchCoverageLabel, "25%")
+
+        let nonCobertura = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: nonCobertura, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonCobertura.path).coberturaPreview)
+
+        let remoteCobertura = ToolArtifactState(value: "https://example.com/coverage.xml")
+        XCTAssertNil(remoteCobertura.coberturaPreview)
+    }
+
     func testArtifactStateDerivesSQLitePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let database = directory.appendingPathComponent("cache.sqlite3")
