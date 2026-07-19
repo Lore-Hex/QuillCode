@@ -103,6 +103,10 @@
 - Artifact previews now include bounded local Go checksum metadata for `go.sum` files: module,
   version, checksum, and go.mod-checksum counts, file size, capped module labels, and capped source
   hosts without validating hashes through the Go checksum database or fetching module sources.
+- Artifact previews now include bounded local Python requirements metadata for `requirements.txt`
+  and `requirements-*.txt` files: package, pinned/ranged/editable/include/option/hash counts, file
+  size, capped package labels, and capped source hosts without running pip, validating hashes,
+  expanding requirement includes, or fetching package indexes.
 - Artifact previews now include bounded local pnpm lockfile metadata for `pnpm-lock.yaml` files:
   lockfile version, importer/package/dependency/integrity counts, file size, capped importer labels,
   capped package labels, and capped resolved registry hosts without expanding dependency graphs,

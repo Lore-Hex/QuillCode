@@ -2600,3 +2600,24 @@
   labels, non-`go.sum` exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesGoSumArtifactPreview` covers static HTML
   selectors, rendered Go checksum metadata, module/host lists, and text-preview coexistence.
+
+## 2026-07-19: requirements.txt artifacts render bounded Python dependency summaries
+
+- **Decision:** Local `requirements.txt` and `requirements-*.txt` artifacts render as structured
+  Python requirements cards. The preview shows package, pinned/ranged/editable/include/option/hash
+  counts, file size, capped package labels, and capped source host labels. Matching requirements
+  filenames are classified as data artifacts through filename-specific detection.
+- **Why:** Python projects often expose dependency changes through requirements files rather than
+  lockfiles. A bounded package/source summary makes those artifacts scannable without asking the model
+  to read raw requirement lines.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `requirements.txt` and `requirements-*.txt`, and capped at 512 KB. It recognizes shallow pip
+  requirement forms, editable installs, include/constraint lines, index/find-links options, hashes,
+  environment markers, and direct URL host labels; it never runs pip, expands includes, validates
+  hashes, reads package metadata, contacts package indexes, or fetches distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPythonRequirementsPreviewMetadata`
+  covers filename-based document classification, package/pinned/ranged/editable/include/option/hash
+  counts, package labels, host labels, non-requirements exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPythonRequirementsArtifactPreview` covers
+  static HTML selectors, rendered Python requirements metadata, package/host lists, and text-preview
+  coexistence.
