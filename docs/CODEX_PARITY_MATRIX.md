@@ -100,6 +100,10 @@
 - Artifact previews now include bounded local Visual Studio TRX test-report metadata for `.trx`
   files: run name, test outcome counts, duration, file size, and capped failing test names without
   expanding failure output or fetching remote reports.
+- Artifact previews now include bounded local xUnit.net XML test-report metadata for `.xml` files
+  whose root is `assemblies` or `assembly`: assembly/collection/test counts, pass/fail/skip counts,
+  duration, file size, capped assembly names, and capped failing test names without expanding failure
+  output or fetching remote reports.
 - Artifact previews now include bounded local Cobertura XML coverage-report metadata for `.xml` files
   whose root is `coverage`: package/class counts, line/branch coverage, file size, package labels,
   and class labels without executing coverage tooling, expanding source files, or following paths.
