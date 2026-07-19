@@ -10,6 +10,8 @@ struct TerminalScreenBuffer {
     static let maxRows = 1_000
     static let maxCols = 1_000
     static let maxCursorParameter = 1_001
+    static let fallbackViewportRows = 24
+    static let fallbackViewportCols = 80
     static let tabStopInterval = 8
     static let defaultTabStops = Set(stride(from: tabStopInterval, through: maxCols, by: tabStopInterval))
 
@@ -20,6 +22,7 @@ struct TerminalScreenBuffer {
     var currentStyle = TerminalTextStyle.plain
     var savedCursor: CursorSnapshot?
     var scrollRegion: (top: Int, bottom: Int)?
+    var originMode = false
     var savedMainBuffer: BufferSnapshot?
     var mouseModeState = TerminalMouseModeState()
     var tabStops = Self.defaultTabStops
@@ -31,6 +34,7 @@ struct TerminalScreenBuffer {
         var currentStyle: TerminalTextStyle
         var savedCursor: CursorSnapshot?
         var scrollRegion: (top: Int, bottom: Int)?
+        var originMode: Bool
     }
 
     struct CursorSnapshot {
@@ -131,6 +135,12 @@ struct TerminalScreenBuffer {
             return consumeStringControl(scalars, bodyStart: next + 1)
         case "P", "X", "^", "_":  // DCS/SOS/PM/APC: string controls terminated by ST
             return consumeStringControl(scalars, bodyStart: next + 1)
+        case "#":
+            guard next + 1 < scalars.count else { return scalars.count }
+            if scalars[next + 1] == "8" {
+                screenAlignmentPattern()
+            }
+            return next + 2
         case "7":
             saveCursor()
             return next + 1
@@ -165,6 +175,7 @@ struct TerminalScreenBuffer {
         currentStyle = .plain
         savedCursor = nil
         scrollRegion = nil
+        originMode = false
         savedMainBuffer = nil
         mouseModeState = TerminalMouseModeState()
         tabStops = Self.defaultTabStops

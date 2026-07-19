@@ -7,7 +7,7 @@ extension TerminalScreenBuffer {
             let parts = csiParams(params)
             let targetRow = (parts.count > 0 ? max(1, parts[0]) : 1) - 1
             let targetCol = (parts.count > 1 ? max(1, parts[1]) : 1) - 1
-            setCursor(row: targetRow, col: targetCol)
+            setAddressedCursor(row: targetRow, col: targetCol)
         case "A":  // CUU: cursor up
             moveRow(by: -firstParam(params))
         case "B", "e":  // CUD / VPR: cursor down
@@ -31,7 +31,7 @@ extension TerminalScreenBuffer {
         case "g":  // TBC: clear tab stop
             clearHorizontalTabStop(params)
         case "d":  // VPA: cursor to absolute row (1-based)
-            setRow(firstParam(params) - 1)
+            setAddressedRow(firstParam(params) - 1)
         case "s":
             saveCursor()
         case "u":
@@ -122,6 +122,21 @@ extension TerminalScreenBuffer {
         col = clampCol(targetCol)
     }
 
+    mutating func setAddressedCursor(row targetRow: Int, col targetCol: Int) {
+        setRow(addressedRow(targetRow))
+        col = clampCol(targetCol)
+    }
+
+    mutating func setAddressedRow(_ target: Int) {
+        setRow(addressedRow(target))
+    }
+
+    func addressedRow(_ target: Int) -> Int {
+        guard originMode, let region = boundedScrollRegion() else { return target }
+        let relativeTarget = max(0, min(target, region.bottom - region.top))
+        return region.top + relativeTarget
+    }
+
     mutating func saveCursor() {
         savedCursor = CursorSnapshot(row: row, col: col, style: currentStyle)
     }
@@ -130,8 +145,20 @@ extension TerminalScreenBuffer {
         currentStyle = .plain
         savedCursor = nil
         scrollRegion = nil
+        originMode = false
         mouseModeState = TerminalMouseModeState()
         tabStops = Self.defaultTabStops
+    }
+
+    mutating func screenAlignmentPattern() {
+        let rowCount = Swift.max(Self.fallbackViewportRows, Swift.min(lines.count, Self.maxRows + 1))
+        let colCount = Swift.max(
+            Self.fallbackViewportCols,
+            Swift.min(lines.map(\.count).max() ?? 0, Self.maxCols + 1)
+        )
+        let row = Array(repeating: TerminalScreenCell.content("E", style: currentStyle), count: colCount)
+        lines = Array(repeating: row, count: rowCount)
+        setCursor(row: 0, col: 0)
     }
 
     mutating func restoreCursor() {

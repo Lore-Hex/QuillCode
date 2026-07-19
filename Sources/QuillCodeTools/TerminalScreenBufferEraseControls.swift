@@ -14,10 +14,12 @@ extension TerminalScreenBuffer {
 
     mutating func eraseDisplay(_ params: String) {
         switch params {
-        case "2", "3":  // whole screen (+ scrollback) -> reset
+        case "2":  // whole screen -> reset visible page
             lines = [[]]
             row = 0
             col = 0
+        case "3":  // scrollback only; the single-page renderer has no saved lines to clear
+            break
         case "", "0":  // cursor to end of screen
             eraseLineFromCursor()
             if row + 1 < lines.count { lines.removeSubrange((row + 1)..<lines.count) }

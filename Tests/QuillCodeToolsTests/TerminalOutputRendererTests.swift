@@ -65,6 +65,28 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(frame.runs, [TerminalTextRun(text: "X       Y")])
     }
 
+    func testScreenAlignmentPatternFillsFallbackViewport() {
+        let frame = TerminalOutputRenderer.renderFrame("old\u{1B}#8")
+        let lines = frame.text.components(separatedBy: "\n")
+
+        XCTAssertEqual(lines.count, 24)
+        XCTAssertTrue(lines.allSatisfy { $0 == String(repeating: "E", count: 80) })
+    }
+
+    func testScreenAlignmentPatternPreservesCurrentStyleAndHomesCursor() {
+        let raw = "\u{1B}[32m"
+            + "\u{1B}#8"
+            + "\u{1B}[0m"
+            + "X"
+        let frame = TerminalOutputRenderer.renderFrame(raw)
+
+        XCTAssertTrue(frame.text.hasPrefix("X" + String(repeating: "E", count: 79)))
+        XCTAssertEqual(frame.runs.first?.text, "X")
+        XCTAssertEqual(frame.runs.first?.style, .plain)
+        XCTAssertEqual(frame.runs.dropFirst().first?.text.prefix(3), "EEE")
+        XCTAssertEqual(frame.runs.dropFirst().first?.style.foreground, .green)
+    }
+
     func testPreservesSGRColorsAndEmphasisAsStyledRuns() {
         let frame = TerminalOutputRenderer.renderFrame(
             "plain \u{1B}[1;3;4;31;44mstyled\u{1B}[22;23;24;39;49m done"
@@ -149,6 +171,12 @@ final class TerminalOutputRendererTests: XCTestCase {
 
     func testEraseDisplayResetsTheBuffer() {
         XCTAssertEqual(render("old output\u{1B}[2Jfresh"), "fresh")
+    }
+
+    func testEraseScrollbackPreservesVisiblePage() {
+        let raw = "top\nbottom\u{1B}[3J\rX"
+
+        XCTAssertEqual(render(raw), "top\nXottom")
     }
 
     func testCursorHomeRedrawsExistingScreen() {
@@ -294,6 +322,73 @@ final class TerminalOutputRendererTests: XCTestCase {
             + "\nnew"
 
         XCTAssertEqual(render(raw), "header\nrow2\nnew\nfooter")
+    }
+
+    func testOriginModeAddressesRowsRelativeToScrollRegion() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[1;1HX"
+
+        XCTAssertEqual(render(raw), "top\nXiddle\nbottom")
+    }
+
+    func testOriginModeResetRestoresAbsoluteAddressing() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[?6l"
+            + "\u{1B}[1;1HX"
+
+        XCTAssertEqual(render(raw), "Xop\nmiddle\nbottom")
+    }
+
+    func testOriginModeClampsAddressedRowsToScrollRegion() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom",
+            "footer"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[99;1HX"
+
+        XCTAssertEqual(render(raw), "top\nmiddle\nXottom\nfooter")
+    }
+
+    func testScrollRegionSetHomesToRegionTopWhenOriginModeIsAlreadyEnabled() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[?6h"
+            + "\u{1B}[2;3r"
+            + "X"
+
+        XCTAssertEqual(render(raw), "top\nXiddle\nbottom")
+    }
+
+    func testVerticalPositionAbsoluteHonorsOriginMode() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[1dX"
+
+        XCTAssertEqual(render(raw), "top\nXiddle\nbottom")
     }
 
     func testC0VerticalTabAndFormFeedBehaveLikeLineFeeds() {

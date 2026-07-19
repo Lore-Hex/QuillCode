@@ -9,6 +9,7 @@ extension TerminalScreenBuffer {
         currentStyle = .plain
         savedCursor = nil
         scrollRegion = nil
+        originMode = false
     }
 
     mutating func leaveAlternateScreen() {
@@ -26,7 +27,8 @@ extension TerminalScreenBuffer {
             col: col,
             currentStyle: currentStyle,
             savedCursor: savedCursor,
-            scrollRegion: scrollRegion
+            scrollRegion: scrollRegion,
+            originMode: originMode
         )
     }
 
@@ -37,6 +39,7 @@ extension TerminalScreenBuffer {
         currentStyle = snapshot.currentStyle
         savedCursor = snapshot.savedCursor
         scrollRegion = snapshot.scrollRegion
+        originMode = snapshot.originMode
     }
 
     mutating func appendAlternateFrame(_ frameLines: [[TerminalScreenCell]]) {
