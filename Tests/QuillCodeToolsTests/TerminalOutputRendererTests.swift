@@ -173,6 +173,12 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render("old output\u{1B}[2Jfresh"), "fresh")
     }
 
+    func testEraseScrollbackPreservesVisiblePage() {
+        let raw = "top\nbottom\u{1B}[3J\rX"
+
+        XCTAssertEqual(render(raw), "top\nXottom")
+    }
+
     func testCursorHomeRedrawsExistingScreen() {
         let raw = "cpu: 10%\nmem: 20%\u{1B}[Hcpu: 90%"
 
