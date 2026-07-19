@@ -227,6 +227,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let goSumPreview = renderGoSumPreview(artifact.goSumPreview)
             let pythonRequirementsPreview = renderPythonRequirementsPreview(artifact.pythonRequirementsPreview)
             let poetryLockPreview = renderPoetryLockPreview(artifact.poetryLockPreview)
+            let pipfileLockPreviewModel = artifact.pipfileLockPreview
+            let pipfileLockPreview = renderPipfileLockPreview(pipfileLockPreviewModel)
             let pnpmLockfilePreviewModel = artifact.pnpmLockfilePreview
             let pnpmLockfilePreview = renderPNPMLockfilePreview(pnpmLockfilePreviewModel)
             let swiftPMPackageResolvedPreviewModel = artifact.swiftPMPackageResolvedPreview
@@ -284,6 +286,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && jestJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
                 && composerLockfilePreviewModel == nil
+                && pipfileLockPreviewModel == nil
                 && pnpmLockfilePreviewModel == nil
                 && swiftPMPackageResolvedPreviewModel == nil
                 && yarnLockfilePreviewModel == nil
@@ -320,6 +323,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(goSumPreview)
               \(pythonRequirementsPreview)
               \(poetryLockPreview)
+              \(pipfileLockPreview)
               \(pnpmLockfilePreview)
               \(swiftPMPackageResolvedPreview)
               \(yarnLockfilePreview)
@@ -942,6 +946,41 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty || !packageList.isEmpty || !sourceList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-poetry-lock-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(sourceList)
+        </div>
+        """
+    }
+
+    private static func renderPipfileLockPreview(_ preview: ToolArtifactPipfileLockPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-pipfile-lock-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-pipfile-lock-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let sources = preview.sourcePreviewLabels.map {
+            #"<li data-testid="tool-card-pipfile-lock-preview-source-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pipfile-lock-preview-packages">
+                <strong data-testid="tool-card-pipfile-lock-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let sourceList = sources.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pipfile-lock-preview-sources">
+                <strong data-testid="tool-card-pipfile-lock-preview-source-title">Sources</strong>
+                <ul>\(sources)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !sourceList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-pipfile-lock-preview">
           <div>
             \(metadata)
           </div>

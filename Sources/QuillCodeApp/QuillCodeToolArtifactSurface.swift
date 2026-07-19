@@ -741,6 +741,70 @@ public struct ToolArtifactPoetryLockPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPipfileLockPreview: Codable, Sendable, Hashable {
+    public var packageCount: Int
+    public var defaultPackageCount: Int
+    public var developPackageCount: Int
+    public var pinnedPackageCount: Int
+    public var editablePackageCount: Int
+    public var hashCount: Int
+    public var sourceCount: Int
+    public var sourcePreviewLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Pipfile lockfile",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            defaultPackageCount > 0 ? "\(defaultPackageCount) default" : nil,
+            developPackageCount > 0 ? "\(developPackageCount) develop" : nil,
+            pinnedPackageCount > 0 ? "\(pinnedPackageCount) pinned" : nil,
+            editablePackageCount > 0 ? "\(editablePackageCount) editable" : nil,
+            sourceCount > 0 ? "\(sourceCount) source\(sourceCount == 1 ? "" : "s")" : nil,
+            hashCount > 0 ? "\(hashCount) hash\(hashCount == 1 ? "" : "es")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || defaultPackageCount > 0
+            || developPackageCount > 0
+            || pinnedPackageCount > 0
+            || editablePackageCount > 0
+            || hashCount > 0
+            || sourceCount > 0
+            || !metadataLines.isEmpty
+            || !sourcePreviewLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        packageCount: Int,
+        defaultPackageCount: Int = 0,
+        developPackageCount: Int = 0,
+        pinnedPackageCount: Int = 0,
+        editablePackageCount: Int = 0,
+        hashCount: Int = 0,
+        sourceCount: Int = 0,
+        sourcePreviewLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.packageCount = packageCount
+        self.defaultPackageCount = defaultPackageCount
+        self.developPackageCount = developPackageCount
+        self.pinnedPackageCount = pinnedPackageCount
+        self.editablePackageCount = editablePackageCount
+        self.hashCount = hashCount
+        self.sourceCount = sourceCount
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactPNPMLockfilePreview: Codable, Sendable, Hashable {
     public var lockfileVersion: String?
     public var importerCount: Int
@@ -2916,6 +2980,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var poetryLockPreview: ToolArtifactPoetryLockPreview? {
         ToolArtifactPoetryLockPreviewBuilder.poetryLockPreview(for: value, kind: kind)
+    }
+    public var pipfileLockPreview: ToolArtifactPipfileLockPreview? {
+        ToolArtifactPipfileLockPreviewBuilder.pipfileLockPreview(for: value, kind: kind)
     }
     public var pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview? {
         ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: kind)

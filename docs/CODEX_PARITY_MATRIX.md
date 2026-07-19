@@ -111,6 +111,10 @@
   package/version/dev/optional/source/hash counts, file size, capped package labels, and capped
   source labels without expanding dependency tables, validating hashes, reading package metadata, or
   fetching package indexes/distributions.
+- Artifact previews now include bounded local Pipfile lockfile metadata for `Pipfile.lock` files:
+  default/develop/pinned/editable/source/hash counts, file size, capped package labels, and capped
+  source labels without expanding dependency graphs, validating hashes, reading package metadata, or
+  fetching package indexes/distributions.
 - Artifact previews now include bounded local pnpm lockfile metadata for `pnpm-lock.yaml` files:
   lockfile version, importer/package/dependency/integrity counts, file size, capped importer labels,
   capped package labels, and capped resolved registry hosts without expanding dependency graphs,
