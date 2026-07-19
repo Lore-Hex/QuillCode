@@ -805,6 +805,65 @@ public struct ToolArtifactPipfileLockPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactUVLockPreview: Codable, Sendable, Hashable {
+    public var pythonRequirement: String?
+    public var packageCount: Int
+    public var versionedPackageCount: Int
+    public var dependencyCount: Int
+    public var sourceCount: Int
+    public var hashCount: Int
+    public var sourcePreviewLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: uv lockfile",
+            pythonRequirement.map { "Python: \($0)" },
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            versionedPackageCount > 0 ? "\(versionedPackageCount) versioned" : nil,
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            sourceCount > 0 ? "\(sourceCount) source\(sourceCount == 1 ? "" : "s")" : nil,
+            hashCount > 0 ? "\(hashCount) hash\(hashCount == 1 ? "" : "es")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        pythonRequirement != nil
+            || packageCount > 0
+            || versionedPackageCount > 0
+            || dependencyCount > 0
+            || sourceCount > 0
+            || hashCount > 0
+            || !metadataLines.isEmpty
+            || !sourcePreviewLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        pythonRequirement: String? = nil,
+        packageCount: Int,
+        versionedPackageCount: Int = 0,
+        dependencyCount: Int = 0,
+        sourceCount: Int = 0,
+        hashCount: Int = 0,
+        sourcePreviewLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.pythonRequirement = pythonRequirement
+        self.packageCount = packageCount
+        self.versionedPackageCount = versionedPackageCount
+        self.dependencyCount = dependencyCount
+        self.sourceCount = sourceCount
+        self.hashCount = hashCount
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactPNPMLockfilePreview: Codable, Sendable, Hashable {
     public var lockfileVersion: String?
     public var importerCount: Int
@@ -2983,6 +3042,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var pipfileLockPreview: ToolArtifactPipfileLockPreview? {
         ToolArtifactPipfileLockPreviewBuilder.pipfileLockPreview(for: value, kind: kind)
+    }
+    public var uvLockPreview: ToolArtifactUVLockPreview? {
+        ToolArtifactUVLockPreviewBuilder.uvLockPreview(for: value, kind: kind)
     }
     public var pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview? {
         ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: kind)

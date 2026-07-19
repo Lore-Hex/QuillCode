@@ -2662,3 +2662,25 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPipfileLockArtifactPreview` covers
   static HTML selectors, rendered Pipfile metadata, package/source lists, generic JSON suppression,
   and text-preview coexistence.
+
+## 2026-07-19: uv.lock artifacts render bounded Python lockfile summaries
+
+- **Decision:** Local `uv.lock` artifacts render as structured uv lockfile cards. The preview shows
+  root Python requirement, package, versioned-package, dependency, source, and hash counts, file size,
+  capped package labels, and capped source labels. `uv.lock` is classified as a data artifact through
+  filename-specific detection.
+- **Why:** uv is increasingly common in Python projects, and coding-agent dependency changes often
+  produce `uv.lock` as the main review artifact. A bounded dependency/source/hash summary keeps the
+  impact visible without rendering raw TOML-like lockfile content first.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `uv.lock`, and capped at 512 KB. It reads only the root `requires-python`, shallow `[[package]]`
+  sections, package `name`/`version`, inline dependency entries, source URLs, and hash markers; it
+  never expands dependency graphs, validates hashes, reads package metadata, contacts package
+  indexes, or fetches distributions. Generic TOML rendering is suppressed only after the uv lockfile
+  shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesUVLockPreviewMetadata` covers
+  filename-based document classification, Python requirement, package/version/dependency/source/hash
+  counts, package labels, source labels, non-`uv.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesUVLockArtifactPreview` covers static
+  HTML selectors, rendered uv metadata, package/source lists, generic TOML suppression, and
+  text-preview coexistence.
