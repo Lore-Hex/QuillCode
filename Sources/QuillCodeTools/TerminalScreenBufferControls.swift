@@ -133,7 +133,8 @@ extension TerminalScreenBuffer {
 
     func addressedRow(_ target: Int) -> Int {
         guard originMode, let region = boundedScrollRegion() else { return target }
-        return region.top + max(0, target)
+        let relativeTarget = max(0, min(target, region.bottom - region.top))
+        return region.top + relativeTarget
     }
 
     mutating func saveCursor() {
