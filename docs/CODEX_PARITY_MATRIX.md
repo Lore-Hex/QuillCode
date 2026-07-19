@@ -87,6 +87,11 @@
   `bomFormat` validates as `CycloneDX`: spec version, root component, component/service/dependency
   counts, vulnerability severity counts, file size, and capped component labels without expanding
   license text, hashes, evidence, or fetching remote SBOMs.
+- Artifact previews now include bounded local SPDX JSON SBOM metadata for `.json` files whose
+  `spdxVersion` validates as SPDX: document name/namespace, package/file/relationship counts,
+  extracted-license and creator counts, file size, capped package labels, and capped license labels
+  without expanding extracted license text, checksums, snippets, relationships, or fetching remote
+  SBOMs.
 - Artifact previews now include bounded local font metadata for `.ttf`, `.otf`, `.ttc`, `.woff`,
   and `.woff2` files by validating fixed headers and rendering format, flavor, table count,
   declared size, and file size without parsing tables or decompressing webfont payloads.

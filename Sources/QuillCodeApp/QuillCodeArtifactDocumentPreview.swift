@@ -73,6 +73,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             jestJSONContent(jestJSONPreview)
         } else if let cycloneDXPreview = artifact.cycloneDXPreview {
             cycloneDXContent(cycloneDXPreview)
+        } else if let spdxPreview = artifact.spdxPreview {
+            spdxContent(spdxPreview)
         } else if let tapPreview = artifact.tapPreview {
             tapContent(tapPreview)
         } else if let harPreview = artifact.harPreview {
@@ -295,6 +297,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(cycloneDXPreview.metadataLines)
             artifactContentList(title: "Components", labels: cycloneDXPreview.componentPreviewLabels)
+        }
+    }
+
+    private func spdxContent(_ spdxPreview: ToolArtifactSPDXPreview) -> some View {
+        let hasLists = !spdxPreview.packagePreviewLabels.isEmpty || !spdxPreview.licensePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "doc.badge.gearshape")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(spdxPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: spdxPreview.packagePreviewLabels)
+            artifactContentList(title: "Licenses", labels: spdxPreview.licensePreviewLabels)
         }
     }
 

@@ -222,6 +222,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
             let cycloneDXPreviewModel = artifact.cycloneDXPreview
             let cycloneDXPreview = renderCycloneDXPreview(cycloneDXPreviewModel)
+            let spdxPreviewModel = artifact.spdxPreview
+            let spdxPreview = renderSPDXPreview(spdxPreviewModel)
             let tapPreview = renderTAPPreview(artifact.tapPreview)
             let harPreview = renderHARPreview(artifact.harPreview)
             let lcovPreview = renderLCOVPreview(artifact.lcovPreview)
@@ -264,6 +266,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
                 && cycloneDXPreviewModel == nil
+                && spdxPreviewModel == nil
                 ? renderJSONPreview(artifact.jsonPreview)
                 : ""
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
@@ -290,6 +293,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(pytestJSONPreview)
               \(jestJSONPreview)
               \(cycloneDXPreview)
+              \(spdxPreview)
               \(tapPreview)
               \(harPreview)
               \(lcovPreview)
@@ -761,6 +765,41 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(componentList)
+        </div>
+        """
+    }
+
+    private static func renderSPDXPreview(_ preview: ToolArtifactSPDXPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-spdx-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-spdx-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let licenses = preview.licensePreviewLabels.map {
+            #"<li data-testid="tool-card-spdx-preview-license-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-spdx-preview-packages">
+                <strong data-testid="tool-card-spdx-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let licenseList = licenses.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-spdx-preview-licenses">
+                <strong data-testid="tool-card-spdx-preview-license-title">Licenses</strong>
+                <ul>\(licenses)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !licenseList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-spdx-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(licenseList)
         </div>
         """
     }

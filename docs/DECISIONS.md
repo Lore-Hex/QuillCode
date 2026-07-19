@@ -2445,3 +2445,23 @@
   suppression, non-CycloneDX exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCycloneDXArtifactPreview` covers static
   HTML selectors, rendered SBOM metadata, component lists, and generic JSON suppression.
+
+## 2026-07-19: SPDX JSON artifacts render bounded SBOM summaries
+
+- **Decision:** Local `.json` artifacts whose top-level `spdxVersion` validates as an SPDX document
+  render as structured SPDX SBOM cards. The preview shows spec version, document name, namespace,
+  package/file/relationship counts, extracted-license count, creator count, file size, capped
+  package labels, and capped license identifiers.
+- **Why:** SPDX JSON is another common SBOM format for release, compliance, and dependency audit
+  workflows. QuillCode should make SPDX outputs scannable as first-class coding artifacts rather than
+  dropping users into raw JSON.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It validates `spdxVersion` plus document/package/file shape, reads only shallow document,
+  package, creator, relationship, and license identifier metadata, and never expands extracted
+  license text, checksums, snippets, annotations, relationship bodies, external document references,
+  or remote SBOM URLs. Generic JSON rendering is suppressed only after SPDX shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesSPDXPreviewMetadata` covers
+  metadata extraction, package labels, license labels, non-SPDX exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesSPDXArtifactPreview` covers static HTML
+  selectors, rendered SBOM metadata, package and license lists, extracted-text exclusion, and generic
+  JSON suppression.

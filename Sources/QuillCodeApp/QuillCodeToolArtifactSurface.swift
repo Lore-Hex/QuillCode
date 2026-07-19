@@ -538,6 +538,71 @@ public struct ToolArtifactCycloneDXPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactSPDXPreview: Codable, Sendable, Hashable {
+    public var specVersion: String?
+    public var documentName: String?
+    public var documentNamespace: String?
+    public var packageCount: Int
+    public var fileCount: Int
+    public var relationshipCount: Int
+    public var extractedLicenseCount: Int
+    public var creatorCount: Int
+    public var byteSizeLabel: String?
+    public var packagePreviewLabels: [String]
+    public var licensePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: SPDX",
+            specVersion.map { "Spec: \($0)" },
+            documentName.map { "Document: \($0)" },
+            documentNamespace.map { "Namespace: \($0)" },
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            fileCount > 0 ? "\(fileCount) file\(fileCount == 1 ? "" : "s")" : nil,
+            relationshipCount > 0 ? "\(relationshipCount) relationship\(relationshipCount == 1 ? "" : "s")" : nil,
+            extractedLicenseCount > 0 ? "\(extractedLicenseCount) extracted license\(extractedLicenseCount == 1 ? "" : "s")" : nil,
+            creatorCount > 0 ? "\(creatorCount) creator\(creatorCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || fileCount > 0
+            || relationshipCount > 0
+            || extractedLicenseCount > 0
+            || !metadataLines.isEmpty
+            || !packagePreviewLabels.isEmpty
+            || !licensePreviewLabels.isEmpty
+    }
+
+    public init(
+        specVersion: String? = nil,
+        documentName: String? = nil,
+        documentNamespace: String? = nil,
+        packageCount: Int,
+        fileCount: Int = 0,
+        relationshipCount: Int = 0,
+        extractedLicenseCount: Int = 0,
+        creatorCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        packagePreviewLabels: [String] = [],
+        licensePreviewLabels: [String] = []
+    ) {
+        self.specVersion = specVersion
+        self.documentName = documentName
+        self.documentNamespace = documentNamespace
+        self.packageCount = packageCount
+        self.fileCount = fileCount
+        self.relationshipCount = relationshipCount
+        self.extractedLicenseCount = extractedLicenseCount
+        self.creatorCount = creatorCount
+        self.byteSizeLabel = byteSizeLabel
+        self.packagePreviewLabels = packagePreviewLabels
+        self.licensePreviewLabels = licensePreviewLabels
+    }
+}
+
 public struct ToolArtifactIstanbulPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var sourceFileCount: Int
@@ -2355,6 +2420,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var cycloneDXPreview: ToolArtifactCycloneDXPreview? {
         ToolArtifactCycloneDXPreviewBuilder.cycloneDXPreview(for: value, kind: kind)
+    }
+    public var spdxPreview: ToolArtifactSPDXPreview? {
+        ToolArtifactSPDXPreviewBuilder.spdxPreview(for: value, kind: kind)
     }
     public var istanbulPreview: ToolArtifactIstanbulPreview? {
         ToolArtifactIstanbulPreviewBuilder.istanbulPreview(for: value, kind: kind)

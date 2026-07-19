@@ -541,6 +541,97 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteSBOM.cycloneDXPreview)
     }
 
+    func testArtifactStateDerivesSPDXPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("sbom.spdx.json")
+        let jsonText = """
+        {
+          "spdxVersion": "SPDX-2.3",
+          "SPDXID": "SPDXRef-DOCUMENT",
+          "name": "QuillCode SBOM",
+          "documentNamespace": "https://lorehex.example/spdx/quillcode-2026",
+          "creationInfo": {
+            "creators": [
+              "Tool: quill-code",
+              "Organization: Lore Hex"
+            ]
+          },
+          "packages": [
+            {
+              "name": "QuillCode",
+              "SPDXID": "SPDXRef-Package-QuillCode",
+              "versionInfo": "0.1.0",
+              "licenseConcluded": "Apache-2.0"
+            },
+            {
+              "name": "trusted-router-swift",
+              "SPDXID": "SPDXRef-Package-TrustedRouterSwift",
+              "versionInfo": "1.2.3",
+              "licenseDeclared": "MIT"
+            }
+          ],
+          "files": [
+            { "fileName": "Sources/QuillCodeApp/App.swift", "SPDXID": "SPDXRef-File-App" }
+          ],
+          "relationships": [
+            {
+              "spdxElementId": "SPDXRef-DOCUMENT",
+              "relationshipType": "DESCRIBES",
+              "relatedSpdxElement": "SPDXRef-Package-QuillCode"
+            }
+          ],
+          "hasExtractedLicensingInfos": [
+            { "licenseId": "LicenseRef-Lore-Hex-Notice", "extractedText": "Do not render this text" }
+          ]
+        }
+        """
+        try jsonText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.spdxPreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(jsonText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.specVersion, "SPDX-2.3")
+        XCTAssertEqual(preview.documentName, "QuillCode SBOM")
+        XCTAssertEqual(preview.documentNamespace, "https://lorehex.example/spdx/quillcode-2026")
+        XCTAssertEqual(preview.packageCount, 2)
+        XCTAssertEqual(preview.fileCount, 1)
+        XCTAssertEqual(preview.relationshipCount, 1)
+        XCTAssertEqual(preview.extractedLicenseCount, 1)
+        XCTAssertEqual(preview.creatorCount, 2)
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "QuillCode@0.1.0 · SPDXRef-Package-QuillCode",
+            "trusted-router-swift@1.2.3 · SPDXRef-Package-TrustedRouterSwift"
+        ])
+        XCTAssertEqual(preview.licensePreviewLabels, [
+            "Apache-2.0",
+            "MIT",
+            "LicenseRef-Lore-Hex-Notice"
+        ])
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: SPDX",
+            "Spec: SPDX-2.3",
+            "Document: QuillCode SBOM",
+            "Namespace: https://lorehex.example/spdx/quillcode-2026",
+            "2 packages",
+            "1 file",
+            "1 relationship",
+            "1 extracted license",
+            "2 creators",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let packageJSON = directory.appendingPathComponent("package.json")
+        try #"{"name":"quillcode","version":"0.1.0"}"#.write(to: packageJSON, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: packageJSON.path).spdxPreview)
+
+        let remoteSBOM = ToolArtifactState(value: "https://example.com/sbom.spdx.json")
+        XCTAssertNil(remoteSBOM.spdxPreview)
+    }
+
     func testArtifactStateDerivesHARPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let trace = directory.appendingPathComponent("network.har")
