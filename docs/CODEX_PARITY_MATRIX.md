@@ -100,6 +100,10 @@
   files: schema version, pin/version/branch/revision-only counts, file size, capped pin labels, and
   capped source hosts without expanding full revisions, dependency source bodies, or fetching remote
   repositories.
+- Artifact previews now include bounded local Yarn lockfile metadata for `yarn.lock` files:
+  package/version/resolution/integrity counts, file size, capped package labels, and capped registry
+  host labels without expanding dependency graphs, integrity/checksum values, package manifests, or
+  fetching remote registries/tarballs.
 - Artifact previews now include bounded local Cargo lockfile metadata for `Cargo.lock` files:
   package/version/source/checksum counts, file size, capped package labels, and capped source labels
   without expanding dependency arrays, full checksums, manifests, crates, or fetching remote

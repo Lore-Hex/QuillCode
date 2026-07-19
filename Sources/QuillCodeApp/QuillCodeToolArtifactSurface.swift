@@ -575,6 +575,55 @@ public struct ToolArtifactSwiftPMPackageResolvedPreview: Codable, Sendable, Hash
     }
 }
 
+public struct ToolArtifactYarnLockfilePreview: Codable, Sendable, Hashable {
+    public var packageCount: Int
+    public var versionedPackageCount: Int
+    public var resolvedPackageCount: Int
+    public var integrityCount: Int
+    public var resolvedHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Yarn lockfile",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            versionedPackageCount > 0 ? "\(versionedPackageCount) versioned" : nil,
+            resolvedPackageCount > 0 ? "\(resolvedPackageCount) resolved" : nil,
+            integrityCount > 0 ? "\(integrityCount) integrit\(integrityCount == 1 ? "y" : "ies")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || versionedPackageCount > 0
+            || resolvedPackageCount > 0
+            || integrityCount > 0
+            || !metadataLines.isEmpty
+            || !resolvedHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        packageCount: Int,
+        versionedPackageCount: Int = 0,
+        resolvedPackageCount: Int = 0,
+        integrityCount: Int = 0,
+        resolvedHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.packageCount = packageCount
+        self.versionedPackageCount = versionedPackageCount
+        self.resolvedPackageCount = resolvedPackageCount
+        self.integrityCount = integrityCount
+        self.resolvedHostLabels = resolvedHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactCargoLockPreview: Codable, Sendable, Hashable {
     public var packageCount: Int
     public var versionedPackageCount: Int
@@ -2582,6 +2631,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var swiftPMPackageResolvedPreview: ToolArtifactSwiftPMPackageResolvedPreview? {
         ToolArtifactSwiftPMPackageResolvedPreviewBuilder.packageResolvedPreview(for: value, kind: kind)
+    }
+    public var yarnLockfilePreview: ToolArtifactYarnLockfilePreview? {
+        ToolArtifactYarnLockfilePreviewBuilder.yarnLockfilePreview(for: value, kind: kind)
     }
     public var cargoLockPreview: ToolArtifactCargoLockPreview? {
         ToolArtifactCargoLockPreviewBuilder.cargoLockPreview(for: value, kind: kind)

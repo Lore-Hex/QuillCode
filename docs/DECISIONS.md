@@ -2522,3 +2522,21 @@
   labels, source labels, non-`Cargo.lock` exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCargoLockArtifactPreview` covers static
   HTML selectors, rendered Cargo metadata, package/source lists, and text-preview coexistence.
+
+## 2026-07-19: yarn.lock artifacts render bounded package summaries
+
+- **Decision:** Local `yarn.lock` artifacts render as structured Yarn lockfile cards. The preview
+  shows package count, version/resolution/integrity counts, file size, capped package labels, and
+  capped resolved registry host labels. `yarn.lock` is classified as a data artifact through
+  filename-specific detection.
+- **Why:** JavaScript dependency changes often arrive as lockfile-only edits. A bounded package/source
+  summary lets users inspect the dependency impact without reading repetitive lockfile entries.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `yarn.lock`, and capped at 512 KB. It reads shallow Yarn v1/v2-style descriptor blocks for
+  `version`, `resolved`/`resolution`, `integrity`, and `checksum`, and never expands dependency graphs,
+  integrity/checksum payloads, package manifests, registry indexes, or remote tarballs.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesYarnLockfilePreviewMetadata`
+  covers filename-based document classification, package/version/resolution/integrity counts, package
+  labels, host labels, non-`yarn.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesYarnLockfileArtifactPreview` covers
+  static HTML selectors, rendered Yarn metadata, package/host lists, and text-preview coexistence.
