@@ -236,6 +236,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let banditJSONPreview = renderBanditJSONPreview(banditJSONPreviewModel)
             let semgrepJSONPreviewModel = artifact.semgrepJSONPreview
             let semgrepJSONPreview = renderSemgrepJSONPreview(semgrepJSONPreviewModel)
+            let codeClimateJSONPreviewModel = artifact.codeClimateJSONPreview
+            let codeClimateJSONPreview = renderCodeClimateJSONPreview(codeClimateJSONPreviewModel)
             let npmLockfilePreviewModel = artifact.npmLockfilePreview
             let npmLockfilePreview = renderNPMLockfilePreview(npmLockfilePreviewModel)
             let denoLockPreviewModel = artifact.denoLockPreview
@@ -327,6 +329,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && pylintJSONPreviewModel == nil
                 && banditJSONPreviewModel == nil
                 && semgrepJSONPreviewModel == nil
+                && codeClimateJSONPreviewModel == nil
                 && npmLockfilePreviewModel == nil
                 && denoLockPreviewModel == nil
                 && bunLockfilePreviewModel == nil
@@ -371,6 +374,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(pylintJSONPreview)
               \(banditJSONPreview)
               \(semgrepJSONPreview)
+              \(codeClimateJSONPreview)
               \(npmLockfilePreview)
               \(denoLockPreview)
               \(bunLockfilePreview)
@@ -1117,6 +1121,51 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(fileList)
           \(ruleList)
+        </div>
+        """
+    }
+
+    private static func renderCodeClimateJSONPreview(_ preview: ToolArtifactCodeClimateJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-code-climate-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-code-climate-json-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-code-climate-json-preview-files">
+                <strong data-testid="tool-card-code-climate-json-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let checks = preview.checkPreviewLabels.map {
+            #"<li data-testid="tool-card-code-climate-json-preview-check-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let checkList = checks.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-code-climate-json-preview-checks">
+                <strong data-testid="tool-card-code-climate-json-preview-check-title">Checks</strong>
+                <ul>\(checks)</ul>
+              </section>
+        """
+        let categories = preview.categoryPreviewLabels.map {
+            #"<li data-testid="tool-card-code-climate-json-preview-category-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let categoryList = categories.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-code-climate-json-preview-categories">
+                <strong data-testid="tool-card-code-climate-json-preview-category-title">Categories</strong>
+                <ul>\(categories)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !checkList.isEmpty || !categoryList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-code-climate-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+          \(checkList)
+          \(categoryList)
         </div>
         """
     }

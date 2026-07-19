@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Code Climate JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Code Climate issue JSON output as
+  a specialized review/static-analysis artifact rather than generic JSON.
+- **Rationale:** Code Climate JSON is a common interchange format for CI quality reports across
+  linters. Showing issue/file/check/category/severity counts plus capped file/check/category labels
+  gives useful Codex-style feedback without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read source
+  files, expand issue locations, fetch remote reports, or call Code Climate tooling.
+
 ## 2026-07-19: Render Semgrep JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as native Semgrep JSON output as a

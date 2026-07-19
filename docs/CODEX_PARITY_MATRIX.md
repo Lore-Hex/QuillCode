@@ -233,6 +233,10 @@
   files whose root validates as native Semgrep output: finding/file/rule/severity and scanner-error
   counts, file size, capped file labels, and capped rule labels without reading source files,
   expanding match snippets, loading rules, shelling out, or fetching remote JSON.
+- Artifact previews now include bounded local Code Climate JSON issue metadata for `.json` files
+  whose root validates as Code Climate output: issue/file/check/category/severity counts, file size,
+  capped file labels, capped check labels, and capped category labels without reading source files,
+  expanding issue locations, calling Code Climate tooling, or fetching remote JSON.
 - Artifact previews now include bounded local Checkstyle XML report metadata for `.xml` files whose
   root validates as Checkstyle output: file/issue/severity counts, file size, capped file labels,
   and capped rule/source labels without reading source files, loading lint plugins, or fetching
