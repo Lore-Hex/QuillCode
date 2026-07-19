@@ -318,6 +318,46 @@ final class TerminalOutputRendererTests: XCTestCase {
         XCTAssertEqual(render(raw), "header\nrow2\nnew\nfooter")
     }
 
+    func testOriginModeAddressesRowsRelativeToScrollRegion() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[1;1HX"
+
+        XCTAssertEqual(render(raw), "top\nXiddle\nbottom")
+    }
+
+    func testOriginModeResetRestoresAbsoluteAddressing() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[?6l"
+            + "\u{1B}[1;1HX"
+
+        XCTAssertEqual(render(raw), "Xop\nmiddle\nbottom")
+    }
+
+    func testVerticalPositionAbsoluteHonorsOriginMode() {
+        let raw = [
+            "top",
+            "middle",
+            "bottom"
+        ].joined(separator: "\n")
+            + "\u{1B}[2;3r"
+            + "\u{1B}[?6h"
+            + "\u{1B}[1dX"
+
+        XCTAssertEqual(render(raw), "top\nXiddle\nbottom")
+    }
+
     func testC0VerticalTabAndFormFeedBehaveLikeLineFeeds() {
         XCTAssertEqual(render("ab\u{0B}cd"), "ab\ncd")
         XCTAssertEqual(render("ab\u{0C}cd"), "ab\ncd")

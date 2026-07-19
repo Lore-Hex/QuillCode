@@ -22,6 +22,7 @@ struct TerminalScreenBuffer {
     var currentStyle = TerminalTextStyle.plain
     var savedCursor: CursorSnapshot?
     var scrollRegion: (top: Int, bottom: Int)?
+    var originMode = false
     var savedMainBuffer: BufferSnapshot?
     var mouseModeState = TerminalMouseModeState()
     var tabStops = Self.defaultTabStops
@@ -33,6 +34,7 @@ struct TerminalScreenBuffer {
         var currentStyle: TerminalTextStyle
         var savedCursor: CursorSnapshot?
         var scrollRegion: (top: Int, bottom: Int)?
+        var originMode: Bool
     }
 
     struct CursorSnapshot {
@@ -173,6 +175,7 @@ struct TerminalScreenBuffer {
         currentStyle = .plain
         savedCursor = nil
         scrollRegion = nil
+        originMode = false
         savedMainBuffer = nil
         mouseModeState = TerminalMouseModeState()
         tabStops = Self.defaultTabStops
