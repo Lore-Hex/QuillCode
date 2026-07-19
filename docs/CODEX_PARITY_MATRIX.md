@@ -213,6 +213,10 @@
   root validates as Stylelint formatter output: file/warning/error/parse-error/deprecation/invalid
   option counts, file size, capped source labels, and capped rule labels without reading stylesheet
   sources, loading plugins, or fetching remote JSON.
+- Artifact previews now include bounded local SwiftLint JSON report metadata for `.json` files whose
+  root validates as SwiftLint formatter output: violation/file/rule/severity counts, file size,
+  capped file labels, and capped rule labels without reading Swift source files, loading rule
+  configuration, invoking SwiftLint, or fetching remote JSON.
 - Artifact previews now include bounded local RuboCop JSON report metadata for `.json` files whose
   root validates as RuboCop formatter output: file/offense/severity/correctable counts, file size,
   capped file labels, and capped cop labels without reading Ruby source files, loading cops, or

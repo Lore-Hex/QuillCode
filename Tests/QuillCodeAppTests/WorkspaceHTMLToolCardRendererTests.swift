@@ -2131,6 +2131,77 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesSwiftLintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("swiftlint-results.json")
+        let reportText = """
+        [
+          {
+            "file": "/repo/Sources/App/WorkspaceView.swift",
+            "line": 42,
+            "character": 18,
+            "severity": "Warning",
+            "type": "Line Length",
+            "rule_id": "line_length",
+            "reason": "Line should be 120 characters or less"
+          },
+          {
+            "file": "/repo/Tests/AppTests/WorkspaceViewTests.swift",
+            "line": 13,
+            "character": 1,
+            "severity": "Error",
+            "type": "Force Cast",
+            "rule_id": "force_cast",
+            "reason": "Force casts should be avoided"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/swiftlint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/swiftlint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "SwiftLint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">swiftlint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">Format: SwiftLint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">2 violations"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">2 rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-file-item">Sources/App/WorkspaceView.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-file-item">Tests/AppTests/WorkspaceViewTests.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-rule-item">line_length"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-rule-item">force_cast"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesRuboCopJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
