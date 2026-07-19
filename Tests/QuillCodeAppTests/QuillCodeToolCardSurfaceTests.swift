@@ -2916,6 +2916,95 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteStylelint.stylelintJSONPreview)
     }
 
+    func testArtifactStateDerivesRuboCopJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("rubocop-results.json")
+        let content = """
+        {
+          "metadata": {
+            "rubocop_version": "1.64.1",
+            "ruby_engine": "ruby"
+          },
+          "files": [
+            {
+              "path": "/repo/app/models/user.rb",
+              "offenses": [
+                {
+                  "severity": "convention",
+                  "message": "Prefer single-quoted strings.",
+                  "cop_name": "Style/StringLiterals",
+                  "correctable": true
+                },
+                {
+                  "severity": "warning",
+                  "message": "Method has too many lines.",
+                  "cop_name": "Metrics/MethodLength",
+                  "correctable": false
+                }
+              ]
+            },
+            {
+              "path": "/repo/spec/models/user_spec.rb",
+              "offenses": [
+                {
+                  "severity": "refactor",
+                  "message": "Use described_class.",
+                  "cop_name": "RSpec/DescribedClass",
+                  "correctable": "true"
+                }
+              ]
+            }
+          ],
+          "summary": {
+            "offense_count": 3,
+            "target_file_count": 2
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.rubocopJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "RuboCop JSON")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.offenseCount, 3)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.conventionCount, 1)
+        XCTAssertEqual(preview.refactorCount, 1)
+        XCTAssertEqual(preview.correctableCount, 2)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "app/models/user.rb",
+            "spec/models/user_spec.rb"
+        ])
+        XCTAssertEqual(preview.copPreviewLabels, [
+            "Style/StringLiterals",
+            "Metrics/MethodLength",
+            "RSpec/DescribedClass"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: RuboCop JSON",
+            "2 files",
+            "3 offenses",
+            "Warnings: 1",
+            "Convention: 1",
+            "Refactor: 1",
+            "Correctable: 2",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"files":[{"path":"/repo/app.rb","status":"ok"}]}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).rubocopJSONPreview)
+
+        let remoteRuboCop = ToolArtifactState(value: "https://example.com/rubocop-results.json")
+        XCTAssertNil(remoteRuboCop.rubocopJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")

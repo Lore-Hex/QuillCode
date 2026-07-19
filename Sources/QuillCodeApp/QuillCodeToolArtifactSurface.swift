@@ -1867,6 +1867,88 @@ public struct ToolArtifactStylelintJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactRuboCopJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var offenseCount: Int
+    public var fatalCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var conventionCount: Int
+    public var refactorCount: Int
+    public var infoCount: Int
+    public var otherSeverityCount: Int
+    public var correctableCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var copPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(offenseCount) offense\(offenseCount == 1 ? "" : "s")",
+            fatalCount > 0 ? "Fatal: \(fatalCount)" : nil,
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            conventionCount > 0 ? "Convention: \(conventionCount)" : nil,
+            refactorCount > 0 ? "Refactor: \(refactorCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            correctableCount > 0 ? "Correctable: \(correctableCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || offenseCount > 0
+            || fatalCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || conventionCount > 0
+            || refactorCount > 0
+            || infoCount > 0
+            || otherSeverityCount > 0
+            || correctableCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !copPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "RuboCop JSON",
+        fileCount: Int,
+        offenseCount: Int,
+        fatalCount: Int = 0,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        conventionCount: Int = 0,
+        refactorCount: Int = 0,
+        infoCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        correctableCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        copPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.offenseCount = offenseCount
+        self.fatalCount = fatalCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.conventionCount = conventionCount
+        self.refactorCount = refactorCount
+        self.infoCount = infoCount
+        self.otherSeverityCount = otherSeverityCount
+        self.correctableCount = correctableCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.copPreviewLabels = copPreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -3499,7 +3581,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
         guard eslintJSONPreview == nil,
-              stylelintJSONPreview == nil
+              stylelintJSONPreview == nil,
+              rubocopJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -3571,6 +3654,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var stylelintJSONPreview: ToolArtifactStylelintJSONPreview? {
         ToolArtifactStylelintJSONPreviewBuilder.stylelintJSONPreview(for: value, kind: kind)
+    }
+    public var rubocopJSONPreview: ToolArtifactRuboCopJSONPreview? {
+        ToolArtifactRuboCopJSONPreviewBuilder.rubocopJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)
