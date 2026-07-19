@@ -2290,3 +2290,22 @@
   and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesIstanbulArtifactPreview` covers static
   HTML selectors, rendered coverage metadata, content lists, and generic JSON suppression.
+
+## 2026-07-19: Go coverage artifacts render bounded coverage summaries
+
+- **Decision:** Local `cover.out` and `coverage.out` artifacts with a valid Go coverage `mode:`
+  header render as structured Go coverage cards instead of generic `.out` files. The preview shows
+  coverage mode, source-file count, block count, statement coverage, file size, truncation state, and
+  capped source-file labels.
+- **Why:** Go projects commonly produce coverage profiles through `go test -coverprofile=cover.out`.
+  A Codex-style artifact surface should make those reports scannable in the transcript without
+  requiring the agent to run `go tool cover` or infer coverage from raw profile lines.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It accepts only `set`, `count`, and `atomic` modes, reads only the coverage profile,
+  never executes Go tooling, never follows covered source paths, never reads referenced source files,
+  and never fetches remote coverage URLs. Other `.out` files remain unclassified.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesGoCoveragePreviewMetadata`
+  covers mode parsing, aggregate statement coverage, source labels, `coverage.out`, generic `.out`
+  exclusion, invalid-mode rejection, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesGoCoverageArtifactPreview` covers
+  static HTML selectors, rendered coverage metadata, and source-file lists.

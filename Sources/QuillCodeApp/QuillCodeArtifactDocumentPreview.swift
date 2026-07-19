@@ -69,6 +69,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             harContent(harPreview)
         } else if let lcovPreview = artifact.lcovPreview {
             lcovContent(lcovPreview)
+        } else if let goCoveragePreview = artifact.goCoveragePreview {
+            goCoverageContent(goCoveragePreview)
         } else if let sarifPreview = artifact.sarifPreview {
             sarifContent(sarifPreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
@@ -235,6 +237,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(lcovPreview.metadataLines)
             artifactContentList(title: "Source files", labels: lcovPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func goCoverageContent(_ goCoveragePreview: ToolArtifactGoCoveragePreview) -> some View {
+        previewSurface(minHeight: goCoveragePreview.sourcePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "chart.bar.doc.horizontal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(goCoveragePreview.metadataLines)
+            artifactContentList(title: "Source files", labels: goCoveragePreview.sourcePreviewLabels)
         }
     }
 

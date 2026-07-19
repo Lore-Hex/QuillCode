@@ -588,6 +588,65 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(ToolArtifactState(value: invalidLCOV.path).lcovPreview)
     }
 
+    func testArtifactStateDerivesGoCoveragePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let coverage = directory.appendingPathComponent("cover.out")
+        let coverageText = """
+        mode: atomic
+        github.com/lore/QuillCode/internal/runtime/runner.go:10.1,12.2 3 1
+        github.com/lore/QuillCode/internal/runtime/runner.go:14.1,15.2 2 0
+        github.com/lore/QuillCode/pkg/tools/shell.go:20.1,24.2 5 2
+        """
+        try coverageText.write(to: coverage, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: coverage.path)
+        let preview = try XCTUnwrap(artifact.goCoveragePreview)
+        let byteCount = try XCTUnwrap(coverageText.data(using: .utf8)?.count)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "GOCOVER")
+        XCTAssertEqual(preview.formatLabel, "Go coverage")
+        XCTAssertEqual(preview.modeLabel, "atomic")
+        XCTAssertEqual(preview.sourceFileCount, 2)
+        XCTAssertEqual(preview.blockCount, 3)
+        XCTAssertEqual(preview.statementCoveredCount, 8)
+        XCTAssertEqual(preview.statementTotalCount, 10)
+        XCTAssertEqual(preview.statementCoverageLabel, "80% (8/10)")
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "runtime/runner.go · 60%",
+            "tools/shell.go · 100%"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(byteCount) bytes")
+        XCTAssertFalse(preview.isTruncated)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Go coverage",
+            "Mode: atomic",
+            "2 source files",
+            "3 blocks",
+            "Statements: 80% (8/10)",
+            "Size: \(byteCount) bytes"
+        ])
+
+        let coverageOut = directory.appendingPathComponent("coverage.out")
+        try coverageText.write(to: coverageOut, atomically: true, encoding: .utf8)
+        XCTAssertEqual(ToolArtifactState(value: coverageOut.path).goCoveragePreview?.sourceFileCount, 2)
+
+        let genericOut = directory.appendingPathComponent("build.out")
+        try coverageText.write(to: genericOut, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: genericOut.path).documentPreview)
+        XCTAssertNil(ToolArtifactState(value: genericOut.path).goCoveragePreview)
+
+        let invalidDirectory = directory.appendingPathComponent("invalid", isDirectory: true)
+        try FileManager.default.createDirectory(at: invalidDirectory, withIntermediateDirectories: true)
+        let invalid = invalidDirectory.appendingPathComponent("coverage.out")
+        try "mode: weird\nmain.go:1.1,2.1 1 1\n".write(to: invalid, atomically: true, encoding: .utf8)
+        XCTAssertEqual(ToolArtifactState(value: invalid.path).documentPreview?.extensionLabel, "GOCOVER")
+        XCTAssertNil(ToolArtifactState(value: invalid.path).goCoveragePreview)
+
+        let remote = ToolArtifactState(value: "https://example.com/cover.out")
+        XCTAssertNil(remote.goCoveragePreview)
+    }
+
     func testArtifactStateDerivesSARIFPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("codeql.sarif.json")
