@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Bandit JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Bandit JSON output as a
+  specialized security report artifact rather than generic JSON.
+- **Rationale:** Bandit is a common Python security scanner. Showing issue/file/test,
+  severity, and confidence counts plus capped file/test labels gives useful Codex-style feedback
+  without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Python
+  source files, expand issue code snippets, load Bandit plugins, or fetch remote reports.
+
 ## 2026-07-19: Render Pylint JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as Pylint JSON output as a

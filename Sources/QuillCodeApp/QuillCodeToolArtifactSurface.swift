@@ -2150,6 +2150,93 @@ public struct ToolArtifactPylintJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactBanditJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var issueCount: Int
+    public var fileCount: Int
+    public var testCount: Int
+    public var highSeverityCount: Int
+    public var mediumSeverityCount: Int
+    public var lowSeverityCount: Int
+    public var otherSeverityCount: Int
+    public var highConfidenceCount: Int
+    public var mediumConfidenceCount: Int
+    public var lowConfidenceCount: Int
+    public var otherConfidenceCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var testPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            highSeverityCount > 0 ? "High severity: \(highSeverityCount)" : nil,
+            mediumSeverityCount > 0 ? "Medium severity: \(mediumSeverityCount)" : nil,
+            lowSeverityCount > 0 ? "Low severity: \(lowSeverityCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            highConfidenceCount > 0 ? "High confidence: \(highConfidenceCount)" : nil,
+            mediumConfidenceCount > 0 ? "Medium confidence: \(mediumConfidenceCount)" : nil,
+            lowConfidenceCount > 0 ? "Low confidence: \(lowConfidenceCount)" : nil,
+            otherConfidenceCount > 0 ? "Other confidence: \(otherConfidenceCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        issueCount > 0
+            || fileCount > 0
+            || testCount > 0
+            || highSeverityCount > 0
+            || mediumSeverityCount > 0
+            || lowSeverityCount > 0
+            || otherSeverityCount > 0
+            || highConfidenceCount > 0
+            || mediumConfidenceCount > 0
+            || lowConfidenceCount > 0
+            || otherConfidenceCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !testPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Bandit JSON",
+        issueCount: Int,
+        fileCount: Int,
+        testCount: Int,
+        highSeverityCount: Int = 0,
+        mediumSeverityCount: Int = 0,
+        lowSeverityCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        highConfidenceCount: Int = 0,
+        mediumConfidenceCount: Int = 0,
+        lowConfidenceCount: Int = 0,
+        otherConfidenceCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        testPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.issueCount = issueCount
+        self.fileCount = fileCount
+        self.testCount = testCount
+        self.highSeverityCount = highSeverityCount
+        self.mediumSeverityCount = mediumSeverityCount
+        self.lowSeverityCount = lowSeverityCount
+        self.otherSeverityCount = otherSeverityCount
+        self.highConfidenceCount = highConfidenceCount
+        self.mediumConfidenceCount = mediumConfidenceCount
+        self.lowConfidenceCount = lowConfidenceCount
+        self.otherConfidenceCount = otherConfidenceCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.testPreviewLabels = testPreviewLabels
+    }
+}
+
 public struct ToolArtifactTAPPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var planLabel: String?
@@ -3847,7 +3934,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               rubocopJSONPreview == nil,
               golangCILintJSONPreview == nil,
               ruffJSONPreview == nil,
-              pylintJSONPreview == nil
+              pylintJSONPreview == nil,
+              banditJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -3931,6 +4019,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var pylintJSONPreview: ToolArtifactPylintJSONPreview? {
         ToolArtifactPylintJSONPreviewBuilder.pylintJSONPreview(for: value, kind: kind)
+    }
+    public var banditJSONPreview: ToolArtifactBanditJSONPreview? {
+        ToolArtifactBanditJSONPreviewBuilder.banditJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)

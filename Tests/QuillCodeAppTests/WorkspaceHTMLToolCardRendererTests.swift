@@ -2425,6 +2425,81 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesBanditJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("bandit-results.json")
+        let reportText = """
+        {
+          "generated_at": "2026-07-19T21:45:00Z",
+          "metrics": {"_totals": {"SEVERITY.HIGH": 1, "SEVERITY.LOW": 1}},
+          "results": [
+            {
+              "filename": "/repo/app/main.py",
+              "issue_confidence": "HIGH",
+              "issue_severity": "HIGH",
+              "issue_text": "subprocess call with shell=True identified",
+              "line_number": 14,
+              "test_id": "B602",
+              "test_name": "subprocess_popen_with_shell_equals_true"
+            },
+            {
+              "filename": "/repo/tests/test_app.py",
+              "issue_confidence": "LOW",
+              "issue_severity": "LOW",
+              "issue_text": "Possible hardcoded password",
+              "line_number": 7,
+              "test_id": "B105",
+              "test_name": "hardcoded_password_string"
+            }
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/bandit-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/bandit-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Bandit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">bandit-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">Format: Bandit JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">2 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">High severity: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">Low severity: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-file-item">repo/app/main.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-file-item">repo/tests/test_app.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-test-title">Tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-test-item">B602 subprocess_popen_with_shell_equals_true"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-test-item">B105 hardcoded_password_string"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesTAPArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
