@@ -177,7 +177,8 @@ enum ToolArtifactTextPreviewBuilder {
         "workspace",
         "workspace.bazel",
         "yarn.lock",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "uv.lock"
     ]
     private static let filenameLabels: [String: String] = [
         ".gitignore": "Git ignore",
@@ -237,7 +238,8 @@ enum ToolArtifactTextPreviewBuilder {
         "workspace": "Bazel workspace",
         "workspace.bazel": "Bazel workspace",
         "yarn.lock": "Yarn lockfile",
-        "pnpm-lock.yaml": "pnpm lockfile"
+        "pnpm-lock.yaml": "pnpm lockfile",
+        "uv.lock": "uv lockfile"
     ]
     private static let extensions: Set<String> = [
         "astro",

@@ -1161,6 +1161,83 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePipfileLock.pipfileLockPreview)
     }
 
+    func testArtifactStateDerivesUVLockPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("uv.lock")
+        let lockText = """
+        version = 1
+        revision = 3
+        requires-python = ">=3.12"
+
+        [[package]]
+        name = "anyio"
+        version = "4.7.0"
+        source = { registry = "https://pypi.org/simple" }
+        dependencies = [
+            { name = "idna" },
+            { name = "sniffio" },
+        ]
+        sdist = { url = "https://files.pythonhosted.org/packages/anyio.tar.gz", hash = "sha256:aaa" }
+        wheels = [
+            { url = "https://files.pythonhosted.org/packages/anyio.whl", hash = "sha256:bbb" },
+            { url = "https://files.pythonhosted.org/packages/anyio-py3-none-any.whl", hash = "sha256:ccc" },
+        ]
+
+        [[package]]
+        name = "idna"
+        version = "3.10"
+        source = { registry = "https://pypi.org/simple" }
+
+        [[package]]
+        name = "quillcode"
+        source = { git = "git+https://github.com/Lore-Hex/QuillCode.git" }
+        """
+        try lockText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.uvLockPreview)
+        let byteSizeLabel = try XCTUnwrap(
+            ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(lockText.data(using: .utf8)).count)
+        )
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "UV-LOCK")
+        XCTAssertEqual(preview.pythonRequirement, ">=3.12")
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.versionedPackageCount, 2)
+        XCTAssertEqual(preview.dependencyCount, 2)
+        XCTAssertEqual(preview.sourceCount, 3)
+        XCTAssertEqual(preview.hashCount, 3)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "pypi.org",
+            "files.pythonhosted.org",
+            "github.com"
+        ])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "anyio@4.7.0",
+            "idna@3.10",
+            "quillcode"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: uv lockfile",
+            "Python: >=3.12",
+            "3 packages",
+            "2 versioned",
+            "2 dependencies",
+            "3 sources",
+            "3 hashes",
+            "Size: \(byteSizeLabel)"
+        ])
+
+        let notUVLock = directory.appendingPathComponent("uv.toml")
+        try lockText.write(to: notUVLock, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: notUVLock.path).uvLockPreview)
+
+        let remoteUVLock = ToolArtifactState(value: "https://example.com/uv.lock")
+        XCTAssertNil(remoteUVLock.uvLockPreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")

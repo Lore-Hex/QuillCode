@@ -83,6 +83,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             poetryLockContent(poetryLockPreview)
         } else if let pipfileLockPreview = artifact.pipfileLockPreview {
             pipfileLockContent(pipfileLockPreview)
+        } else if let uvLockPreview = artifact.uvLockPreview {
+            uvLockContent(uvLockPreview)
         } else if let pnpmLockfilePreview = artifact.pnpmLockfilePreview {
             pnpmLockfileContent(pnpmLockfilePreview)
         } else if let swiftPMPackageResolvedPreview = artifact.swiftPMPackageResolvedPreview {
@@ -405,6 +407,23 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(pipfileLockPreview.metadataLines)
             artifactContentList(title: "Packages", labels: pipfileLockPreview.packagePreviewLabels)
             artifactContentList(title: "Sources", labels: pipfileLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func uvLockContent(_ uvLockPreview: ToolArtifactUVLockPreview) -> some View {
+        let hasLists = !uvLockPreview.packagePreviewLabels.isEmpty
+            || !uvLockPreview.sourcePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(uvLockPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: uvLockPreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: uvLockPreview.sourcePreviewLabels)
         }
     }
 

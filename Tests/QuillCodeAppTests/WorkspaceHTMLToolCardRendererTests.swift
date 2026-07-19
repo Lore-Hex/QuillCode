@@ -1280,6 +1280,69 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesUVLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("uv.lock")
+        try """
+        version = 1
+        requires-python = ">=3.12"
+
+        [[package]]
+        name = "anyio"
+        version = "4.7.0"
+        source = { registry = "https://pypi.org/simple" }
+        dependencies = [
+            { name = "idna" },
+        ]
+        sdist = { url = "https://files.pythonhosted.org/packages/anyio.tar.gz", hash = "sha256:aaa" }
+
+        [[package]]
+        name = "idna"
+        version = "3.10"
+        source = { registry = "https://pypi.org/simple" }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"uv.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote uv.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "uv lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · UV-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">uv.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">Format: uv lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">Python: &gt;=3.12"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">2 versioned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">1 dependency"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">2 sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">1 hash"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-package-item">anyio@4.7.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-package-item">idna@3.10"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-source-item">pypi.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-source-item">files.pythonhosted.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">uv.lock"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-toml-preview""#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")
