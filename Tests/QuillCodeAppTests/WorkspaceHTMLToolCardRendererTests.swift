@@ -701,6 +701,68 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesNPMLockfileArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("package-lock.json")
+        try """
+        {
+          "name": "quillcode-web",
+          "version": "0.1.0",
+          "lockfileVersion": 3,
+          "packages": {
+            "": {"name": "quillcode-web", "version": "0.1.0"},
+            "node_modules/@playwright/test": {
+              "version": "1.55.0",
+              "resolved": "https://registry.npmjs.org/@playwright/test/-/test-1.55.0.tgz",
+              "dev": true
+            },
+            "node_modules/lucide-react": {
+              "version": "0.468.0",
+              "resolved": "https://registry.npmjs.org/lucide-react/-/lucide-react-0.468.0.tgz"
+            }
+          },
+          "dependencies": {
+            "@playwright/test": {"version": "1.55.0"},
+            "lucide-react": {"version": "0.468.0"}
+          }
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"package-lock.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote package-lock.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "npm lockfile artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">package-lock.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-lockfile-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-lockfile-preview-meta">Format: npm lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-lockfile-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-lockfile-preview-meta">2 dependencies"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-lockfile-preview-package-item">@playwright/test@1.55.0 · dev"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-lockfile-preview-package-item">lucide-react@0.468.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-lockfile-preview-host-item">registry.npmjs.org"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")

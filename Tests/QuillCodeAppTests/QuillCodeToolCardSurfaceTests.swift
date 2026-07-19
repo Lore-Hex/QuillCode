@@ -453,6 +453,82 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJSON.jsonPreview)
     }
 
+    func testArtifactStateDerivesNPMLockfilePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("package-lock.json")
+        let jsonText = """
+        {
+          "name": "quillcode-web",
+          "version": "0.1.0",
+          "lockfileVersion": 3,
+          "packages": {
+            "": {
+              "name": "quillcode-web",
+              "version": "0.1.0"
+            },
+            "node_modules/@playwright/test": {
+              "version": "1.55.0",
+              "resolved": "https://registry.npmjs.org/@playwright/test/-/test-1.55.0.tgz",
+              "dev": true
+            },
+            "node_modules/lucide-react": {
+              "version": "0.468.0",
+              "resolved": "https://registry.npmjs.org/lucide-react/-/lucide-react-0.468.0.tgz"
+            },
+            "node_modules/fsevents": {
+              "version": "2.3.3",
+              "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+              "optional": true
+            }
+          },
+          "dependencies": {
+            "@playwright/test": {"version": "1.55.0"},
+            "fsevents": {"version": "2.3.3"},
+            "lucide-react": {"version": "0.468.0"}
+          }
+        }
+        """
+        try jsonText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.npmLockfilePreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(jsonText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.lockfileVersion, "3")
+        XCTAssertEqual(preview.rootPackageLabel, "quillcode-web@0.1.0")
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.dependencyCount, 3)
+        XCTAssertEqual(preview.devPackageCount, 1)
+        XCTAssertEqual(preview.optionalPackageCount, 1)
+        XCTAssertEqual(preview.resolvedHostLabels, ["registry.npmjs.org"])
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "@playwright/test@1.55.0 · dev",
+            "fsevents@2.3.3 · optional",
+            "lucide-react@0.468.0"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: npm lockfile",
+            "Lockfile: 3",
+            "Root: quillcode-web@0.1.0",
+            "3 packages",
+            "3 dependencies",
+            "1 dev package",
+            "1 optional package",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNotNil(artifact.jsonPreview)
+
+        let packageJSON = directory.appendingPathComponent("package.json")
+        try #"{"name":"quillcode-web","lockfileVersion":3}"#.write(to: packageJSON, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: packageJSON.path).npmLockfilePreview)
+
+        let remoteLockfile = ToolArtifactState(value: "https://example.com/package-lock.json")
+        XCTAssertNil(remoteLockfile.npmLockfilePreview)
+    }
+
     func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bom.json")

@@ -71,6 +71,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             pytestJSONContent(pytestJSONPreview)
         } else if let jestJSONPreview = artifact.jestJSONPreview {
             jestJSONContent(jestJSONPreview)
+        } else if let npmLockfilePreview = artifact.npmLockfilePreview {
+            npmLockfileContent(npmLockfilePreview)
         } else if let cycloneDXPreview = artifact.cycloneDXPreview {
             cycloneDXContent(cycloneDXPreview)
         } else if let spdxPreview = artifact.spdxPreview {
@@ -283,6 +285,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(jestJSONPreview.metadataLines)
             artifactContentList(title: "Failures", labels: jestJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func npmLockfileContent(_ npmLockfilePreview: ToolArtifactNPMLockfilePreview) -> some View {
+        let hasLists = !npmLockfilePreview.packagePreviewLabels.isEmpty || !npmLockfilePreview.resolvedHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(npmLockfilePreview.metadataLines)
+            artifactContentList(title: "Packages", labels: npmLockfilePreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: npmLockfilePreview.resolvedHostLabels)
         }
     }
 

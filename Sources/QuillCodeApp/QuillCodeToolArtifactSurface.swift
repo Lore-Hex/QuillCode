@@ -465,6 +465,63 @@ public struct ToolArtifactJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactNPMLockfilePreview: Codable, Sendable, Hashable {
+    public var lockfileVersion: String?
+    public var rootPackageLabel: String?
+    public var packageCount: Int
+    public var dependencyCount: Int
+    public var devPackageCount: Int
+    public var optionalPackageCount: Int
+    public var resolvedHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: npm lockfile",
+            lockfileVersion.map { "Lockfile: \($0)" },
+            rootPackageLabel.map { "Root: \($0)" },
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            devPackageCount > 0 ? "\(devPackageCount) dev package\(devPackageCount == 1 ? "" : "s")" : nil,
+            optionalPackageCount > 0 ? "\(optionalPackageCount) optional package\(optionalPackageCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || dependencyCount > 0
+            || devPackageCount > 0
+            || optionalPackageCount > 0
+            || !metadataLines.isEmpty
+            || !resolvedHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        lockfileVersion: String? = nil,
+        rootPackageLabel: String? = nil,
+        packageCount: Int,
+        dependencyCount: Int = 0,
+        devPackageCount: Int = 0,
+        optionalPackageCount: Int = 0,
+        resolvedHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.lockfileVersion = lockfileVersion
+        self.rootPackageLabel = rootPackageLabel
+        self.packageCount = packageCount
+        self.dependencyCount = dependencyCount
+        self.devPackageCount = devPackageCount
+        self.optionalPackageCount = optionalPackageCount
+        self.resolvedHostLabels = resolvedHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactCycloneDXPreview: Codable, Sendable, Hashable {
     public var specVersion: String?
     public var serialNumber: String?
@@ -2417,6 +2474,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
         ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
+    }
+    public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
+        ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: kind)
     }
     public var cycloneDXPreview: ToolArtifactCycloneDXPreview? {
         ToolArtifactCycloneDXPreviewBuilder.cycloneDXPreview(for: value, kind: kind)
