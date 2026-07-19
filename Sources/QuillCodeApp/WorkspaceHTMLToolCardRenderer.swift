@@ -275,6 +275,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let checkstylePreview = renderCheckstylePreview(checkstylePreviewModel)
             let pmdPreviewModel = artifact.pmdPreview
             let pmdPreview = renderPMDPreview(pmdPreviewModel)
+            let spotBugsPreviewModel = artifact.spotBugsPreview
+            let spotBugsPreview = renderSpotBugsPreview(spotBugsPreviewModel)
             let trxPreview = renderTRXPreview(artifact.trxPreview)
             let xunitPreviewModel = artifact.xunitPreview
             let xunitPreview = renderXUnitPreview(xunitPreviewModel)
@@ -289,6 +291,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let xmlPreview = junitPreviewModel == nil
                 && checkstylePreviewModel == nil
                 && pmdPreviewModel == nil
+                && spotBugsPreviewModel == nil
                 && xunitPreviewModel == nil
                 && nunitPreviewModel == nil
                 && coberturaPreviewModel == nil
@@ -378,6 +381,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(junitPreview)
               \(checkstylePreview)
               \(pmdPreview)
+              \(spotBugsPreview)
               \(trxPreview)
               \(xunitPreview)
               \(nunitPreview)
@@ -1890,6 +1894,51 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(fileList)
           \(ruleList)
+        </div>
+        """
+    }
+
+    private static func renderSpotBugsPreview(_ preview: ToolArtifactSpotBugsPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-spotbugs-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let types = preview.typePreviewLabels.map {
+            #"<li data-testid="tool-card-spotbugs-preview-type-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let categories = preview.categoryPreviewLabels.map {
+            #"<li data-testid="tool-card-spotbugs-preview-category-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let classes = preview.classPreviewLabels.map {
+            #"<li data-testid="tool-card-spotbugs-preview-class-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let typeList = types.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-spotbugs-preview-types">
+                <strong data-testid="tool-card-spotbugs-preview-type-title">Types</strong>
+                <ul>\(types)</ul>
+              </section>
+        """
+        let categoryList = categories.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-spotbugs-preview-categories">
+                <strong data-testid="tool-card-spotbugs-preview-category-title">Categories</strong>
+                <ul>\(categories)</ul>
+              </section>
+        """
+        let classList = classes.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-spotbugs-preview-classes">
+                <strong data-testid="tool-card-spotbugs-preview-class-title">Classes</strong>
+                <ul>\(classes)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !typeList.isEmpty || !categoryList.isEmpty || !classList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-spotbugs-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(typeList)
+          \(categoryList)
+          \(classList)
         </div>
         """
     }

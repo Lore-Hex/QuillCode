@@ -137,6 +137,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             checkstyleContent(checkstylePreview)
         } else if let pmdPreview = artifact.pmdPreview {
             pmdContent(pmdPreview)
+        } else if let spotBugsPreview = artifact.spotBugsPreview {
+            spotBugsContent(spotBugsPreview)
         } else if let trxPreview = artifact.trxPreview {
             trxContent(trxPreview)
         } else if let xunitPreview = artifact.xunitPreview {
@@ -856,6 +858,25 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(pmdPreview.metadataLines)
             artifactContentList(title: "Files", labels: pmdPreview.filePreviewLabels)
             artifactContentList(title: "Rules", labels: pmdPreview.rulePreviewLabels)
+        }
+    }
+
+    private func spotBugsContent(_ spotBugsPreview: ToolArtifactSpotBugsPreview) -> some View {
+        let hasLists = !spotBugsPreview.typePreviewLabels.isEmpty
+            || !spotBugsPreview.categoryPreviewLabels.isEmpty
+            || !spotBugsPreview.classPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 166 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "exclamationmark.triangle")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(spotBugsPreview.metadataLines)
+            artifactContentList(title: "Types", labels: spotBugsPreview.typePreviewLabels)
+            artifactContentList(title: "Categories", labels: spotBugsPreview.categoryPreviewLabels)
+            artifactContentList(title: "Classes", labels: spotBugsPreview.classPreviewLabels)
         }
     }
 

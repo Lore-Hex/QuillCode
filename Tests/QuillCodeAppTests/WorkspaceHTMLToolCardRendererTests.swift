@@ -3044,6 +3044,65 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesSpotBugsArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("spotbugs-result.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <BugCollection version="4.8.6">
+          <BugInstance type="NP_NULL_ON_SOME_PATH" priority="1" category="CORRECTNESS">
+            <Class classname="com.example.service.UserService" />
+          </BugInstance>
+          <BugInstance type="DM_DEFAULT_ENCODING" priority="2" category="I18N">
+            <Class classname="com.example.web.AdminController" />
+          </BugInstance>
+        </BugCollection>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"spotbugs-result.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote spotbugs-result.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "SpotBugs artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">spotbugs-result.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">Format: SpotBugs XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">2 bugs"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">2 classes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">Priority 1: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">Priority 2: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-type-title">Types"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-type-item">NP_NULL_ON_SOME_PATH"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-type-item">DM_DEFAULT_ENCODING"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-category-title">Categories"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-category-item">CORRECTNESS"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-category-item">I18N"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-class-title">Classes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-class-item">example.service.UserService"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-class-item">example.web.AdminController"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesTRXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("results.trx")
