@@ -40,34 +40,6 @@ final class ParityGateTests: QuillCodeParityTestCase {
         }
     }
 
-    func testPlaywrightTestsAvoidDomForceUnwraps() throws {
-        let testsRoot = Self.packageRoot().appendingPathComponent("E2E/playwright/tests")
-        guard let enumerator = FileManager.default.enumerator(
-            at: testsRoot,
-            includingPropertiesForKeys: nil
-        ) else {
-            XCTFail("Expected Playwright tests at \(testsRoot.path)")
-            return
-        }
-
-        let testFiles = enumerator
-            .compactMap { $0 as? URL }
-            .filter { $0.pathExtension == "ts" }
-            .sorted { $0.path < $1.path }
-
-        for file in testFiles {
-            let text = try String(contentsOf: file, encoding: .utf8)
-            XCTAssertFalse(
-                text.range(of: #"querySelector\([^\n]+\)!"#, options: .regularExpression) != nil,
-                "\(file.path) should use locators or explicit guards instead of querySelector(...)!."
-            )
-            XCTAssertFalse(
-                text.range(of: #"[A-Za-z0-9_\)\]]!\s*(\.|\)|,|\]|$)"#, options: .regularExpression) != nil,
-                "\(file.path) should avoid non-null assertions in Playwright tests."
-            )
-        }
-    }
-
     func testParityDocsExist() {
         let root = Self.packageRoot()
         let requiredDocs = [

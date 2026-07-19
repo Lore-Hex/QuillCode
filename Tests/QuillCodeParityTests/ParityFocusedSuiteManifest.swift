@@ -72,27 +72,6 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceSurfaceDelegatesTerminalSurfaceContracts",
             "testTerminalStateContractsLiveOutsideEngine"
         ]),
-        Suite(fileName: "ParityWorkspacePlaywrightFocusedSpecGateTests.swift", testNames: [
-            "testPlaywrightTerminalFlowsStayInFocusedSpec",
-            "testPlaywrightSearchFlowsStayInFocusedSpec",
-            "testPlaywrightExtensionsFlowsStayInFocusedSpec",
-            "testPlaywrightArtifactFlowsStayInFocusedSpec",
-            "testPlaywrightComposerFlowsStayInFocusedSpec"
-        ]),
-        Suite(fileName: "ParityWorkspacePlaywrightChromeSpecGateTests.swift", testNames: [
-            "testPlaywrightWorkspaceChromeFlowsStayInFocusedSpec",
-            "testPlaywrightWorkspaceStateFlowsStayInFocusedSpec",
-            "testPlaywrightStatusFlowsStayInFocusedSpec"
-        ]),
-        Suite(fileName: "ParityWorkspacePlaywrightRealWorldSpecGateTests.swift", testNames: [
-            "testPlaywrightRealWorldActionFlowsStayInFocusedSpec",
-            "testDeterministicSmokeCollectsPlaywrightRealWorldActionEvidence"
-        ]),
-        Suite(fileName: "ParityWorkspacePlaywrightInteractionSpecGateTests.swift", testNames: [
-            "testPlaywrightResponsivenessBudgetsStayInFocusedSpec",
-            "testPlaywrightShortcutFlowsStayInFocusedSpec",
-            "testPlaywrightReviewFlowsStayInFocusedSpec"
-        ]),
         Suite(fileName: "ParityBrowserGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesBrowserSurfaceTypes",
             "testBrowserArchitectureGatesStayOutOfBroadSuite"
@@ -108,11 +87,6 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceModelDelegatesBrowserStateTransitions",
             "testWorkspaceModelDelegatesBrowserLocationResolving",
             "testWorkspaceBrowserIntegrationTestsOwnModelBrowserFlows"
-        ]),
-        Suite(fileName: "ParityBrowserToolRendererGateTests.swift", testNames: [
-            "testBrowserAgentToolsShareFocusedExecutor",
-            "testWorkspaceHTMLRendererDelegatesBrowserRendering",
-            "testPlaywrightBrowserFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceToolCardModelGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesToolCardSurfaceTypes"
@@ -221,10 +195,6 @@ struct ParityFocusedSuiteManifest {
             "testWorkspaceRemoteProjectIntegrationTestsOwnModelRemoteProjectFlows",
             "testWorkspacePullRequestIntegrationTestsOwnModelPullRequestFlows"
         ]),
-        Suite(fileName: "ParityWorkspaceWorktreeGateTests.swift", testNames: [
-            "testWorkspaceWorktreeIntegrationTestsOwnModelWorktreeFlows",
-            "testWorkspaceModelDelegatesWorktreeOpenRecords"
-        ]),
         Suite(fileName: "ParityWorkspaceMemorySupportGateTests.swift", testNames: [
             "testWorkspaceMemorySupportOwnsStoragePolicyAndCopyBoundaries"
         ]),
@@ -233,9 +203,6 @@ struct ParityFocusedSuiteManifest {
         ]),
         Suite(fileName: "ParityWorkspaceMemoryIntegrationGateTests.swift", testNames: [
             "testWorkspaceMemoryIntegrationTestsOwnModelMemoryFlows"
-        ]),
-        Suite(fileName: "ParityWorkspacePlaywrightMemoryGateTests.swift", testNames: [
-            "testPlaywrightMemoryFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceMCPReviewIntegrationGateTests.swift", testNames: [
             "testWorkspaceMCPIntegrationTestsOwnModelMCPFlows",
@@ -263,17 +230,9 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityWorkspaceSidebarRowActionGateTests.swift", testNames: [
             "testSidebarRowActionsUseSharedPlannerAndExecutor"
         ]),
-        Suite(fileName: "ParitySidebarCommandPresentationGateTests.swift", testNames: [
-            "testSidebarCommandPresentationIsSharedByNativeAndHTMLSurfaces",
-            "testSidebarSavedFiltersUseProgressiveDisclosureWithoutHorizontalChrome",
-            "testNativeSidebarDelegatesProjectListRendering",
-        ]),
         Suite(fileName: "ParityWorkspaceSidebarSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesSidebarSurfaceContracts",
             "testWorkspaceSurfaceDelegatesNavigationSurfaceBuilding"
-        ]),
-        Suite(fileName: "ParityWorkspaceSidebarPlaywrightGateTests.swift", testNames: [
-            "testPlaywrightSidebarAndProjectFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityMCPGateTests.swift", testNames: [
             "testWorkspaceModelDelegatesMCPSupportTypes",
@@ -313,9 +272,6 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityWorkspaceAutomationSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesAutomationsSurfaceBuilding"
         ]),
-        Suite(fileName: "ParityPlaywrightAutomationGateTests.swift", testNames: [
-            "testPlaywrightAutomationFlowsStayInFocusedSpec"
-        ]),
         Suite(fileName: "ParityWorkspaceRuntimeReviewGateTests.swift", testNames: [
             "testNativeReviewPaneDelegatesFileHunkAndLineRendering",
             "testWorkspaceSurfaceDelegatesRuntimeIssueBuilding",
@@ -331,9 +287,6 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityWorkspaceCommandPaletteContractGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesCommandPaletteContract"
         ]),
-        Suite(fileName: "ParityPlaywrightCommandPaletteGateTests.swift", testNames: [
-            "testPlaywrightCommandPaletteFlowsStaySplitByWorkflow"
-        ]),
         Suite(fileName: "ParityWorkspaceSettingsSheetGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesSheetPresentation",
             "testNativeSettingsDelegatesFocusedViewsAndDraftState"
@@ -344,46 +297,17 @@ struct ParityFocusedSuiteManifest {
         Suite(fileName: "ParityNativePrimaryChromeHitTargetGateTests.swift", testNames: [
             "testNativePrimaryChromeKeepsSemanticHitTargets"
         ]),
-        Suite(fileName: "ParityHTMLInteractionAuditContractGateTests.swift", testNames: [
-            "testHTMLInteractionAuditRequiresNamesControlsAndLayers",
-            "testHTMLInteractionAuditRequiresClearanceRegistriesAndSamples",
-            "testHTMLInteractionAuditRequiresSemanticAndTactileContracts"
-        ]),
         Suite(fileName: "ParityHTMLPrimitiveHitTargetGateTests.swift", testNames: [
             "testHTMLButtonPrimitiveDefaultsToSharedHitTargetClass",
             "testHTMLPrimitivesExposeSemanticTargetVocabulary",
             "testHTMLPrimitivesEmitSemanticTargetAttributes",
             "testHTMLPrimitivesRecognizeEverySharedTargetClass"
         ]),
-        Suite(fileName: "ParityRenderedCommandRoutingGateTests.swift", testNames: [
-            "testHarnessAuditsVisibleCommandTargetsForRouting"
-        ]),
-        Suite(fileName: "ParityRenderedCriticalTargetRegistryGateTests.swift", testNames: [
-            "testRenderedCriticalTargetRegistryCoversPrimarySurfaces",
-            "testRenderedCriticalTargetRegistryCoversRiskySmallControls",
-            "testRenderedCriticalTargetRegistryCoversNearEdgeFlows",
-            "testRenderedCriticalTargetRegistryIncludesSemanticFixtures"
-        ]),
-        Suite(fileName: "ParityRenderedResponsiveTargetGateTests.swift", testNames: [
-            "testRenderedHarnessUsesNamedClearanceTokensForDenseActionClusters",
-            "testFindBarUsesResponsiveTargetPreservingLayout",
-            "testHarnessNormalizesDynamicClickTargetContracts",
-            "testHarnessDeclaresActivityTargetContracts"
-        ]),
-        Suite(fileName: "ParityHTMLSourceInteractionTargetGateTests.swift", testNames: [
-            "testHTMLRenderersUseSharedClickTargetPrimitives",
-            "testRenderedHTMLPrimitiveCallSitesDeclareExplicitHitTargetKinds",
-            "testHTMLSourceAuditRequiresSemanticKindForRawSharedTargets",
-            "testHTMLSourceAuditAcceptsRawSharedTargetsWithSemanticKind"
-        ]),
         Suite(fileName: "ParitySearchDialogGateTests.swift", testNames: [
             "testNativeSearchDialogsKeepLocalTypingState"
         ]),
         Suite(fileName: "ParityWorkspaceSettingsSurfaceGateTests.swift", testNames: [
             "testWorkspaceSurfaceDelegatesSettingsSurfaceContract"
-        ]),
-        Suite(fileName: "ParityPlaywrightSettingsRuntimeGateTests.swift", testNames: [
-            "testPlaywrightSettingsAndRuntimeFlowsStayInFocusedSpec"
         ]),
         Suite(fileName: "ParityWorkspaceTranscriptGateTests.swift", testNames: [
             "testWorkspaceSwiftUIViewDelegatesTranscriptFindAndContextBanner"

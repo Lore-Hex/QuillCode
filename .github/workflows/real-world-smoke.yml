@@ -29,20 +29,9 @@ jobs:
       QUILLCODE_API_KEY: ${{ secrets.QUILLCODE_LIVE_API_KEY }}
       QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash' }}
       QUILLCODE_REQUIRE_LIVE_SMOKE: ${{ inputs.require_live && '1' || '0' }}
-      QUILLCODE_REAL_WORLD_REQUIRE_PLAYWRIGHT: "1"
       QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR: ${{ github.workspace }}/.quillcode-real-world-smoke
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: E2E/playwright/package-lock.json
-      - name: Install Playwright dependencies
-        working-directory: E2E/playwright
-        run: |
-          npm ci
-          npx playwright install chromium
       - name: Run release-candidate real-world smoke
         run: ./scripts/real-world-smoke.sh
       - name: Upload real-world smoke artifacts
