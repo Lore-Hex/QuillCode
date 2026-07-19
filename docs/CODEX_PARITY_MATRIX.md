@@ -83,6 +83,10 @@
 - Artifact previews now include bounded local SARIF static-analysis metadata for `.sarif` and
   `.sarif.json` files: SARIF version, run/result counts, level counts, file size, capped tool labels,
   and capped rule labels without fetching remote reports or following result paths.
+- Artifact previews now include bounded local CycloneDX SBOM metadata for `.json` files whose
+  `bomFormat` validates as `CycloneDX`: spec version, root component, component/service/dependency
+  counts, vulnerability severity counts, file size, and capped component labels without expanding
+  license text, hashes, evidence, or fetching remote SBOMs.
 - Artifact previews now include bounded local font metadata for `.ttf`, `.otf`, `.ttc`, `.woff`,
   and `.woff2` files by validating fixed headers and rendering format, flavor, table count,
   declared size, and file size without parsing tables or decompressing webfont payloads.

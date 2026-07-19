@@ -701,6 +701,84 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
     }
 
+    func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("bom.json")
+        try """
+        {
+          "bomFormat": "CycloneDX",
+          "specVersion": "1.6",
+          "metadata": {
+            "component": {
+              "type": "application",
+              "name": "QuillCode",
+              "version": "0.1.0"
+            }
+          },
+          "components": [
+            {
+              "type": "library",
+              "name": "trusted-router-swift",
+              "version": "1.2.3"
+            },
+            {
+              "type": "library",
+              "name": "Yams",
+              "version": "5.1.3"
+            }
+          ],
+          "services": [
+            { "name": "TrustedRouter" }
+          ],
+          "dependencies": [
+            { "ref": "pkg:generic/quillcode@0.1.0", "dependsOn": ["pkg:swift/lore-hex/trusted-router-swift@1.2.3"] }
+          ],
+          "vulnerabilities": [
+            { "id": "CVE-0000-0001", "ratings": [{ "severity": "high" }] }
+          ]
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"bom.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote bom.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "CycloneDX artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">bom.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-meta">Format: CycloneDX"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-meta">Spec: 1.6"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-meta">Root: QuillCode@0.1.0 · application"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-meta">2 components"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-meta">1 service"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-meta">1 dependency"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-meta">Vulnerabilities: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-meta">High: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-component-title">Components"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cyclonedx-preview-component-item">trusted-router-swift@1.2.3 · library"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesIstanbulArtifactPreview() throws {
         let root = try makeTempDirectory()
         let coverageDirectory = root.appendingPathComponent("coverage", isDirectory: true)

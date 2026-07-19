@@ -453,6 +453,94 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJSON.jsonPreview)
     }
 
+    func testArtifactStateDerivesCycloneDXPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("bom.json")
+        let jsonText = """
+        {
+          "bomFormat": "CycloneDX",
+          "specVersion": "1.6",
+          "serialNumber": "urn:uuid:7f9b2e15-40d4-4f37-9d97-6e5d5c76d601",
+          "metadata": {
+            "component": {
+              "type": "application",
+              "name": "QuillCode",
+              "version": "0.1.0",
+              "purl": "pkg:generic/quillcode@0.1.0"
+            }
+          },
+          "components": [
+            {
+              "type": "library",
+              "name": "trusted-router-swift",
+              "version": "1.2.3",
+              "purl": "pkg:swift/lore-hex/trusted-router-swift@1.2.3"
+            },
+            {
+              "type": "library",
+              "name": "Yams",
+              "version": "5.1.3"
+            }
+          ],
+          "services": [
+            { "name": "TrustedRouter" }
+          ],
+          "dependencies": [
+            { "ref": "pkg:generic/quillcode@0.1.0", "dependsOn": ["pkg:swift/lore-hex/trusted-router-swift@1.2.3"] }
+          ],
+          "vulnerabilities": [
+            { "id": "CVE-0000-0001", "ratings": [{ "severity": "high" }] },
+            { "id": "CVE-0000-0002", "ratings": [{ "severity": "critical" }] },
+            { "id": "CVE-0000-0003", "severity": "medium" }
+          ]
+        }
+        """
+        try jsonText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.cycloneDXPreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(jsonText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.specVersion, "1.6")
+        XCTAssertEqual(preview.serialNumber, "urn:uuid:7f9b2e15-40d4-4f37-9d97-6e5d5c76d601")
+        XCTAssertEqual(preview.rootComponentLabel, "QuillCode@0.1.0 · application · pkg:generic/quillcode@0.1.0")
+        XCTAssertEqual(preview.componentCount, 2)
+        XCTAssertEqual(preview.serviceCount, 1)
+        XCTAssertEqual(preview.dependencyCount, 1)
+        XCTAssertEqual(preview.vulnerabilityCount, 3)
+        XCTAssertEqual(preview.criticalVulnerabilityCount, 1)
+        XCTAssertEqual(preview.highVulnerabilityCount, 1)
+        XCTAssertEqual(preview.mediumVulnerabilityCount, 1)
+        XCTAssertEqual(preview.lowVulnerabilityCount, 0)
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.componentPreviewLabels, [
+            "trusted-router-swift@1.2.3 · library · pkg:swift/lore-hex/trusted-router-swift@1.2.3",
+            "Yams@5.1.3 · library"
+        ])
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: CycloneDX",
+            "Spec: 1.6",
+            "Root: QuillCode@0.1.0 · application · pkg:generic/quillcode@0.1.0",
+            "Serial: urn:uuid:7f9b2e15-40d4-4f37-9d97-6e5d5c76d601",
+            "2 components",
+            "1 service",
+            "1 dependency",
+            "Vulnerabilities: 3",
+            "Critical: 1",
+            "High: 1",
+            "Medium: 1",
+            "Size: \(byteSizeLabel)"
+        ])
+        let packageJSON = directory.appendingPathComponent("package.json")
+        try #"{"name":"quillcode","version":"0.1.0"}"#.write(to: packageJSON, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: packageJSON.path).cycloneDXPreview)
+
+        let remoteSBOM = ToolArtifactState(value: "https://example.com/bom.json")
+        XCTAssertNil(remoteSBOM.cycloneDXPreview)
+    }
+
     func testArtifactStateDerivesHARPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let trace = directory.appendingPathComponent("network.har")

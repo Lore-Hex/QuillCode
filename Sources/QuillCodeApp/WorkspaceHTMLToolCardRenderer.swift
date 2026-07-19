@@ -220,6 +220,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let pytestJSONPreview = renderPytestJSONPreview(pytestJSONPreviewModel)
             let jestJSONPreviewModel = artifact.jestJSONPreview
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
+            let cycloneDXPreviewModel = artifact.cycloneDXPreview
+            let cycloneDXPreview = renderCycloneDXPreview(cycloneDXPreviewModel)
             let tapPreview = renderTAPPreview(artifact.tapPreview)
             let harPreview = renderHARPreview(artifact.harPreview)
             let lcovPreview = renderLCOVPreview(artifact.lcovPreview)
@@ -261,6 +263,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && coveragePyPreviewModel == nil
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
+                && cycloneDXPreviewModel == nil
                 ? renderJSONPreview(artifact.jsonPreview)
                 : ""
             let appshotPreview = renderAppshotPreview(artifact.appshotPreview)
@@ -286,6 +289,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(coveragePyPreview)
               \(pytestJSONPreview)
               \(jestJSONPreview)
+              \(cycloneDXPreview)
               \(tapPreview)
               \(harPreview)
               \(lcovPreview)
@@ -732,6 +736,31 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderCycloneDXPreview(_ preview: ToolArtifactCycloneDXPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-cyclonedx-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let components = preview.componentPreviewLabels.map {
+            #"<li data-testid="tool-card-cyclonedx-preview-component-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let componentList = components.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-cyclonedx-preview-components">
+                <strong data-testid="tool-card-cyclonedx-preview-component-title">Components</strong>
+                <ul>\(components)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !componentList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-cyclonedx-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(componentList)
         </div>
         """
     }
