@@ -2326,3 +2326,102 @@
   covers totals, source labels, generic JSON exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCoveragePyArtifactPreview` covers
   static HTML selectors, rendered coverage metadata, source-file lists, and generic JSON suppression.
+
+## 2026-07-19: pytest JSON artifacts render bounded test summaries
+
+- **Decision:** Local JSON artifacts with the pytest-json-report `summary`/`tests` shape render as
+  structured pytest report cards instead of generic JSON. The preview shows exit code, duration,
+  total/pass/fail/error/skip counts, file size, and capped failed/error test node IDs.
+- **Why:** Python coding-agent loops often emit pytest JSON when narrowing failures. A Codex-style
+  artifact surface should make failing tests visible immediately without requiring the model to read
+  raw JSON or expand captured logs.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB. It reads only the artifact JSON, never opens referenced source files, never expands
+  captured stdout/stderr/tracebacks from test phases, and never fetches remote report URLs. Generic
+  JSON rendering is suppressed only after the pytest report shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPytestJSONPreviewMetadata`
+  covers summary counts, failing labels, generic JSON exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPytestJSONArtifactPreview` covers
+  static HTML selectors, rendered report metadata, failure lists, and generic JSON suppression.
+
+## 2026-07-19: TAP artifacts render bounded test summaries
+
+- **Decision:** Local `.tap` artifacts that match Test Anything Protocol plan/assertion/bailout
+  lines render as structured TAP report cards instead of generic data files. The preview shows plan,
+  assertion count, pass/fail/skip/TODO counts, bailout reason, file size, and capped failing
+  assertion labels.
+- **Why:** TAP remains common in Node, Perl, and CI test output. A Codex-style artifact surface should
+  make failing assertions scannable without forcing the agent to inspect raw test protocol text.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, and capped at
+  512 KB plus 20,000 lines. It reads only TAP protocol summary lines, never expands YAML-ish
+  diagnostics, never opens referenced source files, and never fetches remote TAP reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesTAPPreviewMetadata` covers
+  plan parsing, pass/fail/skip/TODO counts, bailout labels, generic `.tap` exclusion, and remote
+  exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesTAPArtifactPreview` covers
+  static HTML selectors, rendered report metadata, and failure lists.
+
+## 2026-07-19: Jest JSON artifacts render bounded test summaries
+
+- **Decision:** Local `.json` artifacts with Jest-compatible `numTotalTests`/`testResults` report
+  shape render as structured Jest JSON report cards instead of generic JSON. The preview shows run
+  result, runtime, test/suite counts, file size, and capped failing assertion labels.
+- **Why:** TypeScript and JavaScript coding-agent loops commonly emit Jest or Vitest JSON reports.
+  Showing the failing assertions inline keeps generated test artifacts useful without requiring a
+  separate file open.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, shape-gated, and
+  capped at 512 KB. It reads only summary counts, suite runtime, and assertion titles, never expands
+  failure messages/stacks, never opens referenced source files, and never fetches remote JSON.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesJestJSONPreviewMetadata`
+  covers result/count/runtime parsing, failing assertion labels, generic JSON exclusion, and remote
+  exclusion. `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesJestJSONArtifactPreview`
+  covers static HTML selectors, rendered report metadata, failure lists, and generic JSON
+  suppression.
+
+## 2026-07-19: TRX artifacts render bounded test summaries
+
+- **Decision:** Local `.trx` artifacts whose XML root validates as `TestRun` and contains
+  `UnitTestResult` entries render as structured Visual Studio TRX report cards. The preview shows
+  run name, outcome counts, duration, file size, and capped failing test names.
+- **Why:** .NET and Visual Studio test loops commonly emit TRX reports. A Codex-style artifact surface
+  should make failed tests scannable without opening XML or asking the model to parse raw logs.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, root-gated, and
+  capped at 512 KB. It reads only `UnitTestResult` attributes, never expands failure output/stacks,
+  never opens referenced files, and never fetches remote TRX reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesTRXPreviewMetadata` covers
+  run metadata, outcome counts, duration, failing labels, non-TRX exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesTRXArtifactPreview` covers static HTML
+  selectors, rendered report metadata, and failure lists.
+
+## 2026-07-19: xUnit XML artifacts render bounded test summaries
+
+- **Decision:** Local `.xml` artifacts whose root validates as `assemblies` or `assembly` render as
+  structured xUnit.net report cards. The preview shows assembly, collection, test, pass, fail, and
+  skip counts plus duration, file size, capped assembly names, and capped failing test names.
+- **Why:** .NET projects commonly emit xUnit XML when TRX is not enabled. Showing a compact report
+  keeps test artifacts useful in the transcript without asking the agent or user to inspect raw XML.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, root-gated, and
+  capped at 512 KB. It reads assembly/test attributes only, never expands failure output/stacks,
+  never opens referenced assemblies or source files, and never fetches remote XML reports. Generic
+  XML rendering is suppressed only after the xUnit report root validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesXUnitPreviewMetadata` covers
+  aggregate and per-test counts, duration, failing labels, non-xUnit exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesXUnitArtifactPreview` covers static
+  HTML selectors, rendered report metadata, assembly lists, failure lists, and generic XML
+  suppression.
+
+## 2026-07-19: NUnit XML artifacts render bounded test summaries
+
+- **Decision:** Local `.xml` artifacts whose root validates as `test-run` render as structured NUnit
+  report cards. The preview shows run name, test, pass, fail, inconclusive, and skip counts plus
+  duration, file size, and capped failing test names.
+- **Why:** NUnit is a common .NET test runner and often emits `TestResult.xml` instead of TRX or
+  xUnit XML. A Codex-style artifact surface should make the useful result summary visible without
+  asking the model to inspect raw XML.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, root-gated, and
+  capped at 512 KB. It reads run and `test-case` attributes only, never expands failure output,
+  assertion messages, stack traces, source files, or referenced assemblies, and never fetches remote
+  XML reports. Generic XML rendering is suppressed only after the NUnit root validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesNUnitPreviewMetadata` covers
+  aggregate and per-test counts, duration, failing labels, non-NUnit exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesNUnitArtifactPreview` covers static
+  HTML selectors, rendered report metadata, failure lists, and generic XML suppression.

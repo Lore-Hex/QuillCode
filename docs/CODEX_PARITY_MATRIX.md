@@ -97,6 +97,16 @@
 - Artifact previews now include bounded local JUnit XML test-report metadata for `.xml` files whose
   root is `testsuite` or `testsuites`: suite/test counts, failure/error/skipped counts, duration,
   file size, suite labels, and failing-test labels without expanding testcase logs or following paths.
+- Artifact previews now include bounded local Visual Studio TRX test-report metadata for `.trx`
+  files: run name, test outcome counts, duration, file size, and capped failing test names without
+  expanding failure output or fetching remote reports.
+- Artifact previews now include bounded local xUnit.net XML test-report metadata for `.xml` files
+  whose root is `assemblies` or `assembly`: assembly/collection/test counts, pass/fail/skip counts,
+  duration, file size, capped assembly names, and capped failing test names without expanding failure
+  output or fetching remote reports.
+- Artifact previews now include bounded local NUnit XML test-report metadata for `.xml` files whose
+  root is `test-run`: run name, test outcome counts, duration, file size, and capped failing test
+  names without expanding failure output or fetching remote reports.
 - Artifact previews now include bounded local Cobertura XML coverage-report metadata for `.xml` files
   whose root is `coverage`: package/class counts, line/branch coverage, file size, package labels,
   and class labels without executing coverage tooling, expanding source files, or following paths.
@@ -116,6 +126,16 @@
   artifacts with `meta`, `files`, and `totals`: source-file counts, line/branch coverage, file size,
   and capped source-file previews without running coverage.py, following report paths, or fetching
   remote JSON.
+- Artifact previews now include bounded local pytest JSON report metadata for pytest-json-report
+  artifacts: total/pass/fail/error/skip counts, exit code, duration, file size, and capped failing
+  test node IDs without expanding captured logs or fetching remote JSON.
+- Artifact previews now include bounded local Jest/Vitest-style JSON report metadata for `.json`
+  files with Jest-compatible `numTotalTests`/`testResults` shape: result, runtime, test/suite
+  counts, file size, and capped failing assertion labels without expanding failure messages or
+  fetching remote JSON.
+- Artifact previews now include bounded local TAP report metadata for `.tap` files: plan, assertion
+  counts, pass/fail/skip/TODO counts, bailout reason, file size, and capped failing assertion labels
+  without expanding diagnostics or fetching remote reports.
 - Artifact previews now include bounded local INI-style config metadata for `.ini`, `.cfg`, and `.conf`:
   section/key counts, file size, truncation state, and capped section previews.
 - Artifact previews now include bounded local dotenv metadata for `.env` and `.env.*` files:

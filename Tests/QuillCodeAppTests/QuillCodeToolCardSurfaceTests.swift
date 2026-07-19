@@ -1288,6 +1288,197 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteCoveragePy.coveragePyPreview)
     }
 
+    func testArtifactStateDerivesPytestJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("report.json")
+        let content = """
+        {
+          "created": 1780000000.0,
+          "duration": 12.345,
+          "exitcode": 1,
+          "root": "/workspace",
+          "summary": {
+            "total": 5,
+            "passed": 2,
+            "failed": 1,
+            "error": 1,
+            "skipped": 1,
+            "xfailed": 0,
+            "xpassed": 0
+          },
+          "tests": [
+            {"nodeid": "tests/test_app.py::test_renders_prompt", "outcome": "passed"},
+            {"nodeid": "tests/test_app.py::test_writes_file", "outcome": "failed"},
+            {"nodeid": "tests/test_cli.py::test_bootstrap", "outcome": "error"},
+            {"nodeid": "tests/test_cli.py::test_skip", "outcome": "skipped"}
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pytestJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "pytest JSON")
+        XCTAssertEqual(preview.exitCode, 1)
+        XCTAssertEqual(preview.durationLabel, "12.3s")
+        XCTAssertEqual(preview.totalCount, 5)
+        XCTAssertEqual(preview.passedCount, 2)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.failurePreviewLabels, [
+            "tests/test_app.py::test_writes_file",
+            "tests/test_cli.py::test_bootstrap"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: pytest JSON",
+            "Exit code: 1",
+            "Duration: 12.3s",
+            "5 tests",
+            "Passed: 2",
+            "Failed: 1",
+            "Errors: 1",
+            "Skipped: 1",
+            "XFailed: 0",
+            "XPassed: 0",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"status":"passed","durationMs":42}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).pytestJSONPreview)
+
+        let remotePytest = ToolArtifactState(value: "https://example.com/report.json")
+        XCTAssertNil(remotePytest.pytestJSONPreview)
+    }
+
+    func testArtifactStateDerivesJestJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("jest-results.json")
+        let content = """
+        {
+          "success": false,
+          "numTotalTests": 4,
+          "numPassedTests": 2,
+          "numFailedTests": 1,
+          "numPendingTests": 1,
+          "numTodoTests": 0,
+          "numTotalTestSuites": 2,
+          "numFailedTestSuites": 1,
+          "testResults": [
+            {
+              "name": "/repo/tests/app.test.ts",
+              "perfStats": {"runtime": 1234},
+              "assertionResults": [
+                {"ancestorTitles": ["App"], "title": "renders prompt", "status": "passed"},
+                {"ancestorTitles": ["App"], "title": "writes a file", "status": "failed"}
+              ]
+            },
+            {
+              "name": "/repo/tests/cli.test.ts",
+              "perfStats": {"runtime": 2000},
+              "assertionResults": [
+                {"fullName": "CLI starts quickly", "status": "passed"},
+                {"fullName": "CLI waits for fixture", "status": "pending"}
+              ]
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.jestJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Jest JSON")
+        XCTAssertEqual(preview.success, false)
+        XCTAssertEqual(preview.totalTestCount, 4)
+        XCTAssertEqual(preview.passedTestCount, 2)
+        XCTAssertEqual(preview.failedTestCount, 1)
+        XCTAssertEqual(preview.pendingTestCount, 1)
+        XCTAssertEqual(preview.todoTestCount, 0)
+        XCTAssertEqual(preview.totalSuiteCount, 2)
+        XCTAssertEqual(preview.failedSuiteCount, 1)
+        XCTAssertEqual(preview.runtimeLabel, "3.23s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["App > writes a file"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Jest JSON",
+            "Result: failed",
+            "Runtime: 3.23s",
+            "4 tests",
+            "Passed: 2",
+            "Failed: 1",
+            "Pending: 1",
+            "TODO: 0",
+            "2 suites",
+            "Failed suites: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"success":false,"durationMs":42}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).jestJSONPreview)
+
+        let remoteJest = ToolArtifactState(value: "https://example.com/jest-results.json")
+        XCTAssertNil(remoteJest.jestJSONPreview)
+    }
+
+    func testArtifactStateDerivesTAPPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("test.tap")
+        let content = """
+        TAP version 13
+        1..4
+        ok 1 - loads app
+        not ok 2 - writes file
+        ok 3 - optional browser # SKIP no browser
+        not ok 4 - planned support # TODO implement later
+        Bail out! database unavailable
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.tapPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "TAP")
+        XCTAssertEqual(preview.formatLabel, "TAP")
+        XCTAssertEqual(preview.planLabel, "1..4")
+        XCTAssertEqual(preview.assertionCount, 4)
+        XCTAssertEqual(preview.passedCount, 3)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.todoCount, 1)
+        XCTAssertEqual(preview.bailoutLabel, "database unavailable")
+        XCTAssertEqual(preview.failurePreviewLabels, ["2 - writes file"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: TAP",
+            "Plan: 1..4",
+            "4 assertions",
+            "Passed: 3",
+            "Failed: 1",
+            "Skipped: 1",
+            "TODO: 1",
+            "Bail out: database unavailable",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("notes.tap")
+        try "this is not tap\n".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).tapPreview)
+
+        let remoteTAP = ToolArtifactState(value: "https://example.com/test.tap")
+        XCTAssertNil(remoteTAP.tapPreview)
+    }
+
     func testArtifactStateDerivesJUnitPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("TEST-QuillCode.xml")
@@ -1362,6 +1553,191 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
 
         let remoteJUnit = ToolArtifactState(value: "https://example.com/TEST-QuillCode.xml")
         XCTAssertNil(remoteJUnit.junitPreview)
+    }
+
+    func testArtifactStateDerivesTRXPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("results.trx")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <TestRun id="run-1" name="QuillCode .NET Tests" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+          <Results>
+            <UnitTestResult testName="QuillCode.Tests.AppTests.RendersPrompt" outcome="Passed" duration="00:00:01.1000000" />
+            <UnitTestResult testName="QuillCode.Tests.AppTests.WritesFile" outcome="Failed" duration="00:00:02.2500000" />
+            <UnitTestResult testName="QuillCode.Tests.CliTests.IsSkipped" outcome="NotExecuted" duration="00:00:00.0000000" />
+            <UnitTestResult testName="QuillCode.Tests.CliTests.IsInconclusive" outcome="Inconclusive" duration="00:00:00.5000000" />
+          </Results>
+        </TestRun>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.trxPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "TRX")
+        XCTAssertEqual(preview.formatLabel, "TRX")
+        XCTAssertEqual(preview.testRunName, "QuillCode .NET Tests")
+        XCTAssertEqual(preview.totalCount, 4)
+        XCTAssertEqual(preview.passedCount, 1)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.inconclusiveCount, 1)
+        XCTAssertEqual(preview.notExecutedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "3.85 s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["QuillCode.Tests.AppTests.WritesFile"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: TRX",
+            "Run: QuillCode .NET Tests",
+            "4 tests",
+            "Passed: 1",
+            "Failed: 1",
+            "Inconclusive: 1",
+            "Not executed: 1",
+            "Duration: 3.85 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let generic = directory.appendingPathComponent("report.trx")
+        try "<project><target /></project>".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).trxPreview)
+
+        let remoteTRX = ToolArtifactState(value: "https://example.com/results.trx")
+        XCTAssertNil(remoteTRX.trxPreview)
+    }
+
+    func testArtifactStateDerivesXUnitPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("xunit-results.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <assemblies>
+          <assembly name="/workspace/bin/Debug/net8.0/QuillCode.Tests.dll" total="4" passed="2" failed="1" skipped="1" time="3.50">
+            <collection name="QuillCode app tests">
+              <test name="QuillCode.Tests.AppTests.RendersPrompt" result="Pass" time="1.25" />
+              <test name="QuillCode.Tests.AppTests.WritesFile" result="Fail" time="2.00" />
+              <test name="QuillCode.Tests.CliTests.IsSkipped" result="Skip" time="0.25" />
+            </collection>
+          </assembly>
+        </assemblies>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.xunitPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.assemblyCount, 1)
+        XCTAssertEqual(preview.collectionCount, 1)
+        XCTAssertEqual(preview.testCount, 4)
+        XCTAssertEqual(preview.passedCount, 2)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "3.5 s")
+        XCTAssertEqual(preview.assemblyPreviewLabels, ["QuillCode.Tests.dll"])
+        XCTAssertEqual(preview.failurePreviewLabels, ["QuillCode.Tests.AppTests.WritesFile"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: xUnit XML",
+            "1 assembly",
+            "1 collection",
+            "4 tests",
+            "Passed: 2",
+            "Failed: 1",
+            "Skipped: 1",
+            "Duration: 3.5 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let fallbackReport = directory.appendingPathComponent("xunit-fallback.xml")
+        try """
+        <assembly name="QuillCode.Fallback.dll">
+          <collection name="Fallback">
+            <test name="FallbackTests.Pass" result="Pass" time="0.25" />
+            <test name="FallbackTests.Fail" result="Fail" time="0.75" />
+            <test name="FallbackTests.Skip" result="Skip" time="0.00" />
+          </collection>
+        </assembly>
+        """.write(to: fallbackReport, atomically: true, encoding: .utf8)
+        let fallbackPreview = try XCTUnwrap(ToolArtifactState(value: fallbackReport.path).xunitPreview)
+        XCTAssertEqual(fallbackPreview.testCount, 3)
+        XCTAssertEqual(fallbackPreview.passedCount, 1)
+        XCTAssertEqual(fallbackPreview.failedCount, 1)
+        XCTAssertEqual(fallbackPreview.skippedCount, 1)
+        XCTAssertEqual(fallbackPreview.durationLabel, "1 s")
+
+        let nonXUnit = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: nonXUnit, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonXUnit.path).xunitPreview)
+
+        let remoteXUnit = ToolArtifactState(value: "https://example.com/xunit-results.xml")
+        XCTAssertNil(remoteXUnit.xunitPreview)
+    }
+
+    func testArtifactStateDerivesNUnitPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("TestResult.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <test-run id="2" name="QuillCode NUnit Tests" total="4" passed="2" failed="1" inconclusive="0" skipped="1" duration="4.25">
+          <test-suite type="Assembly" name="QuillCode.Tests.dll">
+            <test-case id="0-1001" fullname="QuillCode.Tests.AppTests.RendersPrompt" result="Passed" duration="1.25" />
+            <test-case id="0-1002" fullname="QuillCode.Tests.AppTests.WritesFile" result="Failed" duration="2.00" />
+            <test-case id="0-1003" fullname="QuillCode.Tests.CliTests.IsSkipped" result="Skipped" duration="0.25" />
+          </test-suite>
+        </test-run>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.nunitPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.runName, "QuillCode NUnit Tests")
+        XCTAssertEqual(preview.testCount, 4)
+        XCTAssertEqual(preview.passedCount, 2)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.inconclusiveCount, 0)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "4.25 s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["QuillCode.Tests.AppTests.WritesFile"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: NUnit XML",
+            "Run: QuillCode NUnit Tests",
+            "4 tests",
+            "Passed: 2",
+            "Failed: 1",
+            "Skipped: 1",
+            "Duration: 4.25 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+
+        let fallbackReport = directory.appendingPathComponent("nunit-fallback.xml")
+        try """
+        <test-run name="Fallback NUnit">
+          <test-case fullname="FallbackTests.Pass" result="Passed" duration="0.25" />
+          <test-case fullname="FallbackTests.Fail" result="Failed" duration="0.75" />
+          <test-case fullname="FallbackTests.Inconclusive" result="Inconclusive" duration="0.50" />
+          <test-case fullname="FallbackTests.Skip" result="Skipped" duration="0.00" />
+        </test-run>
+        """.write(to: fallbackReport, atomically: true, encoding: .utf8)
+        let fallbackPreview = try XCTUnwrap(ToolArtifactState(value: fallbackReport.path).nunitPreview)
+        XCTAssertEqual(fallbackPreview.testCount, 4)
+        XCTAssertEqual(fallbackPreview.passedCount, 1)
+        XCTAssertEqual(fallbackPreview.failedCount, 1)
+        XCTAssertEqual(fallbackPreview.inconclusiveCount, 1)
+        XCTAssertEqual(fallbackPreview.skippedCount, 1)
+        XCTAssertEqual(fallbackPreview.durationLabel, "1.5 s")
+
+        let nonNUnit = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: nonNUnit, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonNUnit.path).nunitPreview)
+
+        let remoteNUnit = ToolArtifactState(value: "https://example.com/TestResult.xml")
+        XCTAssertNil(remoteNUnit.nunitPreview)
     }
 
     func testArtifactStateDerivesCoberturaPreviewMetadata() throws {

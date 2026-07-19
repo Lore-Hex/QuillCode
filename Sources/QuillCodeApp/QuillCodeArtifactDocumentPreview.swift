@@ -67,6 +67,12 @@ struct QuillCodeArtifactDocumentPreview: View {
             istanbulContent(istanbulPreview)
         } else if let coveragePyPreview = artifact.coveragePyPreview {
             coveragePyContent(coveragePyPreview)
+        } else if let pytestJSONPreview = artifact.pytestJSONPreview {
+            pytestJSONContent(pytestJSONPreview)
+        } else if let jestJSONPreview = artifact.jestJSONPreview {
+            jestJSONContent(jestJSONPreview)
+        } else if let tapPreview = artifact.tapPreview {
+            tapContent(tapPreview)
         } else if let harPreview = artifact.harPreview {
             harContent(harPreview)
         } else if let lcovPreview = artifact.lcovPreview {
@@ -87,6 +93,12 @@ struct QuillCodeArtifactDocumentPreview: View {
             yamlContent(yamlPreview)
         } else if let junitPreview = artifact.junitPreview {
             junitContent(junitPreview)
+        } else if let trxPreview = artifact.trxPreview {
+            trxContent(trxPreview)
+        } else if let xunitPreview = artifact.xunitPreview {
+            xunitContent(xunitPreview)
+        } else if let nunitPreview = artifact.nunitPreview {
+            nunitContent(nunitPreview)
         } else if let coberturaPreview = artifact.coberturaPreview {
             coberturaContent(coberturaPreview)
         } else if let cloverPreview = artifact.cloverPreview {
@@ -239,6 +251,48 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(coveragePyPreview.metadataLines)
             artifactContentList(title: "Source files", labels: coveragePyPreview.filePreviewLabels)
+        }
+    }
+
+    private func pytestJSONContent(_ pytestJSONPreview: ToolArtifactPytestJSONPreview) -> some View {
+        previewSurface(minHeight: pytestJSONPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pytestJSONPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: pytestJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func jestJSONContent(_ jestJSONPreview: ToolArtifactJestJSONPreview) -> some View {
+        previewSurface(minHeight: jestJSONPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(jestJSONPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: jestJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func tapContent(_ tapPreview: ToolArtifactTAPPreview) -> some View {
+        previewSurface(minHeight: tapPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(tapPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: tapPreview.failurePreviewLabels)
         }
     }
 
@@ -395,6 +449,49 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(junitPreview.metadataLines)
             artifactContentList(title: "Suites", labels: junitPreview.suitePreviewLabels)
             artifactContentList(title: "Failing tests", labels: junitPreview.failurePreviewLabels)
+        }
+    }
+
+    private func trxContent(_ trxPreview: ToolArtifactTRXPreview) -> some View {
+        previewSurface(minHeight: trxPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(trxPreview.metadataLines)
+            artifactContentList(title: "Failing tests", labels: trxPreview.failurePreviewLabels)
+        }
+    }
+
+    private func xunitContent(_ xunitPreview: ToolArtifactXUnitPreview) -> some View {
+        previewSurface(minHeight: xunitPreview.failurePreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(xunitPreview.metadataLines)
+            artifactContentList(title: "Assemblies", labels: xunitPreview.assemblyPreviewLabels)
+            artifactContentList(title: "Failing tests", labels: xunitPreview.failurePreviewLabels)
+        }
+    }
+
+    private func nunitContent(_ nunitPreview: ToolArtifactNUnitPreview) -> some View {
+        previewSurface(minHeight: nunitPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(nunitPreview.metadataLines)
+            artifactContentList(title: "Failing tests", labels: nunitPreview.failurePreviewLabels)
         }
     }
 
