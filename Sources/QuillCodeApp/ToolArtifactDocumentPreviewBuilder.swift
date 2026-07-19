@@ -34,8 +34,38 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "cover.out" || filename == "coverage.out" {
             return "gocover"
         }
+        if filename == "go.sum" {
+            return "gosum"
+        }
+        if filename == "requirements.txt" || (filename.hasPrefix("requirements-") && filename.hasSuffix(".txt")) {
+            return "requirements"
+        }
+        if filename == "poetry.lock" {
+            return "poetry-lock"
+        }
+        if filename == "pipfile.lock" {
+            return "pipfile-lock"
+        }
+        if filename == "uv.lock" {
+            return "uv-lock"
+        }
+        if filename == "gemfile.lock" {
+            return "gemfile-lock"
+        }
+        if filename == "podfile.lock" {
+            return "podfile-lock"
+        }
         if filename == "package.resolved" {
             return "spm"
+        }
+        if filename == "composer.lock" {
+            return "composer-lock"
+        }
+        if filename == "pnpm-lock.yaml" {
+            return "pnpm-lock"
+        }
+        if filename == "yarn.lock" {
+            return "yarn-lock"
         }
         if filename == "cargo.lock" {
             return "cargo-lock"
@@ -67,10 +97,20 @@ enum ToolArtifactDocumentPreviewBuilder {
         "jsonl": .data,
         "lcov": .data,
         "gocover": .data,
+        "gosum": .data,
+        "requirements": .data,
+        "poetry-lock": .data,
+        "pipfile-lock": .data,
+        "uv-lock": .data,
+        "gemfile-lock": .data,
+        "podfile-lock": .data,
         "ndjson": .data,
         "sarif": .data,
         "cfg": .data,
         "conf": .data,
+        "composer-lock": .data,
+        "pnpm-lock": .data,
+        "yarn-lock": .data,
         "cargo-lock": .data,
         "bin": .data,
         "db": .data,

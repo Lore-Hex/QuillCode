@@ -883,6 +883,584 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Cargo.lock"#))
     }
 
+    func testHTMLRendererIncludesYarnLockfileArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("yarn.lock")
+        try """
+        "@babel/code-frame@^7.0.0":
+          version "7.26.2"
+          resolved "https://registry.yarnpkg.com/@babel/code-frame/-/code-frame-7.26.2.tgz#abcdef"
+          integrity sha512-codeframe
+
+        left-pad@^1.3.0:
+          version "1.3.0"
+          resolved "https://registry.npmjs.org/left-pad/-/left-pad-1.3.0.tgz"
+          integrity sha512-leftpad
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"yarn.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote yarn.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Yarn lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · YARN-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">yarn.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-meta">Format: Yarn lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-meta">2 resolved"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-package-item">@babel/code-frame@7.26.2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-package-item">left-pad@1.3.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-host-item">registry.yarnpkg.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-yarn-lockfile-preview-host-item">registry.npmjs.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">yarn.lock"#))
+    }
+
+    func testHTMLRendererIncludesPNPMLockfileArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("pnpm-lock.yaml")
+        try """
+        lockfileVersion: '9.0'
+
+        importers:
+          .:
+            dependencies:
+              '@playwright/test':
+                specifier: ^1.55.0
+                version: 1.55.0
+
+        packages:
+          /@playwright/test@1.55.0:
+            resolution:
+              integrity: sha512-playwright
+              tarball: https://registry.npmjs.org/@playwright/test/-/test-1.55.0.tgz
+          /lucide-react@0.468.0:
+            resolution:
+              integrity: sha512-lucide
+              tarball: https://registry.yarnpkg.com/lucide-react/-/lucide-react-0.468.0.tgz
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"pnpm-lock.yaml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote pnpm-lock.yaml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "pnpm lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · PNPM-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">pnpm-lock.yaml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-meta">Format: pnpm lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-meta">Lockfile: 9.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-package-item">@playwright/test@1.55.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-package-item">lucide-react@0.468.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-importer-item">."#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-host-item">registry.npmjs.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pnpm-lockfile-preview-host-item">registry.yarnpkg.com"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-yaml-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">pnpm-lock.yaml"#))
+    }
+
+    func testHTMLRendererIncludesComposerLockfileArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("composer.lock")
+        try """
+        {
+          "content-hash": "abcdef1234567890",
+          "plugin-api-version": "2.6.0",
+          "packages": [
+            {
+              "name": "guzzlehttp/guzzle",
+              "version": "7.9.2",
+              "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/guzzle/guzzle/zipball/abc"
+              }
+            }
+          ],
+          "packages-dev": [
+            {
+              "name": "phpunit/phpunit",
+              "version": "11.4.3",
+              "dist": {
+                "type": "zip",
+                "url": "https://repo.packagist.org/p2/phpunit/phpunit.json"
+              }
+            }
+          ]
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"composer.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote composer.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Composer lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · COMPOSER-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">composer.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-meta">Format: Composer lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-meta">Plugin API: 2.6.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-meta">1 package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-meta">1 dev package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-package-item">guzzlehttp/guzzle@7.9.2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-package-item">phpunit/phpunit@11.4.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-host-item">api.github.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-composer-lockfile-preview-host-item">repo.packagist.org"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">composer.lock"#))
+    }
+
+    func testHTMLRendererIncludesGoSumArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("go.sum")
+        try """
+        github.com/charmbracelet/lipgloss v1.1.0 h1:lipgloss
+        github.com/charmbracelet/lipgloss v1.1.0/go.mod h1:lipglossmod
+        golang.org/x/sys v0.34.0 h1:sys
+        golang.org/x/sys v0.34.0/go.mod h1:sysmod
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"go.sum"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote go.sum\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Go checksum artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · GOSUM"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">go.sum"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">Format: Go checksum database"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">2 modules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">4 checksums"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-meta">2 go.mod checksums"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-module-item">github.com/charmbracelet/lipgloss"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-module-item">golang.org/x/sys"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-host-item">github.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-sum-preview-host-item">golang.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">go.sum"#))
+    }
+
+    func testHTMLRendererIncludesPythonRequirementsArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("requirements.txt")
+        try """
+        --index-url https://pypi.org/simple
+        requests==2.32.3 --hash=sha256:abc
+        rich>=13.7,<14
+        uvicorn @ https://files.pythonhosted.org/packages/uvicorn.whl
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"requirements.txt"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote requirements.txt\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Python requirements artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · REQUIREMENTS"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">requirements.txt"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">Format: Python requirements"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">3 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 pinned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 ranged"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 option"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-meta">1 hash"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-package-item">requests==2.32.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-package-item">rich&gt;=13.7"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-package-item">uvicorn"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-host-item">pypi.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-python-requirements-preview-host-item">files.pythonhosted.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">requirements.txt"#))
+    }
+
+    func testHTMLRendererIncludesPoetryLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("poetry.lock")
+        try """
+        [[package]]
+        name = "requests"
+        version = "2.32.3"
+        optional = false
+        files = [{file = "requests-2.32.3.tar.gz", hash = "sha256:aaa"}]
+
+        [[package]]
+        name = "pytest"
+        version = "8.3.4"
+        category = "dev"
+        source = { type = "legacy", url = "https://packages.example.com/simple" }
+        files = [{file = "pytest-8.3.4.tar.gz", hash = "sha256:bbb"}]
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"poetry.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote poetry.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Poetry lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · POETRY-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">poetry.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">Format: Poetry lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">2 versioned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">1 dev package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-meta">2 hashes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-package-item">pytest@8.3.4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-package-item">requests@2.32.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-poetry-lock-preview-source-item">packages.example.com"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">poetry.lock"#))
+    }
+
+    func testHTMLRendererIncludesPipfileLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Pipfile.lock")
+        try """
+        {
+          "_meta": {
+            "hash": { "sha256": "abc" },
+            "pipfile-spec": 6,
+            "sources": [
+              { "name": "pypi", "url": "https://pypi.org/simple", "verify_ssl": true }
+            ]
+          },
+          "default": {
+            "requests": { "version": "==2.32.3", "hashes": ["sha256:aaa"] },
+            "uvicorn": { "version": "==0.35.0" }
+          },
+          "develop": {
+            "pytest": { "version": "==8.3.4", "hashes": ["sha256:bbb"] }
+          }
+        }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Pipfile.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Pipfile.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Pipfile lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · PIPFILE-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Pipfile.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">Format: Pipfile lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">3 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">2 default"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">1 develop"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">3 pinned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-meta">2 hashes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-package-item">pytest==8.3.4"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-package-item">requests==2.32.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-package-item">uvicorn==0.35.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pipfile-lock-preview-source-item">pypi.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Pipfile.lock"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesUVLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("uv.lock")
+        try """
+        version = 1
+        requires-python = ">=3.12"
+
+        [[package]]
+        name = "anyio"
+        version = "4.7.0"
+        source = { registry = "https://pypi.org/simple" }
+        dependencies = [
+            { name = "idna" },
+        ]
+        sdist = { url = "https://files.pythonhosted.org/packages/anyio.tar.gz", hash = "sha256:aaa" }
+
+        [[package]]
+        name = "idna"
+        version = "3.10"
+        source = { registry = "https://pypi.org/simple" }
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"uv.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote uv.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "uv lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · UV-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">uv.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">Format: uv lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">Python: &gt;=3.12"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">2 packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">2 versioned"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">1 dependency"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">2 sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-meta">1 hash"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-package-item">anyio@4.7.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-package-item">idna@3.10"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-source-item">pypi.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-uv-lock-preview-source-item">files.pythonhosted.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">uv.lock"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-toml-preview""#))
+    }
+
+    func testHTMLRendererIncludesGemfileLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Gemfile.lock")
+        try """
+        GEM
+          remote: https://rubygems.org/
+          specs:
+            actionpack (7.1.3)
+              actionview (= 7.1.3)
+            nokogiri (1.16.2-arm64-darwin)
+
+        PLATFORMS
+          arm64-darwin-23
+
+        DEPENDENCIES
+          rails (~> 7.1)
+
+        BUNDLED WITH
+           2.5.6
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Gemfile.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Gemfile.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "gemfile lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · GEMFILE-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Gemfile.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">Format: Bundler lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">Bundler: 2.5.6"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">2 gems"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">1 dependency"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">1 platform"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-package-item">actionpack@7.1.3"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-package-item">nokogiri@1.16.2-arm64-darwin"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-gemfile-lock-preview-source-item">rubygems.org"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Gemfile.lock"#))
+    }
+
+    func testHTMLRendererIncludesPodfileLockArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Podfile.lock")
+        try """
+        PODS:
+          - Alamofire (5.8.1)
+          - Firebase/Auth (10.24.0)
+
+        DEPENDENCIES:
+          - Alamofire (~> 5.8)
+
+        SPEC REPOS:
+          trunk:
+            - Alamofire
+
+        SPEC CHECKSUMS:
+          Alamofire: 1111111111111111111111111111111111111111
+
+        COCOAPODS: 1.15.2
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Podfile.lock"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Podfile.lock\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "podfile lock artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · PODFILE-LOCK"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Podfile.lock"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">Format: CocoaPods lockfile"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">CocoaPods: 1.15.2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">2 pods"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">1 dependency"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">1 source"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-meta">1 checksum"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-pod-item">Alamofire@5.8.1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-pod-item">Firebase/Auth@10.24.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-podfile-lock-preview-source-item">trunk"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">Podfile.lock"#))
+    }
+
     func testHTMLRendererIncludesCycloneDXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("bom.json")

@@ -73,8 +73,28 @@ struct QuillCodeArtifactDocumentPreview: View {
             jestJSONContent(jestJSONPreview)
         } else if let npmLockfilePreview = artifact.npmLockfilePreview {
             npmLockfileContent(npmLockfilePreview)
+        } else if let composerLockfilePreview = artifact.composerLockfilePreview {
+            composerLockfileContent(composerLockfilePreview)
+        } else if let goSumPreview = artifact.goSumPreview {
+            goSumContent(goSumPreview)
+        } else if let pythonRequirementsPreview = artifact.pythonRequirementsPreview {
+            pythonRequirementsContent(pythonRequirementsPreview)
+        } else if let poetryLockPreview = artifact.poetryLockPreview {
+            poetryLockContent(poetryLockPreview)
+        } else if let pipfileLockPreview = artifact.pipfileLockPreview {
+            pipfileLockContent(pipfileLockPreview)
+        } else if let uvLockPreview = artifact.uvLockPreview {
+            uvLockContent(uvLockPreview)
+        } else if let gemfileLockPreview = artifact.gemfileLockPreview {
+            gemfileLockContent(gemfileLockPreview)
+        } else if let podfileLockPreview = artifact.podfileLockPreview {
+            podfileLockContent(podfileLockPreview)
+        } else if let pnpmLockfilePreview = artifact.pnpmLockfilePreview {
+            pnpmLockfileContent(pnpmLockfilePreview)
         } else if let swiftPMPackageResolvedPreview = artifact.swiftPMPackageResolvedPreview {
             swiftPMPackageResolvedContent(swiftPMPackageResolvedPreview)
+        } else if let yarnLockfilePreview = artifact.yarnLockfilePreview {
+            yarnLockfileContent(yarnLockfilePreview)
         } else if let cargoLockPreview = artifact.cargoLockPreview {
             cargoLockContent(cargoLockPreview)
         } else if let cycloneDXPreview = artifact.cycloneDXPreview {
@@ -308,6 +328,162 @@ struct QuillCodeArtifactDocumentPreview: View {
         }
     }
 
+    private func composerLockfileContent(_ composerLockfilePreview: ToolArtifactComposerLockfilePreview) -> some View {
+        let hasLists = !composerLockfilePreview.packagePreviewLabels.isEmpty
+            || !composerLockfilePreview.resolvedHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(composerLockfilePreview.metadataLines)
+            artifactContentList(title: "Packages", labels: composerLockfilePreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: composerLockfilePreview.resolvedHostLabels)
+        }
+    }
+
+    private func goSumContent(_ goSumPreview: ToolArtifactGoSumPreview) -> some View {
+        let hasLists = !goSumPreview.modulePreviewLabels.isEmpty || !goSumPreview.sourceHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(goSumPreview.metadataLines)
+            artifactContentList(title: "Modules", labels: goSumPreview.modulePreviewLabels)
+            artifactContentList(title: "Sources", labels: goSumPreview.sourceHostLabels)
+        }
+    }
+
+    private func pythonRequirementsContent(
+        _ pythonRequirementsPreview: ToolArtifactPythonRequirementsPreview
+    ) -> some View {
+        let hasLists = !pythonRequirementsPreview.packagePreviewLabels.isEmpty
+            || !pythonRequirementsPreview.sourceHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pythonRequirementsPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: pythonRequirementsPreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: pythonRequirementsPreview.sourceHostLabels)
+        }
+    }
+
+    private func poetryLockContent(_ poetryLockPreview: ToolArtifactPoetryLockPreview) -> some View {
+        let hasLists = !poetryLockPreview.packagePreviewLabels.isEmpty
+            || !poetryLockPreview.sourcePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(poetryLockPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: poetryLockPreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: poetryLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func pipfileLockContent(_ pipfileLockPreview: ToolArtifactPipfileLockPreview) -> some View {
+        let hasLists = !pipfileLockPreview.packagePreviewLabels.isEmpty
+            || !pipfileLockPreview.sourcePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pipfileLockPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: pipfileLockPreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: pipfileLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func uvLockContent(_ uvLockPreview: ToolArtifactUVLockPreview) -> some View {
+        let hasLists = !uvLockPreview.packagePreviewLabels.isEmpty
+            || !uvLockPreview.sourcePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(uvLockPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: uvLockPreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: uvLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func gemfileLockContent(_ gemfileLockPreview: ToolArtifactGemfileLockPreview) -> some View {
+        let hasLists = !gemfileLockPreview.packagePreviewLabels.isEmpty
+            || !gemfileLockPreview.sourcePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(gemfileLockPreview.metadataLines)
+            artifactContentList(title: "Gems", labels: gemfileLockPreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: gemfileLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func podfileLockContent(_ podfileLockPreview: ToolArtifactPodfileLockPreview) -> some View {
+        let hasLists = !podfileLockPreview.podPreviewLabels.isEmpty
+            || !podfileLockPreview.sourcePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(podfileLockPreview.metadataLines)
+            artifactContentList(title: "Pods", labels: podfileLockPreview.podPreviewLabels)
+            artifactContentList(title: "Sources", labels: podfileLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func pnpmLockfileContent(_ pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview) -> some View {
+        let hasLists = !pnpmLockfilePreview.packagePreviewLabels.isEmpty
+            || !pnpmLockfilePreview.importerPreviewLabels.isEmpty
+            || !pnpmLockfilePreview.resolvedHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 176 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pnpmLockfilePreview.metadataLines)
+            artifactContentList(title: "Packages", labels: pnpmLockfilePreview.packagePreviewLabels)
+            artifactContentList(title: "Importers", labels: pnpmLockfilePreview.importerPreviewLabels)
+            artifactContentList(title: "Sources", labels: pnpmLockfilePreview.resolvedHostLabels)
+        }
+    }
+
     private func swiftPMPackageResolvedContent(
         _ swiftPMPackageResolvedPreview: ToolArtifactSwiftPMPackageResolvedPreview
     ) -> some View {
@@ -340,6 +516,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(cargoLockPreview.metadataLines)
             artifactContentList(title: "Packages", labels: cargoLockPreview.packagePreviewLabels)
             artifactContentList(title: "Sources", labels: cargoLockPreview.sourcePreviewLabels)
+        }
+    }
+
+    private func yarnLockfileContent(_ yarnLockfilePreview: ToolArtifactYarnLockfilePreview) -> some View {
+        let hasLists = !yarnLockfilePreview.packagePreviewLabels.isEmpty || !yarnLockfilePreview.resolvedHostLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shippingbox")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(yarnLockfilePreview.metadataLines)
+            artifactContentList(title: "Packages", labels: yarnLockfilePreview.packagePreviewLabels)
+            artifactContentList(title: "Sources", labels: yarnLockfilePreview.resolvedHostLabels)
         }
     }
 

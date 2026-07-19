@@ -144,6 +144,7 @@ enum ToolArtifactTextPreviewBuilder {
         "eslint.config.ts",
         "flake.nix",
         "gemfile",
+        "gemfile.lock",
         "go.mod",
         "go.sum",
         "justfile",
@@ -156,7 +157,9 @@ enum ToolArtifactTextPreviewBuilder {
         "package-lock.json",
         "package.json",
         "package.resolved",
+        "pipfile.lock",
         "podfile",
+        "podfile.lock",
         "poetry.lock",
         "procfile",
         "pyproject.toml",
@@ -176,7 +179,8 @@ enum ToolArtifactTextPreviewBuilder {
         "workspace",
         "workspace.bazel",
         "yarn.lock",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "uv.lock"
     ]
     private static let filenameLabels: [String: String] = [
         ".gitignore": "Git ignore",
@@ -203,6 +207,7 @@ enum ToolArtifactTextPreviewBuilder {
         "eslint.config.ts": "ESLint config",
         "flake.nix": "Nix flake",
         "gemfile": "Gemfile",
+        "gemfile.lock": "Bundler lockfile",
         "go.mod": "Go module",
         "go.sum": "Go checksum",
         "justfile": "Justfile",
@@ -215,7 +220,9 @@ enum ToolArtifactTextPreviewBuilder {
         "package-lock.json": "npm lockfile",
         "package.json": "npm package",
         "package.resolved": "SwiftPM resolved packages",
+        "pipfile.lock": "Pipfile lockfile",
         "podfile": "Podfile",
+        "podfile.lock": "CocoaPods lockfile",
         "poetry.lock": "Poetry lockfile",
         "procfile": "Procfile",
         "pyproject.toml": "Python project",
@@ -235,7 +242,8 @@ enum ToolArtifactTextPreviewBuilder {
         "workspace": "Bazel workspace",
         "workspace.bazel": "Bazel workspace",
         "yarn.lock": "Yarn lockfile",
-        "pnpm-lock.yaml": "pnpm lockfile"
+        "pnpm-lock.yaml": "pnpm lockfile",
+        "uv.lock": "uv lockfile"
     ]
     private static let extensions: Set<String> = [
         "astro",

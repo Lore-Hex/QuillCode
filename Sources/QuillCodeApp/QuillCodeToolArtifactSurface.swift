@@ -522,6 +522,513 @@ public struct ToolArtifactNPMLockfilePreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactComposerLockfilePreview: Codable, Sendable, Hashable {
+    public var pluginAPIVersion: String?
+    public var contentHashPrefix: String?
+    public var packageCount: Int
+    public var devPackageCount: Int
+    public var resolvedHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Composer lockfile",
+            pluginAPIVersion.map { "Plugin API: \($0)" },
+            contentHashPrefix.map { "Content hash: \($0)..." },
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            devPackageCount > 0 ? "\(devPackageCount) dev package\(devPackageCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || devPackageCount > 0
+            || !metadataLines.isEmpty
+            || !resolvedHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        pluginAPIVersion: String? = nil,
+        contentHashPrefix: String? = nil,
+        packageCount: Int,
+        devPackageCount: Int = 0,
+        resolvedHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.pluginAPIVersion = pluginAPIVersion
+        self.contentHashPrefix = contentHashPrefix
+        self.packageCount = packageCount
+        self.devPackageCount = devPackageCount
+        self.resolvedHostLabels = resolvedHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactGoSumPreview: Codable, Sendable, Hashable {
+    public var moduleCount: Int
+    public var versionCount: Int
+    public var checksumCount: Int
+    public var goModChecksumCount: Int
+    public var sourceHostLabels: [String]
+    public var modulePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Go checksum database",
+            "\(moduleCount) module\(moduleCount == 1 ? "" : "s")",
+            versionCount > 0 ? "\(versionCount) version\(versionCount == 1 ? "" : "s")" : nil,
+            "\(checksumCount) checksum\(checksumCount == 1 ? "" : "s")",
+            goModChecksumCount > 0 ? "\(goModChecksumCount) go.mod checksum\(goModChecksumCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        moduleCount > 0
+            || versionCount > 0
+            || checksumCount > 0
+            || goModChecksumCount > 0
+            || !metadataLines.isEmpty
+            || !sourceHostLabels.isEmpty
+            || !modulePreviewLabels.isEmpty
+    }
+
+    public init(
+        moduleCount: Int,
+        versionCount: Int = 0,
+        checksumCount: Int = 0,
+        goModChecksumCount: Int = 0,
+        sourceHostLabels: [String] = [],
+        modulePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.moduleCount = moduleCount
+        self.versionCount = versionCount
+        self.checksumCount = checksumCount
+        self.goModChecksumCount = goModChecksumCount
+        self.sourceHostLabels = sourceHostLabels
+        self.modulePreviewLabels = modulePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactPythonRequirementsPreview: Codable, Sendable, Hashable {
+    public var packageCount: Int
+    public var pinnedCount: Int
+    public var rangedCount: Int
+    public var editableCount: Int
+    public var includeCount: Int
+    public var optionCount: Int
+    public var hashCount: Int
+    public var sourceHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Python requirements",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            pinnedCount > 0 ? "\(pinnedCount) pinned" : nil,
+            rangedCount > 0 ? "\(rangedCount) ranged" : nil,
+            editableCount > 0 ? "\(editableCount) editable" : nil,
+            includeCount > 0 ? "\(includeCount) include\(includeCount == 1 ? "" : "s")" : nil,
+            optionCount > 0 ? "\(optionCount) option\(optionCount == 1 ? "" : "s")" : nil,
+            hashCount > 0 ? "\(hashCount) hash\(hashCount == 1 ? "" : "es")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || pinnedCount > 0
+            || rangedCount > 0
+            || editableCount > 0
+            || includeCount > 0
+            || optionCount > 0
+            || hashCount > 0
+            || !metadataLines.isEmpty
+            || !sourceHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        packageCount: Int,
+        pinnedCount: Int = 0,
+        rangedCount: Int = 0,
+        editableCount: Int = 0,
+        includeCount: Int = 0,
+        optionCount: Int = 0,
+        hashCount: Int = 0,
+        sourceHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.packageCount = packageCount
+        self.pinnedCount = pinnedCount
+        self.rangedCount = rangedCount
+        self.editableCount = editableCount
+        self.includeCount = includeCount
+        self.optionCount = optionCount
+        self.hashCount = hashCount
+        self.sourceHostLabels = sourceHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactPoetryLockPreview: Codable, Sendable, Hashable {
+    public var packageCount: Int
+    public var versionedPackageCount: Int
+    public var devPackageCount: Int
+    public var optionalPackageCount: Int
+    public var sourceCount: Int
+    public var hashCount: Int
+    public var sourcePreviewLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Poetry lockfile",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            versionedPackageCount > 0 ? "\(versionedPackageCount) versioned" : nil,
+            devPackageCount > 0 ? "\(devPackageCount) dev package\(devPackageCount == 1 ? "" : "s")" : nil,
+            optionalPackageCount > 0 ? "\(optionalPackageCount) optional package\(optionalPackageCount == 1 ? "" : "s")" : nil,
+            sourceCount > 0 ? "\(sourceCount) source\(sourceCount == 1 ? "" : "s")" : nil,
+            hashCount > 0 ? "\(hashCount) hash\(hashCount == 1 ? "" : "es")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || versionedPackageCount > 0
+            || devPackageCount > 0
+            || optionalPackageCount > 0
+            || sourceCount > 0
+            || hashCount > 0
+            || !metadataLines.isEmpty
+            || !sourcePreviewLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        packageCount: Int,
+        versionedPackageCount: Int = 0,
+        devPackageCount: Int = 0,
+        optionalPackageCount: Int = 0,
+        sourceCount: Int = 0,
+        hashCount: Int = 0,
+        sourcePreviewLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.packageCount = packageCount
+        self.versionedPackageCount = versionedPackageCount
+        self.devPackageCount = devPackageCount
+        self.optionalPackageCount = optionalPackageCount
+        self.sourceCount = sourceCount
+        self.hashCount = hashCount
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactPipfileLockPreview: Codable, Sendable, Hashable {
+    public var packageCount: Int
+    public var defaultPackageCount: Int
+    public var developPackageCount: Int
+    public var pinnedPackageCount: Int
+    public var editablePackageCount: Int
+    public var hashCount: Int
+    public var sourceCount: Int
+    public var sourcePreviewLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Pipfile lockfile",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            defaultPackageCount > 0 ? "\(defaultPackageCount) default" : nil,
+            developPackageCount > 0 ? "\(developPackageCount) develop" : nil,
+            pinnedPackageCount > 0 ? "\(pinnedPackageCount) pinned" : nil,
+            editablePackageCount > 0 ? "\(editablePackageCount) editable" : nil,
+            sourceCount > 0 ? "\(sourceCount) source\(sourceCount == 1 ? "" : "s")" : nil,
+            hashCount > 0 ? "\(hashCount) hash\(hashCount == 1 ? "" : "es")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || defaultPackageCount > 0
+            || developPackageCount > 0
+            || pinnedPackageCount > 0
+            || editablePackageCount > 0
+            || hashCount > 0
+            || sourceCount > 0
+            || !metadataLines.isEmpty
+            || !sourcePreviewLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        packageCount: Int,
+        defaultPackageCount: Int = 0,
+        developPackageCount: Int = 0,
+        pinnedPackageCount: Int = 0,
+        editablePackageCount: Int = 0,
+        hashCount: Int = 0,
+        sourceCount: Int = 0,
+        sourcePreviewLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.packageCount = packageCount
+        self.defaultPackageCount = defaultPackageCount
+        self.developPackageCount = developPackageCount
+        self.pinnedPackageCount = pinnedPackageCount
+        self.editablePackageCount = editablePackageCount
+        self.hashCount = hashCount
+        self.sourceCount = sourceCount
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactUVLockPreview: Codable, Sendable, Hashable {
+    public var pythonRequirement: String?
+    public var packageCount: Int
+    public var versionedPackageCount: Int
+    public var dependencyCount: Int
+    public var sourceCount: Int
+    public var hashCount: Int
+    public var sourcePreviewLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: uv lockfile",
+            pythonRequirement.map { "Python: \($0)" },
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            versionedPackageCount > 0 ? "\(versionedPackageCount) versioned" : nil,
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            sourceCount > 0 ? "\(sourceCount) source\(sourceCount == 1 ? "" : "s")" : nil,
+            hashCount > 0 ? "\(hashCount) hash\(hashCount == 1 ? "" : "es")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        pythonRequirement != nil
+            || packageCount > 0
+            || versionedPackageCount > 0
+            || dependencyCount > 0
+            || sourceCount > 0
+            || hashCount > 0
+            || !metadataLines.isEmpty
+            || !sourcePreviewLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        pythonRequirement: String? = nil,
+        packageCount: Int,
+        versionedPackageCount: Int = 0,
+        dependencyCount: Int = 0,
+        sourceCount: Int = 0,
+        hashCount: Int = 0,
+        sourcePreviewLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.pythonRequirement = pythonRequirement
+        self.packageCount = packageCount
+        self.versionedPackageCount = versionedPackageCount
+        self.dependencyCount = dependencyCount
+        self.sourceCount = sourceCount
+        self.hashCount = hashCount
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactGemfileLockPreview: Codable, Sendable, Hashable {
+    public var bundledWith: String?
+    public var packageCount: Int
+    public var dependencyCount: Int
+    public var platformCount: Int
+    public var sourceCount: Int
+    public var sourcePreviewLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Bundler lockfile",
+            bundledWith.map { "Bundler: \($0)" },
+            "\(packageCount) gem\(packageCount == 1 ? "" : "s")",
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            platformCount > 0 ? "\(platformCount) platform\(platformCount == 1 ? "" : "s")" : nil,
+            sourceCount > 0 ? "\(sourceCount) source\(sourceCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        bundledWith != nil
+            || packageCount > 0
+            || dependencyCount > 0
+            || platformCount > 0
+            || sourceCount > 0
+            || !metadataLines.isEmpty
+            || !sourcePreviewLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        bundledWith: String? = nil,
+        packageCount: Int,
+        dependencyCount: Int = 0,
+        platformCount: Int = 0,
+        sourceCount: Int = 0,
+        sourcePreviewLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.bundledWith = bundledWith
+        self.packageCount = packageCount
+        self.dependencyCount = dependencyCount
+        self.platformCount = platformCount
+        self.sourceCount = sourceCount
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactPodfileLockPreview: Codable, Sendable, Hashable {
+    public var cocoaPodsVersion: String?
+    public var podCount: Int
+    public var dependencyCount: Int
+    public var sourceCount: Int
+    public var checksumCount: Int
+    public var sourcePreviewLabels: [String]
+    public var podPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: CocoaPods lockfile",
+            cocoaPodsVersion.map { "CocoaPods: \($0)" },
+            "\(podCount) pod\(podCount == 1 ? "" : "s")",
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            sourceCount > 0 ? "\(sourceCount) source\(sourceCount == 1 ? "" : "s")" : nil,
+            checksumCount > 0 ? "\(checksumCount) checksum\(checksumCount == 1 ? "" : "s")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        cocoaPodsVersion != nil
+            || podCount > 0
+            || dependencyCount > 0
+            || sourceCount > 0
+            || checksumCount > 0
+            || !metadataLines.isEmpty
+            || !sourcePreviewLabels.isEmpty
+            || !podPreviewLabels.isEmpty
+    }
+
+    public init(
+        cocoaPodsVersion: String? = nil,
+        podCount: Int,
+        dependencyCount: Int = 0,
+        sourceCount: Int = 0,
+        checksumCount: Int = 0,
+        sourcePreviewLabels: [String] = [],
+        podPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.cocoaPodsVersion = cocoaPodsVersion
+        self.podCount = podCount
+        self.dependencyCount = dependencyCount
+        self.sourceCount = sourceCount
+        self.checksumCount = checksumCount
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.podPreviewLabels = podPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactPNPMLockfilePreview: Codable, Sendable, Hashable {
+    public var lockfileVersion: String?
+    public var importerCount: Int
+    public var packageCount: Int
+    public var dependencyCount: Int
+    public var integrityCount: Int
+    public var resolvedHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var importerPreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: pnpm lockfile",
+            lockfileVersion.map { "Lockfile: \($0)" },
+            "\(importerCount) importer\(importerCount == 1 ? "" : "s")",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            dependencyCount > 0 ? "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")" : nil,
+            integrityCount > 0 ? "\(integrityCount) integrit\(integrityCount == 1 ? "y" : "ies")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        importerCount > 0
+            || packageCount > 0
+            || dependencyCount > 0
+            || integrityCount > 0
+            || !metadataLines.isEmpty
+            || !resolvedHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+            || !importerPreviewLabels.isEmpty
+    }
+
+    public init(
+        lockfileVersion: String? = nil,
+        importerCount: Int = 0,
+        packageCount: Int,
+        dependencyCount: Int = 0,
+        integrityCount: Int = 0,
+        resolvedHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        importerPreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.lockfileVersion = lockfileVersion
+        self.importerCount = importerCount
+        self.packageCount = packageCount
+        self.dependencyCount = dependencyCount
+        self.integrityCount = integrityCount
+        self.resolvedHostLabels = resolvedHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
+        self.importerPreviewLabels = importerPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
 public struct ToolArtifactSwiftPMPackageResolvedPreview: Codable, Sendable, Hashable {
     public var schemaVersion: String?
     public var pinCount: Int
@@ -571,6 +1078,55 @@ public struct ToolArtifactSwiftPMPackageResolvedPreview: Codable, Sendable, Hash
         self.revisionOnlyPinCount = revisionOnlyPinCount
         self.sourceHostLabels = sourceHostLabels
         self.pinPreviewLabels = pinPreviewLabels
+        self.byteSizeLabel = byteSizeLabel
+    }
+}
+
+public struct ToolArtifactYarnLockfilePreview: Codable, Sendable, Hashable {
+    public var packageCount: Int
+    public var versionedPackageCount: Int
+    public var resolvedPackageCount: Int
+    public var integrityCount: Int
+    public var resolvedHostLabels: [String]
+    public var packagePreviewLabels: [String]
+    public var byteSizeLabel: String?
+
+    public var metadataLines: [String] {
+        [
+            "Format: Yarn lockfile",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            versionedPackageCount > 0 ? "\(versionedPackageCount) versioned" : nil,
+            resolvedPackageCount > 0 ? "\(resolvedPackageCount) resolved" : nil,
+            integrityCount > 0 ? "\(integrityCount) integrit\(integrityCount == 1 ? "y" : "ies")" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        packageCount > 0
+            || versionedPackageCount > 0
+            || resolvedPackageCount > 0
+            || integrityCount > 0
+            || !metadataLines.isEmpty
+            || !resolvedHostLabels.isEmpty
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        packageCount: Int,
+        versionedPackageCount: Int = 0,
+        resolvedPackageCount: Int = 0,
+        integrityCount: Int = 0,
+        resolvedHostLabels: [String] = [],
+        packagePreviewLabels: [String] = [],
+        byteSizeLabel: String? = nil
+    ) {
+        self.packageCount = packageCount
+        self.versionedPackageCount = versionedPackageCount
+        self.resolvedPackageCount = resolvedPackageCount
+        self.integrityCount = integrityCount
+        self.resolvedHostLabels = resolvedHostLabels
+        self.packagePreviewLabels = packagePreviewLabels
         self.byteSizeLabel = byteSizeLabel
     }
 }
@@ -2580,8 +3136,38 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
         ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: kind)
     }
+    public var composerLockfilePreview: ToolArtifactComposerLockfilePreview? {
+        ToolArtifactComposerLockfilePreviewBuilder.composerLockfilePreview(for: value, kind: kind)
+    }
+    public var goSumPreview: ToolArtifactGoSumPreview? {
+        ToolArtifactGoSumPreviewBuilder.goSumPreview(for: value, kind: kind)
+    }
+    public var pythonRequirementsPreview: ToolArtifactPythonRequirementsPreview? {
+        ToolArtifactPythonRequirementsPreviewBuilder.requirementsPreview(for: value, kind: kind)
+    }
+    public var poetryLockPreview: ToolArtifactPoetryLockPreview? {
+        ToolArtifactPoetryLockPreviewBuilder.poetryLockPreview(for: value, kind: kind)
+    }
+    public var pipfileLockPreview: ToolArtifactPipfileLockPreview? {
+        ToolArtifactPipfileLockPreviewBuilder.pipfileLockPreview(for: value, kind: kind)
+    }
+    public var uvLockPreview: ToolArtifactUVLockPreview? {
+        ToolArtifactUVLockPreviewBuilder.uvLockPreview(for: value, kind: kind)
+    }
+    public var gemfileLockPreview: ToolArtifactGemfileLockPreview? {
+        ToolArtifactGemfileLockPreviewBuilder.gemfileLockPreview(for: value, kind: kind)
+    }
+    public var podfileLockPreview: ToolArtifactPodfileLockPreview? {
+        ToolArtifactPodfileLockPreviewBuilder.podfileLockPreview(for: value, kind: kind)
+    }
+    public var pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview? {
+        ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: kind)
+    }
     public var swiftPMPackageResolvedPreview: ToolArtifactSwiftPMPackageResolvedPreview? {
         ToolArtifactSwiftPMPackageResolvedPreviewBuilder.packageResolvedPreview(for: value, kind: kind)
+    }
+    public var yarnLockfilePreview: ToolArtifactYarnLockfilePreview? {
+        ToolArtifactYarnLockfilePreviewBuilder.yarnLockfilePreview(for: value, kind: kind)
     }
     public var cargoLockPreview: ToolArtifactCargoLockPreview? {
         ToolArtifactCargoLockPreviewBuilder.cargoLockPreview(for: value, kind: kind)

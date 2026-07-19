@@ -2522,3 +2522,203 @@
   labels, source labels, non-`Cargo.lock` exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCargoLockArtifactPreview` covers static
   HTML selectors, rendered Cargo metadata, package/source lists, and text-preview coexistence.
+
+## 2026-07-19: yarn.lock artifacts render bounded package summaries
+
+- **Decision:** Local `yarn.lock` artifacts render as structured Yarn lockfile cards. The preview
+  shows package count, version/resolution/integrity counts, file size, capped package labels, and
+  capped resolved registry host labels. `yarn.lock` is classified as a data artifact through
+  filename-specific detection.
+- **Why:** JavaScript dependency changes often arrive as lockfile-only edits. A bounded package/source
+  summary lets users inspect the dependency impact without reading repetitive lockfile entries.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `yarn.lock`, and capped at 512 KB. It reads shallow Yarn v1/v2-style descriptor blocks for
+  `version`, `resolved`/`resolution`, `integrity`, and `checksum`, and never expands dependency graphs,
+  integrity/checksum payloads, package manifests, registry indexes, or remote tarballs.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesYarnLockfilePreviewMetadata`
+  covers filename-based document classification, package/version/resolution/integrity counts, package
+  labels, host labels, non-`yarn.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesYarnLockfileArtifactPreview` covers
+  static HTML selectors, rendered Yarn metadata, package/host lists, and text-preview coexistence.
+
+## 2026-07-19: pnpm-lock.yaml artifacts render bounded package summaries
+
+- **Decision:** Local `pnpm-lock.yaml` artifacts render as structured pnpm lockfile cards. The preview
+  shows lockfile version, importer/package/dependency/integrity counts, file size, capped importer
+  labels, capped package labels, and capped resolved registry host labels. `pnpm-lock.yaml` is
+  classified as a data artifact through filename-specific detection.
+- **Why:** pnpm monorepos often produce lockfiles with multiple importers and large package sections.
+  A bounded importer/package/source summary makes dependency changes scannable without opening a
+  repetitive YAML lockfile.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `pnpm-lock.yaml`, and capped at 512 KB. It validates `lockfileVersion`, reads shallow top-level
+  `importers` and `packages` mappings plus package `resolution.integrity` and `resolution.tarball`,
+  and never expands dependency graphs, integrity values, package manifests, registry indexes, or remote
+  tarballs. Generic YAML rendering is suppressed only after the pnpm lockfile shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPNPMLockfilePreviewMetadata`
+  covers filename-based document classification, lockfile version, importer/package/dependency/
+  integrity counts, package labels, host labels, non-`pnpm-lock.yaml` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPNPMLockfileArtifactPreview` covers
+  static HTML selectors, rendered pnpm metadata, package/importer/host lists, YAML-preview suppression,
+  and text-preview coexistence.
+
+## 2026-07-19: composer.lock artifacts render bounded package summaries
+
+- **Decision:** Local `composer.lock` artifacts render as structured Composer lockfile cards. The
+  preview shows plugin API version, content-hash prefix, package/dev-package counts, file size, capped
+  package labels, and capped source host labels. `composer.lock` is classified as a data artifact
+  through filename-specific detection.
+- **Why:** PHP dependency changes often produce large lockfile-only diffs. A bounded package/source
+  summary lets users inspect dependency impact without reading repetitive Composer lockfile JSON.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `composer.lock`, and capped at 512 KB. It reads shallow top-level `packages`, `packages-dev`,
+  `plugin-api-version`, and `content-hash`, plus package `name`, `version`, `source.url`, and
+  `dist.url`; it never expands autoload metadata, scripts, full hashes, package manifests, Packagist
+  metadata, source archives, or remote URLs. Generic JSON rendering is suppressed only after the
+  Composer lockfile shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesComposerLockfilePreviewMetadata`
+  covers filename-based document classification, plugin API, content-hash prefix, package/dev counts,
+  package labels, host labels, non-`composer.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesComposerLockfileArtifactPreview` covers
+  static HTML selectors, rendered Composer metadata, package/host lists, JSON-preview suppression, and
+  text-preview coexistence.
+
+## 2026-07-19: go.sum artifacts render bounded checksum summaries
+
+- **Decision:** Local `go.sum` artifacts render as structured Go checksum cards. The preview shows
+  module, version, checksum, and go.mod-checksum counts, file size, capped module labels, and capped
+  source host labels. `go.sum` is classified as a data artifact through filename-specific detection.
+- **Why:** Go dependency updates frequently produce checksum-only artifacts. Users need to see the
+  module and source shape without reading a repetitive checksum file or asking the model to summarize
+  it.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `go.sum`, and capped at 512 KB. It validates only the standard three-field `module version h1:...`
+  line shape, records bounded module/version/host labels, and never expands hashes, runs Go tooling,
+  contacts the Go checksum database, or fetches module sources.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesGoSumPreviewMetadata` covers
+  filename-based document classification, module/version/checksum/go.mod counts, module labels, host
+  labels, non-`go.sum` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesGoSumArtifactPreview` covers static HTML
+  selectors, rendered Go checksum metadata, module/host lists, and text-preview coexistence.
+
+## 2026-07-19: requirements.txt artifacts render bounded Python dependency summaries
+
+- **Decision:** Local `requirements.txt` and `requirements-*.txt` artifacts render as structured
+  Python requirements cards. The preview shows package, pinned/ranged/editable/include/option/hash
+  counts, file size, capped package labels, and capped source host labels. Matching requirements
+  filenames are classified as data artifacts through filename-specific detection.
+- **Why:** Python projects often expose dependency changes through requirements files rather than
+  lockfiles. A bounded package/source summary makes those artifacts scannable without asking the model
+  to read raw requirement lines.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `requirements.txt` and `requirements-*.txt`, and capped at 512 KB. It recognizes shallow pip
+  requirement forms, editable installs, include/constraint lines, index/find-links options, hashes,
+  environment markers, and direct URL host labels; it never runs pip, expands includes, validates
+  hashes, reads package metadata, contacts package indexes, or fetches distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPythonRequirementsPreviewMetadata`
+  covers filename-based document classification, package/pinned/ranged/editable/include/option/hash
+  counts, package labels, host labels, non-requirements exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPythonRequirementsArtifactPreview` covers
+  static HTML selectors, rendered Python requirements metadata, package/host lists, and text-preview
+  coexistence.
+
+## 2026-07-19: poetry.lock artifacts render bounded Python lockfile summaries
+
+- **Decision:** Local `poetry.lock` artifacts render as structured Poetry lockfile cards. The preview
+  shows package, versioned-package, dev-package, optional-package, source, and hash counts, file size,
+  capped package labels, and capped source labels. `poetry.lock` is classified as a data artifact
+  through filename-specific detection.
+- **Why:** Poetry lockfiles are common Python dependency artifacts. A bounded package/source/hash
+  summary gives the user useful dependency impact at a glance without asking the model to scan raw
+  lockfile text.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `poetry.lock`, and capped at 512 KB. It reads only shallow `[[package]]` sections and tracked scalar
+  or inline values for `name`, `version`, `category`, `groups`, `optional`, `source`, and `files`; it
+  never expands dependency tables, validates hashes, imports TOML package metadata, contacts package
+  indexes, or fetches distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPoetryLockPreviewMetadata`
+  covers filename-based document classification, package/version/dev/optional/source/hash counts,
+  package labels, source labels, non-`poetry.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPoetryLockArtifactPreview` covers static
+  HTML selectors, rendered Poetry metadata, package/source lists, and text-preview coexistence.
+
+## 2026-07-19: Pipfile.lock artifacts render bounded Python lockfile summaries
+
+- **Decision:** Local `Pipfile.lock` artifacts render as structured Pipfile lockfile cards. The
+  preview shows package, default-package, develop-package, pinned, editable, source, and hash counts,
+  file size, capped package labels, and capped source labels. `Pipfile.lock` is classified as a data
+  artifact through filename-specific detection.
+- **Why:** Pipenv projects expose dependency impact through `Pipfile.lock`; a bounded summary keeps
+  those artifacts scannable next to requirements and Poetry lockfiles without showing noisy raw JSON
+  first.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `Pipfile.lock`, and capped at 512 KB. It reads only `_meta.sources`, shallow `default` and `develop`
+  package maps, version/editable/hash/source fields, and URL hosts; it never expands dependency
+  graphs, validates hashes, reads package metadata, contacts package indexes, or fetches
+  distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPipfileLockPreviewMetadata`
+  covers filename-based document classification, default/develop/pinned/editable/source/hash counts,
+  package labels, source labels, non-`Pipfile.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPipfileLockArtifactPreview` covers
+  static HTML selectors, rendered Pipfile metadata, package/source lists, generic JSON suppression,
+  and text-preview coexistence.
+
+## 2026-07-19: uv.lock artifacts render bounded Python lockfile summaries
+
+- **Decision:** Local `uv.lock` artifacts render as structured uv lockfile cards. The preview shows
+  root Python requirement, package, versioned-package, dependency, source, and hash counts, file size,
+  capped package labels, and capped source labels. `uv.lock` is classified as a data artifact through
+  filename-specific detection.
+- **Why:** uv is increasingly common in Python projects, and coding-agent dependency changes often
+  produce `uv.lock` as the main review artifact. A bounded dependency/source/hash summary keeps the
+  impact visible without rendering raw TOML-like lockfile content first.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `uv.lock`, and capped at 512 KB. It reads only the root `requires-python`, shallow `[[package]]`
+  sections, package `name`/`version`, inline dependency entries, source URLs, and hash markers; it
+  never expands dependency graphs, validates hashes, reads package metadata, contacts package
+  indexes, or fetches distributions. Generic TOML rendering is suppressed only after the uv lockfile
+  shape validates.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesUVLockPreviewMetadata` covers
+  filename-based document classification, Python requirement, package/version/dependency/source/hash
+  counts, package labels, source labels, non-`uv.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesUVLockArtifactPreview` covers static
+  HTML selectors, rendered uv metadata, package/source lists, generic TOML suppression, and
+  text-preview coexistence.
+
+## 2026-07-19: Gemfile.lock artifacts render bounded Bundler summaries
+
+- **Decision:** Local `Gemfile.lock` artifacts render as structured Bundler lockfile cards. The
+  preview shows Bundler version, gem, dependency, platform, and source counts, file size, capped gem
+  labels, and capped source labels. `Gemfile.lock` is classified as a data artifact through
+  filename-specific detection.
+- **Why:** Ruby projects often expose dependency changes through `Gemfile.lock`; a bounded gem/source
+  summary keeps those artifacts scannable without forcing the user to inspect raw lockfile sections.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `Gemfile.lock`, and capped at 512 KB. It reads only shallow Bundler sections for `GEM`, `GIT`,
+  `PATH`, `PLATFORMS`, `DEPENDENCIES`, and `BUNDLED WITH`; it never expands dependency graphs,
+  validates checksums, reads gem metadata, contacts gem indexes, or fetches distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesGemfileLockPreviewMetadata`
+  covers filename-based document classification, Bundler version, gem/dependency/platform/source
+  counts, gem labels, source labels, non-`Gemfile.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesGemfileLockArtifactPreview` covers
+  static HTML selectors, rendered Bundler metadata, gem/source lists, and text-preview coexistence.
+
+## 2026-07-19: Podfile.lock artifacts render bounded CocoaPods summaries
+
+- **Decision:** Local `Podfile.lock` artifacts render as structured CocoaPods lockfile cards. The
+  preview shows CocoaPods version, pod, dependency, source, and checksum counts, file size, capped
+  pod labels, and capped source labels. `Podfile.lock` is classified as a data artifact through
+  filename-specific detection.
+- **Why:** iOS and Apple-platform projects commonly expose dependency changes through
+  `Podfile.lock`; a bounded pod/source summary keeps those artifacts scannable without opening a
+  long generated file.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, filename-gated to
+  `Podfile.lock`, and capped at 512 KB. It reads only shallow CocoaPods sections for `PODS`,
+  `DEPENDENCIES`, `SPEC REPOS`, `EXTERNAL SOURCES`, `CHECKOUT OPTIONS`, `SPEC CHECKSUMS`, and
+  `COCOAPODS`; it never runs CocoaPods, expands dependency graphs, validates checksums, reads
+  podspecs, contacts spec repos, or fetches distributions.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPodfileLockPreviewMetadata`
+  covers filename-based document classification, CocoaPods version, pod/dependency/source/checksum
+  counts, pod labels, source labels, non-`Podfile.lock` exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPodfileLockArtifactPreview` covers
+  static HTML selectors, rendered CocoaPods metadata, pod/source lists, and text-preview coexistence.

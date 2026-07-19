@@ -96,10 +96,49 @@
   lockfile version, root package, package/dependency/dev/optional counts, file size, capped package
   labels, and capped resolved registry hosts without expanding integrity hashes, package scripts, or
   fetching remote tarballs.
+- Artifact previews now include bounded local Composer lockfile metadata for `composer.lock` files:
+  plugin API version, content-hash prefix, package/dev-package counts, file size, capped package
+  labels, and capped source hosts without expanding install scripts, autoload metadata, full hashes,
+  or fetching Packagist/source archives.
+- Artifact previews now include bounded local Go checksum metadata for `go.sum` files: module,
+  version, checksum, and go.mod-checksum counts, file size, capped module labels, and capped source
+  hosts without validating hashes through the Go checksum database or fetching module sources.
+- Artifact previews now include bounded local Python requirements metadata for `requirements.txt`
+  and `requirements-*.txt` files: package, pinned/ranged/editable/include/option/hash counts, file
+  size, capped package labels, and capped source hosts without running pip, validating hashes,
+  expanding requirement includes, or fetching package indexes.
+- Artifact previews now include bounded local Poetry lockfile metadata for `poetry.lock` files:
+  package/version/dev/optional/source/hash counts, file size, capped package labels, and capped
+  source labels without expanding dependency tables, validating hashes, reading package metadata, or
+  fetching package indexes/distributions.
+- Artifact previews now include bounded local Pipfile lockfile metadata for `Pipfile.lock` files:
+  default/develop/pinned/editable/source/hash counts, file size, capped package labels, and capped
+  source labels without expanding dependency graphs, validating hashes, reading package metadata, or
+  fetching package indexes/distributions.
+- Artifact previews now include bounded local uv lockfile metadata for `uv.lock` files:
+  Python requirement, package/version/dependency/source/hash counts, file size, capped package labels,
+  and capped source labels without expanding dependency graphs, validating hashes, reading package
+  metadata, or fetching package indexes/distributions.
+- Artifact previews now include bounded local Bundler lockfile metadata for `Gemfile.lock` files:
+  Bundler version, gem/dependency/platform/source counts, file size, capped gem labels, and capped
+  source labels without expanding dependency graphs, validating checksums, reading gem metadata, or
+  fetching gem indexes/distributions.
+- Artifact previews now include bounded local CocoaPods lockfile metadata for `Podfile.lock` files:
+  CocoaPods version, pod/dependency/source/checksum counts, file size, capped pod labels, and capped
+  source labels without expanding dependency graphs, validating checksums, reading podspecs, or
+  fetching spec repos/distributions.
+- Artifact previews now include bounded local pnpm lockfile metadata for `pnpm-lock.yaml` files:
+  lockfile version, importer/package/dependency/integrity counts, file size, capped importer labels,
+  capped package labels, and capped resolved registry hosts without expanding dependency graphs,
+  integrity values, package manifests, registry indexes, or fetching remote tarballs.
 - Artifact previews now include bounded local SwiftPM resolved-package metadata for `Package.resolved`
   files: schema version, pin/version/branch/revision-only counts, file size, capped pin labels, and
   capped source hosts without expanding full revisions, dependency source bodies, or fetching remote
   repositories.
+- Artifact previews now include bounded local Yarn lockfile metadata for `yarn.lock` files:
+  package/version/resolution/integrity counts, file size, capped package labels, and capped registry
+  host labels without expanding dependency graphs, integrity/checksum values, package manifests, or
+  fetching remote registries/tarballs.
 - Artifact previews now include bounded local Cargo lockfile metadata for `Cargo.lock` files:
   package/version/source/checksum counts, file size, capped package labels, and capped source labels
   without expanding dependency arrays, full checksums, manifests, crates, or fetching remote
