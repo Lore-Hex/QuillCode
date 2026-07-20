@@ -2006,6 +2006,73 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesPlaywrightJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("playwright-results.json")
+        let reportText = """
+        {
+          "config": {"rootDir": "/repo"},
+          "stats": {"expected": 2, "skipped": 1, "unexpected": 1, "flaky": 0, "duration": 2500},
+          "suites": [
+            {
+              "title": "webkit",
+              "specs": [
+                {
+                  "title": "opens inbox",
+                  "ok": true,
+                  "tests": [{"results": [{"status": "passed", "duration": 120}]}]
+                },
+                {
+                  "title": "uploads attachment",
+                  "ok": false,
+                  "tests": [{"results": [{"status": "timedOut", "duration": 30000}]}]
+                }
+              ]
+            }
+          ],
+          "errors": []
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/playwright-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/playwright-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Playwright artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">playwright-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-meta">Format: Playwright JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-meta">Runtime: 2.50s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-meta">4 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-meta">Unexpected: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-failure-item">webkit &gt; uploads attachment"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesMochaJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

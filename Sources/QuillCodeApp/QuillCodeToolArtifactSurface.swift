@@ -1748,6 +1748,64 @@ public struct ToolArtifactJestJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPlaywrightJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var totalTestCount: Int?
+    public var expectedTestCount: Int?
+    public var unexpectedTestCount: Int?
+    public var flakyTestCount: Int?
+    public var skippedTestCount: Int?
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            durationLabel.map { "Runtime: \($0)" },
+            totalTestCount.map { "\($0) test\($0 == 1 ? "" : "s")" },
+            expectedTestCount.map { "Expected: \($0)" },
+            unexpectedTestCount.map { "Unexpected: \($0)" },
+            flakyTestCount.map { "Flaky: \($0)" },
+            skippedTestCount.map { "Skipped: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        totalTestCount != nil
+            || expectedTestCount != nil
+            || unexpectedTestCount != nil
+            || flakyTestCount != nil
+            || skippedTestCount != nil
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Playwright JSON",
+        totalTestCount: Int? = nil,
+        expectedTestCount: Int? = nil,
+        unexpectedTestCount: Int? = nil,
+        flakyTestCount: Int? = nil,
+        skippedTestCount: Int? = nil,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.totalTestCount = totalTestCount
+        self.expectedTestCount = expectedTestCount
+        self.unexpectedTestCount = unexpectedTestCount
+        self.flakyTestCount = flakyTestCount
+        self.skippedTestCount = skippedTestCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactMochaJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var totalTestCount: Int?
@@ -4627,6 +4685,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               banditJSONPreview == nil,
               semgrepJSONPreview == nil,
               codeClimateJSONPreview == nil,
+              playwrightJSONPreview == nil,
               mochaJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
@@ -4693,6 +4752,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jestJSONPreview: ToolArtifactJestJSONPreview? {
         ToolArtifactJestJSONPreviewBuilder.jestJSONPreview(for: value, kind: kind)
+    }
+    public var playwrightJSONPreview: ToolArtifactPlaywrightJSONPreview? {
+        ToolArtifactPlaywrightJSONPreviewBuilder.playwrightJSONPreview(for: value, kind: kind)
     }
     public var mochaJSONPreview: ToolArtifactMochaJSONPreview? {
         ToolArtifactMochaJSONPreviewBuilder.mochaJSONPreview(for: value, kind: kind)

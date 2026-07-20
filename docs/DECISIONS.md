@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Playwright JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Playwright JSON reporter output
+  as browser/E2E test reports rather than generic JSON.
+- **Rationale:** Playwright is a common way Codex-style coding sessions verify UI behavior. Showing
+  expected/unexpected/flaky/skipped counts, runtime, and capped failing spec labels gives useful
+  feedback without opening raw reporter JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read
+  Playwright config or source files, expand error stacks, run browsers, resolve traces/videos, or
+  fetch remote reports.
+
 ## 2026-07-19: Render Mocha JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as Mocha JSON reporter output as
