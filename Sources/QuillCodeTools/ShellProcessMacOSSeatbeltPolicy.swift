@@ -1,4 +1,4 @@
-enum AppServerMacOSSeatbeltPolicy {
+enum ShellProcessMacOSSeatbeltPolicy {
     // Derived from OpenAI Codex 0.142.5's seatbelt_base_policy.sbpl.
     // Copyright OpenAI; used under the Apache License 2.0.
     static let base = #"""

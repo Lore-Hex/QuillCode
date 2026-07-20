@@ -8,6 +8,7 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
     }
 
     private let request: ShellExecutionRequest
+    private let sandboxPolicy: ShellProcessSandboxPolicy?
     private let continuation: AsyncStream<ShellProcessEvent>.Continuation
     private let lock = NSLock()
     private var process: Process?
@@ -20,9 +21,11 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
 
     init(
         request: ShellExecutionRequest,
+        sandboxPolicy: ShellProcessSandboxPolicy?,
         continuation: AsyncStream<ShellProcessEvent>.Continuation
     ) {
         self.request = request
+        self.sandboxPolicy = sandboxPolicy
         self.continuation = continuation
     }
 
@@ -87,9 +90,30 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
             return
         }
 
+        let launch: ShellProcessLaunch
+        do {
+            launch = try ShellProcessSandbox.launch(
+                executable: request.shellExecutableURL,
+                arguments: ["-lc", trimmed],
+                cwd: request.cwd,
+                environment: request.environment ?? ProcessInfo.processInfo.environment,
+                policy: sandboxPolicy
+            )
+        } catch {
+            finish(
+                stdout: "",
+                stderr: "",
+                exitCode: nil,
+                ok: false,
+                error: "Failed to configure shell sandbox: \(error.localizedDescription)",
+                failureKind: .sandboxUnavailable
+            )
+            return
+        }
+
         let process = Process()
-        process.executableURL = request.shellExecutableURL
-        process.arguments = ["-lc", trimmed]
+        process.executableURL = launch.executable
+        process.arguments = launch.arguments
         process.currentDirectoryURL = request.cwd
         process.environment = request.environment
 
@@ -140,7 +164,7 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
 
         process.waitUntilExit()
         readers.wait()
-        finish(process: process)
+        finish(process: process, launch: launch)
     }
 
     private func startReader(_ pipe: Pipe, stream: OutputStream, readers: DispatchGroup) {
@@ -189,7 +213,7 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         activeProcess?.terminate()
     }
 
-    private func finish(process: Process) {
+    private func finish(process: Process, launch: ShellProcessLaunch) {
         let out: String
         let err: String
         let cancelled: Bool
@@ -217,12 +241,21 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         }
 
         let ok = process.terminationStatus == 0
+        let sandboxDenied = ShellProcessSandbox.isLikelyDenial(
+            launch: launch,
+            exitCode: process.terminationStatus,
+            stdout: out,
+            stderr: err
+        )
         finish(
             stdout: out,
             stderr: err,
             exitCode: process.terminationStatus,
             ok: ok,
-            error: ok ? nil : "Command failed with exit code \(process.terminationStatus)."
+            error: sandboxDenied
+                ? "Command was blocked by the process sandbox."
+                : (ok ? nil : "Command failed with exit code \(process.terminationStatus)."),
+            failureKind: sandboxDenied ? .sandboxDenied : nil
         )
     }
 
@@ -241,7 +274,8 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         stderr: String,
         exitCode: Int32?,
         ok: Bool,
-        error: String?
+        error: String?,
+        failureKind: ToolFailureKind? = nil
     ) {
         lock.lock()
         guard !didFinish else {
@@ -265,7 +299,8 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
             stdout: stdout,
             stderr: stderr,
             exitCode: exitCode,
-            error: error
+            error: error,
+            failureKind: failureKind
         )))
         continuation.finish()
     }
