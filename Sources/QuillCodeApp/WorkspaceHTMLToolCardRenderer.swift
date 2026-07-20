@@ -238,6 +238,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let npmAuditJSONPreview = renderNPMAuditJSONPreview(npmAuditJSONPreviewModel)
             let cargoAuditJSONPreviewModel = artifact.cargoAuditJSONPreview
             let cargoAuditJSONPreview = renderCargoAuditJSONPreview(cargoAuditJSONPreviewModel)
+            let pipAuditJSONPreviewModel = artifact.pipAuditJSONPreview
+            let pipAuditJSONPreview = renderPipAuditJSONPreview(pipAuditJSONPreviewModel)
             let eslintJSONPreviewModel = artifact.eslintJSONPreview
             let eslintJSONPreview = renderESLintJSONPreview(eslintJSONPreviewModel)
             let stylelintJSONPreviewModel = artifact.stylelintJSONPreview
@@ -370,6 +372,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && hyperfineJSONPreviewModel == nil
                 && npmAuditJSONPreviewModel == nil
                 && cargoAuditJSONPreviewModel == nil
+                && pipAuditJSONPreviewModel == nil
                 && eslintJSONPreviewModel == nil
                 && stylelintJSONPreviewModel == nil
                 && swiftLintJSONPreviewModel == nil
@@ -429,6 +432,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(hyperfineJSONPreview)
               \(npmAuditJSONPreview)
               \(cargoAuditJSONPreview)
+              \(pipAuditJSONPreview)
               \(eslintJSONPreview)
               \(stylelintJSONPreview)
               \(swiftLintJSONPreview)
@@ -1181,6 +1185,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(packageList)
           \(advisoryList)
+        </div>
+        """
+    }
+
+    private static func renderPipAuditJSONPreview(_ preview: ToolArtifactPipAuditJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-pip-audit-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let packages = preview.packagePreviewLabels.map {
+            #"<li data-testid="tool-card-pip-audit-json-preview-package-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let packageList = packages.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pip-audit-json-preview-packages">
+                <strong data-testid="tool-card-pip-audit-json-preview-package-title">Packages</strong>
+                <ul>\(packages)</ul>
+              </section>
+        """
+        let vulnerabilities = preview.vulnerabilityPreviewLabels.map {
+            #"<li data-testid="tool-card-pip-audit-json-preview-vulnerability-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let vulnerabilityList = vulnerabilities.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-pip-audit-json-preview-vulnerabilities">
+                <strong data-testid="tool-card-pip-audit-json-preview-vulnerability-title">Vulnerabilities</strong>
+                <ul>\(vulnerabilities)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !packageList.isEmpty || !vulnerabilityList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-pip-audit-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(packageList)
+          \(vulnerabilityList)
         </div>
         """
     }

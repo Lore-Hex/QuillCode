@@ -456,3 +456,7 @@
 - Artifact parity now includes bounded cargo audit JSON cards for Rust dependency security work. Local
   `cargo audit --json` reports render vulnerability counts, yanked/unmaintained warning counts,
   package labels, and RustSec advisory labels while suppressing duplicate generic JSON previews.
+- Artifact parity now includes bounded pip-audit JSON cards for Python dependency security work.
+  Local `pip-audit --format json` reports render dependency, vulnerable package, vulnerability, and
+  fixable counts plus capped package/vulnerability labels while suppressing duplicate generic JSON
+  previews.
