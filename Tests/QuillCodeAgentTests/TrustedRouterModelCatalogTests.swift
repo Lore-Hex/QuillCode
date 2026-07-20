@@ -174,6 +174,14 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
                     Data(#"{"error":{"message":"route not found"}}"#.utf8)
                 )
             }
+            // The control-plane JSON endpoint is tried before the HTML page; failing it here
+            // exercises the full chain down to the scrape.
+            if request.url?.absoluteString == "https://trustedrouter.com/v1/models" {
+                return (
+                    HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"error":"unavailable"}"#.utf8)
+                )
+            }
             XCTAssertEqual(request.url?.absoluteString, "https://trustedrouter.com/models")
             return (
                 HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
@@ -251,6 +259,44 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
             catalog.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id),
             TrustedRouterDefaults.recommendedModelIDs
         )
+    }
+
+    /// The live failure end-to-end: the attested inference plane 404s `/models`, and the
+    /// control-plane JSON catalog (which the fetch now tries before the HTML scrape) serves the
+    /// full catalog with nested privacy tiers — so a confidential chat finally sees tier-3 models.
+    func testCatalogFetchFallsBackToControlPlaneJSONWithPrivacyTiers() async throws {
+        ModelCatalogURLProtocol.handler = { request in
+            if request.url?.host == "api.trustedrouter.test" {
+                return (
+                    HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"error":{"message":"route not found","source":"router","status":404}}"#.utf8)
+                )
+            }
+            XCTAssertEqual(request.url?.absoluteString, "https://trustedrouter.com/v1/models")
+            return (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data(#"""
+                {"data":[
+                  {"id":"trustedrouter/socrates","name":"Socrates",
+                   "trustedrouter":{"provider":"trustedrouter","privacy_tier":3}},
+                  {"id":"z-ai/glm-4.5","name":"GLM 4.5",
+                   "trustedrouter":{"provider":"zai","privacy_tier":0}}
+                ]}
+                """#.utf8)
+            )
+        }
+        let client = TrustedRouterModelCatalogClient(
+            apiKey: "sk-test",
+            baseURL: "https://api.trustedrouter.test/v1",
+            urlSession: ModelCatalogURLProtocol.session()
+        )
+
+        let catalog = try await client.fetch()
+
+        XCTAssertEqual(catalog.status.source, .publicTrustedRouter)
+        XCTAssertTrue(catalog.status.failureMessage?.contains("Authenticated JSON catalog failed") == true)
+        XCTAssertTrue(TrustedRouterDefaults.isE2EEligible("trustedrouter/socrates", catalog: catalog.models))
+        XCTAssertFalse(TrustedRouterDefaults.isE2EEligible("z-ai/glm-4.5", catalog: catalog.models))
     }
 
     /// The live catalog nests `privacy_tier` under the `trustedrouter` object (the exact shape
