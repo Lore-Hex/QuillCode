@@ -2341,6 +2341,68 @@ public struct ToolArtifactPyrightJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPHPStanJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var errorCount: Int
+    public var fileCount: Int
+    public var identifierCount: Int
+    public var generalErrorCount: Int
+    public var ignorableCount: Int
+    public var nonIgnorableCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var identifierPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(errorCount) error\(errorCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(identifierCount) identifier\(identifierCount == 1 ? "" : "s")",
+            generalErrorCount > 0 ? "General errors: \(generalErrorCount)" : nil,
+            ignorableCount > 0 ? "Ignorable: \(ignorableCount)" : nil,
+            nonIgnorableCount > 0 ? "Non-ignorable: \(nonIgnorableCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        errorCount > 0
+            || fileCount > 0
+            || identifierCount > 0
+            || generalErrorCount > 0
+            || ignorableCount > 0
+            || nonIgnorableCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !identifierPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "PHPStan JSON",
+        errorCount: Int,
+        fileCount: Int,
+        identifierCount: Int,
+        generalErrorCount: Int = 0,
+        ignorableCount: Int = 0,
+        nonIgnorableCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        identifierPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.errorCount = errorCount
+        self.fileCount = fileCount
+        self.identifierCount = identifierCount
+        self.generalErrorCount = generalErrorCount
+        self.ignorableCount = ignorableCount
+        self.nonIgnorableCount = nonIgnorableCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.identifierPreviewLabels = identifierPreviewLabels
+    }
+}
+
 public struct ToolArtifactBanditJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var issueCount: Int
@@ -4359,6 +4421,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               pylintJSONPreview == nil,
               mypyJSONPreview == nil,
               pyrightJSONPreview == nil,
+              phpstanJSONPreview == nil,
               banditJSONPreview == nil,
               semgrepJSONPreview == nil,
               codeClimateJSONPreview == nil
@@ -4454,6 +4517,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var pyrightJSONPreview: ToolArtifactPyrightJSONPreview? {
         ToolArtifactPyrightJSONPreviewBuilder.pyrightJSONPreview(for: value, kind: kind)
+    }
+    public var phpstanJSONPreview: ToolArtifactPHPStanJSONPreview? {
+        ToolArtifactPHPStanJSONPreviewBuilder.phpstanJSONPreview(for: value, kind: kind)
     }
     public var banditJSONPreview: ToolArtifactBanditJSONPreview? {
         ToolArtifactBanditJSONPreviewBuilder.banditJSONPreview(for: value, kind: kind)

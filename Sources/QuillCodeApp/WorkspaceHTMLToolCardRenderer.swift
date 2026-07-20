@@ -238,6 +238,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let mypyJSONPreview = renderMypyJSONPreview(mypyJSONPreviewModel)
             let pyrightJSONPreviewModel = artifact.pyrightJSONPreview
             let pyrightJSONPreview = renderPyrightJSONPreview(pyrightJSONPreviewModel)
+            let phpstanJSONPreviewModel = artifact.phpstanJSONPreview
+            let phpstanJSONPreview = renderPHPStanJSONPreview(phpstanJSONPreviewModel)
             let banditJSONPreviewModel = artifact.banditJSONPreview
             let banditJSONPreview = renderBanditJSONPreview(banditJSONPreviewModel)
             let semgrepJSONPreviewModel = artifact.semgrepJSONPreview
@@ -338,6 +340,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && pylintJSONPreviewModel == nil
                 && mypyJSONPreviewModel == nil
                 && pyrightJSONPreviewModel == nil
+                && phpstanJSONPreviewModel == nil
                 && banditJSONPreviewModel == nil
                 && semgrepJSONPreviewModel == nil
                 && codeClimateJSONPreviewModel == nil
@@ -386,6 +389,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(pylintJSONPreview)
               \(mypyJSONPreview)
               \(pyrightJSONPreview)
+              \(phpstanJSONPreview)
               \(banditJSONPreview)
               \(semgrepJSONPreview)
               \(codeClimateJSONPreview)
@@ -1171,6 +1175,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(fileList)
           \(ruleList)
+        </div>
+        """
+    }
+
+    private static func renderPHPStanJSONPreview(_ preview: ToolArtifactPHPStanJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-phpstan-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-phpstan-json-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-phpstan-json-preview-files">
+                <strong data-testid="tool-card-phpstan-json-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let identifiers = preview.identifierPreviewLabels.map {
+            #"<li data-testid="tool-card-phpstan-json-preview-identifier-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let identifierList = identifiers.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-phpstan-json-preview-identifiers">
+                <strong data-testid="tool-card-phpstan-json-preview-identifier-title">Identifiers</strong>
+                <ul>\(identifiers)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !identifierList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-phpstan-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+          \(identifierList)
         </div>
         """
     }

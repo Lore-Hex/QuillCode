@@ -2636,6 +2636,85 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesPHPStanJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("phpstan-results.json")
+        let reportText = """
+        {
+          "totals": {"errors": 0, "file_errors": 2},
+          "files": {
+            "/repo/src/Controller/HomeController.php": {
+              "errors": 1,
+              "messages": [
+                {
+                  "message": "Method should return Response but returns string.",
+                  "line": 12,
+                  "ignorable": true,
+                  "identifier": "return.type"
+                }
+              ]
+            },
+            "/repo/src/Entity/User.php": {
+              "errors": 1,
+              "messages": [
+                {
+                  "message": "Access to an undefined property.",
+                  "line": 18,
+                  "ignorable": false,
+                  "identifier": "property.notFound"
+                }
+              ]
+            }
+          },
+          "errors": []
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/phpstan-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/phpstan-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "PHPStan artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">phpstan-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">Format: PHPStan JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">2 errors"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">2 identifiers"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">Ignorable: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">Non-ignorable: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-file-item">src/Controller/HomeController.php"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-file-item">src/Entity/User.php"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-identifier-title">Identifiers"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-identifier-item">return.type"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-identifier-item">property.notFound"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesBanditJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
