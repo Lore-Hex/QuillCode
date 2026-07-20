@@ -362,6 +362,18 @@ QuillCode tracks Codex workflow parity without copying private implementation or
   shell mutation could duplicate work. Source: current official Codex manual, Remote projects and
   App server transport/security sections, audited 2026-07-16.
 
+- Codex 0.144.5 implements `on-failure` as a two-attempt orchestration contract, not as a
+  pre-execution review mode. The first attempt uses the selected sandbox. Only a typed
+  `SandboxErr::Denied` may request approval and retry with an escalated sandbox strategy; normal
+  command failures are returned directly. Its denial classifier requires an active sandbox, a
+  nonzero result, excludes quick command-reject exits 126/127, and recognizes concrete sandbox
+  output such as `Operation not permitted` or `Read-only file system` (plus platform signals such as
+  Linux `SIGSYS`). Retry policy also refuses to remove filesystem deny-read restrictions. QuillCode
+  mirrors the observable MCP behavior with Seatbelt/bubblewrap, typed tool failure kinds, one
+  approval-gated retry, and workspace-bounded CWD validation. Sources: public `openai/codex`
+  `core/src/tools/orchestrator.rs`, `core/src/tools/sandboxing.rs`, `core/src/exec.rs`, and
+  `core/src/exec_tests.rs`, audited 2026-07-20.
+
 ## Product Translation
 
 - QuillCode should feel like a fast native coding workspace.

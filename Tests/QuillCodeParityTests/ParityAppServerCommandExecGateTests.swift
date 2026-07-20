@@ -14,6 +14,10 @@ final class ParityAppServerCommandExecGateTests: QuillCodeParityTestCase {
             "Sources/QuillCodeCLI/AppServerManagedProcessEnvironment.swift"
         )
         let sandbox = try text(root, "Sources/QuillCodeCLI/AppServerProcessSandbox.swift")
+        let sharedSandbox = try text(
+            root,
+            "Sources/QuillCodeTools/ShellProcessSandbox.swift"
+        )
         let tests = try text(root, "Tests/QuillCodeCLITests/AppServerCommandExecTests.swift")
         let processTests = try text(root, "Tests/QuillCodeCLITests/AppServerProcessTests.swift")
         let smoke = try text(root, "scripts/app-server-smoke.sh")
@@ -51,9 +55,14 @@ final class ParityAppServerCommandExecGateTests: QuillCodeParityTestCase {
             "no_proxy"
         ])
         Self.assertSource(sandbox, containsAll: [
+            "ShellProcessSandboxPolicy",
+            "ShellProcessSandbox.launch",
+            "ShellProcessSandbox.filesystemAliases"
+        ])
+        Self.assertSource(sharedSandbox, containsAll: [
             "/usr/bin/sandbox-exec",
             "bwrap",
-            "no supported sandbox runtime is available",
+            "No supported process sandbox is available on this host.",
             "filesystemAliases"
         ])
         Self.assertSource(tests, containsAll: [

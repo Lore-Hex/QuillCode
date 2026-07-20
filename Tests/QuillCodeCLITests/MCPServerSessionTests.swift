@@ -210,6 +210,191 @@ final class MCPServerSessionTests: XCTestCase {
         await fixture.finish()
     }
 
+    func testOnFailureApprovesExactlyOneUnsandboxedRetryAfterSandboxDenial() async throws {
+        guard FileManager.default.isExecutableFile(atPath: "/usr/bin/sandbox-exec") else {
+            throw XCTSkip("This integration test requires macOS Seatbelt.")
+        }
+        let outside = try packageScratchDirectory()
+        let marker = outside.appendingPathComponent("approved-retry.txt")
+        let command = "printf retry >> \(shellQuote(marker.path))"
+        let llm = MCPTestScriptedLLM(actions: [
+            .tool(ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": command])
+            )),
+            .say("Command completed.")
+        ])
+        let fixture = try makeFixture(
+            llm: llm,
+            safety: MCPTestApprovingSafetyReviewer()
+        )
+        try await fixture.initialize()
+        try await fixture.callTool(
+            id: .string("on-failure-approved"),
+            name: "codex",
+            arguments: .object([
+                "prompt": .string("Run the supplied command."),
+                "cwd": .string(fixture.workspace.path),
+                "approval-policy": .string("on-failure"),
+                "sandbox": .string("workspace-write")
+            ])
+        )
+
+        let approval = try await fixture.waitForMessage {
+            $0["method"] == .string("elicitation/create")
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+        XCTAssertEqual(
+            approval["params"]?.objectValue?["codex_elicitation"],
+            .string("exec-approval")
+        )
+        let approvalID = try XCTUnwrap(MCPServerRequestID(jsonValue: approval["id"]))
+        try await fixture.respond(
+            id: approvalID,
+            result: .object(["decision": .string("approved")])
+        )
+
+        let response = try await fixture.waitForMessage {
+            $0["id"] == .string("on-failure-approved")
+        }
+        XCTAssertEqual(response["result"]?.objectValue?["isError"], .bool(false))
+        XCTAssertEqual(try String(contentsOf: marker, encoding: .utf8), "retry")
+        let messages = await fixture.sink.snapshot()
+        XCTAssertEqual(
+            messages.filter {
+                $0["method"] == .string("elicitation/create")
+            }.count,
+            1
+        )
+        await fixture.finish()
+    }
+
+    func testOnFailureDenialDoesNotRetryOutsideSandbox() async throws {
+        guard FileManager.default.isExecutableFile(atPath: "/usr/bin/sandbox-exec") else {
+            throw XCTSkip("This integration test requires macOS Seatbelt.")
+        }
+        let outside = try packageScratchDirectory()
+        let marker = outside.appendingPathComponent("denied-retry.txt")
+        let command = "printf denied > \(shellQuote(marker.path))"
+        let llm = MCPTestScriptedLLM(actions: [
+            .tool(ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": command])
+            )),
+            .say("The command was not run.")
+        ])
+        let fixture = try makeFixture(
+            llm: llm,
+            safety: MCPTestApprovingSafetyReviewer()
+        )
+        try await fixture.initialize()
+        try await fixture.callTool(
+            id: .string("on-failure-denied"),
+            name: "codex",
+            arguments: .object([
+                "prompt": .string("Run the supplied command."),
+                "cwd": .string(fixture.workspace.path),
+                "approval-policy": .string("on-failure"),
+                "sandbox": .string("workspace-write")
+            ])
+        )
+
+        let approval = try await fixture.waitForMessage {
+            $0["method"] == .string("elicitation/create")
+        }
+        let approvalID = try XCTUnwrap(MCPServerRequestID(jsonValue: approval["id"]))
+        try await fixture.respond(
+            id: approvalID,
+            result: .object(["decision": .string("denied")])
+        )
+
+        _ = try await fixture.waitForMessage { $0["id"] == .string("on-failure-denied") }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+        let messages = await fixture.sink.snapshot()
+        XCTAssertEqual(
+            messages.filter {
+                $0["method"] == .string("elicitation/create")
+            }.count,
+            1
+        )
+        await fixture.finish()
+    }
+
+    func testOnFailureDoesNotEscalateOrdinaryCommandFailure() async throws {
+        let llm = MCPTestScriptedLLM(actions: [
+            .tool(ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "printf expected-failure >&2; exit 7"])
+            )),
+            .say("The command failed normally.")
+        ])
+        let fixture = try makeFixture(
+            llm: llm,
+            safety: MCPTestApprovingSafetyReviewer()
+        )
+        try await fixture.initialize()
+        try await fixture.callTool(
+            id: .string("ordinary-failure"),
+            name: "codex",
+            arguments: .object([
+                "prompt": .string("Run the supplied command."),
+                "cwd": .string(fixture.workspace.path),
+                "approval-policy": .string("on-failure"),
+                "sandbox": .string("workspace-write")
+            ])
+        )
+
+        _ = try await fixture.waitForMessage { $0["id"] == .string("ordinary-failure") }
+        let messages = await fixture.sink.snapshot()
+        XCTAssertFalse(messages.contains {
+            $0["method"] == .string("elicitation/create")
+        })
+        await fixture.finish()
+    }
+
+    func testCancellationTerminatesSandboxedShellWithoutRunningRemainingCommand() async throws {
+        let marker = "cancelled-shell-must-not-exist.txt"
+        let llm = MCPTestScriptedLLM(actions: [
+            .tool(ToolCall(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json([
+                    "cmd": "sleep 30; printf unexpected > \(marker)"
+                ])
+            )),
+            .say("Unexpected completion.")
+        ])
+        let fixture = try makeFixture(
+            llm: llm,
+            safety: MCPTestApprovingSafetyReviewer()
+        )
+        try await fixture.initialize()
+        try await fixture.callTool(
+            id: .string("cancel-shell"),
+            name: "codex",
+            arguments: .object([
+                "prompt": .string("Run the supplied command."),
+                "cwd": .string(fixture.workspace.path),
+                "approval-policy": .string("never"),
+                "sandbox": .string("workspace-write")
+            ])
+        )
+        try await Task.sleep(for: .milliseconds(100))
+        try await fixture.notify(
+            method: "notifications/cancelled",
+            params: .object(["requestId": .string("cancel-shell")])
+        )
+
+        let response = try await fixture.waitForMessage { message in
+            message["id"] == .string("cancel-shell")
+                && message["result"]?.objectValue?["isError"] == .bool(true)
+        }
+        XCTAssertNotNil(response["result"])
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: fixture.workspace.appendingPathComponent(marker).path
+        ))
+        await fixture.finish()
+    }
+
     func testPatchApprovalIncludesPathKeyedFileChangeMetadata() async throws {
         let patch = """
         diff --git a/created.txt b/created.txt
@@ -362,8 +547,29 @@ final class MCPServerSessionTests: XCTestCase {
         await fixture.finish()
     }
 
-    private func makeFixture(llm: any LLMClient) throws -> MCPServerTestFixture {
-        try MCPServerTestFixture(testCase: self, llm: llm)
+    private func makeFixture(
+        llm: any LLMClient,
+        safety: any SafetyReviewer = StaticSafetyReviewer()
+    ) throws -> MCPServerTestFixture {
+        try MCPServerTestFixture(testCase: self, llm: llm, safety: safety)
+    }
+
+    private func packageScratchDirectory() throws -> URL {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let directory = packageRoot.appendingPathComponent(
+            ".mcp-sandbox-test-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        return directory
+    }
+
+    private func shellQuote(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
 }
 
@@ -373,7 +579,11 @@ private struct MCPServerTestFixture {
     let sink: MCPServerTestSink
     let session: MCPServerSession
 
-    init(testCase: XCTestCase, llm: any LLMClient) throws {
+    init(
+        testCase: XCTestCase,
+        llm: any LLMClient,
+        safety: any SafetyReviewer
+    ) throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(
             "quillcode-mcp-server-tests-\(UUID().uuidString)",
             isDirectory: true
@@ -390,7 +600,7 @@ private struct MCPServerTestFixture {
             runnerFactory: { configuration in
                 AgentRunner(
                     llm: llm,
-                    safety: StaticSafetyReviewer(),
+                    safety: safety,
                     maxToolSteps: configuration.appConfig.maxToolSteps,
                     enablesImmediateActionPreflight: true
                 )
@@ -525,6 +735,16 @@ private struct MCPTestEchoLLM: LLMClient {
         tools: [ToolDefinition]
     ) async throws -> AgentAction {
         .say(userMessage)
+    }
+}
+
+private struct MCPTestApprovingSafetyReviewer: SafetyReviewer {
+    func review(_ context: SafetyContext) async -> SafetyReview {
+        SafetyReview(
+            verdict: .approve,
+            rationale: "Approved by the MCP sandbox integration fixture.",
+            userIntentMatched: true
+        )
     }
 }
 

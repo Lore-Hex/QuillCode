@@ -26,7 +26,10 @@ final class ParityShellFileToolGateTests: QuillCodeParityTestCase {
         Self.assertSource(runnerText, contains: "AsyncStream<ShellProcessEvent>.Continuation")
         Self.assertSource(runnerText, contains: "process.waitUntilExit()")
         Self.assertSource(runnerText, contains: "private func timeout()")
-        Self.assertSource(executorText, contains: "ShellStreamingProcessRunner(request:")
+        Self.assertSource(executorText, containsAll: [
+            "let runner = ShellStreamingProcessRunner(",
+            "sandboxPolicy: sandboxPolicy"
+        ])
         Self.assertSource(executorText, excludes: "private final class StreamingShellProcess")
         Self.assertSource(executorText, excludes: "process.waitUntilExit()")
         Self.assertSource(shellTestsText, contains: "testStreamingShellTimeoutKeepsPartialOutputAndStopsProcess")

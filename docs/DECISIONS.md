@@ -294,8 +294,8 @@
   account, secret, and unknown keys. Alias compatibility does not become arbitrary config passthrough.
 - **Evidence:** Focused MCP catalog/config-overlay tests prove snake/camel aliases are visible in the
   JSON schema, normalize correctly, and conflicting aliases fail closed; the parity matrix records
-  that full MCP parity still excludes complete native Codex event coverage and true OS-sandbox
-  `on-failure` retry semantics.
+  that full MCP parity still excludes complete native Codex event coverage and arbitrary config
+  passthrough. The later typed OS-sandbox decision defines `on-failure` retry semantics.
 
 ## 2026-07-16: Experimental feature state uses one real precedence chain
 
@@ -1945,8 +1945,10 @@
   bounded and reaches the shared model-backed compactor without changing the main model selection.
 - **Safety boundary:** Review-mode tool calls use `elicitation/create`; malformed, contradictory,
   cancelled, orphaned, or disconnected responses deny. Existing QuillCode hard safety and trusted
-  permission hooks run before the client approval hook. `on-failure` remains conservative user review
-  until an enforceable OS-sandbox failure-to-escalation retry exists.
+  permission hooks run before the client approval hook. `on-failure` starts shell commands inside the
+  selected OS sandbox and only asks after a typed sandbox denial; approval permits one exact retry
+  without that process sandbox. Ordinary nonzero exits, lookup failures, timeout, cancellation, and
+  unavailable sandbox runtimes never become escalation requests.
 - **Lifecycle boundary:** Request IDs and active thread turns are unique while running, client
   cancellation cooperatively stops work, progress persists incrementally, and EOF denies approval
   waiters then awaits active turns and MCP dependency shutdown.
@@ -1958,6 +1960,26 @@
   contract. `scripts/mcp-server-smoke.sh` drives the built process through initialize, discovery,
   `whoami`, durable reply, event and persistence inspection, leak rejection, and clean EOF; aggregate
   smoke records the step in its deterministic manifest.
+
+## 2026-07-20: MCP on-failure is a typed OS-sandbox retry, not a generic failure retry
+
+- **Shared enforcement boundary:** Agent-authored MCP shell calls and standalone app-server commands
+  use one `ShellProcessSandbox` launcher. macOS uses Seatbelt, Linux uses bubblewrap, and a requested
+  sandbox fails closed when neither runtime is available. Platform launch details do not leak into
+  the agent or MCP protocol layers.
+- **Escalation boundary:** Only a nonzero result from an active sandbox carrying a recognized denial
+  signal is tagged `sandboxDenied`. Exit 126/127, ordinary test/build failures, malformed arguments,
+  timeouts, cancellations, and sandbox setup failures remain terminal results and do not prompt.
+- **Retry boundary:** `on-failure` with the user reviewer sends one `exec-approval` after the failed
+  sandboxed attempt. Approval reruns the exact validated call once without the process sandbox; denial,
+  malformed responses, disconnect, and cancellation preserve the failure and cannot retry. The shell
+  CWD remains workspace-bounded on both attempts.
+- **Concurrency boundary:** Both attempts use cancellable asynchronous shell execution. A long command
+  does not block the MCP session actor from receiving cancellation or approval traffic.
+- **Evidence:** Classifier tests cover active-sandbox, ordinary-failure, and command-lookup boundaries.
+  A real Seatbelt integration writes inside the workspace while blocking an outside write. MCP session
+  tests prove approve-once retry, deny-without-write, no prompt for exit 7, and cancellation before a
+  trailing mutation.
 
 ## 2026-07-15: TrustedRouter balance is live account metadata, not a derived quota
 
