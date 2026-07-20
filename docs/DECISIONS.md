@@ -3083,3 +3083,21 @@
   suppression, incomplete-result exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesHyperfineJSONArtifactPreview` covers
   static HTML selectors, rendered metadata, command lists, and generic JSON suppression.
+
+## 2026-07-19: npm audit JSON artifacts render bounded security summaries
+
+- **Decision:** Local `.json` artifacts with npm audit-compatible `auditReportVersion`, `metadata`,
+  and `vulnerabilities`/`advisories` entries render as structured npm audit cards instead of generic
+  JSON. The preview shows total vulnerability count, severity counts, dependency count, file size,
+  and capped vulnerable package labels.
+- **Why:** `npm audit --json` is common coding-agent output during dependency cleanup. A compact
+  summary lets users triage the artifact beside tool output without expanding raw JSON.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and capped
+  at 512 KB. It reads only shallow metadata, severity counts, and package labels; it never reads
+  package files, expands advisory details, opens lockfiles, follows dependency paths, verifies
+  exploitability, or fetches remote advisories.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesNPMAuditJSONPreviewMetadata`
+  covers npm audit shape detection, severity/dependency/package metadata, generic JSON suppression,
+  incomplete-report exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesNPMAuditJSONArtifactPreview` covers
+  static HTML selectors, rendered metadata, package lists, and generic JSON suppression.

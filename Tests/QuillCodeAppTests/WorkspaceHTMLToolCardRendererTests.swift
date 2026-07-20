@@ -2462,6 +2462,62 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesNPMAuditJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("npm-audit.json")
+        let reportText = """
+        {
+          "auditReportVersion": 2,
+          "vulnerabilities": {
+            "minimist": {"name": "minimist", "severity": "critical", "via": [{"title": "Prototype Pollution"}]},
+            "lodash": {"name": "lodash", "severity": "high", "via": [{"title": "Command Injection"}]}
+          },
+          "metadata": {
+            "vulnerabilities": {"info": 0, "low": 0, "moderate": 0, "high": 1, "critical": 1, "total": 2},
+            "dependencies": {"prod": 12, "dev": 4, "optional": 0, "peer": 0, "peerOptional": 0, "total": 16}
+          }
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/npm-audit.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/npm-audit.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "npm audit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">npm-audit.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-meta">Format: npm audit JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-meta">2 vulnerabilities"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-meta">Severity: 1 critical, 1 high"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-package-title">Packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-package-item">minimist · critical · 1 finding"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-package-item">lodash · high · 1 finding"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesESLintJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
