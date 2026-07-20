@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Mocha JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Mocha JSON reporter output as
+  JavaScript test reports rather than generic JSON.
+- **Rationale:** Node coding sessions commonly export Mocha JSON. Showing test/pass/fail/pending
+  counts, runtime, and capped failure/pending labels gives useful Codex-style feedback without
+  opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read
+  JavaScript source files, expand stack traces, run Mocha, load test configuration, or fetch remote
+  reports.
+
 ## 2026-07-19: Render Go Test JSONL As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.jsonl` and `.ndjson` files whose records validate as Go

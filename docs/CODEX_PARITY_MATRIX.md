@@ -210,6 +210,10 @@
   files with Jest-compatible `numTotalTests`/`testResults` shape: result, runtime, test/suite
   counts, file size, and capped failing assertion labels without expanding failure messages or
   fetching remote JSON.
+- Artifact previews now include bounded local Mocha JSON report metadata for `.json` files whose
+  root validates as Mocha reporter output: test/pass/fail/pending counts, runtime, file size, and
+  capped failure/pending labels without reading JavaScript source files, expanding stack traces,
+  running Mocha, loading test configuration, or fetching remote JSON.
 - Artifact previews now include bounded local ESLint JSON report metadata for `.json` files whose
   root validates as ESLint formatter output: file/message/error/warning/fixable counts, file size,
   capped file labels, and capped rule labels without reading source files, loading lint rules, or

@@ -71,6 +71,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             pytestJSONContent(pytestJSONPreview)
         } else if let jestJSONPreview = artifact.jestJSONPreview {
             jestJSONContent(jestJSONPreview)
+        } else if let mochaJSONPreview = artifact.mochaJSONPreview {
+            mochaJSONContent(mochaJSONPreview)
         } else if let eslintJSONPreview = artifact.eslintJSONPreview {
             eslintJSONContent(eslintJSONPreview)
         } else if let stylelintJSONPreview = artifact.stylelintJSONPreview {
@@ -351,6 +353,23 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(jestJSONPreview.metadataLines)
             artifactContentList(title: "Failures", labels: jestJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func mochaJSONContent(_ mochaJSONPreview: ToolArtifactMochaJSONPreview) -> some View {
+        let hasLists = !mochaJSONPreview.failurePreviewLabels.isEmpty
+            || !mochaJSONPreview.pendingPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 142 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(mochaJSONPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: mochaJSONPreview.failurePreviewLabels)
+            artifactContentList(title: "Pending", labels: mochaJSONPreview.pendingPreviewLabels)
         }
     }
 
