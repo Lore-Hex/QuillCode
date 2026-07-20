@@ -4134,6 +4134,72 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesCTestArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Test.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Site BuildName="quillcode-linux" Name="runner">
+          <Testing>
+            <Test Status="passed">
+              <Name>CoreSmoke</Name>
+              <FullName>QuillCode.CoreSmoke</FullName>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>0.25</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+            <Test Status="failed">
+              <Name>AgentDispatch</Name>
+              <FullName>QuillCode.AgentDispatch</FullName>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>1.25</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+          </Testing>
+        </Site>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Test.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Test.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "CTest artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Test.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">Format: CTest XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">2 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">Passed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">Duration: 1.5 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-failure-item">QuillCode.AgentDispatch"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesCheckstyleArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("checkstyle-result.xml")

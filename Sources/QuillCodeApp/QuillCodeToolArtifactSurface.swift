@@ -3788,6 +3788,55 @@ public struct ToolArtifactJUnitPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCTestPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var testCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var notRunCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            passedCount > 0 ? "Passed: \(passedCount)" : nil,
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            notRunCount > 0 ? "Not run: \(notRunCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        testCount > 0
+            || !metadataLines.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "CTest XML",
+        testCount: Int,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        notRunCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.testCount = testCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.notRunCount = notRunCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactCheckstylePreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var fileCount: Int
@@ -4979,6 +5028,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var junitPreview: ToolArtifactJUnitPreview? {
         ToolArtifactJUnitPreviewBuilder.junitPreview(for: value, kind: kind)
     }
+    public var ctestPreview: ToolArtifactCTestPreview? {
+        ToolArtifactCTestPreviewBuilder.ctestPreview(for: value, kind: kind)
+    }
     public var checkstylePreview: ToolArtifactCheckstylePreview? {
         ToolArtifactCheckstylePreviewBuilder.checkstylePreview(for: value, kind: kind)
     }
@@ -5007,7 +5059,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactJaCoCoPreviewBuilder.jaCoCoPreview(for: value, kind: kind)
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
-        guard checkstylePreview == nil,
+        guard ctestPreview == nil,
+              checkstylePreview == nil,
               pmdPreview == nil,
               spotBugsPreview == nil
         else { return nil }
