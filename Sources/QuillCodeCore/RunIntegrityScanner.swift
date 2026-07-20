@@ -71,6 +71,16 @@ public enum RunIntegrityScanner {
             return RunIntegrityReport(verdict: .unverified, reasons: reasons)
         }
 
+        // Rule 2c (UNVERIFIED): a fabricated artifact — the model says it WROTE a specific file that no
+        // file-write, patch, command, or tool output in the run ever produced or named. Catches the
+        // "narrated the work instead of doing it" failure (observed live: an agent wrote a data-cleaning
+        // SCRIPT, never ran it, then reported "outputs written to data/sales_clean.csv and findings.md" —
+        // neither file was ever created).
+        if let phantom = unbackedArtifactClaim(in: thread) {
+            reasons.append(phantom)
+            return RunIntegrityReport(verdict: .unverified, reasons: reasons)
+        }
+
         // Rule 3 (UNVERIFIED): a test command was started but never completed (silently skipped).
         if let skipped = skippedTest(in: thread) {
             reasons.append(skipped)
@@ -323,6 +333,189 @@ public enum RunIntegrityScanner {
         return corpus.contains(number + ".0%")
     }
 
+    // MARK: - Rule 2c: fabricated artifact (UNVERIFIED)
+
+    /// Input-argument keys that name a file a tool writes/produces (so an MCP or plugin writer we don't
+    /// model by name still contributes its target). Read tools also carry `path`; harvesting them is
+    /// precision-safe — a read that named the file only ever REMOVES a flag, never adds one.
+    static let pathBearingArgumentKeys = [
+        "path", "file", "filename", "source", "src", "destination", "dest", "target",
+        "output", "outfile", "out",
+    ]
+
+    /// A reason when the assistant claims it PRODUCED a specific file (wrote/created/saved/"outputs
+    /// written to …") but that file's name is in NONE of the run's real write targets and named in no
+    /// command or tool output. Deliberately high-precision:
+    ///
+    /// - It only fires when the run BOTH used a recognized file-writing tool (file.write / apply_patch —
+    ///   so the agent demonstrably knew how to write files) AND ran NO successful shell command (a shell
+    ///   can create files invisibly to a transcript scanner, so once one succeeds we cannot prove a
+    ///   phantom and abstain). That exactly matches the canonical failure — "wrote a script with the
+    ///   file tool, never ran it, claimed its outputs exist" — and abstains on honest silent builds.
+    /// - Backing is by BASENAME, matched against real WRITE-target paths (file.write args, apply_patch
+    ///   diff HEADER paths, and path-bearing args of every tool — never a patch/script BODY, which would
+    ///   let a filename mentioned in source code vouch for itself) and, on token boundaries, against
+    ///   command strings and tool output. The verdict is UNVERIFIED, never RED: a filesystem-blind
+    ///   scanner can never prove absence, only that it could not observe the file being made.
+    static func unbackedArtifactClaim(in thread: ChatThread) -> RunIntegrityReason? {
+        let claim = ClaimedArtifactLexicon.mergedClaim(inAssistantMessagesOf: thread)
+        guard !claim.paths.isEmpty else { return nil }
+        // Gate: only judge phantom writes in runs that used the file tools and ran no shell that could
+        // have created a file we cannot see. Otherwise abstain (prefer VERIFIED over a false alarm).
+        guard hadRecognizedFileProducer(in: thread),
+              !hadSuccessfulShellCommand(in: thread) else { return nil }
+        let written = writtenBasenames(in: thread)
+        let corpus = namingCorpus(in: thread)
+        for path in claim.paths {
+            let base = lastPathComponent(path).lowercased()
+            guard base.count >= 3 else { continue }
+            if written.contains(base) { continue }
+            if corpusNamesToken(base, in: corpus) { continue }
+            return RunIntegrityReason(
+                rule: .unbackedArtifactClaim,
+                detail: "Could not verify \(path) was created — its name appears in no file write, "
+                    + "patch, command, or tool output this run."
+            )
+        }
+        return nil
+    }
+
+    /// Whether the run used a tool that WRITES a whole file or applies a patch — evidence the agent knew
+    /// how to produce files, so a claimed file it did not write this way is suspicious.
+    static func hadRecognizedFileProducer(in thread: ChatThread) -> Bool {
+        for event in thread.events where event.kind == .toolQueued {
+            guard let call = decodeCall(event.payloadJSON) else { continue }
+            if call.name == fileWriteToolName || call.name == applyPatchToolName { return true }
+        }
+        return false
+    }
+
+    /// Whether any shell command completed successfully — a shell can create files invisibly to this
+    /// scanner, so its presence means we cannot prove a phantom and must abstain.
+    static func hadSuccessfulShellCommand(in thread: ChatThread) -> Bool {
+        commandSteps(in: thread).contains { $0.succeeded }
+    }
+
+    /// The set of lowercased BASENAMES a tool actually targeted for writing: file.write `path` args,
+    /// apply_patch diff HEADER paths (never the diff body — a filename mentioned in the added source
+    /// must not vouch for itself), and path-bearing args of every tool call.
+    static func writtenBasenames(in thread: ChatThread) -> Set<String> {
+        var names: Set<String> = []
+        var scanned = 0
+        for event in thread.events where event.kind == .toolQueued {
+            if scanned >= maxToolStepsScanned { break }
+            scanned += 1
+            guard let call = decodeCall(event.payloadJSON) else { continue }
+            let args = try? ToolArguments(call.argumentsJSON)
+            if call.name == applyPatchToolName, let patch = args?.string("patch") {
+                for p in applyPatchHeaderPaths(from: patch) { names.insert(lastPathComponent(p).lowercased()) }
+            }
+            for key in pathBearingArgumentKeys {
+                guard let value = args?.string(key), !value.isEmpty else { continue }
+                let base = lastPathComponent(value).lowercased()
+                if base.count >= 3 { names.insert(base) }
+            }
+        }
+        return names
+    }
+
+    /// Free text where a file may be NAMED without being a structured write target: command strings and
+    /// tool output. Lowercased and tail-capped so a token lookup is bounded on a megabyte-scale run.
+    static func namingCorpus(in thread: ChatThread) -> String {
+        var pieces: [String] = []
+        var pendingCall: ToolCall?
+        for event in thread.events {
+            switch event.kind {
+            case .toolQueued:
+                guard let call = decodeCall(event.payloadJSON) else { pendingCall = nil; continue }
+                pendingCall = call
+                if isCommandTool(call.name) { pieces.append(shellCommand(from: call)) }
+            case .toolCompleted, .toolFailed:
+                defer { pendingCall = nil }
+                if let result = decodeResult(event.payloadJSON) {
+                    pieces.append(result.stdout)
+                    pieces.append(result.stderr)
+                    if let error = result.error { pieces.append(error) }
+                }
+            default:
+                continue
+            }
+        }
+        _ = pendingCall
+        let corpus = pieces.joined(separator: "\n").lowercased()
+        guard corpus.count > maxToolOutputScanCharacters else { return corpus }
+        return String(corpus.suffix(maxToolOutputScanCharacters))
+    }
+
+    /// The target paths named in a unified/`apply_patch` diff's HEADER lines only — never body/context.
+    static func applyPatchHeaderPaths(from patch: String) -> [String] {
+        var paths: [String] = []
+        for rawLine in patch.split(whereSeparator: \.isNewline) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            func after(_ prefix: String) -> String? {
+                guard line.hasPrefix(prefix) else { return nil }
+                var p = String(line.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+                // git diff appends a tab + timestamp on ---/+++ lines; keep only the path.
+                if let tab = p.firstIndex(of: "\t") { p = String(p[..<tab]) }
+                if p.hasPrefix("a/") || p.hasPrefix("b/") { p = String(p.dropFirst(2)) }
+                return p.isEmpty || p == "/dev/null" ? nil : p
+            }
+            for prefix in ["+++ ", "--- ", "*** Update File: ", "*** Add File: ",
+                           "*** Delete File: ", "*** Move to: ", "rename to ", "rename from "] {
+                if let p = after(prefix) { paths.append(p) }
+            }
+            if line.hasPrefix("diff --git ") {
+                for token in line.dropFirst("diff --git ".count).split(separator: " ") {
+                    var t = String(token)
+                    if t.hasPrefix("a/") || t.hasPrefix("b/") { t = String(t.dropFirst(2)) }
+                    if !t.isEmpty { paths.append(t) }
+                }
+            }
+        }
+        return paths
+    }
+
+    /// Whether `token` (a lowercased basename) appears in `corpus` on identifier boundaries — so
+    /// `data.csv` is NOT considered named by `metadata.csv`. Boundary = start/end of string or a
+    /// character that cannot be part of a filename token.
+    static func corpusNamesToken(_ token: String, in corpus: String) -> Bool {
+        guard !token.isEmpty else { return false }
+        let chars = Array(corpus)
+        let tok = Array(token)
+        func isPart(_ c: Character) -> Bool {
+            c.isLetter || c.isNumber || c == "_" || c == "-" || c == "." || c == "/"
+        }
+        var i = 0
+        while true {
+            guard let start = indexOf(tok, in: chars, from: i) else { return false }
+            let before = start - 1
+            let after = start + tok.count
+            let leftOK = before < 0 || !isPart(chars[before])
+            let rightOK = after >= chars.count || !isPart(chars[after])
+            if leftOK && rightOK { return true }
+            i = start + 1
+        }
+    }
+
+    /// First index of `needle` in `haystack` at or after `from`, or nil. Bounded, never force-unwraps.
+    static func indexOf(_ needle: [Character], in haystack: [Character], from: Int) -> Int? {
+        guard !needle.isEmpty, haystack.count >= needle.count else { return nil }
+        var i = max(0, from)
+        let last = haystack.count - needle.count
+        while i <= last {
+            var k = 0
+            while k < needle.count, haystack[i + k] == needle[k] { k += 1 }
+            if k == needle.count { return i }
+            i += 1
+        }
+        return nil
+    }
+
+    /// The final path component of a claimed path token (basename), e.g. `data/x.csv` → `x.csv`.
+    static func lastPathComponent(_ path: String) -> String {
+        path.split(separator: "/").last.map(String.init) ?? path
+    }
+
     // MARK: - Decoding helpers (never throwing, never force-unwrapping)
 
     static func decodeCall(_ payloadJSON: String?) -> ToolCall? {
@@ -340,6 +533,14 @@ public enum RunIntegrityScanner {
     /// lives in QuillCodeTools) so this scanner stays in the dependency-free Core layer. Guarded by a
     /// parity test so the two can never drift.
     public static let shellRunToolName = "host.shell.run"
+
+    /// The tool that WRITES a whole file (its `path` argument names the file produced). Duplicated as a
+    /// literal to keep this scanner in the dependency-free Core layer; guarded by a parity test.
+    public static let fileWriteToolName = "host.file.write"
+
+    /// The tool that applies a unified-diff PATCH (the file paths live inside its `patch` argument).
+    /// Duplicated as a literal for the same layering reason; guarded by a parity test.
+    public static let applyPatchToolName = "host.apply_patch"
 
     /// The set of tools that RUN a command. Kept as an inspectable predicate rather than a scattered
     /// string literal so the rule is auditable and easy to extend.
