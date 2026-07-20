@@ -4341,6 +4341,73 @@ public struct ToolArtifactTestNGPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactRobotXMLPreview: Codable, Sendable, Hashable {
+    public var generatedLabel: String?
+    public var generatorLabel: String?
+    public var suiteCount: Int
+    public var testCount: Int
+    public var keywordCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var skippedCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var suitePreviewLabels: [String]
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: Robot XML",
+            generatorLabel.map { "Generator: \($0)" },
+            generatedLabel.map { "Generated: \($0)" },
+            "\(suiteCount) suite\(suiteCount == 1 ? "" : "s")",
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            keywordCount > 0 ? "\(keywordCount) keyword\(keywordCount == 1 ? "" : "s")" : nil,
+            "Passed: \(passedCount)",
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        suiteCount > 0
+            || testCount > 0
+            || !metadataLines.isEmpty
+            || !suitePreviewLabels.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        generatedLabel: String? = nil,
+        generatorLabel: String? = nil,
+        suiteCount: Int,
+        testCount: Int,
+        keywordCount: Int = 0,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        skippedCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        suitePreviewLabels: [String] = [],
+        failurePreviewLabels: [String] = []
+    ) {
+        self.generatedLabel = generatedLabel
+        self.generatorLabel = generatorLabel
+        self.suiteCount = suiteCount
+        self.testCount = testCount
+        self.keywordCount = keywordCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.skippedCount = skippedCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.suitePreviewLabels = suitePreviewLabels
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactCoberturaPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var packageCount: Int
@@ -5201,6 +5268,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var testNGPreview: ToolArtifactTestNGPreview? {
         ToolArtifactTestNGPreviewBuilder.testNGPreview(for: value, kind: kind)
     }
+    public var robotXMLPreview: ToolArtifactRobotXMLPreview? {
+        ToolArtifactRobotXMLPreviewBuilder.robotXMLPreview(for: value, kind: kind)
+    }
     public var coberturaPreview: ToolArtifactCoberturaPreview? {
         ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: kind)
     }
@@ -5215,7 +5285,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               checkstylePreview == nil,
               pmdPreview == nil,
               spotBugsPreview == nil,
-              testNGPreview == nil
+              testNGPreview == nil,
+              robotXMLPreview == nil
         else { return nil }
         return ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
     }

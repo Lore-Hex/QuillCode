@@ -4656,6 +4656,70 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesRobotXMLArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("output.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <robot generator="Robot 7.0" generated="20260720 04:30:00.000">
+          <suite id="s1" name="QuillCode acceptance">
+            <kw name="Open project" owner="Browser" />
+            <test id="s1-t1" name="Runs shell command">
+              <status status="PASS" elapsed="0.25" />
+            </test>
+            <test id="s1-t2" name="Writes file">
+              <status status="FAIL" elapsed="1.20" />
+            </test>
+            <test id="s1-t3" name="Browser preview">
+              <status status="SKIP" elapsed="0" />
+            </test>
+          </suite>
+        </robot>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"output.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote output.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Robot XML artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">output.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Format: Robot XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Generator: Robot 7.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">1 suite"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">1 keyword"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Passed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Skipped: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Duration: 1.45 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-suite-title">Suites"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-suite-item">QuillCode acceptance"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-failure-item">Writes file"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesCoberturaArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("coverage.xml")
