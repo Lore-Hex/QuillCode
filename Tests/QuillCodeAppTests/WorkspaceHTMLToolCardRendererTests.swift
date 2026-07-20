@@ -2073,6 +2073,78 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesCucumberJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("cucumber-results.json")
+        let reportText = """
+        [
+          {
+            "keyword": "Feature",
+            "name": "Search",
+            "uri": "features/search.feature",
+            "elements": [
+              {
+                "keyword": "Scenario",
+                "name": "finds existing notes",
+                "steps": [
+                  {"result": {"status": "passed", "duration": 100000000}},
+                  {"result": {"status": "passed", "duration": 100000000}}
+                ]
+              },
+              {
+                "keyword": "Scenario",
+                "name": "handles an empty index",
+                "steps": [
+                  {"result": {"status": "passed", "duration": 100000000}},
+                  {"result": {"status": "failed", "duration": 200000000}}
+                ]
+              }
+            ]
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/cucumber-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/cucumber-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Cucumber artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">cucumber-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">Format: Cucumber JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">Runtime: 0.50s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">1 feature"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">2 scenarios"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">4 steps"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">Failed steps: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-failure-item">Search &gt; handles an empty index"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesMochaJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

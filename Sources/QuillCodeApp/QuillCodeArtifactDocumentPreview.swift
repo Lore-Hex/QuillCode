@@ -73,6 +73,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             jestJSONContent(jestJSONPreview)
         } else if let playwrightJSONPreview = artifact.playwrightJSONPreview {
             playwrightJSONContent(playwrightJSONPreview)
+        } else if let cucumberJSONPreview = artifact.cucumberJSONPreview {
+            cucumberJSONContent(cucumberJSONPreview)
         } else if let mochaJSONPreview = artifact.mochaJSONPreview {
             mochaJSONContent(mochaJSONPreview)
         } else if let eslintJSONPreview = artifact.eslintJSONPreview {
@@ -369,6 +371,20 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(playwrightJSONPreview.metadataLines)
             artifactContentList(title: "Failures", labels: playwrightJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func cucumberJSONContent(_ cucumberJSONPreview: ToolArtifactCucumberJSONPreview) -> some View {
+        previewSurface(minHeight: cucumberJSONPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(cucumberJSONPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: cucumberJSONPreview.failurePreviewLabels)
         }
     }
 

@@ -1806,6 +1806,74 @@ public struct ToolArtifactPlaywrightJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCucumberJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var featureCount: Int
+    public var scenarioCount: Int
+    public var stepCount: Int
+    public var passedStepCount: Int
+    public var failedStepCount: Int
+    public var skippedStepCount: Int
+    public var pendingStepCount: Int
+    public var undefinedStepCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            durationLabel.map { "Runtime: \($0)" },
+            "\(featureCount) feature\(featureCount == 1 ? "" : "s")",
+            "\(scenarioCount) scenario\(scenarioCount == 1 ? "" : "s")",
+            "\(stepCount) step\(stepCount == 1 ? "" : "s")",
+            passedStepCount > 0 ? "Passed steps: \(passedStepCount)" : nil,
+            failedStepCount > 0 ? "Failed steps: \(failedStepCount)" : nil,
+            skippedStepCount > 0 ? "Skipped steps: \(skippedStepCount)" : nil,
+            pendingStepCount > 0 ? "Pending steps: \(pendingStepCount)" : nil,
+            undefinedStepCount > 0 ? "Undefined steps: \(undefinedStepCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        featureCount > 0
+            || scenarioCount > 0
+            || stepCount > 0
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Cucumber JSON",
+        featureCount: Int,
+        scenarioCount: Int,
+        stepCount: Int,
+        passedStepCount: Int = 0,
+        failedStepCount: Int = 0,
+        skippedStepCount: Int = 0,
+        pendingStepCount: Int = 0,
+        undefinedStepCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.featureCount = featureCount
+        self.scenarioCount = scenarioCount
+        self.stepCount = stepCount
+        self.passedStepCount = passedStepCount
+        self.failedStepCount = failedStepCount
+        self.skippedStepCount = skippedStepCount
+        self.pendingStepCount = pendingStepCount
+        self.undefinedStepCount = undefinedStepCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactMochaJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var totalTestCount: Int?
@@ -4686,6 +4754,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               semgrepJSONPreview == nil,
               codeClimateJSONPreview == nil,
               playwrightJSONPreview == nil,
+              cucumberJSONPreview == nil,
               mochaJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
@@ -4755,6 +4824,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var playwrightJSONPreview: ToolArtifactPlaywrightJSONPreview? {
         ToolArtifactPlaywrightJSONPreviewBuilder.playwrightJSONPreview(for: value, kind: kind)
+    }
+    public var cucumberJSONPreview: ToolArtifactCucumberJSONPreview? {
+        ToolArtifactCucumberJSONPreviewBuilder.cucumberJSONPreview(for: value, kind: kind)
     }
     public var mochaJSONPreview: ToolArtifactMochaJSONPreview? {
         ToolArtifactMochaJSONPreviewBuilder.mochaJSONPreview(for: value, kind: kind)
