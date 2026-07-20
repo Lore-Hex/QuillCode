@@ -3065,3 +3065,21 @@
   suppression, empty-report exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesBenchmarkDotNetJSONArtifactPreview`
   covers static HTML selectors, rendered metadata, benchmark lists, and generic JSON suppression.
+
+## 2026-07-19: Hyperfine JSON artifacts render bounded benchmark summaries
+
+- **Decision:** Local `.json` artifacts with Hyperfine-compatible top-level `results` entries render
+  as structured Hyperfine report cards instead of generic JSON. The preview shows command count, the
+  fastest command and mean duration when present, file size, and capped command labels.
+- **Why:** Hyperfine is a common CLI benchmarking tool for coding-agent performance checks. A compact
+  report card keeps benchmark artifacts scannable next to shell/file tool output without requiring
+  raw JSON inspection.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and capped
+  at 512 KB. It reads only shallow result command and timing fields; it never executes commands,
+  re-runs benchmarks, treats measurements as independently verified claims, expands parameterized
+  commands, reads scripts, opens source files, or fetches remote reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesHyperfineJSONPreviewMetadata`
+  covers Hyperfine shape detection, command count, fastest command/mean rendering, generic JSON
+  suppression, incomplete-result exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesHyperfineJSONArtifactPreview` covers
+  static HTML selectors, rendered metadata, command lists, and generic JSON suppression.

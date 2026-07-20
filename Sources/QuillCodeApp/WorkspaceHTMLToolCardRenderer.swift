@@ -232,6 +232,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let mochaJSONPreview = renderMochaJSONPreview(mochaJSONPreviewModel)
             let benchmarkDotNetJSONPreviewModel = artifact.benchmarkDotNetJSONPreview
             let benchmarkDotNetJSONPreview = renderBenchmarkDotNetJSONPreview(benchmarkDotNetJSONPreviewModel)
+            let hyperfineJSONPreviewModel = artifact.hyperfineJSONPreview
+            let hyperfineJSONPreview = renderHyperfineJSONPreview(hyperfineJSONPreviewModel)
             let eslintJSONPreviewModel = artifact.eslintJSONPreview
             let eslintJSONPreview = renderESLintJSONPreview(eslintJSONPreviewModel)
             let stylelintJSONPreviewModel = artifact.stylelintJSONPreview
@@ -361,6 +363,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && rspecJSONPreviewModel == nil
                 && mochaJSONPreviewModel == nil
                 && benchmarkDotNetJSONPreviewModel == nil
+                && hyperfineJSONPreviewModel == nil
                 && eslintJSONPreviewModel == nil
                 && stylelintJSONPreviewModel == nil
                 && swiftLintJSONPreviewModel == nil
@@ -417,6 +420,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(rspecJSONPreview)
               \(mochaJSONPreview)
               \(benchmarkDotNetJSONPreview)
+              \(hyperfineJSONPreview)
               \(eslintJSONPreview)
               \(stylelintJSONPreview)
               \(swiftLintJSONPreview)
@@ -1084,6 +1088,31 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(benchmarkList)
+        </div>
+        """
+    }
+
+    private static func renderHyperfineJSONPreview(_ preview: ToolArtifactHyperfineJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-hyperfine-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let commands = preview.commandPreviewLabels.map {
+            #"<li data-testid="tool-card-hyperfine-json-preview-command-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let commandList = commands.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-hyperfine-json-preview-commands">
+                <strong data-testid="tool-card-hyperfine-json-preview-command-title">Commands</strong>
+                <ul>\(commands)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !commandList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-hyperfine-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(commandList)
         </div>
         """
     }

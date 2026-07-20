@@ -2123,6 +2123,50 @@ public struct ToolArtifactBenchmarkDotNetJSONPreview: Codable, Sendable, Hashabl
     }
 }
 
+public struct ToolArtifactHyperfineJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var commandCount: Int
+    public var fastestCommandLabel: String?
+    public var fastestMeanLabel: String?
+    public var byteSizeLabel: String?
+    public var commandPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(commandCount) command\(commandCount == 1 ? "" : "s")",
+            fastestCommandLabel.map { command in
+                fastestMeanLabel.map { "Fastest: \(command) (\($0))" } ?? "Fastest: \(command)"
+            },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        commandCount > 0
+            || fastestCommandLabel != nil
+            || fastestMeanLabel != nil
+            || byteSizeLabel != nil
+            || !commandPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Hyperfine JSON",
+        commandCount: Int,
+        fastestCommandLabel: String? = nil,
+        fastestMeanLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        commandPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.commandCount = commandCount
+        self.fastestCommandLabel = fastestCommandLabel
+        self.fastestMeanLabel = fastestMeanLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.commandPreviewLabels = commandPreviewLabels
+    }
+}
+
 public struct ToolArtifactESLintJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var fileCount: Int
@@ -5129,7 +5173,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               cucumberJSONPreview == nil,
               rspecJSONPreview == nil,
               mochaJSONPreview == nil,
-              benchmarkDotNetJSONPreview == nil
+              benchmarkDotNetJSONPreview == nil,
+              hyperfineJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -5213,6 +5258,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var benchmarkDotNetJSONPreview: ToolArtifactBenchmarkDotNetJSONPreview? {
         ToolArtifactBenchmarkDotNetJSONPreviewBuilder.benchmarkDotNetJSONPreview(for: value, kind: kind)
+    }
+    public var hyperfineJSONPreview: ToolArtifactHyperfineJSONPreview? {
+        ToolArtifactHyperfineJSONPreviewBuilder.hyperfineJSONPreview(for: value, kind: kind)
     }
     public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
         ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)

@@ -83,6 +83,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             mochaJSONContent(mochaJSONPreview)
         } else if let benchmarkDotNetJSONPreview = artifact.benchmarkDotNetJSONPreview {
             benchmarkDotNetJSONContent(benchmarkDotNetJSONPreview)
+        } else if let hyperfineJSONPreview = artifact.hyperfineJSONPreview {
+            hyperfineJSONContent(hyperfineJSONPreview)
         } else if let eslintJSONPreview = artifact.eslintJSONPreview {
             eslintJSONContent(eslintJSONPreview)
         } else if let stylelintJSONPreview = artifact.stylelintJSONPreview {
@@ -694,6 +696,21 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(benchmarkDotNetJSONPreview.metadataLines)
             artifactContentList(title: "Benchmarks", labels: benchmarkDotNetJSONPreview.benchmarkPreviewLabels)
+        }
+    }
+
+    private func hyperfineJSONContent(_ hyperfineJSONPreview: ToolArtifactHyperfineJSONPreview) -> some View {
+        let hasLists = !hyperfineJSONPreview.commandPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 132 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "speedometer")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(hyperfineJSONPreview.metadataLines)
+            artifactContentList(title: "Commands", labels: hyperfineJSONPreview.commandPreviewLabels)
         }
     }
 

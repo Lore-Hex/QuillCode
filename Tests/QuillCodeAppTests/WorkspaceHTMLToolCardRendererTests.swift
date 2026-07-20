@@ -2411,6 +2411,57 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesHyperfineJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("hyperfine-results.json")
+        let reportText = """
+        {
+          "results": [
+            {"command": "rg TODO Sources", "mean": 0.0123, "median": 0.012},
+            {"command": "grep -R TODO Sources", "mean": 0.1456, "median": 0.14}
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/hyperfine-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/hyperfine-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Hyperfine artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">hyperfine-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-meta">Format: Hyperfine JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-meta">2 commands"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-meta">Fastest: rg TODO Sources (12.30 ms)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-command-title">Commands"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-command-item">rg TODO Sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-command-item">grep -R TODO Sources"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesESLintJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
