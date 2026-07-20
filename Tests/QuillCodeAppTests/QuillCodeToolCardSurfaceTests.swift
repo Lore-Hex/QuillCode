@@ -3304,6 +3304,61 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteBenchmark.benchmarkDotNetJSONPreview)
     }
 
+    func testArtifactStateDerivesHyperfineJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("hyperfine-results.json")
+        let content = """
+        {
+          "results": [
+            {
+              "command": "rg TODO Sources",
+              "mean": 0.0123,
+              "stddev": 0.001,
+              "median": 0.012,
+              "times": [0.012, 0.013]
+            },
+            {
+              "command": "grep -R TODO Sources",
+              "mean": 0.1456,
+              "stddev": 0.02,
+              "median": 0.14,
+              "times": [0.14, 0.15]
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.hyperfineJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Hyperfine JSON")
+        XCTAssertEqual(preview.commandCount, 2)
+        XCTAssertEqual(preview.fastestCommandLabel, "rg TODO Sources")
+        XCTAssertEqual(preview.fastestMeanLabel, "12.30 ms")
+        XCTAssertEqual(preview.commandPreviewLabels, [
+            "rg TODO Sources",
+            "grep -R TODO Sources"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Hyperfine JSON",
+            "2 commands",
+            "Fastest: rg TODO Sources (12.30 ms)",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("timings.json")
+        try #"{"results":[{"command":"echo ok"}]}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).hyperfineJSONPreview)
+
+        let remoteHyperfine = ToolArtifactState(value: "https://example.com/hyperfine-results.json")
+        XCTAssertNil(remoteHyperfine.hyperfineJSONPreview)
+    }
+
     func testArtifactStateDerivesESLintJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("eslint-results.json")
