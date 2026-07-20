@@ -220,6 +220,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let pytestJSONPreview = renderPytestJSONPreview(pytestJSONPreviewModel)
             let jestJSONPreviewModel = artifact.jestJSONPreview
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
+            let playwrightJSONPreviewModel = artifact.playwrightJSONPreview
+            let playwrightJSONPreview = renderPlaywrightJSONPreview(playwrightJSONPreviewModel)
             let mochaJSONPreviewModel = artifact.mochaJSONPreview
             let mochaJSONPreview = renderMochaJSONPreview(mochaJSONPreviewModel)
             let eslintJSONPreviewModel = artifact.eslintJSONPreview
@@ -336,6 +338,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && coveragePyPreviewModel == nil
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
+                && playwrightJSONPreviewModel == nil
                 && mochaJSONPreviewModel == nil
                 && eslintJSONPreviewModel == nil
                 && stylelintJSONPreviewModel == nil
@@ -387,6 +390,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(coveragePyPreview)
               \(pytestJSONPreview)
               \(jestJSONPreview)
+              \(playwrightJSONPreview)
               \(mochaJSONPreview)
               \(eslintJSONPreview)
               \(stylelintJSONPreview)
@@ -866,6 +870,31 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty || !failureList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-jest-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderPlaywrightJSONPreview(_ preview: ToolArtifactPlaywrightJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-playwright-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-playwright-json-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-playwright-json-preview-failures">
+                <strong data-testid="tool-card-playwright-json-preview-failure-title">Failures</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-playwright-json-preview">
           <div>
             \(metadata)
           </div>

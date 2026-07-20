@@ -2859,6 +2859,80 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJest.jestJSONPreview)
     }
 
+    func testArtifactStateDerivesPlaywrightJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("playwright-results.json")
+        let content = """
+        {
+          "config": {"rootDir": "/repo"},
+          "stats": {
+            "expected": 2,
+            "skipped": 1,
+            "unexpected": 1,
+            "flaky": 1,
+            "duration": 3456
+          },
+          "suites": [
+            {
+              "title": "chromium",
+              "suites": [
+                {
+                  "title": "tests/app.spec.ts",
+                  "specs": [
+                    {
+                      "title": "loads dashboard",
+                      "ok": true,
+                      "tests": [{"results": [{"status": "passed", "duration": 100}]}]
+                    },
+                    {
+                      "title": "saves settings",
+                      "ok": false,
+                      "tests": [{"results": [{"status": "failed", "duration": 250}]}]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "errors": []
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.playwrightJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Playwright JSON")
+        XCTAssertEqual(preview.totalTestCount, 5)
+        XCTAssertEqual(preview.expectedTestCount, 2)
+        XCTAssertEqual(preview.unexpectedTestCount, 1)
+        XCTAssertEqual(preview.flakyTestCount, 1)
+        XCTAssertEqual(preview.skippedTestCount, 1)
+        XCTAssertEqual(preview.durationLabel, "3.46s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["chromium > tests/app.spec.ts > saves settings"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Playwright JSON",
+            "Runtime: 3.46s",
+            "5 tests",
+            "Expected: 2",
+            "Unexpected: 1",
+            "Flaky: 1",
+            "Skipped: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("suite-summary.json")
+        try #"{"suites":[],"stats":{"duration":0}}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).playwrightJSONPreview)
+
+        let remotePlaywright = ToolArtifactState(value: "https://example.com/playwright-results.json")
+        XCTAssertNil(remotePlaywright.playwrightJSONPreview)
+    }
+
     func testArtifactStateDerivesMochaJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("mocha-results.json")
