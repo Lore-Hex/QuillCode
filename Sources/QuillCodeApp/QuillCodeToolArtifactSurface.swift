@@ -4278,6 +4278,69 @@ public struct ToolArtifactNUnitPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactTestNGPreview: Codable, Sendable, Hashable {
+    public var suiteCount: Int
+    public var testGroupCount: Int
+    public var classCount: Int
+    public var methodCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var skippedCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var suitePreviewLabels: [String]
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: TestNG XML",
+            "\(suiteCount) suite\(suiteCount == 1 ? "" : "s")",
+            testGroupCount > 0 ? "\(testGroupCount) test group\(testGroupCount == 1 ? "" : "s")" : nil,
+            classCount > 0 ? "\(classCount) class\(classCount == 1 ? "" : "es")" : nil,
+            "\(methodCount) test method\(methodCount == 1 ? "" : "s")",
+            "Passed: \(passedCount)",
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        suiteCount > 0
+            || methodCount > 0
+            || !metadataLines.isEmpty
+            || !suitePreviewLabels.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        suiteCount: Int,
+        testGroupCount: Int = 0,
+        classCount: Int = 0,
+        methodCount: Int,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        skippedCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        suitePreviewLabels: [String] = [],
+        failurePreviewLabels: [String] = []
+    ) {
+        self.suiteCount = suiteCount
+        self.testGroupCount = testGroupCount
+        self.classCount = classCount
+        self.methodCount = methodCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.skippedCount = skippedCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.suitePreviewLabels = suitePreviewLabels
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactCoberturaPreview: Codable, Sendable, Hashable {
     public var versionLabel: String?
     public var packageCount: Int
@@ -5135,6 +5198,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var nunitPreview: ToolArtifactNUnitPreview? {
         ToolArtifactNUnitPreviewBuilder.nunitPreview(for: value, kind: kind)
     }
+    public var testNGPreview: ToolArtifactTestNGPreview? {
+        ToolArtifactTestNGPreviewBuilder.testNGPreview(for: value, kind: kind)
+    }
     public var coberturaPreview: ToolArtifactCoberturaPreview? {
         ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: kind)
     }
@@ -5148,7 +5214,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         guard ctestPreview == nil,
               checkstylePreview == nil,
               pmdPreview == nil,
-              spotBugsPreview == nil
+              spotBugsPreview == nil,
+              testNGPreview == nil
         else { return nil }
         return ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
     }
