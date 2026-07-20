@@ -130,6 +130,7 @@ extension MCPServerSession {
             environment: environment
         )
         var runner = runtime.applyingInvocationPolicy(to: try runnerFactory(runtime))
+        runner = configureShellExecution(on: runner, record: record, requestID: requestID)
         if let compactPrompt = record.settings.compactPrompt?.trimmingCharacters(
             in: .whitespacesAndNewlines
         ), !compactPrompt.isEmpty {
@@ -254,7 +255,9 @@ extension MCPServerSession {
         reviewer: String
     ) -> AgentMode {
         if sandbox == .readOnly { return .readOnly }
-        if approvalPolicy == .never || reviewer != "user" { return .auto }
+        if approvalPolicy == .never || approvalPolicy == .onFailure || reviewer != "user" {
+            return .auto
+        }
         return .review
     }
 
