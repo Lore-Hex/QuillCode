@@ -5114,6 +5114,85 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteTestNG.testNGPreview)
     }
 
+    func testArtifactStateDerivesRobotXMLPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("output.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <robot generator="Robot 7.0" generated="20260720 04:30:00.000">
+          <suite id="s1" name="QuillCode acceptance">
+            <kw name="Open project" owner="Browser" />
+            <test id="s1-t1" name="Runs shell command">
+              <status status="PASS" elapsed="0.25" />
+            </test>
+            <test id="s1-t2" name="Writes file">
+              <status status="FAIL" elapsed="1.20" />
+            </test>
+            <test id="s1-t3" name="Browser preview">
+              <status status="SKIP" elapsed="0" />
+            </test>
+          </suite>
+        </robot>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.robotXMLPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.generatorLabel, "Robot 7.0")
+        XCTAssertEqual(preview.generatedLabel, "20260720 04:30:00.000")
+        XCTAssertEqual(preview.suiteCount, 1)
+        XCTAssertEqual(preview.testCount, 3)
+        XCTAssertEqual(preview.keywordCount, 1)
+        XCTAssertEqual(preview.passedCount, 1)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.45 s")
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.suitePreviewLabels, ["QuillCode acceptance"])
+        XCTAssertEqual(preview.failurePreviewLabels, ["Writes file"])
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Robot XML",
+            "Generator: Robot 7.0",
+            "Generated: 20260720 04:30:00.000",
+            "1 suite",
+            "3 tests",
+            "1 keyword",
+            "Passed: 1",
+            "Failed: 1",
+            "Skipped: 1",
+            "Duration: 1.45 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let elapsedTimeReport = directory.appendingPathComponent("robot-elapsedtime.xml")
+        try """
+        <robot>
+          <suite name="Legacy timing">
+            <test name="Legacy pass">
+              <status status="PASS" elapsedtime="250" />
+            </test>
+            <test name="Legacy fail">
+              <status status="FAIL" elapsedtime="750" />
+            </test>
+          </suite>
+        </robot>
+        """.write(to: elapsedTimeReport, atomically: true, encoding: .utf8)
+        let elapsedTimePreview = try XCTUnwrap(ToolArtifactState(value: elapsedTimeReport.path).robotXMLPreview)
+        XCTAssertEqual(elapsedTimePreview.durationLabel, "1 s")
+        XCTAssertEqual(elapsedTimePreview.failurePreviewLabels, ["Legacy fail"])
+
+        let nonRobot = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: nonRobot, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonRobot.path).robotXMLPreview)
+
+        let remoteRobot = ToolArtifactState(value: "https://example.com/output.xml")
+        XCTAssertNil(remoteRobot.robotXMLPreview)
+    }
+
     func testArtifactStateDerivesCoberturaPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("coverage.xml")

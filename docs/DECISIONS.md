@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Robot XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files whose root validates as Robot Framework `robot` output as
+  acceptance/integration test reports rather than generic XML.
+- **Rationale:** Robot Framework is common in UI, device, and acceptance testing. Showing suite,
+  test, keyword, status-bucket, runtime, and capped failing-test labels gives readable Codex-style
+  verification feedback without opening raw XML.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Robot
+  suites, expand keyword logs or messages, run Robot, load listener metadata, or fetch remote reports.
+
 ## 2026-07-19: Render TestNG XML As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.xml` files whose root validates as TestNG `testng-results` output as
