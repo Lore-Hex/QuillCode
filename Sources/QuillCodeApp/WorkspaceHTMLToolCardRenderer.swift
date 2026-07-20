@@ -222,6 +222,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
             let playwrightJSONPreviewModel = artifact.playwrightJSONPreview
             let playwrightJSONPreview = renderPlaywrightJSONPreview(playwrightJSONPreviewModel)
+            let cucumberJSONPreviewModel = artifact.cucumberJSONPreview
+            let cucumberJSONPreview = renderCucumberJSONPreview(cucumberJSONPreviewModel)
             let mochaJSONPreviewModel = artifact.mochaJSONPreview
             let mochaJSONPreview = renderMochaJSONPreview(mochaJSONPreviewModel)
             let eslintJSONPreviewModel = artifact.eslintJSONPreview
@@ -339,6 +341,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
                 && playwrightJSONPreviewModel == nil
+                && cucumberJSONPreviewModel == nil
                 && mochaJSONPreviewModel == nil
                 && eslintJSONPreviewModel == nil
                 && stylelintJSONPreviewModel == nil
@@ -391,6 +394,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(pytestJSONPreview)
               \(jestJSONPreview)
               \(playwrightJSONPreview)
+              \(cucumberJSONPreview)
               \(mochaJSONPreview)
               \(eslintJSONPreview)
               \(stylelintJSONPreview)
@@ -895,6 +899,31 @@ enum WorkspaceHTMLToolCardRenderer {
         guard !metadata.isEmpty || !failureList.isEmpty else { return "" }
         return """
         <div class="artifact-office-preview" data-testid="tool-card-playwright-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderCucumberJSONPreview(_ preview: ToolArtifactCucumberJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-cucumber-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-cucumber-json-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-cucumber-json-preview-failures">
+                <strong data-testid="tool-card-cucumber-json-preview-failure-title">Failures</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-cucumber-json-preview">
           <div>
             \(metadata)
           </div>

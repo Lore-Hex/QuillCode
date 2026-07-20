@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Cucumber JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Cucumber JSON formatter output as
+  acceptance-test reports rather than generic JSON.
+- **Rationale:** Cucumber-style acceptance tests often describe end-user workflows in a way that is
+  useful in Codex-like coding sessions. Showing feature/scenario/step counts, status buckets,
+  runtime, and capped failing scenario labels gives readable feedback without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read feature
+  files, expand step errors, run Cucumber, load formatter configuration, or fetch remote reports.
+
 ## 2026-07-19: Render Playwright JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as Playwright JSON reporter output

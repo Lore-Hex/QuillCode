@@ -2933,6 +2933,78 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePlaywright.playwrightJSONPreview)
     }
 
+    func testArtifactStateDerivesCucumberJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("cucumber-results.json")
+        let content = """
+        [
+          {
+            "keyword": "Feature",
+            "name": "Checkout",
+            "uri": "features/checkout.feature",
+            "elements": [
+              {
+                "keyword": "Scenario",
+                "name": "successful card payment",
+                "steps": [
+                  {"keyword": "Given ", "name": "a cart", "result": {"status": "passed", "duration": 100000000}},
+                  {"keyword": "When ", "name": "I pay", "result": {"status": "passed", "duration": 200000000}},
+                  {"keyword": "Then ", "name": "I see a receipt", "result": {"status": "passed", "duration": 300000000}}
+                ]
+              },
+              {
+                "keyword": "Scenario",
+                "name": "declined card",
+                "steps": [
+                  {"keyword": "Given ", "name": "a cart", "result": {"status": "passed", "duration": 100000000}},
+                  {"keyword": "When ", "name": "the card is declined", "result": {"status": "failed", "duration": 400000000}},
+                  {"keyword": "Then ", "name": "I see an error", "result": {"status": "skipped"}}
+                ]
+              }
+            ]
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.cucumberJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Cucumber JSON")
+        XCTAssertEqual(preview.featureCount, 1)
+        XCTAssertEqual(preview.scenarioCount, 2)
+        XCTAssertEqual(preview.stepCount, 6)
+        XCTAssertEqual(preview.passedStepCount, 4)
+        XCTAssertEqual(preview.failedStepCount, 1)
+        XCTAssertEqual(preview.skippedStepCount, 1)
+        XCTAssertEqual(preview.pendingStepCount, 0)
+        XCTAssertEqual(preview.undefinedStepCount, 0)
+        XCTAssertEqual(preview.durationLabel, "1.10s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["Checkout > declined card"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Cucumber JSON",
+            "Runtime: 1.10s",
+            "1 feature",
+            "2 scenarios",
+            "6 steps",
+            "Passed steps: 4",
+            "Failed steps: 1",
+            "Skipped steps: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("features.json")
+        try #"[]"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).cucumberJSONPreview)
+
+        let remoteCucumber = ToolArtifactState(value: "https://example.com/cucumber-results.json")
+        XCTAssertNil(remoteCucumber.cucumberJSONPreview)
+    }
+
     func testArtifactStateDerivesMochaJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("mocha-results.json")
