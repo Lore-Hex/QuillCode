@@ -1941,6 +1941,73 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesAllureJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("allure-result.json")
+        let reportText = """
+        {
+          "uuid": "3d953104-96fe-4206-af49-7052a6c75f69",
+          "name": "downloads artifact",
+          "fullName": "QuillCode browser downloads artifact",
+          "status": "broken",
+          "stage": "finished",
+          "start": 1710000000100,
+          "stop": 1710000001025,
+          "labels": [
+            {"name": "parentSuite", "value": "QuillCode"},
+            {"name": "suite", "value": "Browser"}
+          ],
+          "steps": [
+            {"name": "open page", "status": "passed"},
+            {"name": "click download", "status": "broken"}
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/allure-result.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/allure-result.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Allure artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">allure-result.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Format: Allure JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Result: downloads artifact"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Status: broken"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Broken: 1"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">2 steps"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Failed steps: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-suite-title">Suites"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-suite-item">QuillCode"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-failure-item">QuillCode browser downloads artifact"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesJestJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

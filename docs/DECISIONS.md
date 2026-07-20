@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Allure JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as an Allure test-result JSON object
+  as structured test-report output rather than generic JSON.
+- **Rationale:** Allure is common around browser, mobile, and integration suites. Showing the result
+  name, status, step counts, runtime, suite labels, and capped failing result labels gives readable
+  Codex-style verification feedback without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read source
+  files, expand attachments or status-detail logs, run Allure, load report directories, or fetch
+  remote reports.
+
 ## 2026-07-19: Render CTest XML As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.xml` files whose root validates as CTest `Site/Testing/Test` output
