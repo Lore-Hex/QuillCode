@@ -4492,6 +4492,78 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJUnit.junitPreview)
     }
 
+    func testArtifactStateDerivesCTestPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("Test.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Site BuildName="quillcode-mac" Name="builder">
+          <Testing>
+            <StartDateTime>Jul 19 19:00 PDT</StartDateTime>
+            <Test Status="passed">
+              <Name>CoreSmoke</Name>
+              <FullName>QuillCode.CoreSmoke</FullName>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>0.125</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+            <Test Status="failed">
+              <Name>ShellDispatch</Name>
+              <FullName>QuillCode.ShellDispatch</FullName>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>1.5</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+            <Test Status="notrun">
+              <Name>LinuxOnly</Name>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>0</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+          </Testing>
+        </Site>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.ctestPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.formatLabel, "CTest XML")
+        XCTAssertEqual(preview.testCount, 3)
+        XCTAssertEqual(preview.passedCount, 1)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.notRunCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.63 s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["QuillCode.ShellDispatch"])
+        XCTAssertEqual(preview.byteSizeLabel, "960 bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: CTest XML",
+            "3 tests",
+            "Passed: 1",
+            "Failed: 1",
+            "Not run: 1",
+            "Duration: 1.63 s",
+            "Size: 960 bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let generic = directory.appendingPathComponent("site.xml")
+        try "<Site><Build><Name>not a test report</Name></Build></Site>"
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).ctestPreview)
+
+        let remoteCTest = ToolArtifactState(value: "https://example.com/Testing/Temporary/LastTest.xml")
+        XCTAssertNil(remoteCTest.ctestPreview)
+    }
+
     func testArtifactStateDerivesCheckstylePreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("checkstyle-result.xml")

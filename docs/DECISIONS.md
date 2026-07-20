@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render CTest XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files whose root validates as CTest `Site/Testing/Test` output
+  as C/C++ test reports rather than generic XML.
+- **Rationale:** CMake/CTest is a common verification path for native projects. Showing test counts,
+  pass/fail/not-run buckets, runtime, and capped failing test labels gives readable Codex-style
+  feedback without opening raw XML.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read CMake
+  projects or source files, expand test output logs, run CTest, load dashboard metadata, or fetch
+  remote reports.
+
 ## 2026-07-19: Render RSpec JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as RSpec JSON formatter output as
