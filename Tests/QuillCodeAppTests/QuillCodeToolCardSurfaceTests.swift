@@ -3240,6 +3240,70 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteMocha.mochaJSONPreview)
     }
 
+    func testArtifactStateDerivesBenchmarkDotNetJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("benchmarkdotnet-report.json")
+        let content = """
+        {
+          "Title": "QuillCode.Benchmarks",
+          "HostEnvironmentInfo": {
+            "BenchmarkDotNetCaption": "BenchmarkDotNet v0.13.12",
+            "RuntimeVersion": ".NET 8.0.7",
+            "Architecture": "Arm64",
+            "OSVersion": "macOS 15.0"
+          },
+          "Benchmarks": [
+            {
+              "FullName": "QuillCode.Benchmarks.ParserBenchmarks.ParseActions",
+              "DisplayInfo": "ParserBenchmarks.ParseActions",
+              "Statistics": {"Mean": 123.4}
+            },
+            {
+              "Namespace": "QuillCode.Benchmarks",
+              "Type": "RendererBenchmarks",
+              "Method": "RenderToolCards",
+              "Statistics": {"Mean": 456.7}
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.benchmarkDotNetJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "BenchmarkDotNet JSON")
+        XCTAssertEqual(preview.title, "QuillCode.Benchmarks")
+        XCTAssertEqual(preview.benchmarkCount, 2)
+        XCTAssertEqual(preview.runtimeLabel, ".NET 8.0.7")
+        XCTAssertEqual(preview.architectureLabel, "Arm64")
+        XCTAssertEqual(preview.osLabel, "macOS 15.0")
+        XCTAssertEqual(preview.benchmarkPreviewLabels, [
+            "QuillCode.Benchmarks.ParserBenchmarks.ParseActions",
+            "RenderToolCards"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: BenchmarkDotNet JSON",
+            "Title: QuillCode.Benchmarks",
+            "2 benchmarks",
+            "Runtime: .NET 8.0.7",
+            "Architecture: Arm64",
+            "OS: macOS 15.0",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("benchmark-summary.json")
+        try #"{"Title":"Benchmarks","Benchmarks":[]}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).benchmarkDotNetJSONPreview)
+
+        let remoteBenchmark = ToolArtifactState(value: "https://example.com/BenchmarkDotNet.Artifacts/results/report.json")
+        XCTAssertNil(remoteBenchmark.benchmarkDotNetJSONPreview)
+    }
+
     func testArtifactStateDerivesESLintJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("eslint-results.json")

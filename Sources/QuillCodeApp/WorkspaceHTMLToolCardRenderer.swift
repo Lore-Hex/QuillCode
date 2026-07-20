@@ -230,6 +230,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let rspecJSONPreview = renderRSpecJSONPreview(rspecJSONPreviewModel)
             let mochaJSONPreviewModel = artifact.mochaJSONPreview
             let mochaJSONPreview = renderMochaJSONPreview(mochaJSONPreviewModel)
+            let benchmarkDotNetJSONPreviewModel = artifact.benchmarkDotNetJSONPreview
+            let benchmarkDotNetJSONPreview = renderBenchmarkDotNetJSONPreview(benchmarkDotNetJSONPreviewModel)
             let eslintJSONPreviewModel = artifact.eslintJSONPreview
             let eslintJSONPreview = renderESLintJSONPreview(eslintJSONPreviewModel)
             let stylelintJSONPreviewModel = artifact.stylelintJSONPreview
@@ -358,6 +360,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && cucumberJSONPreviewModel == nil
                 && rspecJSONPreviewModel == nil
                 && mochaJSONPreviewModel == nil
+                && benchmarkDotNetJSONPreviewModel == nil
                 && eslintJSONPreviewModel == nil
                 && stylelintJSONPreviewModel == nil
                 && swiftLintJSONPreviewModel == nil
@@ -413,6 +416,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(cucumberJSONPreview)
               \(rspecJSONPreview)
               \(mochaJSONPreview)
+              \(benchmarkDotNetJSONPreview)
               \(eslintJSONPreview)
               \(stylelintJSONPreview)
               \(swiftLintJSONPreview)
@@ -1053,6 +1057,33 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(failureList)
           \(pendingList)
+        </div>
+        """
+    }
+
+    private static func renderBenchmarkDotNetJSONPreview(
+        _ preview: ToolArtifactBenchmarkDotNetJSONPreview?
+    ) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-benchmarkdotnet-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let benchmarks = preview.benchmarkPreviewLabels.map {
+            #"<li data-testid="tool-card-benchmarkdotnet-json-preview-benchmark-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let benchmarkList = benchmarks.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-benchmarkdotnet-json-preview-benchmarks">
+                <strong data-testid="tool-card-benchmarkdotnet-json-preview-benchmark-title">Benchmarks</strong>
+                <ul>\(benchmarks)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !benchmarkList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-benchmarkdotnet-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(benchmarkList)
         </div>
         """
     }

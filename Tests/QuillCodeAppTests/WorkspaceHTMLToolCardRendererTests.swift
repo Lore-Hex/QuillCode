@@ -2351,6 +2351,66 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesBenchmarkDotNetJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("benchmarkdotnet-report.json")
+        let reportText = """
+        {
+          "Title": "QuillCode.Benchmarks",
+          "HostEnvironmentInfo": {
+            "BenchmarkDotNetCaption": "BenchmarkDotNet v0.13.12",
+            "RuntimeVersion": ".NET 8.0.7",
+            "Architecture": "Arm64",
+            "OSVersion": "macOS 15.0"
+          },
+          "Benchmarks": [
+            {
+              "FullName": "QuillCode.Benchmarks.ParserBenchmarks.ParseActions",
+              "Statistics": {"Mean": 123.4}
+            }
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/benchmarkdotnet-report.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/benchmarkdotnet-report.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "BenchmarkDotNet artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">benchmarkdotnet-report.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-meta">Format: BenchmarkDotNet JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-meta">Title: QuillCode.Benchmarks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-meta">1 benchmark"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-meta">Runtime: .NET 8.0.7"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-benchmark-title">Benchmarks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-benchmark-item">QuillCode.Benchmarks.ParserBenchmarks.ParseActions"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesESLintJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

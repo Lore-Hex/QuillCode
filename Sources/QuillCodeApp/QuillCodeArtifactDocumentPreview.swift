@@ -81,6 +81,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             rspecJSONContent(rspecJSONPreview)
         } else if let mochaJSONPreview = artifact.mochaJSONPreview {
             mochaJSONContent(mochaJSONPreview)
+        } else if let benchmarkDotNetJSONPreview = artifact.benchmarkDotNetJSONPreview {
+            benchmarkDotNetJSONContent(benchmarkDotNetJSONPreview)
         } else if let eslintJSONPreview = artifact.eslintJSONPreview {
             eslintJSONContent(eslintJSONPreview)
         } else if let stylelintJSONPreview = artifact.stylelintJSONPreview {
@@ -675,6 +677,23 @@ struct QuillCodeArtifactDocumentPreview: View {
             artifactContentList(title: "Files", labels: codeClimateJSONPreview.filePreviewLabels)
             artifactContentList(title: "Checks", labels: codeClimateJSONPreview.checkPreviewLabels)
             artifactContentList(title: "Categories", labels: codeClimateJSONPreview.categoryPreviewLabels)
+        }
+    }
+
+    private func benchmarkDotNetJSONContent(
+        _ benchmarkDotNetJSONPreview: ToolArtifactBenchmarkDotNetJSONPreview
+    ) -> some View {
+        let hasLists = !benchmarkDotNetJSONPreview.benchmarkPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 132 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "speedometer")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(benchmarkDotNetJSONPreview.metadataLines)
+            artifactContentList(title: "Benchmarks", labels: benchmarkDotNetJSONPreview.benchmarkPreviewLabels)
         }
     }
 
