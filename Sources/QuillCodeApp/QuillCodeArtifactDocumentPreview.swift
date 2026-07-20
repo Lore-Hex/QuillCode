@@ -85,6 +85,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             benchmarkDotNetJSONContent(benchmarkDotNetJSONPreview)
         } else if let hyperfineJSONPreview = artifact.hyperfineJSONPreview {
             hyperfineJSONContent(hyperfineJSONPreview)
+        } else if let npmAuditJSONPreview = artifact.npmAuditJSONPreview {
+            npmAuditJSONContent(npmAuditJSONPreview)
         } else if let eslintJSONPreview = artifact.eslintJSONPreview {
             eslintJSONContent(eslintJSONPreview)
         } else if let stylelintJSONPreview = artifact.stylelintJSONPreview {
@@ -711,6 +713,21 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(hyperfineJSONPreview.metadataLines)
             artifactContentList(title: "Commands", labels: hyperfineJSONPreview.commandPreviewLabels)
+        }
+    }
+
+    private func npmAuditJSONContent(_ npmAuditJSONPreview: ToolArtifactNPMAuditJSONPreview) -> some View {
+        let hasLists = !npmAuditJSONPreview.packagePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 132 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shield.lefthalf.filled")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(npmAuditJSONPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: npmAuditJSONPreview.packagePreviewLabels)
         }
     }
 

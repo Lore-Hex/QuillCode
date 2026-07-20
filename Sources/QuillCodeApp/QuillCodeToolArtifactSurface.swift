@@ -2167,6 +2167,64 @@ public struct ToolArtifactHyperfineJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactNPMAuditSeverityCount: Codable, Sendable, Hashable {
+    public var severity: String
+    public var count: Int
+
+    public init(severity: String, count: Int) {
+        self.severity = severity
+        self.count = count
+    }
+}
+
+public struct ToolArtifactNPMAuditJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var vulnerabilityCounts: [ToolArtifactNPMAuditSeverityCount]
+    public var dependencyCount: Int?
+    public var byteSizeLabel: String?
+    public var packagePreviewLabels: [String]
+
+    public var totalVulnerabilityCount: Int {
+        vulnerabilityCounts.reduce(0) { $0 + $1.count }
+    }
+
+    public var severitySummaryLabel: String? {
+        let parts = vulnerabilityCounts.map { "\($0.count) \($0.severity.lowercased())" }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(totalVulnerabilityCount) vulnerabilit\(totalVulnerabilityCount == 1 ? "y" : "ies")",
+            severitySummaryLabel.map { "Severity: \($0)" },
+            dependencyCount.map { "\($0) dependenc\($0 == 1 ? "y" : "ies")" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !vulnerabilityCounts.isEmpty
+            || dependencyCount != nil
+            || byteSizeLabel != nil
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "npm audit JSON",
+        vulnerabilityCounts: [ToolArtifactNPMAuditSeverityCount] = [],
+        dependencyCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        packagePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.vulnerabilityCounts = vulnerabilityCounts
+        self.dependencyCount = dependencyCount
+        self.byteSizeLabel = byteSizeLabel
+        self.packagePreviewLabels = packagePreviewLabels
+    }
+}
+
 public struct ToolArtifactESLintJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var fileCount: Int
@@ -5174,7 +5232,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               rspecJSONPreview == nil,
               mochaJSONPreview == nil,
               benchmarkDotNetJSONPreview == nil,
-              hyperfineJSONPreview == nil
+              hyperfineJSONPreview == nil,
+              npmAuditJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -5261,6 +5320,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var hyperfineJSONPreview: ToolArtifactHyperfineJSONPreview? {
         ToolArtifactHyperfineJSONPreviewBuilder.hyperfineJSONPreview(for: value, kind: kind)
+    }
+    public var npmAuditJSONPreview: ToolArtifactNPMAuditJSONPreview? {
+        ToolArtifactNPMAuditJSONPreviewBuilder.npmAuditJSONPreview(for: value, kind: kind)
     }
     public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
         ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)

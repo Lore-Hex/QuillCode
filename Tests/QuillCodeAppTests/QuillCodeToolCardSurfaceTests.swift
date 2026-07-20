@@ -3359,6 +3359,82 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteHyperfine.hyperfineJSONPreview)
     }
 
+    func testArtifactStateDerivesNPMAuditJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("npm-audit.json")
+        let content = """
+        {
+          "auditReportVersion": 2,
+          "vulnerabilities": {
+            "minimist": {
+              "name": "minimist",
+              "severity": "critical",
+              "via": [{"title": "Prototype Pollution"}]
+            },
+            "lodash": {
+              "name": "lodash",
+              "severity": "high",
+              "via": [{"title": "Command Injection"}, {"title": "Prototype Pollution"}]
+            }
+          },
+          "metadata": {
+            "vulnerabilities": {
+              "info": 0,
+              "low": 1,
+              "moderate": 0,
+              "high": 1,
+              "critical": 1,
+              "total": 3
+            },
+            "dependencies": {
+              "prod": 21,
+              "dev": 8,
+              "optional": 0,
+              "peer": 0,
+              "peerOptional": 0,
+              "total": 29
+            }
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.npmAuditJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "npm audit JSON")
+        XCTAssertEqual(preview.vulnerabilityCounts, [
+            ToolArtifactNPMAuditSeverityCount(severity: "Critical", count: 1),
+            ToolArtifactNPMAuditSeverityCount(severity: "High", count: 1),
+            ToolArtifactNPMAuditSeverityCount(severity: "Low", count: 1)
+        ])
+        XCTAssertEqual(preview.totalVulnerabilityCount, 3)
+        XCTAssertEqual(preview.severitySummaryLabel, "1 critical, 1 high, 1 low")
+        XCTAssertEqual(preview.dependencyCount, 29)
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "minimist · critical · 1 finding",
+            "lodash · high · 2 findings"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: npm audit JSON",
+            "3 vulnerabilities",
+            "Severity: 1 critical, 1 high, 1 low",
+            "29 dependencies",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("security-summary.json")
+        try #"{"metadata":{"vulnerabilities":{"high":1}}}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).npmAuditJSONPreview)
+
+        let remoteAudit = ToolArtifactState(value: "https://example.com/npm-audit.json")
+        XCTAssertNil(remoteAudit.npmAuditJSONPreview)
+    }
+
     func testArtifactStateDerivesESLintJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("eslint-results.json")
