@@ -2715,6 +2715,75 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesPsalmJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("psalm-results.json")
+        let reportText = """
+        {
+          "error": [
+            {
+              "line_from": 12,
+              "type": "InvalidReturnType",
+              "message": "The declared return type is incorrect",
+              "file_name": "/repo/src/Controller/HomeController.php"
+            }
+          ],
+          "warning": [
+            {
+              "line_from": 18,
+              "type": "PossiblyNullArgument",
+              "message": "Argument may be null",
+              "file_name": "/repo/src/Entity/User.php"
+            }
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/psalm-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/psalm-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Psalm artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">psalm-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">Format: Psalm JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">2 types"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-file-item">src/Controller/HomeController.php"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-file-item">src/Entity/User.php"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-type-title">Types"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-type-item">InvalidReturnType"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-type-item">PossiblyNullArgument"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesBanditJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)

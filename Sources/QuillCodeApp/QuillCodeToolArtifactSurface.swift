@@ -2403,6 +2403,73 @@ public struct ToolArtifactPHPStanJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPsalmJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var issueCount: Int
+    public var fileCount: Int
+    public var typeCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var deprecationCount: Int
+    public var infoCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var typePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(typeCount) type\(typeCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            deprecationCount > 0 ? "Deprecations: \(deprecationCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        issueCount > 0
+            || fileCount > 0
+            || typeCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || deprecationCount > 0
+            || infoCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !typePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Psalm JSON",
+        issueCount: Int,
+        fileCount: Int,
+        typeCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        deprecationCount: Int = 0,
+        infoCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        typePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.issueCount = issueCount
+        self.fileCount = fileCount
+        self.typeCount = typeCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.deprecationCount = deprecationCount
+        self.infoCount = infoCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.typePreviewLabels = typePreviewLabels
+    }
+}
+
 public struct ToolArtifactBanditJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var issueCount: Int
@@ -4422,6 +4489,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               mypyJSONPreview == nil,
               pyrightJSONPreview == nil,
               phpstanJSONPreview == nil,
+              psalmJSONPreview == nil,
               banditJSONPreview == nil,
               semgrepJSONPreview == nil,
               codeClimateJSONPreview == nil
@@ -4520,6 +4588,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var phpstanJSONPreview: ToolArtifactPHPStanJSONPreview? {
         ToolArtifactPHPStanJSONPreviewBuilder.phpstanJSONPreview(for: value, kind: kind)
+    }
+    public var psalmJSONPreview: ToolArtifactPsalmJSONPreview? {
+        ToolArtifactPsalmJSONPreviewBuilder.psalmJSONPreview(for: value, kind: kind)
     }
     public var banditJSONPreview: ToolArtifactBanditJSONPreview? {
         ToolArtifactBanditJSONPreviewBuilder.banditJSONPreview(for: value, kind: kind)

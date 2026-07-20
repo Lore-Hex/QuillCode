@@ -240,6 +240,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let pyrightJSONPreview = renderPyrightJSONPreview(pyrightJSONPreviewModel)
             let phpstanJSONPreviewModel = artifact.phpstanJSONPreview
             let phpstanJSONPreview = renderPHPStanJSONPreview(phpstanJSONPreviewModel)
+            let psalmJSONPreviewModel = artifact.psalmJSONPreview
+            let psalmJSONPreview = renderPsalmJSONPreview(psalmJSONPreviewModel)
             let banditJSONPreviewModel = artifact.banditJSONPreview
             let banditJSONPreview = renderBanditJSONPreview(banditJSONPreviewModel)
             let semgrepJSONPreviewModel = artifact.semgrepJSONPreview
@@ -341,6 +343,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && mypyJSONPreviewModel == nil
                 && pyrightJSONPreviewModel == nil
                 && phpstanJSONPreviewModel == nil
+                && psalmJSONPreviewModel == nil
                 && banditJSONPreviewModel == nil
                 && semgrepJSONPreviewModel == nil
                 && codeClimateJSONPreviewModel == nil
@@ -390,6 +393,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(mypyJSONPreview)
               \(pyrightJSONPreview)
               \(phpstanJSONPreview)
+              \(psalmJSONPreview)
               \(banditJSONPreview)
               \(semgrepJSONPreview)
               \(codeClimateJSONPreview)
@@ -1210,6 +1214,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(fileList)
           \(identifierList)
+        </div>
+        """
+    }
+
+    private static func renderPsalmJSONPreview(_ preview: ToolArtifactPsalmJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-psalm-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-psalm-json-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-psalm-json-preview-files">
+                <strong data-testid="tool-card-psalm-json-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let types = preview.typePreviewLabels.map {
+            #"<li data-testid="tool-card-psalm-json-preview-type-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let typeList = types.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-psalm-json-preview-types">
+                <strong data-testid="tool-card-psalm-json-preview-type-title">Types</strong>
+                <ul>\(types)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !typeList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-psalm-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
+          \(typeList)
         </div>
         """
     }

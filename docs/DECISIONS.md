@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Psalm JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Psalm JSON output as a
+  specialized PHP static-analysis report rather than generic JSON.
+- **Rationale:** Psalm reports are common in PHP coding sessions and CI exports. Showing
+  issue/file/type/severity-bucket counts plus capped file/type labels gives useful Codex-style
+  feedback without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read PHP
+  source files, expand diagnostic messages, run Psalm, load Psalm configuration, or fetch remote
+  reports.
+
 ## 2026-07-19: Render PHPStan JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as PHPStan JSON output as a
