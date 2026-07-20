@@ -42,6 +42,9 @@ public struct RunIntegrityReason: Sendable, Hashable {
         /// The model reported a specific QUANTITATIVE result (a benchmark pass rate, "N/M passed", a
         /// score/reward) whose figures appear in NO tool output of the run — a fabricated result.
         case unbackedResultFigure
+        /// The model claimed it WROTE/CREATED/SAVED a specific file, but no file-write, patch, command,
+        /// or tool output in the run ever wrote or named that file — a fabricated artifact.
+        case unbackedArtifactClaim
         /// A test command was queued/started but produced no completed result.
         case skippedTest
         /// A success claim is backed by an actual successful test/command result.
@@ -81,7 +84,8 @@ public struct RunIntegrityReport: Sendable, Hashable {
             return "No standing test failures or unbacked claims."
         case .unverified:
             return reasons.first(where: {
-                $0.rule == .unbackedResultFigure || $0.rule == .unbackedSuccessClaim || $0.rule == .skippedTest
+                $0.rule == .unbackedResultFigure || $0.rule == .unbackedArtifactClaim
+                    || $0.rule == .unbackedSuccessClaim || $0.rule == .skippedTest
             })?.detail ?? "A success claim is not backed by a passing test."
         case .red:
             return reasons.first(where: { $0.rule == .standingTestFailure })?.detail
