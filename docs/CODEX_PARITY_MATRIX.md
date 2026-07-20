@@ -245,6 +245,10 @@
   root validates as PHPStan output: error/file/identifier/ignorable counts, file size, capped file
   labels, and capped identifier labels without reading PHP source files, expanding diagnostic
   messages, running PHPStan, loading PHPStan configuration, or fetching remote JSON.
+- Artifact previews now include bounded local Psalm JSON report metadata for `.json` files whose
+  root validates as Psalm output: issue/file/type/severity-bucket counts, file size, capped file
+  labels, and capped type labels without reading PHP source files, expanding diagnostic messages,
+  running Psalm, loading Psalm configuration, or fetching remote JSON.
 - Artifact previews now include bounded local Bandit JSON security-report metadata for `.json`
   files whose root validates as Bandit output: issue/file/test, severity, and confidence counts,
   file size, capped file labels, and capped test labels without reading Python source files,

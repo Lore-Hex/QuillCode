@@ -3634,6 +3634,94 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePHPStan.phpstanJSONPreview)
     }
 
+    func testArtifactStateDerivesPsalmJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("psalm-results.json")
+        let content = """
+        {
+          "error": [
+            {
+              "severity": "error",
+              "line_from": 12,
+              "type": "InvalidReturnType",
+              "message": "The declared return type is incorrect",
+              "file_name": "/repo/src/Controller/HomeController.php"
+            },
+            {
+              "severity": "error",
+              "line_from": 18,
+              "type": "UndefinedPropertyFetch",
+              "message": "Instance property does not exist",
+              "file_name": "/repo/src/Entity/User.php"
+            }
+          ],
+          "warning": [
+            {
+              "severity": "info",
+              "line_from": 44,
+              "type": "PossiblyNullArgument",
+              "message": "Argument may be null",
+              "file_name": "/repo/src/Entity/User.php"
+            }
+          ],
+          "deprecation": [
+            {
+              "line": 8,
+              "type": "DeprecatedMethod",
+              "message": "Deprecated method call",
+              "file_path": "/repo/src/Legacy/Adapter.php"
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.psalmJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Psalm JSON")
+        XCTAssertEqual(preview.issueCount, 4)
+        XCTAssertEqual(preview.fileCount, 3)
+        XCTAssertEqual(preview.typeCount, 4)
+        XCTAssertEqual(preview.errorCount, 2)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.deprecationCount, 1)
+        XCTAssertEqual(preview.infoCount, 0)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "src/Controller/HomeController.php",
+            "src/Entity/User.php",
+            "src/Legacy/Adapter.php"
+        ])
+        XCTAssertEqual(preview.typePreviewLabels, [
+            "InvalidReturnType",
+            "UndefinedPropertyFetch",
+            "PossiblyNullArgument",
+            "DeprecatedMethod"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Psalm JSON",
+            "4 issues",
+            "3 files",
+            "4 types",
+            "Errors: 2",
+            "Warnings: 1",
+            "Deprecations: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"error":[{"message":"missing Psalm file and location"}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).psalmJSONPreview)
+
+        let remotePsalm = ToolArtifactState(value: "https://example.com/psalm-results.json")
+        XCTAssertNil(remotePsalm.psalmJSONPreview)
+    }
+
     func testArtifactStateDerivesBanditJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bandit-results.json")
