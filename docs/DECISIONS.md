@@ -3120,3 +3120,24 @@
   suppression, incomplete-report exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCargoAuditJSONArtifactPreview` covers
   static HTML selectors, rendered metadata, package/advisory lists, and generic JSON suppression.
+
+## 2026-07-19: pip-audit JSON artifacts render bounded Python security summaries
+
+- **Decision:** Local `.json` artifacts with `pip-audit --format json`-compatible dependency entries
+  render as structured pip-audit cards instead of generic JSON. The preview shows dependency count,
+  vulnerable package count, vulnerability count, fixable vulnerability count, file size, capped
+  package labels, and capped vulnerability labels with aliases/fix versions when available.
+- **Why:** Python dependency security cleanup commonly emits pip-audit JSON. A Codex-style artifact
+  surface should make those findings scannable beside command output without requiring raw JSON
+  expansion or another tool run.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and
+  capped at 512 KB. It reads only shallow `dependencies`, `name`, `version`, `vulns`, `id`,
+  `aliases`, and `fix_versions` fields; it never imports Python packages, opens requirements or lock
+  files, resolves dependency graphs, verifies exploitability, contacts vulnerability services, or
+  fetches remote reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPipAuditJSONPreviewMetadata`
+  covers pip-audit shape detection, dependency/package/vulnerability/fix metadata, generic JSON
+  suppression, incomplete-report exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPipAuditJSONArtifactPreview` covers
+  static HTML selectors, rendered metadata, package/vulnerability lists, and generic JSON
+  suppression.

@@ -2587,6 +2587,73 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesPipAuditJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("pip-audit.json")
+        let reportText = """
+        {
+          "dependencies": [
+            {
+              "name": "flask",
+              "version": "0.5",
+              "vulns": [
+                {
+                  "id": "PYSEC-2019-179",
+                  "fix_versions": ["1.0"],
+                  "aliases": ["CVE-2018-1000656"]
+                }
+              ]
+            },
+            {
+              "name": "safe-package",
+              "version": "1.2.3",
+              "vulns": []
+            }
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/pip-audit.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/pip-audit.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "pip audit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">pip-audit.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pip-audit-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pip-audit-json-preview-meta">Format: pip-audit JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pip-audit-json-preview-meta">2 dependencies"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pip-audit-json-preview-meta">1 vulnerable package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pip-audit-json-preview-meta">1 vulnerability"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pip-audit-json-preview-package-title">Packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pip-audit-json-preview-package-item">flask 0.5 · 1 vulnerability"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pip-audit-json-preview-vulnerability-title">Vulnerabilities"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pip-audit-json-preview-vulnerability-item">PYSEC-2019-179 · CVE-2018-1000656 · fixed in 1.0"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesESLintJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
