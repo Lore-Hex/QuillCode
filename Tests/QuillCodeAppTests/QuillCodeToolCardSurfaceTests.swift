@@ -2859,6 +2859,76 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJest.jestJSONPreview)
     }
 
+    func testArtifactStateDerivesMochaJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("mocha-results.json")
+        let content = """
+        {
+          "stats": {
+            "suites": 2,
+            "tests": 4,
+            "passes": 2,
+            "pending": 1,
+            "failures": 1,
+            "duration": 1234
+          },
+          "tests": [
+            {"title": "renders home", "fullTitle": "Home page renders home"},
+            {"title": "saves user", "fullTitle": "User service saves user"},
+            {"title": "syncs cache", "fullTitle": "Cache sync syncs cache"},
+            {"title": "exports csv", "fullTitle": "Reports exports csv"}
+          ],
+          "passes": [
+            {"title": "renders home", "fullTitle": "Home page renders home"},
+            {"title": "saves user", "fullTitle": "User service saves user"}
+          ],
+          "pending": [
+            {"title": "exports csv", "fullTitle": "Reports exports csv"}
+          ],
+          "failures": [
+            {
+              "title": "syncs cache",
+              "fullTitle": "Cache sync syncs cache",
+              "err": {"message": "expected cache to be warm", "stack": "not expanded"}
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.mochaJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Mocha JSON")
+        XCTAssertEqual(preview.totalTestCount, 4)
+        XCTAssertEqual(preview.passedTestCount, 2)
+        XCTAssertEqual(preview.failedTestCount, 1)
+        XCTAssertEqual(preview.pendingTestCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.23s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["Cache sync syncs cache"])
+        XCTAssertEqual(preview.pendingPreviewLabels, ["Reports exports csv"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Mocha JSON",
+            "Runtime: 1.23s",
+            "4 tests",
+            "Passed: 2",
+            "Failed: 1",
+            "Pending: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("test-results.json")
+        try #"{"stats":{"duration":0},"tests":[]}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).mochaJSONPreview)
+
+        let remoteMocha = ToolArtifactState(value: "https://example.com/mocha-results.json")
+        XCTAssertNil(remoteMocha.mochaJSONPreview)
+    }
+
     func testArtifactStateDerivesESLintJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("eslint-results.json")

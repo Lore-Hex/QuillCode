@@ -1748,6 +1748,63 @@ public struct ToolArtifactJestJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactMochaJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var totalTestCount: Int?
+    public var passedTestCount: Int?
+    public var failedTestCount: Int?
+    public var pendingTestCount: Int?
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+    public var pendingPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            durationLabel.map { "Runtime: \($0)" },
+            totalTestCount.map { "\($0) test\($0 == 1 ? "" : "s")" },
+            passedTestCount.map { "Passed: \($0)" },
+            failedTestCount.map { "Failed: \($0)" },
+            pendingTestCount.map { "Pending: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        totalTestCount != nil
+            || passedTestCount != nil
+            || failedTestCount != nil
+            || pendingTestCount != nil
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+            || !pendingPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Mocha JSON",
+        totalTestCount: Int? = nil,
+        passedTestCount: Int? = nil,
+        failedTestCount: Int? = nil,
+        pendingTestCount: Int? = nil,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = [],
+        pendingPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.totalTestCount = totalTestCount
+        self.passedTestCount = passedTestCount
+        self.failedTestCount = failedTestCount
+        self.pendingTestCount = pendingTestCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+        self.pendingPreviewLabels = pendingPreviewLabels
+    }
+}
+
 public struct ToolArtifactESLintJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var fileCount: Int
@@ -4569,7 +4626,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               psalmJSONPreview == nil,
               banditJSONPreview == nil,
               semgrepJSONPreview == nil,
-              codeClimateJSONPreview == nil
+              codeClimateJSONPreview == nil,
+              mochaJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -4635,6 +4693,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var jestJSONPreview: ToolArtifactJestJSONPreview? {
         ToolArtifactJestJSONPreviewBuilder.jestJSONPreview(for: value, kind: kind)
+    }
+    public var mochaJSONPreview: ToolArtifactMochaJSONPreview? {
+        ToolArtifactMochaJSONPreviewBuilder.mochaJSONPreview(for: value, kind: kind)
     }
     public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
         ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)

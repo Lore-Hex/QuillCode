@@ -220,6 +220,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let pytestJSONPreview = renderPytestJSONPreview(pytestJSONPreviewModel)
             let jestJSONPreviewModel = artifact.jestJSONPreview
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
+            let mochaJSONPreviewModel = artifact.mochaJSONPreview
+            let mochaJSONPreview = renderMochaJSONPreview(mochaJSONPreviewModel)
             let eslintJSONPreviewModel = artifact.eslintJSONPreview
             let eslintJSONPreview = renderESLintJSONPreview(eslintJSONPreviewModel)
             let stylelintJSONPreviewModel = artifact.stylelintJSONPreview
@@ -334,6 +336,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && coveragePyPreviewModel == nil
                 && pytestJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
+                && mochaJSONPreviewModel == nil
                 && eslintJSONPreviewModel == nil
                 && stylelintJSONPreviewModel == nil
                 && swiftLintJSONPreviewModel == nil
@@ -384,6 +387,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(coveragePyPreview)
               \(pytestJSONPreview)
               \(jestJSONPreview)
+              \(mochaJSONPreview)
               \(eslintJSONPreview)
               \(stylelintJSONPreview)
               \(swiftLintJSONPreview)
@@ -866,6 +870,41 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderMochaJSONPreview(_ preview: ToolArtifactMochaJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-mocha-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-mocha-json-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let pending = preview.pendingPreviewLabels.map {
+            #"<li data-testid="tool-card-mocha-json-preview-pending-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-mocha-json-preview-failures">
+                <strong data-testid="tool-card-mocha-json-preview-failure-title">Failures</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        let pendingList = pending.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-mocha-json-preview-pending">
+                <strong data-testid="tool-card-mocha-json-preview-pending-title">Pending</strong>
+                <ul>\(pending)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !failureList.isEmpty || !pendingList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-mocha-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(failureList)
+          \(pendingList)
         </div>
         """
     }

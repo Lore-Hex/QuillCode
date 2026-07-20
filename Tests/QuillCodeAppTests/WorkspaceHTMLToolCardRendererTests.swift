@@ -2006,6 +2006,64 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesMochaJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("mocha-results.json")
+        let reportText = """
+        {
+          "stats": {"tests": 3, "passes": 1, "pending": 1, "failures": 1, "duration": 1500},
+          "passes": [{"title": "renders home", "fullTitle": "Home page renders home"}],
+          "pending": [{"title": "exports csv", "fullTitle": "Reports exports csv"}],
+          "failures": [{"title": "syncs cache", "fullTitle": "Cache sync syncs cache"}],
+          "tests": [
+            {"title": "renders home", "fullTitle": "Home page renders home"},
+            {"title": "exports csv", "fullTitle": "Reports exports csv"},
+            {"title": "syncs cache", "fullTitle": "Cache sync syncs cache"}
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/mocha-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/mocha-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Mocha artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">mocha-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-meta">Format: Mocha JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-meta">Runtime: 1.50s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-failure-item">Cache sync syncs cache"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-pending-title">Pending"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-pending-item">Reports exports csv"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesESLintJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
