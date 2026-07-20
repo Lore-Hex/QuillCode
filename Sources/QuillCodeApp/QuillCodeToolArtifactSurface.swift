@@ -1675,6 +1675,88 @@ public struct ToolArtifactPytestJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactAllureJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var resultName: String?
+    public var statusLabel: String?
+    public var passedCount: Int
+    public var failedCount: Int
+    public var brokenCount: Int
+    public var skippedCount: Int
+    public var unknownCount: Int
+    public var stepCount: Int
+    public var failedStepCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var suitePreviewLabels: [String]
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            resultName.map { "Result: \($0)" },
+            statusLabel.map { "Status: \($0)" },
+            passedCount > 0 ? "Passed: \(passedCount)" : nil,
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            brokenCount > 0 ? "Broken: \(brokenCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            unknownCount > 0 ? "Unknown: \(unknownCount)" : nil,
+            stepCount > 0 ? "\(stepCount) step\(stepCount == 1 ? "" : "s")" : nil,
+            failedStepCount > 0 ? "Failed steps: \(failedStepCount)" : nil,
+            durationLabel.map { "Runtime: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        resultName != nil
+            || statusLabel != nil
+            || passedCount > 0
+            || failedCount > 0
+            || brokenCount > 0
+            || skippedCount > 0
+            || unknownCount > 0
+            || stepCount > 0
+            || failedStepCount > 0
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !suitePreviewLabels.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Allure JSON",
+        resultName: String? = nil,
+        statusLabel: String? = nil,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        brokenCount: Int = 0,
+        skippedCount: Int = 0,
+        unknownCount: Int = 0,
+        stepCount: Int = 0,
+        failedStepCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        suitePreviewLabels: [String] = [],
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.resultName = resultName
+        self.statusLabel = statusLabel
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.brokenCount = brokenCount
+        self.skippedCount = skippedCount
+        self.unknownCount = unknownCount
+        self.stepCount = stepCount
+        self.failedStepCount = failedStepCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.suitePreviewLabels = suitePreviewLabels
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactJestJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var success: Bool?
@@ -4845,7 +4927,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
-        guard eslintJSONPreview == nil,
+        guard allureJSONPreview == nil,
+              eslintJSONPreview == nil,
               stylelintJSONPreview == nil,
               swiftLintJSONPreview == nil,
               rubocopJSONPreview == nil,
@@ -4925,6 +5008,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var pytestJSONPreview: ToolArtifactPytestJSONPreview? {
         ToolArtifactPytestJSONPreviewBuilder.pytestJSONPreview(for: value, kind: kind)
+    }
+    public var allureJSONPreview: ToolArtifactAllureJSONPreview? {
+        ToolArtifactAllureJSONPreviewBuilder.allureJSONPreview(for: value, kind: kind)
     }
     public var jestJSONPreview: ToolArtifactJestJSONPreview? {
         ToolArtifactJestJSONPreviewBuilder.jestJSONPreview(for: value, kind: kind)

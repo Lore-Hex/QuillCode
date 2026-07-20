@@ -69,6 +69,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             coveragePyContent(coveragePyPreview)
         } else if let pytestJSONPreview = artifact.pytestJSONPreview {
             pytestJSONContent(pytestJSONPreview)
+        } else if let allureJSONPreview = artifact.allureJSONPreview {
+            allureJSONContent(allureJSONPreview)
         } else if let jestJSONPreview = artifact.jestJSONPreview {
             jestJSONContent(jestJSONPreview)
         } else if let playwrightJSONPreview = artifact.playwrightJSONPreview {
@@ -347,6 +349,23 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(pytestJSONPreview.metadataLines)
             artifactContentList(title: "Failures", labels: pytestJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func allureJSONContent(_ allureJSONPreview: ToolArtifactAllureJSONPreview) -> some View {
+        let hasLists = !allureJSONPreview.suitePreviewLabels.isEmpty
+            || !allureJSONPreview.failurePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(allureJSONPreview.metadataLines)
+            artifactContentList(title: "Suites", labels: allureJSONPreview.suitePreviewLabels)
+            artifactContentList(title: "Failures", labels: allureJSONPreview.failurePreviewLabels)
         }
     }
 

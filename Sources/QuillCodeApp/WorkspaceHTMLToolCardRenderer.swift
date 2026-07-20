@@ -218,6 +218,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let coveragePyPreview = renderCoveragePyPreview(coveragePyPreviewModel)
             let pytestJSONPreviewModel = artifact.pytestJSONPreview
             let pytestJSONPreview = renderPytestJSONPreview(pytestJSONPreviewModel)
+            let allureJSONPreviewModel = artifact.allureJSONPreview
+            let allureJSONPreview = renderAllureJSONPreview(allureJSONPreviewModel)
             let jestJSONPreviewModel = artifact.jestJSONPreview
             let jestJSONPreview = renderJestJSONPreview(jestJSONPreviewModel)
             let playwrightJSONPreviewModel = artifact.playwrightJSONPreview
@@ -344,6 +346,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let jsonPreview = istanbulPreviewModel == nil
                 && coveragePyPreviewModel == nil
                 && pytestJSONPreviewModel == nil
+                && allureJSONPreviewModel == nil
                 && jestJSONPreviewModel == nil
                 && playwrightJSONPreviewModel == nil
                 && cucumberJSONPreviewModel == nil
@@ -398,6 +401,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(istanbulPreview)
               \(coveragePyPreview)
               \(pytestJSONPreview)
+              \(allureJSONPreview)
               \(jestJSONPreview)
               \(playwrightJSONPreview)
               \(cucumberJSONPreview)
@@ -860,6 +864,41 @@ enum WorkspaceHTMLToolCardRenderer {
           <div>
             \(metadata)
           </div>
+          \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderAllureJSONPreview(_ preview: ToolArtifactAllureJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-allure-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let suites = preview.suitePreviewLabels.map {
+            #"<li data-testid="tool-card-allure-json-preview-suite-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-allure-json-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let suiteList = suites.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-allure-json-preview-suites">
+                <strong data-testid="tool-card-allure-json-preview-suite-title">Suites</strong>
+                <ul>\(suites)</ul>
+              </section>
+        """
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-allure-json-preview-failures">
+                <strong data-testid="tool-card-allure-json-preview-failure-title">Failures</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !suiteList.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-allure-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(suiteList)
           \(failureList)
         </div>
         """

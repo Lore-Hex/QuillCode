@@ -2859,6 +2859,85 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJest.jestJSONPreview)
     }
 
+    func testArtifactStateDerivesAllureJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("allure-result.json")
+        let content = """
+        {
+          "uuid": "88b356d6-caf5-4db8-8b14-80cfed1e0501",
+          "name": "writes a project file",
+          "fullName": "QuillCode device actions writes a project file",
+          "status": "failed",
+          "stage": "finished",
+          "start": 1710000000000,
+          "stop": 1710000001534,
+          "labels": [
+            {"name": "parentSuite", "value": "QuillCode"},
+            {"name": "suite", "value": "Device actions"},
+            {"name": "host", "value": "runner-01"}
+          ],
+          "steps": [
+            {"name": "open project", "status": "passed"},
+            {
+              "name": "write file",
+              "status": "failed",
+              "steps": [
+                {"name": "verify output", "status": "broken"}
+              ]
+            }
+          ],
+          "statusDetails": {
+            "message": "Expected hello.txt to exist"
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.allureJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Allure JSON")
+        XCTAssertEqual(preview.resultName, "writes a project file")
+        XCTAssertEqual(preview.statusLabel, "failed")
+        XCTAssertEqual(preview.passedCount, 0)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.brokenCount, 0)
+        XCTAssertEqual(preview.skippedCount, 0)
+        XCTAssertEqual(preview.unknownCount, 0)
+        XCTAssertEqual(preview.stepCount, 3)
+        XCTAssertEqual(preview.failedStepCount, 2)
+        XCTAssertEqual(preview.durationLabel, "1.53s")
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.suitePreviewLabels, [
+            "QuillCode",
+            "Device actions"
+        ])
+        XCTAssertEqual(preview.failurePreviewLabels, [
+            "QuillCode device actions writes a project file"
+        ])
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Allure JSON",
+            "Result: writes a project file",
+            "Status: failed",
+            "Failed: 1",
+            "3 steps",
+            "Failed steps: 2",
+            "Runtime: 1.53s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("plain-result.json")
+        try #"{"uuid":"88b356d6","name":"not allure","status":"failed"}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).allureJSONPreview)
+
+        let remoteAllure = ToolArtifactState(value: "https://example.com/allure-result.json")
+        XCTAssertNil(remoteAllure.allureJSONPreview)
+    }
+
     func testArtifactStateDerivesPlaywrightJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("playwright-results.json")
