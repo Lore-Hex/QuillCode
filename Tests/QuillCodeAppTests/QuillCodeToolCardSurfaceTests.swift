@@ -600,6 +600,103 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteLockfile.denoLockPreview)
     }
 
+    func testArtifactStateDerivesBunLockfilePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("bun.lock")
+        let jsonText = """
+        {
+          // Bun's text lockfile is JSONC.
+          "lockfileVersion": 1,
+          "workspaces": {
+            "": {
+              "name": "quillcode-web",
+              "dependencies": {
+                "react": "catalog:",
+                "zod": "^3.22.4",
+              },
+              "devDependencies": {
+                "typescript": "^5.5.0"
+              }
+            },
+            "packages/app": {
+              "name": "app",
+              "optionalDependencies": {
+                "fsevents": "^2.3.3"
+              }
+            }
+          },
+          "catalog": {
+            "react": "^19.0.0"
+          },
+          "catalogs": {
+            "build": {
+              "typescript": "^5.5.0"
+            }
+          },
+          "packages": {
+            "react@19.0.0": ["react", "https://registry.npmjs.org/react/-/react-19.0.0.tgz"],
+            "zod@3.22.4": ["zod", "https://registry.npmjs.org/zod/-/zod-3.22.4.tgz"],
+            "@types/node@20.11.30": ["@types/node", "https://registry.npmjs.org/@types/node/-/node-20.11.30.tgz"]
+          }
+        }
+        """
+        try jsonText.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.bunLockfilePreview)
+        let byteSizeLabel = try XCTUnwrap(ToolArtifactByteSizeFormatter.label(for: XCTUnwrap(jsonText.data(using: .utf8)).count))
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "BUN-LOCK")
+        XCTAssertEqual(preview.formatLabel, "Bun text lockfile")
+        XCTAssertEqual(preview.lockfileVersion, "1")
+        XCTAssertEqual(preview.workspaceCount, 2)
+        XCTAssertEqual(preview.packageCount, 3)
+        XCTAssertEqual(preview.dependencyCount, 4)
+        XCTAssertEqual(preview.catalogCount, 2)
+        XCTAssertEqual(preview.sourceHostLabels, ["registry.npmjs.org"])
+        XCTAssertEqual(preview.packagePreviewLabels, ["@types/node", "react", "zod"])
+        XCTAssertEqual(preview.byteSizeLabel, byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Bun text lockfile",
+            "Lockfile: 1",
+            "2 workspaces",
+            "3 packages",
+            "4 dependencies",
+            "2 catalog entries",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let packageJSON = directory.appendingPathComponent("package.json")
+        try #"{"lockfileVersion":1,"workspaces":{}}"#.write(to: packageJSON, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: packageJSON.path).bunLockfilePreview)
+
+        let remoteLockfile = ToolArtifactState(value: "https://example.com/bun.lock")
+        XCTAssertNil(remoteLockfile.bunLockfilePreview)
+    }
+
+    func testArtifactStateDerivesBinaryBunLockfilePreviewMetadataWithoutDecoding() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("bun.lockb")
+        try Data([0x62, 0x75, 0x6E, 0x00, 0x01, 0x02]).write(to: report)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.bunLockfilePreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "BUN-LOCKB")
+        XCTAssertEqual(preview.formatLabel, "Bun binary lockfile")
+        XCTAssertEqual(preview.packageCount, 0)
+        XCTAssertEqual(preview.workspaceCount, 0)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Bun binary lockfile",
+            "Size: 6 bytes"
+        ])
+        XCTAssertNil(artifact.textPreview)
+        XCTAssertNil(artifact.jsonPreview)
+    }
+
     func testArtifactStateDerivesSwiftPMPackageResolvedPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("Package.resolved")
@@ -2044,6 +2141,116 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJSONLines.jsonLinesPreview)
     }
 
+    func testArtifactStateDerivesCargoCompilerJSONLinesPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("cargo-clippy.jsonl")
+        let content = """
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"unused variable: `value`","code":{"code":"unused_variables"},"level":"warning","spans":[{"file_name":"/repo/src/lib.rs","is_primary":true}]}}
+        {"reason":"compiler-artifact","package_id":"pkg 0.1.0"}
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"mismatched types","code":{"code":"E0308"},"level":"error","spans":[{"file_name":"/repo/src/main.rs","is_primary":true}]}}
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"consider borrowing here","level":"help","spans":[{"file_name":"/repo/src/main.rs","is_primary":false}]}}
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.cargoCompilerJSONLinesPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSONL")
+        XCTAssertEqual(preview.formatLabel, "Cargo Compiler JSONL")
+        XCTAssertEqual(preview.diagnosticCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.codeCount, 2)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.helpCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/src/lib.rs",
+            "repo/src/main.rs"
+        ])
+        XCTAssertEqual(preview.codePreviewLabels, [
+            "unused_variables",
+            "E0308"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Cargo Compiler JSONL",
+            "3 diagnostics",
+            "2 files",
+            "2 codes",
+            "Errors: 1",
+            "Warnings: 1",
+            "Help: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonLinesPreview)
+
+        let generic = directory.appendingPathComponent("events.jsonl")
+        try #"{"event":"started","level":"info"}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).cargoCompilerJSONLinesPreview)
+
+        let remoteCargo = ToolArtifactState(value: "https://example.com/cargo-clippy.jsonl")
+        XCTAssertNil(remoteCargo.cargoCompilerJSONLinesPreview)
+    }
+
+    func testArtifactStateDerivesGoTestJSONLinesPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("go-test.jsonl")
+        let content = """
+        {"Time":"2026-07-19T17:00:00Z","Action":"run","Package":"example.com/quill/app","Test":"TestConnect"}
+        {"Time":"2026-07-19T17:00:01Z","Action":"pass","Package":"example.com/quill/app","Test":"TestConnect","Elapsed":0.12}
+        {"Time":"2026-07-19T17:00:01Z","Action":"run","Package":"example.com/quill/app","Test":"TestReconnect"}
+        {"Time":"2026-07-19T17:00:02Z","Action":"fail","Package":"example.com/quill/app","Test":"TestReconnect","Elapsed":0.18}
+        {"Time":"2026-07-19T17:00:02Z","Action":"skip","Package":"example.com/quill/app","Test":"TestBluetooth","Elapsed":0}
+        {"Time":"2026-07-19T17:00:02Z","Action":"output","Package":"example.com/quill/app","Output":"FAIL\\n"}
+        {"Time":"2026-07-19T17:00:02Z","Action":"fail","Package":"example.com/quill/app","Elapsed":0.31}
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.goTestJSONLinesPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSONL")
+        XCTAssertEqual(preview.formatLabel, "Go test JSONL")
+        XCTAssertEqual(preview.eventCount, 7)
+        XCTAssertEqual(preview.packageCount, 1)
+        XCTAssertEqual(preview.testCount, 3)
+        XCTAssertEqual(preview.passedTestCount, 1)
+        XCTAssertEqual(preview.failedTestCount, 1)
+        XCTAssertEqual(preview.skippedTestCount, 1)
+        XCTAssertEqual(preview.packagePassCount, 0)
+        XCTAssertEqual(preview.packageFailureCount, 1)
+        XCTAssertEqual(preview.outputEventCount, 1)
+        XCTAssertEqual(preview.failedTestPreviewLabels, [
+            "example.com/quill/app.TestReconnect"
+        ])
+        XCTAssertEqual(preview.skippedTestPreviewLabels, [
+            "example.com/quill/app.TestBluetooth"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Go test JSONL",
+            "7 events",
+            "1 package",
+            "3 tests",
+            "Passed tests: 1",
+            "Failed tests: 1",
+            "Skipped tests: 1",
+            "Failed packages: 1",
+            "Output events: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonLinesPreview)
+
+        let generic = directory.appendingPathComponent("events.jsonl")
+        try #"{"Action":"pass","Package":"example.com/quill/app"}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).goTestJSONLinesPreview)
+
+        let remoteGoTest = ToolArtifactState(value: "https://example.com/go-test.jsonl")
+        XCTAssertNil(remoteGoTest.goTestJSONLinesPreview)
+    }
+
     func testArtifactStateDerivesTOMLPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let config = directory.appendingPathComponent("config.toml")
@@ -2652,6 +2859,1868 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteJest.jestJSONPreview)
     }
 
+    func testArtifactStateDerivesAllureJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("allure-result.json")
+        let content = """
+        {
+          "uuid": "88b356d6-caf5-4db8-8b14-80cfed1e0501",
+          "name": "writes a project file",
+          "fullName": "QuillCode device actions writes a project file",
+          "status": "failed",
+          "stage": "finished",
+          "start": 1710000000000,
+          "stop": 1710000001534,
+          "labels": [
+            {"name": "parentSuite", "value": "QuillCode"},
+            {"name": "suite", "value": "Device actions"},
+            {"name": "host", "value": "runner-01"}
+          ],
+          "steps": [
+            {"name": "open project", "status": "passed"},
+            {
+              "name": "write file",
+              "status": "failed",
+              "steps": [
+                {"name": "verify output", "status": "broken"}
+              ]
+            }
+          ],
+          "statusDetails": {
+            "message": "Expected hello.txt to exist"
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.allureJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Allure JSON")
+        XCTAssertEqual(preview.resultName, "writes a project file")
+        XCTAssertEqual(preview.statusLabel, "failed")
+        XCTAssertEqual(preview.passedCount, 0)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.brokenCount, 0)
+        XCTAssertEqual(preview.skippedCount, 0)
+        XCTAssertEqual(preview.unknownCount, 0)
+        XCTAssertEqual(preview.stepCount, 3)
+        XCTAssertEqual(preview.failedStepCount, 2)
+        XCTAssertEqual(preview.durationLabel, "1.53s")
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.suitePreviewLabels, [
+            "QuillCode",
+            "Device actions"
+        ])
+        XCTAssertEqual(preview.failurePreviewLabels, [
+            "QuillCode device actions writes a project file"
+        ])
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Allure JSON",
+            "Result: writes a project file",
+            "Status: failed",
+            "Failed: 1",
+            "3 steps",
+            "Failed steps: 2",
+            "Runtime: 1.53s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("plain-result.json")
+        try #"{"uuid":"88b356d6","name":"not allure","status":"failed"}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).allureJSONPreview)
+
+        let remoteAllure = ToolArtifactState(value: "https://example.com/allure-result.json")
+        XCTAssertNil(remoteAllure.allureJSONPreview)
+    }
+
+    func testArtifactStateDerivesPlaywrightJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("playwright-results.json")
+        let content = """
+        {
+          "config": {"rootDir": "/repo"},
+          "stats": {
+            "expected": 2,
+            "skipped": 1,
+            "unexpected": 1,
+            "flaky": 1,
+            "duration": 3456
+          },
+          "suites": [
+            {
+              "title": "chromium",
+              "suites": [
+                {
+                  "title": "tests/app.spec.ts",
+                  "specs": [
+                    {
+                      "title": "loads dashboard",
+                      "ok": true,
+                      "tests": [{"results": [{"status": "passed", "duration": 100}]}]
+                    },
+                    {
+                      "title": "saves settings",
+                      "ok": false,
+                      "tests": [{"results": [{"status": "failed", "duration": 250}]}]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "errors": []
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.playwrightJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Playwright JSON")
+        XCTAssertEqual(preview.totalTestCount, 5)
+        XCTAssertEqual(preview.expectedTestCount, 2)
+        XCTAssertEqual(preview.unexpectedTestCount, 1)
+        XCTAssertEqual(preview.flakyTestCount, 1)
+        XCTAssertEqual(preview.skippedTestCount, 1)
+        XCTAssertEqual(preview.durationLabel, "3.46s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["chromium > tests/app.spec.ts > saves settings"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Playwright JSON",
+            "Runtime: 3.46s",
+            "5 tests",
+            "Expected: 2",
+            "Unexpected: 1",
+            "Flaky: 1",
+            "Skipped: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("suite-summary.json")
+        try #"{"suites":[],"stats":{"duration":0}}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).playwrightJSONPreview)
+
+        let remotePlaywright = ToolArtifactState(value: "https://example.com/playwright-results.json")
+        XCTAssertNil(remotePlaywright.playwrightJSONPreview)
+    }
+
+    func testArtifactStateDerivesCucumberJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("cucumber-results.json")
+        let content = """
+        [
+          {
+            "keyword": "Feature",
+            "name": "Checkout",
+            "uri": "features/checkout.feature",
+            "elements": [
+              {
+                "keyword": "Scenario",
+                "name": "successful card payment",
+                "steps": [
+                  {"keyword": "Given ", "name": "a cart", "result": {"status": "passed", "duration": 100000000}},
+                  {"keyword": "When ", "name": "I pay", "result": {"status": "passed", "duration": 200000000}},
+                  {"keyword": "Then ", "name": "I see a receipt", "result": {"status": "passed", "duration": 300000000}}
+                ]
+              },
+              {
+                "keyword": "Scenario",
+                "name": "declined card",
+                "steps": [
+                  {"keyword": "Given ", "name": "a cart", "result": {"status": "passed", "duration": 100000000}},
+                  {"keyword": "When ", "name": "the card is declined", "result": {"status": "failed", "duration": 400000000}},
+                  {"keyword": "Then ", "name": "I see an error", "result": {"status": "skipped"}}
+                ]
+              }
+            ]
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.cucumberJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Cucumber JSON")
+        XCTAssertEqual(preview.featureCount, 1)
+        XCTAssertEqual(preview.scenarioCount, 2)
+        XCTAssertEqual(preview.stepCount, 6)
+        XCTAssertEqual(preview.passedStepCount, 4)
+        XCTAssertEqual(preview.failedStepCount, 1)
+        XCTAssertEqual(preview.skippedStepCount, 1)
+        XCTAssertEqual(preview.pendingStepCount, 0)
+        XCTAssertEqual(preview.undefinedStepCount, 0)
+        XCTAssertEqual(preview.durationLabel, "1.10s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["Checkout > declined card"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Cucumber JSON",
+            "Runtime: 1.10s",
+            "1 feature",
+            "2 scenarios",
+            "6 steps",
+            "Passed steps: 4",
+            "Failed steps: 1",
+            "Skipped steps: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("features.json")
+        try #"[]"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).cucumberJSONPreview)
+
+        let remoteCucumber = ToolArtifactState(value: "https://example.com/cucumber-results.json")
+        XCTAssertNil(remoteCucumber.cucumberJSONPreview)
+    }
+
+    func testArtifactStateDerivesRSpecJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("rspec-results.json")
+        let content = """
+        {
+          "version": "3.13.0",
+          "examples": [
+            {
+              "id": "./spec/models/user_spec.rb[1:1]",
+              "description": "validates email",
+              "full_description": "User validates email",
+              "status": "passed",
+              "file_path": "./spec/models/user_spec.rb",
+              "line_number": 12,
+              "run_time": 0.12
+            },
+            {
+              "id": "./spec/requests/login_spec.rb[1:1]",
+              "description": "rejects invalid credentials",
+              "full_description": "Login rejects invalid credentials",
+              "status": "failed",
+              "file_path": "./spec/requests/login_spec.rb",
+              "line_number": 34,
+              "run_time": 0.25,
+              "exception": {"class": "RSpec::Expectations::ExpectationNotMetError", "message": "expected failure"}
+            },
+            {
+              "id": "./spec/jobs/report_job_spec.rb[1:1]",
+              "description": "exports csv",
+              "full_description": "ReportJob exports csv",
+              "status": "pending",
+              "file_path": "./spec/jobs/report_job_spec.rb",
+              "line_number": 8,
+              "run_time": 0.05,
+              "pending_message": "temporarily skipped"
+            }
+          ],
+          "summary": {
+            "duration": 1.42,
+            "example_count": 3,
+            "failure_count": 1,
+            "pending_count": 1
+          },
+          "summary_line": "3 examples, 1 failure, 1 pending"
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.rspecJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "RSpec JSON")
+        XCTAssertEqual(preview.totalExampleCount, 3)
+        XCTAssertEqual(preview.passedExampleCount, 1)
+        XCTAssertEqual(preview.failedExampleCount, 1)
+        XCTAssertEqual(preview.pendingExampleCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.42s")
+        XCTAssertEqual(preview.failurePreviewLabels, [
+            "Login rejects invalid credentials · ./spec/requests/login_spec.rb:34"
+        ])
+        XCTAssertEqual(preview.pendingPreviewLabels, [
+            "ReportJob exports csv · ./spec/jobs/report_job_spec.rb:8"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "1.2 KB")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: RSpec JSON",
+            "Runtime: 1.42s",
+            "3 examples",
+            "Passed: 1",
+            "Failed: 1",
+            "Pending: 1",
+            "Size: 1.2 KB"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("examples.json")
+        try #"{"examples":[{"description":"missing status"}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).rspecJSONPreview)
+
+        let remoteRSpec = ToolArtifactState(value: "https://example.com/rspec-results.json")
+        XCTAssertNil(remoteRSpec.rspecJSONPreview)
+    }
+
+    func testArtifactStateDerivesMochaJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("mocha-results.json")
+        let content = """
+        {
+          "stats": {
+            "suites": 2,
+            "tests": 4,
+            "passes": 2,
+            "pending": 1,
+            "failures": 1,
+            "duration": 1234
+          },
+          "tests": [
+            {"title": "renders home", "fullTitle": "Home page renders home"},
+            {"title": "saves user", "fullTitle": "User service saves user"},
+            {"title": "syncs cache", "fullTitle": "Cache sync syncs cache"},
+            {"title": "exports csv", "fullTitle": "Reports exports csv"}
+          ],
+          "passes": [
+            {"title": "renders home", "fullTitle": "Home page renders home"},
+            {"title": "saves user", "fullTitle": "User service saves user"}
+          ],
+          "pending": [
+            {"title": "exports csv", "fullTitle": "Reports exports csv"}
+          ],
+          "failures": [
+            {
+              "title": "syncs cache",
+              "fullTitle": "Cache sync syncs cache",
+              "err": {"message": "expected cache to be warm", "stack": "not expanded"}
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.mochaJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Mocha JSON")
+        XCTAssertEqual(preview.totalTestCount, 4)
+        XCTAssertEqual(preview.passedTestCount, 2)
+        XCTAssertEqual(preview.failedTestCount, 1)
+        XCTAssertEqual(preview.pendingTestCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.23s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["Cache sync syncs cache"])
+        XCTAssertEqual(preview.pendingPreviewLabels, ["Reports exports csv"])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Mocha JSON",
+            "Runtime: 1.23s",
+            "4 tests",
+            "Passed: 2",
+            "Failed: 1",
+            "Pending: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("test-results.json")
+        try #"{"stats":{"duration":0},"tests":[]}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).mochaJSONPreview)
+
+        let remoteMocha = ToolArtifactState(value: "https://example.com/mocha-results.json")
+        XCTAssertNil(remoteMocha.mochaJSONPreview)
+    }
+
+    func testArtifactStateDerivesBenchmarkDotNetJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("benchmarkdotnet-report.json")
+        let content = """
+        {
+          "Title": "QuillCode.Benchmarks",
+          "HostEnvironmentInfo": {
+            "BenchmarkDotNetCaption": "BenchmarkDotNet v0.13.12",
+            "RuntimeVersion": ".NET 8.0.7",
+            "Architecture": "Arm64",
+            "OSVersion": "macOS 15.0"
+          },
+          "Benchmarks": [
+            {
+              "FullName": "QuillCode.Benchmarks.ParserBenchmarks.ParseActions",
+              "DisplayInfo": "ParserBenchmarks.ParseActions",
+              "Statistics": {"Mean": 123.4}
+            },
+            {
+              "Namespace": "QuillCode.Benchmarks",
+              "Type": "RendererBenchmarks",
+              "Method": "RenderToolCards",
+              "Statistics": {"Mean": 456.7}
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.benchmarkDotNetJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "BenchmarkDotNet JSON")
+        XCTAssertEqual(preview.title, "QuillCode.Benchmarks")
+        XCTAssertEqual(preview.benchmarkCount, 2)
+        XCTAssertEqual(preview.runtimeLabel, ".NET 8.0.7")
+        XCTAssertEqual(preview.architectureLabel, "Arm64")
+        XCTAssertEqual(preview.osLabel, "macOS 15.0")
+        XCTAssertEqual(preview.benchmarkPreviewLabels, [
+            "QuillCode.Benchmarks.ParserBenchmarks.ParseActions",
+            "RenderToolCards"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: BenchmarkDotNet JSON",
+            "Title: QuillCode.Benchmarks",
+            "2 benchmarks",
+            "Runtime: .NET 8.0.7",
+            "Architecture: Arm64",
+            "OS: macOS 15.0",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("benchmark-summary.json")
+        try #"{"Title":"Benchmarks","Benchmarks":[]}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).benchmarkDotNetJSONPreview)
+
+        let remoteBenchmark = ToolArtifactState(value: "https://example.com/BenchmarkDotNet.Artifacts/results/report.json")
+        XCTAssertNil(remoteBenchmark.benchmarkDotNetJSONPreview)
+    }
+
+    func testArtifactStateDerivesHyperfineJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("hyperfine-results.json")
+        let content = """
+        {
+          "results": [
+            {
+              "command": "rg TODO Sources",
+              "mean": 0.0123,
+              "stddev": 0.001,
+              "median": 0.012,
+              "times": [0.012, 0.013]
+            },
+            {
+              "command": "grep -R TODO Sources",
+              "mean": 0.1456,
+              "stddev": 0.02,
+              "median": 0.14,
+              "times": [0.14, 0.15]
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.hyperfineJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Hyperfine JSON")
+        XCTAssertEqual(preview.commandCount, 2)
+        XCTAssertEqual(preview.fastestCommandLabel, "rg TODO Sources")
+        XCTAssertEqual(preview.fastestMeanLabel, "12.30 ms")
+        XCTAssertEqual(preview.commandPreviewLabels, [
+            "rg TODO Sources",
+            "grep -R TODO Sources"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Hyperfine JSON",
+            "2 commands",
+            "Fastest: rg TODO Sources (12.30 ms)",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("timings.json")
+        try #"{"results":[{"command":"echo ok"}]}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).hyperfineJSONPreview)
+
+        let remoteHyperfine = ToolArtifactState(value: "https://example.com/hyperfine-results.json")
+        XCTAssertNil(remoteHyperfine.hyperfineJSONPreview)
+    }
+
+    func testArtifactStateDerivesNPMAuditJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("npm-audit.json")
+        let content = """
+        {
+          "auditReportVersion": 2,
+          "vulnerabilities": {
+            "minimist": {
+              "name": "minimist",
+              "severity": "critical",
+              "via": [{"title": "Prototype Pollution"}]
+            },
+            "lodash": {
+              "name": "lodash",
+              "severity": "high",
+              "via": [{"title": "Command Injection"}, {"title": "Prototype Pollution"}]
+            }
+          },
+          "metadata": {
+            "vulnerabilities": {
+              "info": 0,
+              "low": 1,
+              "moderate": 0,
+              "high": 1,
+              "critical": 1,
+              "total": 3
+            },
+            "dependencies": {
+              "prod": 21,
+              "dev": 8,
+              "optional": 0,
+              "peer": 0,
+              "peerOptional": 0,
+              "total": 29
+            }
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.npmAuditJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "npm audit JSON")
+        XCTAssertEqual(preview.vulnerabilityCounts, [
+            ToolArtifactNPMAuditSeverityCount(severity: "Critical", count: 1),
+            ToolArtifactNPMAuditSeverityCount(severity: "High", count: 1),
+            ToolArtifactNPMAuditSeverityCount(severity: "Low", count: 1)
+        ])
+        XCTAssertEqual(preview.totalVulnerabilityCount, 3)
+        XCTAssertEqual(preview.severitySummaryLabel, "1 critical, 1 high, 1 low")
+        XCTAssertEqual(preview.dependencyCount, 29)
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "minimist · critical · 1 finding",
+            "lodash · high · 2 findings"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: npm audit JSON",
+            "3 vulnerabilities",
+            "Severity: 1 critical, 1 high, 1 low",
+            "29 dependencies",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("security-summary.json")
+        try #"{"metadata":{"vulnerabilities":{"high":1}}}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).npmAuditJSONPreview)
+
+        let remoteAudit = ToolArtifactState(value: "https://example.com/npm-audit.json")
+        XCTAssertNil(remoteAudit.npmAuditJSONPreview)
+    }
+
+    func testArtifactStateDerivesCargoAuditJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("cargo-audit.json")
+        let content = """
+        {
+          "vulnerabilities": {
+            "found": true,
+            "count": 2,
+            "list": [
+              {
+                "advisory": {
+                  "id": "RUSTSEC-2024-0001",
+                  "package": "time",
+                  "title": "Potential segfault in localtime_r invocations"
+                },
+                "package": {
+                  "name": "time",
+                  "version": "0.1.45"
+                }
+              },
+              {
+                "advisory": {
+                  "id": "RUSTSEC-2023-0071",
+                  "package": "rsa",
+                  "title": "Marvin Attack: potential key recovery"
+                },
+                "package": {
+                  "name": "rsa",
+                  "version": "0.9.6"
+                }
+              }
+            ]
+          },
+          "warnings": {
+            "yanked": [
+              {"package": {"name": "old-crate", "version": "0.1.0"}}
+            ],
+            "unmaintained": [
+              {"package": {"name": "abandoned", "version": "1.2.3"}}
+            ]
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.cargoAuditJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "cargo audit JSON")
+        XCTAssertEqual(preview.vulnerabilityCount, 2)
+        XCTAssertEqual(preview.yankedWarningCount, 1)
+        XCTAssertEqual(preview.unmaintainedWarningCount, 1)
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "rsa 0.9.6",
+            "time 0.1.45"
+        ])
+        XCTAssertEqual(preview.advisoryPreviewLabels, [
+            "RUSTSEC-2023-0071 · Marvin Attack: potential key recovery",
+            "RUSTSEC-2024-0001 · Potential segfault in localtime_r invocations"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: cargo audit JSON",
+            "2 vulnerabilities",
+            "Yanked: 1",
+            "Unmaintained: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("rust-security.json")
+        try #"{"vulnerabilities":{"count":1}}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).cargoAuditJSONPreview)
+
+        let remoteAudit = ToolArtifactState(value: "https://example.com/cargo-audit.json")
+        XCTAssertNil(remoteAudit.cargoAuditJSONPreview)
+    }
+
+    func testArtifactStateDerivesESLintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("eslint-results.json")
+        let content = """
+        [
+          {
+            "filePath": "/repo/Sources/App.ts",
+            "messages": [
+              {
+                "ruleId": "no-console",
+                "severity": 1,
+                "message": "Unexpected console statement.",
+                "fix": {"range": [10, 20], "text": ""}
+              },
+              {
+                "ruleId": "@typescript-eslint/no-floating-promises",
+                "severity": 2,
+                "message": "Promise must be handled."
+              }
+            ],
+            "errorCount": 1,
+            "warningCount": 1,
+            "fixableErrorCount": 0,
+            "fixableWarningCount": 1
+          },
+          {
+            "filePath": "/repo/Tests/App.test.ts",
+            "messages": [
+              {
+                "ruleId": "testing-library/no-debugging-utils",
+                "severity": 1,
+                "message": "Unexpected debug utility."
+              }
+            ],
+            "errorCount": 0,
+            "warningCount": 1,
+            "fixableErrorCount": 0,
+            "fixableWarningCount": 0
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.eslintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "ESLint JSON")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.messageCount, 3)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 2)
+        XCTAssertEqual(preview.fixableCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/Sources/App.ts",
+            "repo/Tests/App.test.ts"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "no-console",
+            "@typescript-eslint/no-floating-promises",
+            "testing-library/no-debugging-utils"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: ESLint JSON",
+            "2 files",
+            "3 messages",
+            "Errors: 1",
+            "Warnings: 2",
+            "Fixable: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"filePath":"/repo/file.ts","status":"ok"}]"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).eslintJSONPreview)
+
+        let remoteESLint = ToolArtifactState(value: "https://example.com/eslint-results.json")
+        XCTAssertNil(remoteESLint.eslintJSONPreview)
+    }
+
+    func testArtifactStateDerivesStylelintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("stylelint-results.json")
+        let content = """
+        [
+          {
+            "source": "/repo/Sources/App.css",
+            "deprecations": [
+              {"text": "Deprecated rule"}
+            ],
+            "invalidOptionWarnings": [
+              {"text": "Invalid option"}
+            ],
+            "parseErrors": [],
+            "errored": true,
+            "warnings": [
+              {
+                "line": 1,
+                "column": 1,
+                "rule": "color-no-invalid-hex",
+                "severity": "error",
+                "text": "Unexpected invalid hex color"
+              },
+              {
+                "line": 2,
+                "column": 4,
+                "rule": "selector-class-pattern",
+                "severity": "warning",
+                "text": "Expected class selector to be kebab-case"
+              }
+            ]
+          },
+          {
+            "source": "/repo/Tests/fixtures/theme.css",
+            "parseErrors": [
+              {"text": "Unexpected token"}
+            ],
+            "warnings": []
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.stylelintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Stylelint JSON")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.warningCount, 2)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.parseErrorCount, 1)
+        XCTAssertEqual(preview.deprecationCount, 1)
+        XCTAssertEqual(preview.invalidOptionWarningCount, 1)
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "repo/Sources/App.css",
+            "Tests/fixtures/theme.css"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "color-no-invalid-hex",
+            "selector-class-pattern"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Stylelint JSON",
+            "2 files",
+            "Warnings: 2",
+            "Errors: 1",
+            "Parse errors: 1",
+            "Deprecations: 1",
+            "Invalid options: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"source":"/repo/file.css","status":"ok"}]"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).stylelintJSONPreview)
+
+        let remoteStylelint = ToolArtifactState(value: "https://example.com/stylelint-results.json")
+        XCTAssertNil(remoteStylelint.stylelintJSONPreview)
+    }
+
+    func testArtifactStateDerivesSwiftLintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("swiftlint-results.json")
+        let content = """
+        [
+          {
+            "file": "/repo/Sources/App/WorkspaceView.swift",
+            "line": 42,
+            "character": 18,
+            "severity": "Warning",
+            "type": "Line Length",
+            "rule_id": "line_length",
+            "reason": "Line should be 120 characters or less"
+          },
+          {
+            "file": "/repo/Sources/App/WorkspaceView.swift",
+            "line": 57,
+            "character": 8,
+            "severity": "Error",
+            "type": "Force Cast",
+            "rule_id": "force_cast",
+            "reason": "Force casts should be avoided"
+          },
+          {
+            "file": "/repo/Tests/AppTests/WorkspaceViewTests.swift",
+            "line": 13,
+            "character": 1,
+            "severity": "warning",
+            "type": "Trailing Whitespace",
+            "rule_id": "trailing_whitespace",
+            "reason": "Lines should not have trailing whitespace"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.swiftLintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "SwiftLint JSON")
+        XCTAssertEqual(preview.violationCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.ruleCount, 3)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 2)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "Sources/App/WorkspaceView.swift",
+            "Tests/AppTests/WorkspaceViewTests.swift"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "line_length",
+            "force_cast",
+            "trailing_whitespace"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: SwiftLint JSON",
+            "3 violations",
+            "2 files",
+            "3 rules",
+            "Errors: 1",
+            "Warnings: 2",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"file":"/repo/file.swift","status":"ok"}]"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).swiftLintJSONPreview)
+
+        let remoteSwiftLint = ToolArtifactState(value: "https://example.com/swiftlint-results.json")
+        XCTAssertNil(remoteSwiftLint.swiftLintJSONPreview)
+    }
+
+    func testArtifactStateDerivesRuboCopJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("rubocop-results.json")
+        let content = """
+        {
+          "metadata": {
+            "rubocop_version": "1.64.1",
+            "ruby_engine": "ruby"
+          },
+          "files": [
+            {
+              "path": "/repo/app/models/user.rb",
+              "offenses": [
+                {
+                  "severity": "convention",
+                  "message": "Prefer single-quoted strings.",
+                  "cop_name": "Style/StringLiterals",
+                  "correctable": true
+                },
+                {
+                  "severity": "warning",
+                  "message": "Method has too many lines.",
+                  "cop_name": "Metrics/MethodLength",
+                  "correctable": false
+                }
+              ]
+            },
+            {
+              "path": "/repo/spec/models/user_spec.rb",
+              "offenses": [
+                {
+                  "severity": "refactor",
+                  "message": "Use described_class.",
+                  "cop_name": "RSpec/DescribedClass",
+                  "correctable": "true"
+                }
+              ]
+            }
+          ],
+          "summary": {
+            "offense_count": 3,
+            "target_file_count": 2
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.rubocopJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "RuboCop JSON")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.offenseCount, 3)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.conventionCount, 1)
+        XCTAssertEqual(preview.refactorCount, 1)
+        XCTAssertEqual(preview.correctableCount, 2)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "app/models/user.rb",
+            "spec/models/user_spec.rb"
+        ])
+        XCTAssertEqual(preview.copPreviewLabels, [
+            "Style/StringLiterals",
+            "Metrics/MethodLength",
+            "RSpec/DescribedClass"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: RuboCop JSON",
+            "2 files",
+            "3 offenses",
+            "Warnings: 1",
+            "Convention: 1",
+            "Refactor: 1",
+            "Correctable: 2",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"files":[{"path":"/repo/app.rb","status":"ok"}]}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).rubocopJSONPreview)
+
+        let remoteRuboCop = ToolArtifactState(value: "https://example.com/rubocop-results.json")
+        XCTAssertNil(remoteRuboCop.rubocopJSONPreview)
+    }
+
+    func testArtifactStateDerivesGolangCILintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("golangci-lint-results.json")
+        let content = """
+        {
+          "Issues": [
+            {
+              "FromLinter": "errcheck",
+              "Text": "Error return value is not checked",
+              "Severity": "error",
+              "Pos": {
+                "Filename": "/repo/cmd/server/main.go",
+                "Line": 42,
+                "Column": 5
+              }
+            },
+            {
+              "FromLinter": "govet",
+              "Text": "printf call has possible formatting directive",
+              "Severity": "warning",
+              "Pos": {
+                "Filename": "/repo/internal/http/handler.go",
+                "Line": 17,
+                "Column": 12
+              }
+            },
+            {
+              "FromLinter": "errcheck",
+              "Text": "Error return value is not checked",
+              "Severity": "",
+              "Pos": {
+                "Filename": "/repo/internal/http/handler.go",
+                "Line": 24,
+                "Column": 8
+              }
+            }
+          ],
+          "Report": {
+            "Linters": [
+              {"Name": "errcheck", "Enabled": true},
+              {"Name": "govet", "Enabled": true}
+            ]
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.golangCILintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "golangci-lint JSON")
+        XCTAssertEqual(preview.issueCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.linterCount, 2)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "cmd/server/main.go",
+            "internal/http/handler.go"
+        ])
+        XCTAssertEqual(preview.linterPreviewLabels, [
+            "errcheck",
+            "govet"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: golangci-lint JSON",
+            "3 issues",
+            "2 files",
+            "2 linters",
+            "Errors: 1",
+            "Warnings: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"Issues":[{"Text":"plain build issue","Pos":{"Filename":"/repo/main.go","Line":1}}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).golangCILintJSONPreview)
+
+        let remoteGolangCILint = ToolArtifactState(value: "https://example.com/golangci-lint-results.json")
+        XCTAssertNil(remoteGolangCILint.golangCILintJSONPreview)
+    }
+
+    func testArtifactStateDerivesRuffJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("ruff-results.json")
+        let content = """
+        [
+          {
+            "cell": null,
+            "code": "F401",
+            "end_location": {"row": 1, "column": 10},
+            "filename": "/repo/app/main.py",
+            "fix": {
+              "applicability": "safe",
+              "edits": []
+            },
+            "location": {"row": 1, "column": 1},
+            "message": "`os` imported but unused",
+            "noqa_row": 1,
+            "url": "https://docs.astral.sh/ruff/rules/unused-import"
+          },
+          {
+            "cell": null,
+            "code": "E501",
+            "end_location": {"row": 12, "column": 104},
+            "filename": "/repo/tests/test_app.py",
+            "fix": null,
+            "location": {"row": 12, "column": 89},
+            "message": "Line too long"
+          },
+          {
+            "cell": null,
+            "code": "F401",
+            "end_location": {"row": 3, "column": 10},
+            "filename": "/repo/tests/test_app.py",
+            "fix": null,
+            "location": {"row": 3, "column": 1},
+            "message": "`sys` imported but unused"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.ruffJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Ruff JSON")
+        XCTAssertEqual(preview.violationCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.ruleCount, 2)
+        XCTAssertEqual(preview.fixableCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/main.py",
+            "repo/tests/test_app.py"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "F401",
+            "E501"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Ruff JSON",
+            "3 violations",
+            "2 files",
+            "2 rules",
+            "Fixable: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"code":"F401","filename":"/repo/app.py","message":"missing location"}]"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).ruffJSONPreview)
+
+        let remoteRuff = ToolArtifactState(value: "https://example.com/ruff-results.json")
+        XCTAssertNil(remoteRuff.ruffJSONPreview)
+    }
+
+    func testArtifactStateDerivesPylintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("pylint-results.json")
+        let content = """
+        [
+          {
+            "type": "warning",
+            "module": "app.main",
+            "obj": "",
+            "line": 1,
+            "column": 0,
+            "endLine": 1,
+            "endColumn": 9,
+            "path": "/repo/app/main.py",
+            "symbol": "unused-import",
+            "message": "Unused import os",
+            "message-id": "W0611"
+          },
+          {
+            "type": "convention",
+            "module": "tests.test_app",
+            "obj": "test_smoke",
+            "line": "12",
+            "column": 0,
+            "endLine": 12,
+            "endColumn": 15,
+            "path": "/repo/tests/test_app.py",
+            "symbol": "missing-function-docstring",
+            "message": "Missing function or method docstring",
+            "message-id": "C0116"
+          },
+          {
+            "type": "error",
+            "module": "tests.test_app",
+            "obj": "",
+            "line": 18,
+            "column": 4,
+            "endLine": 18,
+            "endColumn": 9,
+            "path": "/repo/tests/test_app.py",
+            "symbol": "undefined-variable",
+            "message": "Undefined variable 'value'",
+            "message-id": "E0602"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pylintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Pylint JSON")
+        XCTAssertEqual(preview.messageCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.symbolCount, 3)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.conventionCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/main.py",
+            "repo/tests/test_app.py"
+        ])
+        XCTAssertEqual(preview.symbolPreviewLabels, [
+            "unused-import",
+            "missing-function-docstring",
+            "undefined-variable"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Pylint JSON",
+            "3 messages",
+            "2 files",
+            "3 symbols",
+            "Errors: 1",
+            "Warnings: 1",
+            "Convention: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"type":"warning","path":"/repo/app.py","symbol":"unused-import","message":"missing module and id","line":1}]"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).pylintJSONPreview)
+
+        let remotePylint = ToolArtifactState(value: "https://example.com/pylint-results.json")
+        XCTAssertNil(remotePylint.pylintJSONPreview)
+    }
+
+    func testArtifactStateDerivesMypyJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("mypy-results.json")
+        let content = """
+        [
+          {
+            "file": "/repo/app/models.py",
+            "line": 7,
+            "column": 12,
+            "message": "Incompatible return value type",
+            "severity": "error",
+            "code": "return-value"
+          },
+          {
+            "file": "/repo/app/views.py",
+            "line": "22",
+            "column": 4,
+            "message": "Call to untyped function",
+            "severity": "note",
+            "code": "no-untyped-call"
+          },
+          {
+            "file": "/repo/app/models.py",
+            "line": 30,
+            "column": 8,
+            "message": "Unsupported operand types",
+            "severity": "error",
+            "code": "operator"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.mypyJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "mypy JSON")
+        XCTAssertEqual(preview.diagnosticCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.codeCount, 3)
+        XCTAssertEqual(preview.errorCount, 2)
+        XCTAssertEqual(preview.noteCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/models.py",
+            "repo/app/views.py"
+        ])
+        XCTAssertEqual(preview.codePreviewLabels, [
+            "return-value",
+            "no-untyped-call",
+            "operator"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: mypy JSON",
+            "3 diagnostics",
+            "2 files",
+            "3 codes",
+            "Errors: 2",
+            "Notes: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let jsonl = directory.appendingPathComponent("mypy-results.jsonl")
+        let jsonlContent = """
+        {"file":"/repo/pkg/a.py","line":1,"message":"Missing type annotation","severity":"error","code":"var-annotated"}
+        {"file":"/repo/pkg/b.py","line":2,"message":"Revealed type is Any","severity":"note"}
+        """
+        try jsonlContent.write(to: jsonl, atomically: true, encoding: .utf8)
+        let jsonlPreview = try XCTUnwrap(ToolArtifactState(value: jsonl.path).mypyJSONPreview)
+        XCTAssertEqual(jsonlPreview.diagnosticCount, 2)
+        XCTAssertEqual(jsonlPreview.fileCount, 2)
+        XCTAssertEqual(jsonlPreview.codeCount, 1)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"file":"/repo/app.py","message":"missing severity and line"}]"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).mypyJSONPreview)
+
+        let remoteMypy = ToolArtifactState(value: "https://example.com/mypy-results.json")
+        XCTAssertNil(remoteMypy.mypyJSONPreview)
+    }
+
+    func testArtifactStateDerivesPyrightJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("pyright-results.json")
+        let content = """
+        {
+          "version": "1.1.380",
+          "time": "2026-07-19T23:05:00Z",
+          "generalDiagnostics": [
+            {
+              "file": "/repo/app/models.py",
+              "severity": "error",
+              "message": "Type \\\"str\\\" is not assignable to return type \\\"int\\\"",
+              "range": {"start": {"line": 7, "character": 12}, "end": {"line": 7, "character": 22}},
+              "rule": "reportReturnType"
+            },
+            {
+              "file": "/repo/app/views.py",
+              "severity": "warning",
+              "message": "Type of parameter is unknown",
+              "range": {"start": {"line": 22, "character": 4}, "end": {"line": 22, "character": 10}},
+              "rule": "reportUnknownParameterType"
+            },
+            {
+              "file": "/repo/app/models.py",
+              "severity": "information",
+              "message": "Type is Any",
+              "range": {"start": {"line": 30, "character": 8}, "end": {"line": 30, "character": 12}}
+            }
+          ],
+          "summary": {"filesAnalyzed": 12, "errorCount": 1, "warningCount": 1, "informationCount": 1}
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pyrightJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Pyright JSON")
+        XCTAssertEqual(preview.diagnosticCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.ruleCount, 2)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.informationCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/models.py",
+            "repo/app/views.py"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "reportReturnType",
+            "reportUnknownParameterType"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Pyright JSON",
+            "3 diagnostics",
+            "2 files",
+            "2 rules",
+            "Errors: 1",
+            "Warnings: 1",
+            "Information: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"generalDiagnostics":[{"file":"/repo/app.py","message":"missing severity and range"}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).pyrightJSONPreview)
+
+        let remotePyright = ToolArtifactState(value: "https://example.com/pyright-results.json")
+        XCTAssertNil(remotePyright.pyrightJSONPreview)
+    }
+
+    func testArtifactStateDerivesPHPStanJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("phpstan-results.json")
+        let content = """
+        {
+          "totals": {"errors": 0, "file_errors": 3},
+          "files": {
+            "/repo/src/Controller/HomeController.php": {
+              "errors": 2,
+              "messages": [
+                {
+                  "message": "Method App\\\\Controller\\\\HomeController::index() should return Response but returns string.",
+                  "line": 12,
+                  "ignorable": true,
+                  "identifier": "return.type"
+                },
+                {
+                  "message": "Access to an undefined property.",
+                  "line": 18,
+                  "ignorable": false,
+                  "identifier": "property.notFound"
+                }
+              ]
+            },
+            "/repo/src/Entity/User.php": {
+              "errors": 1,
+              "messages": [
+                {
+                  "message": "Parameter #1 expects non-empty-string, string given.",
+                  "line": 44,
+                  "ignorable": true,
+                  "identifier": "argument.type"
+                }
+              ]
+            }
+          },
+          "errors": []
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.phpstanJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "PHPStan JSON")
+        XCTAssertEqual(preview.errorCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.identifierCount, 3)
+        XCTAssertEqual(preview.generalErrorCount, 0)
+        XCTAssertEqual(preview.ignorableCount, 2)
+        XCTAssertEqual(preview.nonIgnorableCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "src/Controller/HomeController.php",
+            "src/Entity/User.php"
+        ])
+        XCTAssertEqual(preview.identifierPreviewLabels, [
+            "return.type",
+            "property.notFound",
+            "argument.type"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: PHPStan JSON",
+            "3 errors",
+            "2 files",
+            "3 identifiers",
+            "Ignorable: 2",
+            "Non-ignorable: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"totals":{"errors":0,"file_errors":1},"files":{"/repo/src/A.php":{"messages":[{"message":"missing PHPStan location"}]}}}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).phpstanJSONPreview)
+
+        let remotePHPStan = ToolArtifactState(value: "https://example.com/phpstan-results.json")
+        XCTAssertNil(remotePHPStan.phpstanJSONPreview)
+    }
+
+    func testArtifactStateDerivesPsalmJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("psalm-results.json")
+        let content = """
+        {
+          "error": [
+            {
+              "severity": "error",
+              "line_from": 12,
+              "type": "InvalidReturnType",
+              "message": "The declared return type is incorrect",
+              "file_name": "/repo/src/Controller/HomeController.php"
+            },
+            {
+              "severity": "error",
+              "line_from": 18,
+              "type": "UndefinedPropertyFetch",
+              "message": "Instance property does not exist",
+              "file_name": "/repo/src/Entity/User.php"
+            }
+          ],
+          "warning": [
+            {
+              "severity": "info",
+              "line_from": 44,
+              "type": "PossiblyNullArgument",
+              "message": "Argument may be null",
+              "file_name": "/repo/src/Entity/User.php"
+            }
+          ],
+          "deprecation": [
+            {
+              "line": 8,
+              "type": "DeprecatedMethod",
+              "message": "Deprecated method call",
+              "file_path": "/repo/src/Legacy/Adapter.php"
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.psalmJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Psalm JSON")
+        XCTAssertEqual(preview.issueCount, 4)
+        XCTAssertEqual(preview.fileCount, 3)
+        XCTAssertEqual(preview.typeCount, 4)
+        XCTAssertEqual(preview.errorCount, 2)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.deprecationCount, 1)
+        XCTAssertEqual(preview.infoCount, 0)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "src/Controller/HomeController.php",
+            "src/Entity/User.php",
+            "src/Legacy/Adapter.php"
+        ])
+        XCTAssertEqual(preview.typePreviewLabels, [
+            "InvalidReturnType",
+            "UndefinedPropertyFetch",
+            "PossiblyNullArgument",
+            "DeprecatedMethod"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Psalm JSON",
+            "4 issues",
+            "3 files",
+            "4 types",
+            "Errors: 2",
+            "Warnings: 1",
+            "Deprecations: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"error":[{"message":"missing Psalm file and location"}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).psalmJSONPreview)
+
+        let remotePsalm = ToolArtifactState(value: "https://example.com/psalm-results.json")
+        XCTAssertNil(remotePsalm.psalmJSONPreview)
+    }
+
+    func testArtifactStateDerivesBanditJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("bandit-results.json")
+        let content = """
+        {
+          "generated_at": "2026-07-19T21:45:00Z",
+          "metrics": {
+            "_totals": {
+              "CONFIDENCE.HIGH": 1,
+              "CONFIDENCE.MEDIUM": 1,
+              "SEVERITY.HIGH": 1,
+              "SEVERITY.MEDIUM": 1,
+              "loc": 42,
+              "nosec": 0,
+              "skipped_tests": 0
+            }
+          },
+          "results": [
+            {
+              "code": "1 import subprocess",
+              "filename": "/repo/app/main.py",
+              "issue_confidence": "HIGH",
+              "issue_cwe": {"id": 78, "link": "https://cwe.mitre.org/data/definitions/78.html"},
+              "issue_severity": "HIGH",
+              "issue_text": "subprocess call with shell=True identified",
+              "line_number": 14,
+              "line_range": [14],
+              "more_info": "https://bandit.readthedocs.io/en/latest/plugins/b602_subprocess_popen_with_shell_equals_true.html",
+              "test_id": "B602",
+              "test_name": "subprocess_popen_with_shell_equals_true"
+            },
+            {
+              "code": "2 password = 'secret'",
+              "filename": "/repo/tests/test_app.py",
+              "issue_confidence": "MEDIUM",
+              "issue_severity": "MEDIUM",
+              "issue_text": "Possible hardcoded password",
+              "line_number": "7",
+              "line_range": [7],
+              "more_info": "https://bandit.readthedocs.io/en/latest/plugins/b105_hardcoded_password_string.html",
+              "test_id": "B105",
+              "test_name": "hardcoded_password_string"
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.banditJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Bandit JSON")
+        XCTAssertEqual(preview.issueCount, 2)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.testCount, 2)
+        XCTAssertEqual(preview.highSeverityCount, 1)
+        XCTAssertEqual(preview.mediumSeverityCount, 1)
+        XCTAssertEqual(preview.highConfidenceCount, 1)
+        XCTAssertEqual(preview.mediumConfidenceCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/main.py",
+            "repo/tests/test_app.py"
+        ])
+        XCTAssertEqual(preview.testPreviewLabels, [
+            "B602 subprocess_popen_with_shell_equals_true",
+            "B105 hardcoded_password_string"
+        ])
+        let byteSizeLabel = try XCTUnwrap(preview.byteSizeLabel)
+        XCTAssertEqual(byteSizeLabel, "1.3 KB")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Bandit JSON",
+            "2 issues",
+            "2 files",
+            "2 tests",
+            "High severity: 1",
+            "Medium severity: 1",
+            "High confidence: 1",
+            "Medium confidence: 1",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("security-report.json")
+        try #"{"results":[{"filename":"/repo/app.py","issue_severity":"HIGH","issue_text":"missing confidence","test_id":"B602","test_name":"x","line_number":1}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).banditJSONPreview)
+
+        let remoteBandit = ToolArtifactState(value: "https://example.com/bandit-results.json")
+        XCTAssertNil(remoteBandit.banditJSONPreview)
+    }
+
+    func testArtifactStateDerivesSemgrepJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("semgrep-results.json")
+        let content = """
+        {
+          "version": "1.128.0",
+          "paths": {"scanned": ["app/main.py", "tests/test_app.py"]},
+          "results": [
+            {
+              "check_id": "python.lang.security.audit.subprocess-shell-true",
+              "path": "/repo/app/main.py",
+              "start": {"line": 14, "col": 5, "offset": 120},
+              "end": {"line": 14, "col": 36, "offset": 151},
+              "extra": {
+                "message": "Found subprocess call with shell=True",
+                "severity": "ERROR",
+                "metadata": {"category": "security"}
+              }
+            },
+            {
+              "check_id": "python.django.security.audit.xss.template-var",
+              "path": "/repo/tests/test_app.py",
+              "start": {"line": 8, "col": 1, "offset": 70},
+              "end": {"line": 8, "col": 21, "offset": 90},
+              "extra": {
+                "message": "Potential template escaping issue",
+                "severity": "WARNING",
+                "metadata": {"category": "security"}
+              }
+            },
+            {
+              "check_id": "python.lang.security.audit.subprocess-shell-true",
+              "path": "/repo/tests/test_app.py",
+              "start": {"line": 18, "col": 5, "offset": 170},
+              "end": {"line": 18, "col": 36, "offset": 201},
+              "extra": {
+                "message": "Found subprocess call with shell=True",
+                "severity": "INFO",
+                "metadata": {"category": "security"}
+              }
+            }
+          ],
+          "errors": [{"type": "PartialParsing", "message": "One file skipped"}]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.semgrepJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Semgrep JSON")
+        XCTAssertEqual(preview.findingCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.ruleCount, 2)
+        XCTAssertEqual(preview.errorSeverityCount, 1)
+        XCTAssertEqual(preview.warningSeverityCount, 1)
+        XCTAssertEqual(preview.infoSeverityCount, 1)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/app/main.py",
+            "repo/tests/test_app.py"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "python.lang.security.audit.subprocess-shell-true",
+            "python.django.security.audit.xss.template-var"
+        ])
+        let byteSizeLabel = try XCTUnwrap(preview.byteSizeLabel)
+        XCTAssertEqual(byteSizeLabel, "1.3 KB")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Semgrep JSON",
+            "3 findings",
+            "2 files",
+            "2 rules",
+            "Error severity: 1",
+            "Warning severity: 1",
+            "Info severity: 1",
+            "Scanner errors: 1",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("generic-results.json")
+        try #"{"results":[{"check_id":"x","path":"/repo/app.py","start":{},"end":{},"extra":{"message":"missing severity"}}],"version":"1"}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).semgrepJSONPreview)
+
+        let clean = directory.appendingPathComponent("semgrep-clean.json")
+        try #"{"version":"1.128.0","paths":{"scanned":["app/main.py"]},"results":[],"errors":[]}"#
+            .write(to: clean, atomically: true, encoding: .utf8)
+        let cleanPreview = try XCTUnwrap(ToolArtifactState(value: clean.path).semgrepJSONPreview)
+        XCTAssertEqual(cleanPreview.findingCount, 0)
+        XCTAssertEqual(cleanPreview.fileCount, 0)
+        XCTAssertEqual(cleanPreview.ruleCount, 0)
+        XCTAssertEqual(cleanPreview.metadataLines.prefix(4), [
+            "Format: Semgrep JSON",
+            "0 findings",
+            "0 files",
+            "0 rules"
+        ])
+
+        let remoteSemgrep = ToolArtifactState(value: "https://example.com/semgrep-results.json")
+        XCTAssertNil(remoteSemgrep.semgrepJSONPreview)
+    }
+
+    func testArtifactStateDerivesCodeClimateJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("codeclimate-results.json")
+        let content = """
+        [
+          {
+            "type": "issue",
+            "check_name": "Rubocop/Metrics/MethodLength",
+            "description": "Method has too many lines.",
+            "categories": ["Complexity"],
+            "location": {"path": "/repo/app/services/report.rb", "lines": {"begin": 12, "end": 48}},
+            "severity": "major",
+            "fingerprint": "abc123"
+          },
+          {
+            "type": "issue",
+            "check_name": "ESLint/no-console",
+            "description": "Unexpected console statement.",
+            "categories": ["Bug Risk", "Style"],
+            "location": {"path": "/repo/web/src/main.ts", "lines": {"begin": 8, "end": 8}},
+            "severity": "minor",
+            "fingerprint": "def456"
+          },
+          {
+            "type": "issue",
+            "check_name": "Rubocop/Metrics/MethodLength",
+            "description": "Another method is too long.",
+            "categories": ["Complexity"],
+            "location": {"path": "/repo/app/models/user.rb", "lines": {"begin": 20, "end": 70}},
+            "severity": "critical",
+            "fingerprint": "ghi789"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.codeClimateJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "Code Climate JSON")
+        XCTAssertEqual(preview.issueCount, 3)
+        XCTAssertEqual(preview.fileCount, 3)
+        XCTAssertEqual(preview.checkCount, 2)
+        XCTAssertEqual(preview.categoryCount, 3)
+        XCTAssertEqual(preview.criticalCount, 1)
+        XCTAssertEqual(preview.majorCount, 1)
+        XCTAssertEqual(preview.minorCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "app/services/report.rb",
+            "web/src/main.ts",
+            "app/models/user.rb"
+        ])
+        XCTAssertEqual(preview.checkPreviewLabels, [
+            "Rubocop/Metrics/MethodLength",
+            "ESLint/no-console"
+        ])
+        XCTAssertEqual(preview.categoryPreviewLabels, [
+            "Complexity",
+            "Bug Risk",
+            "Style"
+        ])
+        let byteSizeLabel = try XCTUnwrap(preview.byteSizeLabel)
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Code Climate JSON",
+            "3 issues",
+            "3 files",
+            "2 checks",
+            "3 categories",
+            "Critical: 1",
+            "Major: 1",
+            "Minor: 1",
+            "Size: \(byteSizeLabel)"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("generic-codeclimate-like.json")
+        try #"[{"type":"issue","check_name":"x","description":"missing location"}]"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).codeClimateJSONPreview)
+
+        let remoteCodeClimate = ToolArtifactState(value: "https://example.com/codeclimate-results.json")
+        XCTAssertNil(remoteCodeClimate.codeClimateJSONPreview)
+    }
+
     func testArtifactStateDerivesTAPPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("test.tap")
@@ -2775,6 +4844,290 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
 
         let remoteJUnit = ToolArtifactState(value: "https://example.com/TEST-QuillCode.xml")
         XCTAssertNil(remoteJUnit.junitPreview)
+    }
+
+    func testArtifactStateDerivesCTestPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("Test.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Site BuildName="quillcode-mac" Name="builder">
+          <Testing>
+            <StartDateTime>Jul 19 19:00 PDT</StartDateTime>
+            <Test Status="passed">
+              <Name>CoreSmoke</Name>
+              <FullName>QuillCode.CoreSmoke</FullName>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>0.125</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+            <Test Status="failed">
+              <Name>ShellDispatch</Name>
+              <FullName>QuillCode.ShellDispatch</FullName>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>1.5</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+            <Test Status="notrun">
+              <Name>LinuxOnly</Name>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>0</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+          </Testing>
+        </Site>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.ctestPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.formatLabel, "CTest XML")
+        XCTAssertEqual(preview.testCount, 3)
+        XCTAssertEqual(preview.passedCount, 1)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.notRunCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.63 s")
+        XCTAssertEqual(preview.failurePreviewLabels, ["QuillCode.ShellDispatch"])
+        XCTAssertEqual(preview.byteSizeLabel, "960 bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: CTest XML",
+            "3 tests",
+            "Passed: 1",
+            "Failed: 1",
+            "Not run: 1",
+            "Duration: 1.63 s",
+            "Size: 960 bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let generic = directory.appendingPathComponent("site.xml")
+        try "<Site><Build><Name>not a test report</Name></Build></Site>"
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).ctestPreview)
+
+        let remoteCTest = ToolArtifactState(value: "https://example.com/Testing/Temporary/LastTest.xml")
+        XCTAssertNil(remoteCTest.ctestPreview)
+    }
+
+    func testArtifactStateDerivesCheckstylePreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("checkstyle-result.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <checkstyle version="10.12.0">
+          <file name="/repo/Sources/App.swift">
+            <error line="12" column="5" severity="error" message="Use let" source="swiftlint:prefer_let" />
+            <error line="24" column="1" severity="warning" message="Line length" source="swiftlint:line_length" />
+          </file>
+          <file name="/repo/Tests/AppTests.swift">
+            <error line="4" severity="info" message="Todo" source="custom:todo" />
+            <error line="8" severity="ignore" message="Ignored" source="custom:ignore" />
+            <error line="9" severity="notice" message="Other" source="custom:notice" />
+          </file>
+        </checkstyle>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.checkstylePreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.formatLabel, "Checkstyle XML")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.issueCount, 5)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 1)
+        XCTAssertEqual(preview.infoCount, 1)
+        XCTAssertEqual(preview.ignoreCount, 1)
+        XCTAssertEqual(preview.otherSeverityCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "repo/Sources/App.swift",
+            "repo/Tests/AppTests.swift"
+        ])
+        XCTAssertEqual(preview.sourcePreviewLabels, [
+            "swiftlint:prefer_let",
+            "swiftlint:line_length",
+            "custom:todo",
+            "custom:ignore",
+            "custom:notice"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Checkstyle XML",
+            "2 files",
+            "5 issues",
+            "Errors: 1",
+            "Warnings: 1",
+            "Info: 1",
+            "Ignored: 1",
+            "Other: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let generic = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).checkstylePreview)
+
+        let remoteCheckstyle = ToolArtifactState(value: "https://example.com/checkstyle-result.xml")
+        XCTAssertNil(remoteCheckstyle.checkstylePreview)
+    }
+
+    func testArtifactStateDerivesPMDPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("pmd-result.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <pmd version="7.0.0" timestamp="2026-07-19T12:00:00.000">
+          <file name="/repo/src/main/java/App.java">
+            <violation beginline="12" endline="12" rule="UnusedPrivateField" ruleset="Best Practices" priority="3">
+              Avoid unused private fields.
+            </violation>
+            <violation beginline="22" endline="22" rule="SystemPrintln" ruleset="Best Practices" priority="2">
+              System.out.println is used.
+            </violation>
+          </file>
+          <file name="/repo/src/test/java/AppTest.java">
+            <violation beginline="4" endline="4" rule="JUnitAssertionsShouldIncludeMessage" priority="1" />
+            <violation beginline="8" endline="8" rule="LooseCoupling" priority="4" />
+            <violation beginline="9" endline="9" rule="ShortVariable" priority="5" />
+            <violation beginline="10" endline="10" rule="UnknownPriority" priority="critical" />
+          </file>
+        </pmd>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pmdPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.formatLabel, "PMD XML")
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.violationCount, 6)
+        XCTAssertEqual(preview.priorityOneCount, 1)
+        XCTAssertEqual(preview.priorityTwoCount, 1)
+        XCTAssertEqual(preview.priorityThreeCount, 1)
+        XCTAssertEqual(preview.priorityFourCount, 1)
+        XCTAssertEqual(preview.priorityFiveCount, 1)
+        XCTAssertEqual(preview.otherPriorityCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "main/java/App.java",
+            "test/java/AppTest.java"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "UnusedPrivateField",
+            "SystemPrintln",
+            "JUnitAssertionsShouldIncludeMessage",
+            "LooseCoupling",
+            "ShortVariable",
+            "UnknownPriority"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: PMD XML",
+            "2 files",
+            "6 violations",
+            "Priority 1: 1",
+            "Priority 2: 1",
+            "Priority 3: 1",
+            "Priority 4: 1",
+            "Priority 5: 1",
+            "Other priority: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let generic = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).pmdPreview)
+
+        let remotePMD = ToolArtifactState(value: "https://example.com/pmd-result.xml")
+        XCTAssertNil(remotePMD.pmdPreview)
+    }
+
+    func testArtifactStateDerivesSpotBugsPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("spotbugs-result.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <BugCollection version="4.8.6">
+          <BugInstance type="NP_NULL_ON_SOME_PATH" priority="1" category="CORRECTNESS">
+            <Class classname="com.example.service.UserService" />
+            <Method classname="com.example.service.UserService" name="loadUser" />
+            <SourceLine classname="com.example.service.UserService" sourcefile="UserService.java" />
+          </BugInstance>
+          <BugInstance type="DM_DEFAULT_ENCODING" priority="2" category="I18N">
+            <Class classname="com.example.web.AdminController" />
+          </BugInstance>
+          <BugInstance type="DLS_DEAD_LOCAL_STORE" priority="3" category="STYLE">
+            <Class classname="com.example.web.AdminController" />
+          </BugInstance>
+          <BugInstance type="UNKNOWN_PRIORITY" priority="experimental" category="PERFORMANCE">
+            <Class classname="com.example.jobs.ReportWorker" />
+          </BugInstance>
+        </BugCollection>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.spotBugsPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.formatLabel, "SpotBugs XML")
+        XCTAssertEqual(preview.bugCount, 4)
+        XCTAssertEqual(preview.classCount, 3)
+        XCTAssertEqual(preview.priorityOneCount, 1)
+        XCTAssertEqual(preview.priorityTwoCount, 1)
+        XCTAssertEqual(preview.priorityThreeCount, 1)
+        XCTAssertEqual(preview.otherPriorityCount, 1)
+        XCTAssertEqual(preview.typePreviewLabels, [
+            "NP_NULL_ON_SOME_PATH",
+            "DM_DEFAULT_ENCODING",
+            "DLS_DEAD_LOCAL_STORE",
+            "UNKNOWN_PRIORITY"
+        ])
+        XCTAssertEqual(preview.categoryPreviewLabels, [
+            "CORRECTNESS",
+            "I18N",
+            "STYLE",
+            "PERFORMANCE"
+        ])
+        XCTAssertEqual(preview.classPreviewLabels, [
+            "example.service.UserService",
+            "example.web.AdminController",
+            "example.jobs.ReportWorker"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: SpotBugs XML",
+            "4 bugs",
+            "3 classes",
+            "Priority 1: 1",
+            "Priority 2: 1",
+            "Priority 3: 1",
+            "Other priority: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let generic = directory.appendingPathComponent("manifest.xml")
+        try "<BugCollection><Project /></BugCollection>".write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).spotBugsPreview)
+
+        let remoteSpotBugs = ToolArtifactState(value: "https://example.com/spotbugs-result.xml")
+        XCTAssertNil(remoteSpotBugs.spotBugsPreview)
     }
 
     func testArtifactStateDerivesTRXPreviewMetadata() throws {
@@ -2960,6 +5313,159 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
 
         let remoteNUnit = ToolArtifactState(value: "https://example.com/TestResult.xml")
         XCTAssertNil(remoteNUnit.nunitPreview)
+    }
+
+    func testArtifactStateDerivesTestNGPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("testng-results.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <testng-results total="4" passed="2" failed="1" skipped="1">
+          <suite name="QuillCode browser smoke" duration-ms="1200">
+            <test name="Workspace flows">
+              <class name="com.lorehex.QuillCodeWorkspaceTest">
+                <test-method status="PASS" signature="opensProject()[pri:0, instance:WorkspaceTest]" name="opensProject" duration-ms="300" />
+                <test-method status="FAIL" signature="runsShellCommand()[pri:0, instance:WorkspaceTest]" name="runsShellCommand" duration-ms="700" />
+                <test-method status="SKIP" signature="rendersBrowserPreview()[pri:0, instance:WorkspaceTest]" name="rendersBrowserPreview" duration-ms="0" />
+                <test-method status="PASS" name="beforeSuite" is-config="true" duration-ms="50" />
+              </class>
+            </test>
+          </suite>
+        </testng-results>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.testNGPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.suiteCount, 1)
+        XCTAssertEqual(preview.testGroupCount, 1)
+        XCTAssertEqual(preview.classCount, 1)
+        XCTAssertEqual(preview.methodCount, 3)
+        XCTAssertEqual(preview.passedCount, 1)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.2 s")
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.suitePreviewLabels, ["QuillCode browser smoke"])
+        XCTAssertEqual(preview.failurePreviewLabels, ["runsShellCommand()[pri:0, instance:WorkspaceTest]"])
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: TestNG XML",
+            "1 suite",
+            "1 test group",
+            "1 class",
+            "3 test methods",
+            "Passed: 1",
+            "Failed: 1",
+            "Skipped: 1",
+            "Duration: 1.2 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let methodDurationReport = directory.appendingPathComponent("testng-method-duration.xml")
+        try """
+        <testng-results>
+          <suite name="Method duration fallback">
+            <test name="Workspace flows">
+              <class name="com.lorehex.QuillCodeWorkspaceTest">
+                <test-method status="PASS" name="opensProject" duration-ms="300" />
+                <test-method status="FAIL" name="runsShellCommand" duration-ms="700" />
+              </class>
+            </test>
+          </suite>
+        </testng-results>
+        """.write(to: methodDurationReport, atomically: true, encoding: .utf8)
+        let methodDurationPreview = try XCTUnwrap(ToolArtifactState(value: methodDurationReport.path).testNGPreview)
+        XCTAssertEqual(methodDurationPreview.durationLabel, "1 s")
+
+        let nonTestNG = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: nonTestNG, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonTestNG.path).testNGPreview)
+
+        let remoteTestNG = ToolArtifactState(value: "https://example.com/testng-results.xml")
+        XCTAssertNil(remoteTestNG.testNGPreview)
+    }
+
+    func testArtifactStateDerivesRobotXMLPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("output.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <robot generator="Robot 7.0" generated="20260720 04:30:00.000">
+          <suite id="s1" name="QuillCode acceptance">
+            <kw name="Open project" owner="Browser" />
+            <test id="s1-t1" name="Runs shell command">
+              <status status="PASS" elapsed="0.25" />
+            </test>
+            <test id="s1-t2" name="Writes file">
+              <status status="FAIL" elapsed="1.20" />
+            </test>
+            <test id="s1-t3" name="Browser preview">
+              <status status="SKIP" elapsed="0" />
+            </test>
+          </suite>
+        </robot>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.robotXMLPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.generatorLabel, "Robot 7.0")
+        XCTAssertEqual(preview.generatedLabel, "20260720 04:30:00.000")
+        XCTAssertEqual(preview.suiteCount, 1)
+        XCTAssertEqual(preview.testCount, 3)
+        XCTAssertEqual(preview.keywordCount, 1)
+        XCTAssertEqual(preview.passedCount, 1)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.45 s")
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.suitePreviewLabels, ["QuillCode acceptance"])
+        XCTAssertEqual(preview.failurePreviewLabels, ["Writes file"])
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Robot XML",
+            "Generator: Robot 7.0",
+            "Generated: 20260720 04:30:00.000",
+            "1 suite",
+            "3 tests",
+            "1 keyword",
+            "Passed: 1",
+            "Failed: 1",
+            "Skipped: 1",
+            "Duration: 1.45 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let elapsedTimeReport = directory.appendingPathComponent("robot-elapsedtime.xml")
+        try """
+        <robot>
+          <suite name="Legacy timing">
+            <test name="Legacy pass">
+              <status status="PASS" elapsedtime="250" />
+            </test>
+            <test name="Legacy fail">
+              <status status="FAIL" elapsedtime="750" />
+            </test>
+          </suite>
+        </robot>
+        """.write(to: elapsedTimeReport, atomically: true, encoding: .utf8)
+        let elapsedTimePreview = try XCTUnwrap(ToolArtifactState(value: elapsedTimeReport.path).robotXMLPreview)
+        XCTAssertEqual(elapsedTimePreview.durationLabel, "1 s")
+        XCTAssertEqual(elapsedTimePreview.failurePreviewLabels, ["Legacy fail"])
+
+        let nonRobot = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: nonRobot, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonRobot.path).robotXMLPreview)
+
+        let remoteRobot = ToolArtifactState(value: "https://example.com/output.xml")
+        XCTAssertNil(remoteRobot.robotXMLPreview)
     }
 
     func testArtifactStateDerivesCoberturaPreviewMetadata() throws {

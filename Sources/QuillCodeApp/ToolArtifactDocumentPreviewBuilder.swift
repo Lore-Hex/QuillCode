@@ -61,6 +61,12 @@ enum ToolArtifactDocumentPreviewBuilder {
         if filename == "deno.lock" {
             return "deno-lock"
         }
+        if filename == "bun.lock" {
+            return "bun-lock"
+        }
+        if filename == "bun.lockb" {
+            return "bun-lockb"
+        }
         if filename == "composer.lock" {
             return "composer-lock"
         }
@@ -112,6 +118,8 @@ enum ToolArtifactDocumentPreviewBuilder {
         "cfg": .data,
         "conf": .data,
         "deno-lock": .data,
+        "bun-lock": .data,
+        "bun-lockb": .data,
         "composer-lock": .data,
         "pnpm-lock": .data,
         "yarn-lock": .data,
