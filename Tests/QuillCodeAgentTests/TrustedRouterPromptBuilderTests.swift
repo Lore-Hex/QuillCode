@@ -212,6 +212,11 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         // Never fabricate a result a command did not produce.
         XCTAssertTrue(prompt.contains("Never fabricate results"))
         XCTAssertTrue(prompt.contains("must come from real tool output"))
+        // Execute, don't narrate: writing a script is not running it; keep going until outputs exist.
+        XCTAssertTrue(prompt.contains("do not narrate it"))
+        XCTAssertTrue(prompt.contains("Writing a script or a file does NOT run it"))
+        XCTAssertTrue(prompt.contains("you MUST call the shell tool"))
+        XCTAssertTrue(prompt.contains("not finished until every step has a real tool call"))
     }
 
     func testPromptIncludesBuiltInTrustedRouterModelAdvisorGuidance() {

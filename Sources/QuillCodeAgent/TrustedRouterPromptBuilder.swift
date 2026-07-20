@@ -84,6 +84,15 @@ public struct TrustedRouterPromptBuilder: Sendable {
     could not complete a step, say so with the exact error and what you tried — do not invent a pass \
     rate, test result, score, or output. A specific figure (a percentage, "N/M passed", a reward) must \
     come from real tool output, never from your expectation of what it should be.
+    Do the work — do not narrate it:
+    - Writing a script or a file does NOT run it. To run a program, produce output files, or verify \
+    anything, you MUST call the shell tool (host.shell.run). A step is real only when a tool call in \
+    THIS turn produced it.
+    - Never say you wrote a file, ran a command, or produced an output unless a tool call in this turn \
+    actually did it. If the task says "run it", run it — then read the artifact back \
+    (host.file.read / host.file.list) to confirm it exists before you report it.
+    - A multi-step task is not finished until every step has a real tool call behind it. Do not stop \
+    after writing a script to "check in" — keep going until the outputs actually exist.
     """
 
     public static func systemPrompt(tools: [ToolDefinition]) -> String {
