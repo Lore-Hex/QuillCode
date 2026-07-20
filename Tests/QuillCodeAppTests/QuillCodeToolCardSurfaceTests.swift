@@ -3551,6 +3551,89 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remotePyright.pyrightJSONPreview)
     }
 
+    func testArtifactStateDerivesPHPStanJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("phpstan-results.json")
+        let content = """
+        {
+          "totals": {"errors": 0, "file_errors": 3},
+          "files": {
+            "/repo/src/Controller/HomeController.php": {
+              "errors": 2,
+              "messages": [
+                {
+                  "message": "Method App\\\\Controller\\\\HomeController::index() should return Response but returns string.",
+                  "line": 12,
+                  "ignorable": true,
+                  "identifier": "return.type"
+                },
+                {
+                  "message": "Access to an undefined property.",
+                  "line": 18,
+                  "ignorable": false,
+                  "identifier": "property.notFound"
+                }
+              ]
+            },
+            "/repo/src/Entity/User.php": {
+              "errors": 1,
+              "messages": [
+                {
+                  "message": "Parameter #1 expects non-empty-string, string given.",
+                  "line": 44,
+                  "ignorable": true,
+                  "identifier": "argument.type"
+                }
+              ]
+            }
+          },
+          "errors": []
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.phpstanJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "PHPStan JSON")
+        XCTAssertEqual(preview.errorCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.identifierCount, 3)
+        XCTAssertEqual(preview.generalErrorCount, 0)
+        XCTAssertEqual(preview.ignorableCount, 2)
+        XCTAssertEqual(preview.nonIgnorableCount, 1)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "src/Controller/HomeController.php",
+            "src/Entity/User.php"
+        ])
+        XCTAssertEqual(preview.identifierPreviewLabels, [
+            "return.type",
+            "property.notFound",
+            "argument.type"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: PHPStan JSON",
+            "3 errors",
+            "2 files",
+            "3 identifiers",
+            "Ignorable: 2",
+            "Non-ignorable: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"{"totals":{"errors":0,"file_errors":1},"files":{"/repo/src/A.php":{"messages":[{"message":"missing PHPStan location"}]}}}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).phpstanJSONPreview)
+
+        let remotePHPStan = ToolArtifactState(value: "https://example.com/phpstan-results.json")
+        XCTAssertNil(remotePHPStan.phpstanJSONPreview)
+    }
+
     func testArtifactStateDerivesBanditJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("bandit-results.json")

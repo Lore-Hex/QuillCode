@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render PHPStan JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as PHPStan JSON output as a
+  specialized PHP static-analysis report rather than generic JSON.
+- **Rationale:** PHPStan reports are common in PHP coding sessions and CI exports. Showing
+  error/file/identifier counts plus capped file/identifier labels gives useful Codex-style feedback
+  without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read PHP
+  source files, expand diagnostic messages, run PHPStan, load PHPStan configuration, or fetch remote
+  reports.
+
 ## 2026-07-19: Render SwiftLint JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as SwiftLint JSON output as a

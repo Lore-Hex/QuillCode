@@ -241,6 +241,10 @@
   root validates as Pyright output: diagnostic/file/rule/severity counts, file size, capped file
   labels, and capped rule labels without reading Python source files, loading Pyright
   configuration, shelling out, or fetching remote JSON.
+- Artifact previews now include bounded local PHPStan JSON report metadata for `.json` files whose
+  root validates as PHPStan output: error/file/identifier/ignorable counts, file size, capped file
+  labels, and capped identifier labels without reading PHP source files, expanding diagnostic
+  messages, running PHPStan, loading PHPStan configuration, or fetching remote JSON.
 - Artifact previews now include bounded local Bandit JSON security-report metadata for `.json`
   files whose root validates as Bandit output: issue/file/test, severity, and confidence counts,
   file size, capped file labels, and capped test labels without reading Python source files,

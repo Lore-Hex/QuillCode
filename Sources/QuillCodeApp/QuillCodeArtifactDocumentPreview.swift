@@ -89,6 +89,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             mypyJSONContent(mypyJSONPreview)
         } else if let pyrightJSONPreview = artifact.pyrightJSONPreview {
             pyrightJSONContent(pyrightJSONPreview)
+        } else if let phpstanJSONPreview = artifact.phpstanJSONPreview {
+            phpstanJSONContent(phpstanJSONPreview)
         } else if let banditJSONPreview = artifact.banditJSONPreview {
             banditJSONContent(banditJSONPreview)
         } else if let semgrepJSONPreview = artifact.semgrepJSONPreview {
@@ -490,6 +492,23 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(pyrightJSONPreview.metadataLines)
             artifactContentList(title: "Files", labels: pyrightJSONPreview.filePreviewLabels)
             artifactContentList(title: "Rules", labels: pyrightJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func phpstanJSONContent(_ phpstanJSONPreview: ToolArtifactPHPStanJSONPreview) -> some View {
+        let hasLists = !phpstanJSONPreview.filePreviewLabels.isEmpty
+            || !phpstanJSONPreview.identifierPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(phpstanJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: phpstanJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Identifiers", labels: phpstanJSONPreview.identifierPreviewLabels)
         }
     }
 
