@@ -2225,6 +2225,56 @@ public struct ToolArtifactNPMAuditJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCargoAuditJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var vulnerabilityCount: Int
+    public var yankedWarningCount: Int
+    public var unmaintainedWarningCount: Int
+    public var byteSizeLabel: String?
+    public var packagePreviewLabels: [String]
+    public var advisoryPreviewLabels: [String]
+
+    public var warningCount: Int {
+        yankedWarningCount + unmaintainedWarningCount
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(vulnerabilityCount) vulnerabilit\(vulnerabilityCount == 1 ? "y" : "ies")",
+            yankedWarningCount > 0 ? "Yanked: \(yankedWarningCount)" : nil,
+            unmaintainedWarningCount > 0 ? "Unmaintained: \(unmaintainedWarningCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        vulnerabilityCount > 0
+            || warningCount > 0
+            || byteSizeLabel != nil
+            || !packagePreviewLabels.isEmpty
+            || !advisoryPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "cargo audit JSON",
+        vulnerabilityCount: Int,
+        yankedWarningCount: Int = 0,
+        unmaintainedWarningCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        packagePreviewLabels: [String] = [],
+        advisoryPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.vulnerabilityCount = vulnerabilityCount
+        self.yankedWarningCount = yankedWarningCount
+        self.unmaintainedWarningCount = unmaintainedWarningCount
+        self.byteSizeLabel = byteSizeLabel
+        self.packagePreviewLabels = packagePreviewLabels
+        self.advisoryPreviewLabels = advisoryPreviewLabels
+    }
+}
+
 public struct ToolArtifactESLintJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var fileCount: Int
@@ -5233,7 +5283,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               mochaJSONPreview == nil,
               benchmarkDotNetJSONPreview == nil,
               hyperfineJSONPreview == nil,
-              npmAuditJSONPreview == nil
+              npmAuditJSONPreview == nil,
+              cargoAuditJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -5323,6 +5374,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var npmAuditJSONPreview: ToolArtifactNPMAuditJSONPreview? {
         ToolArtifactNPMAuditJSONPreviewBuilder.npmAuditJSONPreview(for: value, kind: kind)
+    }
+    public var cargoAuditJSONPreview: ToolArtifactCargoAuditJSONPreview? {
+        ToolArtifactCargoAuditJSONPreviewBuilder.cargoAuditJSONPreview(for: value, kind: kind)
     }
     public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
         ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)

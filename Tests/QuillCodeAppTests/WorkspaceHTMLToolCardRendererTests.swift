@@ -2518,6 +2518,75 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesCargoAuditJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("cargo-audit.json")
+        let reportText = """
+        {
+          "vulnerabilities": {
+            "found": true,
+            "count": 1,
+            "list": [
+              {
+                "advisory": {
+                  "id": "RUSTSEC-2024-0001",
+                  "package": "time",
+                  "title": "Potential segfault in localtime_r invocations"
+                },
+                "package": {
+                  "name": "time",
+                  "version": "0.1.45"
+                }
+              }
+            ]
+          },
+          "warnings": {
+            "yanked": [],
+            "unmaintained": [{"package": {"name": "abandoned", "version": "1.2.3"}}]
+          }
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/cargo-audit.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/cargo-audit.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "cargo audit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">cargo-audit.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-meta">Format: cargo audit JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-meta">1 vulnerability"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-meta">Unmaintained: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-package-title">Packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-package-item">time 0.1.45"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-advisory-title">Advisories"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-advisory-item">RUSTSEC-2024-0001 · Potential segfault in localtime_r invocations"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesESLintJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
