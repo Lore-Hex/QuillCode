@@ -1874,6 +1874,63 @@ public struct ToolArtifactCucumberJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactRSpecJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var totalExampleCount: Int?
+    public var passedExampleCount: Int?
+    public var failedExampleCount: Int?
+    public var pendingExampleCount: Int?
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+    public var pendingPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            durationLabel.map { "Runtime: \($0)" },
+            totalExampleCount.map { "\($0) example\($0 == 1 ? "" : "s")" },
+            passedExampleCount.map { "Passed: \($0)" },
+            failedExampleCount.map { "Failed: \($0)" },
+            pendingExampleCount.map { "Pending: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        totalExampleCount != nil
+            || passedExampleCount != nil
+            || failedExampleCount != nil
+            || pendingExampleCount != nil
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+            || !pendingPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "RSpec JSON",
+        totalExampleCount: Int? = nil,
+        passedExampleCount: Int? = nil,
+        failedExampleCount: Int? = nil,
+        pendingExampleCount: Int? = nil,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = [],
+        pendingPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.totalExampleCount = totalExampleCount
+        self.passedExampleCount = passedExampleCount
+        self.failedExampleCount = failedExampleCount
+        self.pendingExampleCount = pendingExampleCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+        self.pendingPreviewLabels = pendingPreviewLabels
+    }
+}
+
 public struct ToolArtifactMochaJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var totalTestCount: Int?
@@ -4755,6 +4812,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               codeClimateJSONPreview == nil,
               playwrightJSONPreview == nil,
               cucumberJSONPreview == nil,
+              rspecJSONPreview == nil,
               mochaJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
@@ -4827,6 +4885,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var cucumberJSONPreview: ToolArtifactCucumberJSONPreview? {
         ToolArtifactCucumberJSONPreviewBuilder.cucumberJSONPreview(for: value, kind: kind)
+    }
+    public var rspecJSONPreview: ToolArtifactRSpecJSONPreview? {
+        ToolArtifactRSpecJSONPreviewBuilder.rspecJSONPreview(for: value, kind: kind)
     }
     public var mochaJSONPreview: ToolArtifactMochaJSONPreview? {
         ToolArtifactMochaJSONPreviewBuilder.mochaJSONPreview(for: value, kind: kind)

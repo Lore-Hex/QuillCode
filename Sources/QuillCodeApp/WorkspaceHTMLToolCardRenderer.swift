@@ -224,6 +224,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let playwrightJSONPreview = renderPlaywrightJSONPreview(playwrightJSONPreviewModel)
             let cucumberJSONPreviewModel = artifact.cucumberJSONPreview
             let cucumberJSONPreview = renderCucumberJSONPreview(cucumberJSONPreviewModel)
+            let rspecJSONPreviewModel = artifact.rspecJSONPreview
+            let rspecJSONPreview = renderRSpecJSONPreview(rspecJSONPreviewModel)
             let mochaJSONPreviewModel = artifact.mochaJSONPreview
             let mochaJSONPreview = renderMochaJSONPreview(mochaJSONPreviewModel)
             let eslintJSONPreviewModel = artifact.eslintJSONPreview
@@ -342,6 +344,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && jestJSONPreviewModel == nil
                 && playwrightJSONPreviewModel == nil
                 && cucumberJSONPreviewModel == nil
+                && rspecJSONPreviewModel == nil
                 && mochaJSONPreviewModel == nil
                 && eslintJSONPreviewModel == nil
                 && stylelintJSONPreviewModel == nil
@@ -395,6 +398,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(jestJSONPreview)
               \(playwrightJSONPreview)
               \(cucumberJSONPreview)
+              \(rspecJSONPreview)
               \(mochaJSONPreview)
               \(eslintJSONPreview)
               \(stylelintJSONPreview)
@@ -928,6 +932,41 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderRSpecJSONPreview(_ preview: ToolArtifactRSpecJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-rspec-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-rspec-json-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let pending = preview.pendingPreviewLabels.map {
+            #"<li data-testid="tool-card-rspec-json-preview-pending-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-rspec-json-preview-failures">
+                <strong data-testid="tool-card-rspec-json-preview-failure-title">Failures</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        let pendingList = pending.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-rspec-json-preview-pending">
+                <strong data-testid="tool-card-rspec-json-preview-pending-title">Pending</strong>
+                <ul>\(pending)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !failureList.isEmpty || !pendingList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-rspec-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(failureList)
+          \(pendingList)
         </div>
         """
     }

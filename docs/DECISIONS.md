@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render RSpec JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as RSpec JSON formatter output as
+  Ruby test reports rather than generic JSON.
+- **Rationale:** Ruby/Rails coding sessions commonly produce RSpec JSON. Showing example counts,
+  pass/fail/pending buckets, runtime, and capped failing/pending example labels gives useful
+  Codex-style feedback without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Ruby
+  source files, expand exception backtraces, run RSpec, load formatter configuration, or fetch remote
+  reports.
+
 ## 2026-07-19: Render Cucumber JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as Cucumber JSON formatter output as

@@ -3005,6 +3005,92 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteCucumber.cucumberJSONPreview)
     }
 
+    func testArtifactStateDerivesRSpecJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("rspec-results.json")
+        let content = """
+        {
+          "version": "3.13.0",
+          "examples": [
+            {
+              "id": "./spec/models/user_spec.rb[1:1]",
+              "description": "validates email",
+              "full_description": "User validates email",
+              "status": "passed",
+              "file_path": "./spec/models/user_spec.rb",
+              "line_number": 12,
+              "run_time": 0.12
+            },
+            {
+              "id": "./spec/requests/login_spec.rb[1:1]",
+              "description": "rejects invalid credentials",
+              "full_description": "Login rejects invalid credentials",
+              "status": "failed",
+              "file_path": "./spec/requests/login_spec.rb",
+              "line_number": 34,
+              "run_time": 0.25,
+              "exception": {"class": "RSpec::Expectations::ExpectationNotMetError", "message": "expected failure"}
+            },
+            {
+              "id": "./spec/jobs/report_job_spec.rb[1:1]",
+              "description": "exports csv",
+              "full_description": "ReportJob exports csv",
+              "status": "pending",
+              "file_path": "./spec/jobs/report_job_spec.rb",
+              "line_number": 8,
+              "run_time": 0.05,
+              "pending_message": "temporarily skipped"
+            }
+          ],
+          "summary": {
+            "duration": 1.42,
+            "example_count": 3,
+            "failure_count": 1,
+            "pending_count": 1
+          },
+          "summary_line": "3 examples, 1 failure, 1 pending"
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.rspecJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "RSpec JSON")
+        XCTAssertEqual(preview.totalExampleCount, 3)
+        XCTAssertEqual(preview.passedExampleCount, 1)
+        XCTAssertEqual(preview.failedExampleCount, 1)
+        XCTAssertEqual(preview.pendingExampleCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.42s")
+        XCTAssertEqual(preview.failurePreviewLabels, [
+            "Login rejects invalid credentials · ./spec/requests/login_spec.rb:34"
+        ])
+        XCTAssertEqual(preview.pendingPreviewLabels, [
+            "ReportJob exports csv · ./spec/jobs/report_job_spec.rb:8"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "1.2 KB")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: RSpec JSON",
+            "Runtime: 1.42s",
+            "3 examples",
+            "Passed: 1",
+            "Failed: 1",
+            "Pending: 1",
+            "Size: 1.2 KB"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("examples.json")
+        try #"{"examples":[{"description":"missing status"}]}"#
+            .write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).rspecJSONPreview)
+
+        let remoteRSpec = ToolArtifactState(value: "https://example.com/rspec-results.json")
+        XCTAssertNil(remoteRSpec.rspecJSONPreview)
+    }
+
     func testArtifactStateDerivesMochaJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("mocha-results.json")

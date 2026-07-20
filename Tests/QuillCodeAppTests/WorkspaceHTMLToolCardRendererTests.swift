@@ -2145,6 +2145,87 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesRSpecJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("rspec-results.json")
+        let reportText = """
+        {
+          "version": "3.13.0",
+          "examples": [
+            {
+              "full_description": "Cart calculates totals",
+              "status": "passed",
+              "file_path": "./spec/models/cart_spec.rb",
+              "line_number": 10,
+              "run_time": 0.1
+            },
+            {
+              "full_description": "Checkout rejects expired cards",
+              "status": "failed",
+              "file_path": "./spec/requests/checkout_spec.rb",
+              "line_number": 27,
+              "run_time": 0.2
+            },
+            {
+              "full_description": "Invoice emails receipt",
+              "status": "pending",
+              "file_path": "./spec/mailers/invoice_mailer_spec.rb",
+              "line_number": 42,
+              "run_time": 0.05
+            }
+          ],
+          "summary": {
+            "duration": 0.35,
+            "example_count": 3,
+            "failure_count": 1,
+            "pending_count": 1
+          },
+          "summary_line": "3 examples, 1 failure, 1 pending"
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/rspec-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/rspec-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "RSpec artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">rspec-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">Format: RSpec JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">Runtime: 0.35s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">3 examples"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">Pending: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-failure-item">Checkout rejects expired cards · ./spec/requests/checkout_spec.rb:27"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-pending-title">Pending"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-pending-item">Invoice emails receipt · ./spec/mailers/invoice_mailer_spec.rb:42"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesMochaJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
