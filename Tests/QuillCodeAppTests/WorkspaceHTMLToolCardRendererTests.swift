@@ -4595,6 +4595,67 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesTestNGArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("testng-results.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <testng-results total="4" passed="2" failed="1" skipped="1">
+          <suite name="QuillCode browser smoke" duration-ms="1250">
+            <test name="Workspace flows">
+              <class name="com.lorehex.QuillCodeWorkspaceTest">
+                <test-method status="PASS" signature="opensProject()[pri:0, instance:WorkspaceTest]" name="opensProject" duration-ms="300" />
+                <test-method status="FAIL" signature="runsShellCommand()[pri:0, instance:WorkspaceTest]" name="runsShellCommand" duration-ms="700" />
+                <test-method status="SKIP" signature="rendersBrowserPreview()[pri:0, instance:WorkspaceTest]" name="rendersBrowserPreview" duration-ms="0" />
+              </class>
+            </test>
+          </suite>
+        </testng-results>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"testng-results.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote testng-results.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "TestNG artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">testng-results.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Format: TestNG XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">1 suite"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">1 test group"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">1 class"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">3 test methods"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Passed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Skipped: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Duration: 1.25 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-suite-title">Suites"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-suite-item">QuillCode browser smoke"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-failure-item">runsShellCommand()[pri:0, instance:WorkspaceTest]"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesCoberturaArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("coverage.xml")

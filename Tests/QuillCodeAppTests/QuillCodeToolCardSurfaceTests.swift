@@ -5040,6 +5040,80 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteNUnit.nunitPreview)
     }
 
+    func testArtifactStateDerivesTestNGPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("testng-results.xml")
+        let content = """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <testng-results total="4" passed="2" failed="1" skipped="1">
+          <suite name="QuillCode browser smoke" duration-ms="1200">
+            <test name="Workspace flows">
+              <class name="com.lorehex.QuillCodeWorkspaceTest">
+                <test-method status="PASS" signature="opensProject()[pri:0, instance:WorkspaceTest]" name="opensProject" duration-ms="300" />
+                <test-method status="FAIL" signature="runsShellCommand()[pri:0, instance:WorkspaceTest]" name="runsShellCommand" duration-ms="700" />
+                <test-method status="SKIP" signature="rendersBrowserPreview()[pri:0, instance:WorkspaceTest]" name="rendersBrowserPreview" duration-ms="0" />
+                <test-method status="PASS" name="beforeSuite" is-config="true" duration-ms="50" />
+              </class>
+            </test>
+          </suite>
+        </testng-results>
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.testNGPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "XML")
+        XCTAssertEqual(preview.suiteCount, 1)
+        XCTAssertEqual(preview.testGroupCount, 1)
+        XCTAssertEqual(preview.classCount, 1)
+        XCTAssertEqual(preview.methodCount, 3)
+        XCTAssertEqual(preview.passedCount, 1)
+        XCTAssertEqual(preview.failedCount, 1)
+        XCTAssertEqual(preview.skippedCount, 1)
+        XCTAssertEqual(preview.durationLabel, "1.2 s")
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.suitePreviewLabels, ["QuillCode browser smoke"])
+        XCTAssertEqual(preview.failurePreviewLabels, ["runsShellCommand()[pri:0, instance:WorkspaceTest]"])
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: TestNG XML",
+            "1 suite",
+            "1 test group",
+            "1 class",
+            "3 test methods",
+            "Passed: 1",
+            "Failed: 1",
+            "Skipped: 1",
+            "Duration: 1.2 s",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.xmlPreview)
+
+        let methodDurationReport = directory.appendingPathComponent("testng-method-duration.xml")
+        try """
+        <testng-results>
+          <suite name="Method duration fallback">
+            <test name="Workspace flows">
+              <class name="com.lorehex.QuillCodeWorkspaceTest">
+                <test-method status="PASS" name="opensProject" duration-ms="300" />
+                <test-method status="FAIL" name="runsShellCommand" duration-ms="700" />
+              </class>
+            </test>
+          </suite>
+        </testng-results>
+        """.write(to: methodDurationReport, atomically: true, encoding: .utf8)
+        let methodDurationPreview = try XCTUnwrap(ToolArtifactState(value: methodDurationReport.path).testNGPreview)
+        XCTAssertEqual(methodDurationPreview.durationLabel, "1 s")
+
+        let nonTestNG = directory.appendingPathComponent("manifest.xml")
+        try "<project><target /></project>".write(to: nonTestNG, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: nonTestNG.path).testNGPreview)
+
+        let remoteTestNG = ToolArtifactState(value: "https://example.com/testng-results.xml")
+        XCTAssertNil(remoteTestNG.testNGPreview)
+    }
+
     func testArtifactStateDerivesCoberturaPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("coverage.xml")

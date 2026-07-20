@@ -319,6 +319,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let xunitPreview = renderXUnitPreview(xunitPreviewModel)
             let nunitPreviewModel = artifact.nunitPreview
             let nunitPreview = renderNUnitPreview(nunitPreviewModel)
+            let testNGPreviewModel = artifact.testNGPreview
+            let testNGPreview = renderTestNGPreview(testNGPreviewModel)
             let coberturaPreviewModel = artifact.coberturaPreview
             let coberturaPreview = renderCoberturaPreview(coberturaPreviewModel)
             let cloverPreviewModel = artifact.cloverPreview
@@ -332,6 +334,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && spotBugsPreviewModel == nil
                 && xunitPreviewModel == nil
                 && nunitPreviewModel == nil
+                && testNGPreviewModel == nil
                 && coberturaPreviewModel == nil
                 && cloverPreviewModel == nil
                 && jaCoCoPreviewModel == nil
@@ -458,6 +461,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(trxPreview)
               \(xunitPreview)
               \(nunitPreview)
+              \(testNGPreview)
               \(coberturaPreview)
               \(cloverPreview)
               \(jaCoCoPreview)
@@ -2743,6 +2747,41 @@ enum WorkspaceHTMLToolCardRenderer {
           <div>
             \(metadata)
           </div>
+          \(failureList)
+        </div>
+        """
+    }
+
+    private static func renderTestNGPreview(_ preview: ToolArtifactTestNGPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-testng-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let suites = preview.suitePreviewLabels.map {
+            #"<li data-testid="tool-card-testng-preview-suite-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failures = preview.failurePreviewLabels.map {
+            #"<li data-testid="tool-card-testng-preview-failure-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let suiteList = suites.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-testng-preview-suites">
+                <strong data-testid="tool-card-testng-preview-suite-title">Suites</strong>
+                <ul>\(suites)</ul>
+              </section>
+        """
+        let failureList = failures.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-testng-preview-failures">
+                <strong data-testid="tool-card-testng-preview-failure-title">Failing tests</strong>
+                <ul>\(failures)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !suiteList.isEmpty || !failureList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-testng-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(suiteList)
           \(failureList)
         </div>
         """

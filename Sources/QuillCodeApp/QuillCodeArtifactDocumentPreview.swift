@@ -183,6 +183,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             xunitContent(xunitPreview)
         } else if let nunitPreview = artifact.nunitPreview {
             nunitContent(nunitPreview)
+        } else if let testNGPreview = artifact.testNGPreview {
+            testNGContent(testNGPreview)
         } else if let coberturaPreview = artifact.coberturaPreview {
             coberturaContent(coberturaPreview)
         } else if let cloverPreview = artifact.cloverPreview {
@@ -1268,6 +1270,21 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(nunitPreview.metadataLines)
             artifactContentList(title: "Failing tests", labels: nunitPreview.failurePreviewLabels)
+        }
+    }
+
+    private func testNGContent(_ testNGPreview: ToolArtifactTestNGPreview) -> some View {
+        previewSurface(minHeight: testNGPreview.failurePreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(testNGPreview.metadataLines)
+            artifactContentList(title: "Suites", labels: testNGPreview.suitePreviewLabels)
+            artifactContentList(title: "Failing tests", labels: testNGPreview.failurePreviewLabels)
         }
     }
 

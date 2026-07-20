@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render TestNG XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files whose root validates as TestNG `testng-results` output as
+  Java test reports rather than generic XML.
+- **Rationale:** TestNG is common in Java, Selenium, and mobile automation projects. Showing suite,
+  test-group, class, method, status-bucket, runtime, and capped failing-method labels gives readable
+  Codex-style verification feedback without opening raw XML.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Java
+  source files, expand reporter logs or stack traces, run TestNG, load suite configuration, or fetch
+  remote reports.
+
 ## 2026-07-19: Render Allure JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as an Allure test-result JSON object
