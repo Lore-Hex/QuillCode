@@ -20,15 +20,27 @@ struct ShellToolCallDispatcher: Sendable {
     }
 
     func execute(name: String, arguments args: ToolArguments) throws -> ToolResult {
-        switch name {
-        case ToolDefinition.shellRun.name:
-            return try runShell(arguments: args)
-        default:
-            return ToolResult(ok: false, error: "Unknown tool: \(name)")
+        switch try request(name: name, arguments: args) {
+        case .allowed(let request):
+            shell.run(request)
+        case .denied(let error):
+            ToolResult(ok: false, error: error)
         }
     }
 
-    private func runShell(arguments args: ToolArguments) throws -> ToolResult {
+    func executeCancellable(name: String, arguments args: ToolArguments) async throws -> ToolResult {
+        switch try request(name: name, arguments: args) {
+        case .allowed(let request):
+            await shell.runCancellable(request)
+        case .denied(let error):
+            ToolResult(ok: false, error: error)
+        }
+    }
+
+    private func request(name: String, arguments args: ToolArguments) throws -> RequestResolution {
+        guard name == ToolDefinition.shellRun.name else {
+            return .denied("Unknown tool: \(name)")
+        }
         let command = try args.requiredString("cmd")
         switch workingDirectory(args.string("cwd")) {
         case let .allowed(cwd):
@@ -44,18 +56,18 @@ struct ShellToolCallDispatcher: Sendable {
                         }
                         request.environment = environment
                         request.standardInput = standardInput
-                        return shell.run(request)
+                        return .allowed(request)
                     case let .denied(error):
-                        return ToolResult(ok: false, error: error)
+                        return .denied(error)
                     }
                 case let .denied(error):
-                    return ToolResult(ok: false, error: error)
+                    return .denied(error)
                 }
             case let .denied(error):
-                return ToolResult(ok: false, error: error)
+                return .denied(error)
             }
         case let .denied(error):
-            return ToolResult(ok: false, error: error)
+            return .denied(error)
         }
     }
 
@@ -155,6 +167,11 @@ struct ShellToolCallDispatcher: Sendable {
 
     private enum StandardInputResolution {
         case allowed(String?)
+        case denied(String)
+    }
+
+    private enum RequestResolution {
+        case allowed(ShellExecutionRequest)
         case denied(String)
     }
 }

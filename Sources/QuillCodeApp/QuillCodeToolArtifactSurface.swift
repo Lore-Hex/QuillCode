@@ -1675,6 +1675,88 @@ public struct ToolArtifactPytestJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactAllureJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var resultName: String?
+    public var statusLabel: String?
+    public var passedCount: Int
+    public var failedCount: Int
+    public var brokenCount: Int
+    public var skippedCount: Int
+    public var unknownCount: Int
+    public var stepCount: Int
+    public var failedStepCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var suitePreviewLabels: [String]
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            resultName.map { "Result: \($0)" },
+            statusLabel.map { "Status: \($0)" },
+            passedCount > 0 ? "Passed: \(passedCount)" : nil,
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            brokenCount > 0 ? "Broken: \(brokenCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            unknownCount > 0 ? "Unknown: \(unknownCount)" : nil,
+            stepCount > 0 ? "\(stepCount) step\(stepCount == 1 ? "" : "s")" : nil,
+            failedStepCount > 0 ? "Failed steps: \(failedStepCount)" : nil,
+            durationLabel.map { "Runtime: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        resultName != nil
+            || statusLabel != nil
+            || passedCount > 0
+            || failedCount > 0
+            || brokenCount > 0
+            || skippedCount > 0
+            || unknownCount > 0
+            || stepCount > 0
+            || failedStepCount > 0
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !suitePreviewLabels.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Allure JSON",
+        resultName: String? = nil,
+        statusLabel: String? = nil,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        brokenCount: Int = 0,
+        skippedCount: Int = 0,
+        unknownCount: Int = 0,
+        stepCount: Int = 0,
+        failedStepCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        suitePreviewLabels: [String] = [],
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.resultName = resultName
+        self.statusLabel = statusLabel
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.brokenCount = brokenCount
+        self.skippedCount = skippedCount
+        self.unknownCount = unknownCount
+        self.stepCount = stepCount
+        self.failedStepCount = failedStepCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.suitePreviewLabels = suitePreviewLabels
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
 public struct ToolArtifactJestJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var success: Bool?
@@ -1745,6 +1827,1418 @@ public struct ToolArtifactJestJSONPreview: Codable, Sendable, Hashable {
         self.runtimeLabel = runtimeLabel
         self.byteSizeLabel = byteSizeLabel
         self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
+public struct ToolArtifactPlaywrightJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var totalTestCount: Int?
+    public var expectedTestCount: Int?
+    public var unexpectedTestCount: Int?
+    public var flakyTestCount: Int?
+    public var skippedTestCount: Int?
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            durationLabel.map { "Runtime: \($0)" },
+            totalTestCount.map { "\($0) test\($0 == 1 ? "" : "s")" },
+            expectedTestCount.map { "Expected: \($0)" },
+            unexpectedTestCount.map { "Unexpected: \($0)" },
+            flakyTestCount.map { "Flaky: \($0)" },
+            skippedTestCount.map { "Skipped: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        totalTestCount != nil
+            || expectedTestCount != nil
+            || unexpectedTestCount != nil
+            || flakyTestCount != nil
+            || skippedTestCount != nil
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Playwright JSON",
+        totalTestCount: Int? = nil,
+        expectedTestCount: Int? = nil,
+        unexpectedTestCount: Int? = nil,
+        flakyTestCount: Int? = nil,
+        skippedTestCount: Int? = nil,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.totalTestCount = totalTestCount
+        self.expectedTestCount = expectedTestCount
+        self.unexpectedTestCount = unexpectedTestCount
+        self.flakyTestCount = flakyTestCount
+        self.skippedTestCount = skippedTestCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
+public struct ToolArtifactCucumberJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var featureCount: Int
+    public var scenarioCount: Int
+    public var stepCount: Int
+    public var passedStepCount: Int
+    public var failedStepCount: Int
+    public var skippedStepCount: Int
+    public var pendingStepCount: Int
+    public var undefinedStepCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            durationLabel.map { "Runtime: \($0)" },
+            "\(featureCount) feature\(featureCount == 1 ? "" : "s")",
+            "\(scenarioCount) scenario\(scenarioCount == 1 ? "" : "s")",
+            "\(stepCount) step\(stepCount == 1 ? "" : "s")",
+            passedStepCount > 0 ? "Passed steps: \(passedStepCount)" : nil,
+            failedStepCount > 0 ? "Failed steps: \(failedStepCount)" : nil,
+            skippedStepCount > 0 ? "Skipped steps: \(skippedStepCount)" : nil,
+            pendingStepCount > 0 ? "Pending steps: \(pendingStepCount)" : nil,
+            undefinedStepCount > 0 ? "Undefined steps: \(undefinedStepCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        featureCount > 0
+            || scenarioCount > 0
+            || stepCount > 0
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Cucumber JSON",
+        featureCount: Int,
+        scenarioCount: Int,
+        stepCount: Int,
+        passedStepCount: Int = 0,
+        failedStepCount: Int = 0,
+        skippedStepCount: Int = 0,
+        pendingStepCount: Int = 0,
+        undefinedStepCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.featureCount = featureCount
+        self.scenarioCount = scenarioCount
+        self.stepCount = stepCount
+        self.passedStepCount = passedStepCount
+        self.failedStepCount = failedStepCount
+        self.skippedStepCount = skippedStepCount
+        self.pendingStepCount = pendingStepCount
+        self.undefinedStepCount = undefinedStepCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
+public struct ToolArtifactRSpecJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var totalExampleCount: Int?
+    public var passedExampleCount: Int?
+    public var failedExampleCount: Int?
+    public var pendingExampleCount: Int?
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+    public var pendingPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            durationLabel.map { "Runtime: \($0)" },
+            totalExampleCount.map { "\($0) example\($0 == 1 ? "" : "s")" },
+            passedExampleCount.map { "Passed: \($0)" },
+            failedExampleCount.map { "Failed: \($0)" },
+            pendingExampleCount.map { "Pending: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        totalExampleCount != nil
+            || passedExampleCount != nil
+            || failedExampleCount != nil
+            || pendingExampleCount != nil
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+            || !pendingPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "RSpec JSON",
+        totalExampleCount: Int? = nil,
+        passedExampleCount: Int? = nil,
+        failedExampleCount: Int? = nil,
+        pendingExampleCount: Int? = nil,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = [],
+        pendingPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.totalExampleCount = totalExampleCount
+        self.passedExampleCount = passedExampleCount
+        self.failedExampleCount = failedExampleCount
+        self.pendingExampleCount = pendingExampleCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+        self.pendingPreviewLabels = pendingPreviewLabels
+    }
+}
+
+public struct ToolArtifactMochaJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var totalTestCount: Int?
+    public var passedTestCount: Int?
+    public var failedTestCount: Int?
+    public var pendingTestCount: Int?
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+    public var pendingPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            durationLabel.map { "Runtime: \($0)" },
+            totalTestCount.map { "\($0) test\($0 == 1 ? "" : "s")" },
+            passedTestCount.map { "Passed: \($0)" },
+            failedTestCount.map { "Failed: \($0)" },
+            pendingTestCount.map { "Pending: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        totalTestCount != nil
+            || passedTestCount != nil
+            || failedTestCount != nil
+            || pendingTestCount != nil
+            || durationLabel != nil
+            || byteSizeLabel != nil
+            || !failurePreviewLabels.isEmpty
+            || !pendingPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Mocha JSON",
+        totalTestCount: Int? = nil,
+        passedTestCount: Int? = nil,
+        failedTestCount: Int? = nil,
+        pendingTestCount: Int? = nil,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = [],
+        pendingPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.totalTestCount = totalTestCount
+        self.passedTestCount = passedTestCount
+        self.failedTestCount = failedTestCount
+        self.pendingTestCount = pendingTestCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+        self.pendingPreviewLabels = pendingPreviewLabels
+    }
+}
+
+public struct ToolArtifactBenchmarkDotNetJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var title: String?
+    public var benchmarkCount: Int
+    public var runtimeLabel: String?
+    public var architectureLabel: String?
+    public var osLabel: String?
+    public var byteSizeLabel: String?
+    public var benchmarkPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            title.map { "Title: \($0)" },
+            "\(benchmarkCount) benchmark\(benchmarkCount == 1 ? "" : "s")",
+            runtimeLabel.map { "Runtime: \($0)" },
+            architectureLabel.map { "Architecture: \($0)" },
+            osLabel.map { "OS: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        benchmarkCount > 0
+            || title != nil
+            || runtimeLabel != nil
+            || architectureLabel != nil
+            || osLabel != nil
+            || byteSizeLabel != nil
+            || !benchmarkPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "BenchmarkDotNet JSON",
+        title: String? = nil,
+        benchmarkCount: Int,
+        runtimeLabel: String? = nil,
+        architectureLabel: String? = nil,
+        osLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        benchmarkPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.title = title
+        self.benchmarkCount = benchmarkCount
+        self.runtimeLabel = runtimeLabel
+        self.architectureLabel = architectureLabel
+        self.osLabel = osLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.benchmarkPreviewLabels = benchmarkPreviewLabels
+    }
+}
+
+public struct ToolArtifactHyperfineJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var commandCount: Int
+    public var fastestCommandLabel: String?
+    public var fastestMeanLabel: String?
+    public var byteSizeLabel: String?
+    public var commandPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(commandCount) command\(commandCount == 1 ? "" : "s")",
+            fastestCommandLabel.map { command in
+                fastestMeanLabel.map { "Fastest: \(command) (\($0))" } ?? "Fastest: \(command)"
+            },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        commandCount > 0
+            || fastestCommandLabel != nil
+            || fastestMeanLabel != nil
+            || byteSizeLabel != nil
+            || !commandPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Hyperfine JSON",
+        commandCount: Int,
+        fastestCommandLabel: String? = nil,
+        fastestMeanLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        commandPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.commandCount = commandCount
+        self.fastestCommandLabel = fastestCommandLabel
+        self.fastestMeanLabel = fastestMeanLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.commandPreviewLabels = commandPreviewLabels
+    }
+}
+
+public struct ToolArtifactNPMAuditSeverityCount: Codable, Sendable, Hashable {
+    public var severity: String
+    public var count: Int
+
+    public init(severity: String, count: Int) {
+        self.severity = severity
+        self.count = count
+    }
+}
+
+public struct ToolArtifactNPMAuditJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var vulnerabilityCounts: [ToolArtifactNPMAuditSeverityCount]
+    public var dependencyCount: Int?
+    public var byteSizeLabel: String?
+    public var packagePreviewLabels: [String]
+
+    public var totalVulnerabilityCount: Int {
+        vulnerabilityCounts.reduce(0) { $0 + $1.count }
+    }
+
+    public var severitySummaryLabel: String? {
+        let parts = vulnerabilityCounts.map { "\($0.count) \($0.severity.lowercased())" }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(totalVulnerabilityCount) vulnerabilit\(totalVulnerabilityCount == 1 ? "y" : "ies")",
+            severitySummaryLabel.map { "Severity: \($0)" },
+            dependencyCount.map { "\($0) dependenc\($0 == 1 ? "y" : "ies")" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        !vulnerabilityCounts.isEmpty
+            || dependencyCount != nil
+            || byteSizeLabel != nil
+            || !packagePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "npm audit JSON",
+        vulnerabilityCounts: [ToolArtifactNPMAuditSeverityCount] = [],
+        dependencyCount: Int? = nil,
+        byteSizeLabel: String? = nil,
+        packagePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.vulnerabilityCounts = vulnerabilityCounts
+        self.dependencyCount = dependencyCount
+        self.byteSizeLabel = byteSizeLabel
+        self.packagePreviewLabels = packagePreviewLabels
+    }
+}
+
+public struct ToolArtifactCargoAuditJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var vulnerabilityCount: Int
+    public var yankedWarningCount: Int
+    public var unmaintainedWarningCount: Int
+    public var byteSizeLabel: String?
+    public var packagePreviewLabels: [String]
+    public var advisoryPreviewLabels: [String]
+
+    public var warningCount: Int {
+        yankedWarningCount + unmaintainedWarningCount
+    }
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(vulnerabilityCount) vulnerabilit\(vulnerabilityCount == 1 ? "y" : "ies")",
+            yankedWarningCount > 0 ? "Yanked: \(yankedWarningCount)" : nil,
+            unmaintainedWarningCount > 0 ? "Unmaintained: \(unmaintainedWarningCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        vulnerabilityCount > 0
+            || warningCount > 0
+            || byteSizeLabel != nil
+            || !packagePreviewLabels.isEmpty
+            || !advisoryPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "cargo audit JSON",
+        vulnerabilityCount: Int,
+        yankedWarningCount: Int = 0,
+        unmaintainedWarningCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        packagePreviewLabels: [String] = [],
+        advisoryPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.vulnerabilityCount = vulnerabilityCount
+        self.yankedWarningCount = yankedWarningCount
+        self.unmaintainedWarningCount = unmaintainedWarningCount
+        self.byteSizeLabel = byteSizeLabel
+        self.packagePreviewLabels = packagePreviewLabels
+        self.advisoryPreviewLabels = advisoryPreviewLabels
+    }
+}
+
+public struct ToolArtifactESLintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var messageCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var fixableCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(messageCount) message\(messageCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            fixableCount > 0 ? "Fixable: \(fixableCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || messageCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || fixableCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "ESLint JSON",
+        fileCount: Int,
+        messageCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        fixableCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.messageCount = messageCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.fixableCount = fixableCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
+public struct ToolArtifactStylelintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var warningCount: Int
+    public var errorCount: Int
+    public var parseErrorCount: Int
+    public var deprecationCount: Int
+    public var invalidOptionWarningCount: Int
+    public var byteSizeLabel: String?
+    public var sourcePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            parseErrorCount > 0 ? "Parse errors: \(parseErrorCount)" : nil,
+            deprecationCount > 0 ? "Deprecations: \(deprecationCount)" : nil,
+            invalidOptionWarningCount > 0 ? "Invalid options: \(invalidOptionWarningCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || warningCount > 0
+            || errorCount > 0
+            || parseErrorCount > 0
+            || deprecationCount > 0
+            || invalidOptionWarningCount > 0
+            || byteSizeLabel != nil
+            || !sourcePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Stylelint JSON",
+        fileCount: Int,
+        warningCount: Int = 0,
+        errorCount: Int = 0,
+        parseErrorCount: Int = 0,
+        deprecationCount: Int = 0,
+        invalidOptionWarningCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        sourcePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.warningCount = warningCount
+        self.errorCount = errorCount
+        self.parseErrorCount = parseErrorCount
+        self.deprecationCount = deprecationCount
+        self.invalidOptionWarningCount = invalidOptionWarningCount
+        self.byteSizeLabel = byteSizeLabel
+        self.sourcePreviewLabels = sourcePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
+public struct ToolArtifactSwiftLintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var violationCount: Int
+    public var fileCount: Int
+    public var ruleCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(violationCount) violation\(violationCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(ruleCount) rule\(ruleCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        violationCount > 0
+            || fileCount > 0
+            || ruleCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || otherSeverityCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "SwiftLint JSON",
+        violationCount: Int,
+        fileCount: Int,
+        ruleCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.violationCount = violationCount
+        self.fileCount = fileCount
+        self.ruleCount = ruleCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
+public struct ToolArtifactRuboCopJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var offenseCount: Int
+    public var fatalCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var conventionCount: Int
+    public var refactorCount: Int
+    public var infoCount: Int
+    public var otherSeverityCount: Int
+    public var correctableCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var copPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(offenseCount) offense\(offenseCount == 1 ? "" : "s")",
+            fatalCount > 0 ? "Fatal: \(fatalCount)" : nil,
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            conventionCount > 0 ? "Convention: \(conventionCount)" : nil,
+            refactorCount > 0 ? "Refactor: \(refactorCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            correctableCount > 0 ? "Correctable: \(correctableCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || offenseCount > 0
+            || fatalCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || conventionCount > 0
+            || refactorCount > 0
+            || infoCount > 0
+            || otherSeverityCount > 0
+            || correctableCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !copPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "RuboCop JSON",
+        fileCount: Int,
+        offenseCount: Int,
+        fatalCount: Int = 0,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        conventionCount: Int = 0,
+        refactorCount: Int = 0,
+        infoCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        correctableCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        copPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.offenseCount = offenseCount
+        self.fatalCount = fatalCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.conventionCount = conventionCount
+        self.refactorCount = refactorCount
+        self.infoCount = infoCount
+        self.otherSeverityCount = otherSeverityCount
+        self.correctableCount = correctableCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.copPreviewLabels = copPreviewLabels
+    }
+}
+
+public struct ToolArtifactGolangCILintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var issueCount: Int
+    public var fileCount: Int
+    public var linterCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var infoCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var linterPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(linterCount) linter\(linterCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        issueCount > 0
+            || fileCount > 0
+            || linterCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || infoCount > 0
+            || otherSeverityCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !linterPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "golangci-lint JSON",
+        issueCount: Int,
+        fileCount: Int,
+        linterCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        infoCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        linterPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.issueCount = issueCount
+        self.fileCount = fileCount
+        self.linterCount = linterCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.infoCount = infoCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.linterPreviewLabels = linterPreviewLabels
+    }
+}
+
+public struct ToolArtifactRuffJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var violationCount: Int
+    public var fileCount: Int
+    public var ruleCount: Int
+    public var fixableCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(violationCount) violation\(violationCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(ruleCount) rule\(ruleCount == 1 ? "" : "s")",
+            fixableCount > 0 ? "Fixable: \(fixableCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        violationCount > 0
+            || fileCount > 0
+            || ruleCount > 0
+            || fixableCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Ruff JSON",
+        violationCount: Int,
+        fileCount: Int,
+        ruleCount: Int,
+        fixableCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.violationCount = violationCount
+        self.fileCount = fileCount
+        self.ruleCount = ruleCount
+        self.fixableCount = fixableCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
+public struct ToolArtifactPylintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var messageCount: Int
+    public var fileCount: Int
+    public var symbolCount: Int
+    public var fatalCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var refactorCount: Int
+    public var conventionCount: Int
+    public var infoCount: Int
+    public var otherTypeCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var symbolPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(messageCount) message\(messageCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(symbolCount) symbol\(symbolCount == 1 ? "" : "s")",
+            fatalCount > 0 ? "Fatal: \(fatalCount)" : nil,
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            refactorCount > 0 ? "Refactor: \(refactorCount)" : nil,
+            conventionCount > 0 ? "Convention: \(conventionCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            otherTypeCount > 0 ? "Other types: \(otherTypeCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        messageCount > 0
+            || fileCount > 0
+            || symbolCount > 0
+            || fatalCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || refactorCount > 0
+            || conventionCount > 0
+            || infoCount > 0
+            || otherTypeCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !symbolPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Pylint JSON",
+        messageCount: Int,
+        fileCount: Int,
+        symbolCount: Int,
+        fatalCount: Int = 0,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        refactorCount: Int = 0,
+        conventionCount: Int = 0,
+        infoCount: Int = 0,
+        otherTypeCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        symbolPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.messageCount = messageCount
+        self.fileCount = fileCount
+        self.symbolCount = symbolCount
+        self.fatalCount = fatalCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.refactorCount = refactorCount
+        self.conventionCount = conventionCount
+        self.infoCount = infoCount
+        self.otherTypeCount = otherTypeCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.symbolPreviewLabels = symbolPreviewLabels
+    }
+}
+
+public struct ToolArtifactMypyJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var diagnosticCount: Int
+    public var fileCount: Int
+    public var codeCount: Int
+    public var errorCount: Int
+    public var noteCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var codePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(diagnosticCount) diagnostic\(diagnosticCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(codeCount) code\(codeCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            noteCount > 0 ? "Notes: \(noteCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        diagnosticCount > 0
+            || fileCount > 0
+            || codeCount > 0
+            || errorCount > 0
+            || noteCount > 0
+            || otherSeverityCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !codePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "mypy JSON",
+        diagnosticCount: Int,
+        fileCount: Int,
+        codeCount: Int,
+        errorCount: Int = 0,
+        noteCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        codePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.diagnosticCount = diagnosticCount
+        self.fileCount = fileCount
+        self.codeCount = codeCount
+        self.errorCount = errorCount
+        self.noteCount = noteCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.codePreviewLabels = codePreviewLabels
+    }
+}
+
+public struct ToolArtifactPyrightJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var diagnosticCount: Int
+    public var fileCount: Int
+    public var ruleCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var informationCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(diagnosticCount) diagnostic\(diagnosticCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(ruleCount) rule\(ruleCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            informationCount > 0 ? "Information: \(informationCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        diagnosticCount > 0
+            || fileCount > 0
+            || ruleCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || informationCount > 0
+            || otherSeverityCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Pyright JSON",
+        diagnosticCount: Int,
+        fileCount: Int,
+        ruleCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        informationCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.diagnosticCount = diagnosticCount
+        self.fileCount = fileCount
+        self.ruleCount = ruleCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.informationCount = informationCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
+public struct ToolArtifactPHPStanJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var errorCount: Int
+    public var fileCount: Int
+    public var identifierCount: Int
+    public var generalErrorCount: Int
+    public var ignorableCount: Int
+    public var nonIgnorableCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var identifierPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(errorCount) error\(errorCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(identifierCount) identifier\(identifierCount == 1 ? "" : "s")",
+            generalErrorCount > 0 ? "General errors: \(generalErrorCount)" : nil,
+            ignorableCount > 0 ? "Ignorable: \(ignorableCount)" : nil,
+            nonIgnorableCount > 0 ? "Non-ignorable: \(nonIgnorableCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        errorCount > 0
+            || fileCount > 0
+            || identifierCount > 0
+            || generalErrorCount > 0
+            || ignorableCount > 0
+            || nonIgnorableCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !identifierPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "PHPStan JSON",
+        errorCount: Int,
+        fileCount: Int,
+        identifierCount: Int,
+        generalErrorCount: Int = 0,
+        ignorableCount: Int = 0,
+        nonIgnorableCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        identifierPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.errorCount = errorCount
+        self.fileCount = fileCount
+        self.identifierCount = identifierCount
+        self.generalErrorCount = generalErrorCount
+        self.ignorableCount = ignorableCount
+        self.nonIgnorableCount = nonIgnorableCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.identifierPreviewLabels = identifierPreviewLabels
+    }
+}
+
+public struct ToolArtifactPsalmJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var issueCount: Int
+    public var fileCount: Int
+    public var typeCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var deprecationCount: Int
+    public var infoCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var typePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(typeCount) type\(typeCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            deprecationCount > 0 ? "Deprecations: \(deprecationCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        issueCount > 0
+            || fileCount > 0
+            || typeCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || deprecationCount > 0
+            || infoCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !typePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Psalm JSON",
+        issueCount: Int,
+        fileCount: Int,
+        typeCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        deprecationCount: Int = 0,
+        infoCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        typePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.issueCount = issueCount
+        self.fileCount = fileCount
+        self.typeCount = typeCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.deprecationCount = deprecationCount
+        self.infoCount = infoCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.typePreviewLabels = typePreviewLabels
+    }
+}
+
+public struct ToolArtifactBanditJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var issueCount: Int
+    public var fileCount: Int
+    public var testCount: Int
+    public var highSeverityCount: Int
+    public var mediumSeverityCount: Int
+    public var lowSeverityCount: Int
+    public var otherSeverityCount: Int
+    public var highConfidenceCount: Int
+    public var mediumConfidenceCount: Int
+    public var lowConfidenceCount: Int
+    public var otherConfidenceCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var testPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            highSeverityCount > 0 ? "High severity: \(highSeverityCount)" : nil,
+            mediumSeverityCount > 0 ? "Medium severity: \(mediumSeverityCount)" : nil,
+            lowSeverityCount > 0 ? "Low severity: \(lowSeverityCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            highConfidenceCount > 0 ? "High confidence: \(highConfidenceCount)" : nil,
+            mediumConfidenceCount > 0 ? "Medium confidence: \(mediumConfidenceCount)" : nil,
+            lowConfidenceCount > 0 ? "Low confidence: \(lowConfidenceCount)" : nil,
+            otherConfidenceCount > 0 ? "Other confidence: \(otherConfidenceCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        issueCount > 0
+            || fileCount > 0
+            || testCount > 0
+            || highSeverityCount > 0
+            || mediumSeverityCount > 0
+            || lowSeverityCount > 0
+            || otherSeverityCount > 0
+            || highConfidenceCount > 0
+            || mediumConfidenceCount > 0
+            || lowConfidenceCount > 0
+            || otherConfidenceCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !testPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Bandit JSON",
+        issueCount: Int,
+        fileCount: Int,
+        testCount: Int,
+        highSeverityCount: Int = 0,
+        mediumSeverityCount: Int = 0,
+        lowSeverityCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        highConfidenceCount: Int = 0,
+        mediumConfidenceCount: Int = 0,
+        lowConfidenceCount: Int = 0,
+        otherConfidenceCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        testPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.issueCount = issueCount
+        self.fileCount = fileCount
+        self.testCount = testCount
+        self.highSeverityCount = highSeverityCount
+        self.mediumSeverityCount = mediumSeverityCount
+        self.lowSeverityCount = lowSeverityCount
+        self.otherSeverityCount = otherSeverityCount
+        self.highConfidenceCount = highConfidenceCount
+        self.mediumConfidenceCount = mediumConfidenceCount
+        self.lowConfidenceCount = lowConfidenceCount
+        self.otherConfidenceCount = otherConfidenceCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.testPreviewLabels = testPreviewLabels
+    }
+}
+
+public struct ToolArtifactSemgrepJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var findingCount: Int
+    public var fileCount: Int
+    public var ruleCount: Int
+    public var errorSeverityCount: Int
+    public var warningSeverityCount: Int
+    public var infoSeverityCount: Int
+    public var otherSeverityCount: Int
+    public var errorCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(findingCount) finding\(findingCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(ruleCount) rule\(ruleCount == 1 ? "" : "s")",
+            errorSeverityCount > 0 ? "Error severity: \(errorSeverityCount)" : nil,
+            warningSeverityCount > 0 ? "Warning severity: \(warningSeverityCount)" : nil,
+            infoSeverityCount > 0 ? "Info severity: \(infoSeverityCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            errorCount > 0 ? "Scanner errors: \(errorCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        findingCount > 0
+            || fileCount > 0
+            || ruleCount > 0
+            || errorSeverityCount > 0
+            || warningSeverityCount > 0
+            || infoSeverityCount > 0
+            || otherSeverityCount > 0
+            || errorCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Semgrep JSON",
+        findingCount: Int,
+        fileCount: Int,
+        ruleCount: Int,
+        errorSeverityCount: Int = 0,
+        warningSeverityCount: Int = 0,
+        infoSeverityCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        errorCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.findingCount = findingCount
+        self.fileCount = fileCount
+        self.ruleCount = ruleCount
+        self.errorSeverityCount = errorSeverityCount
+        self.warningSeverityCount = warningSeverityCount
+        self.infoSeverityCount = infoSeverityCount
+        self.otherSeverityCount = otherSeverityCount
+        self.errorCount = errorCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
+public struct ToolArtifactCodeClimateJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var issueCount: Int
+    public var fileCount: Int
+    public var checkCount: Int
+    public var categoryCount: Int
+    public var blockerCount: Int
+    public var criticalCount: Int
+    public var majorCount: Int
+    public var minorCount: Int
+    public var infoCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var checkPreviewLabels: [String]
+    public var categoryPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(checkCount) check\(checkCount == 1 ? "" : "s")",
+            "\(categoryCount) categor\(categoryCount == 1 ? "y" : "ies")",
+            blockerCount > 0 ? "Blocker: \(blockerCount)" : nil,
+            criticalCount > 0 ? "Critical: \(criticalCount)" : nil,
+            majorCount > 0 ? "Major: \(majorCount)" : nil,
+            minorCount > 0 ? "Minor: \(minorCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        issueCount > 0
+            || fileCount > 0
+            || checkCount > 0
+            || categoryCount > 0
+            || blockerCount > 0
+            || criticalCount > 0
+            || majorCount > 0
+            || minorCount > 0
+            || infoCount > 0
+            || otherSeverityCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !checkPreviewLabels.isEmpty
+            || !categoryPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Code Climate JSON",
+        issueCount: Int,
+        fileCount: Int,
+        checkCount: Int,
+        categoryCount: Int,
+        blockerCount: Int = 0,
+        criticalCount: Int = 0,
+        majorCount: Int = 0,
+        minorCount: Int = 0,
+        infoCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        checkPreviewLabels: [String] = [],
+        categoryPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.issueCount = issueCount
+        self.fileCount = fileCount
+        self.checkCount = checkCount
+        self.categoryCount = categoryCount
+        self.blockerCount = blockerCount
+        self.criticalCount = criticalCount
+        self.majorCount = majorCount
+        self.minorCount = minorCount
+        self.infoCount = infoCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.checkPreviewLabels = checkPreviewLabels
+        self.categoryPreviewLabels = categoryPreviewLabels
     }
 }
 
@@ -2151,6 +3645,155 @@ public struct ToolArtifactJSONLinesPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCargoCompilerJSONLinesPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var diagnosticCount: Int
+    public var fileCount: Int
+    public var codeCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var noteCount: Int
+    public var helpCount: Int
+    public var otherLevelCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var codePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(diagnosticCount) diagnostic\(diagnosticCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(codeCount) code\(codeCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            noteCount > 0 ? "Notes: \(noteCount)" : nil,
+            helpCount > 0 ? "Help: \(helpCount)" : nil,
+            otherLevelCount > 0 ? "Other levels: \(otherLevelCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        diagnosticCount > 0
+            || fileCount > 0
+            || codeCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || noteCount > 0
+            || helpCount > 0
+            || otherLevelCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !codePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Cargo Compiler JSONL",
+        diagnosticCount: Int,
+        fileCount: Int,
+        codeCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        noteCount: Int = 0,
+        helpCount: Int = 0,
+        otherLevelCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        codePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.diagnosticCount = diagnosticCount
+        self.fileCount = fileCount
+        self.codeCount = codeCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.noteCount = noteCount
+        self.helpCount = helpCount
+        self.otherLevelCount = otherLevelCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.codePreviewLabels = codePreviewLabels
+    }
+}
+
+public struct ToolArtifactGoTestJSONLinesPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var eventCount: Int
+    public var packageCount: Int
+    public var testCount: Int
+    public var passedTestCount: Int
+    public var failedTestCount: Int
+    public var skippedTestCount: Int
+    public var packagePassCount: Int
+    public var packageFailureCount: Int
+    public var outputEventCount: Int
+    public var byteSizeLabel: String?
+    public var failedTestPreviewLabels: [String]
+    public var skippedTestPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(eventCount) event\(eventCount == 1 ? "" : "s")",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            passedTestCount > 0 ? "Passed tests: \(passedTestCount)" : nil,
+            failedTestCount > 0 ? "Failed tests: \(failedTestCount)" : nil,
+            skippedTestCount > 0 ? "Skipped tests: \(skippedTestCount)" : nil,
+            packagePassCount > 0 ? "Passed packages: \(packagePassCount)" : nil,
+            packageFailureCount > 0 ? "Failed packages: \(packageFailureCount)" : nil,
+            outputEventCount > 0 ? "Output events: \(outputEventCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        eventCount > 0
+            || packageCount > 0
+            || testCount > 0
+            || passedTestCount > 0
+            || failedTestCount > 0
+            || skippedTestCount > 0
+            || packagePassCount > 0
+            || packageFailureCount > 0
+            || outputEventCount > 0
+            || byteSizeLabel != nil
+            || !failedTestPreviewLabels.isEmpty
+            || !skippedTestPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Go test JSONL",
+        eventCount: Int,
+        packageCount: Int,
+        testCount: Int,
+        passedTestCount: Int = 0,
+        failedTestCount: Int = 0,
+        skippedTestCount: Int = 0,
+        packagePassCount: Int = 0,
+        packageFailureCount: Int = 0,
+        outputEventCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        failedTestPreviewLabels: [String] = [],
+        skippedTestPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.eventCount = eventCount
+        self.packageCount = packageCount
+        self.testCount = testCount
+        self.passedTestCount = passedTestCount
+        self.failedTestCount = failedTestCount
+        self.skippedTestCount = skippedTestCount
+        self.packagePassCount = packagePassCount
+        self.packageFailureCount = packageFailureCount
+        self.outputEventCount = outputEventCount
+        self.byteSizeLabel = byteSizeLabel
+        self.failedTestPreviewLabels = failedTestPreviewLabels
+        self.skippedTestPreviewLabels = skippedTestPreviewLabels
+    }
+}
+
 public struct ToolArtifactTOMLPreview: Codable, Sendable, Hashable {
     public var topLevelKeyCount: Int
     public var tableCount: Int
@@ -2432,6 +4075,242 @@ public struct ToolArtifactJUnitPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactCTestPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var testCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var notRunCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            passedCount > 0 ? "Passed: \(passedCount)" : nil,
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            notRunCount > 0 ? "Not run: \(notRunCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        testCount > 0
+            || !metadataLines.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "CTest XML",
+        testCount: Int,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        notRunCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        failurePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.testCount = testCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.notRunCount = notRunCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
+public struct ToolArtifactCheckstylePreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var issueCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var infoCount: Int
+    public var ignoreCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var sourcePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(issueCount) issue\(issueCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            infoCount > 0 ? "Info: \(infoCount)" : nil,
+            ignoreCount > 0 ? "Ignored: \(ignoreCount)" : nil,
+            otherSeverityCount > 0 ? "Other: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || issueCount > 0
+            || !filePreviewLabels.isEmpty
+            || !sourcePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Checkstyle XML",
+        fileCount: Int,
+        issueCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        infoCount: Int = 0,
+        ignoreCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        sourcePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.issueCount = issueCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.infoCount = infoCount
+        self.ignoreCount = ignoreCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.sourcePreviewLabels = sourcePreviewLabels
+    }
+}
+
+public struct ToolArtifactPMDPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var fileCount: Int
+    public var violationCount: Int
+    public var priorityOneCount: Int
+    public var priorityTwoCount: Int
+    public var priorityThreeCount: Int
+    public var priorityFourCount: Int
+    public var priorityFiveCount: Int
+    public var otherPriorityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(violationCount) violation\(violationCount == 1 ? "" : "s")",
+            priorityOneCount > 0 ? "Priority 1: \(priorityOneCount)" : nil,
+            priorityTwoCount > 0 ? "Priority 2: \(priorityTwoCount)" : nil,
+            priorityThreeCount > 0 ? "Priority 3: \(priorityThreeCount)" : nil,
+            priorityFourCount > 0 ? "Priority 4: \(priorityFourCount)" : nil,
+            priorityFiveCount > 0 ? "Priority 5: \(priorityFiveCount)" : nil,
+            otherPriorityCount > 0 ? "Other priority: \(otherPriorityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        fileCount > 0
+            || violationCount > 0
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "PMD XML",
+        fileCount: Int,
+        violationCount: Int,
+        priorityOneCount: Int = 0,
+        priorityTwoCount: Int = 0,
+        priorityThreeCount: Int = 0,
+        priorityFourCount: Int = 0,
+        priorityFiveCount: Int = 0,
+        otherPriorityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.fileCount = fileCount
+        self.violationCount = violationCount
+        self.priorityOneCount = priorityOneCount
+        self.priorityTwoCount = priorityTwoCount
+        self.priorityThreeCount = priorityThreeCount
+        self.priorityFourCount = priorityFourCount
+        self.priorityFiveCount = priorityFiveCount
+        self.otherPriorityCount = otherPriorityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
+public struct ToolArtifactSpotBugsPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var bugCount: Int
+    public var classCount: Int
+    public var priorityOneCount: Int
+    public var priorityTwoCount: Int
+    public var priorityThreeCount: Int
+    public var otherPriorityCount: Int
+    public var byteSizeLabel: String?
+    public var typePreviewLabels: [String]
+    public var categoryPreviewLabels: [String]
+    public var classPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(bugCount) bug\(bugCount == 1 ? "" : "s")",
+            classCount > 0 ? "\(classCount) class\(classCount == 1 ? "" : "es")" : nil,
+            priorityOneCount > 0 ? "Priority 1: \(priorityOneCount)" : nil,
+            priorityTwoCount > 0 ? "Priority 2: \(priorityTwoCount)" : nil,
+            priorityThreeCount > 0 ? "Priority 3: \(priorityThreeCount)" : nil,
+            otherPriorityCount > 0 ? "Other priority: \(otherPriorityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        bugCount > 0
+            || classCount > 0
+            || !typePreviewLabels.isEmpty
+            || !categoryPreviewLabels.isEmpty
+            || !classPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "SpotBugs XML",
+        bugCount: Int,
+        classCount: Int = 0,
+        priorityOneCount: Int = 0,
+        priorityTwoCount: Int = 0,
+        priorityThreeCount: Int = 0,
+        otherPriorityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        typePreviewLabels: [String] = [],
+        categoryPreviewLabels: [String] = [],
+        classPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.bugCount = bugCount
+        self.classCount = classCount
+        self.priorityOneCount = priorityOneCount
+        self.priorityTwoCount = priorityTwoCount
+        self.priorityThreeCount = priorityThreeCount
+        self.otherPriorityCount = otherPriorityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.typePreviewLabels = typePreviewLabels
+        self.categoryPreviewLabels = categoryPreviewLabels
+        self.classPreviewLabels = classPreviewLabels
+    }
+}
+
 public struct ToolArtifactTRXPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var testRunName: String?
@@ -2600,6 +4479,136 @@ public struct ToolArtifactNUnitPreview: Codable, Sendable, Hashable {
         self.skippedCount = skippedCount
         self.durationLabel = durationLabel
         self.byteSizeLabel = byteSizeLabel
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
+public struct ToolArtifactTestNGPreview: Codable, Sendable, Hashable {
+    public var suiteCount: Int
+    public var testGroupCount: Int
+    public var classCount: Int
+    public var methodCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var skippedCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var suitePreviewLabels: [String]
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: TestNG XML",
+            "\(suiteCount) suite\(suiteCount == 1 ? "" : "s")",
+            testGroupCount > 0 ? "\(testGroupCount) test group\(testGroupCount == 1 ? "" : "s")" : nil,
+            classCount > 0 ? "\(classCount) class\(classCount == 1 ? "" : "es")" : nil,
+            "\(methodCount) test method\(methodCount == 1 ? "" : "s")",
+            "Passed: \(passedCount)",
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        suiteCount > 0
+            || methodCount > 0
+            || !metadataLines.isEmpty
+            || !suitePreviewLabels.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        suiteCount: Int,
+        testGroupCount: Int = 0,
+        classCount: Int = 0,
+        methodCount: Int,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        skippedCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        suitePreviewLabels: [String] = [],
+        failurePreviewLabels: [String] = []
+    ) {
+        self.suiteCount = suiteCount
+        self.testGroupCount = testGroupCount
+        self.classCount = classCount
+        self.methodCount = methodCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.skippedCount = skippedCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.suitePreviewLabels = suitePreviewLabels
+        self.failurePreviewLabels = failurePreviewLabels
+    }
+}
+
+public struct ToolArtifactRobotXMLPreview: Codable, Sendable, Hashable {
+    public var generatedLabel: String?
+    public var generatorLabel: String?
+    public var suiteCount: Int
+    public var testCount: Int
+    public var keywordCount: Int
+    public var passedCount: Int
+    public var failedCount: Int
+    public var skippedCount: Int
+    public var durationLabel: String?
+    public var byteSizeLabel: String?
+    public var suitePreviewLabels: [String]
+    public var failurePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: Robot XML",
+            generatorLabel.map { "Generator: \($0)" },
+            generatedLabel.map { "Generated: \($0)" },
+            "\(suiteCount) suite\(suiteCount == 1 ? "" : "s")",
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            keywordCount > 0 ? "\(keywordCount) keyword\(keywordCount == 1 ? "" : "s")" : nil,
+            "Passed: \(passedCount)",
+            failedCount > 0 ? "Failed: \(failedCount)" : nil,
+            skippedCount > 0 ? "Skipped: \(skippedCount)" : nil,
+            durationLabel.map { "Duration: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        suiteCount > 0
+            || testCount > 0
+            || !metadataLines.isEmpty
+            || !suitePreviewLabels.isEmpty
+            || !failurePreviewLabels.isEmpty
+    }
+
+    public init(
+        generatedLabel: String? = nil,
+        generatorLabel: String? = nil,
+        suiteCount: Int,
+        testCount: Int,
+        keywordCount: Int = 0,
+        passedCount: Int = 0,
+        failedCount: Int = 0,
+        skippedCount: Int = 0,
+        durationLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        suitePreviewLabels: [String] = [],
+        failurePreviewLabels: [String] = []
+    ) {
+        self.generatedLabel = generatedLabel
+        self.generatorLabel = generatorLabel
+        self.suiteCount = suiteCount
+        self.testCount = testCount
+        self.keywordCount = keywordCount
+        self.passedCount = passedCount
+        self.failedCount = failedCount
+        self.skippedCount = skippedCount
+        self.durationLabel = durationLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.suitePreviewLabels = suitePreviewLabels
         self.failurePreviewLabels = failurePreviewLabels
     }
 }
@@ -3253,7 +5262,31 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
-        ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
+        guard allureJSONPreview == nil,
+              eslintJSONPreview == nil,
+              stylelintJSONPreview == nil,
+              swiftLintJSONPreview == nil,
+              rubocopJSONPreview == nil,
+              golangCILintJSONPreview == nil,
+              ruffJSONPreview == nil,
+              pylintJSONPreview == nil,
+              mypyJSONPreview == nil,
+              pyrightJSONPreview == nil,
+              phpstanJSONPreview == nil,
+              psalmJSONPreview == nil,
+              banditJSONPreview == nil,
+              semgrepJSONPreview == nil,
+              codeClimateJSONPreview == nil,
+              playwrightJSONPreview == nil,
+              cucumberJSONPreview == nil,
+              rspecJSONPreview == nil,
+              mochaJSONPreview == nil,
+              benchmarkDotNetJSONPreview == nil,
+              hyperfineJSONPreview == nil,
+              npmAuditJSONPreview == nil,
+              cargoAuditJSONPreview == nil
+        else { return nil }
+        return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
     public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
         ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: kind)
@@ -3315,8 +5348,77 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var pytestJSONPreview: ToolArtifactPytestJSONPreview? {
         ToolArtifactPytestJSONPreviewBuilder.pytestJSONPreview(for: value, kind: kind)
     }
+    public var allureJSONPreview: ToolArtifactAllureJSONPreview? {
+        ToolArtifactAllureJSONPreviewBuilder.allureJSONPreview(for: value, kind: kind)
+    }
     public var jestJSONPreview: ToolArtifactJestJSONPreview? {
         ToolArtifactJestJSONPreviewBuilder.jestJSONPreview(for: value, kind: kind)
+    }
+    public var playwrightJSONPreview: ToolArtifactPlaywrightJSONPreview? {
+        ToolArtifactPlaywrightJSONPreviewBuilder.playwrightJSONPreview(for: value, kind: kind)
+    }
+    public var cucumberJSONPreview: ToolArtifactCucumberJSONPreview? {
+        ToolArtifactCucumberJSONPreviewBuilder.cucumberJSONPreview(for: value, kind: kind)
+    }
+    public var rspecJSONPreview: ToolArtifactRSpecJSONPreview? {
+        ToolArtifactRSpecJSONPreviewBuilder.rspecJSONPreview(for: value, kind: kind)
+    }
+    public var mochaJSONPreview: ToolArtifactMochaJSONPreview? {
+        ToolArtifactMochaJSONPreviewBuilder.mochaJSONPreview(for: value, kind: kind)
+    }
+    public var benchmarkDotNetJSONPreview: ToolArtifactBenchmarkDotNetJSONPreview? {
+        ToolArtifactBenchmarkDotNetJSONPreviewBuilder.benchmarkDotNetJSONPreview(for: value, kind: kind)
+    }
+    public var hyperfineJSONPreview: ToolArtifactHyperfineJSONPreview? {
+        ToolArtifactHyperfineJSONPreviewBuilder.hyperfineJSONPreview(for: value, kind: kind)
+    }
+    public var npmAuditJSONPreview: ToolArtifactNPMAuditJSONPreview? {
+        ToolArtifactNPMAuditJSONPreviewBuilder.npmAuditJSONPreview(for: value, kind: kind)
+    }
+    public var cargoAuditJSONPreview: ToolArtifactCargoAuditJSONPreview? {
+        ToolArtifactCargoAuditJSONPreviewBuilder.cargoAuditJSONPreview(for: value, kind: kind)
+    }
+    public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
+        ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)
+    }
+    public var stylelintJSONPreview: ToolArtifactStylelintJSONPreview? {
+        ToolArtifactStylelintJSONPreviewBuilder.stylelintJSONPreview(for: value, kind: kind)
+    }
+    public var swiftLintJSONPreview: ToolArtifactSwiftLintJSONPreview? {
+        ToolArtifactSwiftLintJSONPreviewBuilder.swiftLintJSONPreview(for: value, kind: kind)
+    }
+    public var rubocopJSONPreview: ToolArtifactRuboCopJSONPreview? {
+        ToolArtifactRuboCopJSONPreviewBuilder.rubocopJSONPreview(for: value, kind: kind)
+    }
+    public var golangCILintJSONPreview: ToolArtifactGolangCILintJSONPreview? {
+        ToolArtifactGolangCILintJSONPreviewBuilder.golangCILintJSONPreview(for: value, kind: kind)
+    }
+    public var ruffJSONPreview: ToolArtifactRuffJSONPreview? {
+        ToolArtifactRuffJSONPreviewBuilder.ruffJSONPreview(for: value, kind: kind)
+    }
+    public var pylintJSONPreview: ToolArtifactPylintJSONPreview? {
+        ToolArtifactPylintJSONPreviewBuilder.pylintJSONPreview(for: value, kind: kind)
+    }
+    public var mypyJSONPreview: ToolArtifactMypyJSONPreview? {
+        ToolArtifactMypyJSONPreviewBuilder.mypyJSONPreview(for: value, kind: kind)
+    }
+    public var pyrightJSONPreview: ToolArtifactPyrightJSONPreview? {
+        ToolArtifactPyrightJSONPreviewBuilder.pyrightJSONPreview(for: value, kind: kind)
+    }
+    public var phpstanJSONPreview: ToolArtifactPHPStanJSONPreview? {
+        ToolArtifactPHPStanJSONPreviewBuilder.phpstanJSONPreview(for: value, kind: kind)
+    }
+    public var psalmJSONPreview: ToolArtifactPsalmJSONPreview? {
+        ToolArtifactPsalmJSONPreviewBuilder.psalmJSONPreview(for: value, kind: kind)
+    }
+    public var banditJSONPreview: ToolArtifactBanditJSONPreview? {
+        ToolArtifactBanditJSONPreviewBuilder.banditJSONPreview(for: value, kind: kind)
+    }
+    public var semgrepJSONPreview: ToolArtifactSemgrepJSONPreview? {
+        ToolArtifactSemgrepJSONPreviewBuilder.semgrepJSONPreview(for: value, kind: kind)
+    }
+    public var codeClimateJSONPreview: ToolArtifactCodeClimateJSONPreview? {
+        ToolArtifactCodeClimateJSONPreviewBuilder.codeClimateJSONPreview(for: value, kind: kind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
         ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)
@@ -3337,7 +5439,16 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactNotebookPreviewBuilder.notebookPreview(for: value, kind: kind)
     }
     public var jsonLinesPreview: ToolArtifactJSONLinesPreview? {
-        ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: kind)
+        guard cargoCompilerJSONLinesPreview == nil,
+              goTestJSONLinesPreview == nil
+        else { return nil }
+        return ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: kind)
+    }
+    public var cargoCompilerJSONLinesPreview: ToolArtifactCargoCompilerJSONLinesPreview? {
+        ToolArtifactCargoCompilerJSONLinesPreviewBuilder.cargoCompilerJSONLinesPreview(for: value, kind: kind)
+    }
+    public var goTestJSONLinesPreview: ToolArtifactGoTestJSONLinesPreview? {
+        ToolArtifactGoTestJSONLinesPreviewBuilder.goTestJSONLinesPreview(for: value, kind: kind)
     }
     public var tomlPreview: ToolArtifactTOMLPreview? {
         ToolArtifactTOMLPreviewBuilder.tomlPreview(for: value, kind: kind)
@@ -3354,6 +5465,18 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var junitPreview: ToolArtifactJUnitPreview? {
         ToolArtifactJUnitPreviewBuilder.junitPreview(for: value, kind: kind)
     }
+    public var ctestPreview: ToolArtifactCTestPreview? {
+        ToolArtifactCTestPreviewBuilder.ctestPreview(for: value, kind: kind)
+    }
+    public var checkstylePreview: ToolArtifactCheckstylePreview? {
+        ToolArtifactCheckstylePreviewBuilder.checkstylePreview(for: value, kind: kind)
+    }
+    public var pmdPreview: ToolArtifactPMDPreview? {
+        ToolArtifactPMDPreviewBuilder.pmdPreview(for: value, kind: kind)
+    }
+    public var spotBugsPreview: ToolArtifactSpotBugsPreview? {
+        ToolArtifactSpotBugsPreviewBuilder.spotBugsPreview(for: value, kind: kind)
+    }
     public var trxPreview: ToolArtifactTRXPreview? {
         ToolArtifactTRXPreviewBuilder.trxPreview(for: value, kind: kind)
     }
@@ -3362,6 +5485,12 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var nunitPreview: ToolArtifactNUnitPreview? {
         ToolArtifactNUnitPreviewBuilder.nunitPreview(for: value, kind: kind)
+    }
+    public var testNGPreview: ToolArtifactTestNGPreview? {
+        ToolArtifactTestNGPreviewBuilder.testNGPreview(for: value, kind: kind)
+    }
+    public var robotXMLPreview: ToolArtifactRobotXMLPreview? {
+        ToolArtifactRobotXMLPreviewBuilder.robotXMLPreview(for: value, kind: kind)
     }
     public var coberturaPreview: ToolArtifactCoberturaPreview? {
         ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: kind)
@@ -3373,7 +5502,14 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactJaCoCoPreviewBuilder.jaCoCoPreview(for: value, kind: kind)
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
-        ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
+        guard ctestPreview == nil,
+              checkstylePreview == nil,
+              pmdPreview == nil,
+              spotBugsPreview == nil,
+              testNGPreview == nil,
+              robotXMLPreview == nil
+        else { return nil }
+        return ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
     }
     public var propertyListPreview: ToolArtifactPropertyListPreview? {
         ToolArtifactPropertyListPreviewBuilder.propertyListPreview(for: value, kind: kind)

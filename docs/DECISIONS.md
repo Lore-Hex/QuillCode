@@ -1,5 +1,286 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Robot XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files whose root validates as Robot Framework `robot` output as
+  acceptance/integration test reports rather than generic XML.
+- **Rationale:** Robot Framework is common in UI, device, and acceptance testing. Showing suite,
+  test, keyword, status-bucket, runtime, and capped failing-test labels gives readable Codex-style
+  verification feedback without opening raw XML.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Robot
+  suites, expand keyword logs or messages, run Robot, load listener metadata, or fetch remote reports.
+
+## 2026-07-19: Render TestNG XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files whose root validates as TestNG `testng-results` output as
+  Java test reports rather than generic XML.
+- **Rationale:** TestNG is common in Java, Selenium, and mobile automation projects. Showing suite,
+  test-group, class, method, status-bucket, runtime, and capped failing-method labels gives readable
+  Codex-style verification feedback without opening raw XML.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Java
+  source files, expand reporter logs or stack traces, run TestNG, load suite configuration, or fetch
+  remote reports.
+
+## 2026-07-19: Render Allure JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as an Allure test-result JSON object
+  as structured test-report output rather than generic JSON.
+- **Rationale:** Allure is common around browser, mobile, and integration suites. Showing the result
+  name, status, step counts, runtime, suite labels, and capped failing result labels gives readable
+  Codex-style verification feedback without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read source
+  files, expand attachments or status-detail logs, run Allure, load report directories, or fetch
+  remote reports.
+
+## 2026-07-19: Render CTest XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files whose root validates as CTest `Site/Testing/Test` output
+  as C/C++ test reports rather than generic XML.
+- **Rationale:** CMake/CTest is a common verification path for native projects. Showing test counts,
+  pass/fail/not-run buckets, runtime, and capped failing test labels gives readable Codex-style
+  feedback without opening raw XML.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read CMake
+  projects or source files, expand test output logs, run CTest, load dashboard metadata, or fetch
+  remote reports.
+
+## 2026-07-19: Render RSpec JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as RSpec JSON formatter output as
+  Ruby test reports rather than generic JSON.
+- **Rationale:** Ruby/Rails coding sessions commonly produce RSpec JSON. Showing example counts,
+  pass/fail/pending buckets, runtime, and capped failing/pending example labels gives useful
+  Codex-style feedback without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Ruby
+  source files, expand exception backtraces, run RSpec, load formatter configuration, or fetch remote
+  reports.
+
+## 2026-07-19: Render Cucumber JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Cucumber JSON formatter output as
+  acceptance-test reports rather than generic JSON.
+- **Rationale:** Cucumber-style acceptance tests often describe end-user workflows in a way that is
+  useful in Codex-like coding sessions. Showing feature/scenario/step counts, status buckets,
+  runtime, and capped failing scenario labels gives readable feedback without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read feature
+  files, expand step errors, run Cucumber, load formatter configuration, or fetch remote reports.
+
+## 2026-07-19: Render Playwright JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Playwright JSON reporter output
+  as browser/E2E test reports rather than generic JSON.
+- **Rationale:** Playwright is a common way Codex-style coding sessions verify UI behavior. Showing
+  expected/unexpected/flaky/skipped counts, runtime, and capped failing spec labels gives useful
+  feedback without opening raw reporter JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read
+  Playwright config or source files, expand error stacks, run browsers, resolve traces/videos, or
+  fetch remote reports.
+
+## 2026-07-19: Render Mocha JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Mocha JSON reporter output as
+  JavaScript test reports rather than generic JSON.
+- **Rationale:** Node coding sessions commonly export Mocha JSON. Showing test/pass/fail/pending
+  counts, runtime, and capped failure/pending labels gives useful Codex-style feedback without
+  opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read
+  JavaScript source files, expand stack traces, run Mocha, load test configuration, or fetch remote
+  reports.
+
+## 2026-07-19: Render Go Test JSONL As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.jsonl` and `.ndjson` files whose records validate as Go
+  `go test -json`/`test2json` output as test-result reports rather than generic JSON Lines.
+- **Rationale:** Go coding sessions commonly capture line-oriented test output. Showing
+  event/package/test/pass/fail/skip counts plus capped failed/skipped test labels gives useful
+  Codex-style feedback without opening raw NDJSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Go
+  source files, expand output lines, run `go test`, load module metadata, or fetch remote reports.
+
+## 2026-07-19: Render Psalm JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Psalm JSON output as a
+  specialized PHP static-analysis report rather than generic JSON.
+- **Rationale:** Psalm reports are common in PHP coding sessions and CI exports. Showing
+  issue/file/type/severity-bucket counts plus capped file/type labels gives useful Codex-style
+  feedback without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read PHP
+  source files, expand diagnostic messages, run Psalm, load Psalm configuration, or fetch remote
+  reports.
+
+## 2026-07-19: Render PHPStan JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as PHPStan JSON output as a
+  specialized PHP static-analysis report rather than generic JSON.
+- **Rationale:** PHPStan reports are common in PHP coding sessions and CI exports. Showing
+  error/file/identifier counts plus capped file/identifier labels gives useful Codex-style feedback
+  without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read PHP
+  source files, expand diagnostic messages, run PHPStan, load PHPStan configuration, or fetch remote
+  reports.
+
+## 2026-07-19: Render SwiftLint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as SwiftLint JSON output as a
+  specialized Swift lint report rather than generic JSON.
+- **Rationale:** SwiftLint JSON is the common native report format for Swift projects. Showing
+  violation/file/rule/severity counts plus capped file/rule labels gives useful Codex-style feedback
+  without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Swift
+  source files, expand violation reasons, invoke SwiftLint, load rule configuration, or fetch remote
+  reports.
+
+## 2026-07-19: Render Cargo Compiler JSONL As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.jsonl` and `.ndjson` files whose records include Cargo
+  `compiler-message` entries as Rust compiler/Clippy diagnostics rather than generic JSON Lines.
+- **Rationale:** Rust coding sessions commonly capture `cargo check --message-format=json` and
+  Clippy output. Showing diagnostic/file/code/level counts plus capped file/code labels gives useful
+  Codex-style feedback without opening raw line-oriented JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Rust
+  source files, expand spans, invoke Cargo, load Cargo metadata, or fetch remote reports.
+
+## 2026-07-19: Render Pyright JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as native Pyright JSON output as a
+  specialized Python type-check report rather than generic JSON.
+- **Rationale:** Pyright reports are common in Python coding sessions and CI exports. Showing
+  diagnostic/file/rule/severity counts plus capped file/rule labels gives useful Codex-style
+  feedback without opening the raw report.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Python
+  source files, expand diagnostic messages, load Pyright configuration, shell out, or fetch remote
+  reports.
+
+## 2026-07-19: Render mypy JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` and `.jsonl` files whose records validate as mypy JSON output
+  as a specialized Python type-check report rather than generic JSON or JSON Lines.
+- **Rationale:** mypy reports are common in Python coding sessions and CI exports. Showing
+  diagnostic/file/code/severity counts plus capped file/code labels gives useful Codex-style
+  feedback without opening the raw report.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Python
+  source files, expand diagnostic messages, load mypy configuration, shell out, or fetch remote
+  reports.
+
+## 2026-07-19: Render Code Climate JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Code Climate issue JSON output as
+  a specialized review/static-analysis artifact rather than generic JSON.
+- **Rationale:** Code Climate JSON is a common interchange format for CI quality reports across
+  linters. Showing issue/file/check/category/severity counts plus capped file/check/category labels
+  gives useful Codex-style feedback without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read source
+  files, expand issue locations, fetch remote reports, or call Code Climate tooling.
+
+## 2026-07-19: Render Semgrep JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as native Semgrep JSON output as a
+  specialized static-analysis artifact rather than generic JSON.
+- **Rationale:** Semgrep reports are common in security and code-review sessions. Showing finding,
+  file, rule, severity, and scanner-error counts plus capped file/rule labels gives useful
+  Codex-style feedback without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read source
+  files, expand match snippets, load Semgrep rules, shell out, or fetch remote reports.
+
+## 2026-07-19: Render Bandit JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Bandit JSON output as a
+  specialized security report artifact rather than generic JSON.
+- **Rationale:** Bandit is a common Python security scanner. Showing issue/file/test,
+  severity, and confidence counts plus capped file/test labels gives useful Codex-style feedback
+  without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Python
+  source files, expand issue code snippets, load Bandit plugins, or fetch remote reports.
+
+## 2026-07-19: Render Pylint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Pylint JSON output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** Pylint reports are common in Python coding sessions and CI exports. Showing
+  message/file/symbol/type counts plus capped file/symbol labels gives useful Codex-style feedback
+  without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Python
+  source files, load Pylint plugins, expand messages, or fetch remote reports.
+
+## 2026-07-19: Render Ruff JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Ruff formatter output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** Ruff reports are common in Python coding sessions. Showing violation/file/rule and
+  fixable counts plus capped file/rule labels gives useful Codex-style feedback without opening the
+  raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Python
+  source files, load rules, expand violation bodies, or fetch remote reports.
+
+## 2026-07-19: Render golangci-lint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as golangci-lint output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** Go coding sessions often produce `golangci-lint run --out-format json` reports.
+  Showing issue/file/linter/severity counts plus capped file/linter labels gives useful Codex-style
+  feedback without opening the raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Go
+  source files, load linters, expand issue text, or fetch remote reports.
+
+## 2026-07-19: Render SpotBugs XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files with a SpotBugs `BugCollection` root as a specialized
+  lint report artifact rather than generic XML.
+- **Rationale:** SpotBugs reports are common in Java coding sessions and CI exports. Showing
+  bug/class/priority counts plus capped bug-type/category/class labels gives a useful Codex-style
+  summary without opening the raw XML.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read
+  bytecode, source files, expand bug messages, load detectors, or fetch remote reports.
+
+## 2026-07-19: Render RuboCop JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as RuboCop formatter output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** RuboCop JSON is common in Ruby coding sessions and CI exports. A compact card with
+  file/offense/severity/correctable counts plus capped file/cop labels gives the user useful
+  Codex-style feedback without opening a raw report.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Ruby
+  source files, load cops, expand offense messages, or fetch remote reports.
+
+## 2026-07-19: Render PMD XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files with a PMD root as a specialized lint report artifact
+  rather than generic XML.
+- **Rationale:** PMD XML is common in Java and CI coding workflows. Showing file/violation counts,
+  priority counts, and capped file/rule labels gives the user a useful Codex-style result card
+  without forcing them to open the raw XML.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not open
+  referenced source files, expand violation bodies, run PMD, or fetch remote reports.
+
+## 2026-07-19: Render Checkstyle XML As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.xml` files with a Checkstyle root as a specialized lint report
+  artifact rather than generic XML.
+- **Rationale:** Checkstyle XML is a common lint interchange format across Java, SwiftLint,
+  frontend tooling, and CI exports. A compact report card with file/issue/severity counts and
+  capped file/source labels is more useful than root-element metadata when reviewing tool output.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not open
+  referenced source files, load linter plugins, expand messages, or fetch remote reports.
+
+## 2026-07-19: Render Stylelint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as Stylelint formatter output as a
+  specialized lint report artifact rather than generic JSON.
+- **Rationale:** Stylelint reports are common in frontend coding sessions and need the same compact
+  Codex-style artifact treatment as ESLint: source counts, warning/error severity, parse errors,
+  deprecations, invalid option warnings, and capped rule/source labels.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read the
+  referenced stylesheets, load Stylelint plugins, or fetch remote reports.
+
+## 2026-07-19: Render ESLint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as ESLint formatter output as a
+  specialized lint report artifact instead of falling back to generic JSON metadata.
+- **Rationale:** Codex-style coding sessions often generate lint reports. A bounded report card with
+  file/message/error/warning/fixable counts and capped file/rule labels is more useful than raw
+  top-level JSON keys while avoiding source-file reads, plugin/rule loading, or network lookups.
+- **Constraints:** Only local regular files under 512 KB are parsed; remote URLs, generic JSON
+  arrays, binary data, and non-ESLint shapes fall back to existing artifact handling.
+
 ## 2026-07-17: MCP run input aliases are compatible but fail closed
 
 - **Compatibility boundary:** The public `codex` MCP tool accepts and advertises Codex-style
@@ -13,8 +294,8 @@
   account, secret, and unknown keys. Alias compatibility does not become arbitrary config passthrough.
 - **Evidence:** Focused MCP catalog/config-overlay tests prove snake/camel aliases are visible in the
   JSON schema, normalize correctly, and conflicting aliases fail closed; the parity matrix records
-  that full MCP parity still excludes complete native Codex event coverage and true OS-sandbox
-  `on-failure` retry semantics.
+  that full MCP parity still excludes complete native Codex event coverage and arbitrary config
+  passthrough. The later typed OS-sandbox decision defines `on-failure` retry semantics.
 
 ## 2026-07-16: Experimental feature state uses one real precedence chain
 
@@ -1664,8 +1945,10 @@
   bounded and reaches the shared model-backed compactor without changing the main model selection.
 - **Safety boundary:** Review-mode tool calls use `elicitation/create`; malformed, contradictory,
   cancelled, orphaned, or disconnected responses deny. Existing QuillCode hard safety and trusted
-  permission hooks run before the client approval hook. `on-failure` remains conservative user review
-  until an enforceable OS-sandbox failure-to-escalation retry exists.
+  permission hooks run before the client approval hook. `on-failure` starts shell commands inside the
+  selected OS sandbox and only asks after a typed sandbox denial; approval permits one exact retry
+  without that process sandbox. Ordinary nonzero exits, lookup failures, timeout, cancellation, and
+  unavailable sandbox runtimes never become escalation requests.
 - **Lifecycle boundary:** Request IDs and active thread turns are unique while running, client
   cancellation cooperatively stops work, progress persists incrementally, and EOF denies approval
   waiters then awaits active turns and MCP dependency shutdown.
@@ -1677,6 +1960,26 @@
   contract. `scripts/mcp-server-smoke.sh` drives the built process through initialize, discovery,
   `whoami`, durable reply, event and persistence inspection, leak rejection, and clean EOF; aggregate
   smoke records the step in its deterministic manifest.
+
+## 2026-07-20: MCP on-failure is a typed OS-sandbox retry, not a generic failure retry
+
+- **Shared enforcement boundary:** Agent-authored MCP shell calls and standalone app-server commands
+  use one `ShellProcessSandbox` launcher. macOS uses Seatbelt, Linux uses bubblewrap, and a requested
+  sandbox fails closed when neither runtime is available. Platform launch details do not leak into
+  the agent or MCP protocol layers.
+- **Escalation boundary:** Only a nonzero result from an active sandbox carrying a recognized denial
+  signal is tagged `sandboxDenied`. Exit 126/127, ordinary test/build failures, malformed arguments,
+  timeouts, cancellations, and sandbox setup failures remain terminal results and do not prompt.
+- **Retry boundary:** `on-failure` with the user reviewer sends one `exec-approval` after the failed
+  sandboxed attempt. Approval reruns the exact validated call once without the process sandbox; denial,
+  malformed responses, disconnect, and cancellation preserve the failure and cannot retry. The shell
+  CWD remains workspace-bounded on both attempts.
+- **Concurrency boundary:** Both attempts use cancellable asynchronous shell execution. A long command
+  does not block the MCP session actor from receiving cancellation or approval traffic.
+- **Evidence:** Classifier tests cover active-sandbox, ordinary-failure, and command-lookup boundaries.
+  A real Seatbelt integration writes inside the workspace while blocking an outside write. MCP session
+  tests prove approve-once retry, deny-without-write, no prompt for exit 7, and cancellation before a
+  trailing mutation.
 
 ## 2026-07-15: TrustedRouter balance is live account metadata, not a derived quota
 
@@ -2765,3 +3068,77 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesBunLockfileArtifactPreview` covers
   static HTML selectors, rendered Bun metadata, package/source lists, generic JSON suppression, and
   text-preview coexistence.
+
+## 2026-07-19: BenchmarkDotNet JSON artifacts render bounded benchmark summaries
+
+- **Decision:** Local `.json` artifacts with BenchmarkDotNet-compatible `Benchmarks` and
+  `HostEnvironmentInfo` report shape render as structured BenchmarkDotNet report cards instead of
+  generic JSON. The preview shows report title, benchmark count, runtime, architecture, operating
+  system, file size, and capped benchmark labels.
+- **Why:** .NET performance work commonly emits BenchmarkDotNet JSON. A Codex-style artifact surface
+  should make benchmark artifacts scannable in the transcript without requiring the user or model to
+  open raw JSON.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and
+  capped at 512 KB. It reads only shallow report metadata and benchmark labels; it never executes
+  benchmarks, interprets statistics as authoritative performance claims, opens referenced source
+  files, reads generated logs, loads benchmark assemblies, or fetches remote reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesBenchmarkDotNetJSONPreviewMetadata`
+  covers BenchmarkDotNet shape detection, report metadata, benchmark labels, generic JSON
+  suppression, empty-report exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesBenchmarkDotNetJSONArtifactPreview`
+  covers static HTML selectors, rendered metadata, benchmark lists, and generic JSON suppression.
+
+## 2026-07-19: Hyperfine JSON artifacts render bounded benchmark summaries
+
+- **Decision:** Local `.json` artifacts with Hyperfine-compatible top-level `results` entries render
+  as structured Hyperfine report cards instead of generic JSON. The preview shows command count, the
+  fastest command and mean duration when present, file size, and capped command labels.
+- **Why:** Hyperfine is a common CLI benchmarking tool for coding-agent performance checks. A compact
+  report card keeps benchmark artifacts scannable next to shell/file tool output without requiring
+  raw JSON inspection.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and capped
+  at 512 KB. It reads only shallow result command and timing fields; it never executes commands,
+  re-runs benchmarks, treats measurements as independently verified claims, expands parameterized
+  commands, reads scripts, opens source files, or fetches remote reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesHyperfineJSONPreviewMetadata`
+  covers Hyperfine shape detection, command count, fastest command/mean rendering, generic JSON
+  suppression, incomplete-result exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesHyperfineJSONArtifactPreview` covers
+  static HTML selectors, rendered metadata, command lists, and generic JSON suppression.
+
+## 2026-07-19: npm audit JSON artifacts render bounded security summaries
+
+- **Decision:** Local `.json` artifacts with npm audit-compatible `auditReportVersion`, `metadata`,
+  and `vulnerabilities`/`advisories` entries render as structured npm audit cards instead of generic
+  JSON. The preview shows total vulnerability count, severity counts, dependency count, file size,
+  and capped vulnerable package labels.
+- **Why:** `npm audit --json` is common coding-agent output during dependency cleanup. A compact
+  summary lets users triage the artifact beside tool output without expanding raw JSON.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and capped
+  at 512 KB. It reads only shallow metadata, severity counts, and package labels; it never reads
+  package files, expands advisory details, opens lockfiles, follows dependency paths, verifies
+  exploitability, or fetches remote advisories.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesNPMAuditJSONPreviewMetadata`
+  covers npm audit shape detection, severity/dependency/package metadata, generic JSON suppression,
+  incomplete-report exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesNPMAuditJSONArtifactPreview` covers
+  static HTML selectors, rendered metadata, package lists, and generic JSON suppression.
+
+## 2026-07-19: cargo audit JSON artifacts render bounded Rust security summaries
+
+- **Decision:** Local `.json` artifacts with `cargo audit --json`-compatible `vulnerabilities`
+  reports render as structured cargo audit cards instead of generic JSON. The preview shows
+  vulnerability count, yanked/unmaintained warning counts, file size, capped package labels, and
+  capped RustSec advisory labels.
+- **Why:** Rust dependency security work commonly produces `cargo audit --json` output. A compact
+  artifact card lets users triage RustSec findings next to command output without opening raw JSON
+  or rerunning cargo tooling.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and
+  capped at 512 KB. It reads only shallow vulnerability, package, warning, and advisory labels; it
+  never opens `Cargo.lock`, expands dependency graphs, verifies exploitability, downloads the RustSec
+  database, follows advisory URLs, or fetches remote reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesCargoAuditJSONPreviewMetadata`
+  covers cargo audit shape detection, vulnerability/warning/package/advisory metadata, generic JSON
+  suppression, incomplete-report exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCargoAuditJSONArtifactPreview` covers
+  static HTML selectors, rendered metadata, package/advisory lists, and generic JSON suppression.

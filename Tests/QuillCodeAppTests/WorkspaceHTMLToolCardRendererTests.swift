@@ -1941,6 +1941,73 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
+    func testHTMLRendererIncludesAllureJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("allure-result.json")
+        let reportText = """
+        {
+          "uuid": "3d953104-96fe-4206-af49-7052a6c75f69",
+          "name": "downloads artifact",
+          "fullName": "QuillCode browser downloads artifact",
+          "status": "broken",
+          "stage": "finished",
+          "start": 1710000000100,
+          "stop": 1710000001025,
+          "labels": [
+            {"name": "parentSuite", "value": "QuillCode"},
+            {"name": "suite", "value": "Browser"}
+          ],
+          "steps": [
+            {"name": "open page", "status": "passed"},
+            {"name": "click download", "status": "broken"}
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/allure-result.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/allure-result.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Allure artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">allure-result.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Format: Allure JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Result: downloads artifact"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Status: broken"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Broken: 1"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">2 steps"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-meta">Failed steps: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-suite-title">Suites"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-suite-item">QuillCode"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-allure-json-preview-failure-item">QuillCode browser downloads artifact"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
     func testHTMLRendererIncludesJestJSONArtifactPreview() throws {
         let root = try makeTempDirectory()
         let reports = root.appendingPathComponent("reports", isDirectory: true)
@@ -2003,6 +2070,1526 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-meta">Failed: 1"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-failure-title">Failures"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-jest-json-preview-failure-item">App &gt; writes a file"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesPlaywrightJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("playwright-results.json")
+        let reportText = """
+        {
+          "config": {"rootDir": "/repo"},
+          "stats": {"expected": 2, "skipped": 1, "unexpected": 1, "flaky": 0, "duration": 2500},
+          "suites": [
+            {
+              "title": "webkit",
+              "specs": [
+                {
+                  "title": "opens inbox",
+                  "ok": true,
+                  "tests": [{"results": [{"status": "passed", "duration": 120}]}]
+                },
+                {
+                  "title": "uploads attachment",
+                  "ok": false,
+                  "tests": [{"results": [{"status": "timedOut", "duration": 30000}]}]
+                }
+              ]
+            }
+          ],
+          "errors": []
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/playwright-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/playwright-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Playwright artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">playwright-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-meta">Format: Playwright JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-meta">Runtime: 2.50s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-meta">4 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-meta">Unexpected: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-playwright-json-preview-failure-item">webkit &gt; uploads attachment"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesCucumberJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("cucumber-results.json")
+        let reportText = """
+        [
+          {
+            "keyword": "Feature",
+            "name": "Search",
+            "uri": "features/search.feature",
+            "elements": [
+              {
+                "keyword": "Scenario",
+                "name": "finds existing notes",
+                "steps": [
+                  {"result": {"status": "passed", "duration": 100000000}},
+                  {"result": {"status": "passed", "duration": 100000000}}
+                ]
+              },
+              {
+                "keyword": "Scenario",
+                "name": "handles an empty index",
+                "steps": [
+                  {"result": {"status": "passed", "duration": 100000000}},
+                  {"result": {"status": "failed", "duration": 200000000}}
+                ]
+              }
+            ]
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/cucumber-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/cucumber-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Cucumber artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">cucumber-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">Format: Cucumber JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">Runtime: 0.50s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">1 feature"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">2 scenarios"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">4 steps"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-meta">Failed steps: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cucumber-json-preview-failure-item">Search &gt; handles an empty index"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesRSpecJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("rspec-results.json")
+        let reportText = """
+        {
+          "version": "3.13.0",
+          "examples": [
+            {
+              "full_description": "Cart calculates totals",
+              "status": "passed",
+              "file_path": "./spec/models/cart_spec.rb",
+              "line_number": 10,
+              "run_time": 0.1
+            },
+            {
+              "full_description": "Checkout rejects expired cards",
+              "status": "failed",
+              "file_path": "./spec/requests/checkout_spec.rb",
+              "line_number": 27,
+              "run_time": 0.2
+            },
+            {
+              "full_description": "Invoice emails receipt",
+              "status": "pending",
+              "file_path": "./spec/mailers/invoice_mailer_spec.rb",
+              "line_number": 42,
+              "run_time": 0.05
+            }
+          ],
+          "summary": {
+            "duration": 0.35,
+            "example_count": 3,
+            "failure_count": 1,
+            "pending_count": 1
+          },
+          "summary_line": "3 examples, 1 failure, 1 pending"
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/rspec-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/rspec-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "RSpec artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">rspec-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">Format: RSpec JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">Runtime: 0.35s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">3 examples"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-meta">Pending: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-failure-item">Checkout rejects expired cards · ./spec/requests/checkout_spec.rb:27"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-pending-title">Pending"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rspec-json-preview-pending-item">Invoice emails receipt · ./spec/mailers/invoice_mailer_spec.rb:42"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesMochaJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("mocha-results.json")
+        let reportText = """
+        {
+          "stats": {"tests": 3, "passes": 1, "pending": 1, "failures": 1, "duration": 1500},
+          "passes": [{"title": "renders home", "fullTitle": "Home page renders home"}],
+          "pending": [{"title": "exports csv", "fullTitle": "Reports exports csv"}],
+          "failures": [{"title": "syncs cache", "fullTitle": "Cache sync syncs cache"}],
+          "tests": [
+            {"title": "renders home", "fullTitle": "Home page renders home"},
+            {"title": "exports csv", "fullTitle": "Reports exports csv"},
+            {"title": "syncs cache", "fullTitle": "Cache sync syncs cache"}
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/mocha-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/mocha-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Mocha artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">mocha-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-meta">Format: Mocha JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-meta">Runtime: 1.50s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-failure-title">Failures"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-failure-item">Cache sync syncs cache"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-pending-title">Pending"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mocha-json-preview-pending-item">Reports exports csv"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesBenchmarkDotNetJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("benchmarkdotnet-report.json")
+        let reportText = """
+        {
+          "Title": "QuillCode.Benchmarks",
+          "HostEnvironmentInfo": {
+            "BenchmarkDotNetCaption": "BenchmarkDotNet v0.13.12",
+            "RuntimeVersion": ".NET 8.0.7",
+            "Architecture": "Arm64",
+            "OSVersion": "macOS 15.0"
+          },
+          "Benchmarks": [
+            {
+              "FullName": "QuillCode.Benchmarks.ParserBenchmarks.ParseActions",
+              "Statistics": {"Mean": 123.4}
+            }
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/benchmarkdotnet-report.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/benchmarkdotnet-report.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "BenchmarkDotNet artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">benchmarkdotnet-report.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-meta">Format: BenchmarkDotNet JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-meta">Title: QuillCode.Benchmarks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-meta">1 benchmark"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-meta">Runtime: .NET 8.0.7"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-benchmark-title">Benchmarks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-benchmarkdotnet-json-preview-benchmark-item">QuillCode.Benchmarks.ParserBenchmarks.ParseActions"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesHyperfineJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("hyperfine-results.json")
+        let reportText = """
+        {
+          "results": [
+            {"command": "rg TODO Sources", "mean": 0.0123, "median": 0.012},
+            {"command": "grep -R TODO Sources", "mean": 0.1456, "median": 0.14}
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/hyperfine-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/hyperfine-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Hyperfine artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">hyperfine-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-meta">Format: Hyperfine JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-meta">2 commands"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-meta">Fastest: rg TODO Sources (12.30 ms)"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-command-title">Commands"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-command-item">rg TODO Sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-hyperfine-json-preview-command-item">grep -R TODO Sources"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesNPMAuditJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("npm-audit.json")
+        let reportText = """
+        {
+          "auditReportVersion": 2,
+          "vulnerabilities": {
+            "minimist": {"name": "minimist", "severity": "critical", "via": [{"title": "Prototype Pollution"}]},
+            "lodash": {"name": "lodash", "severity": "high", "via": [{"title": "Command Injection"}]}
+          },
+          "metadata": {
+            "vulnerabilities": {"info": 0, "low": 0, "moderate": 0, "high": 1, "critical": 1, "total": 2},
+            "dependencies": {"prod": 12, "dev": 4, "optional": 0, "peer": 0, "peerOptional": 0, "total": 16}
+          }
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/npm-audit.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/npm-audit.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "npm audit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">npm-audit.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-meta">Format: npm audit JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-meta">2 vulnerabilities"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-meta">Severity: 1 critical, 1 high"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-package-title">Packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-package-item">minimist · critical · 1 finding"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-npm-audit-json-preview-package-item">lodash · high · 1 finding"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesCargoAuditJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("cargo-audit.json")
+        let reportText = """
+        {
+          "vulnerabilities": {
+            "found": true,
+            "count": 1,
+            "list": [
+              {
+                "advisory": {
+                  "id": "RUSTSEC-2024-0001",
+                  "package": "time",
+                  "title": "Potential segfault in localtime_r invocations"
+                },
+                "package": {
+                  "name": "time",
+                  "version": "0.1.45"
+                }
+              }
+            ]
+          },
+          "warnings": {
+            "yanked": [],
+            "unmaintained": [{"package": {"name": "abandoned", "version": "1.2.3"}}]
+          }
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/cargo-audit.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/cargo-audit.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "cargo audit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">cargo-audit.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-meta">Format: cargo audit JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-meta">1 vulnerability"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-meta">Unmaintained: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-package-title">Packages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-package-item">time 0.1.45"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-advisory-title">Advisories"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-audit-json-preview-advisory-item">RUSTSEC-2024-0001 · Potential segfault in localtime_r invocations"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesESLintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("eslint-results.json")
+        let reportText = """
+        [
+          {
+            "filePath": "/repo/Sources/App.ts",
+            "messages": [
+              {"ruleId": "no-console", "severity": 1, "message": "Unexpected console statement."},
+              {"ruleId": "@typescript-eslint/no-floating-promises", "severity": 2, "message": "Promise must be handled."}
+            ],
+            "errorCount": 1,
+            "warningCount": 1,
+            "fixableErrorCount": 0,
+            "fixableWarningCount": 0
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/eslint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/eslint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "ESLint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">eslint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">Format: ESLint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">2 messages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-file-item">repo/Sources/App.ts"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-rule-item">no-console"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-eslint-json-preview-rule-item">@typescript-eslint/no-floating-promises"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesStylelintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("stylelint-results.json")
+        let reportText = """
+        [
+          {
+            "source": "/repo/Sources/App.css",
+            "deprecations": [{"text": "Deprecated rule"}],
+            "invalidOptionWarnings": [{"text": "Invalid option"}],
+            "parseErrors": [],
+            "errored": true,
+            "warnings": [
+              {"rule": "color-no-invalid-hex", "severity": "error", "text": "Unexpected invalid hex color"},
+              {"rule": "selector-class-pattern", "severity": "warning", "text": "Expected kebab-case"}
+            ]
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/stylelint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/stylelint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Stylelint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">stylelint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Format: Stylelint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Warnings: 2"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Deprecations: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-meta">Invalid options: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-source-title">Sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-source-item">repo/Sources/App.css"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-rule-item">color-no-invalid-hex"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-stylelint-json-preview-rule-item">selector-class-pattern"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesSwiftLintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("swiftlint-results.json")
+        let reportText = """
+        [
+          {
+            "file": "/repo/Sources/App/WorkspaceView.swift",
+            "line": 42,
+            "character": 18,
+            "severity": "Warning",
+            "type": "Line Length",
+            "rule_id": "line_length",
+            "reason": "Line should be 120 characters or less"
+          },
+          {
+            "file": "/repo/Tests/AppTests/WorkspaceViewTests.swift",
+            "line": 13,
+            "character": 1,
+            "severity": "Error",
+            "type": "Force Cast",
+            "rule_id": "force_cast",
+            "reason": "Force casts should be avoided"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/swiftlint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/swiftlint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "SwiftLint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">swiftlint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">Format: SwiftLint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">2 violations"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">2 rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-file-item">Sources/App/WorkspaceView.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-file-item">Tests/AppTests/WorkspaceViewTests.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-rule-item">line_length"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-swiftlint-json-preview-rule-item">force_cast"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesRuboCopJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("rubocop-results.json")
+        let reportText = """
+        {
+          "metadata": {"rubocop_version": "1.64.1"},
+          "files": [
+            {
+              "path": "/repo/app/models/user.rb",
+              "offenses": [
+                {
+                  "severity": "convention",
+                  "message": "Prefer single-quoted strings.",
+                  "cop_name": "Style/StringLiterals",
+                  "correctable": true
+                },
+                {
+                  "severity": "warning",
+                  "message": "Method has too many lines.",
+                  "cop_name": "Metrics/MethodLength",
+                  "correctable": false
+                }
+              ]
+            }
+          ],
+          "summary": {"offense_count": 2}
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/rubocop-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/rubocop-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "RuboCop artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">rubocop-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-meta">Format: RuboCop JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-meta">2 offenses"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-meta">Convention: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-meta">Correctable: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-file-item">app/models/user.rb"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-cop-title">Cops"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-cop-item">Style/StringLiterals"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-rubocop-json-preview-cop-item">Metrics/MethodLength"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesGolangCILintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("golangci-lint-results.json")
+        let reportText = """
+        {
+          "Issues": [
+            {
+              "FromLinter": "errcheck",
+              "Text": "Error return value is not checked",
+              "Severity": "error",
+              "Pos": {
+                "Filename": "/repo/cmd/server/main.go",
+                "Line": 42,
+                "Column": 5
+              }
+            },
+            {
+              "FromLinter": "govet",
+              "Text": "printf call has possible formatting directive",
+              "Severity": "warning",
+              "Pos": {
+                "Filename": "/repo/internal/http/handler.go",
+                "Line": 17,
+                "Column": 12
+              }
+            }
+          ],
+          "Report": {"Error": ""}
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/golangci-lint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/golangci-lint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "golangci-lint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">golangci-lint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">Format: golangci-lint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">2 linters"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-file-item">cmd/server/main.go"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-file-item">internal/http/handler.go"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-linter-title">Linters"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-linter-item">errcheck"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-golangci-lint-json-preview-linter-item">govet"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesRuffJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("ruff-results.json")
+        let reportText = """
+        [
+          {
+            "code": "F401",
+            "filename": "/repo/app/main.py",
+            "fix": {"applicability": "safe", "edits": []},
+            "location": {"row": 1, "column": 1},
+            "message": "`os` imported but unused"
+          },
+          {
+            "code": "E501",
+            "filename": "/repo/tests/test_app.py",
+            "fix": null,
+            "location": {"row": 12, "column": 89},
+            "message": "Line too long"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/ruff-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/ruff-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Ruff artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">ruff-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">Format: Ruff JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">2 violations"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">2 rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-meta">Fixable: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-file-item">repo/app/main.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-file-item">repo/tests/test_app.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-rule-item">F401"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ruff-json-preview-rule-item">E501"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesPylintJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("pylint-results.json")
+        let reportText = """
+        [
+          {
+            "type": "warning",
+            "module": "app.main",
+            "obj": "",
+            "line": 1,
+            "column": 0,
+            "endLine": 1,
+            "endColumn": 9,
+            "path": "/repo/app/main.py",
+            "symbol": "unused-import",
+            "message": "Unused import os",
+            "message-id": "W0611"
+          },
+          {
+            "type": "error",
+            "module": "tests.test_app",
+            "obj": "",
+            "line": 18,
+            "column": 4,
+            "endLine": 18,
+            "endColumn": 9,
+            "path": "/repo/tests/test_app.py",
+            "symbol": "undefined-variable",
+            "message": "Undefined variable 'value'",
+            "message-id": "E0602"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/pylint-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/pylint-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Pylint artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">pylint-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">Format: Pylint JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">2 messages"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">2 symbols"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-file-item">repo/app/main.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-file-item">repo/tests/test_app.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-symbol-title">Symbols"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-symbol-item">unused-import"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pylint-json-preview-symbol-item">undefined-variable"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesMypyJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("mypy-results.json")
+        let reportText = """
+        [
+          {
+            "file": "/repo/app/models.py",
+            "line": 7,
+            "column": 12,
+            "message": "Incompatible return value type",
+            "severity": "error",
+            "code": "return-value"
+          },
+          {
+            "file": "/repo/app/views.py",
+            "line": 22,
+            "column": 4,
+            "message": "Call to untyped function",
+            "severity": "note",
+            "code": "no-untyped-call"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/mypy-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/mypy-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "mypy artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">mypy-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">Format: mypy JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">2 diagnostics"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">2 codes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-meta">Notes: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-file-item">repo/app/models.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-file-item">repo/app/views.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-code-title">Codes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-code-item">return-value"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-mypy-json-preview-code-item">no-untyped-call"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesPyrightJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("pyright-results.json")
+        let reportText = """
+        {
+          "version": "1.1.380",
+          "generalDiagnostics": [
+            {
+              "file": "/repo/app/models.py",
+              "severity": "error",
+              "message": "Type \\\"str\\\" is not assignable to return type \\\"int\\\"",
+              "range": {"start": {"line": 7, "character": 12}, "end": {"line": 7, "character": 22}},
+              "rule": "reportReturnType"
+            },
+            {
+              "file": "/repo/app/views.py",
+              "severity": "warning",
+              "message": "Type of parameter is unknown",
+              "range": {"start": {"line": 22, "character": 4}, "end": {"line": 22, "character": 10}},
+              "rule": "reportUnknownParameterType"
+            }
+          ],
+          "summary": {"filesAnalyzed": 12, "errorCount": 1, "warningCount": 1}
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/pyright-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/pyright-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Pyright artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">pyright-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">Format: Pyright JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">2 diagnostics"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">2 rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-file-item">repo/app/models.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-file-item">repo/app/views.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-rule-item">reportReturnType"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pyright-json-preview-rule-item">reportUnknownParameterType"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesPHPStanJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("phpstan-results.json")
+        let reportText = """
+        {
+          "totals": {"errors": 0, "file_errors": 2},
+          "files": {
+            "/repo/src/Controller/HomeController.php": {
+              "errors": 1,
+              "messages": [
+                {
+                  "message": "Method should return Response but returns string.",
+                  "line": 12,
+                  "ignorable": true,
+                  "identifier": "return.type"
+                }
+              ]
+            },
+            "/repo/src/Entity/User.php": {
+              "errors": 1,
+              "messages": [
+                {
+                  "message": "Access to an undefined property.",
+                  "line": 18,
+                  "ignorable": false,
+                  "identifier": "property.notFound"
+                }
+              ]
+            }
+          },
+          "errors": []
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/phpstan-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/phpstan-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "PHPStan artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">phpstan-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">Format: PHPStan JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">2 errors"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">2 identifiers"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">Ignorable: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-meta">Non-ignorable: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-file-item">src/Controller/HomeController.php"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-file-item">src/Entity/User.php"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-identifier-title">Identifiers"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-identifier-item">return.type"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-phpstan-json-preview-identifier-item">property.notFound"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesPsalmJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("psalm-results.json")
+        let reportText = """
+        {
+          "error": [
+            {
+              "line_from": 12,
+              "type": "InvalidReturnType",
+              "message": "The declared return type is incorrect",
+              "file_name": "/repo/src/Controller/HomeController.php"
+            }
+          ],
+          "warning": [
+            {
+              "line_from": 18,
+              "type": "PossiblyNullArgument",
+              "message": "Argument may be null",
+              "file_name": "/repo/src/Entity/User.php"
+            }
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/psalm-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/psalm-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Psalm artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">psalm-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">Format: Psalm JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">2 types"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-file-item">src/Controller/HomeController.php"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-file-item">src/Entity/User.php"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-type-title">Types"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-type-item">InvalidReturnType"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-psalm-json-preview-type-item">PossiblyNullArgument"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesBanditJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("bandit-results.json")
+        let reportText = """
+        {
+          "generated_at": "2026-07-19T21:45:00Z",
+          "metrics": {"_totals": {"SEVERITY.HIGH": 1, "SEVERITY.LOW": 1}},
+          "results": [
+            {
+              "filename": "/repo/app/main.py",
+              "issue_confidence": "HIGH",
+              "issue_severity": "HIGH",
+              "issue_text": "subprocess call with shell=True identified",
+              "line_number": 14,
+              "test_id": "B602",
+              "test_name": "subprocess_popen_with_shell_equals_true"
+            },
+            {
+              "filename": "/repo/tests/test_app.py",
+              "issue_confidence": "LOW",
+              "issue_severity": "LOW",
+              "issue_text": "Possible hardcoded password",
+              "line_number": 7,
+              "test_id": "B105",
+              "test_name": "hardcoded_password_string"
+            }
+          ]
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/bandit-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/bandit-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Bandit artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">bandit-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">Format: Bandit JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">2 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">High severity: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-meta">Low severity: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-file-item">repo/app/main.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-file-item">repo/tests/test_app.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-test-title">Tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-test-item">B602 subprocess_popen_with_shell_equals_true"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-bandit-json-preview-test-item">B105 hardcoded_password_string"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesSemgrepJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("semgrep-results.json")
+        let reportText = """
+        {
+          "version": "1.128.0",
+          "results": [
+            {
+              "check_id": "python.lang.security.audit.subprocess-shell-true",
+              "path": "/repo/app/main.py",
+              "start": {"line": 14, "col": 5},
+              "end": {"line": 14, "col": 36},
+              "extra": {
+                "message": "Found subprocess call with shell=True",
+                "severity": "ERROR"
+              }
+            },
+            {
+              "check_id": "python.django.security.audit.xss.template-var",
+              "path": "/repo/tests/test_app.py",
+              "start": {"line": 8, "col": 1},
+              "end": {"line": 8, "col": 21},
+              "extra": {
+                "message": "Potential template escaping issue",
+                "severity": "WARNING"
+              }
+            }
+          ],
+          "errors": []
+        }
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/semgrep-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/semgrep-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Semgrep artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">semgrep-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">Format: Semgrep JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">2 findings"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">2 rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">Error severity: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-meta">Warning severity: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-file-item">repo/app/main.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-file-item">repo/tests/test_app.py"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-rule-item">python.lang.security.audit.subprocess-shell-true"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-semgrep-json-preview-rule-item">python.django.security.audit.xss.template-var"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
+    }
+
+    func testHTMLRendererIncludesCodeClimateJSONArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("codeclimate-results.json")
+        let reportText = """
+        [
+          {
+            "type": "issue",
+            "check_name": "Rubocop/Metrics/MethodLength",
+            "description": "Method has too many lines.",
+            "categories": ["Complexity"],
+            "location": {"path": "/repo/app/services/report.rb", "lines": {"begin": 12, "end": 48}},
+            "severity": "major",
+            "fingerprint": "abc123"
+          },
+          {
+            "type": "issue",
+            "check_name": "ESLint/no-console",
+            "description": "Unexpected console statement.",
+            "categories": ["Bug Risk", "Style"],
+            "location": {"path": "/repo/web/src/main.ts", "lines": {"begin": 8, "end": 8}},
+            "severity": "minor",
+            "fingerprint": "def456"
+          }
+        ]
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/codeclimate-results.json"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/codeclimate-results.json\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Code Climate artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">codeclimate-results.json"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">Format: Code Climate JSON"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">2 checks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">3 categories"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">Major: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-meta">Minor: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-file-item">app/services/report.rb"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-file-item">web/src/main.ts"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-check-title">Checks"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-check-item">Rubocop/Metrics/MethodLength"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-check-item">ESLint/no-console"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-category-title">Categories"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-category-item">Complexity"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-category-item">Bug Risk"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-code-climate-json-preview-category-item">Style"#))
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-preview""#))
     }
 
@@ -2347,6 +3934,116 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-json-lines-preview-key-item">tool"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-label">events.jsonl"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-text-preview-content">"#))
+    }
+
+    func testHTMLRendererIncludesCargoCompilerJSONLinesArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("cargo-clippy.jsonl")
+        let reportText = """
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"unused variable: `value`","code":{"code":"unused_variables"},"level":"warning","spans":[{"file_name":"/repo/src/lib.rs","is_primary":true}]}}
+        {"reason":"compiler-artifact","package_id":"pkg 0.1.0"}
+        {"reason":"compiler-message","package_id":"pkg 0.1.0","message":{"message":"mismatched types","code":{"code":"E0308"},"level":"error","spans":[{"file_name":"/repo/src/main.rs","is_primary":true}]}}
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/cargo-clippy.jsonl"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/cargo-clippy.jsonl\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Cargo artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">cargo-clippy.jsonl"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">Format: Cargo Compiler JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">2 diagnostics"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">2 files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">2 codes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-file-item">repo/src/lib.rs"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-file-item">repo/src/main.rs"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-code-title">Codes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-code-item">unused_variables"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-cargo-compiler-jsonl-preview-code-item">E0308"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-lines-preview""#))
+    }
+
+    func testHTMLRendererIncludesGoTestJSONLinesArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("go-test.jsonl")
+        let reportText = """
+        {"Time":"2026-07-19T17:00:00Z","Action":"run","Package":"example.com/quill/app","Test":"TestConnect"}
+        {"Time":"2026-07-19T17:00:01Z","Action":"pass","Package":"example.com/quill/app","Test":"TestConnect","Elapsed":0.12}
+        {"Time":"2026-07-19T17:00:01Z","Action":"run","Package":"example.com/quill/app","Test":"TestReconnect"}
+        {"Time":"2026-07-19T17:00:02Z","Action":"fail","Package":"example.com/quill/app","Test":"TestReconnect","Elapsed":0.18}
+        {"Time":"2026-07-19T17:00:02Z","Action":"skip","Package":"example.com/quill/app","Test":"TestBluetooth","Elapsed":0}
+        {"Time":"2026-07-19T17:00:02Z","Action":"output","Package":"example.com/quill/app","Output":"FAIL\\n"}
+        {"Time":"2026-07-19T17:00:02Z","Action":"fail","Package":"example.com/quill/app","Elapsed":0.31}
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/go-test.jsonl"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/go-test.jsonl\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Go test artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">go-test.jsonl"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">Format: Go test JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">7 events"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">1 package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">Failed tests: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">Skipped tests: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-failed-test-title">Failed tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-failed-test-item">example.com/quill/app.TestReconnect"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-skipped-test-title">Skipped tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-skipped-test-item">example.com/quill/app.TestBluetooth"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-lines-preview""#))
     }
 
     func testHTMLRendererIncludesTOMLArtifactPreview() throws {
@@ -2740,6 +4437,237 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 
+    func testHTMLRendererIncludesCTestArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("Test.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Site BuildName="quillcode-linux" Name="runner">
+          <Testing>
+            <Test Status="passed">
+              <Name>CoreSmoke</Name>
+              <FullName>QuillCode.CoreSmoke</FullName>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>0.25</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+            <Test Status="failed">
+              <Name>AgentDispatch</Name>
+              <FullName>QuillCode.AgentDispatch</FullName>
+              <Results>
+                <NamedMeasurement type="numeric/double" name="Execution Time">
+                  <Value>1.25</Value>
+                </NamedMeasurement>
+              </Results>
+            </Test>
+          </Testing>
+        </Site>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"Test.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote Test.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "CTest artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">Test.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">Format: CTest XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">2 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">Passed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-meta">Duration: 1.5 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-ctest-preview-failure-item">QuillCode.AgentDispatch"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
+    func testHTMLRendererIncludesCheckstyleArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("checkstyle-result.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <checkstyle version="10.12.0">
+          <file name="/repo/Sources/App.swift">
+            <error line="12" column="5" severity="error" message="Use let" source="swiftlint:prefer_let" />
+            <error line="24" column="1" severity="warning" message="Line length" source="swiftlint:line_length" />
+          </file>
+        </checkstyle>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"checkstyle-result.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote checkstyle-result.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Checkstyle artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">checkstyle-result.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">Format: Checkstyle XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">2 issues"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">Errors: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-meta">Warnings: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-file-item">repo/Sources/App.swift"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-source-title">Sources"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-source-item">swiftlint:prefer_let"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-checkstyle-preview-source-item">swiftlint:line_length"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
+    func testHTMLRendererIncludesPMDArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("pmd-result.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <pmd version="7.0.0">
+          <file name="/repo/src/main/java/App.java">
+            <violation beginline="12" endline="12" rule="UnusedPrivateField" priority="3" />
+            <violation beginline="22" endline="22" rule="SystemPrintln" priority="2" />
+          </file>
+        </pmd>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"pmd-result.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote pmd-result.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "PMD artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">pmd-result.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">Format: PMD XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">1 file"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">2 violations"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">Priority 2: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-meta">Priority 3: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-file-title">Files"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-file-item">main/java/App.java"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-rule-title">Rules"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-rule-item">UnusedPrivateField"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-pmd-preview-rule-item">SystemPrintln"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
+    func testHTMLRendererIncludesSpotBugsArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("spotbugs-result.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <BugCollection version="4.8.6">
+          <BugInstance type="NP_NULL_ON_SOME_PATH" priority="1" category="CORRECTNESS">
+            <Class classname="com.example.service.UserService" />
+          </BugInstance>
+          <BugInstance type="DM_DEFAULT_ENCODING" priority="2" category="I18N">
+            <Class classname="com.example.web.AdminController" />
+          </BugInstance>
+        </BugCollection>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"spotbugs-result.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote spotbugs-result.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "SpotBugs artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">spotbugs-result.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">Format: SpotBugs XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">2 bugs"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">2 classes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">Priority 1: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-meta">Priority 2: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-type-title">Types"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-type-item">NP_NULL_ON_SOME_PATH"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-type-item">DM_DEFAULT_ENCODING"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-category-title">Categories"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-category-item">CORRECTNESS"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-category-item">I18N"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-class-title">Classes"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-class-item">example.service.UserService"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-spotbugs-preview-class-item">example.web.AdminController"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
     func testHTMLRendererIncludesTRXArtifactPreview() throws {
         let root = try makeTempDirectory()
         let report = root.appendingPathComponent("results.trx")
@@ -2900,6 +4828,131 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-meta">Duration: 3.5 s"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-failure-title">Failing tests"#))
         XCTAssertTrue(html.contains(#"data-testid="tool-card-nunit-preview-failure-item">QuillCode.Tests.AppTests.WritesFile"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
+    func testHTMLRendererIncludesTestNGArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("testng-results.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <testng-results total="4" passed="2" failed="1" skipped="1">
+          <suite name="QuillCode browser smoke" duration-ms="1250">
+            <test name="Workspace flows">
+              <class name="com.lorehex.QuillCodeWorkspaceTest">
+                <test-method status="PASS" signature="opensProject()[pri:0, instance:WorkspaceTest]" name="opensProject" duration-ms="300" />
+                <test-method status="FAIL" signature="runsShellCommand()[pri:0, instance:WorkspaceTest]" name="runsShellCommand" duration-ms="700" />
+                <test-method status="SKIP" signature="rendersBrowserPreview()[pri:0, instance:WorkspaceTest]" name="rendersBrowserPreview" duration-ms="0" />
+              </class>
+            </test>
+          </suite>
+        </testng-results>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"testng-results.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote testng-results.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "TestNG artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">testng-results.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Format: TestNG XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">1 suite"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">1 test group"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">1 class"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">3 test methods"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Passed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Skipped: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-meta">Duration: 1.25 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-suite-title">Suites"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-suite-item">QuillCode browser smoke"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-testng-preview-failure-item">runsShellCommand()[pri:0, instance:WorkspaceTest]"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
+    }
+
+    func testHTMLRendererIncludesRobotXMLArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let report = root.appendingPathComponent("output.xml")
+        try """
+        <?xml version="1.0" encoding="UTF-8"?>
+        <robot generator="Robot 7.0" generated="20260720 04:30:00.000">
+          <suite id="s1" name="QuillCode acceptance">
+            <kw name="Open project" owner="Browser" />
+            <test id="s1-t1" name="Runs shell command">
+              <status status="PASS" elapsed="0.25" />
+            </test>
+            <test id="s1-t2" name="Writes file">
+              <status status="FAIL" elapsed="1.20" />
+            </test>
+            <test id="s1-t3" name="Browser preview">
+              <status status="SKIP" elapsed="0" />
+            </test>
+          </suite>
+        </robot>
+        """.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"output.xml"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote output.xml\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Robot XML artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">output.xml"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Format: Robot XML"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Generator: Robot 7.0"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">1 suite"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">1 keyword"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Passed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Failed: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Skipped: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-meta">Duration: 1.45 s"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-suite-title">Suites"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-suite-item">QuillCode acceptance"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-failure-title">Failing tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-robot-xml-preview-failure-item">Writes file"#))
         XCTAssertFalse(html.contains(#"data-testid="tool-card-xml-preview""#))
     }
 

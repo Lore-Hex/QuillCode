@@ -133,6 +133,23 @@ public struct ToolRouter: Sendable {
         }
     }
 
+    /// Executes shell calls without blocking the caller's cooperative executor and terminates the
+    /// child process when the task is cancelled. Other tools remain synchronous and use the normal
+    /// router path.
+    public func executeCancellable(_ call: ToolCall) async -> ToolResult {
+        guard ShellToolCallDispatcher.handles(call.name) else { return execute(call) }
+        do {
+            let arguments = try ToolArguments(call.argumentsJSON)
+            return try await ShellToolCallDispatcher(
+                workspaceRoot: workspaceRoot,
+                shell: shell,
+                accessScope: accessScope
+            ).executeCancellable(name: call.name, arguments: arguments)
+        } catch {
+            return ToolResult(ok: false, error: String(describing: error))
+        }
+    }
+
     /// After a successful write/patch, run the LSP post-write pass (format-on-save + project-wide
     /// diagnostics) and append its notice to the result's `stdout`. A no-op when no coordinator is
     /// wired or the result already failed — the write's own behavior is never altered on failure.

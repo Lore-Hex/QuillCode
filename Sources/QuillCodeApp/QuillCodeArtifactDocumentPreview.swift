@@ -69,8 +69,54 @@ struct QuillCodeArtifactDocumentPreview: View {
             coveragePyContent(coveragePyPreview)
         } else if let pytestJSONPreview = artifact.pytestJSONPreview {
             pytestJSONContent(pytestJSONPreview)
+        } else if let allureJSONPreview = artifact.allureJSONPreview {
+            allureJSONContent(allureJSONPreview)
         } else if let jestJSONPreview = artifact.jestJSONPreview {
             jestJSONContent(jestJSONPreview)
+        } else if let playwrightJSONPreview = artifact.playwrightJSONPreview {
+            playwrightJSONContent(playwrightJSONPreview)
+        } else if let cucumberJSONPreview = artifact.cucumberJSONPreview {
+            cucumberJSONContent(cucumberJSONPreview)
+        } else if let rspecJSONPreview = artifact.rspecJSONPreview {
+            rspecJSONContent(rspecJSONPreview)
+        } else if let mochaJSONPreview = artifact.mochaJSONPreview {
+            mochaJSONContent(mochaJSONPreview)
+        } else if let benchmarkDotNetJSONPreview = artifact.benchmarkDotNetJSONPreview {
+            benchmarkDotNetJSONContent(benchmarkDotNetJSONPreview)
+        } else if let hyperfineJSONPreview = artifact.hyperfineJSONPreview {
+            hyperfineJSONContent(hyperfineJSONPreview)
+        } else if let npmAuditJSONPreview = artifact.npmAuditJSONPreview {
+            npmAuditJSONContent(npmAuditJSONPreview)
+        } else if let cargoAuditJSONPreview = artifact.cargoAuditJSONPreview {
+            cargoAuditJSONContent(cargoAuditJSONPreview)
+        } else if let eslintJSONPreview = artifact.eslintJSONPreview {
+            eslintJSONContent(eslintJSONPreview)
+        } else if let stylelintJSONPreview = artifact.stylelintJSONPreview {
+            stylelintJSONContent(stylelintJSONPreview)
+        } else if let swiftLintJSONPreview = artifact.swiftLintJSONPreview {
+            swiftLintJSONContent(swiftLintJSONPreview)
+        } else if let rubocopJSONPreview = artifact.rubocopJSONPreview {
+            rubocopJSONContent(rubocopJSONPreview)
+        } else if let golangCILintJSONPreview = artifact.golangCILintJSONPreview {
+            golangCILintJSONContent(golangCILintJSONPreview)
+        } else if let ruffJSONPreview = artifact.ruffJSONPreview {
+            ruffJSONContent(ruffJSONPreview)
+        } else if let pylintJSONPreview = artifact.pylintJSONPreview {
+            pylintJSONContent(pylintJSONPreview)
+        } else if let mypyJSONPreview = artifact.mypyJSONPreview {
+            mypyJSONContent(mypyJSONPreview)
+        } else if let pyrightJSONPreview = artifact.pyrightJSONPreview {
+            pyrightJSONContent(pyrightJSONPreview)
+        } else if let phpstanJSONPreview = artifact.phpstanJSONPreview {
+            phpstanJSONContent(phpstanJSONPreview)
+        } else if let psalmJSONPreview = artifact.psalmJSONPreview {
+            psalmJSONContent(psalmJSONPreview)
+        } else if let banditJSONPreview = artifact.banditJSONPreview {
+            banditJSONContent(banditJSONPreview)
+        } else if let semgrepJSONPreview = artifact.semgrepJSONPreview {
+            semgrepJSONContent(semgrepJSONPreview)
+        } else if let codeClimateJSONPreview = artifact.codeClimateJSONPreview {
+            codeClimateJSONContent(codeClimateJSONPreview)
         } else if let npmLockfilePreview = artifact.npmLockfilePreview {
             npmLockfileContent(npmLockfilePreview)
         } else if let denoLockPreview = artifact.denoLockPreview {
@@ -115,6 +161,10 @@ struct QuillCodeArtifactDocumentPreview: View {
             goCoverageContent(goCoveragePreview)
         } else if let sarifPreview = artifact.sarifPreview {
             sarifContent(sarifPreview)
+        } else if let cargoCompilerJSONLinesPreview = artifact.cargoCompilerJSONLinesPreview {
+            cargoCompilerJSONLinesContent(cargoCompilerJSONLinesPreview)
+        } else if let goTestJSONLinesPreview = artifact.goTestJSONLinesPreview {
+            goTestJSONLinesContent(goTestJSONLinesPreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
             jsonLinesContent(jsonLinesPreview)
         } else if let tomlPreview = artifact.tomlPreview {
@@ -127,12 +177,24 @@ struct QuillCodeArtifactDocumentPreview: View {
             yamlContent(yamlPreview)
         } else if let junitPreview = artifact.junitPreview {
             junitContent(junitPreview)
+        } else if let ctestPreview = artifact.ctestPreview {
+            ctestContent(ctestPreview)
+        } else if let checkstylePreview = artifact.checkstylePreview {
+            checkstyleContent(checkstylePreview)
+        } else if let pmdPreview = artifact.pmdPreview {
+            pmdContent(pmdPreview)
+        } else if let spotBugsPreview = artifact.spotBugsPreview {
+            spotBugsContent(spotBugsPreview)
         } else if let trxPreview = artifact.trxPreview {
             trxContent(trxPreview)
         } else if let xunitPreview = artifact.xunitPreview {
             xunitContent(xunitPreview)
         } else if let nunitPreview = artifact.nunitPreview {
             nunitContent(nunitPreview)
+        } else if let testNGPreview = artifact.testNGPreview {
+            testNGContent(testNGPreview)
+        } else if let robotXMLPreview = artifact.robotXMLPreview {
+            robotXMLContent(robotXMLPreview)
         } else if let coberturaPreview = artifact.coberturaPreview {
             coberturaContent(coberturaPreview)
         } else if let cloverPreview = artifact.cloverPreview {
@@ -302,6 +364,23 @@ struct QuillCodeArtifactDocumentPreview: View {
         }
     }
 
+    private func allureJSONContent(_ allureJSONPreview: ToolArtifactAllureJSONPreview) -> some View {
+        let hasLists = !allureJSONPreview.suitePreviewLabels.isEmpty
+            || !allureJSONPreview.failurePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(allureJSONPreview.metadataLines)
+            artifactContentList(title: "Suites", labels: allureJSONPreview.suitePreviewLabels)
+            artifactContentList(title: "Failures", labels: allureJSONPreview.failurePreviewLabels)
+        }
+    }
+
     private func jestJSONContent(_ jestJSONPreview: ToolArtifactJestJSONPreview) -> some View {
         previewSurface(minHeight: jestJSONPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
             header(
@@ -313,6 +392,361 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(jestJSONPreview.metadataLines)
             artifactContentList(title: "Failures", labels: jestJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func playwrightJSONContent(_ playwrightJSONPreview: ToolArtifactPlaywrightJSONPreview) -> some View {
+        previewSurface(minHeight: playwrightJSONPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(playwrightJSONPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: playwrightJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func cucumberJSONContent(_ cucumberJSONPreview: ToolArtifactCucumberJSONPreview) -> some View {
+        previewSurface(minHeight: cucumberJSONPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(cucumberJSONPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: cucumberJSONPreview.failurePreviewLabels)
+        }
+    }
+
+    private func rspecJSONContent(_ rspecJSONPreview: ToolArtifactRSpecJSONPreview) -> some View {
+        let hasLists = !rspecJSONPreview.failurePreviewLabels.isEmpty
+            || !rspecJSONPreview.pendingPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 142 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(rspecJSONPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: rspecJSONPreview.failurePreviewLabels)
+            artifactContentList(title: "Pending", labels: rspecJSONPreview.pendingPreviewLabels)
+        }
+    }
+
+    private func mochaJSONContent(_ mochaJSONPreview: ToolArtifactMochaJSONPreview) -> some View {
+        let hasLists = !mochaJSONPreview.failurePreviewLabels.isEmpty
+            || !mochaJSONPreview.pendingPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 142 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(mochaJSONPreview.metadataLines)
+            artifactContentList(title: "Failures", labels: mochaJSONPreview.failurePreviewLabels)
+            artifactContentList(title: "Pending", labels: mochaJSONPreview.pendingPreviewLabels)
+        }
+    }
+
+    private func eslintJSONContent(_ eslintJSONPreview: ToolArtifactESLintJSONPreview) -> some View {
+        let hasLists = !eslintJSONPreview.filePreviewLabels.isEmpty || !eslintJSONPreview.rulePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(eslintJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: eslintJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Rules", labels: eslintJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func stylelintJSONContent(_ stylelintJSONPreview: ToolArtifactStylelintJSONPreview) -> some View {
+        let hasLists = !stylelintJSONPreview.sourcePreviewLabels.isEmpty || !stylelintJSONPreview.rulePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(stylelintJSONPreview.metadataLines)
+            artifactContentList(title: "Sources", labels: stylelintJSONPreview.sourcePreviewLabels)
+            artifactContentList(title: "Rules", labels: stylelintJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func swiftLintJSONContent(_ swiftLintJSONPreview: ToolArtifactSwiftLintJSONPreview) -> some View {
+        let hasLists = !swiftLintJSONPreview.filePreviewLabels.isEmpty || !swiftLintJSONPreview.rulePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 142 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(swiftLintJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: swiftLintJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Rules", labels: swiftLintJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func rubocopJSONContent(_ rubocopJSONPreview: ToolArtifactRuboCopJSONPreview) -> some View {
+        let hasLists = !rubocopJSONPreview.filePreviewLabels.isEmpty || !rubocopJSONPreview.copPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(rubocopJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: rubocopJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Cops", labels: rubocopJSONPreview.copPreviewLabels)
+        }
+    }
+
+    private func golangCILintJSONContent(_ golangCILintJSONPreview: ToolArtifactGolangCILintJSONPreview) -> some View {
+        let hasLists = !golangCILintJSONPreview.filePreviewLabels.isEmpty
+            || !golangCILintJSONPreview.linterPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(golangCILintJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: golangCILintJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Linters", labels: golangCILintJSONPreview.linterPreviewLabels)
+        }
+    }
+
+    private func ruffJSONContent(_ ruffJSONPreview: ToolArtifactRuffJSONPreview) -> some View {
+        let hasLists = !ruffJSONPreview.filePreviewLabels.isEmpty || !ruffJSONPreview.rulePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(ruffJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: ruffJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Rules", labels: ruffJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func pylintJSONContent(_ pylintJSONPreview: ToolArtifactPylintJSONPreview) -> some View {
+        let hasLists = !pylintJSONPreview.filePreviewLabels.isEmpty || !pylintJSONPreview.symbolPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pylintJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: pylintJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Symbols", labels: pylintJSONPreview.symbolPreviewLabels)
+        }
+    }
+
+    private func mypyJSONContent(_ mypyJSONPreview: ToolArtifactMypyJSONPreview) -> some View {
+        let hasLists = !mypyJSONPreview.filePreviewLabels.isEmpty || !mypyJSONPreview.codePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(mypyJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: mypyJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Codes", labels: mypyJSONPreview.codePreviewLabels)
+        }
+    }
+
+    private func pyrightJSONContent(_ pyrightJSONPreview: ToolArtifactPyrightJSONPreview) -> some View {
+        let hasLists = !pyrightJSONPreview.filePreviewLabels.isEmpty || !pyrightJSONPreview.rulePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pyrightJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: pyrightJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Rules", labels: pyrightJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func phpstanJSONContent(_ phpstanJSONPreview: ToolArtifactPHPStanJSONPreview) -> some View {
+        let hasLists = !phpstanJSONPreview.filePreviewLabels.isEmpty
+            || !phpstanJSONPreview.identifierPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(phpstanJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: phpstanJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Identifiers", labels: phpstanJSONPreview.identifierPreviewLabels)
+        }
+    }
+
+    private func psalmJSONContent(_ psalmJSONPreview: ToolArtifactPsalmJSONPreview) -> some View {
+        let hasLists = !psalmJSONPreview.filePreviewLabels.isEmpty || !psalmJSONPreview.typePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(psalmJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: psalmJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Types", labels: psalmJSONPreview.typePreviewLabels)
+        }
+    }
+
+    private func banditJSONContent(_ banditJSONPreview: ToolArtifactBanditJSONPreview) -> some View {
+        let hasLists = !banditJSONPreview.filePreviewLabels.isEmpty || !banditJSONPreview.testPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(banditJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: banditJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Tests", labels: banditJSONPreview.testPreviewLabels)
+        }
+    }
+
+    private func semgrepJSONContent(_ semgrepJSONPreview: ToolArtifactSemgrepJSONPreview) -> some View {
+        let hasLists = !semgrepJSONPreview.filePreviewLabels.isEmpty || !semgrepJSONPreview.rulePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(semgrepJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: semgrepJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Rules", labels: semgrepJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func codeClimateJSONContent(_ codeClimateJSONPreview: ToolArtifactCodeClimateJSONPreview) -> some View {
+        let hasLists = !codeClimateJSONPreview.filePreviewLabels.isEmpty
+            || !codeClimateJSONPreview.checkPreviewLabels.isEmpty
+            || !codeClimateJSONPreview.categoryPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 176 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "exclamationmark.triangle")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(codeClimateJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: codeClimateJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Checks", labels: codeClimateJSONPreview.checkPreviewLabels)
+            artifactContentList(title: "Categories", labels: codeClimateJSONPreview.categoryPreviewLabels)
+        }
+    }
+
+    private func benchmarkDotNetJSONContent(
+        _ benchmarkDotNetJSONPreview: ToolArtifactBenchmarkDotNetJSONPreview
+    ) -> some View {
+        let hasLists = !benchmarkDotNetJSONPreview.benchmarkPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 132 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "speedometer")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(benchmarkDotNetJSONPreview.metadataLines)
+            artifactContentList(title: "Benchmarks", labels: benchmarkDotNetJSONPreview.benchmarkPreviewLabels)
+        }
+    }
+
+    private func hyperfineJSONContent(_ hyperfineJSONPreview: ToolArtifactHyperfineJSONPreview) -> some View {
+        let hasLists = !hyperfineJSONPreview.commandPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 132 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "speedometer")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(hyperfineJSONPreview.metadataLines)
+            artifactContentList(title: "Commands", labels: hyperfineJSONPreview.commandPreviewLabels)
+        }
+    }
+
+    private func npmAuditJSONContent(_ npmAuditJSONPreview: ToolArtifactNPMAuditJSONPreview) -> some View {
+        let hasLists = !npmAuditJSONPreview.packagePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 132 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shield.lefthalf.filled")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(npmAuditJSONPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: npmAuditJSONPreview.packagePreviewLabels)
+        }
+    }
+
+    private func cargoAuditJSONContent(_ cargoAuditJSONPreview: ToolArtifactCargoAuditJSONPreview) -> some View {
+        let hasLists = !cargoAuditJSONPreview.packagePreviewLabels.isEmpty
+            || !cargoAuditJSONPreview.advisoryPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shield.lefthalf.filled")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(cargoAuditJSONPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: cargoAuditJSONPreview.packagePreviewLabels)
+            artifactContentList(title: "Advisories", labels: cargoAuditJSONPreview.advisoryPreviewLabels)
         }
     }
 
@@ -686,6 +1120,42 @@ struct QuillCodeArtifactDocumentPreview: View {
         }
     }
 
+    private func cargoCompilerJSONLinesContent(
+        _ cargoCompilerJSONLinesPreview: ToolArtifactCargoCompilerJSONLinesPreview
+    ) -> some View {
+        let hasLists = !cargoCompilerJSONLinesPreview.filePreviewLabels.isEmpty
+            || !cargoCompilerJSONLinesPreview.codePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 142 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(cargoCompilerJSONLinesPreview.metadataLines)
+            artifactContentList(title: "Files", labels: cargoCompilerJSONLinesPreview.filePreviewLabels)
+            artifactContentList(title: "Codes", labels: cargoCompilerJSONLinesPreview.codePreviewLabels)
+        }
+    }
+
+    private func goTestJSONLinesContent(_ goTestJSONLinesPreview: ToolArtifactGoTestJSONLinesPreview) -> some View {
+        let hasLists = !goTestJSONLinesPreview.failedTestPreviewLabels.isEmpty
+            || !goTestJSONLinesPreview.skippedTestPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 142 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(goTestJSONLinesPreview.metadataLines)
+            artifactContentList(title: "Failed tests", labels: goTestJSONLinesPreview.failedTestPreviewLabels)
+            artifactContentList(title: "Skipped tests", labels: goTestJSONLinesPreview.skippedTestPreviewLabels)
+        }
+    }
+
     private func tomlContent(_ tomlPreview: ToolArtifactTOMLPreview) -> some View {
         previewSurface(minHeight: tomlPreview.keyPreviewLabels.isEmpty ? 92 : 126) {
             header(
@@ -771,6 +1241,69 @@ struct QuillCodeArtifactDocumentPreview: View {
         }
     }
 
+    private func ctestContent(_ ctestPreview: ToolArtifactCTestPreview) -> some View {
+        previewSurface(minHeight: ctestPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(ctestPreview.metadataLines)
+            artifactContentList(title: "Failing tests", labels: ctestPreview.failurePreviewLabels)
+        }
+    }
+
+    private func checkstyleContent(_ checkstylePreview: ToolArtifactCheckstylePreview) -> some View {
+        previewSurface(minHeight: checkstylePreview.sourcePreviewLabels.isEmpty ? 92 : 142) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "exclamationmark.triangle")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(checkstylePreview.metadataLines)
+            artifactContentList(title: "Files", labels: checkstylePreview.filePreviewLabels)
+            artifactContentList(title: "Sources", labels: checkstylePreview.sourcePreviewLabels)
+        }
+    }
+
+    private func pmdContent(_ pmdPreview: ToolArtifactPMDPreview) -> some View {
+        previewSurface(minHeight: pmdPreview.rulePreviewLabels.isEmpty ? 92 : 142) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "exclamationmark.triangle")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pmdPreview.metadataLines)
+            artifactContentList(title: "Files", labels: pmdPreview.filePreviewLabels)
+            artifactContentList(title: "Rules", labels: pmdPreview.rulePreviewLabels)
+        }
+    }
+
+    private func spotBugsContent(_ spotBugsPreview: ToolArtifactSpotBugsPreview) -> some View {
+        let hasLists = !spotBugsPreview.typePreviewLabels.isEmpty
+            || !spotBugsPreview.categoryPreviewLabels.isEmpty
+            || !spotBugsPreview.classPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 166 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "exclamationmark.triangle")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(spotBugsPreview.metadataLines)
+            artifactContentList(title: "Types", labels: spotBugsPreview.typePreviewLabels)
+            artifactContentList(title: "Categories", labels: spotBugsPreview.categoryPreviewLabels)
+            artifactContentList(title: "Classes", labels: spotBugsPreview.classPreviewLabels)
+        }
+    }
+
     private func trxContent(_ trxPreview: ToolArtifactTRXPreview) -> some View {
         previewSurface(minHeight: trxPreview.failurePreviewLabels.isEmpty ? 92 : 126) {
             header(
@@ -811,6 +1344,36 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(nunitPreview.metadataLines)
             artifactContentList(title: "Failing tests", labels: nunitPreview.failurePreviewLabels)
+        }
+    }
+
+    private func testNGContent(_ testNGPreview: ToolArtifactTestNGPreview) -> some View {
+        previewSurface(minHeight: testNGPreview.failurePreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(testNGPreview.metadataLines)
+            artifactContentList(title: "Suites", labels: testNGPreview.suitePreviewLabels)
+            artifactContentList(title: "Failing tests", labels: testNGPreview.failurePreviewLabels)
+        }
+    }
+
+    private func robotXMLContent(_ robotXMLPreview: ToolArtifactRobotXMLPreview) -> some View {
+        previewSurface(minHeight: robotXMLPreview.failurePreviewLabels.isEmpty ? 92 : 154) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checkmark.seal")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(robotXMLPreview.metadataLines)
+            artifactContentList(title: "Suites", labels: robotXMLPreview.suitePreviewLabels)
+            artifactContentList(title: "Failing tests", labels: robotXMLPreview.failurePreviewLabels)
         }
     }
 
