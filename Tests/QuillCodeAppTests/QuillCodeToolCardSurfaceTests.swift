@@ -2193,6 +2193,64 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteCargo.cargoCompilerJSONLinesPreview)
     }
 
+    func testArtifactStateDerivesGoTestJSONLinesPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("go-test.jsonl")
+        let content = """
+        {"Time":"2026-07-19T17:00:00Z","Action":"run","Package":"example.com/quill/app","Test":"TestConnect"}
+        {"Time":"2026-07-19T17:00:01Z","Action":"pass","Package":"example.com/quill/app","Test":"TestConnect","Elapsed":0.12}
+        {"Time":"2026-07-19T17:00:01Z","Action":"run","Package":"example.com/quill/app","Test":"TestReconnect"}
+        {"Time":"2026-07-19T17:00:02Z","Action":"fail","Package":"example.com/quill/app","Test":"TestReconnect","Elapsed":0.18}
+        {"Time":"2026-07-19T17:00:02Z","Action":"skip","Package":"example.com/quill/app","Test":"TestBluetooth","Elapsed":0}
+        {"Time":"2026-07-19T17:00:02Z","Action":"output","Package":"example.com/quill/app","Output":"FAIL\\n"}
+        {"Time":"2026-07-19T17:00:02Z","Action":"fail","Package":"example.com/quill/app","Elapsed":0.31}
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.goTestJSONLinesPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSONL")
+        XCTAssertEqual(preview.formatLabel, "Go test JSONL")
+        XCTAssertEqual(preview.eventCount, 7)
+        XCTAssertEqual(preview.packageCount, 1)
+        XCTAssertEqual(preview.testCount, 3)
+        XCTAssertEqual(preview.passedTestCount, 1)
+        XCTAssertEqual(preview.failedTestCount, 1)
+        XCTAssertEqual(preview.skippedTestCount, 1)
+        XCTAssertEqual(preview.packagePassCount, 0)
+        XCTAssertEqual(preview.packageFailureCount, 1)
+        XCTAssertEqual(preview.outputEventCount, 1)
+        XCTAssertEqual(preview.failedTestPreviewLabels, [
+            "example.com/quill/app.TestReconnect"
+        ])
+        XCTAssertEqual(preview.skippedTestPreviewLabels, [
+            "example.com/quill/app.TestBluetooth"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: Go test JSONL",
+            "7 events",
+            "1 package",
+            "3 tests",
+            "Passed tests: 1",
+            "Failed tests: 1",
+            "Skipped tests: 1",
+            "Failed packages: 1",
+            "Output events: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonLinesPreview)
+
+        let generic = directory.appendingPathComponent("events.jsonl")
+        try #"{"Action":"pass","Package":"example.com/quill/app"}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).goTestJSONLinesPreview)
+
+        let remoteGoTest = ToolArtifactState(value: "https://example.com/go-test.jsonl")
+        XCTAssertNil(remoteGoTest.goTestJSONLinesPreview)
+    }
+
     func testArtifactStateDerivesTOMLPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let config = directory.appendingPathComponent("config.toml")

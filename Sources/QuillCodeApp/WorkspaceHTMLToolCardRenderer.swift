@@ -284,6 +284,7 @@ enum WorkspaceHTMLToolCardRenderer {
             let sarifPreview = renderSARIFPreview(artifact.sarifPreview)
             let cargoCompilerJSONLinesPreviewModel = artifact.cargoCompilerJSONLinesPreview
             let cargoCompilerJSONLinesPreview = renderCargoCompilerJSONLinesPreview(cargoCompilerJSONLinesPreviewModel)
+            let goTestJSONLinesPreview = renderGoTestJSONLinesPreview(artifact.goTestJSONLinesPreview)
             let jsonLinesPreview = renderJSONLinesPreview(artifact.jsonLinesPreview)
             let tomlPreview = uvLockPreviewModel == nil
                 ? renderTOMLPreview(artifact.tomlPreview)
@@ -420,6 +421,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(goCoveragePreview)
               \(sarifPreview)
               \(cargoCompilerJSONLinesPreview)
+              \(goTestJSONLinesPreview)
               \(jsonLinesPreview)
               \(tomlPreview)
               \(iniPreview)
@@ -2143,6 +2145,41 @@ enum WorkspaceHTMLToolCardRenderer {
           </div>
           \(fileList)
           \(codeList)
+        </div>
+        """
+    }
+
+    private static func renderGoTestJSONLinesPreview(_ preview: ToolArtifactGoTestJSONLinesPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-go-test-jsonl-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let failedTests = preview.failedTestPreviewLabels.map {
+            #"<li data-testid="tool-card-go-test-jsonl-preview-failed-test-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let skippedTests = preview.skippedTestPreviewLabels.map {
+            #"<li data-testid="tool-card-go-test-jsonl-preview-skipped-test-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let failedList = failedTests.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-go-test-jsonl-preview-failed-tests">
+                <strong data-testid="tool-card-go-test-jsonl-preview-failed-test-title">Failed tests</strong>
+                <ul>\(failedTests)</ul>
+              </section>
+        """
+        let skippedList = skippedTests.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-go-test-jsonl-preview-skipped-tests">
+                <strong data-testid="tool-card-go-test-jsonl-preview-skipped-test-title">Skipped tests</strong>
+                <ul>\(skippedTests)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !failedList.isEmpty || !skippedList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-go-test-jsonl-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(failedList)
+          \(skippedList)
         </div>
         """
     }

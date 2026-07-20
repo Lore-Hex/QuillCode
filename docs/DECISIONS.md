@@ -1,5 +1,15 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render Go Test JSONL As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.jsonl` and `.ndjson` files whose records validate as Go
+  `go test -json`/`test2json` output as test-result reports rather than generic JSON Lines.
+- **Rationale:** Go coding sessions commonly capture line-oriented test output. Showing
+  event/package/test/pass/fail/skip counts plus capped failed/skipped test labels gives useful
+  Codex-style feedback without opening raw NDJSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Go
+  source files, expand output lines, run `go test`, load module metadata, or fetch remote reports.
+
 ## 2026-07-19: Render Psalm JSON As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.json` files whose root validates as Psalm JSON output as a

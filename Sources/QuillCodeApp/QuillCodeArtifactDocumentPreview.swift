@@ -145,6 +145,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             sarifContent(sarifPreview)
         } else if let cargoCompilerJSONLinesPreview = artifact.cargoCompilerJSONLinesPreview {
             cargoCompilerJSONLinesContent(cargoCompilerJSONLinesPreview)
+        } else if let goTestJSONLinesPreview = artifact.goTestJSONLinesPreview {
+            goTestJSONLinesContent(goTestJSONLinesPreview)
         } else if let jsonLinesPreview = artifact.jsonLinesPreview {
             jsonLinesContent(jsonLinesPreview)
         } else if let tomlPreview = artifact.tomlPreview {
@@ -967,6 +969,23 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(cargoCompilerJSONLinesPreview.metadataLines)
             artifactContentList(title: "Files", labels: cargoCompilerJSONLinesPreview.filePreviewLabels)
             artifactContentList(title: "Codes", labels: cargoCompilerJSONLinesPreview.codePreviewLabels)
+        }
+    }
+
+    private func goTestJSONLinesContent(_ goTestJSONLinesPreview: ToolArtifactGoTestJSONLinesPreview) -> some View {
+        let hasLists = !goTestJSONLinesPreview.failedTestPreviewLabels.isEmpty
+            || !goTestJSONLinesPreview.skippedTestPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 142 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(goTestJSONLinesPreview.metadataLines)
+            artifactContentList(title: "Failed tests", labels: goTestJSONLinesPreview.failedTestPreviewLabels)
+            artifactContentList(title: "Skipped tests", labels: goTestJSONLinesPreview.skippedTestPreviewLabels)
         }
     }
 
