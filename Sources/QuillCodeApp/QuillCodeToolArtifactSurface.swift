@@ -1867,6 +1867,68 @@ public struct ToolArtifactStylelintJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactSwiftLintJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var violationCount: Int
+    public var fileCount: Int
+    public var ruleCount: Int
+    public var errorCount: Int
+    public var warningCount: Int
+    public var otherSeverityCount: Int
+    public var byteSizeLabel: String?
+    public var filePreviewLabels: [String]
+    public var rulePreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(violationCount) violation\(violationCount == 1 ? "" : "s")",
+            "\(fileCount) file\(fileCount == 1 ? "" : "s")",
+            "\(ruleCount) rule\(ruleCount == 1 ? "" : "s")",
+            errorCount > 0 ? "Errors: \(errorCount)" : nil,
+            warningCount > 0 ? "Warnings: \(warningCount)" : nil,
+            otherSeverityCount > 0 ? "Other severities: \(otherSeverityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        violationCount > 0
+            || fileCount > 0
+            || ruleCount > 0
+            || errorCount > 0
+            || warningCount > 0
+            || otherSeverityCount > 0
+            || byteSizeLabel != nil
+            || !filePreviewLabels.isEmpty
+            || !rulePreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "SwiftLint JSON",
+        violationCount: Int,
+        fileCount: Int,
+        ruleCount: Int,
+        errorCount: Int = 0,
+        warningCount: Int = 0,
+        otherSeverityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        filePreviewLabels: [String] = [],
+        rulePreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.violationCount = violationCount
+        self.fileCount = fileCount
+        self.ruleCount = ruleCount
+        self.errorCount = errorCount
+        self.warningCount = warningCount
+        self.otherSeverityCount = otherSeverityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.filePreviewLabels = filePreviewLabels
+        self.rulePreviewLabels = rulePreviewLabels
+    }
+}
+
 public struct ToolArtifactRuboCopJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var fileCount: Int
@@ -4290,6 +4352,7 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var jsonPreview: ToolArtifactJSONPreview? {
         guard eslintJSONPreview == nil,
               stylelintJSONPreview == nil,
+              swiftLintJSONPreview == nil,
               rubocopJSONPreview == nil,
               golangCILintJSONPreview == nil,
               ruffJSONPreview == nil,
@@ -4370,6 +4433,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var stylelintJSONPreview: ToolArtifactStylelintJSONPreview? {
         ToolArtifactStylelintJSONPreviewBuilder.stylelintJSONPreview(for: value, kind: kind)
+    }
+    public var swiftLintJSONPreview: ToolArtifactSwiftLintJSONPreview? {
+        ToolArtifactSwiftLintJSONPreviewBuilder.swiftLintJSONPreview(for: value, kind: kind)
     }
     public var rubocopJSONPreview: ToolArtifactRuboCopJSONPreview? {
         ToolArtifactRuboCopJSONPreviewBuilder.rubocopJSONPreview(for: value, kind: kind)

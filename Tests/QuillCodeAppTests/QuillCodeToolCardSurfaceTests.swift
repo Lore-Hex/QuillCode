@@ -2968,6 +2968,82 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteStylelint.stylelintJSONPreview)
     }
 
+    func testArtifactStateDerivesSwiftLintJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("swiftlint-results.json")
+        let content = """
+        [
+          {
+            "file": "/repo/Sources/App/WorkspaceView.swift",
+            "line": 42,
+            "character": 18,
+            "severity": "Warning",
+            "type": "Line Length",
+            "rule_id": "line_length",
+            "reason": "Line should be 120 characters or less"
+          },
+          {
+            "file": "/repo/Sources/App/WorkspaceView.swift",
+            "line": 57,
+            "character": 8,
+            "severity": "Error",
+            "type": "Force Cast",
+            "rule_id": "force_cast",
+            "reason": "Force casts should be avoided"
+          },
+          {
+            "file": "/repo/Tests/AppTests/WorkspaceViewTests.swift",
+            "line": 13,
+            "character": 1,
+            "severity": "warning",
+            "type": "Trailing Whitespace",
+            "rule_id": "trailing_whitespace",
+            "reason": "Lines should not have trailing whitespace"
+          }
+        ]
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.swiftLintJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "SwiftLint JSON")
+        XCTAssertEqual(preview.violationCount, 3)
+        XCTAssertEqual(preview.fileCount, 2)
+        XCTAssertEqual(preview.ruleCount, 3)
+        XCTAssertEqual(preview.errorCount, 1)
+        XCTAssertEqual(preview.warningCount, 2)
+        XCTAssertEqual(preview.filePreviewLabels, [
+            "Sources/App/WorkspaceView.swift",
+            "Tests/AppTests/WorkspaceViewTests.swift"
+        ])
+        XCTAssertEqual(preview.rulePreviewLabels, [
+            "line_length",
+            "force_cast",
+            "trailing_whitespace"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: SwiftLint JSON",
+            "3 violations",
+            "2 files",
+            "3 rules",
+            "Errors: 1",
+            "Warnings: 2",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("build-report.json")
+        try #"[{"file":"/repo/file.swift","status":"ok"}]"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).swiftLintJSONPreview)
+
+        let remoteSwiftLint = ToolArtifactState(value: "https://example.com/swiftlint-results.json")
+        XCTAssertNil(remoteSwiftLint.swiftLintJSONPreview)
+    }
+
     func testArtifactStateDerivesRuboCopJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("rubocop-results.json")

@@ -1,5 +1,16 @@
 # QuillCode Decisions
 
+## 2026-07-19: Render SwiftLint JSON As A Bounded Artifact Preview
+
+- **Decision:** Treat local `.json` files whose root validates as SwiftLint JSON output as a
+  specialized Swift lint report rather than generic JSON.
+- **Rationale:** SwiftLint JSON is the common native report format for Swift projects. Showing
+  violation/file/rule/severity counts plus capped file/rule labels gives useful Codex-style feedback
+  without opening raw JSON.
+- **Constraints:** Only local regular files under 512 KB are parsed; QuillCode does not read Swift
+  source files, expand violation reasons, invoke SwiftLint, load rule configuration, or fetch remote
+  reports.
+
 ## 2026-07-19: Render Cargo Compiler JSONL As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.jsonl` and `.ndjson` files whose records include Cargo

@@ -75,6 +75,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             eslintJSONContent(eslintJSONPreview)
         } else if let stylelintJSONPreview = artifact.stylelintJSONPreview {
             stylelintJSONContent(stylelintJSONPreview)
+        } else if let swiftLintJSONPreview = artifact.swiftLintJSONPreview {
+            swiftLintJSONContent(swiftLintJSONPreview)
         } else if let rubocopJSONPreview = artifact.rubocopJSONPreview {
             rubocopJSONContent(rubocopJSONPreview)
         } else if let golangCILintJSONPreview = artifact.golangCILintJSONPreview {
@@ -375,6 +377,22 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(stylelintJSONPreview.metadataLines)
             artifactContentList(title: "Sources", labels: stylelintJSONPreview.sourcePreviewLabels)
             artifactContentList(title: "Rules", labels: stylelintJSONPreview.rulePreviewLabels)
+        }
+    }
+
+    private func swiftLintJSONContent(_ swiftLintJSONPreview: ToolArtifactSwiftLintJSONPreview) -> some View {
+        let hasLists = !swiftLintJSONPreview.filePreviewLabels.isEmpty || !swiftLintJSONPreview.rulePreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 142 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "checklist")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(swiftLintJSONPreview.metadataLines)
+            artifactContentList(title: "Files", labels: swiftLintJSONPreview.filePreviewLabels)
+            artifactContentList(title: "Rules", labels: swiftLintJSONPreview.rulePreviewLabels)
         }
     }
 

@@ -224,6 +224,8 @@ enum WorkspaceHTMLToolCardRenderer {
             let eslintJSONPreview = renderESLintJSONPreview(eslintJSONPreviewModel)
             let stylelintJSONPreviewModel = artifact.stylelintJSONPreview
             let stylelintJSONPreview = renderStylelintJSONPreview(stylelintJSONPreviewModel)
+            let swiftLintJSONPreviewModel = artifact.swiftLintJSONPreview
+            let swiftLintJSONPreview = renderSwiftLintJSONPreview(swiftLintJSONPreviewModel)
             let rubocopJSONPreviewModel = artifact.rubocopJSONPreview
             let rubocopJSONPreview = renderRuboCopJSONPreview(rubocopJSONPreviewModel)
             let golangCILintJSONPreviewModel = artifact.golangCILintJSONPreview
@@ -329,6 +331,7 @@ enum WorkspaceHTMLToolCardRenderer {
                 && jestJSONPreviewModel == nil
                 && eslintJSONPreviewModel == nil
                 && stylelintJSONPreviewModel == nil
+                && swiftLintJSONPreviewModel == nil
                 && rubocopJSONPreviewModel == nil
                 && golangCILintJSONPreviewModel == nil
                 && ruffJSONPreviewModel == nil
@@ -376,6 +379,7 @@ enum WorkspaceHTMLToolCardRenderer {
               \(jestJSONPreview)
               \(eslintJSONPreview)
               \(stylelintJSONPreview)
+              \(swiftLintJSONPreview)
               \(rubocopJSONPreview)
               \(golangCILintJSONPreview)
               \(ruffJSONPreview)
@@ -921,6 +925,41 @@ enum WorkspaceHTMLToolCardRenderer {
             \(metadata)
           </div>
           \(sourceList)
+          \(ruleList)
+        </div>
+        """
+    }
+
+    private static func renderSwiftLintJSONPreview(_ preview: ToolArtifactSwiftLintJSONPreview?) -> String {
+        guard let preview, preview.hasDisplayContent else { return "" }
+        let metadata = preview.metadataLines.map {
+            #"<small data-testid="tool-card-swiftlint-json-preview-meta">\#(escape($0))</small>"#
+        }.joined(separator: "")
+        let files = preview.filePreviewLabels.map {
+            #"<li data-testid="tool-card-swiftlint-json-preview-file-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let fileList = files.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-swiftlint-json-preview-files">
+                <strong data-testid="tool-card-swiftlint-json-preview-file-title">Files</strong>
+                <ul>\(files)</ul>
+              </section>
+        """
+        let rules = preview.rulePreviewLabels.map {
+            #"<li data-testid="tool-card-swiftlint-json-preview-rule-item">\#(escape($0))</li>"#
+        }.joined(separator: "")
+        let ruleList = rules.isEmpty ? "" : """
+              <section class="artifact-office-contents" data-testid="tool-card-swiftlint-json-preview-rules">
+                <strong data-testid="tool-card-swiftlint-json-preview-rule-title">Rules</strong>
+                <ul>\(rules)</ul>
+              </section>
+        """
+        guard !metadata.isEmpty || !fileList.isEmpty || !ruleList.isEmpty else { return "" }
+        return """
+        <div class="artifact-office-preview" data-testid="tool-card-swiftlint-json-preview">
+          <div>
+            \(metadata)
+          </div>
+          \(fileList)
           \(ruleList)
         </div>
         """
