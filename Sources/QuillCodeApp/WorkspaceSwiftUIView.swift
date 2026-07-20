@@ -257,6 +257,7 @@ public struct QuillCodeWorkspaceView: View {
                     onCopyTranscriptItem: actions.onCopyTranscriptItem,
                     onRevertTurn: actions.onRevertTurn,
                     onDeleteFollowUp: actions.onDeleteFollowUp,
+                    onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,
                     onCommand: handleCommand
                 )
             }

@@ -42,6 +42,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onCopyTranscriptItem: (String, String) -> Void
     var onRevertTurn: (UUID) -> Void = { _ in }
     var onDeleteFollowUp: (UUID) -> Void = { _ in }
+    var onStartTrustedRouterSignIn: () -> Void = {}
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -91,7 +92,12 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         onCopyTranscriptItem: onCopyTranscriptItem,
                         onRevertTurn: onRevertTurn,
                         onUseMessageAsDraft: useMessageAsDraft,
-                        onSubmitStarterAction: submitStarterAction
+                        onSubmitStarterAction: submitStarterAction,
+                        connectPrompt: TranscriptConnectPrompt.make(
+                            hasStoredAPIKey: surface.settings.hasStoredAPIKey,
+                            signInURL: surface.settings.signInURL
+                        ),
+                        onStartTrustedRouterSignIn: onStartTrustedRouterSignIn
                     )
                 } else {
                     Spacer(minLength: 0)
