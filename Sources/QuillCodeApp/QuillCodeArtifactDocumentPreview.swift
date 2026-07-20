@@ -87,6 +87,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             hyperfineJSONContent(hyperfineJSONPreview)
         } else if let npmAuditJSONPreview = artifact.npmAuditJSONPreview {
             npmAuditJSONContent(npmAuditJSONPreview)
+        } else if let cargoAuditJSONPreview = artifact.cargoAuditJSONPreview {
+            cargoAuditJSONContent(cargoAuditJSONPreview)
         } else if let eslintJSONPreview = artifact.eslintJSONPreview {
             eslintJSONContent(eslintJSONPreview)
         } else if let stylelintJSONPreview = artifact.stylelintJSONPreview {
@@ -728,6 +730,23 @@ struct QuillCodeArtifactDocumentPreview: View {
             )
             metadataPills(npmAuditJSONPreview.metadataLines)
             artifactContentList(title: "Packages", labels: npmAuditJSONPreview.packagePreviewLabels)
+        }
+    }
+
+    private func cargoAuditJSONContent(_ cargoAuditJSONPreview: ToolArtifactCargoAuditJSONPreview) -> some View {
+        let hasLists = !cargoAuditJSONPreview.packagePreviewLabels.isEmpty
+            || !cargoAuditJSONPreview.advisoryPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shield.lefthalf.filled")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(cargoAuditJSONPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: cargoAuditJSONPreview.packagePreviewLabels)
+            artifactContentList(title: "Advisories", labels: cargoAuditJSONPreview.advisoryPreviewLabels)
         }
     }
 

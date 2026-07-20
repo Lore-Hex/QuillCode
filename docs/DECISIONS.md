@@ -3101,3 +3101,22 @@
   incomplete-report exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesNPMAuditJSONArtifactPreview` covers
   static HTML selectors, rendered metadata, package lists, and generic JSON suppression.
+
+## 2026-07-19: cargo audit JSON artifacts render bounded Rust security summaries
+
+- **Decision:** Local `.json` artifacts with `cargo audit --json`-compatible `vulnerabilities`
+  reports render as structured cargo audit cards instead of generic JSON. The preview shows
+  vulnerability count, yanked/unmaintained warning counts, file size, capped package labels, and
+  capped RustSec advisory labels.
+- **Why:** Rust dependency security work commonly produces `cargo audit --json` output. A compact
+  artifact card lets users triage RustSec findings next to command output without opening raw JSON
+  or rerunning cargo tooling.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and
+  capped at 512 KB. It reads only shallow vulnerability, package, warning, and advisory labels; it
+  never opens `Cargo.lock`, expands dependency graphs, verifies exploitability, downloads the RustSec
+  database, follows advisory URLs, or fetches remote reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesCargoAuditJSONPreviewMetadata`
+  covers cargo audit shape detection, vulnerability/warning/package/advisory metadata, generic JSON
+  suppression, incomplete-report exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCargoAuditJSONArtifactPreview` covers
+  static HTML selectors, rendered metadata, package/advisory lists, and generic JSON suppression.

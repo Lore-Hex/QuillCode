@@ -3435,6 +3435,86 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteAudit.npmAuditJSONPreview)
     }
 
+    func testArtifactStateDerivesCargoAuditJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("cargo-audit.json")
+        let content = """
+        {
+          "vulnerabilities": {
+            "found": true,
+            "count": 2,
+            "list": [
+              {
+                "advisory": {
+                  "id": "RUSTSEC-2024-0001",
+                  "package": "time",
+                  "title": "Potential segfault in localtime_r invocations"
+                },
+                "package": {
+                  "name": "time",
+                  "version": "0.1.45"
+                }
+              },
+              {
+                "advisory": {
+                  "id": "RUSTSEC-2023-0071",
+                  "package": "rsa",
+                  "title": "Marvin Attack: potential key recovery"
+                },
+                "package": {
+                  "name": "rsa",
+                  "version": "0.9.6"
+                }
+              }
+            ]
+          },
+          "warnings": {
+            "yanked": [
+              {"package": {"name": "old-crate", "version": "0.1.0"}}
+            ],
+            "unmaintained": [
+              {"package": {"name": "abandoned", "version": "1.2.3"}}
+            ]
+          }
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.cargoAuditJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "cargo audit JSON")
+        XCTAssertEqual(preview.vulnerabilityCount, 2)
+        XCTAssertEqual(preview.yankedWarningCount, 1)
+        XCTAssertEqual(preview.unmaintainedWarningCount, 1)
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "rsa 0.9.6",
+            "time 0.1.45"
+        ])
+        XCTAssertEqual(preview.advisoryPreviewLabels, [
+            "RUSTSEC-2023-0071 · Marvin Attack: potential key recovery",
+            "RUSTSEC-2024-0001 · Potential segfault in localtime_r invocations"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: cargo audit JSON",
+            "2 vulnerabilities",
+            "Yanked: 1",
+            "Unmaintained: 1",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("rust-security.json")
+        try #"{"vulnerabilities":{"count":1}}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).cargoAuditJSONPreview)
+
+        let remoteAudit = ToolArtifactState(value: "https://example.com/cargo-audit.json")
+        XCTAssertNil(remoteAudit.cargoAuditJSONPreview)
+    }
+
     func testArtifactStateDerivesESLintJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("eslint-results.json")
