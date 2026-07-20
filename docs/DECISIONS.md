@@ -3046,3 +3046,22 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesBunLockfileArtifactPreview` covers
   static HTML selectors, rendered Bun metadata, package/source lists, generic JSON suppression, and
   text-preview coexistence.
+
+## 2026-07-19: BenchmarkDotNet JSON artifacts render bounded benchmark summaries
+
+- **Decision:** Local `.json` artifacts with BenchmarkDotNet-compatible `Benchmarks` and
+  `HostEnvironmentInfo` report shape render as structured BenchmarkDotNet report cards instead of
+  generic JSON. The preview shows report title, benchmark count, runtime, architecture, operating
+  system, file size, and capped benchmark labels.
+- **Why:** .NET performance work commonly emits BenchmarkDotNet JSON. A Codex-style artifact surface
+  should make benchmark artifacts scannable in the transcript without requiring the user or model to
+  open raw JSON.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and
+  capped at 512 KB. It reads only shallow report metadata and benchmark labels; it never executes
+  benchmarks, interprets statistics as authoritative performance claims, opens referenced source
+  files, reads generated logs, loads benchmark assemblies, or fetches remote reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesBenchmarkDotNetJSONPreviewMetadata`
+  covers BenchmarkDotNet shape detection, report metadata, benchmark labels, generic JSON
+  suppression, empty-report exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesBenchmarkDotNetJSONArtifactPreview`
+  covers static HTML selectors, rendered metadata, benchmark lists, and generic JSON suppression.

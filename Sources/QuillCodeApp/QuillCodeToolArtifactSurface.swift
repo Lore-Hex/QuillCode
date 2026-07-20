@@ -2070,6 +2070,59 @@ public struct ToolArtifactMochaJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactBenchmarkDotNetJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var title: String?
+    public var benchmarkCount: Int
+    public var runtimeLabel: String?
+    public var architectureLabel: String?
+    public var osLabel: String?
+    public var byteSizeLabel: String?
+    public var benchmarkPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            title.map { "Title: \($0)" },
+            "\(benchmarkCount) benchmark\(benchmarkCount == 1 ? "" : "s")",
+            runtimeLabel.map { "Runtime: \($0)" },
+            architectureLabel.map { "Architecture: \($0)" },
+            osLabel.map { "OS: \($0)" },
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        benchmarkCount > 0
+            || title != nil
+            || runtimeLabel != nil
+            || architectureLabel != nil
+            || osLabel != nil
+            || byteSizeLabel != nil
+            || !benchmarkPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "BenchmarkDotNet JSON",
+        title: String? = nil,
+        benchmarkCount: Int,
+        runtimeLabel: String? = nil,
+        architectureLabel: String? = nil,
+        osLabel: String? = nil,
+        byteSizeLabel: String? = nil,
+        benchmarkPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.title = title
+        self.benchmarkCount = benchmarkCount
+        self.runtimeLabel = runtimeLabel
+        self.architectureLabel = architectureLabel
+        self.osLabel = osLabel
+        self.byteSizeLabel = byteSizeLabel
+        self.benchmarkPreviewLabels = benchmarkPreviewLabels
+    }
+}
+
 public struct ToolArtifactESLintJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var fileCount: Int
@@ -5075,7 +5128,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               playwrightJSONPreview == nil,
               cucumberJSONPreview == nil,
               rspecJSONPreview == nil,
-              mochaJSONPreview == nil
+              mochaJSONPreview == nil,
+              benchmarkDotNetJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -5156,6 +5210,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var mochaJSONPreview: ToolArtifactMochaJSONPreview? {
         ToolArtifactMochaJSONPreviewBuilder.mochaJSONPreview(for: value, kind: kind)
+    }
+    public var benchmarkDotNetJSONPreview: ToolArtifactBenchmarkDotNetJSONPreview? {
+        ToolArtifactBenchmarkDotNetJSONPreviewBuilder.benchmarkDotNetJSONPreview(for: value, kind: kind)
     }
     public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
         ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)
