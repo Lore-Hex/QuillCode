@@ -3190,6 +3190,83 @@ public struct ToolArtifactCargoCompilerJSONLinesPreview: Codable, Sendable, Hash
     }
 }
 
+public struct ToolArtifactGoTestJSONLinesPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var eventCount: Int
+    public var packageCount: Int
+    public var testCount: Int
+    public var passedTestCount: Int
+    public var failedTestCount: Int
+    public var skippedTestCount: Int
+    public var packagePassCount: Int
+    public var packageFailureCount: Int
+    public var outputEventCount: Int
+    public var byteSizeLabel: String?
+    public var failedTestPreviewLabels: [String]
+    public var skippedTestPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(eventCount) event\(eventCount == 1 ? "" : "s")",
+            "\(packageCount) package\(packageCount == 1 ? "" : "s")",
+            "\(testCount) test\(testCount == 1 ? "" : "s")",
+            passedTestCount > 0 ? "Passed tests: \(passedTestCount)" : nil,
+            failedTestCount > 0 ? "Failed tests: \(failedTestCount)" : nil,
+            skippedTestCount > 0 ? "Skipped tests: \(skippedTestCount)" : nil,
+            packagePassCount > 0 ? "Passed packages: \(packagePassCount)" : nil,
+            packageFailureCount > 0 ? "Failed packages: \(packageFailureCount)" : nil,
+            outputEventCount > 0 ? "Output events: \(outputEventCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        eventCount > 0
+            || packageCount > 0
+            || testCount > 0
+            || passedTestCount > 0
+            || failedTestCount > 0
+            || skippedTestCount > 0
+            || packagePassCount > 0
+            || packageFailureCount > 0
+            || outputEventCount > 0
+            || byteSizeLabel != nil
+            || !failedTestPreviewLabels.isEmpty
+            || !skippedTestPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "Go test JSONL",
+        eventCount: Int,
+        packageCount: Int,
+        testCount: Int,
+        passedTestCount: Int = 0,
+        failedTestCount: Int = 0,
+        skippedTestCount: Int = 0,
+        packagePassCount: Int = 0,
+        packageFailureCount: Int = 0,
+        outputEventCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        failedTestPreviewLabels: [String] = [],
+        skippedTestPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.eventCount = eventCount
+        self.packageCount = packageCount
+        self.testCount = testCount
+        self.passedTestCount = passedTestCount
+        self.failedTestCount = failedTestCount
+        self.skippedTestCount = skippedTestCount
+        self.packagePassCount = packagePassCount
+        self.packageFailureCount = packageFailureCount
+        self.outputEventCount = outputEventCount
+        self.byteSizeLabel = byteSizeLabel
+        self.failedTestPreviewLabels = failedTestPreviewLabels
+        self.skippedTestPreviewLabels = skippedTestPreviewLabels
+    }
+}
+
 public struct ToolArtifactTOMLPreview: Codable, Sendable, Hashable {
     public var topLevelKeyCount: Int
     public var tableCount: Int
@@ -4620,11 +4697,16 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
         ToolArtifactNotebookPreviewBuilder.notebookPreview(for: value, kind: kind)
     }
     public var jsonLinesPreview: ToolArtifactJSONLinesPreview? {
-        guard cargoCompilerJSONLinesPreview == nil else { return nil }
+        guard cargoCompilerJSONLinesPreview == nil,
+              goTestJSONLinesPreview == nil
+        else { return nil }
         return ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: kind)
     }
     public var cargoCompilerJSONLinesPreview: ToolArtifactCargoCompilerJSONLinesPreview? {
         ToolArtifactCargoCompilerJSONLinesPreviewBuilder.cargoCompilerJSONLinesPreview(for: value, kind: kind)
+    }
+    public var goTestJSONLinesPreview: ToolArtifactGoTestJSONLinesPreview? {
+        ToolArtifactGoTestJSONLinesPreviewBuilder.goTestJSONLinesPreview(for: value, kind: kind)
     }
     public var tomlPreview: ToolArtifactTOMLPreview? {
         ToolArtifactTOMLPreviewBuilder.tomlPreview(for: value, kind: kind)

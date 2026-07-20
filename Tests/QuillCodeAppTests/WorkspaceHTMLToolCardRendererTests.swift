@@ -3409,6 +3409,62 @@ final class WorkspaceHTMLToolCardRendererTests: XCTestCase {
         XCTAssertFalse(html.contains(#"data-testid="tool-card-json-lines-preview""#))
     }
 
+    func testHTMLRendererIncludesGoTestJSONLinesArtifactPreview() throws {
+        let root = try makeTempDirectory()
+        let reports = root.appendingPathComponent("reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true)
+        let report = reports.appendingPathComponent("go-test.jsonl")
+        let reportText = """
+        {"Time":"2026-07-19T17:00:00Z","Action":"run","Package":"example.com/quill/app","Test":"TestConnect"}
+        {"Time":"2026-07-19T17:00:01Z","Action":"pass","Package":"example.com/quill/app","Test":"TestConnect","Elapsed":0.12}
+        {"Time":"2026-07-19T17:00:01Z","Action":"run","Package":"example.com/quill/app","Test":"TestReconnect"}
+        {"Time":"2026-07-19T17:00:02Z","Action":"fail","Package":"example.com/quill/app","Test":"TestReconnect","Elapsed":0.18}
+        {"Time":"2026-07-19T17:00:02Z","Action":"skip","Package":"example.com/quill/app","Test":"TestBluetooth","Elapsed":0}
+        {"Time":"2026-07-19T17:00:02Z","Action":"output","Package":"example.com/quill/app","Output":"FAIL\\n"}
+        {"Time":"2026-07-19T17:00:02Z","Action":"fail","Package":"example.com/quill/app","Elapsed":0.31}
+        """
+        try reportText.write(to: report, atomically: true, encoding: .utf8)
+        let call = ToolCall(name: ToolDefinition.fileWrite.name, argumentsJSON: #"{"path":"reports/go-test.jsonl"}"#)
+        let result = ToolResult(ok: true, stdout: "Wrote reports/go-test.jsonl\n", artifacts: [report.path])
+        let thread = ChatThread(
+            title: "Go test artifact",
+            events: [
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "host.file.write queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "host.file.write completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let html = WorkspaceHTMLRenderer.render(model.surface())
+
+        XCTAssertTrue(html.contains(#"data-kind="data""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-type">Data · JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-document-preview-label">go-test.jsonl"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview""#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">Format: Go test JSONL"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">7 events"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">1 package"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">3 tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">Failed tests: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-meta">Skipped tests: 1"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-failed-test-title">Failed tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-failed-test-item">example.com/quill/app.TestReconnect"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-skipped-test-title">Skipped tests"#))
+        XCTAssertTrue(html.contains(#"data-testid="tool-card-go-test-jsonl-preview-skipped-test-item">example.com/quill/app.TestBluetooth"#))
+        XCTAssertFalse(html.contains(#"data-testid="tool-card-json-lines-preview""#))
+    }
+
     func testHTMLRendererIncludesTOMLArtifactPreview() throws {
         let root = try makeTempDirectory()
         let quillDirectory = root.appendingPathComponent(".quillcode", isDirectory: true)

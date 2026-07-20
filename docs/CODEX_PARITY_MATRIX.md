@@ -155,6 +155,11 @@
   and `.ndjson` streams whose records include Cargo `compiler-message` entries: diagnostic/file/code
   and level counts, file size, capped file labels, and capped diagnostic-code labels without reading
   Rust source files, invoking Cargo, expanding spans, or fetching remote reports.
+- Artifact previews now include bounded local Go test JSONL metadata for `.jsonl` and `.ndjson`
+  streams whose records validate as `go test -json`/`test2json` output: event/package/test/pass/fail/
+  skip counts, output event counts, file size, and capped failed/skipped test labels without reading
+  Go source files, expanding output lines, invoking `go test`, loading module metadata, or fetching
+  remote reports.
 - Artifact previews now include bounded local font metadata for `.ttf`, `.otf`, `.ttc`, `.woff`,
   and `.woff2` files by validating fixed headers and rendering format, flavor, table count,
   declared size, and file size without parsing tables or decompressing webfont payloads.
