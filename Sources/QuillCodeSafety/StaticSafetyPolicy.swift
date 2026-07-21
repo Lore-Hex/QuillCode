@@ -29,6 +29,34 @@ struct StaticSafetyPolicy: Sendable {
         return rule.rationale
     }
 
+    /// Workspace-clamped file mutations approve statically in AUTO mode — the Codex semantics the
+    /// mode promises: the user chose auto, the executors clamp these paths inside the workspace
+    /// (symlink-hardened), and the revert-turn engine can undo them. Gating them behind fuzzy
+    /// intent matching + the model reviewer meant every drafting/fixing task died at its first
+    /// write whenever the reviewer was unavailable (observed live: a PRD draft and an ops fix both
+    /// stopped at "does not clearly match" on a perfectly-matching write). Two carve-outs:
+    /// - MCP calls, plugin installs, and shell keep their gates (external reach / irreversibility);
+    /// - an explicitly NEGATED write ("don't apply this patch", "do not modify anything") is never
+    ///   statically approved — the user just said no.
+    static let workspaceBoundedMutationTools: Set<String> = [
+        "host.file.write",
+        "host.apply_patch",
+    ]
+
+    private static let negatableWriteVerbs = [
+        "apply", "write", "change", "modify", "edit", "patch", "touch", "overwrite",
+        "create", "update",
+    ]
+
+    func allowsAutoWorkspaceMutation(_ context: SafetyContext) -> Bool {
+        guard Self.workspaceBoundedMutationTools.contains(context.toolCall.name) else { return false }
+        let request = StaticSafetyRequest(context.userMessage)
+        let negatedWrite = Self.negatableWriteVerbs.contains { verb in
+            request.containsToken(verb) && !request.containsAffirmedAny([verb])
+        }
+        return !negatedWrite
+    }
+
     func userIntentMatches(_ context: SafetyContext) -> Bool {
         let request = StaticSafetyRequest(context.userMessage)
         let toolName = context.toolCall.name

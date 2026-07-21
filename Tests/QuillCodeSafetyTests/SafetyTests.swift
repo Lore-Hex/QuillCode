@@ -298,4 +298,76 @@ final class SafetyShellPolicyTests: SafetyPolicyTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale)
     }
 
+
+    // MARK: - Auto-mode workspace-bounded mutations (Codex semantics)
+
+    /// The live blocker: a PRD draft and an ops fix both died at their FIRST write with "does not
+    /// clearly match" when the model reviewer was unavailable. Workspace-clamped file mutations
+    /// approve statically in auto — the executors clamp paths and revert-turn can undo them.
+    func testAutoApprovesFileWriteWithoutIntentMatch() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: "host.file.write",
+            argumentsJSON: #"{"path":"PRD.md","content":"PRD body"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Read notes.md and turn it into a structured PRD written to PRD.md.",
+            toolCall: call,
+            toolDefinition: fileWrite,
+            recentMessages: [.init(role: .user, content: "Draft the PRD.")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale)
+    }
+
+    func testAutoApprovesApplyPatchWithoutIntentMatch() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: "host.apply_patch",
+            argumentsJSON: #"{"patch":"*** Begin Patch\n*** Update File: service/config.json\n-  \"interval_ms\": \"500\",\n+  \"interval_ms\": 500,\n*** End Patch"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "The service keeps crash-looping; find the root cause and apply the smallest correct fix.",
+            toolCall: call,
+            toolDefinition: applyPatch,
+            recentMessages: [.init(role: .user, content: "Fix the service.")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale)
+    }
+
+    /// External-reach append tools keep their gate: an MCP call with no intent match still clarifies.
+    func testAutoStillGatesMCPCallWithoutIntentMatch() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: "host.mcp.call",
+            argumentsJSON: #"{"server":"crm","tool":"delete_contact","arguments":{}}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: "Tidy the workspace.",
+            toolCall: call,
+            toolDefinition: nil,
+            recentMessages: [.init(role: .user, content: "Tidy the workspace.")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.clarify, review.rationale)
+    }
+
+    /// Read-only mode still blocks writes — the auto loosening must not leak across modes.
+    func testReadOnlyModeStillDeniesFileWrite() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: "host.file.write",
+            argumentsJSON: #"{"path":"PRD.md","content":"PRD body"}"#
+        )
+        let review = await reviewer.review(.init(
+            mode: .readOnly,
+            userMessage: "Write PRD.md for me.",
+            toolCall: call,
+            toolDefinition: fileWrite,
+            recentMessages: [.init(role: .user, content: "Write PRD.md.")]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.deny, review.rationale)
+    }
+
 }
