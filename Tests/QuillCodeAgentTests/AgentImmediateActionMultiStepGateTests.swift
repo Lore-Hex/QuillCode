@@ -31,7 +31,11 @@ final class AgentImmediateActionMultiStepGateTests: XCTestCase {
     func testSingleMarkerAndTerseCommandsStillPreflight() {
         XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt("run whoami"))
         XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt(
-            "see item (1) in the changelog and list the files here"
+            "see item (1) in the changelog and release notes here"
+        ))
+        // Result-presentation continuations stay terse: they ask for the first action's output.
+        XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt(
+            "Read `hello.txt` and tell me its exact content"
         ))
         XCTAssertNotNil(AgentImmediateActionPlanner.action(for: "run whoami", tools: tools))
         XCTAssertNotNil(AgentImmediateActionPlanner.action(for: "list files in src", tools: tools))
@@ -79,5 +83,25 @@ final class AgentImmediateActionMultiStepGateTests: XCTestCase {
     func testListFilesInDirectoryStillExtractsPath() {
         let request = AgentFileListRequestParser.request(from: "list files in src")
         XCTAssertEqual(request?.path, "src")
+    }
+
+    /// The third live hijack shape: "Read notes.md AND TURN it into a PRD…" — the preflight
+    /// answered the read and ended the run with the task untouched. An " and <action verb>"
+    /// continuation is a compound task; a noun list ("files and folders") is not.
+    func testAndActionContinuationIsNeverPreflighted() {
+        let prompt = "Read notes.md and turn it into a structured PRD written to PRD.md"
+        XCTAssertTrue(AgentImmediateActionPlanner.isMultiStepTaskPrompt(prompt))
+        XCTAssertNil(AgentImmediateActionPlanner.action(for: prompt, tools: tools))
+        XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt("list files and folders here"))
+    }
+
+    /// Nobody types a 200-character message to run one terse command; long prompts are tasks.
+    func testLongPromptsAreNeverPreflighted() {
+        let long = "Read the service log and figure out why the collector keeps restarting "
+            + "overnight, paying attention to the supervisor lines, the Python traceback, the "
+            + "config values it prints at startup, and anything else that looks suspicious."
+        XCTAssertGreaterThan(long.count, AgentImmediateActionPlanner.terseCommandCharacterLimit)
+        XCTAssertTrue(AgentImmediateActionPlanner.isMultiStepTaskPrompt(long))
+        XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt("read src/main.py"))
     }
 }
