@@ -71,8 +71,16 @@ enum AgentFileListRequestParser {
         }
 
         let lower = request.lowercased()
+        // Only scope markers AFTER the listing keyword name a path: in "list files in src" the
+        // "in" follows "list", but in "do these in order … (2) list the directory" the first "in"
+        // belongs to unrelated prose BEFORE any listing intent — grabbing its next word once
+        // produced `host.file.list {"path": "order"}` against a nonexistent directory.
+        let listingKeywordEnd = ["list", "show", "what"]
+            .compactMap { lower.range(of: $0)?.upperBound }
+            .min()
         for marker in [" inside ", " within ", " under ", " from ", " in "] {
             guard let range = lower.range(of: marker) else { continue }
+            if let listingKeywordEnd, range.lowerBound < listingKeywordEnd { continue }
             let raw = String(request[range.upperBound...])
             if let path = candidatePath(from: raw) {
                 return path

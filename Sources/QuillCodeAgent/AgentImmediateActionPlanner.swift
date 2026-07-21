@@ -6,6 +6,12 @@ enum AgentImmediateActionPlanner {
     static func action(for userMessage: String, tools: [ToolDefinition]) -> AgentAction? {
         let request = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !request.isEmpty else { return nil }
+        // The preflight exists for TERSE single commands ("run whoami", "list files in src") where
+        // skipping a model round-trip is pure win. A multi-step task prompt is model territory:
+        // parsing one clause out of "(1) clone … (2) list the repository's top-level directory …"
+        // hijacked the whole run with `host.file.list {"path": "order"}` (the word after "in" in
+        // "do these in order") and the task never reached the model. Enumerated steps → no preflight.
+        guard !isMultiStepTaskPrompt(request) else { return nil }
 
         for segment in AgentActionIntentSegments.actionableSegments(in: request) {
             if let action = action(forSegment: segment, tools: tools) {
@@ -13,6 +19,27 @@ enum AgentImmediateActionPlanner {
             }
         }
         return nil
+    }
+
+    /// Whether the message reads as an enumerated multi-step task: two or more step markers in the
+    /// `(1) …`, `1. …`, or `1) …` styles. Deliberately narrow — a single "(1)" citation or an
+    /// ordinary short command never matches.
+    static func isMultiStepTaskPrompt(_ request: String) -> Bool {
+        enumeratedStepMarkerCount(in: request) >= 2
+    }
+
+    private static func enumeratedStepMarkerCount(in request: String) -> Int {
+        let patterns = [
+            #"\(\d{1,2}\)\s"#,       // (1) clone …
+            #"(?m)^\s*\d{1,2}[.)]\s"# // 1. clone … / 2) list …
+        ]
+        var count = 0
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            let range = NSRange(request.startIndex..<request.endIndex, in: request)
+            count += regex.numberOfMatches(in: request, range: range)
+        }
+        return count
     }
 
     private static func action(forSegment request: String, tools: [ToolDefinition]) -> AgentAction? {
