@@ -123,13 +123,20 @@ struct ShellToolCallDispatcher: Sendable {
         let rawEnvironment = args.stringDictionary("environment") ?? args.stringDictionary("env")
         switch EnvironmentOverridePolicy.validateOverrides(rawEnvironment) {
         case let .allowed(overrides):
-            guard !overrides.isEmpty else {
-                return .allowed(nil)
-            }
+            // Start from the process environment (what the child would inherit) and layer any explicit
+            // overrides on top. We ALWAYS return a resolved environment — even with no overrides — so
+            // the PATH augmentation below runs on every shell command.
             var environment = ProcessInfo.processInfo.environment
             for (key, value) in overrides {
                 environment[key] = value
             }
+            // A GUI-launched `.app` inherits only launchd's minimal PATH, so Homebrew and toolchain
+            // binaries (uv, python3, node, rg, cargo…) are invisible and every command that needs them
+            // 127s. Augment PATH with the standard developer-tool locations. See ``ShellEnvironmentPath``.
+            environment["PATH"] = ShellEnvironmentPath.augmentedPATH(
+                base: environment["PATH"],
+                home: environment["HOME"]
+            )
             return .allowed(environment)
         case let .denied(error):
             return .denied(error)
