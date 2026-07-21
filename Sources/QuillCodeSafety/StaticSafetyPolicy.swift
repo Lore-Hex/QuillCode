@@ -45,14 +45,24 @@ struct StaticSafetyPolicy: Sendable {
 
     private static let negatableWriteVerbs = [
         "apply", "write", "change", "modify", "edit", "patch", "touch", "overwrite",
-        "create", "update",
+        "create", "update", "convert", "add", "rename",
     ]
 
     func allowsAutoWorkspaceMutation(_ context: SafetyContext) -> Bool {
         guard Self.workspaceBoundedMutationTools.contains(context.toolCall.name) else { return false }
         let request = StaticSafetyRequest(context.userMessage)
+        // Scoped negations must not disable editing altogether: "convert the Requirements section…
+        // do NOT change the Risks section" negates ONE object while affirming the edit — the most
+        // natural feedback phrasing there is (observed live: it sent a matching apply_patch to the
+        // flaky model reviewer and killed the run). Approval is withdrawn only when write verbs
+        // appear EXCLUSIVELY negated ("don't apply this patch") — any affirmed write verb keeps the
+        // static approval.
+        let affirmedWrite = Self.negatableWriteVerbs.contains { verb in
+            request.containsAffirmedAny([verb])
+        }
+        if affirmedWrite { return true }
         let negatedWrite = Self.negatableWriteVerbs.contains { verb in
-            request.containsToken(verb) && !request.containsAffirmedAny([verb])
+            request.containsToken(verb)
         }
         return !negatedWrite
     }

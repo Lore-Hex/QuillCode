@@ -353,6 +353,29 @@ final class SafetyShellPolicyTests: SafetyPolicyTestCase {
         XCTAssertEqual(review.verdict, ApprovalVerdict.clarify, review.rationale)
     }
 
+    /// Scoped negation must not disable editing: "convert X … do NOT change the Risks section"
+    /// affirms the edit while protecting one object — the write stays statically approved.
+    /// (Observed live: this exact phrasing sent a matching apply_patch to the flaky model reviewer
+    /// and killed the run.)
+    func testScopedNegationKeepsAutoWriteApproved() async {
+        let reviewer = StaticSafetyReviewer()
+        let call = ToolCall(
+            name: "host.apply_patch",
+            argumentsJSON: #"{"patch":"*** Begin Patch\n*** Update File: PRD.md\n*** End Patch"}"#
+        )
+        let message = "Convert the Requirements section into a numbered list and add one "
+            + "acceptance criterion under each. Do NOT remove or change the Risks section. "
+            + "Edit the existing file."
+        let review = await reviewer.review(.init(
+            mode: .auto,
+            userMessage: message,
+            toolCall: call,
+            toolDefinition: applyPatch,
+            recentMessages: [.init(role: .user, content: message)]
+        ))
+        XCTAssertEqual(review.verdict, ApprovalVerdict.approve, review.rationale)
+    }
+
     /// Read-only mode still blocks writes — the auto loosening must not leak across modes.
     func testReadOnlyModeStillDeniesFileWrite() async {
         let reviewer = StaticSafetyReviewer()
