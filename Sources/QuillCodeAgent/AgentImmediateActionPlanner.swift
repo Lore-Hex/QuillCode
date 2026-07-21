@@ -21,11 +21,23 @@ enum AgentImmediateActionPlanner {
         return nil
     }
 
-    /// Whether the message reads as an enumerated multi-step task: two or more step markers in the
-    /// `(1) …`, `1. …`, or `1) …` styles. Deliberately narrow — a single "(1)" citation or an
-    /// ordinary short command never matches.
+    /// Whether the message reads as a multi-step task: two or more enumerated step markers in the
+    /// `(1) …`, `1. …`, or `1) …` styles, OR two or more " then " connectors chaining steps in
+    /// prose ("clone X, then list Y, then read Z"). Deliberately narrow — a single "(1)" citation,
+    /// a single "run tests then commit", or an ordinary short command never matches.
     static func isMultiStepTaskPrompt(_ request: String) -> Bool {
-        enumeratedStepMarkerCount(in: request) >= 2
+        if enumeratedStepMarkerCount(in: request) >= 2 { return true }
+        return thenConnectorCount(in: request.lowercased()) >= 2
+    }
+
+    private static func thenConnectorCount(in lower: String) -> Int {
+        var count = 0
+        var searchStart = lower.startIndex
+        while let range = lower.range(of: " then ", range: searchStart..<lower.endIndex) {
+            count += 1
+            searchStart = range.upperBound
+        }
+        return count
     }
 
     private static func enumeratedStepMarkerCount(in request: String) -> Int {

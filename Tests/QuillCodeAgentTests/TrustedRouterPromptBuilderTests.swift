@@ -504,11 +504,26 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
             tools: [.shellRun]
         )
 
-        XCTAssertEqual(messages.filter { $0["role"] as? String == "user" }.count, 1)
+        // The original prompt appears once, and the tool feedback is the SECOND user message —
+        // tool results are observations fed back to the model, never role "assistant" (a trailing
+        // assistant turn is prefill/merge territory for OpenAI-compat gateways, observed live as
+        // the feedback echoed back verbatim as the "model response"; and assistant-role results
+        // teach the model that assistant turns narrate outputs — the fabrication habit).
+        XCTAssertEqual(
+            messages.filter {
+                ($0["role"] as? String) == "user"
+                    && ($0["content"] as? String) == "run whoami"
+            }.count,
+            1
+        )
         XCTAssertTrue(messages.contains {
-            ($0["role"] as? String) == "assistant"
+            ($0["role"] as? String) == "user"
                 && (($0["content"] as? String)?.contains("Tool output:") == true)
                 && (($0["content"] as? String)?.contains("whoami") == true)
+        })
+        XCTAssertFalse(messages.contains {
+            ($0["role"] as? String) == "assistant"
+                && (($0["content"] as? String)?.contains("Tool output:") == true)
         })
     }
 

@@ -44,6 +44,27 @@ final class AgentImmediateActionMultiStepGateTests: XCTestCase {
         XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt("list files in src"))
     }
 
+    /// Prose-chained steps ("clone X, then list Y, then read Z") are multi-step too — this exact
+    /// shape produced the second live hijack: `host.file.list {"path": "two"}` from the trailing
+    /// "tell me in two sentences". A single "run tests then commit" keeps the fast path.
+    func testThenChainedPromptIsNeverPreflighted() {
+        let prompt = "Clone https://github.com/x/y into ./y, then list the top-level directory of "
+            + "the cloned repo, then read the first 30 lines of its README.md, then tell me in two "
+            + "sentences what the project does."
+        XCTAssertTrue(AgentImmediateActionPlanner.isMultiStepTaskPrompt(prompt))
+        XCTAssertNil(AgentImmediateActionPlanner.action(for: prompt, tools: tools))
+        XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt("run tests then commit"))
+    }
+
+    /// A scope marker far downstream of the listing keyword is prose, not a path: "list the
+    /// directory of the cloned repo, then tell me in two sentences" must not extract "two".
+    func testDistantScopeMarkerIsIgnored() {
+        let request = AgentFileListRequestParser.request(
+            from: "list the top-level directory of the cloned repo and reply in two sentences"
+        )
+        XCTAssertEqual(request?.path, ".")
+    }
+
     // MARK: - File-list scope-marker precision
 
     /// A scope marker BEFORE any listing keyword is unrelated prose, never a path source: the "in"

@@ -48,6 +48,16 @@ struct StaticSafetyPolicy: Sendable {
         if intentRules.contains(where: { $0.matches(request: request) && $0.allows(toolName: toolName) }) {
             return true
         }
+        // A URL the user TYPED THEMSELVES is the strongest intent signal there is: a command
+        // operating on exactly that URL ("clone https://github.com/x/y", "curl <url the user
+        // pasted>") plainly matches the request. Without this, a chained-prose task ("Clone
+        // https://… , then list …, then …") matched no static rule, the model reviewer became the
+        // only approver, and a transient reviewer failure turned into a dead headless run at the
+        // very first tool call. Hard-deny floors run BEFORE intent in auto mode, so
+        // pipe-to-shell and friends stay blocked regardless.
+        if userTypedURLMatches(context) {
+            return true
+        }
         if toolName.contains("computer"),
            request.containsAffirmedAny(StaticSafetyPolicy.computerUseTriggers) {
             return true
@@ -57,6 +67,31 @@ struct StaticSafetyPolicy: Sendable {
         }
         return request.significantWords.contains { word in
             context.toolCall.argumentsJSON.lowercased().contains(word)
+        }
+    }
+
+    /// Whether every http(s) URL in the tool's arguments is absent — or, positively: whether at
+    /// least one URL the command operates on appears VERBATIM in the user's message. Compared
+    /// case-insensitively with trailing punctuation trimmed (a prompt's "…python-dotenv." still
+    /// vouches for the bare URL).
+    private func userTypedURLMatches(_ context: SafetyContext) -> Bool {
+        let arguments = Self.decodedArgumentText(context.toolCall.argumentsJSON)
+            ?? context.toolCall.argumentsJSON.replacingOccurrences(of: "\\/", with: "/")
+        let urls = Self.httpURLs(in: arguments)
+        guard !urls.isEmpty else { return false }
+        let message = context.userMessage.lowercased()
+        return urls.contains { message.contains($0) }
+    }
+
+    /// Lowercased http(s) URLs found in `text`, trailing sentence punctuation trimmed.
+    static func httpURLs(in text: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: #"https?://[^\s"'`<>]+"#) else { return [] }
+        let ns = text as NSString
+        let full = NSRange(location: 0, length: ns.length)
+        return regex.matches(in: text, range: full).map { match in
+            var url = ns.substring(with: match.range).lowercased()
+            while let last = url.last, ".,;:!?)".contains(last) { url.removeLast() }
+            return url
         }
     }
 

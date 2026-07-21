@@ -71,16 +71,23 @@ enum AgentFileListRequestParser {
         }
 
         let lower = request.lowercased()
-        // Only scope markers AFTER the listing keyword name a path: in "list files in src" the
-        // "in" follows "list", but in "do these in order … (2) list the directory" the first "in"
-        // belongs to unrelated prose BEFORE any listing intent — grabbing its next word once
-        // produced `host.file.list {"path": "order"}` against a nonexistent directory.
+        // Only scope markers NEAR (and after) the listing keyword name a path: in "list files in
+        // src" the "in" directly follows "list", but prose captures both directions — "do these
+        // IN ORDER … list the directory" (marker before the keyword) once produced
+        // `{"path": "order"}`, and "list the directory … tell me IN TWO sentences" (marker far
+        // downstream) produced `{"path": "two"}`. A terse command's scope sits within a few words
+        // of the keyword; anything farther is unrelated prose.
         let listingKeywordEnd = ["list", "show", "what"]
             .compactMap { lower.range(of: $0)?.upperBound }
             .min()
         for marker in [" inside ", " within ", " under ", " from ", " in "] {
             guard let range = lower.range(of: marker) else { continue }
-            if let listingKeywordEnd, range.lowerBound < listingKeywordEnd { continue }
+            if let listingKeywordEnd {
+                guard range.lowerBound >= listingKeywordEnd,
+                      lower.distance(from: listingKeywordEnd, to: range.lowerBound)
+                          <= Self.markerProximityCharacterLimit
+                else { continue }
+            }
             let raw = String(request[range.upperBound...])
             if let path = candidatePath(from: raw) {
                 return path
@@ -88,6 +95,10 @@ enum AgentFileListRequestParser {
         }
         return nil
     }
+
+    /// How far past the listing keyword a scope marker may sit and still belong to the command
+    /// ("list the files in src" → 10 chars; prose scope drift lands far beyond this).
+    private static let markerProximityCharacterLimit = 24
 
     private static func candidatePath(from raw: String) -> String? {
         let candidate = raw
