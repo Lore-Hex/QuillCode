@@ -12,6 +12,12 @@ import QuillCodeCore
 /// numeric conversion, so a hostile/empty/oversized result set degrades to a clear message.
 public struct WebSearchToolExecutor: Sendable {
     public var client: any WebSearchClient
+    /// Probes candidate URLs and keeps only the ones that actually resolve. Injected (and
+    /// optional) so the executor stays deterministic in tests; `nil` skips liveness filtering
+    /// entirely (the pre-existing behavior). In production this is a `WebFetchURLLivenessChecker`,
+    /// which is what stops the LLM-as-search-engine backend from surfacing hallucinated 404 URLs
+    /// the model would otherwise fetch and cite.
+    public var livenessChecker: (any WebSearchURLLivenessChecking)?
     /// Hard ceiling on results, independent of what the caller asks for or the provider returns.
     public var maxResults: Int
     /// Default result count when the caller omits `maxResults`.
@@ -25,6 +31,7 @@ public struct WebSearchToolExecutor: Sendable {
 
     public init(
         client: any WebSearchClient,
+        livenessChecker: (any WebSearchURLLivenessChecking)? = nil,
         maxResults: Int = 10,
         defaultResults: Int = 5,
         maxQueryLength: Int = 400,
@@ -32,6 +39,7 @@ public struct WebSearchToolExecutor: Sendable {
         maxSnippetLength: Int = 500
     ) {
         self.client = client
+        self.livenessChecker = livenessChecker
         self.maxResults = max(1, maxResults)
         self.defaultResults = min(max(1, defaultResults), max(1, maxResults))
         self.maxQueryLength = max(1, maxQueryLength)
@@ -70,7 +78,37 @@ public struct WebSearchToolExecutor: Sendable {
             """)
         }
 
-        return ToolResult(ok: true, stdout: Self.render(query: query, results: sanitized))
+        // Liveness filter: the search backend is a language model asked to act as a search engine,
+        // so a fraction of the URLs it returns do not exist. Probe each one and keep only those that
+        // resolve — the model must never receive (and then cite) a dead URL. `droppedUnreachable`
+        // records how many were removed so a thin result set is not mistaken for "nothing found".
+        let (live, droppedUnreachable) = await filterReachable(sanitized)
+        guard !live.isEmpty else {
+            return Self.failure("""
+            Web search for \"\(query)\" found \(sanitized.count) candidate\(sanitized.count == 1 ? "" : "s"), \
+            but none were reachable (every URL failed a liveness check — the search backend likely \
+            returned URLs that do not exist). Rephrase the query, or open the browser pane with \
+            host.browser.open for an interactive search. Do NOT cite a URL you could not open.
+            """)
+        }
+
+        return ToolResult(ok: true, stdout: Self.render(
+            query: query,
+            results: live,
+            droppedUnreachable: droppedUnreachable
+        ))
+    }
+
+    /// Drops results whose URL does not resolve, preserving the original ranking of the survivors.
+    /// Returns the live results and how many were dropped. With no injected checker, everything
+    /// passes through unchanged (`0` dropped) — the pre-liveness behavior.
+    func filterReachable(
+        _ results: [WebSearchResultItem]
+    ) async -> (live: [WebSearchResultItem], dropped: Int) {
+        guard let livenessChecker else { return (results, 0) }
+        let liveURLs = await livenessChecker.liveURLs(among: results.map(\.url))
+        let live = results.filter { liveURLs.contains($0.url) }
+        return (live, results.count - live.count)
     }
 
     // MARK: - Input normalization
@@ -139,9 +177,12 @@ public struct WebSearchToolExecutor: Sendable {
 
     // MARK: - Rendering
 
-    static func render(query: String, results: [WebSearchResultItem]) -> String {
+    static func render(query: String, results: [WebSearchResultItem], droppedUnreachable: Int = 0) -> String {
         var lines: [String] = []
         lines.append("Search results for \"\(query)\" (\(results.count) result\(results.count == 1 ? "" : "s")). Use host.web.fetch on a URL to read the full page.")
+        if droppedUnreachable > 0 {
+            lines.append("(\(droppedUnreachable) other candidate URL\(droppedUnreachable == 1 ? " was" : "s were") dropped as unreachable — only URLs that resolved are listed. Cite only these.)")
+        }
         lines.append("")
         for (index, result) in results.enumerated() {
             lines.append("\(index + 1). \(result.title)")

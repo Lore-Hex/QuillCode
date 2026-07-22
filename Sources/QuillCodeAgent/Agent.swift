@@ -50,6 +50,11 @@ public struct AgentRunner: Sendable {
     /// a first-class runner dependency — rather than folded into `toolExecutionOverride` — so both
     /// the CLI and desktop wire it through one place and `configuredRunner(from:)` preserves it.
     public var webSearch: (any WebSearchClient)?
+    /// Probes `host.web.search` result URLs and drops the ones that don't resolve before the model
+    /// sees them. Set by the live runtime (a `WebFetchURLLivenessChecker`); nil in mock/test runs,
+    /// where results pass through unfiltered. This is what stops the LLM-as-search-engine backend
+    /// from surfacing hallucinated 404 URLs the model would otherwise fetch and cite.
+    public var webSearchLivenessChecker: (any WebSearchURLLivenessChecking)?
     public var maxToolSteps: Int
     public var enablesImmediateActionPreflight: Bool
     /// Computes an opaque signature of the workspace state, sampled around tool steps to feed the
@@ -87,6 +92,7 @@ public struct AgentRunner: Sendable {
         toolFeedbackAttachmentProvider: AgentToolFeedbackAttachmentProvider? = nil,
         skillResolver: SkillResolver? = nil,
         webSearch: (any WebSearchClient)? = nil,
+        webSearchLivenessChecker: (any WebSearchURLLivenessChecking)? = nil,
         maxToolSteps: Int = AgentRunner.defaultMaxToolSteps,
         enablesImmediateActionPreflight: Bool = false,
         workspaceStateSignature: (@Sendable (URL) -> String)? = nil,
@@ -110,6 +116,7 @@ public struct AgentRunner: Sendable {
         self.toolFeedbackAttachmentProvider = toolFeedbackAttachmentProvider
         self.skillResolver = skillResolver
         self.webSearch = webSearch
+        self.webSearchLivenessChecker = webSearchLivenessChecker
         self.maxToolSteps = maxToolSteps
         self.enablesImmediateActionPreflight = enablesImmediateActionPreflight
         self.workspaceStateSignature = workspaceStateSignature

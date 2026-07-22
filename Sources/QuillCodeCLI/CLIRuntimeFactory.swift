@@ -80,6 +80,7 @@ public enum CLIRuntimeFactory {
                 llm: llm,
                 safety: AutoSafetyReviewer(client: safety),
                 webSearch: webSearch,
+                webSearchLivenessChecker: WebFetchURLLivenessChecker(),
                 maxToolSteps: appConfig.maxToolSteps,
                 enablesImmediateActionPreflight: true,
                 compaction: AgentCompactionPolicy(compactor: ThreadCompactor.llmBacked(
