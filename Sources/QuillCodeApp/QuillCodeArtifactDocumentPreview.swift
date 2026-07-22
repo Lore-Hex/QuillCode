@@ -89,6 +89,8 @@ struct QuillCodeArtifactDocumentPreview: View {
             npmAuditJSONContent(npmAuditJSONPreview)
         } else if let cargoAuditJSONPreview = artifact.cargoAuditJSONPreview {
             cargoAuditJSONContent(cargoAuditJSONPreview)
+        } else if let pipAuditJSONPreview = artifact.pipAuditJSONPreview {
+            pipAuditJSONContent(pipAuditJSONPreview)
         } else if let eslintJSONPreview = artifact.eslintJSONPreview {
             eslintJSONContent(eslintJSONPreview)
         } else if let stylelintJSONPreview = artifact.stylelintJSONPreview {
@@ -747,6 +749,23 @@ struct QuillCodeArtifactDocumentPreview: View {
             metadataPills(cargoAuditJSONPreview.metadataLines)
             artifactContentList(title: "Packages", labels: cargoAuditJSONPreview.packagePreviewLabels)
             artifactContentList(title: "Advisories", labels: cargoAuditJSONPreview.advisoryPreviewLabels)
+        }
+    }
+
+    private func pipAuditJSONContent(_ pipAuditJSONPreview: ToolArtifactPipAuditJSONPreview) -> some View {
+        let hasLists = !pipAuditJSONPreview.packagePreviewLabels.isEmpty
+            || !pipAuditJSONPreview.vulnerabilityPreviewLabels.isEmpty
+        return previewSurface(minHeight: hasLists ? 154 : 92) {
+            header(
+                thumbnail: {
+                    iconThumbnail(width: 44, height: 52, systemImage: preview?.systemImage ?? "shield.lefthalf.filled")
+                },
+                title: artifact.label,
+                subtitle: preview?.detail ?? artifact.detail
+            )
+            metadataPills(pipAuditJSONPreview.metadataLines)
+            artifactContentList(title: "Packages", labels: pipAuditJSONPreview.packagePreviewLabels)
+            artifactContentList(title: "Vulnerabilities", labels: pipAuditJSONPreview.vulnerabilityPreviewLabels)
         }
     }
 

@@ -2275,6 +2275,58 @@ public struct ToolArtifactCargoAuditJSONPreview: Codable, Sendable, Hashable {
     }
 }
 
+public struct ToolArtifactPipAuditJSONPreview: Codable, Sendable, Hashable {
+    public var formatLabel: String
+    public var dependencyCount: Int
+    public var vulnerablePackageCount: Int
+    public var vulnerabilityCount: Int
+    public var fixableVulnerabilityCount: Int
+    public var byteSizeLabel: String?
+    public var packagePreviewLabels: [String]
+    public var vulnerabilityPreviewLabels: [String]
+
+    public var metadataLines: [String] {
+        [
+            "Format: \(formatLabel)",
+            "\(dependencyCount) dependenc\(dependencyCount == 1 ? "y" : "ies")",
+            "\(vulnerablePackageCount) vulnerable package\(vulnerablePackageCount == 1 ? "" : "s")",
+            "\(vulnerabilityCount) vulnerabilit\(vulnerabilityCount == 1 ? "y" : "ies")",
+            fixableVulnerabilityCount > 0 ? "Fixable: \(fixableVulnerabilityCount)" : nil,
+            byteSizeLabel.map { "Size: \($0)" }
+        ].compactMap { $0 }
+    }
+
+    public var hasDisplayContent: Bool {
+        dependencyCount > 0
+            || vulnerablePackageCount > 0
+            || vulnerabilityCount > 0
+            || fixableVulnerabilityCount > 0
+            || byteSizeLabel != nil
+            || !packagePreviewLabels.isEmpty
+            || !vulnerabilityPreviewLabels.isEmpty
+    }
+
+    public init(
+        formatLabel: String = "pip-audit JSON",
+        dependencyCount: Int,
+        vulnerablePackageCount: Int,
+        vulnerabilityCount: Int,
+        fixableVulnerabilityCount: Int = 0,
+        byteSizeLabel: String? = nil,
+        packagePreviewLabels: [String] = [],
+        vulnerabilityPreviewLabels: [String] = []
+    ) {
+        self.formatLabel = formatLabel
+        self.dependencyCount = dependencyCount
+        self.vulnerablePackageCount = vulnerablePackageCount
+        self.vulnerabilityCount = vulnerabilityCount
+        self.fixableVulnerabilityCount = fixableVulnerabilityCount
+        self.byteSizeLabel = byteSizeLabel
+        self.packagePreviewLabels = packagePreviewLabels
+        self.vulnerabilityPreviewLabels = vulnerabilityPreviewLabels
+    }
+}
+
 public struct ToolArtifactESLintJSONPreview: Codable, Sendable, Hashable {
     public var formatLabel: String
     public var fileCount: Int
@@ -5284,7 +5336,8 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               benchmarkDotNetJSONPreview == nil,
               hyperfineJSONPreview == nil,
               npmAuditJSONPreview == nil,
-              cargoAuditJSONPreview == nil
+              cargoAuditJSONPreview == nil,
+              pipAuditJSONPreview == nil
         else { return nil }
         return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
     }
@@ -5377,6 +5430,9 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     }
     public var cargoAuditJSONPreview: ToolArtifactCargoAuditJSONPreview? {
         ToolArtifactCargoAuditJSONPreviewBuilder.cargoAuditJSONPreview(for: value, kind: kind)
+    }
+    public var pipAuditJSONPreview: ToolArtifactPipAuditJSONPreview? {
+        ToolArtifactPipAuditJSONPreviewBuilder.pipAuditJSONPreview(for: value, kind: kind)
     }
     public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
         ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)

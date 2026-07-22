@@ -3515,6 +3515,89 @@ final class QuillCodeToolCardSurfaceTests: XCTestCase {
         XCTAssertNil(remoteAudit.cargoAuditJSONPreview)
     }
 
+    func testArtifactStateDerivesPipAuditJSONPreviewMetadata() throws {
+        let directory = try makeQuillCodeTestDirectory()
+        let report = directory.appendingPathComponent("pip-audit.json")
+        let content = """
+        {
+          "dependencies": [
+            {
+              "name": "flask",
+              "version": "0.5",
+              "vulns": [
+                {
+                  "id": "PYSEC-2019-179",
+                  "fix_versions": ["1.0"],
+                  "aliases": ["CVE-2018-1000656"],
+                  "description": "Unexpected memory usage."
+                },
+                {
+                  "id": "PYSEC-2018-66",
+                  "fix_versions": ["0.12.3"],
+                  "aliases": ["CVE-2019-1010083"],
+                  "description": "Improper input validation."
+                }
+              ]
+            },
+            {
+              "name": "requests",
+              "version": "2.19.0",
+              "vulns": [
+                {
+                  "id": "PYSEC-2018-28",
+                  "fix_versions": [],
+                  "aliases": ["CVE-2018-18074"]
+                }
+              ]
+            },
+            {
+              "name": "safe-package",
+              "version": "1.2.3",
+              "vulns": []
+            }
+          ]
+        }
+        """
+        try content.write(to: report, atomically: true, encoding: .utf8)
+
+        let artifact = ToolArtifactState(value: report.path)
+        let preview = try XCTUnwrap(artifact.pipAuditJSONPreview)
+
+        XCTAssertEqual(artifact.documentPreview?.kind, .data)
+        XCTAssertEqual(artifact.documentPreview?.extensionLabel, "JSON")
+        XCTAssertEqual(preview.formatLabel, "pip-audit JSON")
+        XCTAssertEqual(preview.dependencyCount, 3)
+        XCTAssertEqual(preview.vulnerablePackageCount, 2)
+        XCTAssertEqual(preview.vulnerabilityCount, 3)
+        XCTAssertEqual(preview.fixableVulnerabilityCount, 2)
+        XCTAssertEqual(preview.packagePreviewLabels, [
+            "flask 0.5 · 2 vulnerabilities",
+            "requests 2.19.0 · 1 vulnerability"
+        ])
+        XCTAssertEqual(preview.vulnerabilityPreviewLabels, [
+            "PYSEC-2019-179 · CVE-2018-1000656 · fixed in 1.0",
+            "PYSEC-2018-66 · CVE-2019-1010083 · fixed in 0.12.3",
+            "PYSEC-2018-28 · CVE-2018-18074"
+        ])
+        XCTAssertEqual(preview.byteSizeLabel, "\(content.utf8.count) bytes")
+        XCTAssertEqual(preview.metadataLines, [
+            "Format: pip-audit JSON",
+            "3 dependencies",
+            "2 vulnerable packages",
+            "3 vulnerabilities",
+            "Fixable: 2",
+            "Size: \(content.utf8.count) bytes"
+        ])
+        XCTAssertNil(artifact.jsonPreview)
+
+        let generic = directory.appendingPathComponent("dependencies.json")
+        try #"{"dependencies":[{"name":"flask","version":"0.5"}]}"#.write(to: generic, atomically: true, encoding: .utf8)
+        XCTAssertNil(ToolArtifactState(value: generic.path).pipAuditJSONPreview)
+
+        let remoteAudit = ToolArtifactState(value: "https://example.com/pip-audit.json")
+        XCTAssertNil(remoteAudit.pipAuditJSONPreview)
+    }
+
     func testArtifactStateDerivesESLintJSONPreviewMetadata() throws {
         let directory = try makeQuillCodeTestDirectory()
         let report = directory.appendingPathComponent("eslint-results.json")
