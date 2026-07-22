@@ -3,6 +3,7 @@ import QuillCodeAgent
 import QuillCodeCore
 import QuillCodePersistence
 import QuillCodeSafety
+import QuillCodeTools
 
 #if canImport(FoundationNetworking)
 import FoundationNetworking
@@ -131,6 +132,7 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 llm: llm,
                 safety: AutoSafetyReviewer(client: safetyClient),
                 webSearch: webSearch,
+                webSearchLivenessChecker: WebFetchURLLivenessChecker(),
                 maxToolSteps: config.maxToolSteps,
                 enablesImmediateActionPreflight: true,
                 compaction: AgentCompactionPolicy(compactor: compactor)

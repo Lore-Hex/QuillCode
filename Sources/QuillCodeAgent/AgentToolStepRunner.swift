@@ -385,7 +385,7 @@ extension AgentRunner {
         do {
             let args = try ToolArguments(call.argumentsJSON)
             let query = try args.requiredString("query")
-            return await WebSearchToolExecutor(client: webSearch)
+            return await WebSearchToolExecutor(client: webSearch, livenessChecker: webSearchLivenessChecker)
                 .search(query: query, maxResults: args.int("maxResults"))
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
