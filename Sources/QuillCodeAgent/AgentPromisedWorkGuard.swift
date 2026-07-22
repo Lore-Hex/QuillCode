@@ -4,7 +4,7 @@ import QuillCodeCore
 enum AgentPromisedWorkGuard {
     static func shouldRequestCorrection(for assistantText: String, tools: [ToolDefinition]) -> Bool {
         guard !tools.isEmpty else { return false }
-        return promisesExecutableWork(assistantText)
+        return promisesExecutableWork(assistantText) || endsWithUnfinishedNarration(assistantText)
     }
 
     static func shouldSuppressStreamingPreview(for assistantText: String) -> Bool {
@@ -36,6 +36,60 @@ enum AgentPromisedWorkGuard {
         guard canContainActionablePromise(normalized) else { return false }
 
         return containsFutureWorkPhrase(in: normalized)
+    }
+
+    // MARK: - Trailing-off narration (structural, no first-person phrase required)
+
+    /// A say that STOPS mid-narration — the live trailing-off failure driving coworker tasks: the
+    /// model narrates "Step 1: … (done) … Step 2: … (content) …" and then ends its turn on a bare
+    /// "**Step 3: Setting up virtualenv with uv**" heading — no content, no tool call. No "I'll…"
+    /// phrase appears, so the promise lexicon misses it; the STRUCTURE is the signal. Two
+    /// high-precision shapes:
+    ///
+    /// 1. The message's last non-empty line is a step-heading ("Step N: …") and an EARLIER
+    ///    step-heading exists — mid-way truncation of a numbered walkthrough. (The prior-step
+    ///    requirement keeps a one-line "Step 1: do X" answer from firing.)
+    /// 2. The last non-empty line ends with a colon — a lead-in ("Next steps:") whose promised
+    ///    content never arrived.
+    ///
+    /// Streaming previews deliberately do NOT use this check (a mid-stream text always ends
+    /// mid-something); it only judges the COMPLETE say via `shouldRequestCorrection`.
+    static func endsWithUnfinishedNarration(_ text: String) -> Bool {
+        let lines = text
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard let last = lines.last else { return false }
+        let stripped = strippedMarkdownDecoration(last)
+
+        if isStepHeading(stripped) {
+            let hasEarlierStep = lines.dropLast().contains { isStepHeading(strippedMarkdownDecoration($0)) }
+            if hasEarlierStep { return true }
+        }
+        if stripped.hasSuffix(":") && stripped.count >= 4 {
+            return true
+        }
+        return false
+    }
+
+    /// Strips the markdown decoration a heading line wears (`**Step 3: …**`, `### Step 3`) without
+    /// touching interior punctuation.
+    private static func strippedMarkdownDecoration(_ line: String) -> String {
+        var slice = Substring(line)
+        while let first = slice.first, first == "#" || first == "*" || first == "_" || first == " " {
+            slice = slice.dropFirst()
+        }
+        while let lastCharacter = slice.last,
+              lastCharacter == "*" || lastCharacter == "_" || lastCharacter == " " {
+            slice = slice.dropLast()
+        }
+        return String(slice)
+    }
+
+    private static func isStepHeading(_ line: String) -> Bool {
+        let lowered = line.lowercased()
+        guard lowered.hasPrefix("step ") else { return false }
+        return lowered.dropFirst("step ".count).first?.isNumber == true
     }
 
     private static func normalizedText(_ text: String) -> String {

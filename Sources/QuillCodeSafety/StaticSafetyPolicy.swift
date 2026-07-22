@@ -29,6 +29,44 @@ struct StaticSafetyPolicy: Sendable {
         return rule.rationale
     }
 
+    /// Workspace-clamped file mutations approve statically in AUTO mode — the Codex semantics the
+    /// mode promises: the user chose auto, the executors clamp these paths inside the workspace
+    /// (symlink-hardened), and the revert-turn engine can undo them. Gating them behind fuzzy
+    /// intent matching + the model reviewer meant every drafting/fixing task died at its first
+    /// write whenever the reviewer was unavailable (observed live: a PRD draft and an ops fix both
+    /// stopped at "does not clearly match" on a perfectly-matching write). Two carve-outs:
+    /// - MCP calls, plugin installs, and shell keep their gates (external reach / irreversibility);
+    /// - an explicitly NEGATED write ("don't apply this patch", "do not modify anything") is never
+    ///   statically approved — the user just said no.
+    static let workspaceBoundedMutationTools: Set<String> = [
+        "host.file.write",
+        "host.apply_patch",
+    ]
+
+    private static let negatableWriteVerbs = [
+        "apply", "write", "change", "modify", "edit", "patch", "touch", "overwrite",
+        "create", "update", "convert", "add", "rename",
+    ]
+
+    func allowsAutoWorkspaceMutation(_ context: SafetyContext) -> Bool {
+        guard Self.workspaceBoundedMutationTools.contains(context.toolCall.name) else { return false }
+        let request = StaticSafetyRequest(context.userMessage)
+        // Scoped negations must not disable editing altogether: "convert the Requirements section…
+        // do NOT change the Risks section" negates ONE object while affirming the edit — the most
+        // natural feedback phrasing there is (observed live: it sent a matching apply_patch to the
+        // flaky model reviewer and killed the run). Approval is withdrawn only when write verbs
+        // appear EXCLUSIVELY negated ("don't apply this patch") — any affirmed write verb keeps the
+        // static approval.
+        let affirmedWrite = Self.negatableWriteVerbs.contains { verb in
+            request.containsAffirmedAny([verb])
+        }
+        if affirmedWrite { return true }
+        let negatedWrite = Self.negatableWriteVerbs.contains { verb in
+            request.containsToken(verb)
+        }
+        return !negatedWrite
+    }
+
     func userIntentMatches(_ context: SafetyContext) -> Bool {
         let request = StaticSafetyRequest(context.userMessage)
         let toolName = context.toolCall.name
@@ -54,6 +92,16 @@ struct StaticSafetyPolicy: Sendable {
         if intentRules.contains(where: { $0.matches(request: request) && $0.allows(toolName: toolName) }) {
             return true
         }
+        // A URL the user TYPED THEMSELVES is the strongest intent signal there is: a command
+        // operating on exactly that URL ("clone https://github.com/x/y", "curl <url the user
+        // pasted>") plainly matches the request. Without this, a chained-prose task ("Clone
+        // https://… , then list …, then …") matched no static rule, the model reviewer became the
+        // only approver, and a transient reviewer failure turned into a dead headless run at the
+        // very first tool call. Hard-deny floors run BEFORE intent in auto mode, so
+        // pipe-to-shell and friends stay blocked regardless.
+        if userTypedURLMatches(context) {
+            return true
+        }
         if toolName.contains("computer"),
            request.containsAffirmedAny(StaticSafetyPolicy.computerUseTriggers) {
             return true
@@ -63,6 +111,31 @@ struct StaticSafetyPolicy: Sendable {
         }
         return request.significantWords.contains { word in
             context.toolCall.argumentsJSON.lowercased().contains(word)
+        }
+    }
+
+    /// Whether every http(s) URL in the tool's arguments is absent — or, positively: whether at
+    /// least one URL the command operates on appears VERBATIM in the user's message. Compared
+    /// case-insensitively with trailing punctuation trimmed (a prompt's "…python-dotenv." still
+    /// vouches for the bare URL).
+    private func userTypedURLMatches(_ context: SafetyContext) -> Bool {
+        let arguments = Self.decodedArgumentText(context.toolCall.argumentsJSON)
+            ?? context.toolCall.argumentsJSON.replacingOccurrences(of: "\\/", with: "/")
+        let urls = Self.httpURLs(in: arguments)
+        guard !urls.isEmpty else { return false }
+        let message = context.userMessage.lowercased()
+        return urls.contains { message.contains($0) }
+    }
+
+    /// Lowercased http(s) URLs found in `text`, trailing sentence punctuation trimmed.
+    static func httpURLs(in text: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: #"https?://[^\s"'`<>]+"#) else { return [] }
+        let ns = text as NSString
+        let full = NSRange(location: 0, length: ns.length)
+        return regex.matches(in: text, range: full).map { match in
+            var url = ns.substring(with: match.range).lowercased()
+            while let last = url.last, ".,;:!?)".contains(last) { url.removeLast() }
+            return url
         }
     }
 
