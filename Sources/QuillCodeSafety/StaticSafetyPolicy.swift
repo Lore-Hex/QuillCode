@@ -45,6 +45,9 @@ struct StaticSafetyPolicy: Sendable {
         if StaticSafetyReadOnlyShellPolicy.intentMatches(request: request, context: context) {
             return true
         }
+        if StaticSafetyBuildRunShellPolicy.intentMatches(request: request, context: context) {
+            return true
+        }
         if intentRules.contains(where: { $0.matches(request: request) && $0.allows(toolName: toolName) }) {
             return true
         }
