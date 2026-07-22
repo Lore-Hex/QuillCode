@@ -86,6 +86,9 @@ struct StaticSafetyPolicy: Sendable {
         if StaticSafetyBuildRunShellPolicy.intentMatches(request: request, context: context) {
             return true
         }
+        if StaticSafetyRunIntentShellPolicy.intentMatches(request: request, context: context) {
+            return true
+        }
         if intentRules.contains(where: { $0.matches(request: request) && $0.allows(toolName: toolName) }) {
             return true
         }
@@ -268,10 +271,12 @@ struct StaticSafetyPolicy: Sendable {
     ]
 
     private static let defaultIntentRules: [StaticSafetyIntentRule] = [
-        .init(
-            requestTriggers: ["run", "execute"],
-            allowedToolNames: ["shell.run"]
-        ),
+        // NOTE: the blanket ["run","execute"] -> shell.run rule that used to sit here was removed.
+        // A declarative rule can only see request words + tool name, so it approved ANY shell
+        // command whenever "run"/"execute" appeared in the request (network exfil, absolute-path
+        // reads, download-to-file all slipped past the hard-deny floors). Shell approval for an
+        // explicit run/execute intent is now content-aware — see StaticSafetyRunIntentShellPolicy,
+        // wired into userIntentMatches below.
         .init(
             requestTriggers: ["mcp"],
             allowedToolNames: ["mcp.call"]
@@ -289,8 +294,13 @@ struct StaticSafetyPolicy: Sendable {
             allowedToolNames: ["apply_patch"]
         ),
         .init(
+            // "shell" was removed here for the same reason the run/execute rule was: "make sure",
+            // "create", "write" are common words that blanket-approved ANY shell command (the live
+            // task message "Run the tests and make sure they pass" tripped this via "make").
+            // Runner commands under a make/create/write intent still approve via
+            // StaticSafetyBuildRunShellPolicy; other shell commands fall through to the reviewer.
             requestTriggers: ["make", "create", "write"],
-            allowedToolNames: ["file", "shell", "git.worktree"]
+            allowedToolNames: ["file", "git.worktree"]
         ),
         .init(
             requestTriggers: ["commit"],

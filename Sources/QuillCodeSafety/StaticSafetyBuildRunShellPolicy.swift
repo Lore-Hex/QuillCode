@@ -47,10 +47,9 @@ enum StaticSafetyBuildRunShellPolicy {
         try? ToolArguments(call.argumentsJSON).requiredString("cmd")
     }
 
-    /// No shell metacharacters that chain, redirect, substitute, or background. Matches the read-only
-    /// policy's guard plus `&` (backgrounding) — a single foreground invocation only.
+    /// A single foreground command — shared with the run-intent policy.
     private static func isSingleCommand(_ command: String) -> Bool {
-        [";", "&&", "||", "|", "`", "$(", ">", "<", "&", "\n"].allSatisfy { !command.contains($0) }
+        StaticSafetyShellCommandSafety.isSingleCommand(command)
     }
 
     /// The basename of the executable must be a known build/test/run tool. `./gradlew`, `/usr/bin/python3`,
@@ -77,11 +76,10 @@ enum StaticSafetyBuildRunShellPolicy {
     ]
 
     private static func isSafeRunArgument(_ argument: String) -> Bool {
-        if argument.hasPrefix("/") { return false }         // absolute path — could reach outside workspace
-        if argument.hasPrefix("~") { return false }         // home path — outside workspace
-        if argument.contains("..") { return false }         // traversal
-        if inlineEvalFlags.contains(argument) { return false } // arbitrary inline code, not a project file
-        return true
+        // Shared workspace-path safety (no absolute / `~` / `..`) plus a runner-specific rule:
+        // reject inline-eval flags — `python -c "..."` runs code, it does not verify a project file.
+        guard StaticSafetyShellCommandSafety.isSafeArgument(argument) else { return false }
+        return !inlineEvalFlags.contains(argument)
     }
 
     /// Interpreter flags that execute code supplied on the command line instead of running a project
