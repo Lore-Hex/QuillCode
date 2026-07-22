@@ -91,6 +91,15 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
         let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
         try paths.ensure()
         RuntimeFactoryCatalogURLProtocol.handler = { request in
+            // The keyless fetch now prefers the control-plane JSON catalog (full capability
+            // metadata); the HTML page remains the scrape fallback. Fail the JSON endpoint here so
+            // this test keeps exercising the scrape path end-to-end.
+            if request.url?.absoluteString == "https://trustedrouter.com/v1/models" {
+                return (
+                    HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"error":"unavailable"}"#.utf8)
+                )
+            }
             XCTAssertEqual(request.url?.absoluteString, "https://trustedrouter.com/models")
             return (
                 HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
