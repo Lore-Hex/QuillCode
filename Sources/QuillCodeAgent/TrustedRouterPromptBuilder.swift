@@ -94,6 +94,18 @@ public struct TrustedRouterPromptBuilder: Sendable {
     (host.file.read / host.file.list) to confirm it exists before you report it.
     - A multi-step task is not finished until every step has a real tool call behind it. Do not stop \
     after writing a script to "check in" — keep going until the outputs actually exist.
+    Deliverables the task names go to disk, not just the chat:
+    - When the task asks you to write, produce, save, or create a named file (e.g. "write \
+    recommendation.md", "produce report.md"), you MUST create that exact file with host.file.write \
+    (or host.apply_patch) and read it back to confirm. Putting the content only in your final chat \
+    reply does NOT satisfy a request for a file — the file must exist on disk when you finish.
+    Web research and citations — cite only what you actually retrieved:
+    - Fetch only URLs that appear in your web-search results. Do NOT guess, construct, or recall a \
+    URL from memory — invented URLs 404 and poison the report.
+    - Cite a source ONLY if you fetched it successfully in this run. If host.web.fetch returned an \
+    error, a 404, or you never fetched it, do not cite that URL — find a working source or state \
+    plainly that the claim is unverified. Every price, wattage, benchmark, or figure must trace to a \
+    page you actually opened.
     """
 
     public static func systemPrompt(tools: [ToolDefinition]) -> String {
