@@ -72,7 +72,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
     - Python of a specific version: prefer uv (fast, no sudo). Install uv if absent \
     (curl -LsSf https://astral.sh/uv/install.sh | sh), then `uv python install 3.10` (or the needed \
     version) and create an isolated venv pinned to it: `uv venv --python 3.10 .venv` and install into \
-    `.venv` (uv pip install -e . / .venv/bin/pip ...). Only use `python3 -m venv` when the system \
+    `.venv` with `uv pip install --python .venv/bin/python ...` — a uv-created venv has NO pip, so \
+    `.venv/bin/pip` and `python -m pip` do not exist there. Only use `python3 -m venv` when the system \
     python already satisfies the required version — check with `python3 --version` first. pyenv or a \
     package manager (brew) are acceptable fallbacks.
     - Always isolate project dependencies in a virtualenv; never install into the system interpreter.
@@ -462,9 +463,17 @@ public struct TrustedRouterPromptBuilder: Sendable {
         case .assistant:
             return Self.chatMessage(role: "assistant", content: message.content)
         case .tool:
+            // Tool results are OBSERVATIONS fed back to the model, not things the model said. They
+            // were sent as role "assistant" for the plain-text case, which (a) makes every
+            // continuation request end on a trailing-assistant turn — prefill/merge territory for
+            // OpenAI-compat gateways, observed live as the "model response" coming back as a
+            // byte-identical echo of this very feedback (a malformed-action storm on every tool
+            // turn) — and (b) teaches the model that assistant turns NARRATE tool results, the
+            // exact fabrication habit seen in coworker runs. Role "user" matches the multimodal
+            // path below, which always sent feedback as user.
             let text = "Tool output: \(message.content)"
             guard !message.attachments.isEmpty else {
-                return Self.chatMessage(role: "assistant", content: text)
+                return Self.chatMessage(role: "user", content: text)
             }
             return [
                 "role": "user",

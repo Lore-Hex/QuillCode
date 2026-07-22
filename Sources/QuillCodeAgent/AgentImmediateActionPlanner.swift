@@ -6,6 +6,12 @@ enum AgentImmediateActionPlanner {
     static func action(for userMessage: String, tools: [ToolDefinition]) -> AgentAction? {
         let request = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !request.isEmpty else { return nil }
+        // The preflight exists for TERSE single commands ("run whoami", "list files in src") where
+        // skipping a model round-trip is pure win. A multi-step task prompt is model territory:
+        // parsing one clause out of "(1) clone … (2) list the repository's top-level directory …"
+        // hijacked the whole run with `host.file.list {"path": "order"}` (the word after "in" in
+        // "do these in order") and the task never reached the model. Enumerated steps → no preflight.
+        guard !isMultiStepTaskPrompt(request) else { return nil }
 
         for segment in AgentActionIntentSegments.actionableSegments(in: request) {
             if let action = action(forSegment: segment, tools: tools) {
@@ -13,6 +19,75 @@ enum AgentImmediateActionPlanner {
             }
         }
         return nil
+    }
+
+    /// Whether the message reads as a multi-step task rather than a terse command. Four signals,
+    /// each learned from a live hijack:
+    /// - two or more enumerated step markers (`(1) …`, `1. …`, `1) …`);
+    /// - two or more " then " connectors ("clone X, then list Y, then read Z");
+    /// - an " and <action verb>" continuation ("Read notes.md AND TURN it into a PRD…" — the
+    ///   preflight answered the read and ended the run with the task untouched);
+    /// - sheer length: nobody types a 200-character message to run one terse command, and every
+    ///   hijacked prompt was long. The cap ends the class the marker heuristics can't enumerate.
+    /// A single "(1)" citation, "run tests then commit", or "list files and folders" never matches.
+    static func isMultiStepTaskPrompt(_ request: String) -> Bool {
+        if request.count > terseCommandCharacterLimit { return true }
+        if enumeratedStepMarkerCount(in: request) >= 2 { return true }
+        let lower = request.lowercased()
+        if thenConnectorCount(in: lower) >= 2 { return true }
+        return containsAndActionContinuation(in: lower)
+    }
+
+    /// Terse one-shot commands ("run whoami", "list files in src", "download https://…") fit well
+    /// under this; multi-clause task prompts do not.
+    static let terseCommandCharacterLimit = 180
+
+    private static func containsAndActionContinuation(in lower: String) -> Bool {
+        var searchStart = lower.startIndex
+        while let range = lower.range(of: " and ", range: searchStart..<lower.endIndex) {
+            searchStart = range.upperBound
+            let following = lower[range.upperBound...]
+            let nextWord = following
+                .split(whereSeparator: { !$0.isLetter })
+                .first
+                .map(String.init) ?? ""
+            if Self.continuationActionVerbs.contains(nextWord) { return true }
+        }
+        return false
+    }
+
+    /// Verbs that, after " and ", signal a SECOND requested action (not a noun list like
+    /// "files and folders"). Result-presentation verbs ("and report the output", "and tell me its
+    /// content") are deliberately absent: they ask for the FIRST action's result, which the
+    /// immediate answer already provides.
+    private static let continuationActionVerbs: Set<String> = [
+        "turn", "write", "create", "make", "run", "fix", "update", "summarize",
+        "produce", "generate", "draft", "convert", "then", "read", "list",
+        "delete", "rename", "move", "install", "build", "test", "commit", "push", "open",
+    ]
+
+    private static func thenConnectorCount(in lower: String) -> Int {
+        var count = 0
+        var searchStart = lower.startIndex
+        while let range = lower.range(of: " then ", range: searchStart..<lower.endIndex) {
+            count += 1
+            searchStart = range.upperBound
+        }
+        return count
+    }
+
+    private static func enumeratedStepMarkerCount(in request: String) -> Int {
+        let patterns = [
+            #"\(\d{1,2}\)\s"#,       // (1) clone …
+            #"(?m)^\s*\d{1,2}[.)]\s"# // 1. clone … / 2) list …
+        ]
+        var count = 0
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            let range = NSRange(request.startIndex..<request.endIndex, in: request)
+            count += regex.numberOfMatches(in: request, range: range)
+        }
+        return count
     }
 
     private static func action(forSegment request: String, tools: [ToolDefinition]) -> AgentAction? {
