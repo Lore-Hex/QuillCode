@@ -174,6 +174,14 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
                     Data(#"{"error":{"message":"route not found"}}"#.utf8)
                 )
             }
+            // The control-plane JSON endpoint is tried before the HTML page; failing it here
+            // exercises the full chain down to the scrape.
+            if request.url?.absoluteString == "https://trustedrouter.com/v1/models" {
+                return (
+                    HTTPURLResponse(url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"error":"unavailable"}"#.utf8)
+                )
+            }
             XCTAssertEqual(request.url?.absoluteString, "https://trustedrouter.com/models")
             return (
                 HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
@@ -251,6 +259,82 @@ final class TrustedRouterModelCatalogTests: XCTestCase {
             catalog.models.prefix(TrustedRouterDefaults.recommendedModelIDs.count).map(\.id),
             TrustedRouterDefaults.recommendedModelIDs
         )
+    }
+
+    /// The live failure end-to-end: the attested inference plane 404s `/models`, and the
+    /// control-plane JSON catalog (which the fetch now tries before the HTML scrape) serves the
+    /// full catalog with nested privacy tiers — so a confidential chat finally sees tier-3 models.
+    func testCatalogFetchFallsBackToControlPlaneJSONWithPrivacyTiers() async throws {
+        ModelCatalogURLProtocol.handler = { request in
+            if request.url?.host == "api.trustedrouter.test" {
+                return (
+                    HTTPURLResponse(url: request.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!,
+                    Data(#"{"error":{"message":"route not found","source":"router","status":404}}"#.utf8)
+                )
+            }
+            XCTAssertEqual(request.url?.absoluteString, "https://trustedrouter.com/v1/models")
+            return (
+                HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
+                Data(#"""
+                {"data":[
+                  {"id":"trustedrouter/socrates","name":"Socrates",
+                   "trustedrouter":{"provider":"trustedrouter","privacy_tier":3}},
+                  {"id":"z-ai/glm-4.5","name":"GLM 4.5",
+                   "trustedrouter":{"provider":"zai","privacy_tier":0}}
+                ]}
+                """#.utf8)
+            )
+        }
+        let client = TrustedRouterModelCatalogClient(
+            apiKey: "sk-test",
+            baseURL: "https://api.trustedrouter.test/v1",
+            urlSession: ModelCatalogURLProtocol.session()
+        )
+
+        let catalog = try await client.fetch()
+
+        XCTAssertEqual(catalog.status.source, .publicTrustedRouter)
+        XCTAssertTrue(catalog.status.failureMessage?.contains("Authenticated JSON catalog failed") == true)
+        XCTAssertTrue(TrustedRouterDefaults.isE2EEligible("trustedrouter/socrates", catalog: catalog.models))
+        XCTAssertFalse(TrustedRouterDefaults.isE2EEligible("z-ai/glm-4.5", catalog: catalog.models))
+    }
+
+    /// The live catalog nests `privacy_tier` under the `trustedrouter` object (the exact shape
+    /// trustedrouter.com/v1/models serves). Reading only the top level decoded every model's
+    /// privacyTier as nil, so the confidential picker never saw a tier-3 model and stayed locked
+    /// to the aggregate E2E route. Top-level spelling stays supported; absent stays nil.
+    func testPrivacyTierDecodesFromNestedTrustedRouterObject() throws {
+        let json = #"""
+        {"data":[
+          {"id":"trustedrouter/socrates","name":"Socrates",
+           "trustedrouter":{"provider":"trustedrouter","privacy_tier":3,"privacy_tier_label":"Confidential"}},
+          {"id":"z-ai/glm-4.5","name":"GLM 4.5",
+           "trustedrouter":{"provider":"zai","privacy_tier":0,"privacy_tier_label":"Standard"}},
+          {"id":"acme/top-level","name":"Top Level","privacy_tier":2},
+          {"id":"acme/no-tier","name":"No Tier"}
+        ]}
+        """#
+        let response = try JSONDecoder().decode(
+            TrustedRouterCatalogModelsResponse.self,
+            from: Data(json.utf8)
+        )
+        let byID = Dictionary(uniqueKeysWithValues: response.data.map { ($0.id, $0.capabilities.privacyTier) })
+        XCTAssertEqual(byID["trustedrouter/socrates"], 3, "nested tier must decode")
+        XCTAssertEqual(byID["z-ai/glm-4.5"], 0, "nested tier 0 must decode as 0, not nil")
+        XCTAssertEqual(byID["acme/top-level"], 2, "top-level spelling stays supported")
+        XCTAssertEqual(byID["acme/no-tier"], .some(nil), "absent tier stays nil")
+        // The whole point: a nested tier-3 model is E2E-eligible for confidential chats.
+        let infos = response.data.map {
+            ModelInfo(
+                id: $0.id,
+                provider: TrustedRouterModelCatalogClient.provider(from: $0.id),
+                displayName: $0.displayName ?? $0.id,
+                category: "Test",
+                capabilities: $0.capabilities
+            )
+        }
+        XCTAssertTrue(TrustedRouterDefaults.isE2EEligible("trustedrouter/socrates", catalog: infos))
+        XCTAssertFalse(TrustedRouterDefaults.isE2EEligible("z-ai/glm-4.5", catalog: infos))
     }
 }
 
