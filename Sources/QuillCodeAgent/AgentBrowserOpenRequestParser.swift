@@ -26,7 +26,7 @@ enum AgentBrowserOpenRequestParser {
     }
 
     private static func knownSaaSTarget(in lower: String) -> String? {
-        guard knownSaaSIntentPhrases.contains(where: { lower.contains($0) }) else { return nil }
+        guard knownSaaSNavigationPhrases.contains(where: { lower.contains($0) }) else { return nil }
         return knownSaaSTargets.first { lower.contains($0.phrase) }?.url
     }
 
@@ -89,16 +89,15 @@ enum AgentBrowserOpenRequestParser {
         "use "
     ]
 
-    private static let knownSaaSIntentPhrases = browserIntentPhrases + [
-        "find ",
-        "pull ",
-        "walk through ",
+    private static let knownSaaSNavigationPhrases = [
+        "open ",
+        "visit ",
+        "go to ",
+        "navigate to ",
         "log into ",
         "login to ",
         "sign into ",
-        "sign in to ",
-        "build ",
-        "create "
+        "sign in to "
     ]
 
     private static let downloadIntentPhrases = [

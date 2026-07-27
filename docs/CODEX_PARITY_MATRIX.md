@@ -67,10 +67,11 @@
   pull, and highlight so supported coworker requests continue into tool calls instead of future-tense
   narration. Terse browser/SaaS coworker requests with a URL or domain now preflight directly to
   `host.browser.open` with a canonical `url` argument, while download/save/fetch wording keeps the
-  existing workspace-artifact download path. Named SaaS coworker prompts without a URL now open the
-  canonical app/login surface for common catalog tools such as Salesforce, HubSpot, Google
+  existing workspace-artifact download path. Simple SaaS navigation prompts without a URL now open
+  the canonical app/login surface for common catalog tools such as Salesforce, HubSpot, Google
   Drive/Sheets, Mailchimp, Notion, Asana, Jira/Confluence, Zendesk, Concur, Google Ads, LinkedIn
-  Campaign Manager, and Google Analytics.
+  Campaign Manager, and Google Analytics, while actionful catalog workflows stay with the model loop
+  so they can continue through browser/Computer Use instead of stopping after a single open.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:

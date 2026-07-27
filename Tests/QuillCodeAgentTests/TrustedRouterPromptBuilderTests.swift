@@ -251,10 +251,12 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Treat requests to inventory, clean up, summarize"))
         XCTAssertTrue(prompt.contains("Use available file, shell, browser, Computer Use, and artifact tools immediately"))
         XCTAssertTrue(prompt.contains("ask a concise question only for a missing folder"))
+        XCTAssertTrue(prompt.contains("For named SaaS workflows without a URL"))
+        XCTAssertTrue(prompt.contains("do not stop after saying you will do it or after only opening the page"))
         XCTAssertTrue(prompt.contains("Save requested CSV, PDF, Markdown, spreadsheet, or document deliverables"))
         XCTAssertLessThan(
             TrustedRouterPromptBuilder.officeCoworkerPrompt.count,
-            650,
+            800,
             "Office coworker behavior belongs in compact routing guidance plus skills/tests, not a giant base prompt."
         )
     }

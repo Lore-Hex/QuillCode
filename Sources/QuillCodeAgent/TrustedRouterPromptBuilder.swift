@@ -32,6 +32,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
     - Use available file, shell, browser, Computer Use, and artifact tools immediately when the \
     needed inputs are present; ask a concise question only for a missing folder, file, URL, login, \
     or required business rule.
+    - For named SaaS workflows without a URL, open the named app/login surface first, then inspect \
+    and interact with it; do not stop after saying you will do it or after only opening the page.
     - Save requested CSV, PDF, Markdown, spreadsheet, or document deliverables to disk and verify \
     them before summarizing.
     """

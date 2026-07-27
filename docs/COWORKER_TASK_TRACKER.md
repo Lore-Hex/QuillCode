@@ -48,11 +48,13 @@ The next immediate-action gap is browser/SaaS coworker work:
 - Terse requests such as "check the Salesforce pipeline at https://..." or "open app.hubspot.com"
   now route directly to `host.browser.open` with the canonical `url` argument instead of waiting for
   a model turn that may say "I'll check..." without acting.
-- Named SaaS coworker prompts without URLs now open the canonical app/login surface for common office
-  tools in the catalog, including Salesforce, HubSpot, Google Ads, LinkedIn Campaign Manager,
+- Simple SaaS navigation prompts without URLs now open the canonical app/login surface for common
+  office tools in the catalog, including Salesforce, HubSpot, Google Ads, LinkedIn Campaign Manager,
   Mailchimp, Google Drive/Sheets, Notion, Asana, Concur, Jira/Confluence, Zendesk, and Google
-  Analytics. This is intentionally a first-action route, not a claim that QuillCode has completed the
-  logged-in SaaS workflow.
+  Analytics.
+- Actionful catalog workflows such as adding HubSpot tasks, filling Google Sheets, renaming Drive
+  files, merging rows, or correcting stages deliberately stay out of the one-shot preflight path so
+  the model can continue with browser/Computer Use tools instead of stopping after a single open.
 - Download/save/fetch requests keep the existing bounded `curl` download path, so "download
   LinkedIn.com" still creates a workspace artifact instead of merely opening a browser tab.
 - Multi-step browser workflows still go to the model; the preflight only handles a first obvious

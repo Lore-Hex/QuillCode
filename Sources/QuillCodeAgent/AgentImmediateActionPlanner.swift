@@ -64,6 +64,8 @@ enum AgentImmediateActionPlanner {
         "turn", "write", "create", "make", "run", "fix", "update", "summarize",
         "produce", "generate", "draft", "convert", "then", "read", "list",
         "delete", "rename", "move", "install", "build", "test", "commit", "push", "open",
+        "add", "archive", "correct", "fill", "highlight", "mark", "merge", "pull",
+        "standardize",
     ]
 
     private static func thenConnectorCount(in lower: String) -> Int {
