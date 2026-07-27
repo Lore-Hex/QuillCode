@@ -96,6 +96,7 @@ enum QuillCodeDesktopSmokeRunner {
             controller: controller,
             root: root
         )
+        let multiFileArtifactSmoke = try await runMultiFileArtifactSmoke(controller: controller, root: root)
         let surface = controller.surface
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)
         guard surface.transcript.messages.count >= 4,
@@ -189,6 +190,7 @@ enum QuillCodeDesktopSmokeRunner {
             browserSmoke: browserSmoke,
             browserWorkflowSmoke: browserWorkflowSmoke,
             browserSpreadsheetWorkflowSmoke: browserSpreadsheetWorkflowSmoke,
+            multiFileArtifactSmoke: multiFileArtifactSmoke,
             scheduledCoworkerSmoke: scheduledCoworkerSmoke,
             nativeHitTargets: nativeHitTargets
         )
@@ -584,6 +586,76 @@ enum QuillCodeDesktopSmokeRunner {
             automationsVisible: controller.surface.automations.isVisible,
             lastRunRecorded: savedAutomation.lastRunAt != nil,
             nextRunRecorded: savedAutomation.nextRunAt != nil
+        )
+    }
+
+    private static func runMultiFileArtifactSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopMultiFileArtifactSmokeReport {
+        let notesDirectory = root.workspace.appendingPathComponent("notes", isDirectory: true)
+        try FileManager.default.createDirectory(at: notesDirectory, withIntermediateDirectories: true)
+
+        let researchFile = notesDirectory.appendingPathComponent("research.md")
+        let risksFile = notesDirectory.appendingPathComponent("risks.md")
+        try """
+        # Research
+
+        Customers asked for QuillCloud relay reliability before shipment.
+        The launch owner is Maya.
+        """.write(to: researchFile, atomically: true, encoding: .utf8)
+        try """
+        # Risks
+
+        The top risk is pairing fallback after a bad Wi-Fi password.
+        The mitigation is a deterministic AP fallback smoke before shipping.
+        """.write(to: risksFile, atomically: true, encoding: .utf8)
+
+        let prompt = "Create the team action brief from `notes/research.md` and `notes/risks.md`."
+        let previousTimelineCount = controller.surface.transcript.timelineItems.count
+        let previousToolCardCount = controller.surface.transcript.toolCards.count
+        controller.draft = prompt
+        controller.send()
+
+        let expectedAnswer = "Created `team-action-brief.md` from `notes/research.md` and `notes/risks.md`."
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: previousTimelineCount,
+            expectedAnswer: expectedAnswer
+        )
+
+        let deliverable = root.workspace.appendingPathComponent("team-action-brief.md")
+        let deliverableText = try String(contentsOf: deliverable, encoding: .utf8)
+        let containsResearch = deliverableText.contains("QuillCloud relay reliability")
+            && deliverableText.contains("Maya")
+        let containsRisk = deliverableText.contains("pairing fallback")
+            && deliverableText.contains("bad Wi-Fi password")
+        let containsNextAction = deliverableText.contains("Run the pairing fallback smoke")
+        guard containsResearch, containsRisk, containsNextAction else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(deliverable.path)
+        }
+
+        let toolSequence = Array(controller.surface.transcript.toolCards.dropFirst(previousToolCardCount))
+            .map(\.title)
+        guard toolSequence == [
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileWrite.name
+        ] else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(
+                "unexpected tool sequence: \(toolSequence.joined(separator: ", "))"
+            )
+        }
+
+        return QuillCodeDesktopMultiFileArtifactSmokeReport(
+            prompt: prompt,
+            sourcePaths: [researchFile.path, risksFile.path],
+            deliverablePath: deliverable.path,
+            toolSequence: toolSequence,
+            finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
+            deliverableContainsResearch: containsResearch,
+            deliverableContainsRisk: containsRisk,
+            deliverableContainsNextAction: containsNextAction
         )
     }
 

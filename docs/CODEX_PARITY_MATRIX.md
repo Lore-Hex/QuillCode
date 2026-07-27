@@ -80,7 +80,10 @@
   due recurring coworker automation creates the task-specific scheduled thread, records recurrence
   run state, reveals the automation surface, and reaches the desktop automation notifier. Packaged
   macOS smoke now preserves `packaged-scheduled-coworker.json`, proving the same scheduled coworker
-  evidence survives both direct packaged executable launch and Launch Services launch.
+  evidence survives both direct packaged executable launch and Launch Services launch. Native desktop
+  smoke now also records `multiFileArtifactSmoke`, proving a coworker-style deliverable can read two
+  source files, write `team-action-brief.md`, preserve the exact read/read/write tool sequence, and
+  render that artifact workflow into the transcript HTML evidence.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:

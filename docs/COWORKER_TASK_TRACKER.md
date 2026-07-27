@@ -131,3 +131,20 @@ Packaged macOS smoke now preserves explicit scheduled-coworker release evidence:
 The remaining scheduling evidence gap is narrower: observing the real OS notification banner/action
 from the packaged app, rather than only the app-level notification report delivered to the desktop
 notifier boundary.
+
+## Multi-File Artifact Smoke Slice
+
+The native desktop smoke now records deterministic multi-file deliverable evidence:
+
+- `multiFileArtifactSmoke` creates two source notes, asks QuillCode to create a team action brief
+  from both files, and requires the actual agent/tool loop to dispatch
+  `host.file.read`, `host.file.read`, and `host.file.write` in order.
+- The smoke verifies `team-action-brief.md` exists in the workspace and contains facts from both
+  source files plus a concrete next action, so artifact-generation rows are no longer backed only by
+  the older single-file `hello.txt` write/read proof.
+- `scripts/native-desktop-smoke.sh` fails if the report loses the source paths, deliverable path,
+  exact tool sequence, final answer, or rendered HTML transcript evidence.
+
+This covers the deterministic local-artifact version of multi-file coworker deliverables. Rows that
+depend on live SaaS data, proprietary document formats, or a logged-in browser session should remain
+gated until a row-specific live or packaged smoke proves the same workflow on that surface.

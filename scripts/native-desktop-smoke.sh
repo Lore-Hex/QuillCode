@@ -167,6 +167,11 @@ if ! grep -q '"browserSpreadsheetWorkflowSmoke"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q '"multiFileArtifactSmoke"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report multi-file artifact smoke evidence" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 if ! grep -q '"scheduledCoworkerSmoke"' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not report scheduled coworker smoke evidence" >&2
   cat "$REPORT_PATH" >&2
@@ -300,6 +305,36 @@ require_browser_workflow_smoke(
     script_state="done=true",
     text_state="Done",
 )
+
+multi_file_smoke = report.get("multiFileArtifactSmoke")
+if not isinstance(multi_file_smoke, dict):
+    fail("did not include multi-file artifact smoke evidence")
+
+expected_multi_file_fields = {
+    "prompt": "Create the team action brief from `notes/research.md` and `notes/risks.md`.",
+    "toolSequence": ["host.file.read", "host.file.read", "host.file.write"],
+    "deliverableContainsResearch": True,
+    "deliverableContainsRisk": True,
+    "deliverableContainsNextAction": True,
+}
+for field, expected in expected_multi_file_fields.items():
+    if multi_file_smoke.get(field) != expected:
+        fail(
+            "multi-file artifact smoke field "
+            f"{field} was {multi_file_smoke.get(field)!r}, expected {expected!r}"
+        )
+source_paths = multi_file_smoke.get("sourcePaths")
+if not isinstance(source_paths, list) or len(source_paths) != 2:
+    fail(f"multi-file artifact smoke did not report two source paths: {source_paths!r}")
+for expected_suffix in ("notes/research.md", "notes/risks.md"):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in source_paths):
+        fail(f"multi-file artifact smoke missed source path {expected_suffix}: {source_paths!r}")
+deliverable_path = multi_file_smoke.get("deliverablePath")
+if not isinstance(deliverable_path, str) or not deliverable_path.endswith("team-action-brief.md"):
+    fail(f"multi-file artifact smoke reported malformed deliverable path: {deliverable_path!r}")
+final_answer = multi_file_smoke.get("finalAnswer")
+if not isinstance(final_answer, str) or "Created `team-action-brief.md`" not in final_answer:
+    fail(f"multi-file artifact smoke reported malformed final answer: {final_answer!r}")
 
 scheduled_coworker_smoke = report.get("scheduledCoworkerSmoke")
 if not isinstance(scheduled_coworker_smoke, dict):
@@ -559,13 +594,27 @@ if ! grep -Eq '"messageCount" : [2-9][0-9]*' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
-if ! grep -Eq '"timelineItemCount" : [3-9][0-9]*' "$REPORT_PATH"; then
-  echo "quill-code-desktop native smoke did not record enough timeline items" >&2
+python3 - "$REPORT_PATH" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as report_file:
+    report = json.load(report_file)
+
+timeline_count = report.get("timelineItemCount")
+if not isinstance(timeline_count, int) or timeline_count < 14:
+    raise SystemExit(
+        "quill-code-desktop native smoke did not record enough timeline items: "
+        f"{timeline_count!r}"
+    )
+PY
+if ! grep -q 'Wrote `hello.txt`.' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected final answer" >&2
   cat "$REPORT_PATH" >&2
   exit 1
 fi
-if ! grep -q 'Wrote `hello.txt`.' "$REPORT_PATH"; then
-  echo "quill-code-desktop native smoke did not produce the expected final answer" >&2
+if ! grep -q 'Created `team-action-brief.md`' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected multi-file artifact answer" >&2
   cat "$REPORT_PATH" >&2
   exit 1
 fi
@@ -577,6 +626,7 @@ fi
 if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" \
   || ! grep -q 'Contents of `hello.txt`:' "$HTML_PATH" \
   || ! grep -q 'hello world' "$HTML_PATH" \
+  || ! grep -q 'Created `team-action-brief.md`' "$HTML_PATH" \
   || ! grep -q 'Inspected `Browser Smoke`' "$HTML_PATH" \
   || ! grep -q 'host.browser.inspect' "$HTML_PATH" \
   || ! grep -q 'host.file.write' "$HTML_PATH" \
