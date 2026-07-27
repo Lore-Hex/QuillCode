@@ -101,7 +101,7 @@ enum WorkspaceAutomationRunner {
             messages: [
                 .init(
                     role: .user,
-                    content: workspaceScheduleMessage(for: project)
+                    content: workspaceScheduleMessage(for: project, automation: automation)
                 )
             ],
             events: [
@@ -237,8 +237,20 @@ enum WorkspaceAutomationRunner {
         ].compactMap(\.self)
     }
 
-    private static func workspaceScheduleMessage(for project: ProjectRef) -> String {
-        """
+    private static func workspaceScheduleMessage(
+        for project: ProjectRef,
+        automation: QuillAutomation
+    ) -> String {
+        let task = automation.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        if WorkspaceAutomationFactory.isScheduledCoworker(automation),
+           !task.isEmpty {
+            return """
+            Run the scheduled coworker task for \(project.name).
+            Task: \(task)
+            Report what changed, whether action is needed, and the next concrete step.
+            """
+        }
+        return """
         Run the scheduled workspace check for \(project.name). Start with project status, recent changes, \
         local actions, and anything needing attention.
         """

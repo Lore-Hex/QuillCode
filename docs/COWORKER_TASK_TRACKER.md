@@ -53,3 +53,19 @@ The next immediate-action gap is browser/SaaS coworker work:
 - Multi-step browser workflows still go to the model; the preflight only handles a first obvious
   page-open action. Follow-up slices should add focused browser/Computer Use smoke cases for logged-in
   SaaS interaction and only then graduate spreadsheet rows to covered.
+
+## Scheduling Coworker Slice
+
+Plain recurring coworker prompts now create real workspace automations without requiring slash syntax:
+
+- Requests such as "Every Monday at 8am, check competitor pricing pages and notify me with a diff"
+  parse into a recurring workspace automation when the schedule is explicit and the remaining task
+  contains a concrete work verb.
+- The task text is persisted on the automation and replayed into the due-run thread, so the scheduled
+  run performs the original coworker task instead of a generic workspace check.
+- Unsupported or ambiguous schedules fall through to the normal agent path rather than creating a bad
+  automation.
+
+This improves the scheduling rows in the coworker catalog. Keep those rows as not fully covered until
+there is end-to-end evidence for due-run execution, notification delivery, and visible automation
+management in the packaged app.
