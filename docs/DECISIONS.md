@@ -3235,3 +3235,21 @@
   `QuillCodeDesktopComputerUseActionSmokeReport`,
   `scripts/native_click_probe_contracts/computer_use_action.py`,
   `scripts/packaged-macos-smoke.sh`, and `ParityPackagedMacOSSmokeGateTests`.
+
+## 2026-07-27: browser workflow smoke includes authenticated session state
+
+- **Decision:** The packaged browser workflow manifest now validates
+  `browserAuthenticatedWorkflowSmoke` in addition to the CRM-like and shared-sheet-like workflows.
+  The authenticated smoke opens a login-like workspace page, types a workspace key, clicks Sign in,
+  and requires both script output and live DOM inspection to preserve `signed-in=true` plus the
+  selected workspace.
+- **Why:** Browser/SaaS coworker tasks often depend on being signed in, not just typing into a form.
+  Before using fragile external SaaS credentials in CI, QuillCode should at least prove that its
+  visible browser-session tool path can carry authenticated-session state through packaged direct and
+  Launch Services entrypoints.
+- **Boundary:** The page is deterministic local HTML presented through the same visible-session tool
+  override path, not a live external SaaS account. Real SaaS rows remain gated until a signed-in
+  live SaaS smoke proves equivalent behavior on an actual service.
+- **Evidence:** `QuillCodeDesktopSmokeRunner.runBrowserAuthenticatedWorkflowSmoke`,
+  `SmokeBrowserSessionPresenter`, `scripts/native_click_probe_contracts/browser_workflow.py`,
+  `scripts/packaged-macos-smoke.sh`, and `ParityPackagedMacOSSmokeGateTests`.

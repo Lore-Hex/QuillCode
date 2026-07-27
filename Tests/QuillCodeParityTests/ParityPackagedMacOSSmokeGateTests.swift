@@ -137,6 +137,7 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(browserWorkflowValidator.contains(#""browserWorkflowSmoke""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""browserSpreadsheetWorkflowSmoke""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""browserAuthenticatedWorkflowSmoke""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""host.browser.type""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""host.browser.click""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""host.browser.script""#))
@@ -144,6 +145,8 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(browserWorkflowValidator.contains(#""Live DOM snapshot""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""H1: CRM Workflow Smoke""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""H1: Shared Sheet Workflow Smoke""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""H1: Signed-In Workspace Smoke""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""signed-in=true""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""browserWorkflowMatchesDirect": True"#))
 
         let computerUseValidator = try String(

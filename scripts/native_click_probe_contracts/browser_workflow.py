@@ -29,6 +29,16 @@ BROWSER_WORKFLOW_EXPECTATIONS = {
         "previewPathSuffix": "browser-sheet-smoke.html",
         "manifestPrefix": "spreadsheet",
     },
+    "browserAuthenticatedWorkflowSmoke": {
+        "typedSelector": "input[name='workspace-key']",
+        "typedText": "lorehex-demo",
+        "clickedSelector": "button[data-action='sign-in']",
+        "heading": "H1: Signed-In Workspace Smoke",
+        "scriptState": "signed-in=true",
+        "textState": "Signed in",
+        "previewPathSuffix": "browser-auth-smoke.html",
+        "manifestPrefix": "authenticated",
+    },
 }
 
 EXPECTED_TOOL_FIELDS = {
