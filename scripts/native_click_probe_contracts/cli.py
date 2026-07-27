@@ -8,6 +8,7 @@ from pathlib import Path
 from .accessibility_frames import write_accessibility_frames_manifest
 from .browser_workflow import write_browser_workflow_manifest
 from .computer_use import write_computer_use_manifest
+from .computer_use_action import write_computer_use_action_manifest
 from .multi_file_artifact import write_multi_file_artifact_manifest
 from .packaged_window import (
     validate_packaged_window_report,
@@ -80,6 +81,14 @@ def main() -> None:
     computer_use_parser.add_argument("--accessibility-frames-manifest", required=True, type=Path)
     computer_use_parser.add_argument("--manifest", required=True, type=Path)
 
+    computer_use_action_parser = subparsers.add_parser(
+        "computer-use-action",
+        help="write packaged Computer Use action smoke evidence",
+    )
+    computer_use_action_parser.add_argument("direct_report", type=Path)
+    computer_use_action_parser.add_argument("launch_services_report", type=Path)
+    computer_use_action_parser.add_argument("--manifest", required=True, type=Path)
+
     args = parser.parse_args()
     if args.command == "validate":
         validate_report(args.report, args.label)
@@ -121,5 +130,11 @@ def main() -> None:
             args.window_report,
             args.click_probe_manifest,
             args.accessibility_frames_manifest,
+            args.manifest,
+        )
+    elif args.command == "computer-use-action":
+        write_computer_use_action_manifest(
+            args.direct_report,
+            args.launch_services_report,
             args.manifest,
         )

@@ -162,6 +162,7 @@ struct QuillCodeDesktopSmokeReport {
     var browserSmoke: QuillCodeDesktopBrowserSmokeReport
     var browserWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
     var browserSpreadsheetWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
+    var computerUseActionSmoke: QuillCodeDesktopComputerUseActionSmokeReport
     var multiFileArtifactSmoke: QuillCodeDesktopMultiFileArtifactSmokeReport
     var scheduledCoworkerSmoke: QuillCodeDesktopScheduledCoworkerSmokeReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
@@ -193,6 +194,7 @@ struct QuillCodeDesktopSmokeReport {
                 "browserSmoke": browserSmoke.dictionary,
                 "browserWorkflowSmoke": browserWorkflowSmoke.dictionary,
                 "browserSpreadsheetWorkflowSmoke": browserSpreadsheetWorkflowSmoke.dictionary,
+                "computerUseActionSmoke": computerUseActionSmoke.dictionary,
                 "multiFileArtifactSmoke": multiFileArtifactSmoke.dictionary,
                 "scheduledCoworkerSmoke": scheduledCoworkerSmoke.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary
@@ -306,6 +308,30 @@ struct QuillCodeDesktopSmokePixelStats {
         guard minBlueAccentPixelRatio <= 0 || report.blueAccentPixelRatio > minBlueAccentPixelRatio else {
             throw QuillCodeDesktopSmokeFailure.imageMissingAccentPixels(report.blueAccentPixelRatio)
         }
+    }
+}
+
+struct QuillCodeDesktopComputerUseActionSmokeReport {
+    var toolSequence: [String]
+    var actionSequence: [String]
+    var argumentJSON: [String]
+    var outputSummaries: [String]
+    var screenshotPath: String
+    var screenshotArtifactExists: Bool
+    var foregroundApplication: String
+    var accessibilitySummary: String
+
+    var dictionary: [String: Any] {
+        [
+            "toolSequence": toolSequence,
+            "actionSequence": actionSequence,
+            "argumentJSON": argumentJSON,
+            "outputSummaries": outputSummaries,
+            "screenshotPath": screenshotPath,
+            "screenshotArtifactExists": screenshotArtifactExists,
+            "foregroundApplication": foregroundApplication,
+            "accessibilitySummary": accessibilitySummary
+        ]
     }
 }
 
@@ -590,6 +616,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case htmlMissingResult
     case incompleteTranscript
     case invalidImageSize(Int, Int)
+    case computerUseActionMismatch(String)
     case multiFileArtifactMismatch(String)
     case nativeAccessibilityActivationFailed([String])
     case nativeAccessibilityFrameSamplingFailed([String])

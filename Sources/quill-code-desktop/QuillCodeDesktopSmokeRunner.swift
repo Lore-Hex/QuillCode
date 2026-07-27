@@ -4,6 +4,7 @@ import SwiftUI
 import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
+import QuillComputerUseKit
 import QuillCodePersistence
 
 @MainActor
@@ -96,6 +97,7 @@ enum QuillCodeDesktopSmokeRunner {
             controller: controller,
             root: root
         )
+        let computerUseActionSmoke = try await runComputerUseActionSmoke(root: root)
         let multiFileArtifactSmoke = try await runMultiFileArtifactSmoke(controller: controller, root: root)
         let surface = controller.surface
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)
@@ -190,10 +192,93 @@ enum QuillCodeDesktopSmokeRunner {
             browserSmoke: browserSmoke,
             browserWorkflowSmoke: browserWorkflowSmoke,
             browserSpreadsheetWorkflowSmoke: browserSpreadsheetWorkflowSmoke,
+            computerUseActionSmoke: computerUseActionSmoke,
             multiFileArtifactSmoke: multiFileArtifactSmoke,
             scheduledCoworkerSmoke: scheduledCoworkerSmoke,
             nativeHitTargets: nativeHitTargets
         )
+    }
+
+    private static func runComputerUseActionSmoke(
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopComputerUseActionSmokeReport {
+        let backend = StubComputerUseBackend(
+            foregroundApplication: ComputerUseApplication(
+                name: "QuillCode Smoke Target",
+                bundleIdentifier: "co.lorehex.QuillCode.SmokeTarget"
+            ),
+            accessibilitySnapshot: ComputerUseAccessibilitySnapshot(elements: [
+                ComputerUseAccessibilityElement(role: "Window", label: "QuillCode Smoke Target"),
+                ComputerUseAccessibilityElement(role: "Button", label: "Save"),
+                ComputerUseAccessibilityElement(role: "TextField", label: "Prompt", value: "Ready")
+            ])
+        )
+        let artifactDirectory = root.root.appendingPathComponent("computer-use-smoke", isDirectory: true)
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            artifactDirectory: artifactDirectory,
+            originThreadID: "desktop-smoke-thread",
+            projectID: "desktop-smoke-project",
+            workspaceRoot: root.workspace.path
+        )
+
+        let screenshotResult = try requiredToolResult(
+            await executor.execute(ToolCall(name: ToolDefinition.computerScreenshot.name, argumentsJSON: "{}")),
+            toolName: ToolDefinition.computerScreenshot.name
+        )
+        let screenshotOutput = try decodeSmokeOutput(ComputerScreenshotToolOutput.self, from: screenshotResult)
+        guard let screenshotPath = screenshotOutput.path,
+              FileManager.default.fileExists(atPath: screenshotPath),
+              screenshotOutput.foregroundApplication?.name == "QuillCode Smoke Target",
+              screenshotOutput.accessibilitySnapshot?.elements.count == 3
+        else {
+            throw QuillCodeDesktopSmokeFailure.computerUseActionMismatch(
+                "screenshot did not preserve artifact, foreground app, and accessibility evidence"
+            )
+        }
+
+        let calls = computerUseActionSmokeCalls()
+        var outputs: [String] = []
+        for call in calls {
+            let result = try requiredToolResult(await executor.execute(call), toolName: call.name)
+            outputs.append(result.stdout)
+        }
+
+        let recordedActions = await backend.recordedActions()
+        let expectedActions = [
+            "screenshot",
+            "leftClick:42,84",
+            "type:QuillCode smoke",
+            "scroll:0,-120",
+            "move:64,96",
+            "key:return"
+        ]
+        guard recordedActions == expectedActions else {
+            throw QuillCodeDesktopSmokeFailure.computerUseActionMismatch(
+                "unexpected actions: \(recordedActions.joined(separator: ", "))"
+            )
+        }
+
+        return QuillCodeDesktopComputerUseActionSmokeReport(
+            toolSequence: [ToolDefinition.computerScreenshot.name] + calls.map(\.name),
+            actionSequence: recordedActions,
+            argumentJSON: ["{}"] + calls.map(\.argumentsJSON),
+            outputSummaries: ["Captured desktop screenshot."] + outputs,
+            screenshotPath: screenshotPath,
+            screenshotArtifactExists: true,
+            foregroundApplication: screenshotOutput.foregroundApplication?.displayLabel ?? "",
+            accessibilitySummary: screenshotOutput.accessibilitySnapshot?.summary ?? ""
+        )
+    }
+
+    private static func computerUseActionSmokeCalls() -> [ToolCall] {
+        [
+            ToolCall(name: ToolDefinition.computerClick.name, argumentsJSON: #"{"x":42,"y":84}"#),
+            ToolCall(name: ToolDefinition.computerType.name, argumentsJSON: #"{"text":"QuillCode smoke"}"#),
+            ToolCall(name: ToolDefinition.computerScroll.name, argumentsJSON: #"{"dx":0,"dy":-120}"#),
+            ToolCall(name: ToolDefinition.computerMove.name, argumentsJSON: #"{"x":64,"y":96}"#),
+            ToolCall(name: ToolDefinition.computerKey.name, argumentsJSON: #"{"key":"return"}"#)
+        ]
     }
 
     private static func runBrowserSmoke(
