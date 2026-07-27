@@ -41,6 +41,15 @@ This branch hardens the immediate-action path for office wording from the catalo
   `draft`, `pull`, and `highlight`, so a bare "I'll do it" answer is corrected into a tool action.
 - Tests cover representative office-coworker future-tense failures.
 
-Next slices should turn the spreadsheet's `Browser pane` rows into focused Playwright/native smoke
-cases using mock browser/Computer Use backends, then graduate rows by updating the sheet's Status and
-Evidence columns only after those smokes pass.
+## Browser/SaaS Routing Slice
+
+The next immediate-action gap is browser/SaaS coworker work:
+
+- Terse requests such as "check the Salesforce pipeline at https://..." or "open app.hubspot.com"
+  now route directly to `host.browser.open` with the canonical `url` argument instead of waiting for
+  a model turn that may say "I'll check..." without acting.
+- Download/save/fetch requests keep the existing bounded `curl` download path, so "download
+  LinkedIn.com" still creates a workspace artifact instead of merely opening a browser tab.
+- Multi-step browser workflows still go to the model; the preflight only handles a first obvious
+  page-open action. Follow-up slices should add focused browser/Computer Use smoke cases for logged-in
+  SaaS interaction and only then graduate spreadsheet rows to covered.

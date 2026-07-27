@@ -65,7 +65,9 @@
   columns added to it. The base TrustedRouter prompt includes compact office-task routing guidance,
   and the promised-work guard recognizes office verbs such as inventory, standardize, chart, draft,
   pull, and highlight so supported coworker requests continue into tool calls instead of future-tense
-  narration.
+  narration. Terse browser/SaaS coworker requests with a URL or domain now preflight directly to
+  `host.browser.open` with a canonical `url` argument, while download/save/fetch wording keeps the
+  existing workspace-artifact download path.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:
