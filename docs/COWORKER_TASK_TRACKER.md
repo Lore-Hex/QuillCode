@@ -67,16 +67,20 @@ The native desktop smoke now leaves deterministic browser-workflow evidence for 
 
 - `browserSmoke` still proves local HTML preview, browser comments, and `host.browser.inspect`
   final-answer rendering.
-- `browserWorkflowSmoke` now opens a mock CRM page through the visible browser-session path, dispatches
+- `browserWorkflowSmoke` opens a mock CRM page through the visible browser-session path, dispatches
   `host.browser.type`, `host.browser.click`, `host.browser.script`, and `host.browser.inspect`, and
   records the typed status, clicked save selector, script value, live-DOM inspection depth, outline,
   and text snippet in the smoke report.
+- `browserSpreadsheetWorkflowSmoke` repeats the same real browser-tool override path on a
+  spreadsheet-like launch tracker: it types a launch date into a cell-style input, clicks Mark done,
+  and proves the edited row state survives through script output and live DOM inspection. This maps
+  more directly to shared-sheet cleanup and tracker-maintenance coworker tasks.
 - The smoke presenter only exposes a visible session after `openBrowserSession()`, so ordinary preview
   inspection still exercises the snapshot fallback path and the workflow smoke exercises the explicit
   visible-session path.
-- This upgrades browser/SaaS evidence from first-open routing to stateful browser action routing. Keep
-  real SaaS rows gated until a signed-in packaged-app smoke proves equivalent interaction on a live
-  SaaS surface.
+- This upgrades browser/SaaS evidence from first-open routing to stateful browser action routing across
+  CRM-like and shared-sheet-like page shapes. Keep real SaaS rows gated until a signed-in packaged-app
+  smoke proves equivalent interaction on a live SaaS surface.
 
 ## Scheduling Coworker Slice
 
