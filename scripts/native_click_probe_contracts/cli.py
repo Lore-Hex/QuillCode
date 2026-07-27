@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from .accessibility_frames import write_accessibility_frames_manifest
+from .browser_workflow import write_browser_workflow_manifest
 from .multi_file_artifact import write_multi_file_artifact_manifest
 from .packaged_window import (
     validate_packaged_window_report,
@@ -49,6 +50,14 @@ def main() -> None:
     multi_file_parser.add_argument("launch_services_report", type=Path)
     multi_file_parser.add_argument("--manifest", required=True, type=Path)
 
+    browser_workflow_parser = subparsers.add_parser(
+        "browser-workflow",
+        help="write packaged browser coworker workflow evidence",
+    )
+    browser_workflow_parser.add_argument("direct_report", type=Path)
+    browser_workflow_parser.add_argument("launch_services_report", type=Path)
+    browser_workflow_parser.add_argument("--manifest", required=True, type=Path)
+
     window_parser = subparsers.add_parser("window", help="validate packaged live-window smoke report and screenshot")
     window_parser.add_argument("report", type=Path)
     window_parser.add_argument("screenshot", type=Path)
@@ -74,6 +83,12 @@ def main() -> None:
         )
     elif args.command == "multi-file-artifact":
         write_multi_file_artifact_manifest(
+            args.direct_report,
+            args.launch_services_report,
+            args.manifest,
+        )
+    elif args.command == "browser-workflow":
+        write_browser_workflow_manifest(
             args.direct_report,
             args.launch_services_report,
             args.manifest,

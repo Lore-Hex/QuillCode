@@ -3178,3 +3178,21 @@
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPipAuditJSONArtifactPreview` covers
   static HTML selectors, rendered metadata, package/vulnerability lists, and generic JSON
   suppression.
+
+## 2026-07-27: packaged browser coworker smoke is a release artifact
+
+- **Decision:** Packaged macOS smoke writes `packaged-browser-workflow.json` beside the existing
+  packaged click-probe, Accessibility, scheduled-coworker, and multi-file artifact manifests. The
+  validator reads the direct packaged executable and Launch Services reports, then compares semantic
+  CRM-like and shared-sheet-like browser workflow evidence.
+- **Why:** Office coworker tasks depend heavily on browser/SaaS surfaces. Burying browser workflow
+  proof inside two `report.json` files made release review too easy to miss and let packaged launch
+  drift hide behind passing native smoke. A first-class manifest makes the release boundary explicit.
+- **Boundary:** The smoke still uses deterministic local HTML pages, not a signed-in live SaaS
+  account. It proves `host.browser.type`, `host.browser.click`, `host.browser.script`, and
+  `host.browser.inspect` keep canonical arguments and live-DOM edited state through packaging. Real
+  SaaS rows remain gated until a signed-in browser/Computer Use smoke proves the same workflow.
+- **Evidence:** `scripts/native_click_probe_contracts/browser_workflow.py` validates both
+  `browserWorkflowSmoke` and `browserSpreadsheetWorkflowSmoke`.
+  `scripts/packaged-macos-smoke.sh` writes and preserves `packaged-browser-workflow.json`.
+  `ParityPackagedMacOSSmokeGateTests` requires the validator, manifest, and CLI wiring.
