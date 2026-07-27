@@ -160,7 +160,9 @@ public struct StaticSafetyReviewer: SafetyReviewer {
         case .auto:
             if let hardDeny = hardDenyReason(context) {
                 SafetyReview(verdict: .deny, rationale: hardDeny)
-            } else if context.toolDefinition?.risk == .read || userIntentMatches(context) {
+            } else if context.toolDefinition?.risk == .read
+                || policy.allowsAutoWorkspaceMutation(context)
+                || userIntentMatches(context) {
                 lowRiskReview(context)
             } else {
                 SafetyReview(
@@ -175,6 +177,7 @@ public struct StaticSafetyReviewer: SafetyReviewer {
     public func hardDenyReason(_ context: SafetyContext) -> String? {
         policy.hardDenyReason(context)
     }
+
 
     public func userIntentMatches(_ context: SafetyContext) -> Bool {
         policy.userIntentMatches(context)

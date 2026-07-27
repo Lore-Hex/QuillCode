@@ -62,6 +62,22 @@ extension AgentRunner {
                 // FIRST (even at budget exhaustion), so a user Stop is never recorded as a malformed-
                 // model failure.
                 try Task.checkCancellation()
+                // Diagnosis tap: the self-healing notice does not persist the raw payload, so a
+                // route-quality investigation (malformed action on nearly every turn) has nothing to
+                // inspect. Opt-in via env var; appends the raw model text to the given file.
+                if let logPath = ProcessInfo.processInfo.environment["QUILLCODE_DEBUG_MALFORMED_LOG"],
+                   !logPath.isEmpty {
+                    let entry = "=== MALFORMED ===\n\(text)\n=== END ===\n\n"
+                    if let data = entry.data(using: .utf8) {
+                        if let handle = FileHandle(forWritingAtPath: logPath) {
+                            handle.seekToEndOfFile()
+                            handle.write(data)
+                            try? handle.close()
+                        } else {
+                            try? data.write(to: URL(fileURLWithPath: logPath))
+                        }
+                    }
+                }
                 guard attempt < Self.malformedActionCorrectionLimit else {
                     throw TrustedRouterAgentError.invalidActionJSON(text)
                 }

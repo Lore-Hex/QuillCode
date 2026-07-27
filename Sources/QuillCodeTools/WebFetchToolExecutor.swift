@@ -352,13 +352,17 @@ public struct WebFetchToolExecutor: Sendable {
     try host.browser.open with the same URL]
     """
 
-    private static let defaultHeaders: [String: String] = [
+    /// Internal (not private) so the search liveness checker can probe with the EXACT same headers
+    /// and two-attempt strategy `host.web.fetch` uses — otherwise a URL could pass a liveness probe
+    /// under one User-Agent but 403 the real fetch under another (or vice-versa), making
+    /// "probe-live" not imply "fetchable".
+    static let defaultHeaders: [String: String] = [
         "Accept": "text/html, application/xhtml+xml;q=0.9, text/markdown;q=0.8, text/plain;q=0.7, */*;q=0.1",
         "Accept-Language": "en-US,en;q=0.9",
         "User-Agent": "QuillCode/1.0 WebFetch (+https://lorehex.co)"
     ]
 
-    private static let browserLikeHeaders: [String: String] = [
+    static let browserLikeHeaders: [String: String] = [
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +

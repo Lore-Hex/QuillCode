@@ -33,6 +33,11 @@ struct QuillCodeTranscriptView: View {
     var onRevertTurn: (UUID) -> Void = { _ in }
     var onUseMessageAsDraft: (String) -> Void
     var onSubmitStarterAction: (String) -> Void
+    /// Non-nil only when the app has no TrustedRouter credential yet: the first-run connect gate
+    /// replaces the project starter cards so a keyless user never reaches a composer that would
+    /// silently fail. See ``TranscriptConnectPrompt``.
+    var connectPrompt: TranscriptConnectPrompt? = nil
+    var onStartTrustedRouterSignIn: () -> Void = {}
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.quillCodeConfidentialAppearance) private var isConfidentialAppearance
@@ -334,7 +339,11 @@ struct QuillCodeTranscriptView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if isConfidentialAppearance {
+        if let connectPrompt {
+            // Not connected yet: the sign-in gate takes precedence over the starter cards (and even
+            // confidential mode) — there is nothing to start until an account is connected.
+            QuillCodeConnectView(prompt: connectPrompt, onSignIn: onStartTrustedRouterSignIn)
+        } else if isConfidentialAppearance {
             confidentialEmptyState
         } else {
             VStack(spacing: 14) {

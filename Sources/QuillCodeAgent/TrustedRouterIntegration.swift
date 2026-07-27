@@ -61,22 +61,59 @@ public struct TrustedRouterModelCatalogClient: Sendable {
 
     public func fetch() async throws -> TrustedRouterModelCatalog {
         if apiKey?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-            return try await fetchPublicCatalog(note: nil)
+            return try await fetchPublicCatalogPreferringJSON(note: nil)
         }
         do {
             return try await fetchAuthenticatedCatalog()
         } catch {
-            return try await fetchPublicCatalog(
+            return try await fetchPublicCatalogPreferringJSON(
                 note: "Authenticated JSON catalog failed: \(String(describing: error))"
             )
         }
     }
 
-    private func fetchAuthenticatedCatalog() async throws -> TrustedRouterModelCatalog {
-        let client = try TrustedRouter(options: .init(apiKey: apiKey, baseUrl: baseURL, urlSession: urlSession))
-        let data: Data = try await client.request(method: "GET", path: "/models")
+    /// The public catalog in its richest available form. The control-plane JSON endpoint
+    /// (`trustedrouter.com/v1/models`) is the real catalog API — full capability metadata including
+    /// each model's nested `trustedrouter.privacy_tier`, which confidential chats need to offer
+    /// specific E2E models. The HTML scrape only recovers id + name (no capabilities), so it is the
+    /// last resort, not the first: the attested inference plane serves 404 for `/models`, which
+    /// previously sent every fetch to the scrape and left the confidential picker with zero
+    /// tier-3 models (permanently locked).
+    private func fetchPublicCatalogPreferringJSON(note: String?) async throws -> TrustedRouterModelCatalog {
+        do {
+            return try await fetchControlPlaneJSONCatalog(note: note)
+        } catch {
+            let jsonFailure = "Control-plane JSON catalog failed: \(String(describing: error))"
+            return try await fetchPublicCatalog(
+                note: [note, jsonFailure].compactMap { $0 }.joined(separator: "; ")
+            )
+        }
+    }
+
+    private static let controlPlaneCatalogURL = URL(string: "https://trustedrouter.com/v1/models")!
+
+    private func fetchControlPlaneJSONCatalog(note: String?) async throws -> TrustedRouterModelCatalog {
+        let (data, response) = try await urlSession.data(from: Self.controlPlaneCatalogURL)
+        if let response = response as? HTTPURLResponse,
+           !(200..<300).contains(response.statusCode) {
+            throw TrustedRouterPublicCatalogError.httpStatus(response.statusCode)
+        }
+        let models = try Self.catalogModels(from: data)
+        guard !models.isEmpty else {
+            throw TrustedRouterPublicCatalogError.emptyCatalog
+        }
+        return TrustedRouterModelCatalog(
+            models: models,
+            status: .publicTrustedRouter(note: note)
+        )
+    }
+
+    /// Decodes a `/v1/models` JSON payload into catalog entries — shared by the authenticated and
+    /// control-plane fetches so both benefit from the same capability decoding (nested privacy
+    /// tiers included).
+    private static func catalogModels(from data: Data) throws -> [QuillCodeCore.ModelInfo] {
         let response = try JSONDecoder().decode(TrustedRouterCatalogModelsResponse.self, from: data)
-        let models = response.data.map { model in
+        return response.data.map { model in
             let provider = Self.provider(from: model.id)
             return QuillCodeCore.ModelInfo(
                 id: TrustedRouterDefaults.canonicalModelID(model.id),
@@ -86,6 +123,12 @@ public struct TrustedRouterModelCatalogClient: Sendable {
                 capabilities: model.capabilities
             )
         }
+    }
+
+    private func fetchAuthenticatedCatalog() async throws -> TrustedRouterModelCatalog {
+        let client = try TrustedRouter(options: .init(apiKey: apiKey, baseUrl: baseURL, urlSession: urlSession))
+        let data: Data = try await client.request(method: "GET", path: "/models")
+        let models = try Self.catalogModels(from: data)
         guard !models.isEmpty else {
             return TrustedRouterModelCatalog(
                 models: TrustedRouterModelCatalog.defaultModels,

@@ -36,7 +36,7 @@ struct TrustedRouterCatalogModel: Decodable {
             status: container.firstNonEmptyString(for: ["status", "availability"]),
             summary: container.firstNonEmptyString(for: ["description", "summary"]),
             releaseDate: Self.releaseDate(in: container),
-            privacyTier: container.firstInt(for: ["privacy_tier", "privacyTier"]),
+            privacyTier: Self.privacyTier(in: container),
             regions: Self.regions(in: container)
         )
     }
@@ -71,6 +71,24 @@ struct TrustedRouterCatalogModel: Decodable {
     private static func capabilityTags(in container: KeyedDecodingContainer<FlexibleCodingKey>) throws -> [String] {
         try container.firstStringList(for: ["capabilities", "features"])
             + container.firstStringList(for: ["supported_parameters", "supportedParameters"])
+    }
+
+    /// The live catalog nests TrustedRouter-specific metadata — `privacy_tier` among it — under a
+    /// `trustedrouter` object; the top-level spelling is kept for older/simpler catalogs. Reading
+    /// only the top level made every live model decode `privacyTier == nil`, so the confidential
+    /// chat's picker never saw a tier-3 (Confidential) model and locked itself to the aggregate
+    /// E2E route even though the catalog advertises ~100 eligible models.
+    private static func privacyTier(in container: KeyedDecodingContainer<FlexibleCodingKey>) -> Int? {
+        if let direct = try? container.firstInt(for: ["privacy_tier", "privacyTier"]), direct != nil {
+            return direct
+        }
+        guard let nested = try? container.nestedContainer(
+            keyedBy: FlexibleCodingKey.self,
+            forKey: "trustedrouter"
+        ) else {
+            return nil
+        }
+        return (try? nested.firstInt(for: ["privacy_tier", "privacyTier"])) ?? nil
     }
 
     /// Data-residency claims arrive as a list ("regions"), a single value ("region"), or a

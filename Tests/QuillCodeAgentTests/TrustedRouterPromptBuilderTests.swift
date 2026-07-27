@@ -200,6 +200,25 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("with a non-empty \"name\" string"))
     }
 
+    func testPromptIncludesEnvironmentBringUpAndAntiFabricationGuidance() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
+        // Provision missing runtimes instead of giving up.
+        XCTAssertTrue(prompt.contains("Environment bring-up"))
+        XCTAssertTrue(prompt.contains("NOT a dead end"))
+        XCTAssertTrue(prompt.contains("uv python install"))
+        XCTAssertTrue(prompt.contains("uv venv --python"))
+        XCTAssertTrue(prompt.contains("isolate project dependencies in a virtualenv"))
+        XCTAssertTrue(prompt.contains("macOS lacks GNU `timeout`"))
+        // Never fabricate a result a command did not produce.
+        XCTAssertTrue(prompt.contains("Never fabricate results"))
+        XCTAssertTrue(prompt.contains("must come from real tool output"))
+        // Execute, don't narrate: writing a script is not running it; keep going until outputs exist.
+        XCTAssertTrue(prompt.contains("do not narrate it"))
+        XCTAssertTrue(prompt.contains("Writing a script or a file does NOT run it"))
+        XCTAssertTrue(prompt.contains("you MUST call the shell tool"))
+        XCTAssertTrue(prompt.contains("not finished until every step has a real tool call"))
+    }
+
     func testPromptIncludesBuiltInTrustedRouterModelAdvisorGuidance() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
 
@@ -216,6 +235,25 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
             TrustedRouterPromptBuilder.trustedRouterModelAdvisorPrompt.count,
             900,
             "Detailed model-advisor knowledge belongs in on-demand skills/docs, not the base prompt."
+        )
+    }
+
+    func testPromptIncludesCompactOfficeCoworkerGuidance() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .shellRun,
+            .fileWrite,
+            .computerScreenshot
+        ])
+
+        XCTAssertTrue(prompt.contains("Office coworker tasks"))
+        XCTAssertTrue(prompt.contains("Treat requests to inventory, clean up, summarize"))
+        XCTAssertTrue(prompt.contains("Use available file, shell, browser, Computer Use, and artifact tools immediately"))
+        XCTAssertTrue(prompt.contains("ask a concise question only for a missing folder"))
+        XCTAssertTrue(prompt.contains("Save requested CSV, PDF, Markdown, spreadsheet, or document deliverables"))
+        XCTAssertLessThan(
+            TrustedRouterPromptBuilder.officeCoworkerPrompt.count,
+            650,
+            "Office coworker behavior belongs in compact routing guidance plus skills/tests, not a giant base prompt."
         )
     }
 
@@ -485,11 +523,26 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
             tools: [.shellRun]
         )
 
-        XCTAssertEqual(messages.filter { $0["role"] as? String == "user" }.count, 1)
+        // The original prompt appears once, and the tool feedback is the SECOND user message —
+        // tool results are observations fed back to the model, never role "assistant" (a trailing
+        // assistant turn is prefill/merge territory for OpenAI-compat gateways, observed live as
+        // the feedback echoed back verbatim as the "model response"; and assistant-role results
+        // teach the model that assistant turns narrate outputs — the fabrication habit).
+        XCTAssertEqual(
+            messages.filter {
+                ($0["role"] as? String) == "user"
+                    && ($0["content"] as? String) == "run whoami"
+            }.count,
+            1
+        )
         XCTAssertTrue(messages.contains {
-            ($0["role"] as? String) == "assistant"
+            ($0["role"] as? String) == "user"
                 && (($0["content"] as? String)?.contains("Tool output:") == true)
                 && (($0["content"] as? String)?.contains("whoami") == true)
+        })
+        XCTAssertFalse(messages.contains {
+            ($0["role"] as? String) == "assistant"
+                && (($0["content"] as? String)?.contains("Tool output:") == true)
         })
     }
 

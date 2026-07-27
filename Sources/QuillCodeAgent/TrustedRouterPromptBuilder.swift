@@ -25,6 +25,17 @@ public struct TrustedRouterPromptBuilder: Sendable {
     - Keep API keys out of source, logs, screenshots, and prompts.
     """
 
+    static let officeCoworkerPrompt = """
+    Office coworker tasks:
+    - Treat requests to inventory, clean up, summarize, convert, merge, draft, extract, chart, \
+    standardize, highlight, update, or maintain business files/SaaS pages as real work requests.
+    - Use available file, shell, browser, Computer Use, and artifact tools immediately when the \
+    needed inputs are present; ask a concise question only for a missing folder, file, URL, login, \
+    or required business rule.
+    - Save requested CSV, PDF, Markdown, spreadsheet, or document deliverables to disk and verify \
+    them before summarizing.
+    """
+
     public func messages(
         thread: ChatThread,
         userMessage: String,
@@ -61,6 +72,53 @@ public struct TrustedRouterPromptBuilder: Sendable {
         return (messages, history.count <= historyLimit)
     }
 
+    /// Environment bring-up + anti-fabrication guidance. Added after driving a real benchmark task
+    /// live: the agent hit "python3.10 not on PATH", GAVE UP instead of installing it, then reported a
+    /// fabricated 100% pass rate for an eval that never ran. Both are addressed here — provision what
+    /// the task needs, and never report an outcome a command didn't actually produce.
+    static let environmentBringUpPrompt = """
+    Environment bring-up (do not give up on a missing tool or runtime — provision it):
+    - A required language runtime or CLI not being pre-installed is NOT a dead end. Install it, then \
+    continue. You have a shell with network access.
+    - Python of a specific version: prefer uv (fast, no sudo). Install uv if absent \
+    (curl -LsSf https://astral.sh/uv/install.sh | sh), then `uv python install 3.10` (or the needed \
+    version) and create an isolated venv pinned to it: `uv venv --python 3.10 .venv` and install into \
+    `.venv` with `uv pip install --python .venv/bin/python ...` — a uv-created venv has NO pip, so \
+    `.venv/bin/pip` and `python -m pip` do not exist there. Only use `python3 -m venv` when the system \
+    python already satisfies the required version — check with `python3 --version` first. pyenv or a \
+    package manager (brew) are acceptable fallbacks.
+    - Always isolate project dependencies in a virtualenv; never install into the system interpreter.
+    - Portability: macOS lacks GNU `timeout` — use `gtimeout` (coreutils), a language-level timeout, or \
+    omit it; do not let a missing `timeout` block the real command. Check `command -v <tool>` before \
+    relying on it.
+    Never fabricate results:
+    - Report ONLY outcomes that a tool actually produced. If a command failed, was blocked, or you \
+    could not complete a step, say so with the exact error and what you tried — do not invent a pass \
+    rate, test result, score, or output. A specific figure (a percentage, "N/M passed", a reward) must \
+    come from real tool output, never from your expectation of what it should be.
+    Do the work — do not narrate it:
+    - Writing a script or a file does NOT run it. To run a program, produce output files, or verify \
+    anything, you MUST call the shell tool (host.shell.run). A step is real only when a tool call in \
+    THIS turn produced it.
+    - Never say you wrote a file, ran a command, or produced an output unless a tool call in this turn \
+    actually did it. If the task says "run it", run it — then read the artifact back \
+    (host.file.read / host.file.list) to confirm it exists before you report it.
+    - A multi-step task is not finished until every step has a real tool call behind it. Do not stop \
+    after writing a script to "check in" — keep going until the outputs actually exist.
+    Deliverables the task names go to disk, not just the chat:
+    - When the task asks you to write, produce, save, or create a named file (e.g. "write \
+    recommendation.md", "produce report.md"), you MUST create that exact file with host.file.write \
+    (or host.apply_patch) and read it back to confirm. Putting the content only in your final chat \
+    reply does NOT satisfy a request for a file — the file must exist on disk when you finish.
+    Web research and citations — cite only what you actually retrieved:
+    - Fetch only URLs that appear in your web-search results. Do NOT guess, construct, or recall a \
+    URL from memory — invented URLs 404 and poison the report.
+    - Cite a source ONLY if you fetched it successfully in this run. If host.web.fetch returned an \
+    error, a 404, or you never fetched it, do not cite that URL — find a working source or state \
+    plainly that the claim is unverified. Every price, wattage, benchmark, or figure must trace to a \
+    page you actually opened.
+    """
+
     public static func systemPrompt(tools: [ToolDefinition]) -> String {
         let toolList = tools.map { tool in
             "- \(tool.name): \(tool.description). Parameters JSON schema: \(tool.parametersJSON)"
@@ -78,6 +136,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         {"type":"tool","name":"host.shell.run","arguments":{"cmd":"whoami"}}
 
         \(trustedRouterModelAdvisorPrompt)
+
+        \(officeCoworkerPrompt)
 
         \(computerUseGuidance)
 
@@ -155,6 +215,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         if the request is satisfied.
         - If the tool output shows more work is needed, return the next tool call. Do not repeat the \
         exact same tool call unless the output shows a transient failure worth retrying.
+
+        \(environmentBringUpPrompt)
 
         Available tools:
         \(toolList)
@@ -414,9 +476,17 @@ public struct TrustedRouterPromptBuilder: Sendable {
         case .assistant:
             return Self.chatMessage(role: "assistant", content: message.content)
         case .tool:
+            // Tool results are OBSERVATIONS fed back to the model, not things the model said. They
+            // were sent as role "assistant" for the plain-text case, which (a) makes every
+            // continuation request end on a trailing-assistant turn — prefill/merge territory for
+            // OpenAI-compat gateways, observed live as the "model response" coming back as a
+            // byte-identical echo of this very feedback (a malformed-action storm on every tool
+            // turn) — and (b) teaches the model that assistant turns NARRATE tool results, the
+            // exact fabrication habit seen in coworker runs. Role "user" matches the multimodal
+            // path below, which always sent feedback as user.
             let text = "Tool output: \(message.content)"
             guard !message.attachments.isEmpty else {
-                return Self.chatMessage(role: "assistant", content: text)
+                return Self.chatMessage(role: "user", content: text)
             }
             return [
                 "role": "user",

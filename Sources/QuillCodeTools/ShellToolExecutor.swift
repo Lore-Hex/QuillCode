@@ -113,9 +113,13 @@ public final class ShellStreamingSession: ShellInteractiveSession, @unchecked Se
         runner.processIdentifier
     }
 
-    init(request: ShellExecutionRequest) {
+    init(request: ShellExecutionRequest, sandboxPolicy: ShellProcessSandboxPolicy?) {
         let (stream, continuation) = AsyncStream<ShellProcessEvent>.makeStream()
-        let runner = ShellStreamingProcessRunner(request: request, continuation: continuation)
+        let runner = ShellStreamingProcessRunner(
+            request: request,
+            sandboxPolicy: sandboxPolicy,
+            continuation: continuation
+        )
         continuation.onTermination = { @Sendable _ in
             runner.cancel()
         }
@@ -144,10 +148,14 @@ enum ShellToolMessages {
 }
 
 public struct ShellToolExecutor: Sendable {
-    public init() {}
+    public var sandboxPolicy: ShellProcessSandboxPolicy?
+
+    public init(sandboxPolicy: ShellProcessSandboxPolicy? = nil) {
+        self.sandboxPolicy = sandboxPolicy
+    }
 
     public func run(_ request: ShellExecutionRequest) -> ToolResult {
-        Self.runProcess(request)
+        Self.runProcess(request, sandboxPolicy: sandboxPolicy)
     }
 
     public func runCancellable(_ request: ShellExecutionRequest) async -> ToolResult {
@@ -155,7 +163,11 @@ public struct ShellToolExecutor: Sendable {
         let result = await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 DispatchQueue.global(qos: .userInitiated).async {
-                    continuation.resume(returning: Self.runProcess(request, processBox: processBox))
+                    continuation.resume(returning: Self.runProcess(
+                        request,
+                        sandboxPolicy: sandboxPolicy,
+                        processBox: processBox
+                    ))
                 }
             }
         } onCancel: {
@@ -173,11 +185,12 @@ public struct ShellToolExecutor: Sendable {
     }
 
     public func startStreamingSession(_ request: ShellExecutionRequest) -> ShellStreamingSession {
-        ShellStreamingSession(request: request)
+        ShellStreamingSession(request: request, sandboxPolicy: sandboxPolicy)
     }
 
     private static func runProcess(
         _ request: ShellExecutionRequest,
+        sandboxPolicy: ShellProcessSandboxPolicy?,
         processBox: CancellableProcessBox? = nil
     ) -> ToolResult {
         let trimmed = request.command.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -185,9 +198,27 @@ public struct ShellToolExecutor: Sendable {
             return ToolResult(ok: false, error: ShellToolMessages.missingCommand)
         }
 
+        let environment = request.environment ?? ProcessInfo.processInfo.environment
+        let launch: ShellProcessLaunch
+        do {
+            launch = try ShellProcessSandbox.launch(
+                executable: request.shellExecutableURL,
+                arguments: ["-lc", trimmed],
+                cwd: request.cwd,
+                environment: environment,
+                policy: sandboxPolicy
+            )
+        } catch {
+            return ToolResult(
+                ok: false,
+                error: "Failed to configure shell sandbox: \(error.localizedDescription)",
+                failureKind: .sandboxUnavailable
+            )
+        }
+
         let process = Process()
-        process.executableURL = request.shellExecutableURL
-        process.arguments = ["-lc", trimmed]
+        process.executableURL = launch.executable
+        process.arguments = launch.arguments
         process.currentDirectoryURL = request.cwd
         process.environment = request.environment
 
@@ -232,12 +263,21 @@ public struct ShellToolExecutor: Sendable {
         let out = ShellOutputCapper.cap(String(decoding: output.stdout, as: UTF8.self)).text
         let err = ShellOutputCapper.cap(String(decoding: output.stderr, as: UTF8.self)).text
         let ok = process.terminationStatus == 0
+        let sandboxDenied = ShellProcessSandbox.isLikelyDenial(
+            launch: launch,
+            exitCode: process.terminationStatus,
+            stdout: out,
+            stderr: err
+        )
         return ToolResult(
             ok: ok,
             stdout: out,
             stderr: err,
             exitCode: process.terminationStatus,
-            error: ok ? nil : "Command failed with exit code \(process.terminationStatus)."
+            error: sandboxDenied
+                ? "Command was blocked by the process sandbox."
+                : (ok ? nil : "Command failed with exit code \(process.terminationStatus)."),
+            failureKind: sandboxDenied ? .sandboxDenied : nil
         )
     }
 
