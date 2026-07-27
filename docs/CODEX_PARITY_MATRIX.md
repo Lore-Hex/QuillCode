@@ -72,13 +72,15 @@
   Drive/Sheets, Mailchimp, Notion, Asana, Jira/Confluence, Zendesk, Concur, Google Ads, LinkedIn
   Campaign Manager, and Google Analytics, while actionful catalog workflows stay with the model loop
   so they can continue through browser/Computer Use instead of stopping after a single open.
-  Deterministic native desktop smoke now also records `browserWorkflowSmoke` and
-  `browserSpreadsheetWorkflowSmoke` evidence for SaaS-like CRM and shared-sheet pages by routing
-  `host.browser.type`, `host.browser.click`, `host.browser.script`, and `host.browser.inspect`
-  through the visible browser-session override and proving typed/saved row state survives into a
-  live-DOM inspection report. Packaged macOS smoke preserves the same browser coworker evidence as
-  `packaged-browser-workflow.json`, proving CRM-like and shared-sheet-like browser actions survive
-  both direct packaged executable launch and Launch Services launch. Native desktop smoke also
+  Deterministic native desktop smoke now also records `browserWorkflowSmoke`,
+  `browserSpreadsheetWorkflowSmoke`, and `browserAuthenticatedWorkflowSmoke` evidence for SaaS-like
+  CRM, shared-sheet, and login-like workspace pages by routing `host.browser.type`,
+  `host.browser.click`, `host.browser.script`, and `host.browser.inspect` through the visible
+  browser-session override and proving typed/saved/signed-in row state survives into a live-DOM
+  inspection report. Packaged macOS smoke preserves the same browser coworker evidence as
+  `packaged-browser-workflow.json`, proving CRM-like, shared-sheet-like, and authenticated-session
+  browser actions survive both direct packaged executable launch and Launch Services launch. Native
+  desktop smoke also
   records `scheduledCoworkerSmoke`, proving a
   due recurring coworker automation creates the task-specific scheduled thread, records recurrence
   run state, reveals the automation surface, and reaches the desktop automation notifier. Packaged
@@ -89,8 +91,10 @@
   render that artifact workflow into the transcript HTML evidence. Packaged macOS smoke preserves
   the same proof as `packaged-multi-file-artifact.json` across both packaged launch paths.
   Packaged macOS smoke also preserves `packaged-computer-use.json`, proving Computer Use top-bar
-  status plus setup/permission/refresh command contracts survive the package boundary while real
-  signed-in SaaS control remains gated.
+  status plus setup/permission/refresh command contracts survive the package boundary. Optional
+  `scripts/live-saas-smoke.sh` now gives real signed-in SaaS runs a fail-closed manifest contract for
+  HTTPS URL, signed-in state, live DOM inspection, browser/Computer Use actions, and captured-secret
+  rejection; real SaaS rows remain gated until a row-specific live manifest exists.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:

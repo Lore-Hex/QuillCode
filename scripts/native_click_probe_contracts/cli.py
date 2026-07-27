@@ -9,6 +9,7 @@ from .accessibility_frames import write_accessibility_frames_manifest
 from .browser_workflow import write_browser_workflow_manifest
 from .computer_use import write_computer_use_manifest
 from .computer_use_action import write_computer_use_action_manifest
+from .live_saas import write_live_saas_manifest
 from .multi_file_artifact import write_multi_file_artifact_manifest
 from .packaged_window import (
     validate_packaged_window_report,
@@ -89,6 +90,13 @@ def main() -> None:
     computer_use_action_parser.add_argument("launch_services_report", type=Path)
     computer_use_action_parser.add_argument("--manifest", required=True, type=Path)
 
+    live_saas_parser = subparsers.add_parser(
+        "live-saas",
+        help="validate optional signed-in live SaaS coworker evidence",
+    )
+    live_saas_parser.add_argument("evidence", type=Path)
+    live_saas_parser.add_argument("--manifest", required=True, type=Path)
+
     args = parser.parse_args()
     if args.command == "validate":
         validate_report(args.report, args.label)
@@ -138,3 +146,5 @@ def main() -> None:
             args.launch_services_report,
             args.manifest,
         )
+    elif args.command == "live-saas":
+        write_live_saas_manifest(args.evidence, args.manifest)

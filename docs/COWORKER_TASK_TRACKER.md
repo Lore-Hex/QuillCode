@@ -176,6 +176,25 @@ This moves the browser/SaaS coworker bucket from native-only evidence to package
 evidence. The live SaaS rows still stay gated until QuillCode proves the same path against a signed-in
 SaaS surface with Computer Use/browser session evidence.
 
+## Optional Live SaaS Evidence Slice
+
+QuillCode now has a fail-closed manual evidence gate for real signed-in SaaS sessions:
+
+- `scripts/live-saas-smoke.sh <evidence.json> [manifest.json]` validates captured live SaaS evidence
+  through `native-click-probe-contracts.py live-saas`.
+- The evidence must prove `accountState: signed-in`, use an HTTPS SaaS URL, include
+  `host.browser.open` plus `host.browser.inspect`, include at least one browser action or Computer Use
+  action, and report a `Live DOM snapshot`.
+- If Computer Use is included, the evidence must include `host.computer.screenshot`, a foreground app,
+  and an existing screenshot artifact flag.
+- The validator rejects common captured secrets such as TrustedRouter/QuillCloud keys, private keys,
+  and `password`/`token`/`secret` fields before writing a manifest.
+
+This does not make live SaaS rows covered by itself; it gives those rows a durable acceptance contract.
+When a signed-in Salesforce/HubSpot/Google Sheets/etc. workflow is run manually or in a secure
+credentialed environment, the resulting `live-saas-manifest.json` is the evidence to attach before
+graduating a row.
+
 ## Packaged Computer Use Evidence Slice
 
 Packaged macOS smoke now preserves explicit Computer Use setup/status evidence:

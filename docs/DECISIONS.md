@@ -3253,3 +3253,23 @@
 - **Evidence:** `QuillCodeDesktopSmokeRunner.runBrowserAuthenticatedWorkflowSmoke`,
   `SmokeBrowserSessionPresenter`, `scripts/native_click_probe_contracts/browser_workflow.py`,
   `scripts/packaged-macos-smoke.sh`, and `ParityPackagedMacOSSmokeGateTests`.
+
+## 2026-07-27: live SaaS coworker rows use an explicit optional evidence contract
+
+- **Decision:** Real signed-in SaaS coworker validation now has a separate optional gate:
+  `scripts/live-saas-smoke.sh` delegates to `native-click-probe-contracts.py live-saas`, validates a
+  captured live SaaS evidence JSON file, and writes a `live-saas-manifest.json` only when the evidence
+  proves signed-in state, HTTPS URL, live DOM inspection, and real browser/Computer Use action tools.
+- **Why:** The deterministic packaged smoke should stay stable and should not require private
+  Salesforce, HubSpot, Google Sheets, or other third-party credentials. At the same time, the coworker
+  spreadsheet needs a concrete acceptance artifact before a live SaaS row can move from "gated" to
+  "covered". A typed validator gives manual/secure-environment SaaS runs the same reviewable manifest
+  shape as packaged smoke.
+- **Boundary:** This is not run in default CI and does not itself prove any external service works.
+  It is the acceptance contract for evidence captured from a real signed-in service. Rows remain gated
+  until such a manifest is produced for the relevant service/task.
+- **Safety:** The validator rejects common captured secrets, including TrustedRouter/QuillCloud keys,
+  private keys, and obvious password/token/secret fields, before writing the manifest.
+- **Evidence:** `scripts/native_click_probe_contracts/live_saas.py`,
+  `scripts/native_click_probe_contracts/cli.py`, `scripts/live-saas-smoke.sh`, and
+  `ParityLiveSaaSSmokeGateTests`.
