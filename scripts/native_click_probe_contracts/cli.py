@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .accessibility_frames import write_accessibility_frames_manifest
 from .browser_workflow import write_browser_workflow_manifest
+from .computer_use import write_computer_use_manifest
 from .multi_file_artifact import write_multi_file_artifact_manifest
 from .packaged_window import (
     validate_packaged_window_report,
@@ -68,6 +69,17 @@ def main() -> None:
     frames_parser.add_argument("--click-probe-manifest", type=Path)
     frames_parser.add_argument("--manifest", required=True, type=Path)
 
+    computer_use_parser = subparsers.add_parser(
+        "computer-use",
+        help="write packaged Computer Use release evidence",
+    )
+    computer_use_parser.add_argument("direct_report", type=Path)
+    computer_use_parser.add_argument("launch_services_report", type=Path)
+    computer_use_parser.add_argument("window_report", type=Path)
+    computer_use_parser.add_argument("--click-probe-manifest", required=True, type=Path)
+    computer_use_parser.add_argument("--accessibility-frames-manifest", required=True, type=Path)
+    computer_use_parser.add_argument("--manifest", required=True, type=Path)
+
     args = parser.parse_args()
     if args.command == "validate":
         validate_report(args.report, args.label)
@@ -100,5 +112,14 @@ def main() -> None:
             args.report,
             args.screenshot,
             args.click_probe_manifest,
+            args.manifest,
+        )
+    elif args.command == "computer-use":
+        write_computer_use_manifest(
+            args.direct_report,
+            args.launch_services_report,
+            args.window_report,
+            args.click_probe_manifest,
+            args.accessibility_frames_manifest,
             args.manifest,
         )

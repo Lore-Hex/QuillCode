@@ -12,6 +12,7 @@ ACCESSIBILITY_FRAMES_MANIFEST="$SMOKE_ROOT/packaged-accessibility-frames.json"
 SCHEDULED_COWORKER_MANIFEST="$SMOKE_ROOT/packaged-scheduled-coworker.json"
 MULTI_FILE_ARTIFACT_MANIFEST="$SMOKE_ROOT/packaged-multi-file-artifact.json"
 BROWSER_WORKFLOW_MANIFEST="$SMOKE_ROOT/packaged-browser-workflow.json"
+COMPUTER_USE_MANIFEST="$SMOKE_ROOT/packaged-computer-use.json"
 WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
 WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
 WINDOW_STATE_ROOT="$SMOKE_ROOT/window-state"
@@ -52,6 +53,9 @@ cleanup() {
     if [[ -e "$BROWSER_WORKFLOW_MANIFEST" ]]; then
       cp "$BROWSER_WORKFLOW_MANIFEST" "$ARTIFACT_DIR/packaged-browser-workflow.json"
     fi
+    if [[ -e "$COMPUTER_USE_MANIFEST" ]]; then
+      cp "$COMPUTER_USE_MANIFEST" "$ARTIFACT_DIR/packaged-computer-use.json"
+    fi
     if [[ -e "$WINDOW_REPORT_PATH" ]]; then
       cp "$WINDOW_REPORT_PATH" "$ARTIFACT_DIR/window-report.json"
     fi
@@ -73,6 +77,7 @@ cleanup() {
       printf 'scheduled_coworker_manifest=packaged-scheduled-coworker.json\n'
       printf 'multi_file_artifact_manifest=packaged-multi-file-artifact.json\n'
       printf 'browser_workflow_manifest=packaged-browser-workflow.json\n'
+      printf 'computer_use_manifest=packaged-computer-use.json\n'
       printf 'window_smoke=window-report.json\n'
       printf 'window_screenshot=window.png\n'
     } > "$ARTIFACT_DIR/manifest.txt"
@@ -208,5 +213,13 @@ fi
   "$WINDOW_SCREENSHOT_PATH" \
   --click-probe-manifest "$CLICK_PROBE_MANIFEST" \
   --manifest "$ACCESSIBILITY_FRAMES_MANIFEST"
+
+"$ROOT_DIR/scripts/native-click-probe-contracts.py" computer-use \
+  "$DIRECT_SMOKE_ARTIFACT_DIR/report.json" \
+  "$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR/report.json" \
+  "$WINDOW_REPORT_PATH" \
+  --click-probe-manifest "$CLICK_PROBE_MANIFEST" \
+  --accessibility-frames-manifest "$ACCESSIBILITY_FRAMES_MANIFEST" \
+  --manifest "$COMPUTER_USE_MANIFEST"
 
 echo "QuillCode packaged macOS app smoke passed."

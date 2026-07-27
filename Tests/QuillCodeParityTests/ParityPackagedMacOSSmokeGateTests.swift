@@ -55,12 +55,15 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             packagedSmoke.contains("BROWSER_WORKFLOW_MANIFEST=\"$SMOKE_ROOT/packaged-browser-workflow.json\"")
         )
+        XCTAssertTrue(packagedSmoke.contains("COMPUTER_USE_MANIFEST=\"$SMOKE_ROOT/packaged-computer-use.json\""))
         XCTAssertTrue(packagedSmoke.contains("scheduled_coworker_manifest=packaged-scheduled-coworker.json"))
         XCTAssertTrue(packagedSmoke.contains("multi_file_artifact_manifest=packaged-multi-file-artifact.json"))
         XCTAssertTrue(packagedSmoke.contains("browser_workflow_manifest=packaged-browser-workflow.json"))
+        XCTAssertTrue(packagedSmoke.contains("computer_use_manifest=packaged-computer-use.json"))
         XCTAssertTrue(packagedSmoke.contains(" scheduled-coworker \\"))
         XCTAssertTrue(packagedSmoke.contains(" multi-file-artifact \\"))
         XCTAssertTrue(packagedSmoke.contains(" browser-workflow \\"))
+        XCTAssertTrue(packagedSmoke.contains(" computer-use \\"))
         XCTAssertTrue(packagedSmoke.contains(" frames \\"))
         XCTAssertTrue(packagedSmoke.contains("$WINDOW_REPORT_PATH"))
         XCTAssertTrue(packagedSmoke.contains("$WINDOW_SCREENSHOT_PATH"))
@@ -77,6 +80,15 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(clickProbeValidator.contains(#"composerCanSend") is False"#))
         XCTAssertTrue(clickProbeValidator.contains(#"sidebarTitle") == "Chats""#))
         for commandID in ["new-chat", "command-palette", "keyboard-shortcuts", "settings", "toggle-terminal", "toggle-browser", "stop-all", "disconnect-all"] {
+            Self.assertSource(clickProbeValidator, contains: commandID)
+        }
+        for commandID in [
+            "computer-use-setup",
+            "computer-use-open-screen-recording",
+            "computer-use-open-accessibility",
+            "computer-use-refresh",
+        ] {
+            Self.assertSource(supportText, contains: commandID)
             Self.assertSource(clickProbeValidator, contains: commandID)
         }
         for actionID in ["review-changes", "run-tests", "explain-project"] {
@@ -128,6 +140,18 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(browserWorkflowValidator.contains(#""H1: CRM Workflow Smoke""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""H1: Shared Sheet Workflow Smoke""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""browserWorkflowMatchesDirect": True"#))
+
+        let computerUseValidator = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("scripts/native_click_probe_contracts/computer_use.py"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(computerUseValidator.contains(#""computer-use-setup""#))
+        XCTAssertTrue(computerUseValidator.contains(#""computer-use-open-screen-recording""#))
+        XCTAssertTrue(computerUseValidator.contains(#""computer-use-open-accessibility""#))
+        XCTAssertTrue(computerUseValidator.contains(#""computer-use-refresh""#))
+        XCTAssertTrue(computerUseValidator.contains(#""computerUseLabel""#))
+        XCTAssertTrue(computerUseValidator.contains("write_computer_use_manifest"))
     }
 
 }
