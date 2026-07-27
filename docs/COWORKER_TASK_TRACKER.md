@@ -144,6 +144,9 @@ The native desktop smoke now records deterministic multi-file deliverable eviden
   the older single-file `hello.txt` write/read proof.
 - `scripts/native-desktop-smoke.sh` fails if the report loses the source paths, deliverable path,
   exact tool sequence, final answer, or rendered HTML transcript evidence.
+- Packaged macOS smoke also preserves `packaged-multi-file-artifact.json`, proving the same
+  multi-file artifact evidence survives both direct packaged executable launch and Launch Services
+  launch.
 
 This covers the deterministic local-artifact version of multi-file coworker deliverables. Rows that
 depend on live SaaS data, proprietary document formats, or a logged-in browser session should remain

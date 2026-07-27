@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from .accessibility_frames import write_accessibility_frames_manifest
+from .multi_file_artifact import write_multi_file_artifact_manifest
 from .packaged_window import (
     validate_packaged_window_report,
     write_accessibility_readiness_manifest,
@@ -40,6 +41,14 @@ def main() -> None:
     scheduled_parser.add_argument("launch_services_report", type=Path)
     scheduled_parser.add_argument("--manifest", required=True, type=Path)
 
+    multi_file_parser = subparsers.add_parser(
+        "multi-file-artifact",
+        help="write packaged multi-file artifact evidence",
+    )
+    multi_file_parser.add_argument("direct_report", type=Path)
+    multi_file_parser.add_argument("launch_services_report", type=Path)
+    multi_file_parser.add_argument("--manifest", required=True, type=Path)
+
     window_parser = subparsers.add_parser("window", help="validate packaged live-window smoke report and screenshot")
     window_parser.add_argument("report", type=Path)
     window_parser.add_argument("screenshot", type=Path)
@@ -59,6 +68,12 @@ def main() -> None:
         write_accessibility_readiness_manifest(args.artifact_root, args.manifest)
     elif args.command == "scheduled-coworker":
         write_scheduled_coworker_manifest(
+            args.direct_report,
+            args.launch_services_report,
+            args.manifest,
+        )
+    elif args.command == "multi-file-artifact":
+        write_multi_file_artifact_manifest(
             args.direct_report,
             args.launch_services_report,
             args.manifest,

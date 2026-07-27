@@ -49,8 +49,13 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             packagedSmoke.contains("SCHEDULED_COWORKER_MANIFEST=\"$SMOKE_ROOT/packaged-scheduled-coworker.json\"")
         )
+        XCTAssertTrue(
+            packagedSmoke.contains("MULTI_FILE_ARTIFACT_MANIFEST=\"$SMOKE_ROOT/packaged-multi-file-artifact.json\"")
+        )
         XCTAssertTrue(packagedSmoke.contains("scheduled_coworker_manifest=packaged-scheduled-coworker.json"))
+        XCTAssertTrue(packagedSmoke.contains("multi_file_artifact_manifest=packaged-multi-file-artifact.json"))
         XCTAssertTrue(packagedSmoke.contains(" scheduled-coworker \\"))
+        XCTAssertTrue(packagedSmoke.contains(" multi-file-artifact \\"))
         XCTAssertTrue(packagedSmoke.contains(" frames \\"))
         XCTAssertTrue(packagedSmoke.contains("$WINDOW_REPORT_PATH"))
         XCTAssertTrue(packagedSmoke.contains("$WINDOW_SCREENSHOT_PATH"))
@@ -87,6 +92,21 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(scheduledCoworkerValidator.contains(#""QuillCode scheduled task ready""#))
         XCTAssertTrue(scheduledCoworkerValidator.contains(#""Every Monday at 8:00 AM""#))
         XCTAssertTrue(scheduledCoworkerValidator.contains(#""scheduledCoworkerMatchesDirect": True"#))
+
+        let multiFileArtifactValidator = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("scripts/native_click_probe_contracts/multi_file_artifact.py"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""multiFileArtifactSmoke""#))
+        XCTAssertTrue(
+            multiFileArtifactValidator.contains(
+                #""Create the team action brief from `notes/research.md` and `notes/risks.md`.""#
+            )
+        )
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""host.file.read", "host.file.read", "host.file.write""#))
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""team-action-brief.md""#))
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""multiFileArtifactMatchesDirect": True"#))
     }
 
 }
