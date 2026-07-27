@@ -108,6 +108,10 @@ Scheduled coworker due-runs now carry task-specific notification evidence:
   recurring coworker task produced the follow-up thread.
 - Tests cover the app-level due-run report and the desktop automation coordinator delivering that
   report through the notifier when automation notifications are enabled.
+- The native desktop smoke now records `scheduledCoworkerSmoke`, installing a due recurring coworker
+  automation, running it through `QuillCodeDesktopAutomationCoordinator`, verifying the follow-up
+  scheduled thread contains the original task, checking recurrence run state, and confirming the
+  desktop automation notifier receives exactly one task-specific report.
 
-The remaining scheduling evidence gap is packaged-app smoke that observes the native notification and
-visible automation management surface together.
+The remaining scheduling evidence gap is packaged-app smoke that observes the real OS notification
+banner/action and visible automation management surface together.
