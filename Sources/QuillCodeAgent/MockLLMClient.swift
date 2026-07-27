@@ -16,6 +16,13 @@ public struct MockLLMClient: LLMClient {
         if thread.messages.last?.role == .tool,
            let lastToolOutput = thread.messages.last?.content,
            let feedback = try? JSONHelpers.decode(AgentToolFeedback.self, from: lastToolOutput) {
+            if let action = Self.nextMultiFileArtifactAction(
+                thread: thread,
+                feedback: feedback,
+                tools: tools
+            ) {
+                return action
+            }
             return .say(AgentRunner.finalAnswer(
                 for: feedback.toolCall,
                 result: feedback.result,
@@ -144,6 +151,10 @@ public struct MockLLMClient: LLMClient {
                     "cmd": "df -h / /Quill 2>/dev/null || df -h /"
                 ])
             ))
+        }
+
+        if let action = Self.startMultiFileArtifactAction(for: lower, tools: tools) {
+            return action
         }
 
         if let fileWrite = AgentFileWriteRequestParser.request(from: request) {
@@ -365,6 +376,86 @@ public struct MockLLMClient: LLMClient {
             return tokens[nextIndex]
         }
         return nil
+    }
+
+    private static func startMultiFileArtifactAction(
+        for lowercasedRequest: String,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard lowercasedRequest.contains("team action brief"),
+              tools.contains(where: { $0.name == ToolDefinition.fileRead.name })
+        else { return nil }
+        return .tool(.init(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "notes/research.md"])
+        ))
+    }
+
+    private static func nextMultiFileArtifactAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            $0.role == .user && $0.content.lowercased().contains("team action brief")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "notes/research.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "notes/risks.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "notes/risks.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "team-action-brief.md",
+                    "content": Self.teamActionBriefContent
+                ])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileWrite.name,
+           path == "team-action-brief.md" {
+            return .say("Created `team-action-brief.md` from `notes/research.md` and `notes/risks.md`.")
+        }
+
+        return nil
+    }
+
+    private static var teamActionBriefContent: String {
+        """
+        # Team Action Brief
+
+        ## Key facts
+        - Customers asked for QuillCloud relay reliability before shipment.
+        - The launch owner is Maya.
+
+        ## Risks
+        - The top risk is pairing fallback after a bad Wi-Fi password.
+        - The mitigation is a deterministic AP fallback smoke before shipping.
+
+        ## Next action
+        - Run the pairing fallback smoke and attach the evidence to the release tracker.
+        """
+    }
+
+    private static func stringArgument(_ key: String, from json: String) -> String? {
+        guard let data = json.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return nil
+        }
+        return object[key] as? String
     }
 
     private static func parentDirectory(for path: String) -> String {

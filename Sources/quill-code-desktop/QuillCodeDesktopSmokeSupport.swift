@@ -162,6 +162,7 @@ struct QuillCodeDesktopSmokeReport {
     var browserSmoke: QuillCodeDesktopBrowserSmokeReport
     var browserWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
     var browserSpreadsheetWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
+    var multiFileArtifactSmoke: QuillCodeDesktopMultiFileArtifactSmokeReport
     var scheduledCoworkerSmoke: QuillCodeDesktopScheduledCoworkerSmokeReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
 
@@ -192,6 +193,7 @@ struct QuillCodeDesktopSmokeReport {
                 "browserSmoke": browserSmoke.dictionary,
                 "browserWorkflowSmoke": browserWorkflowSmoke.dictionary,
                 "browserSpreadsheetWorkflowSmoke": browserSpreadsheetWorkflowSmoke.dictionary,
+                "multiFileArtifactSmoke": multiFileArtifactSmoke.dictionary,
                 "scheduledCoworkerSmoke": scheduledCoworkerSmoke.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary
             ],
@@ -369,6 +371,30 @@ struct QuillCodeDesktopScheduledCoworkerSmokeReport {
             "automationsVisible": automationsVisible,
             "lastRunRecorded": lastRunRecorded,
             "nextRunRecorded": nextRunRecorded
+        ]
+    }
+}
+
+struct QuillCodeDesktopMultiFileArtifactSmokeReport {
+    var prompt: String
+    var sourcePaths: [String]
+    var deliverablePath: String
+    var toolSequence: [String]
+    var finalAnswer: String
+    var deliverableContainsResearch: Bool
+    var deliverableContainsRisk: Bool
+    var deliverableContainsNextAction: Bool
+
+    var dictionary: [String: Any] {
+        [
+            "prompt": prompt,
+            "sourcePaths": sourcePaths,
+            "deliverablePath": deliverablePath,
+            "toolSequence": toolSequence,
+            "finalAnswer": finalAnswer,
+            "deliverableContainsResearch": deliverableContainsResearch,
+            "deliverableContainsRisk": deliverableContainsRisk,
+            "deliverableContainsNextAction": deliverableContainsNextAction
         ]
     }
 }
@@ -560,6 +586,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case htmlMissingResult
     case incompleteTranscript
     case invalidImageSize(Int, Int)
+    case multiFileArtifactMismatch(String)
     case nativeAccessibilityActivationFailed([String])
     case nativeAccessibilityFrameSamplingFailed([String])
     case nativeHitTargetAuditFailed([String])
