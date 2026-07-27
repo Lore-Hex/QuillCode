@@ -46,6 +46,11 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(packagedSmoke.contains("window.png"))
         XCTAssertTrue(packagedSmoke.contains("packaged-accessibility-frames.json"))
         XCTAssertTrue(packagedSmoke.contains("accessibility_frames_manifest=packaged-accessibility-frames.json"))
+        XCTAssertTrue(
+            packagedSmoke.contains("SCHEDULED_COWORKER_MANIFEST=\"$SMOKE_ROOT/packaged-scheduled-coworker.json\"")
+        )
+        XCTAssertTrue(packagedSmoke.contains("scheduled_coworker_manifest=packaged-scheduled-coworker.json"))
+        XCTAssertTrue(packagedSmoke.contains(" scheduled-coworker \\"))
         XCTAssertTrue(packagedSmoke.contains(" frames \\"))
         XCTAssertTrue(packagedSmoke.contains("$WINDOW_REPORT_PATH"))
         XCTAssertTrue(packagedSmoke.contains("$WINDOW_SCREENSHOT_PATH"))
@@ -54,6 +59,7 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         Self.assertSource(packagedSmoke, excludes: "python3 - \"$WINDOW_REPORT_PATH\"")
         XCTAssertTrue(clickProbeValidator.contains(#"def validate_packaged_window_report"#))
         XCTAssertTrue(clickProbeValidator.contains(#"def write_accessibility_frames_manifest"#))
+        XCTAssertTrue(clickProbeValidator.contains(#"write_scheduled_coworker_manifest"#))
         XCTAssertTrue(clickProbeValidator.contains(#"live-accessibility-frame-sampled"#))
         XCTAssertTrue(clickProbeValidator.contains(#"REQUIRED_LIVE_ACCESSIBILITY_CONTRACT_IDS"#))
         XCTAssertTrue(clickProbeValidator.contains(#"windowTitle") == "QuillCode""#))
@@ -66,6 +72,21 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         for actionID in ["review-changes", "run-tests", "explain-project"] {
             Self.assertSource(clickProbeValidator, contains: actionID)
         }
+
+        let scheduledCoworkerValidator = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("scripts/native_click_probe_contracts/scheduled_coworker.py"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(scheduledCoworkerValidator.contains(#""scheduledCoworkerSmoke""#))
+        XCTAssertTrue(
+            scheduledCoworkerValidator.contains(
+                #""Scheduled task: check competitor pricing pages and notify me with a diff""#
+            )
+        )
+        XCTAssertTrue(scheduledCoworkerValidator.contains(#""QuillCode scheduled task ready""#))
+        XCTAssertTrue(scheduledCoworkerValidator.contains(#""Every Monday at 8:00 AM""#))
+        XCTAssertTrue(scheduledCoworkerValidator.contains(#""scheduledCoworkerMatchesDirect": True"#))
     }
 
 }

@@ -9,6 +9,7 @@ LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR="$SMOKE_ROOT/launch-services"
 CLICK_PROBE_MANIFEST="$SMOKE_ROOT/packaged-click-probes.json"
 ACCESSIBILITY_READINESS_MANIFEST="$SMOKE_ROOT/packaged-accessibility-readiness.json"
 ACCESSIBILITY_FRAMES_MANIFEST="$SMOKE_ROOT/packaged-accessibility-frames.json"
+SCHEDULED_COWORKER_MANIFEST="$SMOKE_ROOT/packaged-scheduled-coworker.json"
 WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
 WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
 WINDOW_STATE_ROOT="$SMOKE_ROOT/window-state"
@@ -40,6 +41,9 @@ cleanup() {
     if [[ -e "$ACCESSIBILITY_FRAMES_MANIFEST" ]]; then
       cp "$ACCESSIBILITY_FRAMES_MANIFEST" "$ARTIFACT_DIR/packaged-accessibility-frames.json"
     fi
+    if [[ -e "$SCHEDULED_COWORKER_MANIFEST" ]]; then
+      cp "$SCHEDULED_COWORKER_MANIFEST" "$ARTIFACT_DIR/packaged-scheduled-coworker.json"
+    fi
     if [[ -e "$WINDOW_REPORT_PATH" ]]; then
       cp "$WINDOW_REPORT_PATH" "$ARTIFACT_DIR/window-report.json"
     fi
@@ -58,6 +62,7 @@ cleanup() {
       printf 'click_probe_manifest=packaged-click-probes.json\n'
       printf 'accessibility_readiness_manifest=packaged-accessibility-readiness.json\n'
       printf 'accessibility_frames_manifest=packaged-accessibility-frames.json\n'
+      printf 'scheduled_coworker_manifest=packaged-scheduled-coworker.json\n'
       printf 'window_smoke=window-report.json\n'
       printf 'window_screenshot=window.png\n'
     } > "$ARTIFACT_DIR/manifest.txt"
@@ -148,6 +153,11 @@ QUILLCODE_NATIVE_DESKTOP_SMOKE_ARTIFACT_DIR="$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR
 "$ROOT_DIR/scripts/native-click-probe-contracts.py" readiness \
   "$SMOKE_ROOT" \
   --manifest "$ACCESSIBILITY_READINESS_MANIFEST"
+
+"$ROOT_DIR/scripts/native-click-probe-contracts.py" scheduled-coworker \
+  "$DIRECT_SMOKE_ARTIFACT_DIR/report.json" \
+  "$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR/report.json" \
+  --manifest "$SCHEDULED_COWORKER_MANIFEST"
 
 echo "==> Running packaged macOS app live-window smoke"
 (
