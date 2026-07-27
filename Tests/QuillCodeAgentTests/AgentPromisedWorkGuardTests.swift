@@ -14,6 +14,22 @@ final class AgentPromisedWorkGuardTests: XCTestCase {
         ))
     }
 
+    func testDetectsOfficeCoworkerFutureWorkPromises() {
+        let promisedOfficeTasks = [
+            "I'll inventory the brand assets and flag low-res logos.",
+            "I will standardize the Stage values and highlight missing close dates.",
+            "I'm going to chart kWh usage and draft the summary.",
+            "Let me pull the last eight weeks and write the trend callouts."
+        ]
+
+        for response in promisedOfficeTasks {
+            XCTAssertTrue(
+                AgentPromisedWorkGuard.shouldRequestCorrection(for: response, tools: [.shellRun]),
+                response
+            )
+        }
+    }
+
     func testDoesNotDetectCapabilityOrPermissionAnswers() {
         XCTAssertFalse(AgentPromisedWorkGuard.shouldRequestCorrection(
             for: "I can run commands, edit files, and review diffs when you ask.",
