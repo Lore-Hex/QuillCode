@@ -123,6 +123,12 @@ extension QuillCodeWorkspaceModel {
             setLastError(nil)
             await handleSlashCommand(command, originalPrompt: originalPrompt, workspaceRoot: workspaceRoot)
             return nil
+        case .scheduledCoworker(let request):
+            composer.draft = ""
+            clearComposerDraft(for: draftThreadID)
+            setLastError(nil)
+            createScheduledCoworkerAutomation(request)
+            return nil
         case .agent(let plannedPrompt):
             prompt = plannedPrompt
         }

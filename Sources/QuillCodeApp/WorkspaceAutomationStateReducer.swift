@@ -55,6 +55,26 @@ enum WorkspaceAutomationStateReducer {
         return mutation(state: appending(automation, to: state), value: automation)
     }
 
+    static func createScheduledCoworker(
+        in state: AutomationsState,
+        project: ProjectRef,
+        taskText: String,
+        scheduleDescription: String,
+        nextRunAt: Date?,
+        recurrence: QuillAutomationRecurrence?,
+        now: Date
+    ) -> WorkspaceAutomationStateMutation<QuillAutomation> {
+        let automation = WorkspaceAutomationFactory.scheduledCoworker(
+            for: project,
+            taskText: taskText,
+            scheduleDescription: scheduleDescription,
+            nextRunAt: nextRunAt,
+            recurrence: recurrence,
+            now: now
+        )
+        return mutation(state: appending(automation, to: state), value: automation)
+    }
+
     static func createLocalEnvironmentAction(
         in state: AutomationsState,
         project: ProjectRef,
