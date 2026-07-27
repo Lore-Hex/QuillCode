@@ -101,7 +101,6 @@ final class ParityMergeTrainGateTests: QuillCodeParityTestCase {
             "statusCheckRollup": [
               {"name": "swift", "status": "COMPLETED", "conclusion": "SUCCESS"},
               {"name": "linux-swift", "status": "COMPLETED", "conclusion": "SUCCESS"},
-              {"name": "playwright", "status": "COMPLETED", "conclusion": "SUCCESS"},
               {"name": "smoke", "status": "COMPLETED", "conclusion": "SUCCESS"}
             ],
             "labels": [{"name": "merge-train"}],
@@ -125,7 +124,6 @@ final class ParityMergeTrainGateTests: QuillCodeParityTestCase {
             "statusCheckRollup": [
               {"name": "swift", "status": "COMPLETED", "conclusion": "SUCCESS"},
               {"name": "linux-swift", "status": "COMPLETED", "conclusion": "SUCCESS"},
-              {"name": "playwright", "status": "COMPLETED", "conclusion": "SUCCESS"},
               {"name": "smoke", "status": "COMPLETED", "conclusion": "SUCCESS"}
             ],
             "labels": [{"name": "merge-train"}],

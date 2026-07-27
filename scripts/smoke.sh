@@ -303,14 +303,6 @@ assert_cli_output_contains() {
   fi
 }
 
-assert_playwright_real_world_manifest() {
-  if [[ -z "$ARTIFACT_DIR" ]]; then
-    return 0
-  fi
-
-  local manifest_path="$ARTIFACT_DIR/playwright-real-world/playwright-real-world-actions-manifest.json"
-  "$ROOT_DIR/scripts/validate-playwright-real-world-manifest.py" "$manifest_path"
-}
 
 prepare_git_workspace() {
   git -C "$SMOKE_WORKSPACE" init >/dev/null
@@ -572,33 +564,13 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   PACKAGED_MACOS_DETAIL="completed"
 fi
 
-if [[ -d "$ROOT_DIR/E2E/playwright/node_modules" ]]; then
-  log_step "Running Playwright E2E suite"
-  PLAYWRIGHT_STATUS="running"
-  PLAYWRIGHT_DETAIL="running"
-  FINAL_DETAIL="Playwright E2E failed"
-  run_with_timeout "$PLAYWRIGHT_TIMEOUT_SECONDS" "Playwright E2E suite" \
-    env ROOT_DIR="$ROOT_DIR" ARTIFACT_DIR="$ARTIFACT_DIR" bash -c '
-    set -euo pipefail
-    cd "$ROOT_DIR/E2E/playwright"
-    QUILLCODE_PLAYWRIGHT_REAL_WORLD_ARTIFACT_DIR="${ARTIFACT_DIR:+$ARTIFACT_DIR/playwright-real-world}" \
-      npm test
-  '
-  assert_playwright_real_world_manifest
-  PLAYWRIGHT_STATUS="passed"
-  PLAYWRIGHT_DETAIL="completed"
-elif is_truthy "$REQUIRE_PLAYWRIGHT"; then
-  PLAYWRIGHT_STATUS="missing-dependencies"
-  PLAYWRIGHT_DETAIL="E2E/playwright/node_modules is missing"
-  FINAL_DETAIL="Playwright E2E dependencies are missing"
-  echo "Playwright E2E was required, but E2E/playwright/node_modules is missing." >&2
-  echo "Run npm ci in E2E/playwright before running this smoke gate." >&2
-  exit 2
-else
-  PLAYWRIGHT_STATUS="skipped"
-  PLAYWRIGHT_DETAIL="E2E/playwright/node_modules is missing and Playwright is not required"
-  log_step "Skipping Playwright E2E; run npm install in E2E/playwright to include it"
-fi
+# UI verification runs against the REAL shipped SwiftUI, not a JavaScript reimplementation: the native
+# desktop render smoke above renders the actual desktop executable and validates its hit-target /
+# accessibility contracts, and the packaged macOS smoke exercises the real .app. The former JS harness
+# (E2E/) and its Playwright suite were removed — a 26k-line mock could pass while the real app was
+# broken, which is worse than no UI test.
+PLAYWRIGHT_STATUS="removed"
+PLAYWRIGHT_DETAIL="JS harness eliminated; UI is verified by the native + packaged Swift smokes"
 
 FINAL_DETAIL="completed"
 echo "QuillCode smoke passed."
