@@ -69,3 +69,17 @@ Plain recurring coworker prompts now create real workspace automations without r
 This improves the scheduling rows in the coworker catalog. Keep those rows as not fully covered until
 there is end-to-end evidence for due-run execution, notification delivery, and visible automation
 management in the packaged app.
+
+## Scheduling Notification Proof Slice
+
+Scheduled coworker due-runs now carry task-specific notification evidence:
+
+- Due-run reports for scheduled coworker tasks use "QuillCode scheduled task ready" instead of the
+  generic workspace-check title.
+- The notification body includes the original task text, so the desktop notification path proves which
+  recurring coworker task produced the follow-up thread.
+- Tests cover the app-level due-run report and the desktop automation coordinator delivering that
+  report through the notifier when automation notifications are enabled.
+
+The remaining scheduling evidence gap is packaged-app smoke that observes the native notification and
+visible automation management surface together.
