@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import SwiftUI
+import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
 import QuillCodePersistence
@@ -89,6 +90,7 @@ enum QuillCodeDesktopSmokeRunner {
         }
 
         let browserSmoke = try await runBrowserSmoke(controller: controller, root: root)
+        let browserWorkflowSmoke = try await runBrowserWorkflowSmoke(controller: controller, root: root)
         let surface = controller.surface
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)
         guard surface.transcript.messages.count >= 4,
@@ -175,6 +177,7 @@ enum QuillCodeDesktopSmokeRunner {
             chromeImage: chromeStats.report,
             chrome: chrome,
             browserSmoke: browserSmoke,
+            browserWorkflowSmoke: browserWorkflowSmoke,
             nativeHitTargets: nativeHitTargets
         )
     }
@@ -251,6 +254,144 @@ enum QuillCodeDesktopSmokeRunner {
             toolName: toolCard?.title ?? "",
             finalAnswer: finalAnswer
         )
+    }
+
+    private static func runBrowserWorkflowSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopBrowserWorkflowSmokeReport {
+        let previewFile = root.workspace.appendingPathComponent("browser-crm-smoke.html")
+        try """
+        <!doctype html>
+        <html>
+          <head><title>CRM Workflow Smoke</title></head>
+          <body>
+            <main>
+              <h1>CRM Workflow Smoke</h1>
+              <label>Status <input name="status" value="Open"></label>
+              <button data-action="save">Save</button>
+              <p data-testid="status">Status: Open</p>
+            </main>
+          </body>
+        </html>
+        """.write(to: previewFile, atomically: true, encoding: .utf8)
+
+        controller.browserAddressDraft = "browser-crm-smoke.html"
+        controller.openBrowserPreview()
+        controller.openBrowserSession()
+
+        let override = try requiredBrowserToolOverride(controller)
+        let workspace = root.workspace
+        let typeTool = try requiredToolResult(
+            await override(
+                ToolCall(
+                    name: ToolDefinition.browserType.name,
+                    argumentsJSON: ToolArguments.json([
+                        "selector": "input[name='status']",
+                        "text": "Qualified",
+                        "submit": false
+                    ])
+                ),
+                workspace
+            ),
+            toolName: ToolDefinition.browserType.name
+        )
+        let clickTool = try requiredToolResult(
+            await override(
+                ToolCall(
+                    name: ToolDefinition.browserClick.name,
+                    argumentsJSON: ToolArguments.json(["selector": "button[data-action='save']"])
+                ),
+                workspace
+            ),
+            toolName: ToolDefinition.browserClick.name
+        )
+        let scriptTool = try requiredToolResult(
+            await override(
+                ToolCall(
+                    name: ToolDefinition.browserScript.name,
+                    argumentsJSON: ToolArguments.json([
+                        "source": "document.querySelector('[data-testid=\"status\"]').textContent"
+                    ])
+                ),
+                workspace
+            ),
+            toolName: ToolDefinition.browserScript.name
+        )
+        let inspectTool = try requiredToolResult(
+            await override(
+                ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"),
+                workspace
+            ),
+            toolName: ToolDefinition.browserInspect.name
+        )
+
+        let typeOutput = try decodeSmokeOutput(BrowserActionToolOutput.self, from: typeTool)
+        let clickOutput = try decodeSmokeOutput(BrowserActionToolOutput.self, from: clickTool)
+        let scriptOutput = try decodeSmokeOutput(BrowserScriptToolOutput.self, from: scriptTool)
+        let inspectOutput = try decodeSmokeOutput(BrowserInspectionToolOutput.self, from: inspectTool)
+
+        guard typeOutput.selector == "input[name='status']",
+              typeOutput.action == "type",
+              clickOutput.selector == "button[data-action='save']",
+              clickOutput.action == "click",
+              scriptOutput.value.contains("Qualified"),
+              scriptOutput.value.contains("saved=true"),
+              inspectOutput.inspectionDepth == .liveDOMSnapshot,
+              inspectOutput.outline.contains("H1: CRM Workflow Smoke"),
+              inspectOutput.textSnippet?.contains("Qualified") == true,
+              inspectOutput.textSnippet?.contains("Saved") == true
+        else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(
+                "browser workflow smoke did not preserve typed/clicked live DOM state"
+            )
+        }
+
+        return QuillCodeDesktopBrowserWorkflowSmokeReport(
+            previewPath: previewFile.path,
+            url: inspectOutput.url,
+            typedSelector: typeOutput.selector,
+            typedText: "Qualified",
+            clickedSelector: clickOutput.selector,
+            typeToolName: ToolDefinition.browserType.name,
+            clickToolName: ToolDefinition.browserClick.name,
+            scriptToolName: ToolDefinition.browserScript.name,
+            inspectToolName: ToolDefinition.browserInspect.name,
+            scriptValue: scriptOutput.value,
+            inspectionDepth: inspectOutput.inspectionDepth.label,
+            sourceLabel: inspectOutput.sourceLabel,
+            outline: inspectOutput.outline,
+            textSnippet: inspectOutput.textSnippet ?? ""
+        )
+    }
+
+    private static func requiredBrowserToolOverride(
+        _ controller: QuillCodeDesktopController
+    ) throws -> AgentToolExecutionOverride {
+        guard let override = controller.model.visibleBrowserToolOverride else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed("missing visible browser tool override")
+        }
+        return override
+    }
+
+    private static func requiredToolResult(_ result: ToolResult?, toolName: String) throws -> ToolResult {
+        guard let result else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed("\(toolName) was not routed")
+        }
+        guard result.ok else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(result.error ?? "\(toolName) failed")
+        }
+        return result
+    }
+
+    private static func decodeSmokeOutput<Value: Decodable>(
+        _ type: Value.Type,
+        from result: ToolResult
+    ) throws -> Value {
+        guard let data = result.stdout.data(using: .utf8) else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed("tool output was not UTF-8")
+        }
+        return try JSONDecoder().decode(type, from: data)
     }
 
     private static func waitForDesktopRun(
@@ -334,23 +475,116 @@ enum QuillCodeDesktopSmokeRunner {
 private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresenting {
     var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
 
-    func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
-    func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
+    private var selectedTab: BrowserSessionTabSnapshot?
+    private var isSessionOpen = false
+    private var typedStatus = "Open"
+    private var didSave = false
+
+    func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
+        isSessionOpen = true
+        syncSession(snapshot)
+    }
+
+    func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {
+        guard isSessionOpen else { return }
+        selectedTab = snapshot.tabs.first { $0.id == snapshot.activeTabID } ?? snapshot.tabs.first
+    }
+
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
+
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
-        throw DesktopBrowserSessionScriptError.noOpenSession
+        let trimmedSource = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSource.isEmpty else { throw DesktopBrowserSessionScriptError.emptySource }
+        guard let selectedTab else { throw DesktopBrowserSessionScriptError.noSelectedTab }
+        emitSnapshotUpdate(for: selectedTab)
+        return DesktopBrowserSessionScriptResult(
+            title: "CRM Workflow Smoke",
+            url: selectedTab.url,
+            valueDescription: statusText
+        )
     }
+
     func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
-        throw DesktopBrowserSessionScriptError.noOpenSession
+        guard let selectedTab else { throw DesktopBrowserSessionScriptError.noSelectedTab }
+        let snapshot = liveDOMSnapshot(for: selectedTab)
+        onSessionUpdate?(BrowserSessionUpdate(
+            tabs: [
+                BrowserSessionTabUpdate(
+                    id: selectedTab.id,
+                    title: "CRM Workflow Smoke",
+                    url: selectedTab.url,
+                    isActive: true,
+                    liveDOMSnapshot: snapshot
+                )
+            ],
+            activeTabID: selectedTab.id
+        ))
+        return snapshot
     }
+
     func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult {
-        throw DesktopBrowserSessionActionError.noOpenSession
+        let trimmedSelector = selector.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSelector.isEmpty else { throw DesktopBrowserSessionActionError.emptySelector }
+        guard let selectedTab else { throw DesktopBrowserSessionActionError.noSelectedTab }
+        guard trimmedSelector == "button[data-action='save']" else {
+            throw DesktopBrowserSessionActionError.actionFailed("Smoke page has no element for \(trimmedSelector)")
+        }
+        didSave = true
+        emitSnapshotUpdate(for: selectedTab)
+        return DesktopBrowserSessionActionResult(ok: true, summary: "Clicked \(trimmedSelector)", error: nil)
     }
+
     func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult {
-        throw DesktopBrowserSessionActionError.noOpenSession
+        let trimmedSelector = selector.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedSelector.isEmpty else { throw DesktopBrowserSessionActionError.emptySelector }
+        guard !text.isEmpty else { throw DesktopBrowserSessionActionError.emptyText }
+        guard let selectedTab else { throw DesktopBrowserSessionActionError.noSelectedTab }
+        guard trimmedSelector == "input[name='status']" else {
+            throw DesktopBrowserSessionActionError.actionFailed("Smoke page has no element for \(trimmedSelector)")
+        }
+        typedStatus = text
+        emitSnapshotUpdate(for: selectedTab)
+        return DesktopBrowserSessionActionResult(ok: true, summary: "Typed into \(trimmedSelector)", error: nil)
     }
+
     func reloadSession() {}
+
+    private var statusText: String {
+        "Status: \(typedStatus); saved=\(didSave)"
+    }
+
+    private func liveDOMSnapshot(for tab: BrowserSessionTabSnapshot) -> BrowserLiveDOMSnapshot {
+        BrowserLiveDOMSnapshot(
+            finalURL: tab.url,
+            title: "CRM Workflow Smoke",
+            visibleText: "CRM Workflow Smoke Status \(typedStatus) \(didSave ? "Saved" : "Unsaved")",
+            outline: ["H1: CRM Workflow Smoke", "Button: Save", "Field: Status"],
+            html: """
+            <!doctype html><title>CRM Workflow Smoke</title>
+            <h1>CRM Workflow Smoke</h1>
+            <input name="status" value="\(typedStatus)">
+            <button data-action="save">Save</button>
+            <p data-testid="status">\(statusText)</p>
+            """,
+            viewportDescription: "1120x760 smoke browser"
+        )
+    }
+
+    private func emitSnapshotUpdate(for tab: BrowserSessionTabSnapshot) {
+        onSessionUpdate?(BrowserSessionUpdate(
+            tabs: [
+                BrowserSessionTabUpdate(
+                    id: tab.id,
+                    title: "CRM Workflow Smoke",
+                    url: tab.url,
+                    isActive: true,
+                    liveDOMSnapshot: liveDOMSnapshot(for: tab)
+                )
+            ],
+            activeTabID: tab.id
+        ))
+    }
 }
 
 private struct SmokeAutomationNotifier: QuillCodeAutomationNotifying {

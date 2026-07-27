@@ -160,6 +160,7 @@ struct QuillCodeDesktopSmokeReport {
     var chromeImage: QuillCodeDesktopSmokePixelReport
     var chrome: QuillCodeDesktopChromeSmokeReport
     var browserSmoke: QuillCodeDesktopBrowserSmokeReport
+    var browserWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
 
     func prettyJSON() throws -> Data {
@@ -187,6 +188,7 @@ struct QuillCodeDesktopSmokeReport {
                 "chromeImage": chromeImage.dictionary,
                 "chrome": chrome.dictionary,
                 "browserSmoke": browserSmoke.dictionary,
+                "browserWorkflowSmoke": browserWorkflowSmoke.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary
             ],
             options: [.prettyPrinted, .sortedKeys]
@@ -298,6 +300,42 @@ struct QuillCodeDesktopSmokePixelStats {
         guard minBlueAccentPixelRatio <= 0 || report.blueAccentPixelRatio > minBlueAccentPixelRatio else {
             throw QuillCodeDesktopSmokeFailure.imageMissingAccentPixels(report.blueAccentPixelRatio)
         }
+    }
+}
+
+struct QuillCodeDesktopBrowserWorkflowSmokeReport {
+    var previewPath: String
+    var url: String
+    var typedSelector: String
+    var typedText: String
+    var clickedSelector: String
+    var typeToolName: String
+    var clickToolName: String
+    var scriptToolName: String
+    var inspectToolName: String
+    var scriptValue: String
+    var inspectionDepth: String
+    var sourceLabel: String
+    var outline: [String]
+    var textSnippet: String
+
+    var dictionary: [String: Any] {
+        [
+            "previewPath": previewPath,
+            "url": url,
+            "typedSelector": typedSelector,
+            "typedText": typedText,
+            "clickedSelector": clickedSelector,
+            "typeToolName": typeToolName,
+            "clickToolName": clickToolName,
+            "scriptToolName": scriptToolName,
+            "inspectToolName": inspectToolName,
+            "scriptValue": scriptValue,
+            "inspectionDepth": inspectionDepth,
+            "sourceLabel": sourceLabel,
+            "outline": outline,
+            "textSnippet": textSnippet
+        ]
     }
 }
 

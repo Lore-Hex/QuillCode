@@ -157,6 +157,11 @@ if ! grep -q '"browserSmoke"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q '"browserWorkflowSmoke"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report browser workflow smoke evidence" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 python3 - "$REPORT_PATH" <<'PY'
 import json
 import math
@@ -222,6 +227,40 @@ for field in ("textSnippet", "finalAnswer"):
         fail(f"browser smoke {field} did not include rendered page text: {value!r}")
 if "Check the smoke hero" not in browser_smoke.get("finalAnswer", ""):
     fail("browser smoke final answer did not include the browser comment")
+
+browser_workflow_smoke = report.get("browserWorkflowSmoke")
+if not isinstance(browser_workflow_smoke, dict):
+    fail("did not include browser workflow smoke evidence")
+
+expected_browser_workflow_fields = {
+    "typeToolName": "host.browser.type",
+    "clickToolName": "host.browser.click",
+    "scriptToolName": "host.browser.script",
+    "inspectToolName": "host.browser.inspect",
+    "typedSelector": "input[name='status']",
+    "clickedSelector": "button[data-action='save']",
+    "typedText": "Qualified",
+    "inspectionDepth": "Live DOM snapshot",
+    "sourceLabel": "Local HTML",
+}
+for field, expected in expected_browser_workflow_fields.items():
+    if browser_workflow_smoke.get(field) != expected:
+        fail(
+            "browser workflow smoke field "
+            f"{field} was {browser_workflow_smoke.get(field)!r}, expected {expected!r}"
+        )
+
+workflow_outline = browser_workflow_smoke.get("outline")
+if not isinstance(workflow_outline, list) or "H1: CRM Workflow Smoke" not in workflow_outline:
+    fail(f"browser workflow outline did not include the CRM heading: {workflow_outline}")
+for field in ("scriptValue", "textSnippet"):
+    value = browser_workflow_smoke.get(field)
+    if not isinstance(value, str) or "Qualified" not in value:
+        fail(f"browser workflow {field} did not include the typed status: {value!r}")
+if "saved=true" not in browser_workflow_smoke.get("scriptValue", ""):
+    fail("browser workflow script value did not include saved=true after click")
+if "Saved" not in browser_workflow_smoke.get("textSnippet", ""):
+    fail("browser workflow text snippet did not include Saved after click")
 
 
 native_targets = report.get("nativeHitTargets")
