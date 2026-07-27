@@ -114,8 +114,8 @@ enum WorkspaceAutomationRunner {
             automation: updatedAfterRun(automation, now: now),
             thread: thread,
             selectedProjectID: project.id,
-            title: "QuillCode workspace check ready",
-            body: "\(thread.title) was created for \(project.name)."
+            title: workspaceScheduleReportTitle(for: automation),
+            body: workspaceScheduleReportBody(for: automation, thread: thread, project: project)
         )
     }
 
@@ -254,6 +254,26 @@ enum WorkspaceAutomationRunner {
         Run the scheduled workspace check for \(project.name). Start with project status, recent changes, \
         local actions, and anything needing attention.
         """
+    }
+
+    private static func workspaceScheduleReportTitle(for automation: QuillAutomation) -> String {
+        WorkspaceAutomationFactory.isScheduledCoworker(automation)
+            ? "QuillCode scheduled task ready"
+            : "QuillCode workspace check ready"
+    }
+
+    private static func workspaceScheduleReportBody(
+        for automation: QuillAutomation,
+        thread: ChatThread,
+        project: ProjectRef
+    ) -> String {
+        let task = automation.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard WorkspaceAutomationFactory.isScheduledCoworker(automation),
+              !task.isEmpty
+        else {
+            return "\(thread.title) was created for \(project.name)."
+        }
+        return "\(thread.title) was created for \(project.name): \(task)."
     }
 
     private static func localEnvironmentActionMessage(
