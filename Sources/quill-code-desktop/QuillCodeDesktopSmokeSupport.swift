@@ -161,6 +161,7 @@ struct QuillCodeDesktopSmokeReport {
     var chrome: QuillCodeDesktopChromeSmokeReport
     var browserSmoke: QuillCodeDesktopBrowserSmokeReport
     var browserWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
+    var browserSpreadsheetWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
 
     func prettyJSON() throws -> Data {
@@ -189,6 +190,7 @@ struct QuillCodeDesktopSmokeReport {
                 "chrome": chrome.dictionary,
                 "browserSmoke": browserSmoke.dictionary,
                 "browserWorkflowSmoke": browserWorkflowSmoke.dictionary,
+                "browserSpreadsheetWorkflowSmoke": browserSpreadsheetWorkflowSmoke.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary
             ],
             options: [.prettyPrinted, .sortedKeys]

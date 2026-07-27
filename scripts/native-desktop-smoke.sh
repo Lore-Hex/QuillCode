@@ -162,6 +162,11 @@ if ! grep -q '"browserWorkflowSmoke"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q '"browserSpreadsheetWorkflowSmoke"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report browser spreadsheet workflow smoke evidence" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 python3 - "$REPORT_PATH" <<'PY'
 import json
 import math
@@ -228,39 +233,68 @@ for field in ("textSnippet", "finalAnswer"):
 if "Check the smoke hero" not in browser_smoke.get("finalAnswer", ""):
     fail("browser smoke final answer did not include the browser comment")
 
-browser_workflow_smoke = report.get("browserWorkflowSmoke")
-if not isinstance(browser_workflow_smoke, dict):
-    fail("did not include browser workflow smoke evidence")
+def require_browser_workflow_smoke(
+    key,
+    typed_selector,
+    typed_text,
+    clicked_selector,
+    heading,
+    script_state,
+    text_state,
+):
+    browser_workflow_smoke = report.get(key)
+    if not isinstance(browser_workflow_smoke, dict):
+        fail(f"did not include {key} evidence")
 
-expected_browser_workflow_fields = {
-    "typeToolName": "host.browser.type",
-    "clickToolName": "host.browser.click",
-    "scriptToolName": "host.browser.script",
-    "inspectToolName": "host.browser.inspect",
-    "typedSelector": "input[name='status']",
-    "clickedSelector": "button[data-action='save']",
-    "typedText": "Qualified",
-    "inspectionDepth": "Live DOM snapshot",
-    "sourceLabel": "Local HTML",
-}
-for field, expected in expected_browser_workflow_fields.items():
-    if browser_workflow_smoke.get(field) != expected:
-        fail(
-            "browser workflow smoke field "
-            f"{field} was {browser_workflow_smoke.get(field)!r}, expected {expected!r}"
-        )
+    expected_browser_workflow_fields = {
+        "typeToolName": "host.browser.type",
+        "clickToolName": "host.browser.click",
+        "scriptToolName": "host.browser.script",
+        "inspectToolName": "host.browser.inspect",
+        "typedSelector": typed_selector,
+        "clickedSelector": clicked_selector,
+        "typedText": typed_text,
+        "inspectionDepth": "Live DOM snapshot",
+        "sourceLabel": "Local HTML",
+    }
+    for field, expected in expected_browser_workflow_fields.items():
+        if browser_workflow_smoke.get(field) != expected:
+            fail(
+                f"{key} field "
+                f"{field} was {browser_workflow_smoke.get(field)!r}, expected {expected!r}"
+            )
 
-workflow_outline = browser_workflow_smoke.get("outline")
-if not isinstance(workflow_outline, list) or "H1: CRM Workflow Smoke" not in workflow_outline:
-    fail(f"browser workflow outline did not include the CRM heading: {workflow_outline}")
-for field in ("scriptValue", "textSnippet"):
-    value = browser_workflow_smoke.get(field)
-    if not isinstance(value, str) or "Qualified" not in value:
-        fail(f"browser workflow {field} did not include the typed status: {value!r}")
-if "saved=true" not in browser_workflow_smoke.get("scriptValue", ""):
-    fail("browser workflow script value did not include saved=true after click")
-if "Saved" not in browser_workflow_smoke.get("textSnippet", ""):
-    fail("browser workflow text snippet did not include Saved after click")
+    workflow_outline = browser_workflow_smoke.get("outline")
+    if not isinstance(workflow_outline, list) or heading not in workflow_outline:
+        fail(f"{key} outline did not include {heading!r}: {workflow_outline}")
+    for field in ("scriptValue", "textSnippet"):
+        value = browser_workflow_smoke.get(field)
+        if not isinstance(value, str) or typed_text not in value:
+            fail(f"{key} {field} did not include the typed value: {value!r}")
+    if script_state not in browser_workflow_smoke.get("scriptValue", ""):
+        fail(f"{key} script value did not include {script_state} after click")
+    if text_state not in browser_workflow_smoke.get("textSnippet", ""):
+        fail(f"{key} text snippet did not include {text_state} after click")
+
+
+require_browser_workflow_smoke(
+    key="browserWorkflowSmoke",
+    typed_selector="input[name='status']",
+    typed_text="Qualified",
+    clicked_selector="button[data-action='save']",
+    heading="H1: CRM Workflow Smoke",
+    script_state="saved=true",
+    text_state="Saved",
+)
+require_browser_workflow_smoke(
+    key="browserSpreadsheetWorkflowSmoke",
+    typed_selector="[data-cell='launch-date']",
+    typed_text="2026-09-15",
+    clicked_selector="button[data-action='mark-done']",
+    heading="H1: Shared Sheet Workflow Smoke",
+    script_state="done=true",
+    text_state="Done",
+)
 
 
 native_targets = report.get("nativeHitTargets")
