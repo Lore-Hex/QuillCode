@@ -162,6 +162,7 @@ struct QuillCodeDesktopSmokeReport {
     var browserSmoke: QuillCodeDesktopBrowserSmokeReport
     var browserWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
     var browserSpreadsheetWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
+    var browserAuthenticatedWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
     var computerUseActionSmoke: QuillCodeDesktopComputerUseActionSmokeReport
     var multiFileArtifactSmoke: QuillCodeDesktopMultiFileArtifactSmokeReport
     var scheduledCoworkerSmoke: QuillCodeDesktopScheduledCoworkerSmokeReport
@@ -194,6 +195,7 @@ struct QuillCodeDesktopSmokeReport {
                 "browserSmoke": browserSmoke.dictionary,
                 "browserWorkflowSmoke": browserWorkflowSmoke.dictionary,
                 "browserSpreadsheetWorkflowSmoke": browserSpreadsheetWorkflowSmoke.dictionary,
+                "browserAuthenticatedWorkflowSmoke": browserAuthenticatedWorkflowSmoke.dictionary,
                 "computerUseActionSmoke": computerUseActionSmoke.dictionary,
                 "multiFileArtifactSmoke": multiFileArtifactSmoke.dictionary,
                 "scheduledCoworkerSmoke": scheduledCoworkerSmoke.dictionary,

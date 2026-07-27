@@ -97,6 +97,10 @@ enum QuillCodeDesktopSmokeRunner {
             controller: controller,
             root: root
         )
+        let browserAuthenticatedWorkflowSmoke = try await runBrowserAuthenticatedWorkflowSmoke(
+            controller: controller,
+            root: root
+        )
         let computerUseActionSmoke = try await runComputerUseActionSmoke(root: root)
         let multiFileArtifactSmoke = try await runMultiFileArtifactSmoke(controller: controller, root: root)
         let surface = controller.surface
@@ -192,6 +196,7 @@ enum QuillCodeDesktopSmokeRunner {
             browserSmoke: browserSmoke,
             browserWorkflowSmoke: browserWorkflowSmoke,
             browserSpreadsheetWorkflowSmoke: browserSpreadsheetWorkflowSmoke,
+            browserAuthenticatedWorkflowSmoke: browserAuthenticatedWorkflowSmoke,
             computerUseActionSmoke: computerUseActionSmoke,
             multiFileArtifactSmoke: multiFileArtifactSmoke,
             scheduledCoworkerSmoke: scheduledCoworkerSmoke,
@@ -583,6 +588,115 @@ enum QuillCodeDesktopSmokeRunner {
         )
     }
 
+    private static func runBrowserAuthenticatedWorkflowSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopBrowserWorkflowSmokeReport {
+        let previewFile = root.workspace.appendingPathComponent("browser-auth-smoke.html")
+        try """
+        <!doctype html>
+        <html>
+          <head><title>Signed-In Workspace Smoke</title></head>
+          <body>
+            <main>
+              <h1>Signed-In Workspace Smoke</h1>
+              <label>Workspace key <input name="workspace-key" value=""></label>
+              <button data-action="sign-in">Sign in</button>
+              <p data-testid="account-state">Signed out; workspace=none; signed-in=false</p>
+            </main>
+          </body>
+        </html>
+        """.write(to: previewFile, atomically: true, encoding: .utf8)
+
+        controller.browserAddressDraft = "browser-auth-smoke.html"
+        controller.openBrowserPreview()
+        controller.openBrowserSession()
+
+        let override = try requiredBrowserToolOverride(controller)
+        let workspace = root.workspace
+        let typeTool = try requiredToolResult(
+            await override(
+                ToolCall(
+                    name: ToolDefinition.browserType.name,
+                    argumentsJSON: ToolArguments.json([
+                        "selector": "input[name='workspace-key']",
+                        "text": "lorehex-demo",
+                        "submit": false
+                    ])
+                ),
+                workspace
+            ),
+            toolName: ToolDefinition.browserType.name
+        )
+        let clickTool = try requiredToolResult(
+            await override(
+                ToolCall(
+                    name: ToolDefinition.browserClick.name,
+                    argumentsJSON: ToolArguments.json(["selector": "button[data-action='sign-in']"])
+                ),
+                workspace
+            ),
+            toolName: ToolDefinition.browserClick.name
+        )
+        let scriptTool = try requiredToolResult(
+            await override(
+                ToolCall(
+                    name: ToolDefinition.browserScript.name,
+                    argumentsJSON: ToolArguments.json([
+                        "source": "document.querySelector('[data-testid=\"account-state\"]').textContent"
+                    ])
+                ),
+                workspace
+            ),
+            toolName: ToolDefinition.browserScript.name
+        )
+        let inspectTool = try requiredToolResult(
+            await override(
+                ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"),
+                workspace
+            ),
+            toolName: ToolDefinition.browserInspect.name
+        )
+
+        let typeOutput = try decodeSmokeOutput(BrowserActionToolOutput.self, from: typeTool)
+        let clickOutput = try decodeSmokeOutput(BrowserActionToolOutput.self, from: clickTool)
+        let scriptOutput = try decodeSmokeOutput(BrowserScriptToolOutput.self, from: scriptTool)
+        let inspectOutput = try decodeSmokeOutput(BrowserInspectionToolOutput.self, from: inspectTool)
+
+        guard typeOutput.selector == "input[name='workspace-key']",
+              typeOutput.action == "type",
+              clickOutput.selector == "button[data-action='sign-in']",
+              clickOutput.action == "click",
+              scriptOutput.value.contains("signed-in=true"),
+              scriptOutput.value.contains("lorehex-demo"),
+              inspectOutput.inspectionDepth == .liveDOMSnapshot,
+              inspectOutput.outline.contains("H1: Signed-In Workspace Smoke"),
+              inspectOutput.textSnippet?.contains("Signed in") == true,
+              inspectOutput.textSnippet?.contains("lorehex-demo") == true
+        else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(
+                "browser authenticated workflow smoke did not preserve signed-in session state"
+            )
+        }
+
+        return QuillCodeDesktopBrowserWorkflowSmokeReport(
+            previewPath: previewFile.path,
+            url: inspectOutput.url,
+            typedSelector: typeOutput.selector,
+            typedText: "lorehex-demo",
+            clickedSelector: clickOutput.selector,
+            typeToolName: ToolDefinition.browserType.name,
+            clickToolName: ToolDefinition.browserClick.name,
+            scriptToolName: ToolDefinition.browserScript.name,
+            inspectToolName: ToolDefinition.browserInspect.name,
+            scriptValue: scriptOutput.value,
+            inspectionDepth: inspectOutput.inspectionDepth.label,
+            sourceLabel: inspectOutput.sourceLabel,
+            outline: inspectOutput.outline,
+            textSnippet: inspectOutput.textSnippet ?? ""
+        )
+    }
+
     private static func runScheduledCoworkerSmoke(
         controller: QuillCodeDesktopController,
         notifier: SmokeAutomationNotifier
@@ -860,6 +974,8 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
     private var didSave = false
     private var typedLaunchDate = "TBD"
     private var didMarkDone = false
+    private var typedWorkspaceKey = ""
+    private var didSignIn = false
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
         isSessionOpen = true
@@ -914,6 +1030,11 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
                 throw DesktopBrowserSessionActionError.actionFailed("Smoke page has no element for \(trimmedSelector)")
             }
             didSave = true
+        case .authenticated:
+            guard trimmedSelector == "button[data-action='sign-in']" else {
+                throw DesktopBrowserSessionActionError.actionFailed("Smoke page has no element for \(trimmedSelector)")
+            }
+            didSignIn = true
         case .spreadsheet:
             guard trimmedSelector == "button[data-action='mark-done']" else {
                 throw DesktopBrowserSessionActionError.actionFailed("Smoke page has no element for \(trimmedSelector)")
@@ -935,6 +1056,11 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
                 throw DesktopBrowserSessionActionError.actionFailed("Smoke page has no element for \(trimmedSelector)")
             }
             typedStatus = text
+        case .authenticated:
+            guard trimmedSelector == "input[name='workspace-key']" else {
+                throw DesktopBrowserSessionActionError.actionFailed("Smoke page has no element for \(trimmedSelector)")
+            }
+            typedWorkspaceKey = text
         case .spreadsheet:
             guard trimmedSelector == "[data-cell='launch-date']" else {
                 throw DesktopBrowserSessionActionError.actionFailed("Smoke page has no element for \(trimmedSelector)")
@@ -955,10 +1081,17 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
         "Launch checklist: \(typedLaunchDate); done=\(didMarkDone)"
     }
 
+    private var accountStateText: String {
+        let workspace = typedWorkspaceKey.isEmpty ? "none" : typedWorkspaceKey
+        return "Signed \(didSignIn ? "in" : "out"); workspace=\(workspace); signed-in=\(didSignIn)"
+    }
+
     private func scriptValue(for tab: BrowserSessionTabSnapshot) -> String {
         switch page(for: tab) {
         case .crm:
             return statusText
+        case .authenticated:
+            return accountStateText
         case .spreadsheet:
             return rowStateText
         }
@@ -978,6 +1111,28 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
                 <input name="status" value="\(typedStatus)">
                 <button data-action="save">Save</button>
                 <p data-testid="status">\(statusText)</p>
+                """,
+                viewportDescription: "1120x760 smoke browser"
+            )
+        case .authenticated:
+            return BrowserLiveDOMSnapshot(
+                finalURL: tab.url,
+                title: "Signed-In Workspace Smoke",
+                visibleText: """
+                Signed-In Workspace Smoke \(didSignIn ? "Signed in" : "Signed out") workspace \(typedWorkspaceKey)
+                """,
+                outline: [
+                    "H1: Signed-In Workspace Smoke",
+                    "Field: Workspace key",
+                    "Button: Sign in",
+                    didSignIn ? "Account: Signed in" : "Account: Signed out"
+                ],
+                html: """
+                <!doctype html><title>Signed-In Workspace Smoke</title>
+                <h1>Signed-In Workspace Smoke</h1>
+                <input name="workspace-key" value="\(typedWorkspaceKey)">
+                <button data-action="sign-in">Sign in</button>
+                <p data-testid="account-state">\(accountStateText)</p>
                 """,
                 viewportDescription: "1120x760 smoke browser"
             )
@@ -1009,17 +1164,23 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
     }
 
     private func page(for tab: BrowserSessionTabSnapshot) -> SmokeBrowserPage {
-        tab.url.absoluteString.contains("browser-sheet-smoke.html") ? .spreadsheet : .crm
+        let url = tab.url.absoluteString
+        if url.contains("browser-auth-smoke.html") { return .authenticated }
+        if url.contains("browser-sheet-smoke.html") { return .spreadsheet }
+        return .crm
     }
 
     private enum SmokeBrowserPage {
         case crm
+        case authenticated
         case spreadsheet
 
         var title: String {
             switch self {
             case .crm:
                 return "CRM Workflow Smoke"
+            case .authenticated:
+                return "Signed-In Workspace Smoke"
             case .spreadsheet:
                 return "Shared Sheet Workflow Smoke"
             }

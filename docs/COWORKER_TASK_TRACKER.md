@@ -75,12 +75,15 @@ The native desktop smoke now leaves deterministic browser-workflow evidence for 
   spreadsheet-like launch tracker: it types a launch date into a cell-style input, clicks Mark done,
   and proves the edited row state survives through script output and live DOM inspection. This maps
   more directly to shared-sheet cleanup and tracker-maintenance coworker tasks.
+- `browserAuthenticatedWorkflowSmoke` runs a login-like workspace page through the visible
+  browser-session path: it types a workspace key, clicks Sign in, and proves script output plus live
+  DOM inspection preserve the signed-in workspace state.
 - The smoke presenter only exposes a visible session after `openBrowserSession()`, so ordinary preview
   inspection still exercises the snapshot fallback path and the workflow smoke exercises the explicit
   visible-session path.
 - This upgrades browser/SaaS evidence from first-open routing to stateful browser action routing across
-  CRM-like and shared-sheet-like page shapes. Keep real SaaS rows gated until a signed-in packaged-app
-  smoke proves equivalent interaction on a live SaaS surface.
+  CRM-like, shared-sheet-like, and authenticated-session page shapes. Keep real SaaS rows gated until
+  a signed-in packaged-app smoke proves equivalent interaction on a live SaaS surface.
 
 ## Scheduling Coworker Slice
 
@@ -157,12 +160,15 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 Packaged macOS smoke now preserves browser coworker workflow evidence at the `.app` boundary:
 
 - `packaged-browser-workflow.json` validates both `browserWorkflowSmoke` and
-  `browserSpreadsheetWorkflowSmoke` from the direct packaged executable and Launch Services runs.
+  `browserSpreadsheetWorkflowSmoke` plus `browserAuthenticatedWorkflowSmoke` from the direct
+  packaged executable and Launch Services runs.
 - The manifest proves canonical browser tools keep non-empty arguments through packaging:
   `host.browser.type`, `host.browser.click`, `host.browser.script`, and `host.browser.inspect`.
 - The CRM-like smoke proves typed status, save click state, script-read state, and live-DOM inspection.
 - The shared-sheet-like smoke proves cell editing, done-state click, script-read state, and live-DOM
   inspection.
+- The authenticated-session smoke proves typed sign-in state, account-state click state, script-read
+  state, and live-DOM inspection.
 - The validator compares semantic evidence rather than absolute temp paths, so it fails on workflow
   drift without being brittle across packaged launch roots.
 
