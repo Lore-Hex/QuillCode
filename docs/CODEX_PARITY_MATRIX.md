@@ -83,7 +83,8 @@
   evidence survives both direct packaged executable launch and Launch Services launch. Native desktop
   smoke now also records `multiFileArtifactSmoke`, proving a coworker-style deliverable can read two
   source files, write `team-action-brief.md`, preserve the exact read/read/write tool sequence, and
-  render that artifact workflow into the transcript HTML evidence.
+  render that artifact workflow into the transcript HTML evidence. Packaged macOS smoke preserves
+  the same proof as `packaged-multi-file-artifact.json` across both packaged launch paths.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:
