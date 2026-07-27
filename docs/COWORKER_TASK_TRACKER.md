@@ -182,6 +182,8 @@ QuillCode now has a fail-closed manual evidence gate for real signed-in SaaS ses
 
 - `scripts/live-saas-smoke.sh <evidence.json> [manifest.json]` validates captured live SaaS evidence
   through `native-click-probe-contracts.py live-saas`.
+- The evidence must include `catalogTaskIDs`, the exact spreadsheet row IDs this run proves, so a
+  manifest can graduate only specific coworker rows instead of a vague capability bucket.
 - The evidence must prove `accountState: signed-in`, use an HTTPS SaaS URL, include
   `host.browser.open` plus `host.browser.inspect`, include at least one browser action or Computer Use
   action, and report a `Live DOM snapshot`.
@@ -193,7 +195,7 @@ QuillCode now has a fail-closed manual evidence gate for real signed-in SaaS ses
 This does not make live SaaS rows covered by itself; it gives those rows a durable acceptance contract.
 When a signed-in Salesforce/HubSpot/Google Sheets/etc. workflow is run manually or in a secure
 credentialed environment, the resulting `live-saas-manifest.json` is the evidence to attach before
-graduating a row.
+graduating each listed `catalogTaskIDs` row.
 
 ## Packaged Computer Use Evidence Slice
 

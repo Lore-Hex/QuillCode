@@ -21,6 +21,8 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         let manifest = try String(contentsOf: manifestURL, encoding: .utf8)
         XCTAssertTrue(manifest.contains(#""liveSaaSValidated": true"#))
         XCTAssertTrue(manifest.contains(#""serviceName": "Salesforce""#))
+        XCTAssertTrue(manifest.contains(#""catalogTaskIDs": ["#))
+        XCTAssertTrue(manifest.contains(#"199"#))
         XCTAssertTrue(manifest.contains(#""urlHost": "example.salesforce.com""#))
         XCTAssertTrue(manifest.contains(#""computerUseActionCount": 2"#))
     }
@@ -57,13 +59,16 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(script.contains("native-click-probe-contracts.py\" live-saas"))
         XCTAssertTrue(validator.contains("def write_live_saas_manifest"))
         XCTAssertTrue(validator.contains("accountState must be signed-in"))
+        XCTAssertTrue(validator.contains("catalogTaskIDs must be a non-empty list"))
         XCTAssertTrue(coworkerDocs.contains("live-saas-smoke.sh"))
+        XCTAssertTrue(coworkerDocs.contains("catalogTaskIDs"))
     }
 
     private var validLiveSaaSEvidence: String {
         """
         {
           "ok": true,
+          "catalogTaskIDs": [199],
           "serviceName": "Salesforce",
           "taskName": "Update CRM status",
           "url": "https://example.salesforce.com/lightning/r/Lead/001/view",
