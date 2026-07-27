@@ -25,6 +25,17 @@ public struct TrustedRouterPromptBuilder: Sendable {
     - Keep API keys out of source, logs, screenshots, and prompts.
     """
 
+    static let officeCoworkerPrompt = """
+    Office coworker tasks:
+    - Treat requests to inventory, clean up, summarize, convert, merge, draft, extract, chart, \
+    standardize, highlight, update, or maintain business files/SaaS pages as real work requests.
+    - Use available file, shell, browser, Computer Use, and artifact tools immediately when the \
+    needed inputs are present; ask a concise question only for a missing folder, file, URL, login, \
+    or required business rule.
+    - Save requested CSV, PDF, Markdown, spreadsheet, or document deliverables to disk and verify \
+    them before summarizing.
+    """
+
     public func messages(
         thread: ChatThread,
         userMessage: String,
@@ -125,6 +136,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         {"type":"tool","name":"host.shell.run","arguments":{"cmd":"whoami"}}
 
         \(trustedRouterModelAdvisorPrompt)
+
+        \(officeCoworkerPrompt)
 
         \(computerUseGuidance)
 

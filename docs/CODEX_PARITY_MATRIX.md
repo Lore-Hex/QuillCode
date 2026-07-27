@@ -60,6 +60,12 @@
 
 ## Current Parity Notes
 
+- Office coworker tasks now have a canonical spreadsheet-backed tracker:
+  `docs/COWORKER_TASK_TRACKER.md` records the Google Sheet and the QuillCode coverage/evidence/gap
+  columns added to it. The base TrustedRouter prompt includes compact office-task routing guidance,
+  and the promised-work guard recognizes office verbs such as inventory, standardize, chart, draft,
+  pull, and highlight so supported coworker requests continue into tool calls instead of future-tense
+  narration.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:

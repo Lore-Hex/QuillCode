@@ -1,5 +1,20 @@
 # QuillCode Decisions
 
+## 2026-07-27: Office Coworker Catalog Drives QuillCode Parity Tracking
+
+- **Decision:** Treat the office coworker task spreadsheet as the canonical QuillCode coverage
+  tracker for business-user workflows, not just a brainstorming list.
+- **Rationale:** The 206-row catalog spans file cleanup, document packets, multi-file summaries,
+  spreadsheets, browser/SaaS tasks, and Computer Use. A durable tracker makes it clear which rows are
+  covered by current code/tests and which still need focused smoke evidence.
+- **Implementation:** Columns K:N in the sheet now derive QuillCode coverage, evidence, next gap, and
+  review date from the existing row metadata. QuillCode also gained compact office-task prompt
+  guidance and broader promised-work verb detection so "inventory assets", "standardize the sheet",
+  and "chart usage" cannot silently degrade into future-tense narration when tools are available.
+- **Constraint:** The base prompt remains small; row-specific instructions belong in the sheet,
+  focused tests, and optional skills. Rows move to covered only when current source/test/smoke
+  evidence proves the actual user-facing task.
+
 ## 2026-07-19: Render Robot XML As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.xml` files whose root validates as Robot Framework `robot` output as

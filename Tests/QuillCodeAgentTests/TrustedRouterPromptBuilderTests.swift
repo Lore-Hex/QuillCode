@@ -238,6 +238,25 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         )
     }
 
+    func testPromptIncludesCompactOfficeCoworkerGuidance() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .shellRun,
+            .fileWrite,
+            .computerScreenshot
+        ])
+
+        XCTAssertTrue(prompt.contains("Office coworker tasks"))
+        XCTAssertTrue(prompt.contains("Treat requests to inventory, clean up, summarize"))
+        XCTAssertTrue(prompt.contains("Use available file, shell, browser, Computer Use, and artifact tools immediately"))
+        XCTAssertTrue(prompt.contains("ask a concise question only for a missing folder"))
+        XCTAssertTrue(prompt.contains("Save requested CSV, PDF, Markdown, spreadsheet, or document deliverables"))
+        XCTAssertLessThan(
+            TrustedRouterPromptBuilder.officeCoworkerPrompt.count,
+            650,
+            "Office coworker behavior belongs in compact routing guidance plus skills/tests, not a giant base prompt."
+        )
+    }
+
     func testPromptPrefersStructuredGitBranchToolsOverShell() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
             .shellRun,
