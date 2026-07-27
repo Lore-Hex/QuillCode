@@ -151,3 +151,21 @@ The native desktop smoke now records deterministic multi-file deliverable eviden
 This covers the deterministic local-artifact version of multi-file coworker deliverables. Rows that
 depend on live SaaS data, proprietary document formats, or a logged-in browser session should remain
 gated until a row-specific live or packaged smoke proves the same workflow on that surface.
+
+## Packaged Browser Workflow Evidence Slice
+
+Packaged macOS smoke now preserves browser coworker workflow evidence at the `.app` boundary:
+
+- `packaged-browser-workflow.json` validates both `browserWorkflowSmoke` and
+  `browserSpreadsheetWorkflowSmoke` from the direct packaged executable and Launch Services runs.
+- The manifest proves canonical browser tools keep non-empty arguments through packaging:
+  `host.browser.type`, `host.browser.click`, `host.browser.script`, and `host.browser.inspect`.
+- The CRM-like smoke proves typed status, save click state, script-read state, and live-DOM inspection.
+- The shared-sheet-like smoke proves cell editing, done-state click, script-read state, and live-DOM
+  inspection.
+- The validator compares semantic evidence rather than absolute temp paths, so it fails on workflow
+  drift without being brittle across packaged launch roots.
+
+This moves the browser/SaaS coworker bucket from native-only evidence to packaged-app release
+evidence. The live SaaS rows still stay gated until QuillCode proves the same path against a signed-in
+SaaS surface with Computer Use/browser session evidence.

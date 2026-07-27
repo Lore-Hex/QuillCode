@@ -52,10 +52,15 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(
             packagedSmoke.contains("MULTI_FILE_ARTIFACT_MANIFEST=\"$SMOKE_ROOT/packaged-multi-file-artifact.json\"")
         )
+        XCTAssertTrue(
+            packagedSmoke.contains("BROWSER_WORKFLOW_MANIFEST=\"$SMOKE_ROOT/packaged-browser-workflow.json\"")
+        )
         XCTAssertTrue(packagedSmoke.contains("scheduled_coworker_manifest=packaged-scheduled-coworker.json"))
         XCTAssertTrue(packagedSmoke.contains("multi_file_artifact_manifest=packaged-multi-file-artifact.json"))
+        XCTAssertTrue(packagedSmoke.contains("browser_workflow_manifest=packaged-browser-workflow.json"))
         XCTAssertTrue(packagedSmoke.contains(" scheduled-coworker \\"))
         XCTAssertTrue(packagedSmoke.contains(" multi-file-artifact \\"))
+        XCTAssertTrue(packagedSmoke.contains(" browser-workflow \\"))
         XCTAssertTrue(packagedSmoke.contains(" frames \\"))
         XCTAssertTrue(packagedSmoke.contains("$WINDOW_REPORT_PATH"))
         XCTAssertTrue(packagedSmoke.contains("$WINDOW_SCREENSHOT_PATH"))
@@ -107,6 +112,22 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(multiFileArtifactValidator.contains(#""host.file.read", "host.file.read", "host.file.write""#))
         XCTAssertTrue(multiFileArtifactValidator.contains(#""team-action-brief.md""#))
         XCTAssertTrue(multiFileArtifactValidator.contains(#""multiFileArtifactMatchesDirect": True"#))
+
+        let browserWorkflowValidator = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("scripts/native_click_probe_contracts/browser_workflow.py"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(browserWorkflowValidator.contains(#""browserWorkflowSmoke""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""browserSpreadsheetWorkflowSmoke""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""host.browser.type""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""host.browser.click""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""host.browser.script""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""host.browser.inspect""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""Live DOM snapshot""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""H1: CRM Workflow Smoke""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""H1: Shared Sheet Workflow Smoke""#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""browserWorkflowMatchesDirect": True"#))
     }
 
 }
