@@ -120,6 +120,14 @@ enum AgentImmediateActionPlanner {
             return shell(downloadCommand)
         }
 
+        if let browserTarget = AgentBrowserOpenRequestParser.request(from: request),
+           hasTool(ToolDefinition.browserOpen.name, in: tools) {
+            return .tool(.init(
+                name: ToolDefinition.browserOpen.name,
+                argumentsJSON: ToolArguments.json(["url": browserTarget])
+            ))
+        }
+
         if isDiskUsageRequest(lower),
            hasTool(ToolDefinition.shellRun.name, in: tools) {
             return shell("df -h / /Quill 2>/dev/null || df -h /")
