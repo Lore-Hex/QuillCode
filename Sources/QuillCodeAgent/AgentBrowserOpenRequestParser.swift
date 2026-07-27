@@ -3,20 +3,31 @@ import Foundation
 enum AgentBrowserOpenRequestParser {
     static func request(from text: String) -> String? {
         let lower = text.lowercased()
-        guard isBrowserIntent(lower), !isDownloadIntent(lower) else { return nil }
+        guard !isDownloadIntent(lower) else { return nil }
 
-        if let quoted = AgentRequestTextScanner.backtickQuotedValues(in: text)
-            .first(where: looksLikeBrowserTarget) {
-            return normalizedBrowserTarget(quoted)
+        if isBrowserIntent(lower) {
+            if let quoted = AgentRequestTextScanner.backtickQuotedValues(in: text)
+                .first(where: looksLikeBrowserTarget) {
+                return normalizedBrowserTarget(quoted)
+            }
+
+            if let target = browserTokens(in: text)
+                .first(where: looksLikeBrowserTarget)
+                .map(normalizedBrowserTarget) {
+                return target
+            }
         }
 
-        return browserTokens(in: text)
-            .first(where: looksLikeBrowserTarget)
-            .map(normalizedBrowserTarget)
+        return knownSaaSTarget(in: lower)
     }
 
     private static func isBrowserIntent(_ lower: String) -> Bool {
         browserIntentPhrases.contains { lower.contains($0) }
+    }
+
+    private static func knownSaaSTarget(in lower: String) -> String? {
+        guard knownSaaSIntentPhrases.contains(where: { lower.contains($0) }) else { return nil }
+        return knownSaaSTargets.first { lower.contains($0.phrase) }?.url
     }
 
     private static func isDownloadIntent(_ lower: String) -> Bool {
@@ -78,6 +89,18 @@ enum AgentBrowserOpenRequestParser {
         "use "
     ]
 
+    private static let knownSaaSIntentPhrases = browserIntentPhrases + [
+        "find ",
+        "pull ",
+        "walk through ",
+        "log into ",
+        "login to ",
+        "sign into ",
+        "sign in to ",
+        "build ",
+        "create "
+    ]
+
     private static let downloadIntentPhrases = [
         "download ",
         "save ",
@@ -86,5 +109,23 @@ enum AgentBrowserOpenRequestParser {
 
     private static let knownWebTLDs: Set<String> = [
         "ai", "app", "cloud", "co", "com", "dev", "edu", "gov", "io", "net", "org", "so"
+    ]
+
+    private static let knownSaaSTargets: [(phrase: String, url: String)] = [
+        ("linkedin campaign manager", "https://www.linkedin.com/campaignmanager/"),
+        ("google analytics", "https://analytics.google.com/"),
+        ("google ads", "https://ads.google.com/"),
+        ("google drive", "https://drive.google.com/"),
+        ("google sheet", "https://sheets.google.com/"),
+        ("google sheets", "https://sheets.google.com/"),
+        ("hubspot", "https://app.hubspot.com/"),
+        ("salesforce", "https://login.salesforce.com/"),
+        ("mailchimp", "https://login.mailchimp.com/"),
+        ("asana", "https://app.asana.com/"),
+        ("zendesk", "https://www.zendesk.com/login/"),
+        ("confluence", "https://id.atlassian.com/login"),
+        ("jira", "https://id.atlassian.com/login"),
+        ("notion", "https://www.notion.so/"),
+        ("concur", "https://www.concursolutions.com/"),
     ]
 }
