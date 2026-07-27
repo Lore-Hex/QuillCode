@@ -169,3 +169,20 @@ Packaged macOS smoke now preserves browser coworker workflow evidence at the `.a
 This moves the browser/SaaS coworker bucket from native-only evidence to packaged-app release
 evidence. The live SaaS rows still stay gated until QuillCode proves the same path against a signed-in
 SaaS surface with Computer Use/browser session evidence.
+
+## Packaged Computer Use Evidence Slice
+
+Packaged macOS smoke now preserves explicit Computer Use setup/status evidence:
+
+- `packaged-computer-use.json` validates that the direct packaged executable and Launch Services
+  smoke each expose a recognized top-bar Computer Use status label. The labels may differ because
+  macOS grants Screen Recording and Accessibility permissions per app identity.
+- The packaged window surface must expose Computer Use setup, Screen Recording settings,
+  Accessibility settings, and refresh commands.
+- The packaged click-probe manifest and Accessibility frame manifest must contain command contracts
+  for those Computer Use commands, so the release artifact proves they are visible/routable at the
+  package boundary.
+
+This is not yet a live SaaS or arbitrary-app-control proof. It makes the Computer Use entry points
+explicit in release artifacts and leaves the real signed-in SaaS + Computer Use action smoke as the
+next validation layer for those catalog rows.

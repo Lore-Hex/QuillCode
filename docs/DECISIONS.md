@@ -3196,3 +3196,22 @@
   `browserWorkflowSmoke` and `browserSpreadsheetWorkflowSmoke`.
   `scripts/packaged-macos-smoke.sh` writes and preserves `packaged-browser-workflow.json`.
   `ParityPackagedMacOSSmokeGateTests` requires the validator, manifest, and CLI wiring.
+
+## 2026-07-27: packaged Computer Use setup evidence is explicit
+
+- **Decision:** Packaged macOS smoke writes `packaged-computer-use.json` after the live-window
+  Accessibility frame manifest. The validator records recognized direct executable and Launch
+  Services Computer Use top-bar statuses, requires the packaged window surface to expose Computer Use
+  setup, Screen Recording settings, Accessibility settings, and refresh commands, and verifies those
+  command contracts are present in the packaged click-probe and Accessibility frame manifests.
+- **Why:** Computer Use is a major Codex parity surface and a prerequisite for browser/SaaS coworker
+  tasks. Before claiming live app control, release artifacts should at least make the setup/status
+  entry points explicit and fail when packaging hides or deroutes them.
+- **Boundary:** This is not a real-app-control smoke. It proves setup/status/permission command
+  availability and command-contract coverage at the package boundary. Direct executable and Launch
+  Services status labels may differ because macOS Screen Recording and Accessibility permissions are
+  app-identity-specific. Future work must still add a live Computer Use action smoke against a
+  controlled app or signed-in SaaS surface.
+- **Evidence:** `scripts/native_click_probe_contracts/computer_use.py`,
+  `scripts/packaged-macos-smoke.sh`, `QuillCodeDesktopWindowSmokeSurfaceReport.requiredCommandIDs`,
+  and `ParityPackagedMacOSSmokeGateTests`.
