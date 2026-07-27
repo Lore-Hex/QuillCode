@@ -95,6 +95,25 @@ final class AgentImmediateActionMultiStepGateTests: XCTestCase {
         XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt("list files and folders here"))
     }
 
+    func testCoworkerBrowserContinuationsAreNeverPreflighted() {
+        let prompts = [
+            "Open the Q3 Invoice Tracker Google Sheet and add a status column.",
+            "In HubSpot, find opportunities with no activity in 30 days, add a follow-up task, and correct the stage.",
+            "Open our shared Q3 Pipeline Google Sheet, merge duplicate account rows, standardize Stage, and highlight missing close dates.",
+            "Open our Google Drive Marketing 2026 folder and rename campaign files, then list every change you made.",
+        ]
+        for prompt in prompts {
+            XCTAssertTrue(
+                AgentImmediateActionPlanner.isMultiStepTaskPrompt(prompt),
+                "Expected coworker workflow to stay with the model: \(prompt)"
+            )
+            XCTAssertNil(
+                AgentImmediateActionPlanner.action(for: prompt, tools: tools + [.browserOpen, .browserInspect]),
+                "Expected no one-shot preflight: \(prompt)"
+            )
+        }
+    }
+
     /// Nobody types a 200-character message to run one terse command; long prompts are tasks.
     func testLongPromptsAreNeverPreflighted() {
         let long = "Read the service log and figure out why the collector keeps restarting "
