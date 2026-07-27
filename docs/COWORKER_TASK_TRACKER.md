@@ -184,5 +184,22 @@ Packaged macOS smoke now preserves explicit Computer Use setup/status evidence:
   package boundary.
 
 This is not yet a live SaaS or arbitrary-app-control proof. It makes the Computer Use entry points
-explicit in release artifacts and leaves the real signed-in SaaS + Computer Use action smoke as the
-next validation layer for those catalog rows.
+explicit in release artifacts and leaves action dispatch plus real signed-in SaaS control as the next
+validation layers for those catalog rows.
+
+## Packaged Computer Use Action Smoke Slice
+
+Packaged macOS smoke now preserves deterministic Computer Use action evidence:
+
+- `computerUseActionSmoke` runs the real `ComputerUseToolExecutor` against the permission-granted
+  backend path and records `host.computer.screenshot`, `host.computer.click`,
+  `host.computer.type`, `host.computer.scroll`, `host.computer.move`, and `host.computer.key`.
+- The smoke requires non-empty canonical arguments for every input action, verifies the recorded
+  click/type/scroll/move/key sequence, writes a screenshot artifact, and preserves foreground-app
+  plus accessibility-summary metadata from the screenshot result.
+- `packaged-computer-use-action.json` validates that direct packaged executable launch and Launch
+  Services launch have identical semantic action evidence, while allowing temporary screenshot
+  artifact paths to differ.
+
+This proves Computer Use action routing survives the packaged app boundary. The live SaaS rows still
+stay gated until QuillCode drives a signed-in browser/app surface with equivalent preserved evidence.

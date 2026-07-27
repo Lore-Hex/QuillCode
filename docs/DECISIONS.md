@@ -3215,3 +3215,23 @@
 - **Evidence:** `scripts/native_click_probe_contracts/computer_use.py`,
   `scripts/packaged-macos-smoke.sh`, `QuillCodeDesktopWindowSmokeSurfaceReport.requiredCommandIDs`,
   and `ParityPackagedMacOSSmokeGateTests`.
+
+## 2026-07-27: packaged Computer Use action evidence is explicit
+
+- **Decision:** Desktop native smoke now runs a deterministic Computer Use action sequence through
+  the real `ComputerUseToolExecutor`, and packaged macOS smoke preserves the result as
+  `packaged-computer-use-action.json`. The action smoke dispatches `host.computer.screenshot`,
+  `host.computer.click`, `host.computer.type`, `host.computer.scroll`, `host.computer.move`, and
+  `host.computer.key` with canonical non-empty arguments, records the backend action sequence, and
+  requires screenshot artifact, foreground-app, and accessibility-summary evidence.
+- **Why:** Setup/status evidence alone can pass while the actual action path is broken. Office
+  coworker tasks that depend on QuillCode controlling another app need a release artifact proving
+  packaged action dispatch still routes through the same executor as agent turns.
+- **Boundary:** This is deterministic backend evidence, not a signed-in SaaS or arbitrary-app smoke.
+  The validator compares semantic direct executable and Launch Services evidence while allowing
+  temporary screenshot paths to differ. Real SaaS rows remain gated until the same action path drives
+  a signed-in browser/app surface.
+- **Evidence:** `QuillCodeDesktopSmokeRunner.runComputerUseActionSmoke`,
+  `QuillCodeDesktopComputerUseActionSmokeReport`,
+  `scripts/native_click_probe_contracts/computer_use_action.py`,
+  `scripts/packaged-macos-smoke.sh`, and `ParityPackagedMacOSSmokeGateTests`.
