@@ -78,7 +78,9 @@
   through the visible browser-session override and proving typed/saved row state survives into a
   live-DOM inspection report. Native desktop smoke also records `scheduledCoworkerSmoke`, proving a
   due recurring coworker automation creates the task-specific scheduled thread, records recurrence
-  run state, reveals the automation surface, and reaches the desktop automation notifier.
+  run state, reveals the automation surface, and reaches the desktop automation notifier. Packaged
+  macOS smoke now preserves `packaged-scheduled-coworker.json`, proving the same scheduled coworker
+  evidence survives both direct packaged executable launch and Launch Services launch.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:

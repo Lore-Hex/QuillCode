@@ -115,3 +115,19 @@ Scheduled coworker due-runs now carry task-specific notification evidence:
 
 The remaining scheduling evidence gap is packaged-app smoke that observes the real OS notification
 banner/action and visible automation management surface together.
+
+## Packaged Scheduling Evidence Slice
+
+Packaged macOS smoke now preserves explicit scheduled-coworker release evidence:
+
+- The packaged direct-executable smoke and the Launch Services smoke must both include identical
+  `scheduledCoworkerSmoke` reports.
+- `packaged-scheduled-coworker.json` records the recurring task, schedule, notification report title,
+  one delivered automation report, follow-up scheduled thread evidence, recurrence state, and visible
+  Automations surface.
+- This makes the `.app` packaging boundary fail CI if scheduled coworker automation evidence is lost
+  in either packaged launch path.
+
+The remaining scheduling evidence gap is narrower: observing the real OS notification banner/action
+from the packaged app, rather than only the app-level notification report delivered to the desktop
+notifier boundary.

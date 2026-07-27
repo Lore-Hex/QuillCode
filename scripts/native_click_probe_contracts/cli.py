@@ -12,6 +12,7 @@ from .packaged_window import (
     write_comparison_manifest,
 )
 from .probe_contracts import validate_report
+from .scheduled_coworker import write_scheduled_coworker_manifest
 
 
 def main() -> None:
@@ -31,6 +32,14 @@ def main() -> None:
     readiness_parser.add_argument("artifact_root", type=Path)
     readiness_parser.add_argument("--manifest", required=True, type=Path)
 
+    scheduled_parser = subparsers.add_parser(
+        "scheduled-coworker",
+        help="write packaged scheduled coworker evidence",
+    )
+    scheduled_parser.add_argument("direct_report", type=Path)
+    scheduled_parser.add_argument("launch_services_report", type=Path)
+    scheduled_parser.add_argument("--manifest", required=True, type=Path)
+
     window_parser = subparsers.add_parser("window", help="validate packaged live-window smoke report and screenshot")
     window_parser.add_argument("report", type=Path)
     window_parser.add_argument("screenshot", type=Path)
@@ -48,6 +57,12 @@ def main() -> None:
         write_comparison_manifest(args.direct_report, args.launch_services_report, args.manifest)
     elif args.command == "readiness":
         write_accessibility_readiness_manifest(args.artifact_root, args.manifest)
+    elif args.command == "scheduled-coworker":
+        write_scheduled_coworker_manifest(
+            args.direct_report,
+            args.launch_services_report,
+            args.manifest,
+        )
     elif args.command == "window":
         validate_packaged_window_report(args.report, args.screenshot)
     elif args.command == "frames":
