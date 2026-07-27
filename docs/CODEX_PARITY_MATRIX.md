@@ -76,7 +76,9 @@
   `browserSpreadsheetWorkflowSmoke` evidence for SaaS-like CRM and shared-sheet pages by routing
   `host.browser.type`, `host.browser.click`, `host.browser.script`, and `host.browser.inspect`
   through the visible browser-session override and proving typed/saved row state survives into a
-  live-DOM inspection report.
+  live-DOM inspection report. Native desktop smoke also records `scheduledCoworkerSmoke`, proving a
+  due recurring coworker automation creates the task-specific scheduled thread, records recurrence
+  run state, reveals the automation surface, and reaches the desktop automation notifier.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:

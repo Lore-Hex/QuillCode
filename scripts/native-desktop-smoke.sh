@@ -167,6 +167,11 @@ if ! grep -q '"browserSpreadsheetWorkflowSmoke"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q '"scheduledCoworkerSmoke"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report scheduled coworker smoke evidence" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 python3 - "$REPORT_PATH" <<'PY'
 import json
 import math
@@ -295,6 +300,44 @@ require_browser_workflow_smoke(
     script_state="done=true",
     text_state="Done",
 )
+
+scheduled_coworker_smoke = report.get("scheduledCoworkerSmoke")
+if not isinstance(scheduled_coworker_smoke, dict):
+    fail("did not include scheduled coworker smoke evidence")
+
+expected_scheduled_coworker_fields = {
+    "automationTitle": "Scheduled task: check competitor pricing pages and notify me with a diff",
+    "taskText": "check competitor pricing pages and notify me with a diff",
+    "scheduleDescription": "Every Monday at 8:00 AM",
+    "reportTitle": "QuillCode scheduled task ready",
+    "notificationCount": 1,
+    "automationsVisible": True,
+    "lastRunRecorded": True,
+    "nextRunRecorded": True,
+}
+for field, expected in expected_scheduled_coworker_fields.items():
+    if scheduled_coworker_smoke.get(field) != expected:
+        fail(
+            "scheduled coworker smoke field "
+            f"{field} was {scheduled_coworker_smoke.get(field)!r}, expected {expected!r}"
+        )
+
+scheduled_report_body = scheduled_coworker_smoke.get("reportBody")
+if not isinstance(scheduled_report_body, str) or "check competitor pricing pages" not in scheduled_report_body:
+    fail(f"scheduled coworker report body did not identify the original task: {scheduled_report_body!r}")
+scheduled_thread_title = scheduled_coworker_smoke.get("followUpThreadTitle")
+if not isinstance(scheduled_thread_title, str) or not scheduled_thread_title.startswith("Scheduled check: "):
+    fail(f"scheduled coworker follow-up thread title was malformed: {scheduled_thread_title!r}")
+scheduled_prompt = scheduled_coworker_smoke.get("followUpPrompt")
+if not isinstance(scheduled_prompt, str):
+    fail(f"scheduled coworker follow-up prompt was malformed: {scheduled_prompt!r}")
+for expected_snippet in (
+    "Run the scheduled coworker task for ",
+    "Task: check competitor pricing pages and notify me with a diff",
+    "Report what changed, whether action is needed, and the next concrete step.",
+):
+    if expected_snippet not in scheduled_prompt:
+        fail(f"scheduled coworker follow-up prompt missed {expected_snippet!r}: {scheduled_prompt!r}")
 
 
 native_targets = report.get("nativeHitTargets")

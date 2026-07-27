@@ -37,12 +37,13 @@ enum QuillCodeDesktopSmokeRunner {
             environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
         )
         let bootstrap = QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory)
+        let automationNotifier = SmokeAutomationNotifier()
         let controller = QuillCodeDesktopController(
             bootstrap: bootstrap,
             browserPageFetcher: URLSessionBrowserPageFetcher(),
             browserLiveDOMCapturer: nil,
             browserSessionPresenter: SmokeBrowserSessionPresenter(),
-            automationNotifier: SmokeAutomationNotifier(),
+            automationNotifier: automationNotifier,
             workspaceRoot: root.workspace
         )
 
@@ -158,6 +159,11 @@ enum QuillCodeDesktopSmokeRunner {
         }
         try html.write(to: htmlURL, atomically: true, encoding: .utf8)
 
+        let scheduledCoworkerSmoke = try runScheduledCoworkerSmoke(
+            controller: controller,
+            notifier: automationNotifier
+        )
+
         return QuillCodeDesktopSmokeReport(
             ok: true,
             prompt: writePrompt,
@@ -183,6 +189,7 @@ enum QuillCodeDesktopSmokeRunner {
             browserSmoke: browserSmoke,
             browserWorkflowSmoke: browserWorkflowSmoke,
             browserSpreadsheetWorkflowSmoke: browserSpreadsheetWorkflowSmoke,
+            scheduledCoworkerSmoke: scheduledCoworkerSmoke,
             nativeHitTargets: nativeHitTargets
         )
     }
@@ -489,6 +496,97 @@ enum QuillCodeDesktopSmokeRunner {
         )
     }
 
+    private static func runScheduledCoworkerSmoke(
+        controller: QuillCodeDesktopController,
+        notifier: SmokeAutomationNotifier
+    ) throws -> QuillCodeDesktopScheduledCoworkerSmokeReport {
+        guard let project = controller.model.selectedProject else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed("scheduled coworker smoke missing selected project")
+        }
+
+        let taskText = "check competitor pricing pages and notify me with a diff"
+        let scheduleDescription = "Every Monday at 8:00 AM"
+        let runAt = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970))
+        let recurrence = QuillAutomationRecurrence(
+            interval: 1,
+            unit: .weeks,
+            weekdays: [2],
+            hour: 8,
+            minute: 0
+        )
+        let automation = QuillAutomation(
+            title: "Scheduled task: check competitor pricing pages and notify me with a diff",
+            detail: taskText,
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: scheduleDescription,
+            projectID: project.id,
+            createdAt: runAt.addingTimeInterval(-3_600),
+            updatedAt: runAt.addingTimeInterval(-3_600),
+            nextRunAt: runAt.addingTimeInterval(-10),
+            recurrence: recurrence
+        )
+
+        let startingNotificationCount = notifier.automationReports.count
+        controller.model.setAutomations([automation])
+        controller.automationCoordinator.runDueAutomations(
+            model: controller.model,
+            notifier: notifier,
+            refresh: { controller.refresh() }
+        )
+
+        let deliveredReports = Array(notifier.automationReports.dropFirst(startingNotificationCount))
+        guard deliveredReports.count == 1, let report = deliveredReports.first else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(
+                "scheduled coworker smoke did not deliver exactly one automation notification"
+            )
+        }
+        guard report.automationID == automation.id,
+              report.title == "QuillCode scheduled task ready",
+              report.body.contains(taskText)
+        else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(
+                "scheduled coworker smoke delivered the wrong notification report"
+            )
+        }
+
+        guard let thread = controller.model.root.threads.first(where: { $0.id == report.followUpThreadID }),
+              thread.projectID == project.id,
+              thread.title == "Scheduled check: \(project.name)",
+              thread.messages.first?.content.contains("Run the scheduled coworker task for \(project.name).") == true,
+              thread.messages.first?.content.contains("Task: \(taskText)") == true
+        else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(
+                "scheduled coworker smoke did not create the expected follow-up thread"
+            )
+        }
+
+        guard let savedAutomation = controller.model.automations.items.first(where: { $0.id == automation.id }),
+              savedAutomation.lastRunAt != nil,
+              savedAutomation.nextRunAt != nil,
+              savedAutomation.nextRunAt != automation.nextRunAt,
+              controller.surface.automations.isVisible
+        else {
+            throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(
+                "scheduled coworker smoke did not persist run state and reveal automation history"
+            )
+        }
+
+        return QuillCodeDesktopScheduledCoworkerSmokeReport(
+            automationTitle: savedAutomation.title,
+            taskText: taskText,
+            scheduleDescription: savedAutomation.scheduleDescription,
+            reportTitle: report.title,
+            reportBody: report.body,
+            notificationCount: deliveredReports.count,
+            followUpThreadTitle: thread.title,
+            followUpPrompt: thread.messages.first?.content ?? "",
+            automationsVisible: controller.surface.automations.isVisible,
+            lastRunRecorded: savedAutomation.lastRunAt != nil,
+            nextRunRecorded: savedAutomation.nextRunAt != nil
+        )
+    }
+
     private static func requiredBrowserToolOverride(
         _ controller: QuillCodeDesktopController
     ) throws -> AgentToolExecutionOverride {
@@ -787,6 +885,19 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
     }
 }
 
-private struct SmokeAutomationNotifier: QuillCodeAutomationNotifying {
-    func deliver(_ report: AutomationRunReport) {}
+private final class SmokeAutomationNotifier: QuillCodeAutomationNotifying, @unchecked Sendable {
+    private let lock = NSLock()
+    private var deliveredAutomationReports: [AutomationRunReport] = []
+
+    var automationReports: [AutomationRunReport] {
+        lock.lock()
+        defer { lock.unlock() }
+        return deliveredAutomationReports
+    }
+
+    func deliver(_ report: AutomationRunReport) {
+        lock.lock()
+        deliveredAutomationReports.append(report)
+        lock.unlock()
+    }
 }

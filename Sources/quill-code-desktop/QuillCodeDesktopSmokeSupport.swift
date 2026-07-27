@@ -162,6 +162,7 @@ struct QuillCodeDesktopSmokeReport {
     var browserSmoke: QuillCodeDesktopBrowserSmokeReport
     var browserWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
     var browserSpreadsheetWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
+    var scheduledCoworkerSmoke: QuillCodeDesktopScheduledCoworkerSmokeReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
 
     func prettyJSON() throws -> Data {
@@ -191,6 +192,7 @@ struct QuillCodeDesktopSmokeReport {
                 "browserSmoke": browserSmoke.dictionary,
                 "browserWorkflowSmoke": browserWorkflowSmoke.dictionary,
                 "browserSpreadsheetWorkflowSmoke": browserSpreadsheetWorkflowSmoke.dictionary,
+                "scheduledCoworkerSmoke": scheduledCoworkerSmoke.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary
             ],
             options: [.prettyPrinted, .sortedKeys]
@@ -337,6 +339,36 @@ struct QuillCodeDesktopBrowserWorkflowSmokeReport {
             "sourceLabel": sourceLabel,
             "outline": outline,
             "textSnippet": textSnippet
+        ]
+    }
+}
+
+struct QuillCodeDesktopScheduledCoworkerSmokeReport {
+    var automationTitle: String
+    var taskText: String
+    var scheduleDescription: String
+    var reportTitle: String
+    var reportBody: String
+    var notificationCount: Int
+    var followUpThreadTitle: String
+    var followUpPrompt: String
+    var automationsVisible: Bool
+    var lastRunRecorded: Bool
+    var nextRunRecorded: Bool
+
+    var dictionary: [String: Any] {
+        [
+            "automationTitle": automationTitle,
+            "taskText": taskText,
+            "scheduleDescription": scheduleDescription,
+            "reportTitle": reportTitle,
+            "reportBody": reportBody,
+            "notificationCount": notificationCount,
+            "followUpThreadTitle": followUpThreadTitle,
+            "followUpPrompt": followUpPrompt,
+            "automationsVisible": automationsVisible,
+            "lastRunRecorded": lastRunRecorded,
+            "nextRunRecorded": nextRunRecorded
         ]
     }
 }
