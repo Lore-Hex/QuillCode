@@ -61,6 +61,23 @@ The next immediate-action gap is browser/SaaS coworker work:
   page-open action. Follow-up slices should add focused browser/Computer Use smoke cases for logged-in
   SaaS interaction and only then graduate spreadsheet rows to covered.
 
+## Browser Workflow Smoke Slice
+
+The native desktop smoke now leaves deterministic browser-workflow evidence for a SaaS-like page:
+
+- `browserSmoke` still proves local HTML preview, browser comments, and `host.browser.inspect`
+  final-answer rendering.
+- `browserWorkflowSmoke` now opens a mock CRM page through the visible browser-session path, dispatches
+  `host.browser.type`, `host.browser.click`, `host.browser.script`, and `host.browser.inspect`, and
+  records the typed status, clicked save selector, script value, live-DOM inspection depth, outline,
+  and text snippet in the smoke report.
+- The smoke presenter only exposes a visible session after `openBrowserSession()`, so ordinary preview
+  inspection still exercises the snapshot fallback path and the workflow smoke exercises the explicit
+  visible-session path.
+- This upgrades browser/SaaS evidence from first-open routing to stateful browser action routing. Keep
+  real SaaS rows gated until a signed-in packaged-app smoke proves equivalent interaction on a live
+  SaaS surface.
+
 ## Scheduling Coworker Slice
 
 Plain recurring coworker prompts now create real workspace automations without requiring slash syntax:

@@ -72,6 +72,10 @@
   Drive/Sheets, Mailchimp, Notion, Asana, Jira/Confluence, Zendesk, Concur, Google Ads, LinkedIn
   Campaign Manager, and Google Analytics, while actionful catalog workflows stay with the model loop
   so they can continue through browser/Computer Use instead of stopping after a single open.
+  Deterministic native desktop smoke now also records `browserWorkflowSmoke` evidence for a SaaS-like
+  CRM page by routing `host.browser.type`, `host.browser.click`, `host.browser.script`, and
+  `host.browser.inspect` through the visible browser-session override and proving the typed/saved
+  state survives into a live-DOM inspection report.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:
