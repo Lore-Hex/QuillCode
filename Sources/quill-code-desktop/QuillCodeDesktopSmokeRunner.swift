@@ -1373,6 +1373,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 55,
+                prompt: "Run \(roadmapDraftingCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote roadmap.md",
+                artifactRelativePath: "roadmap.md",
+                artifactExpectation: .textContains("Theme: Retention-led Q3"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "Q3-OKRs.docx",
+                        expectation: .textContains("Q3 OKR source")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1604,6 +1618,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var riskRegisterCommand: String {
         return """
         echo Project charter source>project-charter.pdf&&echo Risks include data migration delay vendor API outage and stakeholder training gaps>>project-charter.pdf&&echo risk,likelihood,impact,mitigation,owner>project-risk-register.csv&&echo Data migration delay,4,5,stage dry runs weekly,Ben>>project-risk-register.csv&&echo Vendor API outage,3,4,confirm rollback plan,Ada>>project-risk-register.csv&&echo Training adoption gap,3,3,schedule role-based walkthroughs,Cam>>project-risk-register.csv&&echo wrote project-risk-register.csv
+        """
+    }
+
+    private static var roadmapDraftingCommand: String {
+        return """
+        echo Q3 OKR source>Q3-OKRs.docx&&echo Objective improve retention through onboarding activation and reporting>>Q3-OKRs.docx&&echo Objective expand enterprise readiness with permissions and audit trails>>Q3-OKRs.docx&&echo Q3 Roadmap>roadmap.md&&echo Theme: Retention-led Q3>>roadmap.md&&echo Milestone: Onboarding activation by 2026-07-31>>roadmap.md&&echo Milestone: Usage reporting by 2026-08-21>>roadmap.md&&echo Milestone: Enterprise permissions by 2026-09-11>>roadmap.md&&echo Milestone: Audit trail beta by 2026-09-25>>roadmap.md&&echo wrote roadmap.md
         """
     }
 
