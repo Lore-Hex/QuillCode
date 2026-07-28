@@ -812,6 +812,18 @@ expected_one_turn_cases = {
             },
         ],
     },
+    59: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "zendesk-theme-triage.csv",
+        "artifactContains": "billing_access,3,2h15m,ZD-101 ZD-104 ZD-108",
+        "answerContains": "wrote zendesk-theme-triage.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "zendesk-export.csv",
+                "artifactContains": "ZD-101,billing_access",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",

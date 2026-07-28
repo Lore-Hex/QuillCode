@@ -1437,6 +1437,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 59,
+                prompt: "Run \(supportTriageCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote zendesk-theme-triage.csv",
+                artifactRelativePath: "zendesk-theme-triage.csv",
+                artifactExpectation: .textContains("billing_access,3,2h15m,ZD-101 ZD-104 ZD-108"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "zendesk-export.csv",
+                        expectation: .textContains("ZD-101,billing_access")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1692,6 +1706,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var scannedPensionExtractionCommand: String {
         return """
         echo image-only pension booklet source>pension-plan-1994-scanned.pdf&&echo OCR text page 14 vesting schedule years zero to two equals zero pct three equals twenty pct four equals forty pct five equals sixty pct six equals eighty pct seven equals one hundred pct>>pension-plan-1994-scanned.pdf&&echo OCR text page 22 early retirement age55 equals fifty pct age60 equals seventy pct age62 equals eighty five pct>>pension-plan-1994-scanned.pdf&&echo section,condition,value>pension-vesting-retirement-table.csv&&echo vesting,years0_to_2,0pct>>pension-vesting-retirement-table.csv&&echo vesting,year3,20pct>>pension-vesting-retirement-table.csv&&echo vesting,year4,40pct>>pension-vesting-retirement-table.csv&&echo vesting,year5,60pct>>pension-vesting-retirement-table.csv&&echo vesting,year6,80pct>>pension-vesting-retirement-table.csv&&echo vesting,year7_plus,100pct>>pension-vesting-retirement-table.csv&&echo early_retirement_reduction,age55,50pct>>pension-vesting-retirement-table.csv&&echo early_retirement_reduction,age60,70pct>>pension-vesting-retirement-table.csv&&echo early_retirement_reduction,age62,85pct>>pension-vesting-retirement-table.csv&&echo wrote pension-vesting-retirement-table.csv
+        """
+    }
+
+    private static var supportTriageCommand: String {
+        return """
+        echo ticket_id,theme,first_response,summary>zendesk-export.csv&&echo ZD-101,billing_access,2h,invoice portal login broken>>zendesk-export.csv&&echo ZD-102,login_mfa,1h30m,mfa reset request>>zendesk-export.csv&&echo ZD-103,import_csv,3h,csv import failed on date column>>zendesk-export.csv&&echo ZD-104,billing_access,2h45m,card update page loops>>zendesk-export.csv&&echo ZD-105,performance,4h,report loads slowly>>zendesk-export.csv&&echo ZD-106,login_mfa,1h,mfa backup code lost>>zendesk-export.csv&&echo ZD-107,api_webhooks,5h,webhook retries missing>>zendesk-export.csv&&echo ZD-108,billing_access,2h,receipt download error>>zendesk-export.csv&&echo ZD-109,import_csv,2h30m,duplicate rows after upload>>zendesk-export.csv&&echo ZD-110,permissions,3h15m,admin cannot invite teammate>>zendesk-export.csv&&echo ZD-111,performance,4h30m,dashboard timeout>>zendesk-export.csv&&echo ZD-112,api_webhooks,4h45m,signature validation fails>>zendesk-export.csv&&echo ZD-113,permissions,3h,role cannot see invoices>>zendesk-export.csv&&echo ZD-114,notifications,2h10m,email digest missing>>zendesk-export.csv&&echo ZD-115,notifications,2h20m,slack alert duplicated>>zendesk-export.csv&&echo ZD-116,sso_setup,6h,saml certificate rotation>>zendesk-export.csv&&echo theme,ticket_volume,average_first_response,examples>zendesk-theme-triage.csv&&echo billing_access,3,2h15m,ZD-101 ZD-104 ZD-108>>zendesk-theme-triage.csv&&echo login_mfa,2,1h15m,ZD-102 ZD-106>>zendesk-theme-triage.csv&&echo import_csv,2,2h45m,ZD-103 ZD-109>>zendesk-theme-triage.csv&&echo performance,2,4h15m,ZD-105 ZD-111>>zendesk-theme-triage.csv&&echo api_webhooks,2,4h52m,ZD-107 ZD-112>>zendesk-theme-triage.csv&&echo permissions,2,3h07m,ZD-110 ZD-113>>zendesk-theme-triage.csv&&echo notifications,2,2h15m,ZD-114 ZD-115>>zendesk-theme-triage.csv&&echo sso_setup,1,6h,ZD-116>>zendesk-theme-triage.csv&&echo wrote zendesk-theme-triage.csv
         """
     }
 
