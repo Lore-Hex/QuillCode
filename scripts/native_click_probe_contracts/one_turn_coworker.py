@@ -146,6 +146,22 @@ EXPECTED_CASES = {
         "artifactContains": "Support,42000,36500,15.1%,over,billing backlog temporary contractors",
         "answerContains": "wrote june-variance-pack.csv",
     },
+    32: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "downloads-organization-report.md",
+        "artifactContains": "Junk pile: Downloads/Junk/installer.tmp",
+        "answerContains": "wrote downloads-organization-report.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Downloads/Receipts/receipt-1042.pdf",
+                "artifactContains": "Receipt 1042",
+            },
+            {
+                "artifactSuffix": "Downloads/Screenshots/screenshot-launch.png",
+                "artifactContains": "Screenshot launch",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",
