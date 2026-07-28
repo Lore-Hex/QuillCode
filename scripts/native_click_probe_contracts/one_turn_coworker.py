@@ -302,6 +302,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    45: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "board-prep-recap-email.md",
+        "artifactContains": "Priya | Final board deck | 2026-08-02",
+        "answerContains": "wrote board-prep-recap-email.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "board-prep-call.txt",
+                "artifactContains": "Raw board prep call transcript",
+            },
+        ],
+    },
     48: {
         "toolName": "host.shell.run",
         "artifactSuffix": "sales-pivot-summary.csv",
