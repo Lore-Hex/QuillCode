@@ -58,6 +58,12 @@ EXPECTED_CASES = {
         "artifactContains": "Engineering --> Launch",
         "answerContains": "Wrote `dependency-map.mmd`.",
     },
+    40: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "finance-kpi-dashboard.html",
+        "artifactContains": "Finance KPI Dashboard",
+        "answerContains": "wrote finance-kpi-dashboard.html",
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",

@@ -933,6 +933,14 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("Engineering --> Launch")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 40,
+                prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote finance-kpi-dashboard.html",
+                artifactRelativePath: "finance-kpi-dashboard.html",
+                artifactExpectation: .textContains("Finance KPI Dashboard")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
