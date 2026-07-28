@@ -128,6 +128,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    30: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "amex_q3-categorized.csv",
+        "artifactContains": "2026-07-18,Adobe,79.99,Software,6100",
+        "answerContains": "wrote amex_q3-categorized.csv and amex_q3-review.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "amex_q3-review.csv",
+                "artifactContains": "2026-07-22,Unknown Vendor,312.00,needs_review",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",

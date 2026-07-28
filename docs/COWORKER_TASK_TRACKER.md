@@ -168,7 +168,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #40, #43, #48, #52, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #40, #43, #48, #52, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -201,6 +201,8 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   `host.file.write`.
 - Row #29 proves a document-splitting request creates separate exhibit files plus an exhibit index
   through `host.shell.run`.
+- Row #30 proves expense categorization creates a GL-coded CSV plus a review file for uncertain
+  rows through `host.shell.run`.
 - Row #40 proves a KPI dashboard request creates a single-file HTML dashboard,
   `finance-kpi-dashboard.html`, with revenue, churn, headcount, and sparkline evidence through
   `host.shell.run`.
