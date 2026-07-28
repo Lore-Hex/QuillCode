@@ -133,7 +133,12 @@ Packaged macOS smoke now preserves explicit scheduled-coworker release evidence:
 
 The remaining scheduling evidence gap is narrower: observing the real OS notification banner/action
 from the packaged app, rather than only the app-level notification report delivered to the desktop
-notifier boundary.
+notifier boundary. `scripts/scheduled-notification-observation-smoke.sh <evidence.json>
+[manifest.json]` now validates an optional redacted native observation capture that links back to the
+packaged scheduled-coworker manifest, proves the `QuillCode scheduled task ready` notification was
+visible, proves the original task text was visible, proves the Open follow-up action was observed and
+opened the scheduled thread, and rejects raw prompts or captured secrets. Scheduling rows should not
+graduate on this alone; they need an actual captured observation manifest from a packaged app run.
 
 ## Multi-File Artifact Smoke Slice
 
