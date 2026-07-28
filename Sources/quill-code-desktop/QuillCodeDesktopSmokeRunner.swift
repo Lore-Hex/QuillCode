@@ -1033,6 +1033,14 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 31,
+                prompt: "Run `\(financeVarianceCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote june-variance-pack.csv",
+                artifactRelativePath: "june-variance-pack.csv",
+                artifactExpectation: .textContains("Support,42000,36500,15.1%,over,billing backlog temporary contractors")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1175,6 +1183,13 @@ enum QuillCodeDesktopSmokeRunner {
     private static var expenseCategorizationCommand: String {
         return """
         printf 'date,vendor,amount,category,gl_code\\n2026-07-18,Adobe,79.99,Software,6100\\n2026-08-03,Delta,428.10,Travel,6500\\n2026-09-12,Staples,54.20,Office Supplies,6200\\n' > amex_q3-categorized.csv && printf 'date,vendor,amount,status\\n2026-07-22,Unknown Vendor,312.00,needs_review\\n' > amex_q3-review.csv && printf 'wrote amex_q3-categorized.csv and amex_q3-review.csv\\n'
+        """
+    }
+
+    private static var financeVarianceCommand: String {
+        let varianceCSV = "cost_center,actual,budget,variance_pct,status,explanation\\nEngineering,118000,112000,5.4%,within,contractor timing within tolerance\\nSupport,42000,36500,15.1%,over,billing backlog temporary contractors\\nMarketing,27800,32000,-13.1%,under,event spend moved to July\\n"
+        return """
+        python3 -c "print((__import__('pathlib').Path('june-variance-pack.csv').write_text('\(varianceCSV)'),'wrote june-variance-pack.csv')[-1])"
         """
     }
 

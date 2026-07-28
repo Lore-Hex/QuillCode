@@ -140,6 +140,12 @@ EXPECTED_CASES = {
             },
         ],
     },
+    31: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "june-variance-pack.csv",
+        "artifactContains": "Support,42000,36500,15.1%,over,billing backlog temporary contractors",
+        "answerContains": "wrote june-variance-pack.csv",
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",
