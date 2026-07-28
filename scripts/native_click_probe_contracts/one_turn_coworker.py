@@ -521,6 +521,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    62: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "wbs.xlsx",
+        "artifactContains": "Implementation,Onboarding checklist,Ada,5d",
+        "answerContains": "wrote wbs.xlsx",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "team-roster.csv",
+                "artifactContains": "Ada,Product",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
