@@ -1301,6 +1301,24 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 50,
+                prompt: "Run \(invoiceReconciliationCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote invoice-reconciliation.csv",
+                artifactRelativePath: "invoice-reconciliation.csv",
+                artifactExpectation: .textContains("INV-1002,1200,0,unpaid"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "open_invoices.csv",
+                        expectation: .textContains("INV-1003,Cedar,900")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "november-bank.csv",
+                        expectation: .textContains("INV-1003,900")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 52,
                 prompt: "Run `printf '# August 2026 Release Notes\\n\\n## Billing\\n- Customers can now export invoices from the billing portal.\\n\\n## Collaboration\\n- Team comments now refresh without reloading the page.\\n\\n## Admin\\n- Workspace owners can see seat-change history.\\n' > release-notes-2026-08.md && printf 'wrote release-notes-2026-08.md\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1516,6 +1534,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var raciChartCommand: String {
         return """
         echo name,role>stakeholders.csv&&echo Ada,Migration Lead>>stakeholders.csv&&echo Ben,Engineering Owner>>stakeholders.csv&&echo Cam,Finance Approver>>stakeholders.csv&&echo Dee,Operations Consulted>>stakeholders.csv&&echo Discovery>phase-plan.md&&echo Data migration>>phase-plan.md&&echo Testing>>phase-plan.md&&echo Cutover>>phase-plan.md&&echo Stabilization>>phase-plan.md&&echo phase,responsible,accountable,consulted,informed>erp-migration-raci.csv&&echo Data migration,Ada,Ben,Cam,Dee>>erp-migration-raci.csv&&echo Testing,Ben,Ada,Cam,Dee>>erp-migration-raci.csv&&echo Cutover,Ada,Cam,Ben,Dee>>erp-migration-raci.csv&&echo wrote erp-migration-raci.csv
+        """
+    }
+
+    private static var invoiceReconciliationCommand: String {
+        return """
+        echo invoice,customer,amount>open_invoices.csv&&echo INV-1001,Acme,500>>open_invoices.csv&&echo INV-1002,Beta,1200>>open_invoices.csv&&echo INV-1003,Cedar,900>>open_invoices.csv&&echo date,description,invoice,amount>november-bank.csv&&echo 2026-11-03,Acme payment,INV-1001,500>>november-bank.csv&&echo 2026-11-08,Cedar payment,INV-1003,900>>november-bank.csv&&echo 2026-11-09,Cedar duplicate,INV-1003,900>>november-bank.csv&&echo invoice,expected,paid,status>invoice-reconciliation.csv&&echo INV-1001,500,500,paid>>invoice-reconciliation.csv&&echo INV-1002,1200,0,unpaid>>invoice-reconciliation.csv&&echo INV-1003,900,1800,paid_twice>>invoice-reconciliation.csv&&echo wrote invoice-reconciliation.csv
         """
     }
 
