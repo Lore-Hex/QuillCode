@@ -60,7 +60,7 @@ def _require_string_list(value: Any, label: str) -> list[str]:
     return strings
 
 
-def _require_catalog_task_ids(value: Any) -> list[int]:
+def require_catalog_task_ids(value: Any) -> list[int]:
     require(isinstance(value, list), "catalogTaskIDs must be a non-empty list")
     task_ids: list[int] = []
     for index, item in enumerate(value):
@@ -146,7 +146,7 @@ def validated_live_saas_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     require(evidence.get("ok") is True, "live SaaS evidence ok must be true")
     _scan_for_secrets(evidence)
 
-    catalog_task_ids = _require_catalog_task_ids(evidence.get("catalogTaskIDs"))
+    catalog_task_ids = require_catalog_task_ids(evidence.get("catalogTaskIDs"))
     service_name = _require_string(evidence.get("serviceName"), "serviceName")
     task_name = _require_string(evidence.get("taskName"), "taskName")
     account_state = _require_string(evidence.get("accountState"), "accountState")

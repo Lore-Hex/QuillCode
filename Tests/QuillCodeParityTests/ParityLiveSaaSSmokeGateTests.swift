@@ -127,17 +127,79 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: coverageURL.path))
     }
 
+    func testLiveSaaSTemplateWritesRowLinkedEvidenceSkeleton() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-live-saas-template-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let templateURL = temporaryDirectory.appendingPathComponent("salesforce-template.json")
+        let result = try Self.runPython(
+            Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
+            arguments: [
+                "live-saas-template",
+                "199",
+                "200",
+                "--output",
+                templateURL.path,
+                "--service-name",
+                "Salesforce",
+                "--task-name",
+                "Update CRM rows",
+                "--url",
+                "https://example.salesforce.com/lightning/o/Lead/list",
+            ]
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let template = try String(contentsOf: templateURL, encoding: .utf8)
+        XCTAssertTrue(template.contains(#""catalogTaskIDs": ["#), template)
+        XCTAssertTrue(template.contains(#"199"#), template)
+        XCTAssertTrue(template.contains(#"200"#), template)
+        XCTAssertTrue(template.contains(#""serviceName": "Salesforce""#), template)
+        XCTAssertTrue(template.contains(#""taskName": "Update CRM rows""#), template)
+        XCTAssertTrue(template.contains(#""url": "https://example.salesforce.com/lightning/o/Lead/list""#), template)
+        XCTAssertTrue(template.contains(#""host.browser.open""#), template)
+        XCTAssertTrue(template.contains(#""host.browser.inspect""#), template)
+        XCTAssertTrue(template.contains(#""captureChecklist": ["#), template)
+        XCTAssertTrue(template.contains("Replace every TODO before running scripts/live-saas-smoke.sh"), template)
+    }
+
+    func testLiveSaaSTemplateRejectsInvalidCatalogRows() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-live-saas-template-rejection-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let templateURL = temporaryDirectory.appendingPathComponent("invalid-template.json")
+        let result = try Self.runPython(
+            Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
+            arguments: ["live-saas-template", "207", "--output", templateURL.path]
+        )
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("catalogTaskIDs[0] must be between 1 and 206"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: templateURL.path))
+    }
+
     func testLiveSaaSSmokeScriptDocumentsOptionalManualContract() throws {
         let script = try Self.scriptText(named: "live-saas-smoke.sh")
+        let templateScript = try Self.scriptText(named: "live-saas-template.sh")
         let validator = try Self.nativeClickProbeValidatorText()
         let coworkerDocs = try Self.docsText(named: "COWORKER_TASK_TRACKER.md")
 
         XCTAssertTrue(script.contains("QUILLCODE_LIVE_SAAS_EVIDENCE"))
         XCTAssertTrue(script.contains("native-click-probe-contracts.py\" live-saas"))
+        XCTAssertTrue(templateScript.contains("live-saas-template"))
+        XCTAssertTrue(templateScript.contains("QUILLCODE_LIVE_SAAS_SERVICE_NAME"))
         XCTAssertTrue(validator.contains("coworker-catalog"))
+        XCTAssertTrue(validator.contains("live-saas-template"))
         XCTAssertTrue(validator.contains("def write_live_saas_manifest"))
         XCTAssertTrue(validator.contains("accountState must be signed-in"))
         XCTAssertTrue(validator.contains("catalogTaskIDs must be a non-empty list"))
+        XCTAssertTrue(coworkerDocs.contains("live-saas-template.sh"))
         XCTAssertTrue(coworkerDocs.contains("live-saas-smoke.sh"))
         XCTAssertTrue(coworkerDocs.contains("catalogTaskIDs"))
     }

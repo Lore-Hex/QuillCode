@@ -199,6 +199,12 @@ SaaS surface with Computer Use/browser session evidence.
 
 QuillCode now has a fail-closed manual evidence gate for real signed-in SaaS sessions:
 
+- `scripts/live-saas-template.sh <output.json> <catalog-task-id> [catalog-task-id ...]` writes a
+  row-linked evidence skeleton with the exact catalog row IDs, required browser evidence,
+  optional Computer Use evidence, and the validation command. Optional environment variables
+  `QUILLCODE_LIVE_SAAS_SERVICE_NAME`, `QUILLCODE_LIVE_SAAS_TASK_NAME`, and
+  `QUILLCODE_LIVE_SAAS_URL` prefill the service/task/URL fields. The generated file is intentionally
+  not valid evidence until every `TODO` is replaced by a real signed-in capture.
 - `scripts/live-saas-smoke.sh <evidence.json> [manifest.json]` validates captured live SaaS evidence
   through `native-click-probe-contracts.py live-saas`.
 - The evidence must include `catalogTaskIDs`, the exact spreadsheet row IDs this run proves, so a
@@ -215,6 +221,15 @@ This does not make live SaaS rows covered by itself; it gives those rows a durab
 When a signed-in Salesforce/HubSpot/Google Sheets/etc. workflow is run manually or in a secure
 credentialed environment, the resulting `live-saas-manifest.json` is the evidence to attach before
 graduating each listed `catalogTaskIDs` row.
+
+Example capture setup:
+
+```bash
+QUILLCODE_LIVE_SAAS_SERVICE_NAME=Salesforce \
+QUILLCODE_LIVE_SAAS_TASK_NAME="Update CRM lead status" \
+QUILLCODE_LIVE_SAAS_URL=https://example.salesforce.com/lightning/o/Lead/list \
+  scripts/live-saas-template.sh /tmp/salesforce-evidence.json 199
+```
 
 Multiple validated live SaaS manifests can be rolled up with:
 

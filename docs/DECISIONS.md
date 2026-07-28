@@ -18,6 +18,10 @@
   the office coworker catalog that a signed-in SaaS run proves. The manifest writes those IDs and the
   canonical spreadsheet URL beside service, task, tool sequence, live-DOM, and Computer Use evidence
   so humans or secure live-SaaS harnesses can update only the proven rows.
+- **Update:** Live SaaS capture now has a row-linked evidence template generator,
+  `scripts/live-saas-template.sh`. The generated JSON starts with the exact catalog rows, the
+  required browser proof shape, optional Computer Use proof shape, and the validation command, but it
+  remains intentionally invalid until every placeholder is replaced by a real signed-in capture.
 - **Update:** The native smoke contract CLI can now roll validated live SaaS manifests into a
   `coworker-coverage.json` summary with `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID`.
   This gives the spreadsheet a durable row-level audit artifact before changing status cells.

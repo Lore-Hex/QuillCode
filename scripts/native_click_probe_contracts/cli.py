@@ -11,6 +11,7 @@ from .computer_use import write_computer_use_manifest
 from .computer_use_action import write_computer_use_action_manifest
 from .coworker_catalog import write_coworker_catalog_coverage
 from .live_saas import write_live_saas_manifest
+from .live_saas_template import write_live_saas_template
 from .multi_file_artifact import write_multi_file_artifact_manifest
 from .one_turn_coworker import write_one_turn_coworker_manifest
 from .packaged_window import (
@@ -107,6 +108,16 @@ def main() -> None:
     live_saas_parser.add_argument("evidence", type=Path)
     live_saas_parser.add_argument("--manifest", required=True, type=Path)
 
+    live_saas_template_parser = subparsers.add_parser(
+        "live-saas-template",
+        help="write a row-linked live SaaS evidence template",
+    )
+    live_saas_template_parser.add_argument("catalog_task_ids", nargs="+", type=int)
+    live_saas_template_parser.add_argument("--output", required=True, type=Path)
+    live_saas_template_parser.add_argument("--service-name")
+    live_saas_template_parser.add_argument("--task-name")
+    live_saas_template_parser.add_argument("--url")
+
     coworker_catalog_parser = subparsers.add_parser(
         "coworker-catalog",
         help="write row-level office coworker catalog coverage from live SaaS manifests",
@@ -171,5 +182,13 @@ def main() -> None:
         )
     elif args.command == "live-saas":
         write_live_saas_manifest(args.evidence, args.manifest)
+    elif args.command == "live-saas-template":
+        write_live_saas_template(
+            args.catalog_task_ids,
+            args.output,
+            service_name=args.service_name,
+            task_name=args.task_name,
+            url=args.url,
+        )
     elif args.command == "coworker-catalog":
         write_coworker_catalog_coverage(args.manifests, args.output)
