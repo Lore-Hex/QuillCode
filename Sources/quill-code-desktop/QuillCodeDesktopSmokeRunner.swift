@@ -1077,6 +1077,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 34,
+                prompt: "Run `\(forecastReviewCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote forecast-review.md",
+                artifactRelativePath: "forecast-review.md",
+                artifactExpectation: .textContains("Flag: Q3 Upside assumes 42 pct close rate"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "pipeline-forecast.xlsx",
+                        expectation: .textContains("Q3 Upside,1200000,42 pct")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1238,6 +1252,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var followUpSequenceCommand: String {
         return """
         mkdir -p prospect-followups && printf 'Great talking about the warehouse pilot\\n' > prospect-followups/ada-day-1.md && printf 'bring the warehouse checklist\\n' > prospect-followups/ada-day-3.md && printf 'day seven pilot close\\n' > prospect-followups/ada-day-7.md && printf 'pricing analytics dashboard\\n' > prospect-followups/ben-day-1.md && printf 'wrote prospect-followups/ada-day-1.md, prospect-followups/ada-day-3.md, and prospect-followups/ada-day-7.md\\n'
+        """
+    }
+
+    private static var forecastReviewCommand: String {
+        return """
+        printf 'scenario,forecast,assumed_close\\nQ3 Base,820000,30 pct\\nQ3 Upside,1200000,42 pct\\n' > pipeline-forecast.xlsx && printf 'quarter,close_rate\\nQ1,29 pct\\nQ2,31 pct\\nQ3,28 pct\\nQ4,33 pct\\nQ5,30 pct\\nQ6,31 pct\\n' > historical-close-rates.csv && printf 'Forecast review\\nFlag: Q3 Upside assumes 42 pct close rate vs six-quarter average 30 pct.\\nBoard note: use Q3 Base unless late-stage conversion improves.\\n' > forecast-review.md && printf 'wrote forecast-review.md\\n'
         """
     }
 
