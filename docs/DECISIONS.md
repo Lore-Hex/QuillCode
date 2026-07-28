@@ -796,6 +796,11 @@
   fixtures run through the real `AutoSafetyReviewer` model path and pin representative reviewer decisions for bounded
   diagnostics, missing shell arguments, unrelated chained credential reads, and project-local file creation. Live
   reviewer-model transcript calibration can build on this table instead of relying on ad hoc manual prompts.
+- Redacted live reviewer calibration uses a manifest contract, not raw transcript dumps.
+  `scripts/safety-reviewer-calibration-smoke.sh` validates expected-versus-actual approve/clarify/deny
+  outcomes, reviewer route/model attribution, and bounded rationale summaries while rejecting raw prompts,
+  raw arguments, responses, cookies, auth headers, and API keys. This gives production calibration an
+  auditable artifact without leaking hidden prompts or sensitive command payloads.
 - The Auto safety model prompt is a compact contract over the same static safety floor, not a second broad policy
   system. It now names explicit approve/clarify/deny boundaries: approve bounded user-requested work, clarify missing
   or empty arguments and ambiguous targets, and deny credential exfiltration, unrelated extra shell actions, broad
