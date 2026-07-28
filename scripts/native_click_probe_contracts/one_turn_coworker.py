@@ -559,6 +559,22 @@ EXPECTED_CASES = {
             },
         ],
     },
+    65: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "variance-analysis.csv",
+        "artifactContains": "Support,42000,36000,16.7pct,over,temporary contractor coverage",
+        "answerContains": "wrote variance-analysis.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "budget-fy26.xlsx",
+                "artifactContains": "Support,36000",
+            },
+            {
+                "artifactSuffix": "actuals-june.csv",
+                "artifactContains": "Events,22000",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
