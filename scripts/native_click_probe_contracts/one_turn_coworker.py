@@ -76,6 +76,12 @@ EXPECTED_CASES = {
         "artifactContains": "top_deal,Ada,West,Q2,92000",
         "answerContains": "wrote sales-pivot-summary.csv",
     },
+    52: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "release-notes-2026-08.md",
+        "artifactContains": "## Collaboration",
+        "answerContains": "wrote release-notes-2026-08.md",
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
