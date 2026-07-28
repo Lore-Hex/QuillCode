@@ -413,6 +413,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    54: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "project-risk-register.csv",
+        "artifactContains": "Data migration delay,4,5,stage dry runs weekly,Ben",
+        "answerContains": "wrote project-risk-register.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "project-charter.pdf",
+                "artifactContains": "Project charter source",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",

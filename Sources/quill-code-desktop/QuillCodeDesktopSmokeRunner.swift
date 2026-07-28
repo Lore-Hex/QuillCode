@@ -1359,6 +1359,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 54,
+                prompt: "Run \(riskRegisterCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote project-risk-register.csv",
+                artifactRelativePath: "project-risk-register.csv",
+                artifactExpectation: .textContains("Data migration delay,4,5,stage dry runs weekly,Ben"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "project-charter.pdf",
+                        expectation: .textContains("Project charter source")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1584,6 +1598,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var rfpComplianceMatrixCommand: String {
         return """
         echo RFP 2026 DOT source>RFP-2026-DOT.pdf&&echo Section 3.2 Contractor shall encrypt data at rest>>RFP-2026-DOT.pdf&&echo Section 4.1 Vendor must provide monthly status reports>>RFP-2026-DOT.pdf&&echo section,requirement,owner,workstream>rfp-compliance-matrix.csv&&echo 3.2,shall encrypt data at rest,,Security>>rfp-compliance-matrix.csv&&echo 4.1,must provide monthly status reports,,Program Management>>rfp-compliance-matrix.csv&&echo wrote rfp-compliance-matrix.csv
+        """
+    }
+
+    private static var riskRegisterCommand: String {
+        return """
+        echo Project charter source>project-charter.pdf&&echo Risks include data migration delay vendor API outage and stakeholder training gaps>>project-charter.pdf&&echo risk,likelihood,impact,mitigation,owner>project-risk-register.csv&&echo Data migration delay,4,5,stage dry runs weekly,Ben>>project-risk-register.csv&&echo Vendor API outage,3,4,confirm rollback plan,Ada>>project-risk-register.csv&&echo Training adoption gap,3,3,schedule role-based walkthroughs,Cam>>project-risk-register.csv&&echo wrote project-risk-register.csv
         """
     }
 
