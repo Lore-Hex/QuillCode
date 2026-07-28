@@ -260,6 +260,18 @@ EXPECTED_CASES = {
         "artifactContains": "Finance KPI Dashboard",
         "answerContains": "wrote finance-kpi-dashboard.html",
     },
+    41: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "march-pricing-go-live-checklist.md",
+        "artifactContains": "Legal | Priya | 2026-03-04",
+        "answerContains": "wrote march-pricing-go-live-checklist.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "march-pricing-launch-brief.md",
+                "artifactContains": "March pricing launch",
+            },
+        ],
+    },
     43: {
         "toolName": "host.shell.run",
         "artifactSuffix": "q3-content-calendar.csv",
