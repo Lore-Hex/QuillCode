@@ -21,6 +21,10 @@
 - **Update:** The native smoke contract CLI can now roll validated live SaaS manifests into a
   `coworker-coverage.json` summary with `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID`.
   This gives the spreadsheet a durable row-level audit artifact before changing status cells.
+- **Update:** Packaged macOS smoke now emits `packaged-one-turn-coworker.json` for catalog rows
+  #15, #16, and #68. The manifest compares direct packaged executable and Launch Services evidence,
+  proving non-empty `host.file.write`/`host.shell.run` actions plus artifact assertions before those
+  rows can be treated as row-linked one-turn coworker coverage.
 
 ## 2026-07-27: TrustedRouter balance history is locally observed
 

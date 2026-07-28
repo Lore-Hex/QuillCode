@@ -155,6 +155,25 @@ This covers the deterministic local-artifact version of multi-file coworker deli
 depend on live SaaS data, proprietary document formats, or a logged-in browser session should remain
 gated until a row-specific live or packaged smoke proves the same workflow on that surface.
 
+## Packaged One-Turn Coworker Evidence Slice
+
+Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
+
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, and #68 through the actual
+  desktop agent/tool loop.
+- Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
+  customer-comms text through `host.file.write`.
+- Row #16 proves an analysis-style shell task runs with non-empty `host.shell.run` arguments and
+  creates `signup-slice.csv`.
+- Row #68 proves a weekly-review shell task runs with non-empty `host.shell.run` arguments and
+  creates `weekly-review.csv`.
+- `packaged-one-turn-coworker.json` compares direct packaged executable and Launch Services launches,
+  recording task IDs, tool sequence, artifact suffixes, artifact assertions, and final answers.
+
+This moves the one-turn local shell/file bucket from analogue evidence toward row-linked packaged
+evidence. Similar local rows can graduate only when their row ID appears in current smoke or coverage
+evidence, or when a stricter row-specific test proves the same tool path.
+
 ## Packaged Browser Workflow Evidence Slice
 
 Packaged macOS smoke now preserves browser coworker workflow evidence at the `.app` boundary:

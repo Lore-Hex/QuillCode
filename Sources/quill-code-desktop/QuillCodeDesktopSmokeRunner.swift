@@ -103,6 +103,7 @@ enum QuillCodeDesktopSmokeRunner {
         )
         let computerUseActionSmoke = try await runComputerUseActionSmoke(root: root)
         let multiFileArtifactSmoke = try await runMultiFileArtifactSmoke(controller: controller, root: root)
+        let oneTurnCoworkerSmoke = try await runOneTurnCoworkerSmoke(controller: controller, root: root)
         let surface = controller.surface
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: surface)
         guard surface.transcript.messages.count >= 4,
@@ -199,6 +200,7 @@ enum QuillCodeDesktopSmokeRunner {
             browserAuthenticatedWorkflowSmoke: browserAuthenticatedWorkflowSmoke,
             computerUseActionSmoke: computerUseActionSmoke,
             multiFileArtifactSmoke: multiFileArtifactSmoke,
+            oneTurnCoworkerSmoke: oneTurnCoworkerSmoke,
             scheduledCoworkerSmoke: scheduledCoworkerSmoke,
             nativeHitTargets: nativeHitTargets
         )
@@ -858,6 +860,81 @@ enum QuillCodeDesktopSmokeRunner {
         )
     }
 
+    private static func runOneTurnCoworkerSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopOneTurnCoworkerSmokeReport {
+        let cases = [
+            OneTurnCoworkerSmokeCase(
+                taskID: 15,
+                prompt: "Create a file named `launch-announcement.md` that says `Billing portal launch email ready.`",
+                expectedToolName: ToolDefinition.fileWrite.name,
+                expectedAnswer: "Wrote `launch-announcement.md`.",
+                artifactRelativePath: "launch-announcement.md",
+                artifactContains: "Billing portal launch email ready."
+            ),
+            OneTurnCoworkerSmokeCase(
+                taskID: 16,
+                prompt: "Run `printf 'source,signups\\nads,42\\norganic,31\\n' > signup-slice.csv && printf 'wrote signup-slice.csv\\n'`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote signup-slice.csv",
+                artifactRelativePath: "signup-slice.csv",
+                artifactContains: "organic,31"
+            ),
+            OneTurnCoworkerSmokeCase(
+                taskID: 68,
+                prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote weekly-review.csv",
+                artifactRelativePath: "weekly-review.csv",
+                artifactContains: "Launch,3,2"
+            )
+        ]
+
+        var reports: [QuillCodeDesktopOneTurnCoworkerSmokeCaseReport] = []
+        for smokeCase in cases {
+            let previousTimelineCount = controller.surface.transcript.timelineItems.count
+            let previousToolCardCount = controller.surface.transcript.toolCards.count
+            controller.draft = smokeCase.prompt
+            controller.send()
+
+            try await waitForDesktopRun(
+                controller,
+                previousTimelineCount: previousTimelineCount,
+                expectedAnswer: smokeCase.expectedAnswer
+            )
+
+            let newToolCards = Array(controller.surface.transcript.toolCards.dropFirst(previousToolCardCount))
+            guard newToolCards.count == 1,
+                  newToolCards.first?.title == smokeCase.expectedToolName,
+                  newToolCards.first?.status == .done
+            else {
+                throw QuillCodeDesktopSmokeFailure.oneTurnCoworkerMismatch(
+                    "task \(smokeCase.taskID) unexpected tool cards: \(newToolCards.map(\.title).joined(separator: ", "))"
+                )
+            }
+
+            let artifact = root.workspace.appendingPathComponent(smokeCase.artifactRelativePath)
+            let artifactText = try String(contentsOf: artifact, encoding: .utf8)
+            guard artifactText.contains(smokeCase.artifactContains) else {
+                throw QuillCodeDesktopSmokeFailure.oneTurnCoworkerMismatch(
+                    "task \(smokeCase.taskID) artifact missing expected content: \(artifact.path)"
+                )
+            }
+
+            reports.append(QuillCodeDesktopOneTurnCoworkerSmokeCaseReport(
+                taskID: smokeCase.taskID,
+                prompt: smokeCase.prompt,
+                toolName: smokeCase.expectedToolName,
+                artifactPath: artifact.path,
+                artifactContains: smokeCase.artifactContains,
+                finalAnswer: controller.surface.transcript.messages.last?.text ?? ""
+            ))
+        }
+
+        return QuillCodeDesktopOneTurnCoworkerSmokeReport(cases: reports)
+    }
+
     private static func requiredBrowserToolOverride(
         _ controller: QuillCodeDesktopController
     ) throws -> AgentToolExecutionOverride {
@@ -1201,6 +1278,15 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
             activeTabID: tab.id
         ))
     }
+}
+
+private struct OneTurnCoworkerSmokeCase {
+    var taskID: Int
+    var prompt: String
+    var expectedToolName: String
+    var expectedAnswer: String
+    var artifactRelativePath: String
+    var artifactContains: String
 }
 
 private final class SmokeAutomationNotifier: QuillCodeAutomationNotifying, @unchecked Sendable {

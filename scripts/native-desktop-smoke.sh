@@ -336,6 +336,59 @@ final_answer = multi_file_smoke.get("finalAnswer")
 if not isinstance(final_answer, str) or "Created `team-action-brief.md`" not in final_answer:
     fail(f"multi-file artifact smoke reported malformed final answer: {final_answer!r}")
 
+one_turn_coworker_smoke = report.get("oneTurnCoworkerSmoke")
+if not isinstance(one_turn_coworker_smoke, dict):
+    fail("did not include one-turn coworker smoke evidence")
+
+expected_one_turn_cases = {
+    15: {
+        "toolName": "host.file.write",
+        "artifactSuffix": "launch-announcement.md",
+        "artifactContains": "Billing portal launch email ready.",
+        "answerContains": "Wrote `launch-announcement.md`.",
+    },
+    16: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "signup-slice.csv",
+        "artifactContains": "organic,31",
+        "answerContains": "wrote signup-slice.csv",
+    },
+    68: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "weekly-review.csv",
+        "artifactContains": "Launch,3,2",
+        "answerContains": "wrote weekly-review.csv",
+    },
+}
+one_turn_cases = one_turn_coworker_smoke.get("cases")
+if not isinstance(one_turn_cases, list):
+    fail(f"one-turn coworker smoke cases were malformed: {one_turn_cases!r}")
+one_turn_by_id = {
+    case.get("taskID"): case
+    for case in one_turn_cases
+    if isinstance(case, dict) and isinstance(case.get("taskID"), int)
+}
+if set(one_turn_by_id) != set(expected_one_turn_cases):
+    fail(
+        "one-turn coworker task IDs were "
+        f"{sorted(one_turn_by_id)}, expected {sorted(expected_one_turn_cases)}"
+    )
+for task_id, expected in expected_one_turn_cases.items():
+    case = one_turn_by_id[task_id]
+    if case.get("toolName") != expected["toolName"]:
+        fail(f"one-turn coworker task {task_id} tool was {case.get('toolName')!r}")
+    artifact_path = case.get("artifactPath")
+    if not isinstance(artifact_path, str) or not artifact_path.endswith(expected["artifactSuffix"]):
+        fail(f"one-turn coworker task {task_id} artifact path was malformed: {artifact_path!r}")
+    if case.get("artifactContains") != expected["artifactContains"]:
+        fail(
+            "one-turn coworker task "
+            f"{task_id} artifact assertion was {case.get('artifactContains')!r}"
+        )
+    final_answer = case.get("finalAnswer")
+    if not isinstance(final_answer, str) or expected["answerContains"] not in final_answer:
+        fail(f"one-turn coworker task {task_id} final answer was malformed: {final_answer!r}")
+
 scheduled_coworker_smoke = report.get("scheduledCoworkerSmoke")
 if not isinstance(scheduled_coworker_smoke, dict):
     fail("did not include scheduled coworker smoke evidence")
@@ -589,11 +642,6 @@ for command_id in command-palette keyboard-shortcuts settings toggle-terminal to
     exit 1
   fi
 done
-if ! grep -Eq '"messageCount" : [2-9][0-9]*' "$REPORT_PATH"; then
-  echo "quill-code-desktop native smoke did not record enough transcript messages" >&2
-  cat "$REPORT_PATH" >&2
-  exit 1
-fi
 python3 - "$REPORT_PATH" <<'PY'
 import json
 import sys
@@ -601,8 +649,20 @@ import sys
 with open(sys.argv[1], "r", encoding="utf-8") as report_file:
     report = json.load(report_file)
 
+message_count = report.get("messageCount")
+if not isinstance(message_count, int) or message_count < 14:
+    raise SystemExit(
+        "quill-code-desktop native smoke did not record enough transcript messages: "
+        f"{message_count!r}"
+    )
+tool_card_count = report.get("toolCardCount")
+if not isinstance(tool_card_count, int) or tool_card_count < 9:
+    raise SystemExit(
+        "quill-code-desktop native smoke did not record enough tool cards: "
+        f"{tool_card_count!r}"
+    )
 timeline_count = report.get("timelineItemCount")
-if not isinstance(timeline_count, int) or timeline_count < 14:
+if not isinstance(timeline_count, int) or timeline_count < 23:
     raise SystemExit(
         "quill-code-desktop native smoke did not record enough timeline items: "
         f"{timeline_count!r}"
