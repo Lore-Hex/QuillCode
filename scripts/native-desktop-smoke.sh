@@ -431,6 +431,12 @@ expected_one_turn_cases = {
         "artifactContains": "Cam,2026-07-14,text date",
         "answerContains": "wrote members-normalized.csv",
     },
+    27: {
+        "toolName": "host.file.write",
+        "artifactSuffix": "delay-notice.md",
+        "artifactContains": "your order is delayed until Friday",
+        "answerContains": "Wrote `delay-notice.md`.",
+    },
     28: {
         "toolName": "host.file.write",
         "artifactSuffix": "dependency-map.mmd",

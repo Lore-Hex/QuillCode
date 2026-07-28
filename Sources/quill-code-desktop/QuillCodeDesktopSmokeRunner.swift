@@ -985,6 +985,14 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("Cam,2026-07-14,text date")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 27,
+                prompt: "Create a file named `delay-notice.md` that says `Subject: Delivery delay notice\\n\\nHi customer, your order is delayed until Friday because the carrier missed pickup. We are sorry for the delay and will send tracking as soon as it moves.\\n`",
+                expectedToolName: ToolDefinition.fileWrite.name,
+                expectedAnswer: "Wrote `delay-notice.md`.",
+                artifactRelativePath: "delay-notice.md",
+                artifactExpectation: .textContains("your order is delayed until Friday")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 28,
                 prompt: "Create a file named `dependency-map.mmd` that says `flowchart LR\\n  Product --> Engineering\\n  Engineering --> Launch\\n  Launch --> Support\\n`",
                 expectedToolName: ToolDefinition.fileWrite.name,
