@@ -11,16 +11,26 @@ from .live_saas import CATALOG_SPREADSHEET_URL
 
 EXPECTED_PROMPT = "Create the team action brief from `notes/research.md` and `notes/risks.md`."
 EXPECTED_TOOL_SEQUENCE = ["host.file.read", "host.file.read", "host.file.write"]
-EXPECTED_CATALOG_TASK_IDS = [69]
+EXPECTED_CATALOG_TASK_IDS = [69, 70]
 EXPECTED_ALL_HANDS_PROMPT = (
     "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` "
     "and the answers in `reorg-qa`, covering the eight hardest questions."
+)
+EXPECTED_ANALYST_SYNTHESIS_PROMPT = (
+    "Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` "
+    "and flag where they contradict each other."
 )
 EXPECTED_ALL_HANDS_ASSERTIONS = {
     "announcesReorg",
     "preservesTimeline",
     "coversEightQuestions",
     "answersHardestQuestions",
+}
+EXPECTED_ANALYST_SYNTHESIS_ASSERTIONS = {
+    "pullsGartnerClaims",
+    "pullsForresterClaims",
+    "flagsContradictions",
+    "recommendsFraming",
 }
 
 
@@ -73,6 +83,12 @@ def validated_multi_file_artifact(report: dict[str, Any], label: str) -> dict[st
     ]
     require(len(all_hands_cases) == 1, f"{label} multi-file catalogCases must include exactly one row #69 case")
     validate_all_hands_email_case(all_hands_cases[0], label)
+    analyst_cases = [
+        case for case in catalog_cases
+        if isinstance(case, dict) and case.get("taskID") == 70
+    ]
+    require(len(analyst_cases) == 1, f"{label} multi-file catalogCases must include exactly one row #70 case")
+    validate_analyst_synthesis_case(analyst_cases[0], label)
     return smoke
 
 
@@ -108,10 +124,47 @@ def validate_all_hands_email_case(case: dict[str, Any], label: str) -> None:
     require(not missing, f"{label} row #69 assertions were not all true: {missing}")
 
 
+def validate_analyst_synthesis_case(case: dict[str, Any], label: str) -> None:
+    require(case.get("prompt") == EXPECTED_ANALYST_SYNTHESIS_PROMPT, f"{label} row #70 prompt drifted")
+    require(
+        case.get("toolSequence") == ["host.file.read", "host.file.read", "host.file.read", "host.file.write"],
+        f"{label} row #70 tool sequence was {case.get('toolSequence')!r}",
+    )
+    source_paths = case.get("sourcePaths")
+    require(
+        isinstance(source_paths, list) and len(source_paths) == 3,
+        f"{label} row #70 sourcePaths was malformed: {source_paths!r}",
+    )
+    for expected_suffix in (
+        "analyst-reports/gartner-market-guide.pdf",
+        "analyst-reports/forrester-wave.pdf",
+        "analyst-reports/forrester-now-tech.pdf",
+    ):
+        require(
+            any(isinstance(path, str) and path.endswith(expected_suffix) for path in source_paths),
+            f"{label} row #70 missed {expected_suffix}: {source_paths!r}",
+        )
+    deliverable_path = case.get("deliverablePath")
+    require(
+        isinstance(deliverable_path, str) and deliverable_path.endswith("analyst-claims-contradictions.md"),
+        f"{label} row #70 deliverable path was malformed: {deliverable_path!r}",
+    )
+    final_answer = case.get("finalAnswer")
+    require(
+        isinstance(final_answer, str) and "Created `analyst-claims-contradictions.md`" in final_answer,
+        f"{label} row #70 final answer was malformed: {final_answer!r}",
+    )
+    assertions = case.get("assertions")
+    require(isinstance(assertions, dict), f"{label} row #70 assertions must be an object")
+    missing = sorted(name for name in EXPECTED_ANALYST_SYNTHESIS_ASSERTIONS if assertions.get(name) is not True)
+    require(not missing, f"{label} row #70 assertions were not all true: {missing}")
+
+
 def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
     source_paths = smoke["sourcePaths"]
     catalog_cases = smoke["catalogCases"]
     all_hands_case = next(case for case in catalog_cases if case["taskID"] == 69)
+    analyst_case = next(case for case in catalog_cases if case["taskID"] == 70)
     return {
         "prompt": smoke["prompt"],
         "toolSequence": smoke["toolSequence"],
@@ -124,7 +177,7 @@ def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
         "deliverableContainsRisk": smoke["deliverableContainsRisk"],
         "deliverableContainsNextAction": smoke["deliverableContainsNextAction"],
         "finalAnswer": smoke["finalAnswer"],
-        "catalogTaskIDs": [69],
+        "catalogTaskIDs": EXPECTED_CATALOG_TASK_IDS,
         "catalogCases": [
             {
                 "taskID": 69,
@@ -139,6 +192,20 @@ def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
                 "deliverablePathSuffix": "ceo-reorg-all-hands-email.md",
                 "finalAnswer": all_hands_case["finalAnswer"],
                 "assertions": all_hands_case["assertions"],
+            },
+            {
+                "taskID": 70,
+                "prompt": analyst_case["prompt"],
+                "toolSequence": analyst_case["toolSequence"],
+                "sourcePathSuffixes": sorted(
+                    str(path).split("analyst-reports/", 1)[-1]
+                    if "analyst-reports/" in str(path)
+                    else str(path)
+                    for path in analyst_case["sourcePaths"]
+                ),
+                "deliverablePathSuffix": "analyst-claims-contradictions.md",
+                "finalAnswer": analyst_case["finalAnswer"],
+                "assertions": analyst_case["assertions"],
             }
         ],
     }

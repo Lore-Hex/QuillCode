@@ -31,12 +31,16 @@
   before those rows can be treated as row-linked one-turn coworker coverage. The manifest now carries
   the canonical spreadsheet URL and `catalogTaskIDs`, and the coworker coverage rollup accepts it as
   first-class row evidence.
-- **Update:** Packaged macOS smoke now emits row-linked multi-file artifact evidence for catalog row
-  #69 in `packaged-multi-file-artifact.json`. The row #69 case reads `org-changes.pptx` and
+- **Update:** Packaged macOS smoke now emits row-linked multi-file artifact evidence in
+  `packaged-multi-file-artifact.json`. The row #69 case reads `org-changes.pptx` and
   `reorg-qa/hardest-questions.md`, writes `ceo-reorg-all-hands-email.md`, verifies the reorg details,
-  transition dates, and eight hard questions, and exposes `catalogTaskIDs: [69]` so the coworker
-  coverage rollup can count deterministic multi-source deliverables independently from one-turn shell
-  rows.
+  transition dates, and eight hard questions, so the coworker coverage rollup can count deterministic
+  multi-source deliverables independently from one-turn shell rows.
+- **Update:** The same packaged multi-file artifact manifest now includes catalog row #70. The row
+  #70 case reads three `analyst-reports` sources, writes `analyst-claims-contradictions.md`, verifies
+  Gartner claims, Forrester claims, explicit contradictions, and recommended framing, and exposes
+  `catalogTaskIDs: [69, 70]` so deterministic multi-document synthesis advances in the coworker
+  coverage rollup.
 
 ## 2026-07-27: TrustedRouter balance history is locally observed
 

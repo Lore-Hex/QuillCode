@@ -382,6 +382,16 @@ public struct MockLLMClient: LLMClient {
         for lowercasedRequest: String,
         tools: [ToolDefinition]
     ) -> AgentAction? {
+        if lowercasedRequest.contains("gartner"),
+           lowercasedRequest.contains("forrester"),
+           lowercasedRequest.contains("analyst-reports"),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "analyst-reports/gartner-market-guide.pdf"])
+            ))
+        }
+
         if lowercasedRequest.contains("all-hands email"),
            lowercasedRequest.contains("org-changes.pptx"),
            tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
@@ -405,6 +415,9 @@ public struct MockLLMClient: LLMClient {
         feedback: AgentToolFeedback,
         tools: [ToolDefinition]
     ) -> AgentAction? {
+        if let action = Self.nextAnalystSynthesisAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
         if let action = Self.nextAllHandsEmailAction(thread: thread, feedback: feedback, tools: tools) {
             return action
         }
@@ -450,6 +463,62 @@ public struct MockLLMClient: LLMClient {
         if feedback.toolCall.name == ToolDefinition.fileWrite.name,
            path == "team-action-brief.md" {
             return .say("Created `team-action-brief.md` from `notes/research.md` and `notes/risks.md`.")
+        }
+
+        return nil
+    }
+
+    private static func nextAnalystSynthesisAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            let content = $0.content.lowercased()
+            return $0.role == .user
+                && content.contains("gartner")
+                && content.contains("forrester")
+                && content.contains("analyst-reports")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "analyst-reports/gartner-market-guide.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "analyst-reports/forrester-wave.pdf"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "analyst-reports/forrester-wave.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "analyst-reports/forrester-now-tech.pdf"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "analyst-reports/forrester-now-tech.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "analyst-claims-contradictions.md",
+                    "content": Self.analystSynthesisContent
+                ])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileWrite.name,
+           path == "analyst-claims-contradictions.md" {
+            return .say(
+                "Created `analyst-claims-contradictions.md` from the three reports in `analyst-reports`."
+            )
         }
 
         return nil
@@ -515,6 +584,25 @@ public struct MockLLMClient: LLMClient {
 
         ## Next action
         - Run the pairing fallback smoke and attach the evidence to the release tracker.
+        """
+    }
+
+    private static var analystSynthesisContent: String {
+        """
+        # Analyst Claims And Contradictions
+
+        ## Key claims
+        - Gartner says the market is consolidating around orchestration layers and values governance depth.
+        - Forrester Wave says buyers prioritize fast time-to-value and gives CloudSync the highest execution score.
+        - Forrester Now Tech says open-source extensibility is a key evaluation filter for platform teams.
+
+        ## Contradictions
+        - Gartner expects suite consolidation, while Forrester Now Tech says extensibility keeps best-of-breed tools viable.
+        - Forrester Wave ranks CloudSync highest on execution, while Gartner warns CloudSync has weaker governance controls.
+        - Gartner frames regulated enterprises as governance-first buyers, while Forrester Wave says mid-market buyers accept lighter governance for faster deployment.
+
+        ## Recommended framing
+        Lead with governance depth for regulated enterprise accounts, but keep open extensibility and fast onboarding as proof points for platform and mid-market buyers.
         """
     }
 

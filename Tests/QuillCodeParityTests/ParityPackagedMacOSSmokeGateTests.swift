@@ -144,6 +144,13 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(multiFileArtifactValidator.contains(#""ceo-reorg-all-hands-email.md""#))
         XCTAssertTrue(multiFileArtifactValidator.contains(#""coversEightQuestions""#))
+        XCTAssertTrue(
+            multiFileArtifactValidator.contains(
+                #""Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` "#
+            )
+        )
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""analyst-claims-contradictions.md""#))
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""flagsContradictions""#))
 
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopOneTurnCoworkerSmokeReport"))
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopMultiFileCatalogSmokeCaseReport"))

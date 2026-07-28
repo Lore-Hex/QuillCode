@@ -211,14 +211,18 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
           "ok": true,
           "packagedMultiFileArtifactValidated": true,
           "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
-          "catalogTaskIDs": [69],
-          "taskIDs": [69],
+          "catalogTaskIDs": [69, 70],
+          "taskIDs": [69, 70],
           "launchServicesMatchesDirect": true,
           "multiFileArtifactMatchesDirect": true,
           "catalogCases": [
             {
               "taskID": 69,
               "prompt": "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` and the answers in `reorg-qa`, covering the eight hardest questions."
+            },
+            {
+              "taskID": 70,
+              "prompt": "Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` and flag where they contradict each other."
             }
           ]
         }
@@ -237,10 +241,11 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
-        XCTAssertTrue(coverage.contains(#""provenTaskCount": 55"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 151"#), coverage)
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 56"#), coverage)
+        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 150"#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceType": "packaged-multi-file-artifact""#), coverage)
         XCTAssertTrue(coverage.contains(#""69": ["#), coverage)
+        XCTAssertTrue(coverage.contains(#""70": ["#), coverage)
     }
 
     func testCoworkerCatalogCoverageRejectsManifestWithoutCatalogRows() throws {

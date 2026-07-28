@@ -366,6 +366,38 @@ for assertion in ("announcesReorg", "preservesTimeline", "coversEightQuestions",
 all_hands_final_answer = all_hands.get("finalAnswer")
 if not isinstance(all_hands_final_answer, str) or "Created `ceo-reorg-all-hands-email.md`" not in all_hands_final_answer:
     fail(f"row #69 final answer was malformed: {all_hands_final_answer!r}")
+analyst_cases = [
+    case for case in catalog_cases
+    if isinstance(case, dict) and case.get("taskID") == 70
+]
+if len(analyst_cases) != 1:
+    fail(f"multi-file artifact smoke expected exactly one row #70 case: {catalog_cases!r}")
+analyst = analyst_cases[0]
+expected_analyst_prompt = "Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` and flag where they contradict each other."
+if analyst.get("prompt") != expected_analyst_prompt:
+    fail(f"row #70 prompt drifted: {analyst.get('prompt')!r}")
+if analyst.get("toolSequence") != ["host.file.read", "host.file.read", "host.file.read", "host.file.write"]:
+    fail(f"row #70 tool sequence drifted: {analyst.get('toolSequence')!r}")
+analyst_sources = analyst.get("sourcePaths")
+if not isinstance(analyst_sources, list) or len(analyst_sources) != 3:
+    fail(f"row #70 source paths were malformed: {analyst_sources!r}")
+for expected_suffix in (
+    "analyst-reports/gartner-market-guide.pdf",
+    "analyst-reports/forrester-wave.pdf",
+    "analyst-reports/forrester-now-tech.pdf",
+):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in analyst_sources):
+        fail(f"row #70 missed source path {expected_suffix}: {analyst_sources!r}")
+analyst_deliverable = analyst.get("deliverablePath")
+if not isinstance(analyst_deliverable, str) or not analyst_deliverable.endswith("analyst-claims-contradictions.md"):
+    fail(f"row #70 deliverable path was malformed: {analyst_deliverable!r}")
+analyst_assertions = analyst.get("assertions")
+for assertion in ("pullsGartnerClaims", "pullsForresterClaims", "flagsContradictions", "recommendsFraming"):
+    if not isinstance(analyst_assertions, dict) or analyst_assertions.get(assertion) is not True:
+        fail(f"row #70 assertion {assertion} was not true: {analyst_assertions!r}")
+analyst_final_answer = analyst.get("finalAnswer")
+if not isinstance(analyst_final_answer, str) or "Created `analyst-claims-contradictions.md`" not in analyst_final_answer:
+    fail(f"row #70 final answer was malformed: {analyst_final_answer!r}")
 
 one_turn_coworker_smoke = report.get("oneTurnCoworkerSmoke")
 if not isinstance(one_turn_coworker_smoke, dict):
@@ -1323,6 +1355,11 @@ if ! grep -q 'Created `ceo-reorg-all-hands-email.md`' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q 'Created `analyst-claims-contradictions.md`' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected row #70 multi-file artifact answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 if ! grep -q 'Contents of `hello.txt`:' "$REPORT_PATH" || ! grep -q 'hello world' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not produce the expected follow-up file-read answer" >&2
   cat "$REPORT_PATH" >&2
@@ -1333,6 +1370,7 @@ if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" \
   || ! grep -q 'hello world' "$HTML_PATH" \
   || ! grep -q 'Created `team-action-brief.md`' "$HTML_PATH" \
   || ! grep -q 'Created `ceo-reorg-all-hands-email.md`' "$HTML_PATH" \
+  || ! grep -q 'Created `analyst-claims-contradictions.md`' "$HTML_PATH" \
   || ! grep -q 'Inspected `Browser Smoke`' "$HTML_PATH" \
   || ! grep -q 'host.browser.inspect' "$HTML_PATH" \
   || ! grep -q 'host.file.write' "$HTML_PATH" \

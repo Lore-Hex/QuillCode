@@ -159,6 +159,7 @@ enum QuillCodeDesktopSmokeRunner {
               html.contains("Contents of `hello.txt`:"),
               html.contains("hello world"),
               html.contains("Created `ceo-reorg-all-hands-email.md`"),
+              html.contains("Created `analyst-claims-contradictions.md`"),
               html.contains("Inspected `Browser Smoke`"),
               html.contains("host.browser.inspect"),
               html.contains("host.file.read"),
@@ -851,7 +852,8 @@ enum QuillCodeDesktopSmokeRunner {
         let finalAnswer = controller.surface.transcript.messages.last?.text ?? ""
 
         let catalogCases = [
-            try await runAllHandsEmailCatalogSmoke(controller: controller, root: root)
+            try await runAllHandsEmailCatalogSmoke(controller: controller, root: root),
+            try await runAnalystSynthesisCatalogSmoke(controller: controller, root: root)
         ]
 
         return QuillCodeDesktopMultiFileArtifactSmokeReport(
@@ -941,6 +943,85 @@ enum QuillCodeDesktopSmokeRunner {
             taskID: 69,
             prompt: prompt,
             sourcePaths: [orgChanges.path, qaNotes.path],
+            deliverablePath: deliverable.path,
+            toolSequence: toolSequence,
+            finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
+            assertions: assertions
+        )
+    }
+
+    private static func runAnalystSynthesisCatalogSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopMultiFileCatalogSmokeCaseReport {
+        let reportsDirectory = root.workspace.appendingPathComponent("analyst-reports", isDirectory: true)
+        try FileManager.default.createDirectory(at: reportsDirectory, withIntermediateDirectories: true)
+
+        let gartner = reportsDirectory.appendingPathComponent("gartner-market-guide.pdf")
+        let forresterWave = reportsDirectory.appendingPathComponent("forrester-wave.pdf")
+        let forresterNowTech = reportsDirectory.appendingPathComponent("forrester-now-tech.pdf")
+        try """
+        Gartner market guide: the market is consolidating around orchestration layers.
+        Gartner claim: regulated enterprises value governance depth first.
+        Gartner caution: CloudSync has weaker governance controls.
+        """.write(to: gartner, atomically: true, encoding: .utf8)
+        try """
+        Forrester Wave: buyers prioritize fast time-to-value.
+        Forrester Wave claim: CloudSync has the highest execution score.
+        Forrester Wave claim: mid-market buyers accept lighter governance for faster deployment.
+        """.write(to: forresterWave, atomically: true, encoding: .utf8)
+        try """
+        Forrester Now Tech: open-source extensibility is a key evaluation filter.
+        Forrester Now Tech claim: best-of-breed tools remain viable when extension points are open.
+        """.write(to: forresterNowTech, atomically: true, encoding: .utf8)
+
+        let prompt = "Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` and flag where they contradict each other."
+        let previousTimelineCount = controller.surface.transcript.timelineItems.count
+        let previousToolCardCount = controller.surface.transcript.toolCards.count
+        controller.draft = prompt
+        controller.send()
+
+        let expectedAnswer = "Created `analyst-claims-contradictions.md` from the three reports in `analyst-reports`."
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: previousTimelineCount,
+            expectedAnswer: expectedAnswer
+        )
+
+        let deliverable = root.workspace.appendingPathComponent("analyst-claims-contradictions.md")
+        let deliverableText = try String(contentsOf: deliverable, encoding: .utf8)
+        let assertions = [
+            "pullsGartnerClaims": deliverableText.contains("Gartner says")
+                && deliverableText.contains("governance depth"),
+            "pullsForresterClaims": deliverableText.contains("Forrester Wave says")
+                && deliverableText.contains("Forrester Now Tech says"),
+            "flagsContradictions": deliverableText.contains("Contradictions")
+                && deliverableText.contains("CloudSync")
+                && deliverableText.contains("suite consolidation"),
+            "recommendsFraming": deliverableText.contains("Recommended framing")
+                && deliverableText.contains("regulated enterprise accounts")
+        ]
+        guard assertions.values.allSatisfy({ $0 }) else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(deliverable.path)
+        }
+
+        let toolSequence = Array(controller.surface.transcript.toolCards.dropFirst(previousToolCardCount))
+            .map(\.title)
+        guard toolSequence == [
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileWrite.name
+        ] else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(
+                "unexpected analyst synthesis tool sequence: \(toolSequence.joined(separator: ", "))"
+            )
+        }
+
+        return QuillCodeDesktopMultiFileCatalogSmokeCaseReport(
+            taskID: 70,
+            prompt: prompt,
+            sourcePaths: [gartner.path, forresterWave.path, forresterNowTech.path],
             deliverablePath: deliverable.path,
             toolSequence: toolSequence,
             finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
