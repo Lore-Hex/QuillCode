@@ -365,6 +365,12 @@ expected_one_turn_cases = {
         "artifactContains": "2026-01,3,67%,2026-02",
         "answerContains": "wrote cohort-retention.csv",
     },
+    23: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "donors-split.csv",
+        "artifactContains": "No city state zip,,,,true",
+        "answerContains": "wrote donors-split.csv",
+    },
     28: {
         "toolName": "host.file.write",
         "artifactSuffix": "dependency-map.mmd",

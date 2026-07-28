@@ -903,6 +903,14 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("2026-01,3,67%,2026-02")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 23,
+                prompt: "Run `\(donorColumnSplitCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote donors-split.csv",
+                artifactRelativePath: "donors-split.csv",
+                artifactExpectation: .textContains("No city state zip,,,,true")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 28,
                 prompt: "Create a file named `dependency-map.mmd` that says `flowchart LR\\n  Product --> Engineering\\n  Engineering --> Launch\\n  Launch --> Support\\n`",
                 expectedToolName: ToolDefinition.fileWrite.name,
@@ -964,6 +972,14 @@ enum QuillCodeDesktopSmokeRunner {
         let csv = "quarter,north,south,west\\nQ1,42,28,18\\nQ2,50,33,24\\nQ3,58,36,31\\nQ4,66,42,37\\n"
         return """
         python3 -c "print((__import__('pathlib').Path('regional-revenue.csv').write_text('\(csv)'),__import__('pathlib').Path('regional-revenue-chart.png').write_bytes(__import__('base64').b64decode('\(pngBase64)')),'wrote regional-revenue-chart.png')[-1])"
+        """
+    }
+
+    private static var donorColumnSplitCommand: String {
+        let donorsCSV = "name_address\\nAda Lovelace|12 Market St, Boston, MA 02110\\nGrace Hopper|1 Navy Way, Arlington, VA 22202\\nMalformed Donor|No city state zip\\n"
+        let splitCSV = "first,last,street,city,state,zip,needs_review\\nAda,Lovelace,12 Market St,Boston,MA,02110,false\\nGrace,Hopper,1 Navy Way,Arlington,VA,22202,false\\nMalformed,Donor,No city state zip,,,,true\\n"
+        return """
+        python3 -c "print((__import__('pathlib').Path('donors.csv').write_text('\(donorsCSV)'),__import__('pathlib').Path('donors-split.csv').write_text('\(splitCSV)'),'wrote donors-split.csv')[-1])"
         """
     }
 
