@@ -9,6 +9,7 @@ from .accessibility_frames import write_accessibility_frames_manifest
 from .browser_workflow import write_browser_workflow_manifest
 from .computer_use import write_computer_use_manifest
 from .computer_use_action import write_computer_use_action_manifest
+from .coworker_catalog import write_coworker_catalog_coverage
 from .live_saas import write_live_saas_manifest
 from .multi_file_artifact import write_multi_file_artifact_manifest
 from .packaged_window import (
@@ -97,6 +98,13 @@ def main() -> None:
     live_saas_parser.add_argument("evidence", type=Path)
     live_saas_parser.add_argument("--manifest", required=True, type=Path)
 
+    coworker_catalog_parser = subparsers.add_parser(
+        "coworker-catalog",
+        help="write row-level office coworker catalog coverage from live SaaS manifests",
+    )
+    coworker_catalog_parser.add_argument("manifests", nargs="+", type=Path)
+    coworker_catalog_parser.add_argument("--output", required=True, type=Path)
+
     args = parser.parse_args()
     if args.command == "validate":
         validate_report(args.report, args.label)
@@ -148,3 +156,5 @@ def main() -> None:
         )
     elif args.command == "live-saas":
         write_live_saas_manifest(args.evidence, args.manifest)
+    elif args.command == "coworker-catalog":
+        write_coworker_catalog_coverage(args.manifests, args.output)

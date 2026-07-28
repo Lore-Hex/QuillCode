@@ -50,6 +50,83 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: manifestURL.path))
     }
 
+    func testCoworkerCatalogCoverageSummarizesValidatedLiveSaaSRows() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-coworker-catalog-coverage-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let firstEvidenceURL = temporaryDirectory.appendingPathComponent("salesforce-evidence.json")
+        let firstManifestURL = temporaryDirectory.appendingPathComponent("salesforce-manifest.json")
+        let secondEvidenceURL = temporaryDirectory.appendingPathComponent("sheets-evidence.json")
+        let secondManifestURL = temporaryDirectory.appendingPathComponent("sheets-manifest.json")
+        let coverageURL = temporaryDirectory.appendingPathComponent("coworker-coverage.json")
+
+        try validLiveSaaSEvidence.write(to: firstEvidenceURL, atomically: true, encoding: .utf8)
+        try validLiveSaaSEvidence
+            .replacingOccurrences(of: #""catalogTaskIDs": [199]"#, with: #""catalogTaskIDs": [196, 200]"#)
+            .replacingOccurrences(of: #""serviceName": "Salesforce""#, with: #""serviceName": "Google Sheets""#)
+            .replacingOccurrences(of: #""url": "https://example.salesforce.com/lightning/r/Lead/001/view""#, with: #""url": "https://docs.google.com/spreadsheets/d/example/edit""#)
+            .write(to: secondEvidenceURL, atomically: true, encoding: .utf8)
+
+        let validator = Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py")
+        XCTAssertEqual(try Self.runPython(validator, arguments: ["live-saas", firstEvidenceURL.path, "--manifest", firstManifestURL.path]).exitCode, 0)
+        XCTAssertEqual(try Self.runPython(validator, arguments: ["live-saas", secondEvidenceURL.path, "--manifest", secondManifestURL.path]).exitCode, 0)
+
+        let result = try Self.runPython(
+            validator,
+            arguments: [
+                "coworker-catalog",
+                firstManifestURL.path,
+                secondManifestURL.path,
+                "--output",
+                coverageURL.path,
+            ]
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 3"#), coverage)
+        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 203"#), coverage)
+        XCTAssertTrue(coverage.contains(#""provenTaskIDs": ["#), coverage)
+        XCTAssertTrue(coverage.contains(#"196"#), coverage)
+        XCTAssertTrue(coverage.contains(#"199"#), coverage)
+        XCTAssertTrue(coverage.contains(#"200"#), coverage)
+        XCTAssertTrue(coverage.contains(#""evidenceByTaskID": {"#), coverage)
+    }
+
+    func testCoworkerCatalogCoverageRejectsManifestWithoutCatalogRows() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-coworker-catalog-rejection-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let manifestURL = temporaryDirectory.appendingPathComponent("unlinked-manifest.json")
+        let coverageURL = temporaryDirectory.appendingPathComponent("coworker-coverage.json")
+        try """
+        {
+          "ok": true,
+          "liveSaaSValidated": true,
+          "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/other/edit",
+          "catalogTaskIDs": [199],
+          "serviceName": "Salesforce",
+          "taskName": "Update CRM status",
+          "urlHost": "example.salesforce.com"
+        }
+        """.write(to: manifestURL, atomically: true, encoding: .utf8)
+
+        let result = try Self.runPython(
+            Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
+            arguments: ["coworker-catalog", manifestURL.path, "--output", coverageURL.path]
+        )
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("canonical coworker catalog spreadsheet"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: coverageURL.path))
+    }
+
     func testLiveSaaSSmokeScriptDocumentsOptionalManualContract() throws {
         let script = try Self.scriptText(named: "live-saas-smoke.sh")
         let validator = try Self.nativeClickProbeValidatorText()
@@ -57,6 +134,7 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertTrue(script.contains("QUILLCODE_LIVE_SAAS_EVIDENCE"))
         XCTAssertTrue(script.contains("native-click-probe-contracts.py\" live-saas"))
+        XCTAssertTrue(validator.contains("coworker-catalog"))
         XCTAssertTrue(validator.contains("def write_live_saas_manifest"))
         XCTAssertTrue(validator.contains("accountState must be signed-in"))
         XCTAssertTrue(validator.contains("catalogTaskIDs must be a non-empty list"))

@@ -18,6 +18,9 @@
   the office coworker catalog that a signed-in SaaS run proves. The manifest writes those IDs and the
   canonical spreadsheet URL beside service, task, tool sequence, live-DOM, and Computer Use evidence
   so humans or secure live-SaaS harnesses can update only the proven rows.
+- **Update:** The native smoke contract CLI can now roll validated live SaaS manifests into a
+  `coworker-coverage.json` summary with `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID`.
+  This gives the spreadsheet a durable row-level audit artifact before changing status cells.
 
 ## 2026-07-19: Render Robot XML As A Bounded Artifact Preview
 

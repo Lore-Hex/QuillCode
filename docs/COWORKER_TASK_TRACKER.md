@@ -197,6 +197,19 @@ When a signed-in Salesforce/HubSpot/Google Sheets/etc. workflow is run manually 
 credentialed environment, the resulting `live-saas-manifest.json` is the evidence to attach before
 graduating each listed `catalogTaskIDs` row.
 
+Multiple validated live SaaS manifests can be rolled up with:
+
+```bash
+scripts/native-click-probe-contracts.py coworker-catalog \
+  path/to/live-saas-manifest-1.json \
+  path/to/live-saas-manifest-2.json \
+  --output path/to/coworker-coverage.json
+```
+
+The coverage summary records `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID` for the full
+1-206 catalog range, so spreadsheet updates can be reviewed from row-linked evidence rather than
+manual memory.
+
 ## Packaged Computer Use Evidence Slice
 
 Packaged macOS smoke now preserves explicit Computer Use setup/status evidence:
