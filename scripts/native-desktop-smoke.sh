@@ -425,6 +425,12 @@ expected_one_turn_cases = {
             },
         ],
     },
+    26: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "members-normalized.csv",
+        "artifactContains": "Cam,2026-07-14,text date",
+        "answerContains": "wrote members-normalized.csv",
+    },
     28: {
         "toolName": "host.file.write",
         "artifactSuffix": "dependency-map.mmd",
