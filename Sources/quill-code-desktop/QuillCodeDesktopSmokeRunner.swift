@@ -977,6 +977,14 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 26,
+                prompt: "Run `\(dateNormalizationCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote members-normalized.csv",
+                artifactRelativePath: "members-normalized.csv",
+                artifactExpectation: .textContains("Cam,2026-07-14,text date")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 28,
                 prompt: "Create a file named `dependency-map.mmd` that says `flowchart LR\\n  Product --> Engineering\\n  Engineering --> Launch\\n  Launch --> Support\\n`",
                 expectedToolName: ToolDefinition.fileWrite.name,
@@ -1109,6 +1117,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var supportRepliesCommand: String {
         return """
         mkdir -p support-replies && printf ticket-001-billing-access-restored-today > support-replies/ticket-001.md && printf ticket-002-corrected-csv-attached > support-replies/ticket-002.md && printf 'wrote support-replies/ticket-001.md and support-replies/ticket-002.md\\n'
+        """
+    }
+
+    private static var dateNormalizationCommand: String {
+        return """
+        printf 'member,date_joined,source_format\\nAda,2026-07-04,US\\nBen,2026-04-07,EU\\nCam,2026-07-14,text date\\n' > members-normalized.csv && printf 'wrote members-normalized.csv\\n'
         """
     }
 
