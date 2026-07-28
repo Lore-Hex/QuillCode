@@ -1247,6 +1247,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 46,
+                prompt: "Run \(maintenanceNoticeCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote maintenance-notice-variants.md",
+                artifactRelativePath: "maintenance-notice-variants.md",
+                artifactExpectation: .textContains("Enterprise admins: Scheduled maintenance starts 2026-08-14 22:00 UTC"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "maintenance-window-notice.md",
+                        expectation: .textContains("Original maintenance window notice")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 48,
                 prompt: "Run `printf 'view,rep,region,quarter,revenue\\nby_rep,Ada,All,All,184000\\nby_rep,Ben,All,All,132000\\nby_region,All,West,All,201000\\nby_region,All,East,All,115000\\nby_quarter,All,All,Q1,146000\\nby_quarter,All,All,Q2,170000\\ntop_deal,Ada,West,Q2,92000\\n' > sales-pivot-summary.csv && printf 'wrote sales-pivot-summary.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1452,6 +1466,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var meetingRecapCommand: String {
         return """
         printf 'Raw board prep call transcript\\nPriya will send final board deck by August 2\\nMarco will refresh ARR bridge by August 1\\nAda will confirm customer quote approvals by July 31\\n' > board-prep-call.txt && printf 'Subject: Board prep recap and commitments\\n\\nHi team,\\n\\nHere are the commitments from the board prep call.\\n\\n| Owner | Commitment | Due date |\\n| Priya | Final board deck | 2026-08-02 |\\n| Marco | Refresh ARR bridge | 2026-08-01 |\\n| Ada | Confirm customer quote approvals | 2026-07-31 |\\n\\nPlease reply with changes today so the board packet stays on schedule.\\n' > board-prep-recap-email.md && printf 'wrote board-prep-recap-email.md\\n'
+        """
+    }
+
+    private static var maintenanceNoticeCommand: String {
+        return """
+        echo Original maintenance window notice>maintenance-window-notice.md&&echo Enterprise admins: Scheduled maintenance starts 2026-08-14 22:00 UTC for 45 minutes>maintenance-notice-variants.md&&echo End users: QuillCode maintenance starts 2026-08-14 22:00 UTC for 45 minutes>>maintenance-notice-variants.md&&echo Status page post: Planned maintenance begins 2026-08-14 22:00 UTC>>maintenance-notice-variants.md&&echo wrote maintenance-notice-variants.md
         """
     }
 

@@ -314,6 +314,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    46: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "maintenance-notice-variants.md",
+        "artifactContains": "Enterprise admins: Scheduled maintenance starts 2026-08-14 22:00 UTC",
+        "answerContains": "wrote maintenance-notice-variants.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "maintenance-window-notice.md",
+                "artifactContains": "Original maintenance window notice",
+            },
+        ],
+    },
     48: {
         "toolName": "host.shell.run",
         "artifactSuffix": "sales-pivot-summary.csv",
