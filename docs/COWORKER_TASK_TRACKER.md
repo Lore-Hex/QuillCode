@@ -168,7 +168,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #28, #40, #43, #48, #52, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #40, #43, #48, #52, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -195,6 +195,8 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   and `newsletter-bad-rows.csv` with rejected invalid rows through `host.shell.run`.
 - Row #26 proves mixed-format membership date normalization creates `members-normalized.csv` with
   ISO `YYYY-MM-DD` date evidence through `host.shell.run`.
+- Row #27 proves a customer delay notice creates `delay-notice.md` with the promised new delivery
+  date through `host.file.write`.
 - Row #28 proves a dependency-mapping request creates a Mermaid diagram artifact through
   `host.file.write`.
 - Row #40 proves a KPI dashboard request creates a single-file HTML dashboard,
