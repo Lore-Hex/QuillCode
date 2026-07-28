@@ -836,6 +836,22 @@ expected_one_turn_cases = {
             },
         ],
     },
+    61: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "nps-plan-tier-summary.csv",
+        "artifactContains": "Enterprise,67,3,2,1",
+        "answerContains": "wrote nps-plan-tier-summary.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "customer-survey-q2.csv",
+                "artifactContains": "survey export q2",
+            },
+            {
+                "artifactSuffix": "nps-detractor-complaints.md",
+                "artifactContains": "complaint_1,Reporting is slow",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",

@@ -1465,6 +1465,24 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 61,
+                prompt: "Run \(npsSurveyAnalysisCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote nps-plan-tier-summary.csv",
+                artifactRelativePath: "nps-plan-tier-summary.csv",
+                artifactExpectation: .textContains("Enterprise,67,3,2,1"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "customer-survey-q2.csv",
+                        expectation: .textContains("survey export q2")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "nps-detractor-complaints.md",
+                        expectation: .textContains("complaint_1,Reporting is slow")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1732,6 +1750,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var billingSupportMacrosCommand: String {
         return """
         echo Tone sample: warm concise specific and ownership-forward>existing-macros.md&&echo Use Thanks for flagging this and I can help as the standard opener>>existing-macros.md&&echo Apology variants acknowledge friction once and then move to the fix>>existing-macros.md&&echo Billing support macros>billing-support-macros.md&&echo Macro 1 failed payment standard variant: Thanks for flagging this I can help update the card and retry the invoice today>>billing-support-macros.md&&echo Macro 1 failed payment apology variant: Sorry for the payment friction I can help update the card and retry the invoice today>>billing-support-macros.md&&echo Macro 2 invoice copy standard variant: Thanks for reaching out I attached the invoice copy and confirmed the billing contact>>billing-support-macros.md&&echo Macro 2 invoice copy apology variant: Sorry the invoice was hard to find I attached the copy and confirmed the billing contact>>billing-support-macros.md&&echo Macro 3 plan change standard variant: Thanks for the details I can move the workspace to the requested plan at renewal>>billing-support-macros.md&&echo Macro 3 plan change apology variant: Sorry this was unclear I can move the workspace to the requested plan at renewal>>billing-support-macros.md&&echo Macro 4 tax exemption standard variant: Thanks for sending the certificate I will apply tax exemption after finance review>>billing-support-macros.md&&echo Macro 4 tax exemption apology variant: Sorry for the extra step I will apply tax exemption after finance review>>billing-support-macros.md&&echo Macro 5 duplicate charge standard variant: Thanks for the note I found the duplicate charge and opened a billing adjustment>>billing-support-macros.md&&echo Macro 5 duplicate charge apology variant: Sorry about the duplicate charge I found it and opened a billing adjustment>>billing-support-macros.md&&echo Macro 6 refund timing standard variant: Thanks for checking refunds usually post in five to seven business days>>billing-support-macros.md&&echo Macro 6 refund timing apology variant: Sorry for the wait refunds usually post in five to seven business days>>billing-support-macros.md&&echo wrote billing-support-macros.md
+        """
+    }
+
+    private static var npsSurveyAnalysisCommand: String {
+        return """
+        echo survey export q2>customer-survey-q2.csv&&echo respondent,plan_tier,score,comment>>customer-survey-q2.csv&&echo C-001,Enterprise,10,Great support and uptime>>customer-survey-q2.csv&&echo C-002,Enterprise,9,Admin controls are strong>>customer-survey-q2.csv&&echo C-003,Enterprise,4,Reporting is slow>>customer-survey-q2.csv&&echo C-004,Growth,8,Useful but onboarding took effort>>customer-survey-q2.csv&&echo C-005,Growth,3,Mobile app crashes during upload>>customer-survey-q2.csv&&echo C-006,Growth,10,Fast answers from support>>customer-survey-q2.csv&&echo C-007,Starter,2,Too expensive for small teams>>customer-survey-q2.csv&&echo C-008,Starter,7,Setup docs need examples>>customer-survey-q2.csv&&echo C-009,Starter,9,Simple and reliable>>customer-survey-q2.csv&&echo C-010,Enterprise,6,Permissions are confusing>>customer-survey-q2.csv&&echo C-011,Growth,5,Billing invoices are unclear>>customer-survey-q2.csv&&echo C-012,Starter,1,Integrations are missing>>customer-survey-q2.csv&&echo plan_tier,nps,total,promoters,passives,detractors>nps-plan-tier-summary.csv&&echo Enterprise,67,3,2,1,detractors0>>nps-plan-tier-summary.csv&&echo Growth,0,4,1,1,detractors2>>nps-plan-tier-summary.csv&&echo Starter,-25,4,1,1,detractors2>>nps-plan-tier-summary.csv&&echo complaint,theme>nps-detractor-complaints.md&&echo complaint_1,Reporting is slow>>nps-detractor-complaints.md&&echo complaint_2,Mobile app crashes during upload>>nps-detractor-complaints.md&&echo complaint_3,Too expensive for small teams>>nps-detractor-complaints.md&&echo complaint_4,Billing invoices are unclear>>nps-detractor-complaints.md&&echo complaint_5,Integrations are missing>>nps-detractor-complaints.md&&echo wrote nps-plan-tier-summary.csv
         """
     }
 
