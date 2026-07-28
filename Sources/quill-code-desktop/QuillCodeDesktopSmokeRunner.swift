@@ -895,6 +895,14 @@ enum QuillCodeDesktopSmokeRunner {
                 )
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 21,
+                prompt: "Run `\(cohortRetentionCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote cohort-retention.csv",
+                artifactRelativePath: "cohort-retention.csv",
+                artifactExpectation: .textContains("2026-01,3,67%,2026-02")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 28,
                 prompt: "Create a file named `dependency-map.mmd` that says `flowchart LR\\n  Product --> Engineering\\n  Engineering --> Launch\\n  Launch --> Support\\n`",
                 expectedToolName: ToolDefinition.fileWrite.name,
@@ -956,6 +964,14 @@ enum QuillCodeDesktopSmokeRunner {
         let csv = "quarter,north,south,west\\nQ1,42,28,18\\nQ2,50,33,24\\nQ3,58,36,31\\nQ4,66,42,37\\n"
         return """
         python3 -c "print((__import__('pathlib').Path('regional-revenue.csv').write_text('\(csv)'),__import__('pathlib').Path('regional-revenue-chart.png').write_bytes(__import__('base64').b64decode('\(pngBase64)')),'wrote regional-revenue-chart.png')[-1])"
+        """
+    }
+
+    private static var cohortRetentionCommand: String {
+        let subscriptionsCSV = "customer,signup_month,paid_month,canceled_month\\nA,2026-01,2026-01,\\nB,2026-01,2026-01,2026-02\\nC,2026-01,2026-02,\\nD,2026-02,2026-02,2026-03\\nE,2026-02,2026-02,\\n"
+        let retentionCSV = "cohort,signup_count,retained_after_first_month,fastest_decay_month\\n2026-01,3,67%,2026-02\\n2026-02,2,50%,2026-03\\n"
+        return """
+        python3 -c "print((__import__('pathlib').Path('subscriptions.csv').write_text('\(subscriptionsCSV)'),__import__('pathlib').Path('cohort-retention.csv').write_text('\(retentionCSV)'),'wrote cohort-retention.csv')[-1])"
         """
     }
 

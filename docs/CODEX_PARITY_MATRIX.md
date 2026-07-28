@@ -96,7 +96,7 @@
   source files, write `team-action-brief.md`, preserve the exact read/read/write tool sequence, and
   render that artifact workflow into the transcript HTML evidence. Packaged macOS smoke preserves
   the same proof as `packaged-multi-file-artifact.json` across both packaged launch paths. Packaged
-  macOS smoke also preserves `packaged-one-turn-coworker.json` for catalog rows #15, #16, #20, #28, and #68,
+  macOS smoke also preserves `packaged-one-turn-coworker.json` for catalog rows #15, #16, #20, #21, #28, and #68,
   proving row-linked one-turn `host.file.write` and `host.shell.run` tasks create their requested
   artifacts with non-empty canonical arguments across both packaged launch paths.
   Packaged macOS smoke also preserves `packaged-computer-use.json`, proving Computer Use top-bar
