@@ -1233,6 +1233,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 45,
+                prompt: "Run `\(meetingRecapCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote board-prep-recap-email.md",
+                artifactRelativePath: "board-prep-recap-email.md",
+                artifactExpectation: .textContains("Priya | Final board deck | 2026-08-02"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "board-prep-call.txt",
+                        expectation: .textContains("Raw board prep call transcript")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 48,
                 prompt: "Run `printf 'view,rep,region,quarter,revenue\\nby_rep,Ada,All,All,184000\\nby_rep,Ben,All,All,132000\\nby_region,All,West,All,201000\\nby_region,All,East,All,115000\\nby_quarter,All,All,Q1,146000\\nby_quarter,All,All,Q2,170000\\ntop_deal,Ada,West,Q2,92000\\n' > sales-pivot-summary.csv && printf 'wrote sales-pivot-summary.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1432,6 +1446,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var zoomTranscriptNotesCommand: String {
         return """
         printf 'Raw Zoom transcript 2026-07-14\\nAda: decision ship onboarding checklist by July 21\\nBen owns support macros due July 18\\nCam owns customer FAQ due July 19\\nLena owns training deck due July 22\\n' > zoom-0714.txt && printf '# Meeting Notes\\n\\n## Five-bullet summary\\n- Onboarding checklist is the launch blocker.\\n- Support macros need owner review.\\n- Customer FAQ needs final examples.\\n- Training deck follows the FAQ.\\n- Risks and due dates are tracked below.\\n\\n## Decisions\\n- Decision: Ship onboarding checklist by 2026-07-21\\n\\n## Owners and due dates\\n- Ben | Support macros | 2026-07-18\\n- Cam | Customer FAQ | 2026-07-19\\n- Lena | Training deck | 2026-07-22\\n' > zoom-meeting-notes.md && printf 'wrote zoom-meeting-notes.md\\n'
+        """
+    }
+
+    private static var meetingRecapCommand: String {
+        return """
+        printf 'Raw board prep call transcript\\nPriya will send final board deck by August 2\\nMarco will refresh ARR bridge by August 1\\nAda will confirm customer quote approvals by July 31\\n' > board-prep-call.txt && printf 'Subject: Board prep recap and commitments\\n\\nHi team,\\n\\nHere are the commitments from the board prep call.\\n\\n| Owner | Commitment | Due date |\\n| Priya | Final board deck | 2026-08-02 |\\n| Marco | Refresh ARR bridge | 2026-08-01 |\\n| Ada | Confirm customer quote approvals | 2026-07-31 |\\n\\nPlease reply with changes today so the board packet stays on schedule.\\n' > board-prep-recap-email.md && printf 'wrote board-prep-recap-email.md\\n'
         """
     }
 
