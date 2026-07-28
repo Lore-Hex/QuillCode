@@ -521,6 +521,18 @@ expected_one_turn_cases = {
             },
         ],
     },
+    35: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "q2-funnel-summary.md",
+        "artifactContains": "Biggest drop-off: Demo to Proposal",
+        "answerContains": "wrote q2-funnel-summary.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "q2-funnel-conversions.csv",
+                "artifactContains": "Demo to Proposal,40 pct,14",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",
