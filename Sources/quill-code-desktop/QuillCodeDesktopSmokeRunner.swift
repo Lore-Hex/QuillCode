@@ -1451,6 +1451,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 60,
+                prompt: "Run \(billingSupportMacrosCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote billing-support-macros.md",
+                artifactRelativePath: "billing-support-macros.md",
+                artifactExpectation: .textContains("Macro 6 refund timing apology variant"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "existing-macros.md",
+                        expectation: .textContains("Tone sample")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1712,6 +1726,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var supportTriageCommand: String {
         return """
         echo ticket_id,theme,first_response,summary>zendesk-export.csv&&echo ZD-101,billing_access,2h,invoice portal login broken>>zendesk-export.csv&&echo ZD-102,login_mfa,1h30m,mfa reset request>>zendesk-export.csv&&echo ZD-103,import_csv,3h,csv import failed on date column>>zendesk-export.csv&&echo ZD-104,billing_access,2h45m,card update page loops>>zendesk-export.csv&&echo ZD-105,performance,4h,report loads slowly>>zendesk-export.csv&&echo ZD-106,login_mfa,1h,mfa backup code lost>>zendesk-export.csv&&echo ZD-107,api_webhooks,5h,webhook retries missing>>zendesk-export.csv&&echo ZD-108,billing_access,2h,receipt download error>>zendesk-export.csv&&echo ZD-109,import_csv,2h30m,duplicate rows after upload>>zendesk-export.csv&&echo ZD-110,permissions,3h15m,admin cannot invite teammate>>zendesk-export.csv&&echo ZD-111,performance,4h30m,dashboard timeout>>zendesk-export.csv&&echo ZD-112,api_webhooks,4h45m,signature validation fails>>zendesk-export.csv&&echo ZD-113,permissions,3h,role cannot see invoices>>zendesk-export.csv&&echo ZD-114,notifications,2h10m,email digest missing>>zendesk-export.csv&&echo ZD-115,notifications,2h20m,slack alert duplicated>>zendesk-export.csv&&echo ZD-116,sso_setup,6h,saml certificate rotation>>zendesk-export.csv&&echo theme,ticket_volume,average_first_response,examples>zendesk-theme-triage.csv&&echo billing_access,3,2h15m,ZD-101 ZD-104 ZD-108>>zendesk-theme-triage.csv&&echo login_mfa,2,1h15m,ZD-102 ZD-106>>zendesk-theme-triage.csv&&echo import_csv,2,2h45m,ZD-103 ZD-109>>zendesk-theme-triage.csv&&echo performance,2,4h15m,ZD-105 ZD-111>>zendesk-theme-triage.csv&&echo api_webhooks,2,4h52m,ZD-107 ZD-112>>zendesk-theme-triage.csv&&echo permissions,2,3h07m,ZD-110 ZD-113>>zendesk-theme-triage.csv&&echo notifications,2,2h15m,ZD-114 ZD-115>>zendesk-theme-triage.csv&&echo sso_setup,1,6h,ZD-116>>zendesk-theme-triage.csv&&echo wrote zendesk-theme-triage.csv
+        """
+    }
+
+    private static var billingSupportMacrosCommand: String {
+        return """
+        echo Tone sample: warm concise specific and ownership-forward>existing-macros.md&&echo Use Thanks for flagging this and I can help as the standard opener>>existing-macros.md&&echo Apology variants acknowledge friction once and then move to the fix>>existing-macros.md&&echo Billing support macros>billing-support-macros.md&&echo Macro 1 failed payment standard variant: Thanks for flagging this I can help update the card and retry the invoice today>>billing-support-macros.md&&echo Macro 1 failed payment apology variant: Sorry for the payment friction I can help update the card and retry the invoice today>>billing-support-macros.md&&echo Macro 2 invoice copy standard variant: Thanks for reaching out I attached the invoice copy and confirmed the billing contact>>billing-support-macros.md&&echo Macro 2 invoice copy apology variant: Sorry the invoice was hard to find I attached the copy and confirmed the billing contact>>billing-support-macros.md&&echo Macro 3 plan change standard variant: Thanks for the details I can move the workspace to the requested plan at renewal>>billing-support-macros.md&&echo Macro 3 plan change apology variant: Sorry this was unclear I can move the workspace to the requested plan at renewal>>billing-support-macros.md&&echo Macro 4 tax exemption standard variant: Thanks for sending the certificate I will apply tax exemption after finance review>>billing-support-macros.md&&echo Macro 4 tax exemption apology variant: Sorry for the extra step I will apply tax exemption after finance review>>billing-support-macros.md&&echo Macro 5 duplicate charge standard variant: Thanks for the note I found the duplicate charge and opened a billing adjustment>>billing-support-macros.md&&echo Macro 5 duplicate charge apology variant: Sorry about the duplicate charge I found it and opened a billing adjustment>>billing-support-macros.md&&echo Macro 6 refund timing standard variant: Thanks for checking refunds usually post in five to seven business days>>billing-support-macros.md&&echo Macro 6 refund timing apology variant: Sorry for the wait refunds usually post in five to seven business days>>billing-support-macros.md&&echo wrote billing-support-macros.md
         """
     }
 

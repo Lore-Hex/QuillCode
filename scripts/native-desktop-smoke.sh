@@ -824,6 +824,18 @@ expected_one_turn_cases = {
             },
         ],
     },
+    60: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "billing-support-macros.md",
+        "artifactContains": "Macro 6 refund timing apology variant",
+        "answerContains": "wrote billing-support-macros.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "existing-macros.md",
+                "artifactContains": "Tone sample",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",

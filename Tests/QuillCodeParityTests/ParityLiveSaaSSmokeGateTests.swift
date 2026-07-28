@@ -118,8 +118,8 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
           "ok": true,
           "packagedOneTurnCoworkerValidated": true,
           "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
-          "catalogTaskIDs": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 68],
-          "taskIDs": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 68],
+          "catalogTaskIDs": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 68],
+          "taskIDs": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 68],
           "launchServicesMatchesDirect": true,
           "oneTurnCoworkerMatchesDirect": true
         }
@@ -132,7 +132,7 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
-        XCTAssertTrue(coverage.contains(#""provenTaskCount": 46"#), coverage)
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 47"#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceType": "packaged-one-turn-coworker""#), coverage)
         XCTAssertTrue(coverage.contains(#""15": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""16": ["#), coverage)
@@ -174,6 +174,7 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(coverage.contains(#""57": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""58": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""59": ["#), coverage)
+        XCTAssertTrue(coverage.contains(#""60": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""68": ["#), coverage)
     }
 
