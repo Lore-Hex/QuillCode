@@ -469,6 +469,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    58: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "pension-vesting-retirement-table.csv",
+        "artifactContains": "early_retirement_reduction,age60,70pct",
+        "answerContains": "wrote pension-vesting-retirement-table.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "pension-plan-1994-scanned.pdf",
+                "artifactContains": "image-only pension booklet source",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
