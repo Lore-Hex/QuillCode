@@ -127,6 +127,7 @@ def main() -> None:
     )
     coworker_catalog_parser.add_argument("manifests", nargs="+", type=Path)
     coworker_catalog_parser.add_argument("--output", required=True, type=Path)
+    coworker_catalog_parser.add_argument("--markdown-output", type=Path)
 
     safety_reviewer_parser = subparsers.add_parser(
         "safety-reviewer-calibration",
@@ -215,7 +216,7 @@ def main() -> None:
             url=args.url,
         )
     elif args.command == "coworker-catalog":
-        write_coworker_catalog_coverage(args.manifests, args.output)
+        write_coworker_catalog_coverage(args.manifests, args.output, args.markdown_output)
     elif args.command == "safety-reviewer-calibration":
         write_safety_reviewer_calibration_manifest(args.evidence, args.manifest)
     elif args.command == "scheduled-notification-observation":
