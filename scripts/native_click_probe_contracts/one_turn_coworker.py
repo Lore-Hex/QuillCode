@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .json_io import load_report, require
+from .live_saas import CATALOG_SPREADSHEET_URL
 
 EXPECTED_CASES = {
     15: {
@@ -103,6 +104,9 @@ def write_one_turn_coworker_manifest(
 
     manifest = {
         "ok": True,
+        "packagedOneTurnCoworkerValidated": True,
+        "catalogSpreadsheetURL": CATALOG_SPREADSHEET_URL,
+        "catalogTaskIDs": direct_semantic["taskIDs"],
         "directReport": "direct-executable/report.json",
         "launchServicesReport": "launch-services/report.json",
         "launchServicesMatchesDirect": True,

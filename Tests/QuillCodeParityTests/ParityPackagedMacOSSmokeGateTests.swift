@@ -143,6 +143,9 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
             encoding: .utf8
         )
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""oneTurnCoworkerSmoke""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""packagedOneTurnCoworkerValidated": True"#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""catalogSpreadsheetURL": CATALOG_SPREADSHEET_URL"#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""catalogTaskIDs": direct_semantic["taskIDs"]"#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""oneTurnCoworkerMatchesDirect": True"#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""host.file.write""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""host.shell.run""#))

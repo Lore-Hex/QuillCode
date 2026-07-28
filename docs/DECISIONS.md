@@ -28,7 +28,9 @@
 - **Update:** Packaged macOS smoke now emits `packaged-one-turn-coworker.json` for catalog rows
   #15, #16, and #68. The manifest compares direct packaged executable and Launch Services evidence,
   proving non-empty `host.file.write`/`host.shell.run` actions plus artifact assertions before those
-  rows can be treated as row-linked one-turn coworker coverage.
+  rows can be treated as row-linked one-turn coworker coverage. The manifest now carries the
+  canonical spreadsheet URL and `catalogTaskIDs`, and the coworker coverage rollup accepts it as
+  first-class row evidence.
 
 ## 2026-07-27: TrustedRouter balance history is locally observed
 

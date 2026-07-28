@@ -8,6 +8,7 @@ from typing import Any
 
 from .json_io import load_report, relative_manifest_path, require
 from .live_saas import CATALOG_SPREADSHEET_URL, CATALOG_TASK_ID_MAX, CATALOG_TASK_ID_MIN
+from .one_turn_coworker import EXPECTED_CASES
 
 
 def _require_catalog_task_ids(value: Any, label: str) -> list[int]:
@@ -99,14 +100,50 @@ def _validated_scheduled_notification_manifest(
     }
 
 
+def _validated_packaged_one_turn_manifest(
+    manifest: dict[str, Any],
+    path: Path,
+    base_directory: Path,
+) -> dict[str, Any]:
+    require(
+        manifest.get("packagedOneTurnCoworkerValidated") is True,
+        f"{path} must be a packaged one-turn coworker validation manifest",
+    )
+    base = _manifest_base(manifest, path, base_directory)
+    expected_task_ids = sorted(EXPECTED_CASES)
+    require(
+        base["catalogTaskIDs"] == expected_task_ids,
+        f"{path}.catalogTaskIDs must be {expected_task_ids}",
+    )
+    require(
+        manifest.get("taskIDs") == expected_task_ids,
+        f"{path}.taskIDs must match catalogTaskIDs",
+    )
+    require(
+        manifest.get("oneTurnCoworkerMatchesDirect") is True
+        and manifest.get("launchServicesMatchesDirect") is True,
+        f"{path} must prove direct executable and Launch Services one-turn smoke match",
+    )
+
+    return {
+        **base,
+        "evidenceType": "packaged-one-turn-coworker",
+        "serviceName": "QuillCode Packaged Smoke",
+        "taskName": "One-turn local shell/file coworker smoke",
+        "urlHost": "local-packaged-app",
+    }
+
+
 def _validated_manifest(manifest: dict[str, Any], path: Path, base_directory: Path) -> dict[str, Any]:
     if manifest.get("liveSaaSValidated") is True:
         return _validated_live_saas_manifest(manifest, path, base_directory)
     if manifest.get("scheduledNotificationObservationValidated") is True:
         return _validated_scheduled_notification_manifest(manifest, path, base_directory)
+    if manifest.get("packagedOneTurnCoworkerValidated") is True:
+        return _validated_packaged_one_turn_manifest(manifest, path, base_directory)
     raise SystemExit(
         f"{path} must be a supported coworker evidence manifest "
-        "(live SaaS or scheduled notification observation)"
+        "(live SaaS, scheduled notification observation, or packaged one-turn coworker)"
     )
 
 

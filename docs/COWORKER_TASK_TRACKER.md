@@ -178,6 +178,9 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   creates `weekly-review.csv`.
 - `packaged-one-turn-coworker.json` compares direct packaged executable and Launch Services launches,
   recording task IDs, tool sequence, artifact suffixes, artifact assertions, and final answers.
+- The manifest carries the canonical spreadsheet URL and exact `catalogTaskIDs`, and
+  `scripts/native-click-probe-contracts.py coworker-catalog ... --output coworker-coverage.json`
+  accepts it beside live SaaS and scheduled-notification evidence.
 
 This moves the one-turn local shell/file bucket from analogue evidence toward row-linked packaged
 evidence. Similar local rows can graduate only when their row ID appears in current smoke or coverage
