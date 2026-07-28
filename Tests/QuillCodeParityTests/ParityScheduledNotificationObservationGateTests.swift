@@ -20,6 +20,9 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
         XCTAssertEqual(result.exitCode, 0, result.output)
         let manifest = try String(contentsOf: manifestURL, encoding: .utf8)
         XCTAssertTrue(manifest.contains(#""scheduledNotificationObservationValidated": true"#), manifest)
+        XCTAssertTrue(manifest.contains(#""catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/"#), manifest)
+        XCTAssertTrue(manifest.contains(#""catalogTaskIDs": ["#), manifest)
+        XCTAssertTrue(manifest.contains(#"42"#), manifest)
         XCTAssertTrue(manifest.contains(#""notificationTitle": "QuillCode scheduled task ready""#), manifest)
         XCTAssertTrue(manifest.contains(#""activationAction": "open-follow-up-thread""#), manifest)
         XCTAssertTrue(manifest.contains(#""notificationVisible": true"#), manifest)
@@ -70,10 +73,46 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
         XCTAssertTrue(testPlan.contains("scheduled-notification-observation-smoke.sh"))
     }
 
+    func testCoworkerCatalogCoverageAcceptsScheduledNotificationObservationManifests() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-scheduled-notification-catalog-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let evidenceURL = temporaryDirectory.appendingPathComponent("notification-observation.json")
+        let manifestURL = temporaryDirectory.appendingPathComponent("notification-observation-manifest.json")
+        let coverageURL = temporaryDirectory.appendingPathComponent("coworker-coverage.json")
+        let validator = Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py")
+        try validObservationEvidence.write(to: evidenceURL, atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(
+            try Self.runPython(
+                validator,
+                arguments: ["scheduled-notification-observation", evidenceURL.path, "--manifest", manifestURL.path]
+            ).exitCode,
+            0
+        )
+
+        let result = try Self.runPython(
+            validator,
+            arguments: ["coworker-catalog", manifestURL.path, "--output", coverageURL.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 1"#), coverage)
+        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 205"#), coverage)
+        XCTAssertTrue(coverage.contains(#""42": ["#), coverage)
+        XCTAssertTrue(coverage.contains(#""evidenceType": "scheduled-notification-observation""#), coverage)
+        XCTAssertTrue(coverage.contains(#""serviceName": "QuillCode Notifications""#), coverage)
+    }
+
     private var validObservationEvidence: String {
         """
         {
           "ok": true,
+          "catalogTaskIDs": [42],
           "capturedAt": "2026-07-28T02:05:00Z",
           "appName": "QuillCode",
           "observationMethod": "accessibility",
