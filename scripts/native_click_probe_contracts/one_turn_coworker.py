@@ -40,6 +40,12 @@ EXPECTED_CASES = {
         "artifactContains": "Silver,150,1000,4000,35,Tier 2",
         "answerContains": "wrote benefits-plan-matrix.csv",
     },
+    19: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "marketing-budget-model.csv",
+        "artifactContains": "quarter_rollup,Q1,all,24500,Q1",
+        "answerContains": "wrote marketing-budget-model.csv",
+    },
     20: {
         "toolName": "host.shell.run",
         "artifactSuffix": "regional-revenue-chart.png",

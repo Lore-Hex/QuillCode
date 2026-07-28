@@ -904,6 +904,14 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("Silver,150,1000,4000,35,Tier 2")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 19,
+                prompt: "Run `printf 'tab,month,channel,spend,quarter\\nassumptions,FY26,target_budget,120000,all\\nmonthly,2026-01,Search,9000,Q1\\nmonthly,2026-01,Events,6000,Q1\\nmonthly,2026-02,Search,9500,Q1\\nquarter_rollup,Q1,all,24500,Q1\\n' > marketing-budget-model.csv && printf 'wrote marketing-budget-model.csv\\n'`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote marketing-budget-model.csv",
+                artifactRelativePath: "marketing-budget-model.csv",
+                artifactExpectation: .textContains("quarter_rollup,Q1,all,24500,Q1")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 20,
                 prompt: "Run `\(chartGenerationCommand)`",
                 expectedToolName: ToolDefinition.shellRun.name,
