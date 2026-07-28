@@ -1530,6 +1530,24 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 65,
+                prompt: "Run \(varianceAnalysisCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote variance-analysis.csv",
+                artifactRelativePath: "variance-analysis.csv",
+                artifactExpectation: .textContains("Support,42000,36000,16.7pct,over,temporary contractor coverage"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "budget-fy26.xlsx",
+                        expectation: .textContains("Support,36000")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "actuals-june.csv",
+                        expectation: .textContains("Events,22000")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1827,6 +1845,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var toneRewriteCommand: String {
         return """
         echo Subject: Important pricing adjustment for your account>draft-price-increase-email.docx&&echo Effective date: 2026-10-01>>draft-price-increase-email.docx&&echo Grandfathering clause: all existing customers keep current pricing through the current contract term.>>draft-price-increase-email.docx&&echo We are writing to inform you that prices will increase because of market pressures operational expenses expanded capabilities infrastructure commitments support staffing compliance investments vendor cost changes and product investments that require additional funding.>>draft-price-increase-email.docx&&echo This message is intended to provide formal notice and detailed background so that customer teams can complete budget planning procurement review renewal planning stakeholder approval and finance coordination before the new rate card applies.>>draft-price-increase-email.docx&&echo We know budgeting takes time.>draft-price-increase-email-rewrite.docx&&echo We are keeping your current price until 2026-10-01.>>draft-price-increase-email-rewrite.docx&&echo Grandfathering clause: all existing customers keep current pricing through the current contract term.>>draft-price-increase-email-rewrite.docx&&echo Reply any time and we will help you plan.>>draft-price-increase-email-rewrite.docx&&echo wrote draft-price-increase-email-rewrite.docx
+        """
+    }
+
+    private static var varianceAnalysisCommand: String {
+        return """
+        echo line_item,budget>budget-fy26.xlsx&&echo Support,36000>>budget-fy26.xlsx&&echo Events,30000>>budget-fy26.xlsx&&echo Hosting,18000>>budget-fy26.xlsx&&echo Payroll,125000>>budget-fy26.xlsx&&echo line_item,actual>actuals-june.csv&&echo Support,42000>>actuals-june.csv&&echo Events,22000>>actuals-june.csv&&echo Hosting,19600>>actuals-june.csv&&echo Payroll,127000>>actuals-june.csv&&echo line_item,actual,budget,variance_pct,status,explanation>variance-analysis.csv&&echo Support,42000,36000,16.7pct,over,temporary contractor coverage>>variance-analysis.csv&&echo Events,22000,30000,-26.7pct,under,field event moved to July>>variance-analysis.csv&&echo wrote variance-analysis.csv
         """
     }
 

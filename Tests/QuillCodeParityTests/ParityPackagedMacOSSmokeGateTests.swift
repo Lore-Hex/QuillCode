@@ -222,6 +222,9 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""milestones.csv""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""draft-price-increase-email-rewrite.docx""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""draft-price-increase-email.docx""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""variance-analysis.csv""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""budget-fy26.xlsx""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""actuals-june.csv""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""weekly-review.csv""#))
 
         let browserWorkflowValidator = try String(
