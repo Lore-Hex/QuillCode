@@ -353,6 +353,12 @@ expected_one_turn_cases = {
         "artifactContains": "organic,31",
         "answerContains": "wrote signup-slice.csv",
     },
+    20: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "regional-revenue-chart.png",
+        "artifactContains": "PNG 320x200 stacked revenue chart",
+        "answerContains": "wrote regional-revenue-chart.png",
+    },
     28: {
         "toolName": "host.file.write",
         "artifactSuffix": "dependency-map.mmd",

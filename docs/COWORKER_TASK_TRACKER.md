@@ -168,12 +168,14 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #28, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #20, #28, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
 - Row #16 proves an analysis-style shell task runs with non-empty `host.shell.run` arguments and
   creates `signup-slice.csv`.
+- Row #20 proves a chart-generation request creates a valid 320x200 PNG artifact,
+  `regional-revenue-chart.png`, through `host.shell.run`.
 - Row #28 proves a dependency-mapping request creates a Mermaid diagram artifact through
   `host.file.write`.
 - Row #68 proves a weekly-review shell task runs with non-empty `host.shell.run` arguments and
