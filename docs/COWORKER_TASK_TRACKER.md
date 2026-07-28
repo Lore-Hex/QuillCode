@@ -168,7 +168,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49, #50, #51, #52, #53, #54, #55, #56, #57, #58, #59, #60, #61, #62, #63, #64, #65, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49, #50, #51, #52, #53, #54, #55, #56, #57, #58, #59, #60, #61, #62, #63, #64, #65, #66, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -294,6 +294,9 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
 - Row #65 proves variance analysis creates `variance-analysis.csv` from `budget-fy26.xlsx` and
   `actuals-june.csv`, preserving every over-ten-percent line item with variance percentages and
   plain-English explanation text through `host.shell.run`.
+- Row #66 proves version cleanup creates `shared-cleanup-plan.md` plus `Shared/cleanup-audit.csv`,
+  deletes generated `.DS_Store` and empty-folder clutter, removes older duplicate-cluster members,
+  and preserves the newest retained file through `host.shell.run`.
 - Row #68 proves a weekly-review shell task runs with non-empty `host.shell.run` arguments and
   creates `weekly-review.csv`.
 - `packaged-one-turn-coworker.json` compares direct packaged executable and Launch Services launches,
