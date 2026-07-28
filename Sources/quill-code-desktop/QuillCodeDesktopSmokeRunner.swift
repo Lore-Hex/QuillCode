@@ -1511,6 +1511,25 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 64,
+                prompt: "Run \(toneRewriteCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote draft-price-increase-email-rewrite.docx",
+                artifactRelativePath: "draft-price-increase-email-rewrite.docx",
+                artifactExpectation: .textContainsAndShorterThan(
+                    "We are keeping your current price until 2026-10-01.",
+                    sourceRelativePath: "draft-price-increase-email.docx",
+                    maximumLengthRatio: 0.70,
+                    assertion: "warmer rewrite keeps protected date and is at least 30 pct shorter"
+                ),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "draft-price-increase-email.docx",
+                        expectation: .textContains("Grandfathering clause: all existing customers keep current pricing")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1544,12 +1563,18 @@ enum QuillCodeDesktopSmokeRunner {
             }
 
             let artifact = root.workspace.appendingPathComponent(smokeCase.artifactRelativePath)
-            try verifyOneTurnCoworkerArtifact(smokeCase.artifactExpectation, artifact: artifact, taskID: smokeCase.taskID)
+            try verifyOneTurnCoworkerArtifact(
+                smokeCase.artifactExpectation,
+                artifact: artifact,
+                root: root.workspace,
+                taskID: smokeCase.taskID
+            )
             for secondaryArtifact in smokeCase.secondaryArtifacts {
                 let secondaryURL = root.workspace.appendingPathComponent(secondaryArtifact.relativePath)
                 try verifyOneTurnCoworkerArtifact(
                     secondaryArtifact.expectation,
                     artifact: secondaryURL,
+                    root: root.workspace,
                     taskID: smokeCase.taskID
                 )
             }
@@ -1799,6 +1824,12 @@ enum QuillCodeDesktopSmokeRunner {
         """
     }
 
+    private static var toneRewriteCommand: String {
+        return """
+        echo Subject: Important pricing adjustment for your account>draft-price-increase-email.docx&&echo Effective date: 2026-10-01>>draft-price-increase-email.docx&&echo Grandfathering clause: all existing customers keep current pricing through the current contract term.>>draft-price-increase-email.docx&&echo We are writing to inform you that prices will increase because of market pressures operational expenses expanded capabilities infrastructure commitments support staffing compliance investments vendor cost changes and product investments that require additional funding.>>draft-price-increase-email.docx&&echo This message is intended to provide formal notice and detailed background so that customer teams can complete budget planning procurement review renewal planning stakeholder approval and finance coordination before the new rate card applies.>>draft-price-increase-email.docx&&echo We know budgeting takes time.>draft-price-increase-email-rewrite.docx&&echo We are keeping your current price until 2026-10-01.>>draft-price-increase-email-rewrite.docx&&echo Grandfathering clause: all existing customers keep current pricing through the current contract term.>>draft-price-increase-email-rewrite.docx&&echo Reply any time and we will help you plan.>>draft-price-increase-email-rewrite.docx&&echo wrote draft-price-increase-email-rewrite.docx
+        """
+    }
+
     private static var cohortRetentionCommand: String {
         let subscriptionsCSV = "customer,signup_month,paid_month,canceled_month\\nA,2026-01,2026-01,\\nB,2026-01,2026-01,2026-02\\nC,2026-01,2026-02,\\nD,2026-02,2026-02,2026-03\\nE,2026-02,2026-02,\\n"
         let retentionCSV = "cohort,signup_count,retained_after_first_month,fastest_decay_month\\n2026-01,3,67%,2026-02\\n2026-02,2,50%,2026-03\\n"
@@ -1810,6 +1841,7 @@ enum QuillCodeDesktopSmokeRunner {
     private static func verifyOneTurnCoworkerArtifact(
         _ expectation: OneTurnCoworkerArtifactExpectation,
         artifact: URL,
+        root: URL,
         taskID: Int
     ) throws {
         switch expectation {
@@ -1818,6 +1850,16 @@ enum QuillCodeDesktopSmokeRunner {
             guard artifactText.contains(expected) else {
                 throw QuillCodeDesktopSmokeFailure.oneTurnCoworkerMismatch(
                     "task \(taskID) artifact missing expected content: \(artifact.path)"
+                )
+            }
+        case .textContainsAndShorterThan(let expected, let sourceRelativePath, let maximumLengthRatio, _):
+            let artifactText = try String(contentsOf: artifact, encoding: .utf8)
+            let sourceURL = root.appendingPathComponent(sourceRelativePath)
+            let sourceText = try String(contentsOf: sourceURL, encoding: .utf8)
+            let maximumLength = Int((Double(sourceText.count) * maximumLengthRatio).rounded(.down))
+            guard artifactText.contains(expected), artifactText.count <= maximumLength else {
+                throw QuillCodeDesktopSmokeFailure.oneTurnCoworkerMismatch(
+                    "task \(taskID) rewrite did not preserve expected text or shrink enough: \(artifact.path)"
                 )
             }
         case .png(let width, let height, let minimumByteCount, _):
@@ -2213,12 +2255,20 @@ private struct OneTurnCoworkerArtifactCheck {
 
 private enum OneTurnCoworkerArtifactExpectation {
     case textContains(String)
+    case textContainsAndShorterThan(
+        String,
+        sourceRelativePath: String,
+        maximumLengthRatio: Double,
+        assertion: String
+    )
     case png(width: Int, height: Int, minimumByteCount: Int, assertion: String)
 
     var assertion: String {
         switch self {
         case .textContains(let text):
             text
+        case .textContainsAndShorterThan(_, _, _, let assertion):
+            assertion
         case .png(_, _, _, let assertion):
             assertion
         }

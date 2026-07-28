@@ -876,6 +876,20 @@ expected_one_turn_cases = {
             },
         ],
     },
+    64: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "draft-price-increase-email-rewrite.docx",
+        "artifactContains": "warmer rewrite keeps protected date and is at least 30 pct shorter",
+        "answerContains": "wrote draft-price-increase-email-rewrite.docx",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "draft-price-increase-email.docx",
+                "artifactContains": (
+                    "Grandfathering clause: all existing customers keep current pricing"
+                ),
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",

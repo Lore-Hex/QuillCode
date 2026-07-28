@@ -168,7 +168,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49, #50, #51, #52, #53, #54, #55, #56, #57, #58, #59, #60, #61, #62, #63, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49, #50, #51, #52, #53, #54, #55, #56, #57, #58, #59, #60, #61, #62, #63, #64, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -288,6 +288,9 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
 - Row #63 proves timeline building creates `timeline.xlsx` from `milestones.csv`, preserving
   Gantt-style start dates, end dates, durations, dependencies, and the November 3 launch milestone
   through `host.shell.run`.
+- Row #64 proves tone rewriting creates `draft-price-increase-email-rewrite.docx` from
+  `draft-price-increase-email.docx`, preserving the exact effective date and grandfathering clause
+  while shortening and softening the pricing-change copy through `host.shell.run`.
 - Row #68 proves a weekly-review shell task runs with non-empty `host.shell.run` arguments and
   creates `weekly-review.csv`.
 - `packaged-one-turn-coworker.json` compares direct packaged executable and Launch Services launches,
