@@ -168,7 +168,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #20, #21, #23, #25, #28, #40, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #20, #21, #23, #25, #28, #40, #43, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -187,6 +187,8 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
 - Row #40 proves a KPI dashboard request creates a single-file HTML dashboard,
   `finance-kpi-dashboard.html`, with revenue, churn, headcount, and sparkline evidence through
   `host.shell.run`.
+- Row #43 proves a Q3 content-calendar spreadsheet request creates `q3-content-calendar.csv`
+  with campaign theme, content type, title, and owner columns through `host.shell.run`.
 - Row #68 proves a weekly-review shell task runs with non-empty `host.shell.run` arguments and
   creates `weekly-review.csv`.
 - `packaged-one-turn-coworker.json` compares direct packaged executable and Launch Services launches,

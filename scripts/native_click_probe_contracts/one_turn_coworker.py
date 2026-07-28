@@ -64,6 +64,12 @@ EXPECTED_CASES = {
         "artifactContains": "Finance KPI Dashboard",
         "answerContains": "wrote finance-kpi-dashboard.html",
     },
+    43: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "q3-content-calendar.csv",
+        "artifactContains": "2026-Q3-W01,Migration,webinar,Modernize legacy data,Ben",
+        "answerContains": "wrote q3-content-calendar.csv",
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
