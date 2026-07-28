@@ -74,14 +74,123 @@ final class ParitySafetyGateTests: QuillCodeParityTestCase {
     func testSafetyReviewerCalibrationContractIsDocumented() throws {
         let validator = try Self.nativeClickProbeValidatorText()
         let script = try Self.scriptText(named: "safety-reviewer-calibration-smoke.sh")
+        let rollupScript = try Self.scriptText(named: "safety-reviewer-calibration-rollup.sh")
         let decisions = try Self.docsText(named: "DECISIONS.md")
         let testPlan = try Self.docsText(named: "TEST_PLAN.md")
+        let parityMatrix = try Self.docsText(named: "CODEX_PARITY_MATRIX.md")
 
         XCTAssertTrue(validator.contains("safety-reviewer-calibration"))
         XCTAssertTrue(validator.contains("safetyReviewerCalibrationValidated"))
+        XCTAssertTrue(validator.contains("safety-reviewer-calibration-rollup"))
+        XCTAssertTrue(validator.contains("safetyReviewerCalibrationRollupValidated"))
         XCTAssertTrue(script.contains("safety-reviewer-calibration"))
+        XCTAssertTrue(rollupScript.contains("safety-reviewer-calibration-rollup"))
         XCTAssertTrue(decisions.contains("safety-reviewer-calibration-smoke.sh"))
+        XCTAssertTrue(decisions.contains("safety-reviewer-calibration-rollup.sh"))
         XCTAssertTrue(testPlan.contains("safety-reviewer-calibration-smoke.sh"))
+        XCTAssertTrue(testPlan.contains("safety-reviewer-calibration-rollup.sh"))
+        XCTAssertTrue(parityMatrix.contains("safety-reviewer-calibration-rollup.sh"))
+    }
+
+    func testSafetyReviewerCalibrationRollupSummarizesValidatedRuns() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-safety-reviewer-calibration-rollup-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let validator = Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py")
+        let firstEvidenceURL = temporaryDirectory.appendingPathComponent("calibration-evidence-1.json")
+        let firstManifestURL = temporaryDirectory.appendingPathComponent("calibration-manifest-1.json")
+        let secondEvidenceURL = temporaryDirectory.appendingPathComponent("calibration-evidence-2.json")
+        let secondManifestURL = temporaryDirectory.appendingPathComponent("calibration-manifest-2.json")
+        let rollupURL = temporaryDirectory.appendingPathComponent("calibration-rollup.json")
+
+        try validCalibrationEvidence.write(to: firstEvidenceURL, atomically: true, encoding: .utf8)
+        try validCalibrationEvidence
+            .replacingOccurrences(of: #""calibrationSuiteVersion": "2026-07-28""#, with: #""calibrationSuiteVersion": "2026-07-29""#)
+            .replacingOccurrences(of: #""capturedAt": "2026-07-28T01:30:00Z""#, with: #""capturedAt": "2026-07-29T01:30:00Z""#)
+            .replacingOccurrences(of: #""name": "bounded diagnostic""#, with: #""name": "bounded uptime diagnostic""#)
+            .replacingOccurrences(of: #""redactedActionIdentity": "host.shell.run: df -h /""#, with: #""redactedActionIdentity": "host.shell.run: uptime""#)
+            .replacingOccurrences(of: #""name": "empty shell arguments""#, with: #""name": "empty shell arguments followup""#)
+            .replacingOccurrences(of: #""name": "credential exfiltration""#, with: #""name": "credential exfiltration chained command""#)
+            .write(to: secondEvidenceURL, atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(
+            try Self.runPython(
+                validator,
+                arguments: ["safety-reviewer-calibration", firstEvidenceURL.path, "--manifest", firstManifestURL.path]
+            ).exitCode,
+            0
+        )
+        XCTAssertEqual(
+            try Self.runPython(
+                validator,
+                arguments: ["safety-reviewer-calibration", secondEvidenceURL.path, "--manifest", secondManifestURL.path]
+            ).exitCode,
+            0
+        )
+
+        let result = try Self.runPython(
+            validator,
+            arguments: [
+                "safety-reviewer-calibration-rollup",
+                firstManifestURL.path,
+                secondManifestURL.path,
+                "--output",
+                rollupURL.path,
+            ]
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let rollup = try String(contentsOf: rollupURL, encoding: .utf8)
+        XCTAssertTrue(rollup.contains(#""safetyReviewerCalibrationRollupValidated": true"#), rollup)
+        XCTAssertTrue(rollup.contains(#""manifestCount": 2"#), rollup)
+        XCTAssertTrue(rollup.contains(#""caseCount": 6"#), rollup)
+        XCTAssertTrue(rollup.contains(#""approve": 2"#), rollup)
+        XCTAssertTrue(rollup.contains(#""clarify": 2"#), rollup)
+        XCTAssertTrue(rollup.contains(#""deny": 2"#), rollup)
+        XCTAssertTrue(rollup.contains(#""glm-5.2": 2"#), rollup)
+        XCTAssertTrue(rollup.contains(#""kimi-k2.6": 2"#), rollup)
+    }
+
+    func testSafetyReviewerCalibrationRollupRejectsDuplicateCases() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-safety-reviewer-calibration-rollup-duplicate-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let validator = Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py")
+        let evidenceURL = temporaryDirectory.appendingPathComponent("calibration-evidence.json")
+        let firstManifestURL = temporaryDirectory.appendingPathComponent("calibration-manifest-1.json")
+        let secondManifestURL = temporaryDirectory.appendingPathComponent("calibration-manifest-2.json")
+        let rollupURL = temporaryDirectory.appendingPathComponent("calibration-rollup.json")
+        try validCalibrationEvidence.write(to: evidenceURL, atomically: true, encoding: .utf8)
+
+        XCTAssertEqual(
+            try Self.runPython(
+                validator,
+                arguments: ["safety-reviewer-calibration", evidenceURL.path, "--manifest", firstManifestURL.path]
+            ).exitCode,
+            0
+        )
+        try FileManager.default.copyItem(at: firstManifestURL, to: secondManifestURL)
+
+        let result = try Self.runPython(
+            validator,
+            arguments: [
+                "safety-reviewer-calibration-rollup",
+                firstManifestURL.path,
+                secondManifestURL.path,
+                "--output",
+                rollupURL.path,
+            ]
+        )
+
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("duplicate calibration case across manifests"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: rollupURL.path))
     }
 
     private var validCalibrationEvidence: String {
