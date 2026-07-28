@@ -174,6 +174,8 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""prospect-followups/ada-day-1.md""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""prospect-followups/ada-day-3.md""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""prospect-followups/ben-day-1.md""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""forecast-review.md""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""pipeline-forecast.xlsx""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""finance-kpi-dashboard.html""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""q3-content-calendar.csv""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""sales-pivot-summary.csv""#))

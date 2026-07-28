@@ -509,6 +509,18 @@ expected_one_turn_cases = {
             },
         ],
     },
+    34: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "forecast-review.md",
+        "artifactContains": "Flag: Q3 Upside assumes 42 pct close rate",
+        "answerContains": "wrote forecast-review.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "pipeline-forecast.xlsx",
+                "artifactContains": "Q3 Upside,1200000,42 pct",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",
