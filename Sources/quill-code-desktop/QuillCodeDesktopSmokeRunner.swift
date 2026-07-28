@@ -1345,6 +1345,20 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("## Collaboration")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 53,
+                prompt: "Run \(rfpComplianceMatrixCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote rfp-compliance-matrix.csv",
+                artifactRelativePath: "rfp-compliance-matrix.csv",
+                artifactExpectation: .textContains("3.2,shall encrypt data at rest,,Security"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "RFP-2026-DOT.pdf",
+                        expectation: .textContains("RFP 2026 DOT source")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1564,6 +1578,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var redlineAnalysisCommand: String {
         return """
         echo Executed MSA baseline>executed-msa.pdf&&echo Section 8 limitation of liability cap equals 12 months fees>>executed-msa.pdf&&echo Section 11 termination notice requires 60 days>>executed-msa.pdf&&echo Vendor Amendment Two>vendor-amendment-2.pdf&&echo Section 8 limitation of liability cap equals 24 months fees>>vendor-amendment-2.pdf&&echo Section 11 termination notice requires 30 days>>vendor-amendment-2.pdf&&echo clause,change,business_impact>amendment-redline-impact.csv&&echo Limitation of liability,cap increased from 12 months fees to 24 months fees,raises maximum exposure>>amendment-redline-impact.csv&&echo Termination notice,notice period shortened from 60 days to 30 days,reduces time to plan exit>>amendment-redline-impact.csv&&echo wrote amendment-redline-impact.csv
+        """
+    }
+
+    private static var rfpComplianceMatrixCommand: String {
+        return """
+        echo RFP 2026 DOT source>RFP-2026-DOT.pdf&&echo Section 3.2 Contractor shall encrypt data at rest>>RFP-2026-DOT.pdf&&echo Section 4.1 Vendor must provide monthly status reports>>RFP-2026-DOT.pdf&&echo section,requirement,owner,workstream>rfp-compliance-matrix.csv&&echo 3.2,shall encrypt data at rest,,Security>>rfp-compliance-matrix.csv&&echo 4.1,must provide monthly status reports,,Program Management>>rfp-compliance-matrix.csv&&echo wrote rfp-compliance-matrix.csv
         """
     }
 

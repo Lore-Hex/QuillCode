@@ -401,6 +401,18 @@ EXPECTED_CASES = {
         "artifactContains": "## Collaboration",
         "answerContains": "wrote release-notes-2026-08.md",
     },
+    53: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "rfp-compliance-matrix.csv",
+        "artifactContains": "3.2,shall encrypt data at rest,,Security",
+        "answerContains": "wrote rfp-compliance-matrix.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "RFP-2026-DOT.pdf",
+                "artifactContains": "RFP 2026 DOT source",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
