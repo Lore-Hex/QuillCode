@@ -437,6 +437,22 @@ EXPECTED_CASES = {
             },
         ],
     },
+    56: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "northwind-logistics-proposal.md",
+        "artifactContains": "Northwind Logistics proposal",
+        "answerContains": "wrote northwind-logistics-proposal.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "discovery-call-notes.md",
+                "artifactContains": "Northwind Logistics discovery",
+            },
+            {
+                "artifactSuffix": "pricing-sheet.xlsx",
+                "artifactContains": "approved pricing tiers",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
