@@ -255,7 +255,9 @@ extension AppServerSession {
             if let remoteSession = command.remoteSession { remoteSessions.append(remoteSession) }
             if let task = command.task { tasks.append(task) }
         }
-        for session in remoteSessions { await session.terminate() }
+        for session in remoteSessions {
+            Task { await session.terminate() }
+        }
         for task in tasks { task.cancel() }
         return itemIDs.count
     }

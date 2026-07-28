@@ -58,6 +58,12 @@ EXPECTED_CASES = {
         "artifactContains": "2026-01,3,67%,2026-02",
         "answerContains": "wrote cohort-retention.csv",
     },
+    22: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "collections-chase-emails.md",
+        "artifactContains": "90-plus,urgent payment plan,INV-309",
+        "answerContains": "wrote collections-chase-emails.md",
+    },
     23: {
         "toolName": "host.shell.run",
         "artifactSuffix": "donors-split.csv",

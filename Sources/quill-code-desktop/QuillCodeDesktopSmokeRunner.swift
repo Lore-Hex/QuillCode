@@ -933,6 +933,14 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("2026-01,3,67%,2026-02")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 22,
+                prompt: "Run `printf 'aging_bucket,tone,invoice\\n31-60,friendly reminder,INV-104\\n61-90,payment follow-up,INV-205\\n90-plus,urgent payment plan,INV-309\\n' > collections-chase-emails.md && printf 'wrote collections-chase-emails.md\\n'`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote collections-chase-emails.md",
+                artifactRelativePath: "collections-chase-emails.md",
+                artifactExpectation: .textContains("90-plus,urgent payment plan,INV-309")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 23,
                 prompt: "Run `\(donorColumnSplitCommand)`",
                 expectedToolName: ToolDefinition.shellRun.name,
