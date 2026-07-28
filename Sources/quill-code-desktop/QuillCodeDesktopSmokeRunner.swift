@@ -1001,6 +1001,24 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("Engineering --> Launch")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 29,
+                prompt: "Run `\(documentSplittingCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote exhibits/Exhibit-A-Purchase-Agreement.pdf and exhibits/Exhibit-B-Disclosure-Schedule.pdf",
+                artifactRelativePath: "exhibits/Exhibit-A-Purchase-Agreement.pdf",
+                artifactExpectation: .textContains("Exhibit A - Purchase Agreement"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "exhibits/Exhibit-B-Disclosure-Schedule.pdf",
+                        expectation: .textContains("Exhibit B - Disclosure Schedule")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "exhibits/exhibit-index.csv",
+                        expectation: .textContains("B,Disclosure Schedule,Exhibit-B-Disclosure-Schedule.pdf")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1131,6 +1149,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var dateNormalizationCommand: String {
         return """
         printf 'member,date_joined,source_format\\nAda,2026-07-04,US\\nBen,2026-04-07,EU\\nCam,2026-07-14,text date\\n' > members-normalized.csv && printf 'wrote members-normalized.csv\\n'
+        """
+    }
+
+    private static var documentSplittingCommand: String {
+        return """
+        mkdir -p exhibits && printf 'Exhibit A - Purchase Agreement\\n' > exhibits/Exhibit-A-Purchase-Agreement.pdf && printf 'Exhibit B - Disclosure Schedule\\n' > exhibits/Exhibit-B-Disclosure-Schedule.pdf && printf 'exhibit,title,file\\nA,Purchase Agreement,Exhibit-A-Purchase-Agreement.pdf\\nB,Disclosure Schedule,Exhibit-B-Disclosure-Schedule.pdf\\n' > exhibits/exhibit-index.csv && printf 'wrote exhibits/Exhibit-A-Purchase-Agreement.pdf and exhibits/Exhibit-B-Disclosure-Schedule.pdf\\n'
         """
     }
 

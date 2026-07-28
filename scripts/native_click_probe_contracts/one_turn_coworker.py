@@ -112,6 +112,22 @@ EXPECTED_CASES = {
         "artifactContains": "Engineering --> Launch",
         "answerContains": "Wrote `dependency-map.mmd`.",
     },
+    29: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "exhibits/Exhibit-A-Purchase-Agreement.pdf",
+        "artifactContains": "Exhibit A - Purchase Agreement",
+        "answerContains": "wrote exhibits/Exhibit-A-Purchase-Agreement.pdf and exhibits/Exhibit-B-Disclosure-Schedule.pdf",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "exhibits/Exhibit-B-Disclosure-Schedule.pdf",
+                "artifactContains": "Exhibit B - Disclosure Schedule",
+            },
+            {
+                "artifactSuffix": "exhibits/exhibit-index.csv",
+                "artifactContains": "B,Disclosure Schedule,Exhibit-B-Disclosure-Schedule.pdf",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",
