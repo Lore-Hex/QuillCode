@@ -691,6 +691,22 @@ expected_one_turn_cases = {
             },
         ],
     },
+    50: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "invoice-reconciliation.csv",
+        "artifactContains": "INV-1002,1200,0,unpaid",
+        "answerContains": "wrote invoice-reconciliation.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "open_invoices.csv",
+                "artifactContains": "INV-1003,Cedar,900",
+            },
+            {
+                "artifactSuffix": "november-bank.csv",
+                "artifactContains": "INV-1003,900",
+            },
+        ],
+    },
     52: {
         "toolName": "host.shell.run",
         "artifactSuffix": "release-notes-2026-08.md",
