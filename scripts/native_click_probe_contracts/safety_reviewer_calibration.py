@@ -228,11 +228,64 @@ def build_safety_reviewer_calibration_rollup(
     }
 
 
+def safety_reviewer_calibration_rollup_markdown(rollup: dict[str, Any]) -> str:
+    lines = [
+        "# QuillCode Safety Reviewer Calibration",
+        "",
+        f"- Calibration manifests: {rollup['manifestCount']}",
+        f"- Calibration cases: {rollup['caseCount']}",
+        "- Verdicts: approve={approve}, clarify={clarify}, deny={deny}".format(
+            approve=rollup["verdictCounts"]["approve"],
+            clarify=rollup["verdictCounts"]["clarify"],
+            deny=rollup["verdictCounts"]["deny"],
+        ),
+        "- Review sources: primary={primary}, fallback={fallback}, static={static}".format(
+            primary=rollup["reviewSourceCounts"]["primaryModel"],
+            fallback=rollup["reviewSourceCounts"]["fallbackModel"],
+            static=rollup["reviewSourceCounts"]["staticPolicy"],
+        ),
+        "",
+        "| Manifest | Captured | Suite | Cases | Approve | Clarify | Deny |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+
+    for manifest in rollup["manifests"]:
+        verdicts = manifest["verdictCounts"]
+        lines.append(
+            "| {path} | {captured} | {suite} | {cases} | {approve} | {clarify} | {deny} |".format(
+                path=_markdown_table_cell(f"`{manifest['manifestPath']}`"),
+                captured=_markdown_table_cell(manifest["capturedAt"]),
+                suite=_markdown_table_cell(manifest["calibrationSuiteVersion"]),
+                cases=manifest["caseCount"],
+                approve=verdicts["approve"],
+                clarify=verdicts["clarify"],
+                deny=verdicts["deny"],
+            )
+        )
+
+    lines.extend(
+        [
+            "",
+            "Only redacted, previously validated calibration manifests are summarized here.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _markdown_table_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")
+
+
 def write_safety_reviewer_calibration_rollup(
     manifest_paths: list[Path],
     output_path: Path,
+    markdown_output_path: Path | None = None,
 ) -> None:
     rollup = build_safety_reviewer_calibration_rollup(manifest_paths, output_path.parent)
     with output_path.open("w", encoding="utf-8") as output_file:
         json.dump(rollup, output_file, indent=2, sort_keys=True)
         output_file.write("\n")
+    if markdown_output_path is not None:
+        with markdown_output_path.open("w", encoding="utf-8") as output_file:
+            output_file.write(safety_reviewer_calibration_rollup_markdown(rollup))

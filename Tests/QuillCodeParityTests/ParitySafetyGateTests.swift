@@ -105,6 +105,7 @@ final class ParitySafetyGateTests: QuillCodeParityTestCase {
         let secondEvidenceURL = temporaryDirectory.appendingPathComponent("calibration-evidence-2.json")
         let secondManifestURL = temporaryDirectory.appendingPathComponent("calibration-manifest-2.json")
         let rollupURL = temporaryDirectory.appendingPathComponent("calibration-rollup.json")
+        let markdownURL = temporaryDirectory.appendingPathComponent("calibration-rollup.md")
 
         try validCalibrationEvidence.write(to: firstEvidenceURL, atomically: true, encoding: .utf8)
         try validCalibrationEvidence
@@ -139,6 +140,8 @@ final class ParitySafetyGateTests: QuillCodeParityTestCase {
                 secondManifestURL.path,
                 "--output",
                 rollupURL.path,
+                "--markdown-output",
+                markdownURL.path,
             ]
         )
 
@@ -152,6 +155,11 @@ final class ParitySafetyGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(rollup.contains(#""deny": 2"#), rollup)
         XCTAssertTrue(rollup.contains(#""glm-5.2": 2"#), rollup)
         XCTAssertTrue(rollup.contains(#""kimi-k2.6": 2"#), rollup)
+        let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
+        XCTAssertTrue(markdown.contains("# QuillCode Safety Reviewer Calibration"), markdown)
+        XCTAssertTrue(markdown.contains("| Manifest | Captured | Suite | Cases | Approve | Clarify | Deny |"), markdown)
+        XCTAssertTrue(markdown.contains("calibration-manifest-1.json"), markdown)
+        XCTAssertTrue(markdown.contains("approve=2, clarify=2, deny=2"), markdown)
     }
 
     func testSafetyReviewerCalibrationRollupRejectsDuplicateCases() throws {
