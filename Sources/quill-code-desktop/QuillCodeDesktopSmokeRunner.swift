@@ -1319,6 +1319,24 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 51,
+                prompt: "Run \(redlineAnalysisCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote amendment-redline-impact.csv",
+                artifactRelativePath: "amendment-redline-impact.csv",
+                artifactExpectation: .textContains("Limitation of liability,cap increased from 12 months fees to 24 months fees,raises maximum exposure"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "executed-msa.pdf",
+                        expectation: .textContains("Executed MSA baseline")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "vendor-amendment-2.pdf",
+                        expectation: .textContains("Vendor Amendment Two")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 52,
                 prompt: "Run `printf '# August 2026 Release Notes\\n\\n## Billing\\n- Customers can now export invoices from the billing portal.\\n\\n## Collaboration\\n- Team comments now refresh without reloading the page.\\n\\n## Admin\\n- Workspace owners can see seat-change history.\\n' > release-notes-2026-08.md && printf 'wrote release-notes-2026-08.md\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1540,6 +1558,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var invoiceReconciliationCommand: String {
         return """
         echo invoice,customer,amount>open_invoices.csv&&echo INV-1001,Acme,500>>open_invoices.csv&&echo INV-1002,Beta,1200>>open_invoices.csv&&echo INV-1003,Cedar,900>>open_invoices.csv&&echo date,description,invoice,amount>november-bank.csv&&echo 2026-11-03,Acme payment,INV-1001,500>>november-bank.csv&&echo 2026-11-08,Cedar payment,INV-1003,900>>november-bank.csv&&echo 2026-11-09,Cedar duplicate,INV-1003,900>>november-bank.csv&&echo invoice,expected,paid,status>invoice-reconciliation.csv&&echo INV-1001,500,500,paid>>invoice-reconciliation.csv&&echo INV-1002,1200,0,unpaid>>invoice-reconciliation.csv&&echo INV-1003,900,1800,paid_twice>>invoice-reconciliation.csv&&echo wrote invoice-reconciliation.csv
+        """
+    }
+
+    private static var redlineAnalysisCommand: String {
+        return """
+        echo Executed MSA baseline>executed-msa.pdf&&echo Section 8 limitation of liability cap equals 12 months fees>>executed-msa.pdf&&echo Section 11 termination notice requires 60 days>>executed-msa.pdf&&echo Vendor Amendment Two>vendor-amendment-2.pdf&&echo Section 8 limitation of liability cap equals 24 months fees>>vendor-amendment-2.pdf&&echo Section 11 termination notice requires 30 days>>vendor-amendment-2.pdf&&echo clause,change,business_impact>amendment-redline-impact.csv&&echo Limitation of liability,cap increased from 12 months fees to 24 months fees,raises maximum exposure>>amendment-redline-impact.csv&&echo Termination notice,notice period shortened from 60 days to 30 days,reduces time to plan exit>>amendment-redline-impact.csv&&echo wrote amendment-redline-impact.csv
         """
     }
 

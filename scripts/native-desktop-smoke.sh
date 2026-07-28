@@ -707,6 +707,25 @@ expected_one_turn_cases = {
             },
         ],
     },
+    51: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "amendment-redline-impact.csv",
+        "artifactContains": (
+            "Limitation of liability,cap increased from 12 months fees to 24 months fees,"
+            "raises maximum exposure"
+        ),
+        "answerContains": "wrote amendment-redline-impact.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "executed-msa.pdf",
+                "artifactContains": "Executed MSA baseline",
+            },
+            {
+                "artifactSuffix": "vendor-amendment-2.pdf",
+                "artifactContains": "Vendor Amendment Two",
+            },
+        ],
+    },
     52: {
         "toolName": "host.shell.run",
         "artifactSuffix": "release-notes-2026-08.md",
