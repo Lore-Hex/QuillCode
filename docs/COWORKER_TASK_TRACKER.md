@@ -168,7 +168,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #20, #21, #23, #25, #28, #40, #43, #48, #52, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #23, #25, #28, #40, #43, #48, #52, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -179,6 +179,8 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
 - Row #18 proves a benefits-plan comparison request creates `benefits-plan-matrix.csv` with
   premium, deductible, out-of-pocket max, specialist copay, and RX tier columns through
   `host.shell.run`.
+- Row #19 proves a marketing budget model request creates `marketing-budget-model.csv` with
+  assumptions, monthly channel spend, and quarterly roll-up rows through `host.shell.run`.
 - Row #20 proves a chart-generation request creates a valid 320x200 PNG artifact,
   `regional-revenue-chart.png`, through `host.shell.run`.
 - Row #21 proves cohort-retention date math creates `cohort-retention.csv` with retained-after-first-month

@@ -153,6 +153,7 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""signup-slice.csv""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""archive-readme.md""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""benefits-plan-matrix.csv""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""marketing-budget-model.csv""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""regional-revenue-chart.png""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""cohort-retention.csv""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""donors-split.csv""#))
