@@ -1105,6 +1105,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 36,
+                prompt: "Run `\(vendorDeduplicationCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote vendor-name-mapping.csv and ap-vendors-standardized.csv",
+                artifactRelativePath: "vendor-name-mapping.csv",
+                artifactExpectation: .textContains("ACME, Inc.,Acme"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "ap-vendors-standardized.csv",
+                        expectation: .textContains("Acme,3,merged")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1278,6 +1292,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var funnelAnalysisCommand: String {
         return """
         printf 'stage,count,median_days\\nLead,100,3\\nQualified,70,6\\nDemo,50,9\\nProposal,20,14\\nClosed Won,8,21\\n' > hubspot-deals-export.xlsx && printf 'step,conversion,median_days\\nLead to Qualified,70 pct,6\\nQualified to Demo,71 pct,9\\nDemo to Proposal,40 pct,14\\nProposal to Closed Won,40 pct,21\\n' > q2-funnel-conversions.csv && printf 'Q2 funnel summary\\nBiggest drop-off: Demo to Proposal at 40 pct conversion.\\nMedian days per stage: Lead 3, Qualified 6, Demo 9, Proposal 14, Closed Won 21.\\n' > q2-funnel-summary.md && printf 'wrote q2-funnel-summary.md\\n'
+        """
+    }
+
+    private static var vendorDeduplicationCommand: String {
+        return """
+        printf 'vendor_name,invoice_count\\nAcme Inc,1\\nACME, Inc.,1\\nAcme Incorporated,1\\nNorthwind LLC,2\\n' > ap_vendors.csv && printf 'raw_vendor,standard_vendor\\nAcme Inc,Acme\\nACME, Inc.,Acme\\nAcme Incorporated,Acme\\nNorthwind LLC,Northwind\\n' > vendor-name-mapping.csv && printf 'standard_vendor,source_rows,status\\nAcme,3,merged\\nNorthwind,1,unchanged\\n' > ap-vendors-standardized.csv && printf 'wrote vendor-name-mapping.csv and ap-vendors-standardized.csv\\n'
         """
     }
 
