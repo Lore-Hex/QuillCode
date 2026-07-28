@@ -22,6 +22,12 @@ EXPECTED_CASES = {
         "artifactContains": "organic,31",
         "answerContains": "wrote signup-slice.csv",
     },
+    28: {
+        "toolName": "host.file.write",
+        "artifactSuffix": "dependency-map.mmd",
+        "artifactContains": "Engineering --> Launch",
+        "answerContains": "Wrote `dependency-map.mmd`.",
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",

@@ -882,6 +882,14 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactContains: "organic,31"
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 28,
+                prompt: "Create a file named `dependency-map.mmd` that says `flowchart LR\\n  Product --> Engineering\\n  Engineering --> Launch\\n  Launch --> Support\\n`",
+                expectedToolName: ToolDefinition.fileWrite.name,
+                expectedAnswer: "Wrote `dependency-map.mmd`.",
+                artifactRelativePath: "dependency-map.mmd",
+                artifactContains: "Engineering --> Launch"
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
