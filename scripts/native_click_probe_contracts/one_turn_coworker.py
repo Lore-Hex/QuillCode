@@ -591,6 +591,22 @@ EXPECTED_CASES = {
             },
         ],
     },
+    67: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "weekly-sales-summary.md",
+        "artifactContains": "Week-over-week revenue change: +12.4pct",
+        "answerContains": "wrote weekly-sales-summary.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "weekly-sales-2026-W29.csv",
+                "artifactContains": "Delta,25500,14200",
+            },
+            {
+                "artifactSuffix": "weekly-sales-top-movers.csv",
+                "artifactContains": "Delta,+11300,+79.6pct",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
