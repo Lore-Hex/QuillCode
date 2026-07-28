@@ -882,6 +882,20 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("organic,31")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 17,
+                prompt: "Run `mkdir -p 'Client Files' Archive/2024-Q4 && printf 'Acme contract\\n' > 'Client Files/Acme-old.txt' && printf 'Current plan\\n' > 'Client Files/Current-plan.txt' && mv 'Client Files/Acme-old.txt' Archive/2024-Q4/Acme-old.txt && printf 'Archived Client Files/Acme-old.txt -> Archive/2024-Q4/Acme-old.txt\\nKept Client Files/Current-plan.txt\\n' > archive-readme.md && printf 'wrote archive-readme.md\\n'`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote archive-readme.md",
+                artifactRelativePath: "archive-readme.md",
+                artifactExpectation: .textContains("Archive/2024-Q4/Acme-old.txt"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "Archive/2024-Q4/Acme-old.txt",
+                        expectation: .textContains("Acme contract")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 20,
                 prompt: "Run `\(chartGenerationCommand)`",
                 expectedToolName: ToolDefinition.shellRun.name,

@@ -22,6 +22,18 @@ EXPECTED_CASES = {
         "artifactContains": "organic,31",
         "answerContains": "wrote signup-slice.csv",
     },
+    17: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "archive-readme.md",
+        "artifactContains": "Archive/2024-Q4/Acme-old.txt",
+        "answerContains": "wrote archive-readme.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Archive/2024-Q4/Acme-old.txt",
+                "artifactContains": "Acme contract",
+            },
+        ],
+    },
     20: {
         "toolName": "host.shell.run",
         "artifactSuffix": "regional-revenue-chart.png",
