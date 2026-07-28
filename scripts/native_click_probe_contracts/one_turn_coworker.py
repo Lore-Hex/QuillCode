@@ -326,6 +326,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    47: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "acme-sow-obligations.csv",
+        "artifactContains": "2026-09-15,2026-09-01,Acme kickoff workshop,Ada",
+        "answerContains": "wrote acme-sow-obligations.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Acme-SOW.pdf",
+                "artifactContains": "Acme SOW source",
+            },
+        ],
+    },
     48: {
         "toolName": "host.shell.run",
         "artifactSuffix": "sales-pivot-summary.csv",
