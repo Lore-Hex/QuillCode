@@ -272,6 +272,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    42: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "safety-guide-es.pdf",
+        "artifactContains": "Safety_Guide_WARNING_BOX_ES_1_2",
+        "answerContains": "wrote safety-guide-es.pdf and safety-guide-pt.pdf",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "safety-guide-pt.pdf",
+                "artifactContains": "Safety_Guide_WARNING_BOX_PT_1_2",
+            },
+        ],
+    },
     43: {
         "toolName": "host.shell.run",
         "artifactSuffix": "q3-content-calendar.csv",

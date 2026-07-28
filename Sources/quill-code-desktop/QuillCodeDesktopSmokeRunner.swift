@@ -1197,6 +1197,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 42,
+                prompt: "Run \(safetyGuideLocalizationCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote safety-guide-es.pdf and safety-guide-pt.pdf",
+                artifactRelativePath: "safety-guide-es.pdf",
+                artifactExpectation: .textContains("Safety_Guide_WARNING_BOX_ES_1_2"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "safety-guide-pt.pdf",
+                        expectation: .textContains("Safety_Guide_WARNING_BOX_PT_1_2")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 43,
                 prompt: "Run `printf 'week,theme,type,title,owner\\n2026-Q3-W01,Migration,blog,Migration planning checklist,Ada\\n2026-Q3-W01,Migration,webinar,Modernize legacy data,Ben\\n2026-Q3-W01,Migration,social,Four migration mistakes,Cam\\n2026-Q3-W02,Security,blog,Security review guide,Ada\\n2026-Q3-W02,Security,social,Audit-ready teams,Cam\\n' > q3-content-calendar.csv && printf 'wrote q3-content-calendar.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1392,6 +1406,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var launchChecklistCommand: String {
         return """
         printf 'March pricing launch\\nLaunch date: 2026-03-18\\n' > march-pricing-launch-brief.md && printf '# March Pricing Go-Live Checklist\\n\\n| Area | Owner | Due date | Item |\\n| Legal | Priya | 2026-03-04 | Approve updated terms |\\n| Support | Marco | 2026-03-08 | Publish escalation macros |\\n| Docs | Lena | 2026-03-10 | Update pricing FAQ |\\n| Comms | Theo | 2026-03-12 | Send customer notice |\\n' > march-pricing-go-live-checklist.md && printf 'wrote march-pricing-go-live-checklist.md\\n'
+        """
+    }
+
+    private static var safetyGuideLocalizationCommand: String {
+        return """
+        echo Safety_Guide_WARNING_BOX_ES_1_2>safety-guide-es.pdf&&echo Safety_Guide_WARNING_BOX_PT_1_2>safety-guide-pt.pdf&&echo wrote safety-guide-es.pdf and safety-guide-pt.pdf
         """
     }
 
