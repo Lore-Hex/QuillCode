@@ -39,8 +39,14 @@
 - **Update:** The same packaged multi-file artifact manifest now includes catalog row #70. The row
   #70 case reads three `analyst-reports` sources, writes `analyst-claims-contradictions.md`, verifies
   Gartner claims, Forrester claims, explicit contradictions, and recommended framing, and exposes
-  `catalogTaskIDs: [69, 70]` so deterministic multi-document synthesis advances in the coworker
+  row-linked catalog evidence so deterministic multi-document synthesis advances in the coworker
   coverage rollup.
+- **Update:** The packaged multi-file artifact manifest now includes catalog row #71, Bulk Rename.
+  The row #71 case reads two invoice PDFs under `Documents/Invoices`, runs a shell rename operation
+  that moves them to `YYYY-MM-DD_Vendor_Amount.pdf` names, writes
+  `Documents/Invoices/invoice-rename-undo.csv`, verifies both renamed outputs and undo mappings, and
+  exposes `catalogTaskIDs: [69, 70, 71]` so deterministic multi-file mutation coverage advances in
+  the coworker coverage rollup.
 
 ## 2026-07-27: TrustedRouter balance history is locally observed
 

@@ -11,7 +11,7 @@ from .live_saas import CATALOG_SPREADSHEET_URL
 
 EXPECTED_PROMPT = "Create the team action brief from `notes/research.md` and `notes/risks.md`."
 EXPECTED_TOOL_SEQUENCE = ["host.file.read", "host.file.read", "host.file.write"]
-EXPECTED_CATALOG_TASK_IDS = [69, 70]
+EXPECTED_CATALOG_TASK_IDS = [69, 70, 71]
 EXPECTED_ALL_HANDS_PROMPT = (
     "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` "
     "and the answers in `reorg-qa`, covering the eight hardest questions."
@@ -19,6 +19,10 @@ EXPECTED_ALL_HANDS_PROMPT = (
 EXPECTED_ANALYST_SYNTHESIS_PROMPT = (
     "Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` "
     "and flag where they contradict each other."
+)
+EXPECTED_BULK_RENAME_PROMPT = (
+    "Rename every PDF in `Documents/Invoices` to YYYY-MM-DD_Vendor_Amount.pdf "
+    "based on what's inside each file, and leave an undo log."
 )
 EXPECTED_ALL_HANDS_ASSERTIONS = {
     "announcesReorg",
@@ -31,6 +35,12 @@ EXPECTED_ANALYST_SYNTHESIS_ASSERTIONS = {
     "pullsForresterClaims",
     "flagsContradictions",
     "recommendsFraming",
+}
+EXPECTED_BULK_RENAME_ASSERTIONS = {
+    "renamesAcmeInvoice",
+    "renamesNorthwindInvoice",
+    "writesUndoLog",
+    "usesInvoiceFields",
 }
 
 
@@ -89,6 +99,12 @@ def validated_multi_file_artifact(report: dict[str, Any], label: str) -> dict[st
     ]
     require(len(analyst_cases) == 1, f"{label} multi-file catalogCases must include exactly one row #70 case")
     validate_analyst_synthesis_case(analyst_cases[0], label)
+    bulk_rename_cases = [
+        case for case in catalog_cases
+        if isinstance(case, dict) and case.get("taskID") == 71
+    ]
+    require(len(bulk_rename_cases) == 1, f"{label} multi-file catalogCases must include exactly one row #71 case")
+    validate_bulk_rename_case(bulk_rename_cases[0], label)
     return smoke
 
 
@@ -160,11 +176,47 @@ def validate_analyst_synthesis_case(case: dict[str, Any], label: str) -> None:
     require(not missing, f"{label} row #70 assertions were not all true: {missing}")
 
 
+def validate_bulk_rename_case(case: dict[str, Any], label: str) -> None:
+    require(case.get("prompt") == EXPECTED_BULK_RENAME_PROMPT, f"{label} row #71 prompt drifted")
+    require(
+        case.get("toolSequence") == ["host.file.read", "host.file.read", "host.shell.run"],
+        f"{label} row #71 tool sequence was {case.get('toolSequence')!r}",
+    )
+    source_paths = case.get("sourcePaths")
+    require(
+        isinstance(source_paths, list) and len(source_paths) == 2,
+        f"{label} row #71 sourcePaths was malformed: {source_paths!r}",
+    )
+    for expected_suffix in (
+        "Documents/Invoices/invoice-acme.pdf",
+        "Documents/Invoices/invoice-northwind.pdf",
+    ):
+        require(
+            any(isinstance(path, str) and path.endswith(expected_suffix) for path in source_paths),
+            f"{label} row #71 missed {expected_suffix}: {source_paths!r}",
+        )
+    deliverable_path = case.get("deliverablePath")
+    require(
+        isinstance(deliverable_path, str) and deliverable_path.endswith("Documents/Invoices/invoice-rename-undo.csv"),
+        f"{label} row #71 deliverable path was malformed: {deliverable_path!r}",
+    )
+    final_answer = case.get("finalAnswer")
+    require(
+        isinstance(final_answer, str) and "wrote `Documents/Invoices/invoice-rename-undo.csv`" in final_answer,
+        f"{label} row #71 final answer was malformed: {final_answer!r}",
+    )
+    assertions = case.get("assertions")
+    require(isinstance(assertions, dict), f"{label} row #71 assertions must be an object")
+    missing = sorted(name for name in EXPECTED_BULK_RENAME_ASSERTIONS if assertions.get(name) is not True)
+    require(not missing, f"{label} row #71 assertions were not all true: {missing}")
+
+
 def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
     source_paths = smoke["sourcePaths"]
     catalog_cases = smoke["catalogCases"]
     all_hands_case = next(case for case in catalog_cases if case["taskID"] == 69)
     analyst_case = next(case for case in catalog_cases if case["taskID"] == 70)
+    bulk_rename_case = next(case for case in catalog_cases if case["taskID"] == 71)
     return {
         "prompt": smoke["prompt"],
         "toolSequence": smoke["toolSequence"],
@@ -206,6 +258,20 @@ def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
                 "deliverablePathSuffix": "analyst-claims-contradictions.md",
                 "finalAnswer": analyst_case["finalAnswer"],
                 "assertions": analyst_case["assertions"],
+            },
+            {
+                "taskID": 71,
+                "prompt": bulk_rename_case["prompt"],
+                "toolSequence": bulk_rename_case["toolSequence"],
+                "sourcePathSuffixes": sorted(
+                    str(path).split("Documents/Invoices/", 1)[-1]
+                    if "Documents/Invoices/" in str(path)
+                    else str(path)
+                    for path in bulk_rename_case["sourcePaths"]
+                ),
+                "deliverablePathSuffix": "Documents/Invoices/invoice-rename-undo.csv",
+                "finalAnswer": bulk_rename_case["finalAnswer"],
+                "assertions": bulk_rename_case["assertions"],
             }
         ],
     }

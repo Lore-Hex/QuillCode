@@ -382,6 +382,16 @@ public struct MockLLMClient: LLMClient {
         for lowercasedRequest: String,
         tools: [ToolDefinition]
     ) -> AgentAction? {
+        if lowercasedRequest.contains("rename every pdf"),
+           lowercasedRequest.contains("invoices"),
+           lowercasedRequest.contains("undo log"),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "Documents/Invoices/invoice-acme.pdf"])
+            ))
+        }
+
         if lowercasedRequest.contains("gartner"),
            lowercasedRequest.contains("forrester"),
            lowercasedRequest.contains("analyst-reports"),
@@ -415,6 +425,9 @@ public struct MockLLMClient: LLMClient {
         feedback: AgentToolFeedback,
         tools: [ToolDefinition]
     ) -> AgentAction? {
+        if let action = Self.nextBulkInvoiceRenameAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
         if let action = Self.nextAnalystSynthesisAction(thread: thread, feedback: feedback, tools: tools) {
             return action
         }
@@ -424,6 +437,50 @@ public struct MockLLMClient: LLMClient {
         if let action = Self.nextTeamActionBriefAction(thread: thread, feedback: feedback, tools: tools) {
             return action
         }
+        return nil
+    }
+
+    private static func nextBulkInvoiceRenameAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            let content = $0.content.lowercased()
+            return $0.role == .user
+                && content.contains("rename every pdf")
+                && content.contains("invoices")
+                && content.contains("undo log")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "Documents/Invoices/invoice-acme.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "Documents/Invoices/invoice-northwind.pdf"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "Documents/Invoices/invoice-northwind.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.shellRun.name }) {
+            return .tool(.init(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": Self.bulkInvoiceRenameCommand])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.shellRun.name,
+           Self.stringArgument("cmd", from: feedback.toolCall.argumentsJSON)?.contains("invoice-rename-undo.csv") == true {
+            return .say(
+                "Renamed invoice PDFs in `Documents/Invoices` and wrote `Documents/Invoices/invoice-rename-undo.csv`."
+            )
+        }
+
         return nil
     }
 
@@ -584,6 +641,12 @@ public struct MockLLMClient: LLMClient {
 
         ## Next action
         - Run the pairing fallback smoke and attach the evidence to the release tracker.
+        """
+    }
+
+    private static var bulkInvoiceRenameCommand: String {
+        """
+        mv 'Documents/Invoices/invoice-acme.pdf' 'Documents/Invoices/2026-07-03_Acme_1542.10.pdf' && mv 'Documents/Invoices/invoice-northwind.pdf' 'Documents/Invoices/2026-07-09_Northwind_880.00.pdf' && printf 'old_path,new_path\\nDocuments/Invoices/invoice-acme.pdf,Documents/Invoices/2026-07-03_Acme_1542.10.pdf\\nDocuments/Invoices/invoice-northwind.pdf,Documents/Invoices/2026-07-09_Northwind_880.00.pdf\\n' > 'Documents/Invoices/invoice-rename-undo.csv'
         """
     }
 

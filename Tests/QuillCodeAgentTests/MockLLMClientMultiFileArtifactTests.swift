@@ -306,6 +306,97 @@ final class MockLLMClientMultiFileArtifactTests: XCTestCase {
         )
     }
 
+    func testBulkInvoiceRenameStartsByReadingFirstInvoice() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "Rename every PDF in `Documents/Invoices` to YYYY-MM-DD_Vendor_Amount.pdf based on what's inside each file, and leave an undo log.",
+            tools: ToolRouter.definitions
+        )
+
+        let call = try XCTUnwrap(action.toolCall)
+        XCTAssertEqual(call.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(call.argumentsJSON).string("path"), "Documents/Invoices/invoice-acme.pdf")
+    }
+
+    func testBulkInvoiceRenameReadsInvoicesThenRunsRenameCommand() async throws {
+        let user = ChatMessage(
+            role: .user,
+            content: "Rename every PDF in `Documents/Invoices` to YYYY-MM-DD_Vendor_Amount.pdf based on what's inside each file, and leave an undo log."
+        )
+        let acmeRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "Documents/Invoices/invoice-acme.pdf"])
+        )
+        let afterAcmeRead = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: acmeRead, stdout: "Invoice date 2026-07-03 vendor Acme amount 1542.10")
+            ]
+        )
+
+        let northwindAction = try await MockLLMClient().nextAction(
+            thread: afterAcmeRead,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let northwindCall = try XCTUnwrap(northwindAction.toolCall)
+        XCTAssertEqual(northwindCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(
+            try ToolArguments(northwindCall.argumentsJSON).string("path"),
+            "Documents/Invoices/invoice-northwind.pdf"
+        )
+
+        let northwindRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "Documents/Invoices/invoice-northwind.pdf"])
+        )
+        let afterNorthwindRead = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: acmeRead, stdout: "Invoice date 2026-07-03 vendor Acme amount 1542.10"),
+                try toolFeedbackMessage(for: northwindRead, stdout: "Invoice date 2026-07-09 vendor Northwind amount 880.00")
+            ]
+        )
+
+        let renameAction = try await MockLLMClient().nextAction(
+            thread: afterNorthwindRead,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let renameCall = try XCTUnwrap(renameAction.toolCall)
+        XCTAssertEqual(renameCall.name, ToolDefinition.shellRun.name)
+        let command = try XCTUnwrap(ToolArguments(renameCall.argumentsJSON).string("cmd"))
+        XCTAssertTrue(command.contains("2026-07-03_Acme_1542.10.pdf"))
+        XCTAssertTrue(command.contains("2026-07-09_Northwind_880.00.pdf"))
+        XCTAssertTrue(command.contains("invoice-rename-undo.csv"))
+
+        let renameFeedback = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": command])
+        )
+        let afterRename = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: renameFeedback, stdout: "renamed 2 invoices")
+            ]
+        )
+        let finalAction = try await MockLLMClient().nextAction(
+            thread: afterRename,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        guard case .say(let finalAnswer) = finalAction else {
+            return XCTFail("Expected a final answer after the invoice rename completes.")
+        }
+        XCTAssertEqual(
+            finalAnswer,
+            "Renamed invoice PDFs in `Documents/Invoices` and wrote `Documents/Invoices/invoice-rename-undo.csv`."
+        )
+    }
+
     private func toolFeedbackMessage(for call: ToolCall, stdout: String) throws -> ChatMessage {
         let feedback = AgentToolFeedback(
             toolCall: call,

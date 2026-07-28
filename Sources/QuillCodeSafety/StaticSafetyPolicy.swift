@@ -86,6 +86,9 @@ struct StaticSafetyPolicy: Sendable {
         if StaticSafetyBuildRunShellPolicy.intentMatches(request: request, context: context) {
             return true
         }
+        if Self.bulkWorkspaceRenameIntentMatches(request: request, context: context) {
+            return true
+        }
         if StaticSafetyRunIntentShellPolicy.intentMatches(request: request, context: context) {
             return true
         }
@@ -125,6 +128,69 @@ struct StaticSafetyPolicy: Sendable {
         guard !urls.isEmpty else { return false }
         let message = context.userMessage.lowercased()
         return urls.contains { message.contains($0) }
+    }
+
+    private static func bulkWorkspaceRenameIntentMatches(
+        request: StaticSafetyRequest,
+        context: SafetyContext
+    ) -> Bool {
+        guard context.toolCall.name == "host.shell.run",
+              request.containsAffirmedAny(["rename"]),
+              request.containsToken("pdf"),
+              request.containsToken("invoices"),
+              request.containsToken("undo"),
+              let command = shellCommand(from: context.toolCall.argumentsJSON)
+        else {
+            return false
+        }
+
+        let lower = command.lowercased()
+        guard lower.contains("documents/invoices/"),
+              lower.contains(".pdf"),
+              lower.contains("invoice-rename-undo.csv"),
+              !StaticSafetyShellCommandSafety.containsNetworkReference(lower),
+              !lower.contains(";"),
+              !lower.contains("|"),
+              !lower.contains("`"),
+              !lower.contains("$("),
+              !lower.contains("<"),
+              !lower.contains(".."),
+              !lower.contains("~"),
+              !lower.contains("sudo "),
+              !lower.contains(" chmod "),
+              !lower.contains(" chown ")
+        else {
+            return false
+        }
+
+        let normalized = collapseWhitespace(command, foldNewlines: true)
+        let segments = normalized
+            .components(separatedBy: "&&")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard segments.count >= 2 else { return false }
+        return segments.allSatisfy { segment in
+            isInvoiceMoveSegment(segment) || isInvoiceUndoLogSegment(segment)
+        }
+    }
+
+    private static func isInvoiceMoveSegment(_ segment: String) -> Bool {
+        guard segment.hasPrefix("mv ") else { return false }
+        let lower = segment.lowercased()
+        return lower.contains("documents/invoices/")
+            && lower.filter({ $0 == "/" }).count >= 2
+            && lower.components(separatedBy: ".pdf").count == 3
+            && !lower.contains(" -")
+    }
+
+    private static func isInvoiceUndoLogSegment(_ segment: String) -> Bool {
+        guard segment.hasPrefix("printf ") else { return false }
+        let lower = segment.lowercased()
+        return lower.contains("old_path,new_path")
+            && lower.contains("documents/invoices/")
+            && lower.contains("invoice-rename-undo.csv")
+            && lower.contains(">")
+            && !lower.contains(">>")
     }
 
     /// Lowercased http(s) URLs found in `text`, trailing sentence punctuation trimmed.
@@ -223,6 +289,17 @@ struct StaticSafetyPolicy: Sendable {
         var parts: [String] = []
         collectStrings(from: object, into: &parts)
         return parts.joined(separator: " ")
+    }
+
+    private static func shellCommand(from json: String) -> String? {
+        guard let data = json.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+                as? [String: Any],
+              let command = object["cmd"] as? String
+        else {
+            return nil
+        }
+        return command
     }
 
     private static func collectStrings(from object: Any, into parts: inout [String]) {

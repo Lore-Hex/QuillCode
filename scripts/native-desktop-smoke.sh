@@ -398,6 +398,37 @@ for assertion in ("pullsGartnerClaims", "pullsForresterClaims", "flagsContradict
 analyst_final_answer = analyst.get("finalAnswer")
 if not isinstance(analyst_final_answer, str) or "Created `analyst-claims-contradictions.md`" not in analyst_final_answer:
     fail(f"row #70 final answer was malformed: {analyst_final_answer!r}")
+bulk_rename_cases = [
+    case for case in catalog_cases
+    if isinstance(case, dict) and case.get("taskID") == 71
+]
+if len(bulk_rename_cases) != 1:
+    fail(f"multi-file artifact smoke expected exactly one row #71 case: {catalog_cases!r}")
+bulk_rename = bulk_rename_cases[0]
+expected_bulk_rename_prompt = "Rename every PDF in `Documents/Invoices` to YYYY-MM-DD_Vendor_Amount.pdf based on what's inside each file, and leave an undo log."
+if bulk_rename.get("prompt") != expected_bulk_rename_prompt:
+    fail(f"row #71 prompt drifted: {bulk_rename.get('prompt')!r}")
+if bulk_rename.get("toolSequence") != ["host.file.read", "host.file.read", "host.shell.run"]:
+    fail(f"row #71 tool sequence drifted: {bulk_rename.get('toolSequence')!r}")
+bulk_rename_sources = bulk_rename.get("sourcePaths")
+if not isinstance(bulk_rename_sources, list) or len(bulk_rename_sources) != 2:
+    fail(f"row #71 source paths were malformed: {bulk_rename_sources!r}")
+for expected_suffix in (
+    "Documents/Invoices/invoice-acme.pdf",
+    "Documents/Invoices/invoice-northwind.pdf",
+):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in bulk_rename_sources):
+        fail(f"row #71 missed source path {expected_suffix}: {bulk_rename_sources!r}")
+bulk_rename_deliverable = bulk_rename.get("deliverablePath")
+if not isinstance(bulk_rename_deliverable, str) or not bulk_rename_deliverable.endswith("Documents/Invoices/invoice-rename-undo.csv"):
+    fail(f"row #71 deliverable path was malformed: {bulk_rename_deliverable!r}")
+bulk_rename_assertions = bulk_rename.get("assertions")
+for assertion in ("renamesAcmeInvoice", "renamesNorthwindInvoice", "writesUndoLog", "usesInvoiceFields"):
+    if not isinstance(bulk_rename_assertions, dict) or bulk_rename_assertions.get(assertion) is not True:
+        fail(f"row #71 assertion {assertion} was not true: {bulk_rename_assertions!r}")
+bulk_rename_final_answer = bulk_rename.get("finalAnswer")
+if not isinstance(bulk_rename_final_answer, str) or "wrote `Documents/Invoices/invoice-rename-undo.csv`" not in bulk_rename_final_answer:
+    fail(f"row #71 final answer was malformed: {bulk_rename_final_answer!r}")
 
 one_turn_coworker_smoke = report.get("oneTurnCoworkerSmoke")
 if not isinstance(one_turn_coworker_smoke, dict):
@@ -1360,6 +1391,11 @@ if ! grep -q 'Created `analyst-claims-contradictions.md`' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q 'invoice-rename-undo.csv' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected row #71 bulk rename answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 if ! grep -q 'Contents of `hello.txt`:' "$REPORT_PATH" || ! grep -q 'hello world' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not produce the expected follow-up file-read answer" >&2
   cat "$REPORT_PATH" >&2
@@ -1371,6 +1407,7 @@ if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" \
   || ! grep -q 'Created `team-action-brief.md`' "$HTML_PATH" \
   || ! grep -q 'Created `ceo-reorg-all-hands-email.md`' "$HTML_PATH" \
   || ! grep -q 'Created `analyst-claims-contradictions.md`' "$HTML_PATH" \
+  || ! grep -q 'invoice-rename-undo.csv' "$HTML_PATH" \
   || ! grep -q 'Inspected `Browser Smoke`' "$HTML_PATH" \
   || ! grep -q 'host.browser.inspect' "$HTML_PATH" \
   || ! grep -q 'host.file.write' "$HTML_PATH" \
