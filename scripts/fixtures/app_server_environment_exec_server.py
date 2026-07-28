@@ -130,7 +130,10 @@ class ExecServer:
                 pass
             connection.close()
         self.listener.close()
-        self.thread.join(timeout=5)
+        # _serve() uses a 15s socket timeout while waiting for the app-server peer.
+        # GitHub macOS runners can take the timeout path after socket shutdown, so
+        # close waits long enough for the fixture thread to unwind deterministically.
+        self.thread.join(timeout=20)
         if self.thread.is_alive():
             raise AssertionError("exec-server fixture did not stop")
         if self.error is not None:

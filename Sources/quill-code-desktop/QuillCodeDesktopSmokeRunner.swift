@@ -1059,6 +1059,24 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 33,
+                prompt: "Run `\(followUpSequenceCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote prospect-followups/ada-day-1.md, prospect-followups/ada-day-3.md, and prospect-followups/ada-day-7.md",
+                artifactRelativePath: "prospect-followups/ada-day-1.md",
+                artifactExpectation: .textContains("Great talking about the warehouse pilot"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "prospect-followups/ada-day-3.md",
+                        expectation: .textContains("bring the warehouse checklist")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "prospect-followups/ben-day-1.md",
+                        expectation: .textContains("pricing analytics dashboard")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1214,6 +1232,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var folderOrganizationCommand: String {
         return """
         mkdir -p Downloads && printf 'Receipt 1042\\n' > Downloads/receipt-1042.pdf && printf 'Screenshot launch\\n' > Downloads/screenshot-launch.png && printf 'Old temp installer\\n' > Downloads/installer.tmp && mkdir -p Downloads/Installers Downloads/Receipts Downloads/'Client Files' Downloads/Screenshots Downloads/Junk && mv Downloads/receipt-1042.pdf Downloads/Receipts/receipt-1042.pdf && mv Downloads/screenshot-launch.png Downloads/Screenshots/screenshot-launch.png && mv Downloads/installer.tmp Downloads/Junk/installer.tmp && printf 'Moved receipt-1042.pdf to Downloads/Receipts\\nMoved screenshot-launch.png to Downloads/Screenshots\\nJunk pile: Downloads/Junk/installer.tmp\\nNo files deleted.\\n' > downloads-organization-report.md && printf 'wrote downloads-organization-report.md\\n'
+        """
+    }
+
+    private static var followUpSequenceCommand: String {
+        return """
+        mkdir -p prospect-followups && printf 'Great talking about the warehouse pilot\\n' > prospect-followups/ada-day-1.md && printf 'bring the warehouse checklist\\n' > prospect-followups/ada-day-3.md && printf 'day seven pilot close\\n' > prospect-followups/ada-day-7.md && printf 'pricing analytics dashboard\\n' > prospect-followups/ben-day-1.md && printf 'wrote prospect-followups/ada-day-1.md, prospect-followups/ada-day-3.md, and prospect-followups/ada-day-7.md\\n'
         """
     }
 

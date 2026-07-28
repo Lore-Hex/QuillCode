@@ -168,7 +168,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #40, #43, #48, #52, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #40, #43, #48, #52, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -207,6 +207,8 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   percentages, over/under status, and explanation text through `host.shell.run`.
 - Row #32 proves folder organization creates categorized Downloads folders and a junk review report
   without deleting files through `host.shell.run`.
+- Row #33 proves prospect follow-up sequencing creates personalized day-1/day-3/day-7 email files
+  under `prospect-followups/` through `host.shell.run`.
 - Row #40 proves a KPI dashboard request creates a single-file HTML dashboard,
   `finance-kpi-dashboard.html`, with revenue, churn, headcount, and sparkline evidence through
   `host.shell.run`.
