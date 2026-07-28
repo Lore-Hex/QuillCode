@@ -621,6 +621,18 @@ expected_one_turn_cases = {
         "artifactContains": "2026-Q3-W01,Migration,webinar,Modernize legacy data,Ben",
         "answerContains": "wrote q3-content-calendar.csv",
     },
+    44: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "zoom-meeting-notes.md",
+        "artifactContains": "Decision: Ship onboarding checklist by 2026-07-21",
+        "answerContains": "wrote zoom-meeting-notes.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "zoom-0714.txt",
+                "artifactContains": "Raw Zoom transcript 2026-07-14",
+            },
+        ],
+    },
     48: {
         "toolName": "host.shell.run",
         "artifactSuffix": "sales-pivot-summary.csv",

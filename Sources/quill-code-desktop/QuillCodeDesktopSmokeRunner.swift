@@ -1219,6 +1219,20 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("2026-Q3-W01,Migration,webinar,Modernize legacy data,Ben")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 44,
+                prompt: "Run `\(zoomTranscriptNotesCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote zoom-meeting-notes.md",
+                artifactRelativePath: "zoom-meeting-notes.md",
+                artifactExpectation: .textContains("Decision: Ship onboarding checklist by 2026-07-21"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "zoom-0714.txt",
+                        expectation: .textContains("Raw Zoom transcript 2026-07-14")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 48,
                 prompt: "Run `printf 'view,rep,region,quarter,revenue\\nby_rep,Ada,All,All,184000\\nby_rep,Ben,All,All,132000\\nby_region,All,West,All,201000\\nby_region,All,East,All,115000\\nby_quarter,All,All,Q1,146000\\nby_quarter,All,All,Q2,170000\\ntop_deal,Ada,West,Q2,92000\\n' > sales-pivot-summary.csv && printf 'wrote sales-pivot-summary.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1412,6 +1426,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var safetyGuideLocalizationCommand: String {
         return """
         echo Safety_Guide_WARNING_BOX_ES_1_2>safety-guide-es.pdf&&echo Safety_Guide_WARNING_BOX_PT_1_2>safety-guide-pt.pdf&&echo wrote safety-guide-es.pdf and safety-guide-pt.pdf
+        """
+    }
+
+    private static var zoomTranscriptNotesCommand: String {
+        return """
+        printf 'Raw Zoom transcript 2026-07-14\\nAda: decision ship onboarding checklist by July 21\\nBen owns support macros due July 18\\nCam owns customer FAQ due July 19\\nLena owns training deck due July 22\\n' > zoom-0714.txt && printf '# Meeting Notes\\n\\n## Five-bullet summary\\n- Onboarding checklist is the launch blocker.\\n- Support macros need owner review.\\n- Customer FAQ needs final examples.\\n- Training deck follows the FAQ.\\n- Risks and due dates are tracked below.\\n\\n## Decisions\\n- Decision: Ship onboarding checklist by 2026-07-21\\n\\n## Owners and due dates\\n- Ben | Support macros | 2026-07-18\\n- Cam | Customer FAQ | 2026-07-19\\n- Lena | Training deck | 2026-07-22\\n' > zoom-meeting-notes.md && printf 'wrote zoom-meeting-notes.md\\n'
         """
     }
 
