@@ -448,6 +448,7 @@ struct QuillCodeDesktopOneTurnCoworkerSmokeCaseReport {
     var toolName: String
     var artifactPath: String
     var artifactContains: String
+    var secondaryArtifacts: [[String: String]] = []
     var finalAnswer: String
 
     var dictionary: [String: Any] {
@@ -457,6 +458,7 @@ struct QuillCodeDesktopOneTurnCoworkerSmokeCaseReport {
             "toolName": toolName,
             "artifactPath": artifactPath,
             "artifactContains": artifactContains,
+            "secondaryArtifacts": secondaryArtifacts,
             "finalAnswer": finalAnswer
         ]
     }

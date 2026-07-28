@@ -911,6 +911,20 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("No city state zip,,,,true")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 25,
+                prompt: "Run `\(newsletterValidationCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote newsletter-clean.csv and newsletter-bad-rows.csv",
+                artifactRelativePath: "newsletter-clean.csv",
+                artifactExpectation: .textContains("+14155550100"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "newsletter-bad-rows.csv",
+                        expectation: .textContains("invalid-email,not-a-phone")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 28,
                 prompt: "Create a file named `dependency-map.mmd` that says `flowchart LR\\n  Product --> Engineering\\n  Engineering --> Launch\\n  Launch --> Support\\n`",
                 expectedToolName: ToolDefinition.fileWrite.name,
@@ -953,6 +967,14 @@ enum QuillCodeDesktopSmokeRunner {
 
             let artifact = root.workspace.appendingPathComponent(smokeCase.artifactRelativePath)
             try verifyOneTurnCoworkerArtifact(smokeCase.artifactExpectation, artifact: artifact, taskID: smokeCase.taskID)
+            for secondaryArtifact in smokeCase.secondaryArtifacts {
+                let secondaryURL = root.workspace.appendingPathComponent(secondaryArtifact.relativePath)
+                try verifyOneTurnCoworkerArtifact(
+                    secondaryArtifact.expectation,
+                    artifact: secondaryURL,
+                    taskID: smokeCase.taskID
+                )
+            }
 
             reports.append(QuillCodeDesktopOneTurnCoworkerSmokeCaseReport(
                 taskID: smokeCase.taskID,
@@ -960,6 +982,14 @@ enum QuillCodeDesktopSmokeRunner {
                 toolName: smokeCase.expectedToolName,
                 artifactPath: artifact.path,
                 artifactContains: smokeCase.artifactExpectation.assertion,
+                secondaryArtifacts: smokeCase.secondaryArtifacts.map { secondaryArtifact in
+                    [
+                        "artifactPath": root.workspace
+                            .appendingPathComponent(secondaryArtifact.relativePath)
+                            .path,
+                        "artifactContains": secondaryArtifact.expectation.assertion
+                    ]
+                },
                 finalAnswer: controller.surface.transcript.messages.last?.text ?? ""
             ))
         }
@@ -972,6 +1002,15 @@ enum QuillCodeDesktopSmokeRunner {
         let csv = "quarter,north,south,west\\nQ1,42,28,18\\nQ2,50,33,24\\nQ3,58,36,31\\nQ4,66,42,37\\n"
         return """
         python3 -c "print((__import__('pathlib').Path('regional-revenue.csv').write_text('\(csv)'),__import__('pathlib').Path('regional-revenue-chart.png').write_bytes(__import__('base64').b64decode('\(pngBase64)')),'wrote regional-revenue-chart.png')[-1])"
+        """
+    }
+
+    private static var newsletterValidationCommand: String {
+        let sourceCSV = "email,phone\\nvalid@example.com,(415) 555-0100\\ninvalid-email,not-a-phone\\nmissingphone@example.com,\\n"
+        let cleanCSV = "email,phone_e164\\nvalid@example.com,+14155550100\\n"
+        let badRowsCSV = "email,phone,reason\\ninvalid-email,not-a-phone,invalid email and phone\\nmissingphone@example.com,,missing phone\\n"
+        return """
+        python3 -c "print((__import__('pathlib').Path('newsletter_list.csv').write_text('\(sourceCSV)'),__import__('pathlib').Path('newsletter-clean.csv').write_text('\(cleanCSV)'),__import__('pathlib').Path('newsletter-bad-rows.csv').write_text('\(badRowsCSV)'),'wrote newsletter-clean.csv and newsletter-bad-rows.csv')[-1])"
         """
     }
 
@@ -1387,6 +1426,12 @@ private struct OneTurnCoworkerSmokeCase {
     var expectedAnswer: String
     var artifactRelativePath: String
     var artifactExpectation: OneTurnCoworkerArtifactExpectation
+    var secondaryArtifacts: [OneTurnCoworkerArtifactCheck] = []
+}
+
+private struct OneTurnCoworkerArtifactCheck {
+    var relativePath: String
+    var expectation: OneTurnCoworkerArtifactExpectation
 }
 
 private enum OneTurnCoworkerArtifactExpectation {

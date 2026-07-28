@@ -371,6 +371,18 @@ expected_one_turn_cases = {
         "artifactContains": "No city state zip,,,,true",
         "answerContains": "wrote donors-split.csv",
     },
+    25: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "newsletter-clean.csv",
+        "artifactContains": "+14155550100",
+        "answerContains": "wrote newsletter-clean.csv and newsletter-bad-rows.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "newsletter-bad-rows.csv",
+                "artifactContains": "invalid-email,not-a-phone",
+            },
+        ],
+    },
     28: {
         "toolName": "host.file.write",
         "artifactSuffix": "dependency-map.mmd",
@@ -409,6 +421,30 @@ for task_id, expected in expected_one_turn_cases.items():
             "one-turn coworker task "
             f"{task_id} artifact assertion was {case.get('artifactContains')!r}"
         )
+    expected_secondary = expected.get("secondaryArtifacts", [])
+    secondary_artifacts = case.get("secondaryArtifacts", [])
+    if not isinstance(secondary_artifacts, list):
+        fail(f"one-turn coworker task {task_id} secondary artifacts were malformed: {secondary_artifacts!r}")
+    if len(secondary_artifacts) != len(expected_secondary):
+        fail(
+            f"one-turn coworker task {task_id} secondary artifact count was "
+            f"{len(secondary_artifacts)}, expected {len(expected_secondary)}"
+        )
+    for index, expected_artifact in enumerate(expected_secondary):
+        artifact = secondary_artifacts[index]
+        if not isinstance(artifact, dict):
+            fail(f"one-turn coworker task {task_id} secondary artifact {index} was malformed")
+        secondary_path = artifact.get("artifactPath")
+        if not isinstance(secondary_path, str) or not secondary_path.endswith(expected_artifact["artifactSuffix"]):
+            fail(
+                f"one-turn coworker task {task_id} secondary artifact {index} path was "
+                f"{secondary_path!r}, expected suffix {expected_artifact['artifactSuffix']!r}"
+            )
+        if artifact.get("artifactContains") != expected_artifact["artifactContains"]:
+            fail(
+                f"one-turn coworker task {task_id} secondary artifact {index} assertion was "
+                f"{artifact.get('artifactContains')!r}, expected {expected_artifact['artifactContains']!r}"
+            )
     final_answer = case.get("finalAnswer")
     if not isinstance(final_answer, str) or expected["answerContains"] not in final_answer:
         fail(f"one-turn coworker task {task_id} final answer was malformed: {final_answer!r}")
