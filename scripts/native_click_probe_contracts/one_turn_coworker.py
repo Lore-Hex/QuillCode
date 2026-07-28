@@ -425,6 +425,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    55: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "roadmap.md",
+        "artifactContains": "Theme: Retention-led Q3",
+        "answerContains": "wrote roadmap.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Q3-OKRs.docx",
+                "artifactContains": "Q3 OKR source",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
