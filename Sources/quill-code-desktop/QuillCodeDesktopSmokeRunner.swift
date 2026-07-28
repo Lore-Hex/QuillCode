@@ -158,6 +158,7 @@ enum QuillCodeDesktopSmokeRunner {
         guard html.contains("Wrote `hello.txt`."),
               html.contains("Contents of `hello.txt`:"),
               html.contains("hello world"),
+              html.contains("Created `ceo-reorg-all-hands-email.md`"),
               html.contains("Inspected `Browser Smoke`"),
               html.contains("host.browser.inspect"),
               html.contains("host.file.read"),
@@ -847,16 +848,103 @@ enum QuillCodeDesktopSmokeRunner {
                 "unexpected tool sequence: \(toolSequence.joined(separator: ", "))"
             )
         }
+        let finalAnswer = controller.surface.transcript.messages.last?.text ?? ""
+
+        let catalogCases = [
+            try await runAllHandsEmailCatalogSmoke(controller: controller, root: root)
+        ]
 
         return QuillCodeDesktopMultiFileArtifactSmokeReport(
             prompt: prompt,
             sourcePaths: [researchFile.path, risksFile.path],
             deliverablePath: deliverable.path,
             toolSequence: toolSequence,
-            finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
+            finalAnswer: finalAnswer,
             deliverableContainsResearch: containsResearch,
             deliverableContainsRisk: containsRisk,
-            deliverableContainsNextAction: containsNextAction
+            deliverableContainsNextAction: containsNextAction,
+            catalogCases: catalogCases
+        )
+    }
+
+    private static func runAllHandsEmailCatalogSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopMultiFileCatalogSmokeCaseReport {
+        let qaDirectory = root.workspace.appendingPathComponent("reorg-qa", isDirectory: true)
+        try FileManager.default.createDirectory(at: qaDirectory, withIntermediateDirectories: true)
+
+        let orgChanges = root.workspace.appendingPathComponent("org-changes.pptx")
+        let qaNotes = qaDirectory.appendingPathComponent("hardest-questions.md")
+        try """
+        Slide 1: Announce the reorg as a customer-response operating model.
+        Slide 2: Product Operations moves under Engineering; Customer Success and Support form one Customer Experience team.
+        Slide 3: No layoffs are planned; every employee keeps pay and manager support through the transition.
+        Slide 4: The transition starts August 12 and finishes September 30.
+        """.write(to: orgChanges, atomically: true, encoding: .utf8)
+        try """
+        # Eight hardest questions
+
+        1. Why now? Customer handoff delays need one accountable operating model.
+        2. Are there layoffs? No layoffs are planned.
+        3. Will compensation change? Pay and benefits stay the same.
+        4. Who changes managers? Product Operations and Support have the listed reporting changes.
+        5. What happens to current projects? Customer commitments remain funded.
+        6. How will decisions be made? Weekly escalation review with Engineering and Customer Experience.
+        7. What should managers say today? Use the provided team script and collect concerns.
+        8. Where do questions go? Send questions to reorg-qa@quill.example by Friday.
+        """.write(to: qaNotes, atomically: true, encoding: .utf8)
+
+        let prompt = "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` and the answers in `reorg-qa`, covering the eight hardest questions."
+        let previousTimelineCount = controller.surface.transcript.timelineItems.count
+        let previousToolCardCount = controller.surface.transcript.toolCards.count
+        controller.draft = prompt
+        controller.send()
+
+        let expectedAnswer = "Created `ceo-reorg-all-hands-email.md` from `org-changes.pptx` and `reorg-qa/hardest-questions.md`."
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: previousTimelineCount,
+            expectedAnswer: expectedAnswer
+        )
+
+        let deliverable = root.workspace.appendingPathComponent("ceo-reorg-all-hands-email.md")
+        let deliverableText = try String(contentsOf: deliverable, encoding: .utf8)
+        let assertions = [
+            "announcesReorg": deliverableText.contains("Customer Experience")
+                && deliverableText.contains("Product Operations moves under Engineering"),
+            "preservesTimeline": deliverableText.contains("August 12")
+                && deliverableText.contains("September 30"),
+            "coversEightQuestions": deliverableText.contains("1. Why now?")
+                && deliverableText.contains("8. Where do questions go?"),
+            "answersHardestQuestions": deliverableText.contains("No layoffs are planned")
+                && deliverableText.contains("Pay and benefits stay the same")
+                && deliverableText.contains("reorg-qa@quill.example")
+        ]
+        guard assertions.values.allSatisfy({ $0 }) else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(deliverable.path)
+        }
+
+        let toolSequence = Array(controller.surface.transcript.toolCards.dropFirst(previousToolCardCount))
+            .map(\.title)
+        guard toolSequence == [
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileWrite.name
+        ] else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(
+                "unexpected all-hands email tool sequence: \(toolSequence.joined(separator: ", "))"
+            )
+        }
+
+        return QuillCodeDesktopMultiFileCatalogSmokeCaseReport(
+            taskID: 69,
+            prompt: prompt,
+            sourcePaths: [orgChanges.path, qaNotes.path],
+            deliverablePath: deliverable.path,
+            toolSequence: toolSequence,
+            finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
+            assertions: assertions
         )
     }
 

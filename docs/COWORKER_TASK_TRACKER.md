@@ -164,11 +164,26 @@ This covers the deterministic local-artifact version of multi-file coworker deli
 depend on live SaaS data, proprietary document formats, or a logged-in browser session should remain
 gated until a row-specific live or packaged smoke proves the same workflow on that surface.
 
+## Packaged Multi-File Coworker Evidence Slice
+
+Packaged macOS smoke now preserves row-linked multi-file coworker evidence:
+
+- `multiFileArtifactSmoke.catalogCases` includes catalog row #69, All-Hands Email.
+- The row #69 smoke creates `org-changes.pptx` plus `reorg-qa/hardest-questions.md`, asks QuillCode
+  to draft the CEO all-hands email from those sources, and requires the desktop agent/tool loop to
+  dispatch `host.file.read`, `host.file.read`, and `host.file.write` in order.
+- The smoke verifies `ceo-reorg-all-hands-email.md` preserves the reorg announcement, transition
+  dates, and answers to all eight hard questions before the row can count as covered.
+- `packaged-multi-file-artifact.json` now carries the canonical spreadsheet URL and exact
+  `catalogTaskIDs: [69]`, and the coworker coverage rollup accepts it beside packaged one-turn,
+  live SaaS, live app Computer Use, and scheduled notification evidence.
+
 ## Packaged One-Turn Coworker Evidence Slice
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
 - `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49, #50, #51, #52, #53, #54, #55, #56, #57, #58, #59, #60, #61, #62, #63, #64, #65, #66, #67, and #68 through the actual
+  desktop agent/tool loop. `multiFileArtifactSmoke.catalogCases` drives row #69 through the same
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -302,15 +317,20 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   anomaly callout through `host.shell.run`.
 - Row #68 proves a weekly-review shell task runs with non-empty `host.shell.run` arguments and
   creates `weekly-review.csv`.
+- Row #69 proves all-hands reorg email drafting creates `ceo-reorg-all-hands-email.md` from
+  `org-changes.pptx` and `reorg-qa/hardest-questions.md`, preserving the reorg details, transition
+  dates, and answers to the eight hardest questions through `host.file.read`, `host.file.read`, and
+  `host.file.write`.
 - `packaged-one-turn-coworker.json` compares direct packaged executable and Launch Services launches,
   recording task IDs, tool sequence, artifact suffixes, artifact assertions, and final answers.
 - The manifest carries the canonical spreadsheet URL and exact `catalogTaskIDs`, and
   `scripts/native-click-probe-contracts.py coworker-catalog ... --output coworker-coverage.json`
   accepts it beside live SaaS and scheduled-notification evidence.
 
-This moves the one-turn local shell/file bucket from analogue evidence toward row-linked packaged
-evidence. Similar local rows can graduate only when their row ID appears in current smoke or coverage
-evidence, or when a stricter row-specific test proves the same tool path.
+Together with packaged one-turn evidence, this moves deterministic row-linked coverage through row
+#69. Similar local rows can graduate only when their row ID appears in current smoke or coverage
+evidence, or when a stricter row-specific test proves the same tool path. The next multi-file gap is
+row #70, Analyst Synthesis.
 
 ## Packaged Browser Workflow Evidence Slice
 

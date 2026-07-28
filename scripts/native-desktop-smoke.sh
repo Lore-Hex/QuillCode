@@ -335,6 +335,37 @@ if not isinstance(deliverable_path, str) or not deliverable_path.endswith("team-
 final_answer = multi_file_smoke.get("finalAnswer")
 if not isinstance(final_answer, str) or "Created `team-action-brief.md`" not in final_answer:
     fail(f"multi-file artifact smoke reported malformed final answer: {final_answer!r}")
+catalog_cases = multi_file_smoke.get("catalogCases")
+if not isinstance(catalog_cases, list):
+    fail(f"multi-file artifact smoke catalogCases was malformed: {catalog_cases!r}")
+all_hands_cases = [
+    case for case in catalog_cases
+    if isinstance(case, dict) and case.get("taskID") == 69
+]
+if len(all_hands_cases) != 1:
+    fail(f"multi-file artifact smoke expected exactly one row #69 case: {catalog_cases!r}")
+all_hands = all_hands_cases[0]
+expected_all_hands_prompt = "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` and the answers in `reorg-qa`, covering the eight hardest questions."
+if all_hands.get("prompt") != expected_all_hands_prompt:
+    fail(f"row #69 prompt drifted: {all_hands.get('prompt')!r}")
+if all_hands.get("toolSequence") != ["host.file.read", "host.file.read", "host.file.write"]:
+    fail(f"row #69 tool sequence drifted: {all_hands.get('toolSequence')!r}")
+all_hands_sources = all_hands.get("sourcePaths")
+if not isinstance(all_hands_sources, list) or len(all_hands_sources) != 2:
+    fail(f"row #69 source paths were malformed: {all_hands_sources!r}")
+for expected_suffix in ("org-changes.pptx", "reorg-qa/hardest-questions.md"):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in all_hands_sources):
+        fail(f"row #69 missed source path {expected_suffix}: {all_hands_sources!r}")
+all_hands_deliverable = all_hands.get("deliverablePath")
+if not isinstance(all_hands_deliverable, str) or not all_hands_deliverable.endswith("ceo-reorg-all-hands-email.md"):
+    fail(f"row #69 deliverable path was malformed: {all_hands_deliverable!r}")
+all_hands_assertions = all_hands.get("assertions")
+for assertion in ("announcesReorg", "preservesTimeline", "coversEightQuestions", "answersHardestQuestions"):
+    if not isinstance(all_hands_assertions, dict) or all_hands_assertions.get(assertion) is not True:
+        fail(f"row #69 assertion {assertion} was not true: {all_hands_assertions!r}")
+all_hands_final_answer = all_hands.get("finalAnswer")
+if not isinstance(all_hands_final_answer, str) or "Created `ceo-reorg-all-hands-email.md`" not in all_hands_final_answer:
+    fail(f"row #69 final answer was malformed: {all_hands_final_answer!r}")
 
 one_turn_coworker_smoke = report.get("oneTurnCoworkerSmoke")
 if not isinstance(one_turn_coworker_smoke, dict):
@@ -1287,6 +1318,11 @@ if ! grep -q 'Created `team-action-brief.md`' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q 'Created `ceo-reorg-all-hands-email.md`' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected row #69 multi-file artifact answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 if ! grep -q 'Contents of `hello.txt`:' "$REPORT_PATH" || ! grep -q 'hello world' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not produce the expected follow-up file-read answer" >&2
   cat "$REPORT_PATH" >&2
@@ -1296,6 +1332,7 @@ if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" \
   || ! grep -q 'Contents of `hello.txt`:' "$HTML_PATH" \
   || ! grep -q 'hello world' "$HTML_PATH" \
   || ! grep -q 'Created `team-action-brief.md`' "$HTML_PATH" \
+  || ! grep -q 'Created `ceo-reorg-all-hands-email.md`' "$HTML_PATH" \
   || ! grep -q 'Inspected `Browser Smoke`' "$HTML_PATH" \
   || ! grep -q 'host.browser.inspect' "$HTML_PATH" \
   || ! grep -q 'host.file.write' "$HTML_PATH" \

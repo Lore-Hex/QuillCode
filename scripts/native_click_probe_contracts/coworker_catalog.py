@@ -169,6 +169,48 @@ def _validated_packaged_one_turn_manifest(
     }
 
 
+def _validated_packaged_multi_file_manifest(
+    manifest: dict[str, Any],
+    path: Path,
+    base_directory: Path,
+) -> dict[str, Any]:
+    require(
+        manifest.get("packagedMultiFileArtifactValidated") is True,
+        f"{path} must be a packaged multi-file artifact validation manifest",
+    )
+    base = _manifest_base(manifest, path, base_directory)
+    expected_task_ids = [69]
+    require(
+        base["catalogTaskIDs"] == expected_task_ids,
+        f"{path}.catalogTaskIDs must be {expected_task_ids}",
+    )
+    require(
+        manifest.get("taskIDs") == expected_task_ids,
+        f"{path}.taskIDs must match catalogTaskIDs",
+    )
+    require(
+        manifest.get("multiFileArtifactMatchesDirect") is True
+        and manifest.get("launchServicesMatchesDirect") is True,
+        f"{path} must prove direct executable and Launch Services multi-file smoke match",
+    )
+    catalog_cases = manifest.get("catalogCases")
+    require(
+        isinstance(catalog_cases, list)
+        and len(catalog_cases) == 1
+        and isinstance(catalog_cases[0], dict)
+        and catalog_cases[0].get("taskID") == 69,
+        f"{path} must include the row #69 multi-file catalog case",
+    )
+
+    return {
+        **base,
+        "evidenceType": "packaged-multi-file-artifact",
+        "serviceName": "QuillCode Packaged Smoke",
+        "taskName": "All-hands email multi-file artifact smoke",
+        "urlHost": "local-packaged-app",
+    }
+
+
 def _validated_manifest(manifest: dict[str, Any], path: Path, base_directory: Path) -> dict[str, Any]:
     if manifest.get("liveSaaSValidated") is True:
         return _validated_live_saas_manifest(manifest, path, base_directory)
@@ -178,9 +220,12 @@ def _validated_manifest(manifest: dict[str, Any], path: Path, base_directory: Pa
         return _validated_live_app_computer_use_manifest(manifest, path, base_directory)
     if manifest.get("packagedOneTurnCoworkerValidated") is True:
         return _validated_packaged_one_turn_manifest(manifest, path, base_directory)
+    if manifest.get("packagedMultiFileArtifactValidated") is True:
+        return _validated_packaged_multi_file_manifest(manifest, path, base_directory)
     raise SystemExit(
         f"{path} must be a supported coworker evidence manifest "
-        "(live SaaS, live app Computer Use, scheduled notification observation, or packaged one-turn coworker)"
+        "(live SaaS, live app Computer Use, scheduled notification observation, "
+        "packaged one-turn coworker, or packaged multi-file artifact)"
     )
 
 

@@ -382,6 +382,15 @@ public struct MockLLMClient: LLMClient {
         for lowercasedRequest: String,
         tools: [ToolDefinition]
     ) -> AgentAction? {
+        if lowercasedRequest.contains("all-hands email"),
+           lowercasedRequest.contains("org-changes.pptx"),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "org-changes.pptx"])
+            ))
+        }
+
         guard lowercasedRequest.contains("team action brief"),
               tools.contains(where: { $0.name == ToolDefinition.fileRead.name })
         else { return nil }
@@ -392,6 +401,20 @@ public struct MockLLMClient: LLMClient {
     }
 
     private static func nextMultiFileArtifactAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        if let action = Self.nextAllHandsEmailAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
+        if let action = Self.nextTeamActionBriefAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
+        return nil
+    }
+
+    private static func nextTeamActionBriefAction(
         thread: ChatThread,
         feedback: AgentToolFeedback,
         tools: [ToolDefinition]
@@ -432,6 +455,52 @@ public struct MockLLMClient: LLMClient {
         return nil
     }
 
+    private static func nextAllHandsEmailAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            let content = $0.content.lowercased()
+            return $0.role == .user
+                && content.contains("all-hands email")
+                && content.contains("org-changes.pptx")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "org-changes.pptx",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "reorg-qa/hardest-questions.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "reorg-qa/hardest-questions.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "ceo-reorg-all-hands-email.md",
+                    "content": Self.allHandsEmailContent
+                ])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileWrite.name,
+           path == "ceo-reorg-all-hands-email.md" {
+            return .say(
+                "Created `ceo-reorg-all-hands-email.md` from `org-changes.pptx` and `reorg-qa/hardest-questions.md`."
+            )
+        }
+
+        return nil
+    }
+
     private static var teamActionBriefContent: String {
         """
         # Team Action Brief
@@ -446,6 +515,31 @@ public struct MockLLMClient: LLMClient {
 
         ## Next action
         - Run the pairing fallback smoke and attach the evidence to the release tracker.
+        """
+    }
+
+    private static var allHandsEmailContent: String {
+        """
+        # CEO All-Hands Email: Customer-Response Reorg
+
+        Team,
+
+        We are reorganizing around a simpler customer-response operating model. Product Operations moves under Engineering, and Customer Success and Support will become one Customer Experience team. The transition starts August 12 and finishes September 30.
+
+        No layoffs are planned. Pay and benefits stay the same, and managers will support every employee through the change.
+
+        ## Eight hardest questions
+
+        1. Why now? Customer handoff delays need one accountable operating model.
+        2. Are there layoffs? No layoffs are planned.
+        3. Will compensation change? Pay and benefits stay the same.
+        4. Who changes managers? Product Operations and Support have the listed reporting changes.
+        5. What happens to current projects? Customer commitments remain funded.
+        6. How will decisions be made? Weekly escalation review with Engineering and Customer Experience.
+        7. What should managers say today? Use the provided team script and collect concerns.
+        8. Where do questions go? Send questions to reorg-qa@quill.example by Friday.
+
+        Thank you for helping make this transition clear and calm for customers and teams.
         """
     }
 

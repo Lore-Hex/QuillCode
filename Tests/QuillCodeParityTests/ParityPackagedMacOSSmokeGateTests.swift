@@ -134,8 +134,19 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(multiFileArtifactValidator.contains(#""host.file.read", "host.file.read", "host.file.write""#))
         XCTAssertTrue(multiFileArtifactValidator.contains(#""team-action-brief.md""#))
         XCTAssertTrue(multiFileArtifactValidator.contains(#""multiFileArtifactMatchesDirect": True"#))
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""packagedMultiFileArtifactValidated": True"#))
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""catalogSpreadsheetURL": CATALOG_SPREADSHEET_URL"#))
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""catalogTaskIDs": EXPECTED_CATALOG_TASK_IDS"#))
+        XCTAssertTrue(
+            multiFileArtifactValidator.contains(
+                #""Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` "#
+            )
+        )
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""ceo-reorg-all-hands-email.md""#))
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""coversEightQuestions""#))
 
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopOneTurnCoworkerSmokeReport"))
+        XCTAssertTrue(supportText.contains("struct QuillCodeDesktopMultiFileCatalogSmokeCaseReport"))
         XCTAssertTrue(supportText.contains(#""oneTurnCoworkerSmoke": oneTurnCoworkerSmoke.dictionary"#))
         let oneTurnCoworkerValidator = try String(
             contentsOf: Self.packageRoot()

@@ -414,6 +414,7 @@ struct QuillCodeDesktopMultiFileArtifactSmokeReport {
     var deliverableContainsResearch: Bool
     var deliverableContainsRisk: Bool
     var deliverableContainsNextAction: Bool
+    var catalogCases: [QuillCodeDesktopMultiFileCatalogSmokeCaseReport] = []
 
     var dictionary: [String: Any] {
         [
@@ -424,7 +425,31 @@ struct QuillCodeDesktopMultiFileArtifactSmokeReport {
             "finalAnswer": finalAnswer,
             "deliverableContainsResearch": deliverableContainsResearch,
             "deliverableContainsRisk": deliverableContainsRisk,
-            "deliverableContainsNextAction": deliverableContainsNextAction
+            "deliverableContainsNextAction": deliverableContainsNextAction,
+            "catalogCases": catalogCases.map(\.dictionary),
+            "catalogTaskIDs": catalogCases.map(\.taskID)
+        ]
+    }
+}
+
+struct QuillCodeDesktopMultiFileCatalogSmokeCaseReport {
+    var taskID: Int
+    var prompt: String
+    var sourcePaths: [String]
+    var deliverablePath: String
+    var toolSequence: [String]
+    var finalAnswer: String
+    var assertions: [String: Bool]
+
+    var dictionary: [String: Any] {
+        [
+            "taskID": taskID,
+            "prompt": prompt,
+            "sourcePaths": sourcePaths,
+            "deliverablePath": deliverablePath,
+            "toolSequence": toolSequence,
+            "finalAnswer": finalAnswer,
+            "assertions": assertions
         ]
     }
 }

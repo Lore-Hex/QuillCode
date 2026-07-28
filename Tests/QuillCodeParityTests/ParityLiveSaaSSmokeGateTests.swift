@@ -185,6 +185,64 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(coverage.contains(#""68": ["#), coverage)
     }
 
+    func testCoworkerCatalogCoverageAcceptsPackagedMultiFileArtifactRows() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-coworker-catalog-multi-file-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let oneTurnManifestURL = temporaryDirectory.appendingPathComponent("packaged-one-turn-coworker.json")
+        let multiFileManifestURL = temporaryDirectory.appendingPathComponent("packaged-multi-file-artifact.json")
+        let coverageURL = temporaryDirectory.appendingPathComponent("coworker-coverage.json")
+        try """
+        {
+          "ok": true,
+          "packagedOneTurnCoworkerValidated": true,
+          "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
+          "catalogTaskIDs": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68],
+          "taskIDs": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68],
+          "launchServicesMatchesDirect": true,
+          "oneTurnCoworkerMatchesDirect": true
+        }
+        """.write(to: oneTurnManifestURL, atomically: true, encoding: .utf8)
+        try """
+        {
+          "ok": true,
+          "packagedMultiFileArtifactValidated": true,
+          "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
+          "catalogTaskIDs": [69],
+          "taskIDs": [69],
+          "launchServicesMatchesDirect": true,
+          "multiFileArtifactMatchesDirect": true,
+          "catalogCases": [
+            {
+              "taskID": 69,
+              "prompt": "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` and the answers in `reorg-qa`, covering the eight hardest questions."
+            }
+          ]
+        }
+        """.write(to: multiFileManifestURL, atomically: true, encoding: .utf8)
+
+        let result = try Self.runPython(
+            Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
+            arguments: [
+                "coworker-catalog",
+                oneTurnManifestURL.path,
+                multiFileManifestURL.path,
+                "--output",
+                coverageURL.path,
+            ]
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 55"#), coverage)
+        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 151"#), coverage)
+        XCTAssertTrue(coverage.contains(#""evidenceType": "packaged-multi-file-artifact""#), coverage)
+        XCTAssertTrue(coverage.contains(#""69": ["#), coverage)
+    }
+
     func testCoworkerCatalogCoverageRejectsManifestWithoutCatalogRows() throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-coworker-catalog-rejection-tests")
