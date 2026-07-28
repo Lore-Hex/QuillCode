@@ -214,6 +214,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    37: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "senior-csm-job-description.md",
+        "artifactContains": "Senior Customer Success Manager",
+        "answerContains": "wrote senior-csm-job-description.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "senior-csm-screening-questions.md",
+                "artifactContains": "at-risk account",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",

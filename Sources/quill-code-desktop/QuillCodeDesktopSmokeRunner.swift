@@ -1119,6 +1119,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 37,
+                prompt: "Run `\(jobDescriptionCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote senior-csm-job-description.md",
+                artifactRelativePath: "senior-csm-job-description.md",
+                artifactExpectation: .textContains("Senior Customer Success Manager"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "senior-csm-screening-questions.md",
+                        expectation: .textContains("at-risk account")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1298,6 +1312,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var vendorDeduplicationCommand: String {
         return """
         printf 'vendor_name,invoice_count\\nAcme Inc,1\\nACME, Inc.,1\\nAcme Incorporated,1\\nNorthwind LLC,2\\n' > ap_vendors.csv && printf 'raw_vendor,standard_vendor\\nAcme Inc,Acme\\nACME, Inc.,Acme\\nAcme Incorporated,Acme\\nNorthwind LLC,Northwind\\n' > vendor-name-mapping.csv && printf 'standard_vendor,source_rows,status\\nAcme,3,merged\\nNorthwind,1,unchanged\\n' > ap-vendors-standardized.csv && printf 'wrote vendor-name-mapping.csv and ap-vendors-standardized.csv\\n'
+        """
+    }
+
+    private static var jobDescriptionCommand: String {
+        return """
+        printf CSM > hiring-notes.md && printf 'Senior Customer Success Manager' > senior-csm-job-description.md && printf 'at-risk account' > senior-csm-screening-questions.md && printf 'wrote senior-csm-job-description.md\\n'
         """
     }
 
