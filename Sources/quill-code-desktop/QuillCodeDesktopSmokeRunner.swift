@@ -1566,6 +1566,24 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 67,
+                prompt: "Run \(weeklyReportingCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote weekly-sales-summary.md",
+                artifactRelativePath: "weekly-sales-summary.md",
+                artifactExpectation: .textContains("Week-over-week revenue change: +12.4pct"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "weekly-sales-2026-W29.csv",
+                        expectation: .textContains("Delta,25500,14200")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "weekly-sales-top-movers.csv",
+                        expectation: .textContains("Delta,+11300,+79.6pct")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1875,6 +1893,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var versionCleanupCommand: String {
         return """
         mkdir -p Shared/Proposals Shared/empty-folder Shared/Receipts&&echo mac metadata>Shared/.DS_Store&&echo old proposal>Shared/Proposals/'Copy of acme-final.pdf'&&echo older proposal>Shared/Proposals/acme-final-final.pdf&&echo newest proposal>Shared/Proposals/acme-final.pdf&&rm Shared/.DS_Store&&rmdir Shared/empty-folder&&rm Shared/Proposals/'Copy of acme-final.pdf' Shared/Proposals/acme-final-final.pdf&&echo '# Shared cleanup plan'>shared-cleanup-plan.md&&echo 'Keep: Shared/Proposals/acme-final.pdf'>>shared-cleanup-plan.md&&echo 'Deleted: Shared/.DS_Store'>>shared-cleanup-plan.md&&echo 'Deleted: Shared/empty-folder'>>shared-cleanup-plan.md&&echo 'Removed older duplicates: Copy of acme-final.pdf and acme-final-final.pdf'>>shared-cleanup-plan.md&&echo action,path,reason>Shared/cleanup-audit.csv&&echo deleted,Shared/.DS_Store,metadata>>Shared/cleanup-audit.csv&&echo deleted,Shared/empty-folder,empty folder>>Shared/cleanup-audit.csv&&echo kept,Shared/Proposals/acme-final.pdf,newest duplicate cluster>>Shared/cleanup-audit.csv&&echo wrote shared-cleanup-plan.md
+        """
+    }
+
+    private static var weeklyReportingCommand: String {
+        return """
+        echo rep,current_week_revenue,prior_week_revenue>weekly-sales-2026-W29.csv&&echo Ada,41000,39000>>weekly-sales-2026-W29.csv&&echo Ben,36500,37000>>weekly-sales-2026-W29.csv&&echo Cam,29800,25000>>weekly-sales-2026-W29.csv&&echo Delta,25500,14200>>weekly-sales-2026-W29.csv&&echo Erin,18400,18100>>weekly-sales-2026-W29.csv&&echo rep,change,change_pct>weekly-sales-top-movers.csv&&echo Delta,+11300,+79.6pct>>weekly-sales-top-movers.csv&&echo Cam,+4800,+19.2pct>>weekly-sales-top-movers.csv&&echo Ada,+2000,+5.1pct>>weekly-sales-top-movers.csv&&echo Erin,+300,+1.7pct>>weekly-sales-top-movers.csv&&echo Ben,-500,-1.4pct>>weekly-sales-top-movers.csv&&echo '# Weekly Sales Summary W29'>weekly-sales-summary.md&&echo 'Week-over-week revenue change: +12.4pct'>>weekly-sales-summary.md&&echo 'Top five movers: Delta +79.6pct, Cam +19.2pct, Ada +5.1pct, Erin +1.7pct, Ben -1.4pct.'>>weekly-sales-summary.md&&echo 'Anomaly: Delta more than doubled normal weekly movement and should be checked against deal timing.'>>weekly-sales-summary.md&&echo wrote weekly-sales-summary.md
         """
     }
 
