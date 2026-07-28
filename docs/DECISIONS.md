@@ -47,6 +47,11 @@
   `Documents/Invoices/invoice-rename-undo.csv`, verifies both renamed outputs and undo mappings, and
   exposes `catalogTaskIDs: [69, 70, 71]` so deterministic multi-file mutation coverage advances in
   the coworker coverage rollup.
+- **Update:** The packaged multi-file artifact manifest now includes catalog row #72, Capacity
+  Planning. The row #72 case reads `allocations.csv` plus three project plans, writes
+  `capacity-rebalance.md`, verifies overbooked people, named swaps, project constraints, and
+  at-or-under-capacity outcomes, and exposes `catalogTaskIDs: [69, 70, 71, 72]` so deterministic
+  multi-document planning coverage advances in the coworker coverage rollup.
 
 ## 2026-07-27: TrustedRouter balance history is locally observed
 

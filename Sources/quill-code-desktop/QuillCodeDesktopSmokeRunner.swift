@@ -854,7 +854,8 @@ enum QuillCodeDesktopSmokeRunner {
         let catalogCases = [
             try await runAllHandsEmailCatalogSmoke(controller: controller, root: root),
             try await runAnalystSynthesisCatalogSmoke(controller: controller, root: root),
-            try await runBulkInvoiceRenameCatalogSmoke(controller: controller, root: root)
+            try await runBulkInvoiceRenameCatalogSmoke(controller: controller, root: root),
+            try await runCapacityPlanningCatalogSmoke(controller: controller, root: root)
         ]
 
         return QuillCodeDesktopMultiFileArtifactSmokeReport(
@@ -1102,6 +1103,94 @@ enum QuillCodeDesktopSmokeRunner {
             prompt: prompt,
             sourcePaths: [acme.path, northwind.path],
             deliverablePath: undoLog.path,
+            toolSequence: toolSequence,
+            finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
+            assertions: assertions
+        )
+    }
+
+    private static func runCapacityPlanningCatalogSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopMultiFileCatalogSmokeCaseReport {
+        let plansDirectory = root.workspace.appendingPathComponent("project-plans", isDirectory: true)
+        try FileManager.default.createDirectory(at: plansDirectory, withIntermediateDirectories: true)
+
+        let allocations = root.workspace.appendingPathComponent("allocations.csv")
+        let atlas = plansDirectory.appendingPathComponent("project-atlas.md")
+        let beacon = plansDirectory.appendingPathComponent("project-beacon.md")
+        let comet = plansDirectory.appendingPathComponent("project-comet.md")
+        try """
+        person,atlas,beacon,comet,total
+        Ana,45,45,35,125
+        Bo,20,25,25,70
+        Cy,50,20,15,85
+        Dev,35,30,50,115
+        Eli,15,35,15,65
+        """.write(to: allocations, atomically: true, encoding: .utf8)
+        try """
+        # Project Atlas
+        Launch coordination is launch-critical and should stay with Cy.
+        Atlas documentation can move if a teammate has capacity.
+        """.write(to: atlas, atomically: true, encoding: .utf8)
+        try """
+        # Project Beacon
+        Beacon needs reporting coverage and Eli already owns analytics context.
+        """.write(to: beacon, atomically: true, encoding: .utf8)
+        try """
+        # Project Comet
+        Comet QA automation can move to Bo because Bo owns the test plan.
+        """.write(to: comet, atomically: true, encoding: .utf8)
+
+        let prompt = "Check `allocations.csv` for anyone booked over 100% across the three concurrent projects and propose a rebalance with named swaps."
+        let previousTimelineCount = controller.surface.transcript.timelineItems.count
+        let previousToolCardCount = controller.surface.transcript.toolCards.count
+        controller.draft = prompt
+        controller.send()
+
+        let expectedAnswer = "Created `capacity-rebalance.md` from `allocations.csv` and the three project plans."
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: previousTimelineCount,
+            expectedAnswer: expectedAnswer
+        )
+
+        let deliverable = root.workspace.appendingPathComponent("capacity-rebalance.md")
+        let deliverableText = try String(contentsOf: deliverable, encoding: .utf8)
+        let assertions = [
+            "findsOverbookedPeople": deliverableText.contains("Ana is booked at 125%")
+                && deliverableText.contains("Dev is booked at 115%"),
+            "proposesNamedSwaps": deliverableText.contains("Move 20% of Ana's Beacon reporting work to Eli")
+                && deliverableText.contains("Move 15% of Dev's Comet QA automation work to Bo"),
+            "usesProjectConstraints": deliverableText.contains("Keep Cy on Atlas launch coordination")
+                && deliverableText.contains("launch-critical"),
+            "balancesUnderOrAtCapacity": deliverableText.contains("Ana drops from 125%")
+                && deliverableText.contains("Dev drops from 115% to 100%")
+                && deliverableText.contains("Eli rises from 65% to 90%")
+        ]
+        guard assertions.values.allSatisfy({ $0 }) else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(deliverable.path)
+        }
+
+        let toolSequence = Array(controller.surface.transcript.toolCards.dropFirst(previousToolCardCount))
+            .map(\.title)
+        guard toolSequence == [
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileWrite.name
+        ] else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(
+                "unexpected capacity planning tool sequence: \(toolSequence.joined(separator: ", "))"
+            )
+        }
+
+        return QuillCodeDesktopMultiFileCatalogSmokeCaseReport(
+            taskID: 72,
+            prompt: prompt,
+            sourcePaths: [allocations.path, atlas.path, beacon.path, comet.path],
+            deliverablePath: deliverable.path,
             toolSequence: toolSequence,
             finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
             assertions: assertions

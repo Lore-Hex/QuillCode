@@ -382,6 +382,17 @@ public struct MockLLMClient: LLMClient {
         for lowercasedRequest: String,
         tools: [ToolDefinition]
     ) -> AgentAction? {
+        if lowercasedRequest.contains("allocations.csv"),
+           lowercasedRequest.contains("booked over 100%"),
+           lowercasedRequest.contains("rebalance"),
+           lowercasedRequest.contains("named swaps"),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "allocations.csv"])
+            ))
+        }
+
         if lowercasedRequest.contains("rename every pdf"),
            lowercasedRequest.contains("invoices"),
            lowercasedRequest.contains("undo log"),
@@ -425,6 +436,9 @@ public struct MockLLMClient: LLMClient {
         feedback: AgentToolFeedback,
         tools: [ToolDefinition]
     ) -> AgentAction? {
+        if let action = Self.nextCapacityPlanningAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
         if let action = Self.nextBulkInvoiceRenameAction(thread: thread, feedback: feedback, tools: tools) {
             return action
         }
@@ -437,6 +451,72 @@ public struct MockLLMClient: LLMClient {
         if let action = Self.nextTeamActionBriefAction(thread: thread, feedback: feedback, tools: tools) {
             return action
         }
+        return nil
+    }
+
+    private static func nextCapacityPlanningAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            let content = $0.content.lowercased()
+            return $0.role == .user
+                && content.contains("allocations.csv")
+                && content.contains("booked over 100%")
+                && content.contains("rebalance")
+                && content.contains("named swaps")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "allocations.csv",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "project-plans/project-atlas.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "project-plans/project-atlas.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "project-plans/project-beacon.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "project-plans/project-beacon.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "project-plans/project-comet.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "project-plans/project-comet.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "capacity-rebalance.md",
+                    "content": Self.capacityPlanningContent
+                ])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileWrite.name,
+           path == "capacity-rebalance.md" {
+            return .say(
+                "Created `capacity-rebalance.md` from `allocations.csv` and the three project plans."
+            )
+        }
+
         return nil
     }
 
@@ -647,6 +727,26 @@ public struct MockLLMClient: LLMClient {
     private static var bulkInvoiceRenameCommand: String {
         """
         mv 'Documents/Invoices/invoice-acme.pdf' 'Documents/Invoices/2026-07-03_Acme_1542.10.pdf' && mv 'Documents/Invoices/invoice-northwind.pdf' 'Documents/Invoices/2026-07-09_Northwind_880.00.pdf' && printf 'old_path,new_path\\nDocuments/Invoices/invoice-acme.pdf,Documents/Invoices/2026-07-03_Acme_1542.10.pdf\\nDocuments/Invoices/invoice-northwind.pdf,Documents/Invoices/2026-07-09_Northwind_880.00.pdf\\n' > 'Documents/Invoices/invoice-rename-undo.csv'
+        """
+    }
+
+    private static var capacityPlanningContent: String {
+        """
+        # Capacity Rebalance
+
+        ## Over 100%
+        - Ana is booked at 125% across Atlas, Beacon, and Comet.
+        - Dev is booked at 115% across Atlas, Beacon, and Comet.
+
+        ## Named swaps
+        - Move 20% of Ana's Beacon reporting work to Eli, who has 65% allocation and Beacon analytics context.
+        - Move 15% of Dev's Comet QA automation work to Bo, who has 70% allocation and owns the Comet test plan.
+        - Keep Cy on Atlas launch coordination because the Atlas plan marks that work as launch-critical.
+
+        ## Result
+        - Ana drops from 125% to 105%, then moves 5% Atlas documentation to Eli to reach 100%.
+        - Dev drops from 115% to 100%.
+        - Eli rises from 65% to 90%; Bo rises from 70% to 85%.
         """
     }
 
