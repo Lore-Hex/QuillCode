@@ -40,6 +40,18 @@ EXPECTED_CASES = {
         "artifactContains": "No city state zip,,,,true",
         "answerContains": "wrote donors-split.csv",
     },
+    25: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "newsletter-clean.csv",
+        "artifactContains": "+14155550100",
+        "answerContains": "wrote newsletter-clean.csv and newsletter-bad-rows.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "newsletter-bad-rows.csv",
+                "artifactContains": "invalid-email,not-a-phone",
+            },
+        ],
+    },
     28: {
         "toolName": "host.file.write",
         "artifactSuffix": "dependency-map.mmd",
@@ -86,6 +98,30 @@ def validated_one_turn_coworker(report: dict[str, Any], label: str) -> dict[str,
             case.get("artifactContains") == expected["artifactContains"],
             f"{label} task {task_id} artifact assertion was {case.get('artifactContains')!r}",
         )
+        expected_secondary = expected.get("secondaryArtifacts", [])
+        secondary_artifacts = case.get("secondaryArtifacts", [])
+        require(
+            isinstance(secondary_artifacts, list),
+            f"{label} task {task_id} secondary artifacts were malformed: {secondary_artifacts!r}",
+        )
+        require(
+            len(secondary_artifacts) == len(expected_secondary),
+            f"{label} task {task_id} secondary artifact count was {len(secondary_artifacts)}, "
+            f"expected {len(expected_secondary)}",
+        )
+        for index, expected_artifact in enumerate(expected_secondary):
+            artifact = secondary_artifacts[index]
+            require(isinstance(artifact, dict), f"{label} task {task_id} secondary artifact {index} was malformed")
+            artifact_path = artifact.get("artifactPath")
+            require(
+                isinstance(artifact_path, str) and artifact_path.endswith(expected_artifact["artifactSuffix"]),
+                f"{label} task {task_id} secondary artifact {index} path was malformed: {artifact_path!r}",
+            )
+            require(
+                artifact.get("artifactContains") == expected_artifact["artifactContains"],
+                f"{label} task {task_id} secondary artifact {index} assertion was "
+                f"{artifact.get('artifactContains')!r}",
+            )
         final_answer = case.get("finalAnswer")
         require(
             isinstance(final_answer, str) and expected["answerContains"] in final_answer,
@@ -105,6 +141,19 @@ def semantic_one_turn_coworker(smoke: dict[str, Any]) -> dict[str, Any]:
             for case in cases
         ],
         "artifactContains": [case["artifactContains"] for case in cases],
+        "secondaryArtifacts": [
+            [
+                {
+                    "artifactSuffix": expected_artifact["artifactSuffix"],
+                    "artifactContains": artifact["artifactContains"],
+                }
+                for artifact, expected_artifact in zip(
+                    case.get("secondaryArtifacts", []),
+                    EXPECTED_CASES[case["taskID"]].get("secondaryArtifacts", []),
+                )
+            ]
+            for case in cases
+        ],
         "finalAnswers": [case["finalAnswer"] for case in cases],
     }
 
