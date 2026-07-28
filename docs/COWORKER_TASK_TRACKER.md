@@ -168,7 +168,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #52, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49, #52, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -244,6 +244,9 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   source through `host.shell.run`.
 - Row #48 proves a pivot-style sales summary request creates `sales-pivot-summary.csv`
   with revenue grouped by rep, region, quarter, and top-deal evidence through `host.shell.run`.
+- Row #49 proves an ERP migration RACI request creates `erp-migration-raci.csv` from
+  `stakeholders.csv` and `phase-plan.md`, preserving responsible, accountable, consulted, and
+  informed assignments through `host.shell.run`.
 - Row #52 proves a customer-facing release-notes request creates `release-notes-2026-08.md`
   with grouped feature-area prose through `host.shell.run`.
 - Row #68 proves a weekly-review shell task runs with non-empty `host.shell.run` arguments and

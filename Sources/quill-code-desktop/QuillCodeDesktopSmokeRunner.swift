@@ -1283,6 +1283,24 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("top_deal,Ada,West,Q2,92000")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 49,
+                prompt: "Run \(raciChartCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote erp-migration-raci.csv",
+                artifactRelativePath: "erp-migration-raci.csv",
+                artifactExpectation: .textContains("Data migration,Ada,Ben,Cam,Dee"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "stakeholders.csv",
+                        expectation: .textContains("Ada,Migration Lead")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "phase-plan.md",
+                        expectation: .textContains("Data migration")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 52,
                 prompt: "Run `printf '# August 2026 Release Notes\\n\\n## Billing\\n- Customers can now export invoices from the billing portal.\\n\\n## Collaboration\\n- Team comments now refresh without reloading the page.\\n\\n## Admin\\n- Workspace owners can see seat-change history.\\n' > release-notes-2026-08.md && printf 'wrote release-notes-2026-08.md\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1492,6 +1510,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var obligationTrackingCommand: String {
         return """
         echo Acme SOW source>Acme-SOW.pdf&&echo due_date,reminder_date,deliverable,owner>acme-sow-obligations.csv&&echo 2026-09-15,2026-09-01,Acme kickoff workshop,Ada>>acme-sow-obligations.csv&&echo 2026-10-01,2026-09-17,Data migration plan,Ben>>acme-sow-obligations.csv&&echo 2026-10-20,2026-10-06,Security review package,Cam>>acme-sow-obligations.csv&&echo wrote acme-sow-obligations.csv
+        """
+    }
+
+    private static var raciChartCommand: String {
+        return """
+        echo name,role>stakeholders.csv&&echo Ada,Migration Lead>>stakeholders.csv&&echo Ben,Engineering Owner>>stakeholders.csv&&echo Cam,Finance Approver>>stakeholders.csv&&echo Dee,Operations Consulted>>stakeholders.csv&&echo Discovery>phase-plan.md&&echo Data migration>>phase-plan.md&&echo Testing>>phase-plan.md&&echo Cutover>>phase-plan.md&&echo Stabilization>>phase-plan.md&&echo phase,responsible,accountable,consulted,informed>erp-migration-raci.csv&&echo Data migration,Ada,Ben,Cam,Dee>>erp-migration-raci.csv&&echo Testing,Ben,Ada,Cam,Dee>>erp-migration-raci.csv&&echo Cutover,Ada,Cam,Ben,Dee>>erp-migration-raci.csv&&echo wrote erp-migration-raci.csv
         """
     }
 

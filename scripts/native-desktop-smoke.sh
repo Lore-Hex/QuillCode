@@ -675,6 +675,22 @@ expected_one_turn_cases = {
         "artifactContains": "top_deal,Ada,West,Q2,92000",
         "answerContains": "wrote sales-pivot-summary.csv",
     },
+    49: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "erp-migration-raci.csv",
+        "artifactContains": "Data migration,Ada,Ben,Cam,Dee",
+        "answerContains": "wrote erp-migration-raci.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "stakeholders.csv",
+                "artifactContains": "Ada,Migration Lead",
+            },
+            {
+                "artifactSuffix": "phase-plan.md",
+                "artifactContains": "Data migration",
+            },
+        ],
+    },
     52: {
         "toolName": "host.shell.run",
         "artifactSuffix": "release-notes-2026-08.md",
