@@ -906,6 +906,22 @@ expected_one_turn_cases = {
             },
         ],
     },
+    66: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "shared-cleanup-plan.md",
+        "artifactContains": "Keep: Shared/Proposals/acme-final.pdf",
+        "answerContains": "wrote shared-cleanup-plan.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Shared/Proposals/acme-final.pdf",
+                "artifactContains": "newest proposal",
+            },
+            {
+                "artifactSuffix": "Shared/cleanup-audit.csv",
+                "artifactContains": "deleted,Shared/empty-folder,empty folder",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",

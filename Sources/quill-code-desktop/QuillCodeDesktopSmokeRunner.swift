@@ -1548,6 +1548,24 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 66,
+                prompt: "Run \(versionCleanupCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote shared-cleanup-plan.md",
+                artifactRelativePath: "shared-cleanup-plan.md",
+                artifactExpectation: .textContains("Keep: Shared/Proposals/acme-final.pdf"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "Shared/Proposals/acme-final.pdf",
+                        expectation: .textContains("newest proposal")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "Shared/cleanup-audit.csv",
+                        expectation: .textContains("deleted,Shared/empty-folder,empty folder")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1851,6 +1869,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var varianceAnalysisCommand: String {
         return """
         echo line_item,budget>budget-fy26.xlsx&&echo Support,36000>>budget-fy26.xlsx&&echo Events,30000>>budget-fy26.xlsx&&echo Hosting,18000>>budget-fy26.xlsx&&echo Payroll,125000>>budget-fy26.xlsx&&echo line_item,actual>actuals-june.csv&&echo Support,42000>>actuals-june.csv&&echo Events,22000>>actuals-june.csv&&echo Hosting,19600>>actuals-june.csv&&echo Payroll,127000>>actuals-june.csv&&echo line_item,actual,budget,variance_pct,status,explanation>variance-analysis.csv&&echo Support,42000,36000,16.7pct,over,temporary contractor coverage>>variance-analysis.csv&&echo Events,22000,30000,-26.7pct,under,field event moved to July>>variance-analysis.csv&&echo wrote variance-analysis.csv
+        """
+    }
+
+    private static var versionCleanupCommand: String {
+        return """
+        mkdir -p Shared/Proposals Shared/empty-folder Shared/Receipts&&echo mac metadata>Shared/.DS_Store&&echo old proposal>Shared/Proposals/'Copy of acme-final.pdf'&&echo older proposal>Shared/Proposals/acme-final-final.pdf&&echo newest proposal>Shared/Proposals/acme-final.pdf&&rm Shared/.DS_Store&&rmdir Shared/empty-folder&&rm Shared/Proposals/'Copy of acme-final.pdf' Shared/Proposals/acme-final-final.pdf&&echo '# Shared cleanup plan'>shared-cleanup-plan.md&&echo 'Keep: Shared/Proposals/acme-final.pdf'>>shared-cleanup-plan.md&&echo 'Deleted: Shared/.DS_Store'>>shared-cleanup-plan.md&&echo 'Deleted: Shared/empty-folder'>>shared-cleanup-plan.md&&echo 'Removed older duplicates: Copy of acme-final.pdf and acme-final-final.pdf'>>shared-cleanup-plan.md&&echo action,path,reason>Shared/cleanup-audit.csv&&echo deleted,Shared/.DS_Store,metadata>>Shared/cleanup-audit.csv&&echo deleted,Shared/empty-folder,empty folder>>Shared/cleanup-audit.csv&&echo kept,Shared/Proposals/acme-final.pdf,newest duplicate cluster>>Shared/cleanup-audit.csv&&echo wrote shared-cleanup-plan.md
         """
     }
 
