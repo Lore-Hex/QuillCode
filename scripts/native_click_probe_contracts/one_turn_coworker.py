@@ -70,6 +70,12 @@ EXPECTED_CASES = {
         "artifactContains": "2026-Q3-W01,Migration,webinar,Modernize legacy data,Ben",
         "answerContains": "wrote q3-content-calendar.csv",
     },
+    48: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "sales-pivot-summary.csv",
+        "artifactContains": "top_deal,Ada,West,Q2,92000",
+        "answerContains": "wrote sales-pivot-summary.csv",
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",

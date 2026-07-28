@@ -118,8 +118,8 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
           "ok": true,
           "packagedOneTurnCoworkerValidated": true,
           "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
-          "catalogTaskIDs": [15, 16, 20, 21, 23, 25, 28, 40, 43, 68],
-          "taskIDs": [15, 16, 20, 21, 23, 25, 28, 40, 43, 68],
+          "catalogTaskIDs": [15, 16, 20, 21, 23, 25, 28, 40, 43, 48, 68],
+          "taskIDs": [15, 16, 20, 21, 23, 25, 28, 40, 43, 48, 68],
           "launchServicesMatchesDirect": true,
           "oneTurnCoworkerMatchesDirect": true
         }
@@ -132,7 +132,7 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
-        XCTAssertTrue(coverage.contains(#""provenTaskCount": 10"#), coverage)
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 11"#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceType": "packaged-one-turn-coworker""#), coverage)
         XCTAssertTrue(coverage.contains(#""15": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""16": ["#), coverage)
@@ -143,6 +143,7 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(coverage.contains(#""28": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""40": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""43": ["#), coverage)
+        XCTAssertTrue(coverage.contains(#""48": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""68": ["#), coverage)
     }
 
