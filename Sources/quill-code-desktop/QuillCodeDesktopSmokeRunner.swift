@@ -1483,6 +1483,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 62,
+                prompt: "Run \(workBreakdownCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote wbs.xlsx",
+                artifactRelativePath: "wbs.xlsx",
+                artifactExpectation: .textContains("Implementation,Onboarding checklist,Ada,5d"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "team-roster.csv",
+                        expectation: .textContains("Ada,Product")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1756,6 +1770,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var npsSurveyAnalysisCommand: String {
         return """
         echo survey export q2>customer-survey-q2.csv&&echo respondent,plan_tier,score,comment>>customer-survey-q2.csv&&echo C-001,Enterprise,10,Great support and uptime>>customer-survey-q2.csv&&echo C-002,Enterprise,9,Admin controls are strong>>customer-survey-q2.csv&&echo C-003,Enterprise,4,Reporting is slow>>customer-survey-q2.csv&&echo C-004,Growth,8,Useful but onboarding took effort>>customer-survey-q2.csv&&echo C-005,Growth,3,Mobile app crashes during upload>>customer-survey-q2.csv&&echo C-006,Growth,10,Fast answers from support>>customer-survey-q2.csv&&echo C-007,Starter,2,Too expensive for small teams>>customer-survey-q2.csv&&echo C-008,Starter,7,Setup docs need examples>>customer-survey-q2.csv&&echo C-009,Starter,9,Simple and reliable>>customer-survey-q2.csv&&echo C-010,Enterprise,6,Permissions are confusing>>customer-survey-q2.csv&&echo C-011,Growth,5,Billing invoices are unclear>>customer-survey-q2.csv&&echo C-012,Starter,1,Integrations are missing>>customer-survey-q2.csv&&echo plan_tier,nps,total,promoters,passives,detractors>nps-plan-tier-summary.csv&&echo Enterprise,67,3,2,1,detractors0>>nps-plan-tier-summary.csv&&echo Growth,0,4,1,1,detractors2>>nps-plan-tier-summary.csv&&echo Starter,-25,4,1,1,detractors2>>nps-plan-tier-summary.csv&&echo complaint,theme>nps-detractor-complaints.md&&echo complaint_1,Reporting is slow>>nps-detractor-complaints.md&&echo complaint_2,Mobile app crashes during upload>>nps-detractor-complaints.md&&echo complaint_3,Too expensive for small teams>>nps-detractor-complaints.md&&echo complaint_4,Billing invoices are unclear>>nps-detractor-complaints.md&&echo complaint_5,Integrations are missing>>nps-detractor-complaints.md&&echo wrote nps-plan-tier-summary.csv
+        """
+    }
+
+    private static var workBreakdownCommand: String {
+        return """
+        echo name,role>team-roster.csv&&echo Ada,Product>>team-roster.csv&&echo Ben,Engineering>>team-roster.csv&&echo Cam,Design>>team-roster.csv&&echo Dee,Customer Success>>team-roster.csv&&echo Goal launch self serve onboarding by October>onboarding-goal.md&&echo phase,workstream,owner,effort_estimate,due_month>wbs.xlsx&&echo Discovery,Current signup audit,Ada,3d,July>>wbs.xlsx&&echo Design,Activation path mockups,Cam,4d,August>>wbs.xlsx&&echo Implementation,Onboarding checklist,Ada,5d,August>>wbs.xlsx&&echo Implementation,In app guide builder,Ben,8d,September>>wbs.xlsx&&echo Enablement,Help center refresh,Dee,3d,September>>wbs.xlsx&&echo Launch,October rollout readiness,Ada,2d,October>>wbs.xlsx&&echo wrote wbs.xlsx
         """
     }
 
