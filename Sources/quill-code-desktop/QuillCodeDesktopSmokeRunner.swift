@@ -1133,6 +1133,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 38,
+                prompt: "Run `\(interviewScorecardCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote sales-ops-analyst-scorecard.md",
+                artifactRelativePath: "sales-ops-analyst-scorecard.md",
+                artifactExpectation: .textContains("Anchored 1-4 ratings"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "sales-ops-analyst-interview-questions.md",
+                        expectation: .textContains("pipeline hygiene")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1318,6 +1332,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var jobDescriptionCommand: String {
         return """
         printf CSM > hiring-notes.md && printf 'Senior Customer Success Manager' > senior-csm-job-description.md && printf 'at-risk account' > senior-csm-screening-questions.md && printf 'wrote senior-csm-job-description.md\\n'
+        """
+    }
+
+    private static var interviewScorecardCommand: String {
+        return """
+        printf 'Sales Ops Analyst JD\\nPanel: RevOps, Sales, Finance\\n' > sales-ops-analyst-loop.md && printf 'Sales Ops Analyst Scorecard\\nAnchored 1-4 ratings\\nCompetency: pipeline hygiene\\nCompetency: forecasting accuracy\\n' > sales-ops-analyst-scorecard.md && printf 'pipeline hygiene question\\nforecasting question\\n' > sales-ops-analyst-interview-questions.md && printf 'wrote sales-ops-analyst-scorecard.md\\n'
         """
     }
 
