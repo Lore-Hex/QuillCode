@@ -864,6 +864,18 @@ expected_one_turn_cases = {
             },
         ],
     },
+    63: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "timeline.xlsx",
+        "artifactContains": "Launch readiness,2026-10-20,2026-11-03,14d",
+        "answerContains": "wrote timeline.xlsx",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "milestones.csv",
+                "artifactContains": "Launch,2026-11-03",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
