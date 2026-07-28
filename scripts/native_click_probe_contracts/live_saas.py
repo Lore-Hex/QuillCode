@@ -38,6 +38,12 @@ COMPUTER_USE_TOOLS = {
     "host.computer.move",
     "host.computer.key",
 }
+CATALOG_SPREADSHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0"
+)
+CATALOG_TASK_ID_MIN = 1
+CATALOG_TASK_ID_MAX = 206
 
 
 def _require_string(value: Any, label: str, *, min_length: int = 1) -> str:
@@ -52,6 +58,22 @@ def _require_string_list(value: Any, label: str) -> list[str]:
         strings.append(_require_string(item, label))
     require(strings, f"{label} must not be empty")
     return strings
+
+
+def _require_catalog_task_ids(value: Any) -> list[int]:
+    require(isinstance(value, list), "catalogTaskIDs must be a non-empty list")
+    task_ids: list[int] = []
+    for index, item in enumerate(value):
+        require(isinstance(item, int) and not isinstance(item, bool), f"catalogTaskIDs[{index}] must be an integer")
+        require(
+            CATALOG_TASK_ID_MIN <= item <= CATALOG_TASK_ID_MAX,
+            f"catalogTaskIDs[{index}] must be between {CATALOG_TASK_ID_MIN} and {CATALOG_TASK_ID_MAX}",
+        )
+        task_ids.append(item)
+    require(task_ids, "catalogTaskIDs must be a non-empty list")
+    deduplicated = sorted(set(task_ids))
+    require(len(deduplicated) == len(task_ids), "catalogTaskIDs must not contain duplicates")
+    return task_ids
 
 
 def _scan_for_secrets(value: Any, path: str = "$") -> None:
@@ -124,6 +146,7 @@ def validated_live_saas_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     require(evidence.get("ok") is True, "live SaaS evidence ok must be true")
     _scan_for_secrets(evidence)
 
+    catalog_task_ids = _require_catalog_task_ids(evidence.get("catalogTaskIDs"))
     service_name = _require_string(evidence.get("serviceName"), "serviceName")
     task_name = _require_string(evidence.get("taskName"), "taskName")
     account_state = _require_string(evidence.get("accountState"), "accountState")
@@ -146,6 +169,8 @@ def validated_live_saas_evidence(evidence: dict[str, Any]) -> dict[str, Any]:
     return {
         "serviceName": service_name,
         "taskName": task_name,
+        "catalogSpreadsheetURL": CATALOG_SPREADSHEET_URL,
+        "catalogTaskIDs": catalog_task_ids,
         "urlHost": urlparse(url).netloc,
         "accountState": account_state,
         "toolSequence": tool_sequence,

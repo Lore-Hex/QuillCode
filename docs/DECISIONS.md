@@ -14,6 +14,10 @@
 - **Constraint:** The base prompt remains small; row-specific instructions belong in the sheet,
   focused tests, and optional skills. Rows move to covered only when current source/test/smoke
   evidence proves the actual user-facing task.
+- **Update:** Optional live SaaS evidence now must include `catalogTaskIDs`, the exact row IDs from
+  the office coworker catalog that a signed-in SaaS run proves. The manifest writes those IDs and the
+  canonical spreadsheet URL beside service, task, tool sequence, live-DOM, and Computer Use evidence
+  so humans or secure live-SaaS harnesses can update only the proven rows.
 
 ## 2026-07-19: Render Robot XML As A Bounded Artifact Preview
 
