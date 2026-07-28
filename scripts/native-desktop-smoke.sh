@@ -533,6 +533,18 @@ expected_one_turn_cases = {
             },
         ],
     },
+    36: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "vendor-name-mapping.csv",
+        "artifactContains": "ACME, Inc.,Acme",
+        "answerContains": "wrote vendor-name-mapping.csv and ap-vendors-standardized.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "ap-vendors-standardized.csv",
+                "artifactContains": "Acme,3,merged",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",
