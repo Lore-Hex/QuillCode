@@ -871,7 +871,7 @@ enum QuillCodeDesktopSmokeRunner {
                 expectedToolName: ToolDefinition.fileWrite.name,
                 expectedAnswer: "Wrote `launch-announcement.md`.",
                 artifactRelativePath: "launch-announcement.md",
-                artifactContains: "Billing portal launch email ready."
+                artifactExpectation: .textContains("Billing portal launch email ready.")
             ),
             OneTurnCoworkerSmokeCase(
                 taskID: 16,
@@ -879,7 +879,20 @@ enum QuillCodeDesktopSmokeRunner {
                 expectedToolName: ToolDefinition.shellRun.name,
                 expectedAnswer: "wrote signup-slice.csv",
                 artifactRelativePath: "signup-slice.csv",
-                artifactContains: "organic,31"
+                artifactExpectation: .textContains("organic,31")
+            ),
+            OneTurnCoworkerSmokeCase(
+                taskID: 20,
+                prompt: "Run `\(chartGenerationCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote regional-revenue-chart.png",
+                artifactRelativePath: "regional-revenue-chart.png",
+                artifactExpectation: .png(
+                    width: 320,
+                    height: 200,
+                    minimumByteCount: 700,
+                    assertion: "PNG 320x200 stacked revenue chart"
+                )
             ),
             OneTurnCoworkerSmokeCase(
                 taskID: 28,
@@ -887,7 +900,7 @@ enum QuillCodeDesktopSmokeRunner {
                 expectedToolName: ToolDefinition.fileWrite.name,
                 expectedAnswer: "Wrote `dependency-map.mmd`.",
                 artifactRelativePath: "dependency-map.mmd",
-                artifactContains: "Engineering --> Launch"
+                artifactExpectation: .textContains("Engineering --> Launch")
             ),
             OneTurnCoworkerSmokeCase(
                 taskID: 68,
@@ -895,7 +908,7 @@ enum QuillCodeDesktopSmokeRunner {
                 expectedToolName: ToolDefinition.shellRun.name,
                 expectedAnswer: "wrote weekly-review.csv",
                 artifactRelativePath: "weekly-review.csv",
-                artifactContains: "Launch,3,2"
+                artifactExpectation: .textContains("Launch,3,2")
             )
         ]
 
@@ -923,24 +936,62 @@ enum QuillCodeDesktopSmokeRunner {
             }
 
             let artifact = root.workspace.appendingPathComponent(smokeCase.artifactRelativePath)
-            let artifactText = try String(contentsOf: artifact, encoding: .utf8)
-            guard artifactText.contains(smokeCase.artifactContains) else {
-                throw QuillCodeDesktopSmokeFailure.oneTurnCoworkerMismatch(
-                    "task \(smokeCase.taskID) artifact missing expected content: \(artifact.path)"
-                )
-            }
+            try verifyOneTurnCoworkerArtifact(smokeCase.artifactExpectation, artifact: artifact, taskID: smokeCase.taskID)
 
             reports.append(QuillCodeDesktopOneTurnCoworkerSmokeCaseReport(
                 taskID: smokeCase.taskID,
                 prompt: smokeCase.prompt,
                 toolName: smokeCase.expectedToolName,
                 artifactPath: artifact.path,
-                artifactContains: smokeCase.artifactContains,
+                artifactContains: smokeCase.artifactExpectation.assertion,
                 finalAnswer: controller.surface.transcript.messages.last?.text ?? ""
             ))
         }
 
         return QuillCodeDesktopOneTurnCoworkerSmokeReport(cases: reports)
+    }
+
+    private static var chartGenerationCommand: String {
+        let pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAUAAAADICAIAAAAWZq/8AAADLUlEQVR42u3awQ1AQBRF0enEmgbUoQ0bpahAN3oRJWBDA3Z8I3OSW8CL/BML0rYfkn5a8ggkgCUBLAlgCWBJAEsCWBLAEsCSAJYEsASwJIAlASwJYAlgSQBLAlgSwBLAkgCWBLAEsCSAb6rq9spDlwCWBLAEMMASwJIAlgAGWAIYYAlgSQBLAAMsASwJYAlggCWAAZYAlgSwBDDAEsAASwBLAlgCGGAJYEkASwADLAEMsASwJIAlgAGWAAZYAliltQxdQAADLIABlgAGWAADDLAABhhgAQywAAYYYAEMMMACGGAJYIAFMMAAC2CAARbAAEsAAyyAAQZYAAMMMBgAAyyAAQZYAAMMMMAAAyyAAQZYAAMMMMAAAwwwwAADLIABBlgAAwwwwAADLIABBlgAAwwwwAADDDDA78FY5z4ggAH2ZgMYYIABBhhggAEGGGCAAQYYYIABBhhggAEGGGCAAQYYYIABBhhggAEGGGCAAfaLYpYwAAYYYIABBhhggAEGGGCAAQYYYIABBhhggGMA+zwDMMAAAwwwwAADDDDAYIABMMAA2wkwwADbCTDAYAAMMMBgAAwwwHYCDDAYdgIMMBgAAwwwwAADDLCdAAMMhp0AOzg7AQbYwdkJMMBg2AkwwHY+tLOZxoAABthOgAEGw06AAQYDYIABthNggAG2E2CAwSgTBsAAAwwwwAADDDDAAAMMMMAAAwwwwAADDDDAAAMMMBhgAAwwwHYCDDAYdgIMMBgAAwwwwAADDLCdAAMMhp0AOzg7AQbYwdkJMMBg2AkwwHYCDLCDsxNggB2cnQADbKedAANsJ8AAOzg7AQbYwdkJMMB22gmwg7MTYIAdnJ0AAwyGnQADbCfAADs4OwEG2MHZCTDAdtoJMMB2Agywg7MTYIDBsBNggO20E2AHZyfAADs4OwEGGAw7AQbYToABdnB2Agywg7MTYIDttBNgB2cnwAA7ODsBBhgMOwEG2E6AAXZwdgKcM2Cp5ACWAP4CsCSAJQEsASwJYEkASwBLAlgSwJIAlgCWBLAkgCUBLAEsCWBJAEsASwJYEsCSAJYAlgSwJIAlgCUBLCm0ExkC2txUfBiYAAAAAElFTkSuQmCC"
+        let csv = "quarter,north,south,west\\nQ1,42,28,18\\nQ2,50,33,24\\nQ3,58,36,31\\nQ4,66,42,37\\n"
+        return """
+        python3 -c "print((__import__('pathlib').Path('regional-revenue.csv').write_text('\(csv)'),__import__('pathlib').Path('regional-revenue-chart.png').write_bytes(__import__('base64').b64decode('\(pngBase64)')),'wrote regional-revenue-chart.png')[-1])"
+        """
+    }
+
+    private static func verifyOneTurnCoworkerArtifact(
+        _ expectation: OneTurnCoworkerArtifactExpectation,
+        artifact: URL,
+        taskID: Int
+    ) throws {
+        switch expectation {
+        case .textContains(let expected):
+            let artifactText = try String(contentsOf: artifact, encoding: .utf8)
+            guard artifactText.contains(expected) else {
+                throw QuillCodeDesktopSmokeFailure.oneTurnCoworkerMismatch(
+                    "task \(taskID) artifact missing expected content: \(artifact.path)"
+                )
+            }
+        case .png(let width, let height, let minimumByteCount, _):
+            let data = try Data(contentsOf: artifact)
+            let pngSignature = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+            guard data.starts(with: pngSignature),
+                  data.count >= minimumByteCount,
+                  let dimensions = pngDimensions(in: data),
+                  dimensions == (width, height)
+            else {
+                throw QuillCodeDesktopSmokeFailure.oneTurnCoworkerMismatch(
+                    "task \(taskID) PNG artifact was invalid: \(artifact.path)"
+                )
+            }
+        }
+    }
+
+    private static func pngDimensions(in data: Data) -> (Int, Int)? {
+        guard data.count >= 24 else { return nil }
+        let width = Int(data[16]) << 24 | Int(data[17]) << 16 | Int(data[18]) << 8 | Int(data[19])
+        let height = Int(data[20]) << 24 | Int(data[21]) << 16 | Int(data[22]) << 8 | Int(data[23])
+        return (width, height)
     }
 
     private static func requiredBrowserToolOverride(
@@ -977,9 +1028,14 @@ enum QuillCodeDesktopSmokeRunner {
         previousTimelineCount: Int,
         expectedAnswer: String
     ) async throws {
-        for _ in 0..<300 {
+        var latestTimelineCount = previousTimelineCount
+        var latestAnswer = ""
+        var latestSendingState = false
+        for _ in 0..<1_000 {
             let timelineCount = controller.surface.transcript.timelineItems.count
-            let latestAnswer = controller.surface.transcript.messages.last?.text ?? ""
+            latestTimelineCount = timelineCount
+            latestAnswer = controller.surface.transcript.messages.last?.text ?? ""
+            latestSendingState = controller.surface.composer.isSending
             if !controller.surface.composer.isSending,
                timelineCount >= previousTimelineCount + 3,
                latestAnswer.contains(expectedAnswer) {
@@ -987,7 +1043,11 @@ enum QuillCodeDesktopSmokeRunner {
             }
             try await Task.sleep(nanoseconds: 10_000_000)
         }
-        throw QuillCodeDesktopSmokeFailure.timedOut
+        throw QuillCodeDesktopSmokeFailure.timedOut(
+            "expected answer \(expectedAnswer.debugDescription), latest answer \(latestAnswer.debugDescription), "
+            + "isSending \(latestSendingState), timeline \(latestTimelineCount), previous \(previousTimelineCount), "
+            + "latest tool input \((controller.surface.transcript.toolCards.last?.inputJSON ?? "").debugDescription)"
+        )
     }
 
     private static func renderWorkspace(
@@ -1294,7 +1354,21 @@ private struct OneTurnCoworkerSmokeCase {
     var expectedToolName: String
     var expectedAnswer: String
     var artifactRelativePath: String
-    var artifactContains: String
+    var artifactExpectation: OneTurnCoworkerArtifactExpectation
+}
+
+private enum OneTurnCoworkerArtifactExpectation {
+    case textContains(String)
+    case png(width: Int, height: Int, minimumByteCount: Int, assertion: String)
+
+    var assertion: String {
+        switch self {
+        case .textContains(let text):
+            text
+        case .png(_, _, _, let assertion):
+            assertion
+        }
+    }
 }
 
 private final class SmokeAutomationNotifier: QuillCodeAutomationNotifying, @unchecked Sendable {

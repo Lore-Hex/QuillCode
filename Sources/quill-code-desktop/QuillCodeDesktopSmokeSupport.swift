@@ -661,7 +661,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case nativeHitTargetAuditFailed([String])
     case pngEncodingFailed
     case renderFailed
-    case timedOut
+    case timedOut(String)
     case toolCardDidNotComplete
     case windowCaptureFailed
     case windowContentTooSmall(Double, Double)
