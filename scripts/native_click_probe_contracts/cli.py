@@ -12,6 +12,8 @@ from .computer_use_action import write_computer_use_action_manifest
 from .coworker_catalog import write_coworker_catalog_coverage
 from .live_saas import write_live_saas_manifest
 from .live_saas_template import write_live_saas_template
+from .live_app_computer_use import write_live_app_computer_use_manifest
+from .live_app_computer_use_template import write_live_app_computer_use_template
 from .multi_file_artifact import write_multi_file_artifact_manifest
 from .one_turn_coworker import write_one_turn_coworker_manifest
 from .packaged_window import (
@@ -121,6 +123,22 @@ def main() -> None:
     live_saas_template_parser.add_argument("--task-name")
     live_saas_template_parser.add_argument("--url")
 
+    live_app_computer_use_parser = subparsers.add_parser(
+        "live-app-computer-use",
+        help="validate optional live local-app Computer Use coworker evidence",
+    )
+    live_app_computer_use_parser.add_argument("evidence", type=Path)
+    live_app_computer_use_parser.add_argument("--manifest", required=True, type=Path)
+
+    live_app_computer_use_template_parser = subparsers.add_parser(
+        "live-app-computer-use-template",
+        help="write a row-linked live local-app Computer Use evidence template",
+    )
+    live_app_computer_use_template_parser.add_argument("catalog_task_ids", nargs="+", type=int)
+    live_app_computer_use_template_parser.add_argument("--output", required=True, type=Path)
+    live_app_computer_use_template_parser.add_argument("--app-name")
+    live_app_computer_use_template_parser.add_argument("--task-name")
+
     coworker_catalog_parser = subparsers.add_parser(
         "coworker-catalog",
         help="write row-level office coworker catalog coverage from validated evidence manifests",
@@ -214,6 +232,15 @@ def main() -> None:
             service_name=args.service_name,
             task_name=args.task_name,
             url=args.url,
+        )
+    elif args.command == "live-app-computer-use":
+        write_live_app_computer_use_manifest(args.evidence, args.manifest)
+    elif args.command == "live-app-computer-use-template":
+        write_live_app_computer_use_template(
+            args.catalog_task_ids,
+            args.output,
+            app_name=args.app_name,
+            task_name=args.task_name,
         )
     elif args.command == "coworker-catalog":
         write_coworker_catalog_coverage(args.manifests, args.output, args.markdown_output)

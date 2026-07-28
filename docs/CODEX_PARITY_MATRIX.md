@@ -104,10 +104,15 @@
   `scripts/live-saas-smoke.sh` now gives real signed-in SaaS runs a fail-closed manifest contract for
   spreadsheet `catalogTaskIDs`, HTTPS URL, signed-in state, live DOM inspection, browser/Computer Use
   actions, and captured-secret rejection; real SaaS rows remain gated until a row-specific live
-  manifest exists. `scripts/native-click-probe-contracts.py coworker-catalog` rolls validated live
-  SaaS, scheduled-notification, and packaged one-turn coworker manifests into `provenTaskIDs`,
-  `pendingTaskIDs`, and `evidenceByTaskID` across the full 1-206 catalog, with an optional Markdown
-  row report for reviewing spreadsheet updates from durable evidence.
+  manifest exists. Optional `scripts/live-app-computer-use-smoke.sh` validates row-linked local-app
+  Computer Use captures with screenshot plus real click/type/scroll/move/key actions, matching
+  foreground-app proof, visible before/after state change, completed result evidence, and
+  captured-secret rejection; arbitrary desktop-app coworker rows remain gated until a row-specific
+  local-app manifest exists. `scripts/native-click-probe-contracts.py coworker-catalog` rolls
+  validated live SaaS, live app Computer Use, scheduled-notification, and packaged one-turn coworker
+  manifests into `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID` across the full 1-206
+  catalog, with an optional Markdown row report for reviewing spreadsheet updates from durable
+  evidence.
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:
