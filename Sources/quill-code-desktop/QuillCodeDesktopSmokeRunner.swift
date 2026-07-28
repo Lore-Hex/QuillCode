@@ -957,6 +957,14 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("top_deal,Ada,West,Q2,92000")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 52,
+                prompt: "Run `printf '# August 2026 Release Notes\\n\\n## Billing\\n- Customers can now export invoices from the billing portal.\\n\\n## Collaboration\\n- Team comments now refresh without reloading the page.\\n\\n## Admin\\n- Workspace owners can see seat-change history.\\n' > release-notes-2026-08.md && printf 'wrote release-notes-2026-08.md\\n'`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote release-notes-2026-08.md",
+                artifactRelativePath: "release-notes-2026-08.md",
+                artifactExpectation: .textContains("## Collaboration")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
