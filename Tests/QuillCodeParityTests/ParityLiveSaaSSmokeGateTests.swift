@@ -211,8 +211,8 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
           "ok": true,
           "packagedMultiFileArtifactValidated": true,
           "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
-          "catalogTaskIDs": [69, 70],
-          "taskIDs": [69, 70],
+          "catalogTaskIDs": [69, 70, 71],
+          "taskIDs": [69, 70, 71],
           "launchServicesMatchesDirect": true,
           "multiFileArtifactMatchesDirect": true,
           "catalogCases": [
@@ -223,6 +223,10 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
             {
               "taskID": 70,
               "prompt": "Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` and flag where they contradict each other."
+            },
+            {
+              "taskID": 71,
+              "prompt": "Rename every PDF in `Documents/Invoices` to YYYY-MM-DD_Vendor_Amount.pdf based on what's inside each file, and leave an undo log."
             }
           ]
         }
@@ -241,11 +245,12 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
-        XCTAssertTrue(coverage.contains(#""provenTaskCount": 56"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 150"#), coverage)
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 57"#), coverage)
+        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 149"#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceType": "packaged-multi-file-artifact""#), coverage)
         XCTAssertTrue(coverage.contains(#""69": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""70": ["#), coverage)
+        XCTAssertTrue(coverage.contains(#""71": ["#), coverage)
     }
 
     func testCoworkerCatalogCoverageRejectsManifestWithoutCatalogRows() throws {

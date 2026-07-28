@@ -179,7 +179,7 @@ def _validated_packaged_multi_file_manifest(
         f"{path} must be a packaged multi-file artifact validation manifest",
     )
     base = _manifest_base(manifest, path, base_directory)
-    expected_task_ids = [69, 70]
+    expected_task_ids = [69, 70, 71]
     require(
         base["catalogTaskIDs"] == expected_task_ids,
         f"{path}.catalogTaskIDs must be {expected_task_ids}",
@@ -202,7 +202,7 @@ def _validated_packaged_multi_file_manifest(
     require(
         isinstance(catalog_cases, list)
         and catalog_case_ids == expected_task_ids,
-        f"{path} must include the row #69 and #70 multi-file catalog cases",
+        f"{path} must include the row #69, #70, and #71 multi-file catalog cases",
     )
 
     return {

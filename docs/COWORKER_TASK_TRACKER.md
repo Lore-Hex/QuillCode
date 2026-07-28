@@ -168,8 +168,8 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves row-linked multi-file coworker evidence:
 
-- `multiFileArtifactSmoke.catalogCases` includes catalog row #69, All-Hands Email, and row #70,
-  Analyst Synthesis.
+- `multiFileArtifactSmoke.catalogCases` includes catalog row #69, All-Hands Email, row #70,
+  Analyst Synthesis, and row #71, Bulk Rename.
 - The row #69 smoke creates `org-changes.pptx` plus `reorg-qa/hardest-questions.md`, asks QuillCode
   to draft the CEO all-hands email from those sources, and requires the desktop agent/tool loop to
   dispatch `host.file.read`, `host.file.read`, and `host.file.write` in order.
@@ -180,9 +180,17 @@ Packaged macOS smoke now preserves row-linked multi-file coworker evidence:
   loop to dispatch three `host.file.read` calls followed by `host.file.write`.
 - The smoke verifies `analyst-claims-contradictions.md` preserves Gartner claims, Forrester claims,
   contradictions across the reports, and recommended positioning before the row can count as covered.
+- The row #71 smoke creates invoice PDF fixtures under `Documents/Invoices`, asks QuillCode to
+  rename every PDF to `YYYY-MM-DD_Vendor_Amount.pdf` based on invoice contents and leave an undo
+  log, and requires the desktop agent/tool loop to dispatch two `host.file.read` calls followed by
+  `host.shell.run`.
+- The smoke verifies the original invoice PDFs were renamed to
+  `2026-07-03_Acme_1542.10.pdf` and `2026-07-09_Northwind_880.00.pdf`, and that
+  `Documents/Invoices/invoice-rename-undo.csv` maps each old path to the new path before the row can
+  count as covered.
 - `packaged-multi-file-artifact.json` now carries the canonical spreadsheet URL and exact
-  `catalogTaskIDs: [69, 70]`, and the coworker coverage rollup accepts it beside packaged one-turn,
-  live SaaS, live app Computer Use, and scheduled notification evidence.
+  `catalogTaskIDs: [69, 70, 71]`, and the coworker coverage rollup accepts it beside packaged
+  one-turn, live SaaS, live app Computer Use, and scheduled notification evidence.
 
 ## Packaged One-Turn Coworker Evidence Slice
 
@@ -330,6 +338,10 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
 - Row #70 proves analyst synthesis creates `analyst-claims-contradictions.md` from three reports
   under `analyst-reports`, preserving Gartner claims, Forrester claims, contradictions, and
   recommended framing through three `host.file.read` calls followed by `host.file.write`.
+- Row #71 proves bulk invoice renaming reads invoice PDFs under `Documents/Invoices`, renames them
+  to date/vendor/amount filenames, removes the original names, and writes
+  `Documents/Invoices/invoice-rename-undo.csv` through two `host.file.read` calls followed by
+  `host.shell.run`.
 - `packaged-one-turn-coworker.json` compares direct packaged executable and Launch Services launches,
   recording task IDs, tool sequence, artifact suffixes, artifact assertions, and final answers.
 - The manifest carries the canonical spreadsheet URL and exact `catalogTaskIDs`, and
@@ -337,9 +349,9 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   accepts it beside live SaaS and scheduled-notification evidence.
 
 Together with packaged one-turn evidence, this moves deterministic row-linked coverage through row
-#70. Similar local rows can graduate only when their row ID appears in current smoke or coverage
+#71. Similar local rows can graduate only when their row ID appears in current smoke or coverage
 evidence, or when a stricter row-specific test proves the same tool path. The next multi-file gap is
-row #71, Bulk Rename.
+row #72, Capacity Planning.
 
 ## Packaged Browser Workflow Evidence Slice
 

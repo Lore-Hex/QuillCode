@@ -853,7 +853,8 @@ enum QuillCodeDesktopSmokeRunner {
 
         let catalogCases = [
             try await runAllHandsEmailCatalogSmoke(controller: controller, root: root),
-            try await runAnalystSynthesisCatalogSmoke(controller: controller, root: root)
+            try await runAnalystSynthesisCatalogSmoke(controller: controller, root: root),
+            try await runBulkInvoiceRenameCatalogSmoke(controller: controller, root: root)
         ]
 
         return QuillCodeDesktopMultiFileArtifactSmokeReport(
@@ -1023,6 +1024,84 @@ enum QuillCodeDesktopSmokeRunner {
             prompt: prompt,
             sourcePaths: [gartner.path, forresterWave.path, forresterNowTech.path],
             deliverablePath: deliverable.path,
+            toolSequence: toolSequence,
+            finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
+            assertions: assertions
+        )
+    }
+
+    private static func runBulkInvoiceRenameCatalogSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopMultiFileCatalogSmokeCaseReport {
+        let invoicesDirectory = root.workspace
+            .appendingPathComponent("Documents", isDirectory: true)
+            .appendingPathComponent("Invoices", isDirectory: true)
+        try FileManager.default.createDirectory(at: invoicesDirectory, withIntermediateDirectories: true)
+
+        let acme = invoicesDirectory.appendingPathComponent("invoice-acme.pdf")
+        let northwind = invoicesDirectory.appendingPathComponent("invoice-northwind.pdf")
+        try """
+        Invoice Number: INV-1042
+        Invoice Date: 2026-07-03
+        Vendor: Acme
+        Amount Due: 1542.10
+        """.write(to: acme, atomically: true, encoding: .utf8)
+        try """
+        Invoice Number: NW-8821
+        Invoice Date: 2026-07-09
+        Vendor: Northwind
+        Amount Due: 880.00
+        """.write(to: northwind, atomically: true, encoding: .utf8)
+
+        let prompt = "Rename every PDF in `Documents/Invoices` to YYYY-MM-DD_Vendor_Amount.pdf based on what's inside each file, and leave an undo log."
+        let previousTimelineCount = controller.surface.transcript.timelineItems.count
+        let previousToolCardCount = controller.surface.transcript.toolCards.count
+        controller.draft = prompt
+        controller.send()
+
+        let expectedAnswer = "Renamed invoice PDFs in `Documents/Invoices` and wrote `Documents/Invoices/invoice-rename-undo.csv`."
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: previousTimelineCount,
+            expectedAnswer: expectedAnswer
+        )
+
+        let renamedAcme = invoicesDirectory.appendingPathComponent("2026-07-03_Acme_1542.10.pdf")
+        let renamedNorthwind = invoicesDirectory.appendingPathComponent("2026-07-09_Northwind_880.00.pdf")
+        let undoLog = invoicesDirectory.appendingPathComponent("invoice-rename-undo.csv")
+        let undoLogText = try String(contentsOf: undoLog, encoding: .utf8)
+        let assertions = [
+            "renamesAcmeInvoice": FileManager.default.fileExists(atPath: renamedAcme.path)
+                && !FileManager.default.fileExists(atPath: acme.path),
+            "renamesNorthwindInvoice": FileManager.default.fileExists(atPath: renamedNorthwind.path)
+                && !FileManager.default.fileExists(atPath: northwind.path),
+            "writesUndoLog": undoLogText.contains("invoice-acme.pdf,Documents/Invoices/2026-07-03_Acme_1542.10.pdf")
+                && undoLogText.contains("invoice-northwind.pdf,Documents/Invoices/2026-07-09_Northwind_880.00.pdf"),
+            "usesInvoiceFields": renamedAcme.lastPathComponent == "2026-07-03_Acme_1542.10.pdf"
+                && renamedNorthwind.lastPathComponent == "2026-07-09_Northwind_880.00.pdf"
+        ]
+        guard assertions.values.allSatisfy({ $0 }) else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(undoLog.path)
+        }
+
+        let toolSequence = Array(controller.surface.transcript.toolCards.dropFirst(previousToolCardCount))
+            .map(\.title)
+        guard toolSequence == [
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.shellRun.name
+        ] else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(
+                "unexpected bulk invoice rename tool sequence: \(toolSequence.joined(separator: ", "))"
+            )
+        }
+
+        return QuillCodeDesktopMultiFileCatalogSmokeCaseReport(
+            taskID: 71,
+            prompt: prompt,
+            sourcePaths: [acme.path, northwind.path],
+            deliverablePath: undoLog.path,
             toolSequence: toolSequence,
             finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
             assertions: assertions

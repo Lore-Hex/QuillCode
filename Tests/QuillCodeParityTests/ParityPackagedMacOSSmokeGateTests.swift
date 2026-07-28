@@ -151,6 +151,13 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(multiFileArtifactValidator.contains(#""analyst-claims-contradictions.md""#))
         XCTAssertTrue(multiFileArtifactValidator.contains(#""flagsContradictions""#))
+        XCTAssertTrue(
+            multiFileArtifactValidator.contains(
+                #""Rename every PDF in `Documents/Invoices` to YYYY-MM-DD_Vendor_Amount.pdf "#
+            )
+        )
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""Documents/Invoices/invoice-rename-undo.csv""#))
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""renamesAcmeInvoice""#))
 
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopOneTurnCoworkerSmokeReport"))
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopMultiFileCatalogSmokeCaseReport"))
