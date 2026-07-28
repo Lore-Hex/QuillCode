@@ -21,6 +21,7 @@ from .packaged_window import (
 )
 from .probe_contracts import validate_report
 from .scheduled_coworker import write_scheduled_coworker_manifest
+from .safety_reviewer_calibration import write_safety_reviewer_calibration_manifest
 
 
 def main() -> None:
@@ -125,6 +126,13 @@ def main() -> None:
     coworker_catalog_parser.add_argument("manifests", nargs="+", type=Path)
     coworker_catalog_parser.add_argument("--output", required=True, type=Path)
 
+    safety_reviewer_parser = subparsers.add_parser(
+        "safety-reviewer-calibration",
+        help="validate redacted Auto safety reviewer calibration evidence",
+    )
+    safety_reviewer_parser.add_argument("evidence", type=Path)
+    safety_reviewer_parser.add_argument("--manifest", required=True, type=Path)
+
     args = parser.parse_args()
     if args.command == "validate":
         validate_report(args.report, args.label)
@@ -192,3 +200,5 @@ def main() -> None:
         )
     elif args.command == "coworker-catalog":
         write_coworker_catalog_coverage(args.manifests, args.output)
+    elif args.command == "safety-reviewer-calibration":
+        write_safety_reviewer_calibration_manifest(args.evidence, args.manifest)
