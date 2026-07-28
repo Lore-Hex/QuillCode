@@ -1091,6 +1091,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 35,
+                prompt: "Run `\(funnelAnalysisCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote q2-funnel-summary.md",
+                artifactRelativePath: "q2-funnel-summary.md",
+                artifactExpectation: .textContains("Biggest drop-off: Demo to Proposal"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "q2-funnel-conversions.csv",
+                        expectation: .textContains("Demo to Proposal,40 pct,14")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1258,6 +1272,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var forecastReviewCommand: String {
         return """
         printf 'scenario,forecast,assumed_close\\nQ3 Base,820000,30 pct\\nQ3 Upside,1200000,42 pct\\n' > pipeline-forecast.xlsx && printf 'quarter,close_rate\\nQ1,29 pct\\nQ2,31 pct\\nQ3,28 pct\\nQ4,33 pct\\nQ5,30 pct\\nQ6,31 pct\\n' > historical-close-rates.csv && printf 'Forecast review\\nFlag: Q3 Upside assumes 42 pct close rate vs six-quarter average 30 pct.\\nBoard note: use Q3 Base unless late-stage conversion improves.\\n' > forecast-review.md && printf 'wrote forecast-review.md\\n'
+        """
+    }
+
+    private static var funnelAnalysisCommand: String {
+        return """
+        printf 'stage,count,median_days\\nLead,100,3\\nQualified,70,6\\nDemo,50,9\\nProposal,20,14\\nClosed Won,8,21\\n' > hubspot-deals-export.xlsx && printf 'step,conversion,median_days\\nLead to Qualified,70 pct,6\\nQualified to Demo,71 pct,9\\nDemo to Proposal,40 pct,14\\nProposal to Closed Won,40 pct,21\\n' > q2-funnel-conversions.csv && printf 'Q2 funnel summary\\nBiggest drop-off: Demo to Proposal at 40 pct conversion.\\nMedian days per stage: Lead 3, Qualified 6, Demo 9, Proposal 14, Closed Won 21.\\n' > q2-funnel-summary.md && printf 'wrote q2-funnel-summary.md\\n'
         """
     }
 
