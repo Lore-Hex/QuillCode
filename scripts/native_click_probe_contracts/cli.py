@@ -123,7 +123,7 @@ def main() -> None:
 
     coworker_catalog_parser = subparsers.add_parser(
         "coworker-catalog",
-        help="write row-level office coworker catalog coverage from live SaaS manifests",
+        help="write row-level office coworker catalog coverage from validated evidence manifests",
     )
     coworker_catalog_parser.add_argument("manifests", nargs="+", type=Path)
     coworker_catalog_parser.add_argument("--output", required=True, type=Path)

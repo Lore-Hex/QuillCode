@@ -96,6 +96,41 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(coverage.contains(#""evidenceByTaskID": {"#), coverage)
     }
 
+    func testCoworkerCatalogCoverageAcceptsPackagedOneTurnRows() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-coworker-catalog-one-turn-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let manifestURL = temporaryDirectory.appendingPathComponent("packaged-one-turn-coworker.json")
+        let coverageURL = temporaryDirectory.appendingPathComponent("coworker-coverage.json")
+        try """
+        {
+          "ok": true,
+          "packagedOneTurnCoworkerValidated": true,
+          "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
+          "catalogTaskIDs": [15, 16, 68],
+          "taskIDs": [15, 16, 68],
+          "launchServicesMatchesDirect": true,
+          "oneTurnCoworkerMatchesDirect": true
+        }
+        """.write(to: manifestURL, atomically: true, encoding: .utf8)
+
+        let result = try Self.runPython(
+            Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
+            arguments: ["coworker-catalog", manifestURL.path, "--output", coverageURL.path]
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 3"#), coverage)
+        XCTAssertTrue(coverage.contains(#""evidenceType": "packaged-one-turn-coworker""#), coverage)
+        XCTAssertTrue(coverage.contains(#""15": ["#), coverage)
+        XCTAssertTrue(coverage.contains(#""16": ["#), coverage)
+        XCTAssertTrue(coverage.contains(#""68": ["#), coverage)
+    }
+
     func testCoworkerCatalogCoverageRejectsManifestWithoutCatalogRows() throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-coworker-catalog-rejection-tests")
