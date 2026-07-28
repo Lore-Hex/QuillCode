@@ -28,6 +28,12 @@ EXPECTED_CASES = {
         "artifactContains": "PNG 320x200 stacked revenue chart",
         "answerContains": "wrote regional-revenue-chart.png",
     },
+    21: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "cohort-retention.csv",
+        "artifactContains": "2026-01,3,67%,2026-02",
+        "answerContains": "wrote cohort-retention.csv",
+    },
     28: {
         "toolName": "host.file.write",
         "artifactSuffix": "dependency-map.mmd",
