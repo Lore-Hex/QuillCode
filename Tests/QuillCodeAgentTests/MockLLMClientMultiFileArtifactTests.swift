@@ -98,6 +98,97 @@ final class MockLLMClientMultiFileArtifactTests: XCTestCase {
         )
     }
 
+    func testAllHandsEmailStartsByReadingOrgChangesDeck() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` and the answers in `reorg-qa`, covering the eight hardest questions.",
+            tools: ToolRouter.definitions
+        )
+
+        let call = try XCTUnwrap(action.toolCall)
+        XCTAssertEqual(call.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(call.argumentsJSON).string("path"), "org-changes.pptx")
+    }
+
+    func testAllHandsEmailReadsQANotesThenWritesDraft() async throws {
+        let user = ChatMessage(
+            role: .user,
+            content: "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` and the answers in `reorg-qa`, covering the eight hardest questions."
+        )
+        let orgRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "org-changes.pptx"])
+        )
+        let afterOrgRead = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(
+                    for: orgRead,
+                    stdout: "Product Operations moves under Engineering."
+                )
+            ]
+        )
+
+        let qaAction = try await MockLLMClient().nextAction(
+            thread: afterOrgRead,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let qaCall = try XCTUnwrap(qaAction.toolCall)
+        XCTAssertEqual(qaCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(qaCall.argumentsJSON).string("path"), "reorg-qa/hardest-questions.md")
+
+        let qaRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "reorg-qa/hardest-questions.md"])
+        )
+        let afterQARead = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: orgRead, stdout: "Product Operations moves under Engineering."),
+                try toolFeedbackMessage(for: qaRead, stdout: "1. Why now? 2. Are there layoffs?")
+            ]
+        )
+
+        let writeAction = try await MockLLMClient().nextAction(
+            thread: afterQARead,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let writeCall = try XCTUnwrap(writeAction.toolCall)
+        XCTAssertEqual(writeCall.name, ToolDefinition.fileWrite.name)
+        let writeArguments = try ToolArguments(writeCall.argumentsJSON)
+        XCTAssertEqual(writeArguments.string("path"), "ceo-reorg-all-hands-email.md")
+        XCTAssertTrue(writeArguments.string("content")?.contains("Product Operations moves under Engineering") == true)
+        XCTAssertTrue(writeArguments.string("content")?.contains("8. Where do questions go?") == true)
+
+        let writeFeedback = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json(["path": "ceo-reorg-all-hands-email.md"])
+        )
+        let afterWrite = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: writeFeedback, stdout: "wrote ceo-reorg-all-hands-email.md")
+            ]
+        )
+        let finalAction = try await MockLLMClient().nextAction(
+            thread: afterWrite,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        guard case .say(let finalAnswer) = finalAction else {
+            return XCTFail("Expected a final answer after the all-hands email write completes.")
+        }
+        XCTAssertEqual(
+            finalAnswer,
+            "Created `ceo-reorg-all-hands-email.md` from `org-changes.pptx` and `reorg-qa/hardest-questions.md`."
+        )
+    }
+
     private func toolFeedbackMessage(for call: ToolCall, stdout: String) throws -> ChatMessage {
         let feedback = AgentToolFeedback(
             toolCall: call,
