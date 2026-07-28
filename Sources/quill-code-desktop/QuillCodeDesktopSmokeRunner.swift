@@ -1423,6 +1423,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 58,
+                prompt: "Run \(scannedPensionExtractionCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote pension-vesting-retirement-table.csv",
+                artifactRelativePath: "pension-vesting-retirement-table.csv",
+                artifactExpectation: .textContains("early_retirement_reduction,age60,70pct"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "pension-plan-1994-scanned.pdf",
+                        expectation: .textContains("image-only pension booklet source")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1672,6 +1686,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var salesOnePagerCommand: String {
         return """
         echo 20 slide product deck source>product-deck-20-slides.pptx&&echo Slides cover automation analytics security onboarding integrations and customer outcomes>>product-deck-20-slides.pptx&&echo approved pricing>approved-pricing.csv&&echo tier,price,fit>>approved-pricing.csv&&echo Starter,USD12000,small teams>>approved-pricing.csv&&echo Growth,USD36000,growing teams>>approved-pricing.csv&&echo Enterprise,custom,regulated teams>>approved-pricing.csv&&echo Customer leave-behind>customer-leave-behind.md&&echo Three proof points: reduce manual handoffs improve forecast accuracy and shorten onboarding>>customer-leave-behind.md&&echo Pricing tiers: Starter USD12000 Growth USD36000 Enterprise custom>>customer-leave-behind.md&&echo Call to action: schedule a 30 minute pilot planning session this week>>customer-leave-behind.md&&echo wrote customer-leave-behind.md
+        """
+    }
+
+    private static var scannedPensionExtractionCommand: String {
+        return """
+        echo image-only pension booklet source>pension-plan-1994-scanned.pdf&&echo OCR text page 14 vesting schedule years zero to two equals zero pct three equals twenty pct four equals forty pct five equals sixty pct six equals eighty pct seven equals one hundred pct>>pension-plan-1994-scanned.pdf&&echo OCR text page 22 early retirement age55 equals fifty pct age60 equals seventy pct age62 equals eighty five pct>>pension-plan-1994-scanned.pdf&&echo section,condition,value>pension-vesting-retirement-table.csv&&echo vesting,years0_to_2,0pct>>pension-vesting-retirement-table.csv&&echo vesting,year3,20pct>>pension-vesting-retirement-table.csv&&echo vesting,year4,40pct>>pension-vesting-retirement-table.csv&&echo vesting,year5,60pct>>pension-vesting-retirement-table.csv&&echo vesting,year6,80pct>>pension-vesting-retirement-table.csv&&echo vesting,year7_plus,100pct>>pension-vesting-retirement-table.csv&&echo early_retirement_reduction,age55,50pct>>pension-vesting-retirement-table.csv&&echo early_retirement_reduction,age60,70pct>>pension-vesting-retirement-table.csv&&echo early_retirement_reduction,age62,85pct>>pension-vesting-retirement-table.csv&&echo wrote pension-vesting-retirement-table.csv
         """
     }
 
