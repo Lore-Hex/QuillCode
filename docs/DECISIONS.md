@@ -3306,3 +3306,27 @@
 - **Evidence:** `scripts/native_click_probe_contracts/live_saas.py`,
   `scripts/native_click_probe_contracts/cli.py`, `scripts/live-saas-smoke.sh`, and
   `ParityLiveSaaSSmokeGateTests`.
+
+## 2026-07-27: live local-app Computer Use rows use an explicit optional evidence contract
+
+- **Decision:** Arbitrary foreground-app coworker validation has a separate optional gate:
+  `scripts/live-app-computer-use-smoke.sh` delegates to
+  `native-click-probe-contracts.py live-app-computer-use`, validates a captured local-app evidence
+  JSON file, and writes `live-app-computer-use-manifest.json` only when the evidence proves exact
+  spreadsheet row IDs, matching app/foreground names, screenshot plus a real Computer Use action,
+  visible before/after state change, completed result evidence, and an existing screenshot/appshot
+  artifact.
+- **Why:** Packaged Computer Use action smoke proves executor routing, but office coworker rows often
+  depend on private desktop apps or signed-in native tools that default CI cannot open. A typed
+  optional contract lets secure/manual captures graduate exact spreadsheet rows without conflating
+  deterministic backend proof with real local-app task completion.
+- **Boundary:** This is not run in default CI and does not itself prove arbitrary app parity. It is
+  the acceptance contract for evidence captured from a real foreground app. Rows remain gated until
+  such a manifest exists for the relevant task.
+- **Safety:** The validator rejects raw prompts/messages and common captured secrets, including
+  TrustedRouter/QuillCloud keys, private keys, and obvious password/token/secret fields, before
+  writing the manifest.
+- **Evidence:** `scripts/native_click_probe_contracts/live_app_computer_use.py`,
+  `scripts/native_click_probe_contracts/live_app_computer_use_template.py`,
+  `scripts/live-app-computer-use-smoke.sh`, `scripts/live-app-computer-use-template.sh`, and
+  `ParityLiveAppComputerUseSmokeGateTests`.

@@ -234,6 +234,28 @@ When a signed-in Salesforce/HubSpot/Google Sheets/etc. workflow is run manually 
 credentialed environment, the resulting `live-saas-manifest.json` is the evidence to attach before
 graduating each listed `catalogTaskIDs` row.
 
+## Optional Live App Computer Use Evidence Slice
+
+QuillCode now also has a fail-closed manual evidence gate for real local app control:
+
+- `scripts/live-app-computer-use-template.sh <output.json> <catalog-task-id> [catalog-task-id ...]`
+  writes a row-linked evidence skeleton for arbitrary foreground app tasks. Optional environment
+  variables `QUILLCODE_LIVE_APP_NAME` and `QUILLCODE_LIVE_APP_TASK_NAME` prefill the app/task fields.
+- `scripts/live-app-computer-use-smoke.sh <evidence.json> [manifest.json]` validates captured
+  local-app Computer Use evidence through `native-click-probe-contracts.py live-app-computer-use`.
+- The evidence must include exact `catalogTaskIDs`, matching `appName` and `foregroundApplication`,
+  `host.computer.screenshot`, at least one click/type/scroll/move/key action, an existing screenshot
+  or appshot artifact, visible before/after state evidence, and a completed result visible in the
+  after-state or observed elements.
+- The validator rejects raw prompts/messages and common captured secrets before writing
+  `live-app-computer-use-manifest.json`.
+- `scripts/native-click-probe-contracts.py coworker-catalog ... --output coworker-coverage.json`
+  accepts these manifests beside live SaaS, scheduled-notification, and packaged one-turn evidence.
+
+This is the acceptance path for local app coworker rows such as spreadsheet cleanup, desktop document
+editing, or signed-in native business tools. Rows still remain gated until a row-specific captured
+manifest exists; deterministic packaged Computer Use action smoke alone is not enough.
+
 Example capture setup:
 
 ```bash
@@ -249,6 +271,7 @@ Multiple validated live SaaS manifests can be rolled up with:
 scripts/native-click-probe-contracts.py coworker-catalog \
   path/to/live-saas-manifest-1.json \
   path/to/live-saas-manifest-2.json \
+  path/to/live-app-computer-use-manifest.json \
   --output path/to/coworker-coverage.json \
   --markdown-output path/to/coworker-coverage.md
 ```

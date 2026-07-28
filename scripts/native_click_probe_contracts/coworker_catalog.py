@@ -100,6 +100,41 @@ def _validated_scheduled_notification_manifest(
     }
 
 
+def _validated_live_app_computer_use_manifest(
+    manifest: dict[str, Any],
+    path: Path,
+    base_directory: Path,
+) -> dict[str, Any]:
+    require(
+        manifest.get("liveAppComputerUseValidated") is True,
+        f"{path} must be a live app Computer Use validation manifest",
+    )
+    base = _manifest_base(manifest, path, base_directory)
+
+    app_name = manifest.get("appName")
+    task_name = manifest.get("taskName")
+    foreground_application = manifest.get("foregroundApplication")
+    require(isinstance(app_name, str) and app_name, f"{path}.appName must be non-empty")
+    require(isinstance(task_name, str) and task_name, f"{path}.taskName must be non-empty")
+    require(
+        isinstance(foreground_application, str) and foreground_application,
+        f"{path}.foregroundApplication must be non-empty",
+    )
+    require(manifest.get("taskCompleted") is True, f"{path}.taskCompleted must be true")
+    require(
+        manifest.get("screenshotArtifactExists") is True,
+        f"{path}.screenshotArtifactExists must be true",
+    )
+
+    return {
+        **base,
+        "evidenceType": "live-app-computer-use",
+        "serviceName": app_name,
+        "taskName": task_name,
+        "urlHost": f"local-app:{foreground_application}",
+    }
+
+
 def _validated_packaged_one_turn_manifest(
     manifest: dict[str, Any],
     path: Path,
@@ -139,11 +174,13 @@ def _validated_manifest(manifest: dict[str, Any], path: Path, base_directory: Pa
         return _validated_live_saas_manifest(manifest, path, base_directory)
     if manifest.get("scheduledNotificationObservationValidated") is True:
         return _validated_scheduled_notification_manifest(manifest, path, base_directory)
+    if manifest.get("liveAppComputerUseValidated") is True:
+        return _validated_live_app_computer_use_manifest(manifest, path, base_directory)
     if manifest.get("packagedOneTurnCoworkerValidated") is True:
         return _validated_packaged_one_turn_manifest(manifest, path, base_directory)
     raise SystemExit(
         f"{path} must be a supported coworker evidence manifest "
-        "(live SaaS, scheduled notification observation, or packaged one-turn coworker)"
+        "(live SaaS, live app Computer Use, scheduled notification observation, or packaged one-turn coworker)"
     )
 
 
