@@ -189,6 +189,123 @@ final class MockLLMClientMultiFileArtifactTests: XCTestCase {
         )
     }
 
+    func testAnalystSynthesisStartsByReadingFirstAnalystReport() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` and flag where they contradict each other.",
+            tools: ToolRouter.definitions
+        )
+
+        let call = try XCTUnwrap(action.toolCall)
+        XCTAssertEqual(call.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(call.argumentsJSON).string("path"), "analyst-reports/gartner-market-guide.pdf")
+    }
+
+    func testAnalystSynthesisReadsAllReportsThenWritesContradictions() async throws {
+        let user = ChatMessage(
+            role: .user,
+            content: "Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` and flag where they contradict each other."
+        )
+        let gartnerRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "analyst-reports/gartner-market-guide.pdf"])
+        )
+        let afterGartnerRead = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: gartnerRead, stdout: "Gartner says governance depth matters.")
+            ]
+        )
+
+        let forresterWaveAction = try await MockLLMClient().nextAction(
+            thread: afterGartnerRead,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let forresterWaveCall = try XCTUnwrap(forresterWaveAction.toolCall)
+        XCTAssertEqual(forresterWaveCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(
+            try ToolArguments(forresterWaveCall.argumentsJSON).string("path"),
+            "analyst-reports/forrester-wave.pdf"
+        )
+
+        let forresterWaveRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "analyst-reports/forrester-wave.pdf"])
+        )
+        let afterWaveRead = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: gartnerRead, stdout: "Gartner says governance depth matters."),
+                try toolFeedbackMessage(for: forresterWaveRead, stdout: "Forrester says fast time-to-value matters.")
+            ]
+        )
+
+        let nowTechAction = try await MockLLMClient().nextAction(
+            thread: afterWaveRead,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let nowTechCall = try XCTUnwrap(nowTechAction.toolCall)
+        XCTAssertEqual(nowTechCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(
+            try ToolArguments(nowTechCall.argumentsJSON).string("path"),
+            "analyst-reports/forrester-now-tech.pdf"
+        )
+
+        let nowTechRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "analyst-reports/forrester-now-tech.pdf"])
+        )
+        let afterNowTechRead = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: gartnerRead, stdout: "Gartner says governance depth matters."),
+                try toolFeedbackMessage(for: forresterWaveRead, stdout: "Forrester says fast time-to-value matters."),
+                try toolFeedbackMessage(for: nowTechRead, stdout: "Forrester says extensibility matters.")
+            ]
+        )
+
+        let writeAction = try await MockLLMClient().nextAction(
+            thread: afterNowTechRead,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let writeCall = try XCTUnwrap(writeAction.toolCall)
+        XCTAssertEqual(writeCall.name, ToolDefinition.fileWrite.name)
+        let writeArguments = try ToolArguments(writeCall.argumentsJSON)
+        XCTAssertEqual(writeArguments.string("path"), "analyst-claims-contradictions.md")
+        XCTAssertTrue(writeArguments.string("content")?.contains("Gartner says") == true)
+        XCTAssertTrue(writeArguments.string("content")?.contains("Contradictions") == true)
+
+        let writeFeedback = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json(["path": "analyst-claims-contradictions.md"])
+        )
+        let afterWrite = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: writeFeedback, stdout: "wrote analyst-claims-contradictions.md")
+            ]
+        )
+        let finalAction = try await MockLLMClient().nextAction(
+            thread: afterWrite,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        guard case .say(let finalAnswer) = finalAction else {
+            return XCTFail("Expected a final answer after the analyst synthesis write completes.")
+        }
+        XCTAssertEqual(
+            finalAnswer,
+            "Created `analyst-claims-contradictions.md` from the three reports in `analyst-reports`."
+        )
+    }
+
     private func toolFeedbackMessage(for call: ToolCall, stdout: String) throws -> ChatMessage {
         let feedback = AgentToolFeedback(
             toolCall: call,

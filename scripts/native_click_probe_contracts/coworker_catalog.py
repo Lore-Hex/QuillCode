@@ -179,7 +179,7 @@ def _validated_packaged_multi_file_manifest(
         f"{path} must be a packaged multi-file artifact validation manifest",
     )
     base = _manifest_base(manifest, path, base_directory)
-    expected_task_ids = [69]
+    expected_task_ids = [69, 70]
     require(
         base["catalogTaskIDs"] == expected_task_ids,
         f"{path}.catalogTaskIDs must be {expected_task_ids}",
@@ -194,19 +194,22 @@ def _validated_packaged_multi_file_manifest(
         f"{path} must prove direct executable and Launch Services multi-file smoke match",
     )
     catalog_cases = manifest.get("catalogCases")
+    catalog_case_ids = sorted(
+        case.get("taskID")
+        for case in catalog_cases
+        if isinstance(case, dict)
+    ) if isinstance(catalog_cases, list) else []
     require(
         isinstance(catalog_cases, list)
-        and len(catalog_cases) == 1
-        and isinstance(catalog_cases[0], dict)
-        and catalog_cases[0].get("taskID") == 69,
-        f"{path} must include the row #69 multi-file catalog case",
+        and catalog_case_ids == expected_task_ids,
+        f"{path} must include the row #69 and #70 multi-file catalog cases",
     )
 
     return {
         **base,
         "evidenceType": "packaged-multi-file-artifact",
         "serviceName": "QuillCode Packaged Smoke",
-        "taskName": "All-hands email multi-file artifact smoke",
+        "taskName": "Multi-file artifact coworker smoke",
         "urlHost": "local-packaged-app",
     }
 
