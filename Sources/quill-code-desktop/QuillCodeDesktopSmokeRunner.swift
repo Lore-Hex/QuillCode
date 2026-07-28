@@ -1041,6 +1041,24 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("Support,42000,36500,15.1%,over,billing backlog temporary contractors")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 32,
+                prompt: "Run `\(folderOrganizationCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote downloads-organization-report.md",
+                artifactRelativePath: "downloads-organization-report.md",
+                artifactExpectation: .textContains("Junk pile: Downloads/Junk/installer.tmp"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "Downloads/Receipts/receipt-1042.pdf",
+                        expectation: .textContains("Receipt 1042")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "Downloads/Screenshots/screenshot-launch.png",
+                        expectation: .textContains("Screenshot launch")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1190,6 +1208,12 @@ enum QuillCodeDesktopSmokeRunner {
         let varianceCSV = "cost_center,actual,budget,variance_pct,status,explanation\\nEngineering,118000,112000,5.4%,within,contractor timing within tolerance\\nSupport,42000,36500,15.1%,over,billing backlog temporary contractors\\nMarketing,27800,32000,-13.1%,under,event spend moved to July\\n"
         return """
         python3 -c "print((__import__('pathlib').Path('june-variance-pack.csv').write_text('\(varianceCSV)'),'wrote june-variance-pack.csv')[-1])"
+        """
+    }
+
+    private static var folderOrganizationCommand: String {
+        return """
+        mkdir -p Downloads && printf 'Receipt 1042\\n' > Downloads/receipt-1042.pdf && printf 'Screenshot launch\\n' > Downloads/screenshot-launch.png && printf 'Old temp installer\\n' > Downloads/installer.tmp && mkdir -p Downloads/Installers Downloads/Receipts Downloads/'Client Files' Downloads/Screenshots Downloads/Junk && mv Downloads/receipt-1042.pdf Downloads/Receipts/receipt-1042.pdf && mv Downloads/screenshot-launch.png Downloads/Screenshots/screenshot-launch.png && mv Downloads/installer.tmp Downloads/Junk/installer.tmp && printf 'Moved receipt-1042.pdf to Downloads/Receipts\\nMoved screenshot-launch.png to Downloads/Screenshots\\nJunk pile: Downloads/Junk/installer.tmp\\nNo files deleted.\\n' > downloads-organization-report.md && printf 'wrote downloads-organization-report.md\\n'
         """
     }
 
