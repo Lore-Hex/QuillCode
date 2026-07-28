@@ -896,6 +896,14 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 18,
+                prompt: "Run `printf 'plan,premium,deductible,out_of_pocket_max,specialist_copay,rx_tier\\nBronze,98,2500,7000,65,Tier 3\\nSilver,150,1000,4000,35,Tier 2\\nGold,225,500,2500,20,Tier 1\\n' > benefits-plan-matrix.csv && printf 'wrote benefits-plan-matrix.csv\\n'`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote benefits-plan-matrix.csv",
+                artifactRelativePath: "benefits-plan-matrix.csv",
+                artifactExpectation: .textContains("Silver,150,1000,4000,35,Tier 2")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 20,
                 prompt: "Run `\(chartGenerationCommand)`",
                 expectedToolName: ToolDefinition.shellRun.name,

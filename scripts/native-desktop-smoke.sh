@@ -365,6 +365,12 @@ expected_one_turn_cases = {
             },
         ],
     },
+    18: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "benefits-plan-matrix.csv",
+        "artifactContains": "Silver,150,1000,4000,35,Tier 2",
+        "answerContains": "wrote benefits-plan-matrix.csv",
+    },
     20: {
         "toolName": "host.shell.run",
         "artifactSuffix": "regional-revenue-chart.png",
