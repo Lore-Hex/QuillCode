@@ -22,6 +22,7 @@ from .packaged_window import (
 from .probe_contracts import validate_report
 from .scheduled_coworker import write_scheduled_coworker_manifest
 from .scheduled_notification_observation import write_scheduled_notification_observation_manifest
+from .scheduled_notification_observation_template import write_scheduled_notification_observation_template
 from .safety_reviewer_calibration import write_safety_reviewer_calibration_manifest
 
 
@@ -141,6 +142,13 @@ def main() -> None:
     scheduled_notification_parser.add_argument("evidence", type=Path)
     scheduled_notification_parser.add_argument("--manifest", required=True, type=Path)
 
+    scheduled_notification_template_parser = subparsers.add_parser(
+        "scheduled-notification-observation-template",
+        help="write a row-linked scheduled notification observation evidence template",
+    )
+    scheduled_notification_template_parser.add_argument("catalog_task_ids", nargs="+", type=int)
+    scheduled_notification_template_parser.add_argument("--output", required=True, type=Path)
+
     args = parser.parse_args()
     if args.command == "validate":
         validate_report(args.report, args.label)
@@ -212,3 +220,5 @@ def main() -> None:
         write_safety_reviewer_calibration_manifest(args.evidence, args.manifest)
     elif args.command == "scheduled-notification-observation":
         write_scheduled_notification_observation_manifest(args.evidence, args.manifest)
+    elif args.command == "scheduled-notification-observation-template":
+        write_scheduled_notification_observation_template(args.catalog_task_ids, args.output)

@@ -133,15 +133,16 @@ Packaged macOS smoke now preserves explicit scheduled-coworker release evidence:
 
 The remaining scheduling evidence gap is narrower: observing the real OS notification banner/action
 from the packaged app, rather than only the app-level notification report delivered to the desktop
-notifier boundary. `scripts/scheduled-notification-observation-smoke.sh <evidence.json>
-[manifest.json]` now validates an optional redacted native observation capture that links back to the
-packaged scheduled-coworker manifest, proves the `QuillCode scheduled task ready` notification was
-visible, proves the original task text was visible, proves the Open follow-up action was observed and
-opened the scheduled thread, carries exact `catalogTaskIDs`, and rejects raw prompts or captured
-secrets. `scripts/native-click-probe-contracts.py coworker-catalog ... --output
-coworker-coverage.json` accepts these manifests alongside live SaaS manifests, so scheduling rows can
-graduate only when a real captured observation manifest is tied to the corresponding spreadsheet
-row IDs.
+notifier boundary. `scripts/scheduled-notification-observation-template.sh <output.json>
+<catalog-task-id> [catalog-task-id ...]` writes the row-linked capture skeleton, and
+`scripts/scheduled-notification-observation-smoke.sh <evidence.json> [manifest.json]` validates the
+completed redacted native observation capture. The evidence links back to the packaged
+scheduled-coworker manifest, proves the `QuillCode scheduled task ready` notification was visible,
+proves the original task text was visible, proves the Open follow-up action was observed and opened
+the scheduled thread, carries exact `catalogTaskIDs`, and rejects raw prompts or captured secrets.
+`scripts/native-click-probe-contracts.py coworker-catalog ... --output coworker-coverage.json`
+accepts these manifests alongside live SaaS manifests, so scheduling rows can graduate only when a
+real captured observation manifest is tied to the corresponding spreadsheet row IDs.
 
 ## Multi-File Artifact Smoke Slice
 
