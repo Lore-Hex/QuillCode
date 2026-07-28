@@ -180,6 +180,8 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""q2-funnel-conversions.csv""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""vendor-name-mapping.csv""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""ap-vendors-standardized.csv""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""senior-csm-job-description.md""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""senior-csm-screening-questions.md""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""finance-kpi-dashboard.html""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""q3-content-calendar.csv""#))
         XCTAssertTrue(oneTurnCoworkerValidator.contains(#""sales-pivot-summary.csv""#))
