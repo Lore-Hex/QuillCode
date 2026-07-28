@@ -162,6 +162,22 @@ EXPECTED_CASES = {
             },
         ],
     },
+    33: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "prospect-followups/ada-day-1.md",
+        "artifactContains": "Great talking about the warehouse pilot",
+        "answerContains": "wrote prospect-followups/ada-day-1.md, prospect-followups/ada-day-3.md, and prospect-followups/ada-day-7.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "prospect-followups/ada-day-3.md",
+                "artifactContains": "bring the warehouse checklist",
+            },
+            {
+                "artifactSuffix": "prospect-followups/ben-day-1.md",
+                "artifactContains": "pricing analytics dashboard",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",
