@@ -453,6 +453,22 @@ EXPECTED_CASES = {
             },
         ],
     },
+    57: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "customer-leave-behind.md",
+        "artifactContains": "Three proof points",
+        "answerContains": "wrote customer-leave-behind.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "product-deck-20-slides.pptx",
+                "artifactContains": "20 slide product deck source",
+            },
+            {
+                "artifactSuffix": "approved-pricing.csv",
+                "artifactContains": "approved pricing",
+            },
+        ],
+    },
     68: {
         "toolName": "host.shell.run",
         "artifactSuffix": "weekly-review.csv",
