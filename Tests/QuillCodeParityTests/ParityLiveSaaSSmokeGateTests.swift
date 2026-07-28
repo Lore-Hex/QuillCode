@@ -62,6 +62,7 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         let secondEvidenceURL = temporaryDirectory.appendingPathComponent("sheets-evidence.json")
         let secondManifestURL = temporaryDirectory.appendingPathComponent("sheets-manifest.json")
         let coverageURL = temporaryDirectory.appendingPathComponent("coworker-coverage.json")
+        let markdownURL = temporaryDirectory.appendingPathComponent("coworker-coverage.md")
 
         try validLiveSaaSEvidence.write(to: firstEvidenceURL, atomically: true, encoding: .utf8)
         try validLiveSaaSEvidence
@@ -82,6 +83,8 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
                 secondManifestURL.path,
                 "--output",
                 coverageURL.path,
+                "--markdown-output",
+                markdownURL.path,
             ]
         )
 
@@ -94,6 +97,11 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(coverage.contains(#"199"#), coverage)
         XCTAssertTrue(coverage.contains(#"200"#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceByTaskID": {"#), coverage)
+        let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
+        XCTAssertTrue(markdown.contains("# QuillCode Coworker Coverage"), markdown)
+        XCTAssertTrue(markdown.contains("| Row | Evidence | Service | Task | Source |"), markdown)
+        XCTAssertTrue(markdown.contains("| 199 | live-saas | Salesforce | Update CRM status |"), markdown)
+        XCTAssertTrue(markdown.contains("Rows not listed here remain unproven"), markdown)
     }
 
     func testCoworkerCatalogCoverageAcceptsPackagedOneTurnRows() throws {
@@ -223,6 +231,11 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         let script = try Self.scriptText(named: "live-saas-smoke.sh")
         let templateScript = try Self.scriptText(named: "live-saas-template.sh")
         let validator = try Self.nativeClickProbeValidatorText()
+        let catalogReporter = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("scripts/native_click_probe_contracts/coworker_catalog.py"),
+            encoding: .utf8
+        )
         let coworkerDocs = try Self.docsText(named: "COWORKER_TASK_TRACKER.md")
 
         XCTAssertTrue(script.contains("QUILLCODE_LIVE_SAAS_EVIDENCE"))
@@ -232,6 +245,8 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(validator.contains("coworker-catalog"))
         XCTAssertTrue(validator.contains("live-saas-template"))
         XCTAssertTrue(validator.contains("def write_live_saas_manifest"))
+        XCTAssertTrue(validator.contains("--markdown-output"))
+        XCTAssertTrue(catalogReporter.contains("def coworker_catalog_markdown"))
         XCTAssertTrue(validator.contains("accountState must be signed-in"))
         XCTAssertTrue(validator.contains("catalogTaskIDs must be a non-empty list"))
         XCTAssertTrue(coworkerDocs.contains("live-saas-template.sh"))

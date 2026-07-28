@@ -191,9 +191,61 @@ def build_coworker_catalog_coverage(manifest_paths: list[Path], base_directory: 
     }
 
 
-def write_coworker_catalog_coverage(manifest_paths: list[Path], output_path: Path) -> None:
+def coworker_catalog_markdown(summary: dict[str, Any]) -> str:
+    lines = [
+        "# QuillCode Coworker Coverage",
+        "",
+        f"- Catalog: {summary['catalogSpreadsheetURL']}",
+        f"- Evidence manifests: {summary['evidenceManifestCount']}",
+        f"- Proven rows: {summary['provenTaskCount']}",
+        f"- Pending rows: {summary['pendingTaskCount']}",
+        "",
+        "| Row | Evidence | Service | Task | Source |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+
+    evidence_by_task_id = summary["evidenceByTaskID"]
+    for task_id in summary["provenTaskIDs"]:
+        row_entries = evidence_by_task_id[str(task_id)]
+        first_entry = row_entries[0]
+        extra_count = len(row_entries) - 1
+        evidence_label = first_entry["evidenceType"]
+        if extra_count:
+            evidence_label = f"{evidence_label} (+{extra_count})"
+        lines.append(
+            "| {row} | {evidence} | {service} | {task} | `{source}` |".format(
+                row=task_id,
+                evidence=_markdown_table_cell(evidence_label),
+                service=_markdown_table_cell(first_entry["serviceName"]),
+                task=_markdown_table_cell(first_entry["taskName"]),
+                source=str(first_entry["manifestPath"]).replace("`", "\\`"),
+            )
+        )
+
+    lines.extend(
+        [
+            "",
+            "Rows not listed here remain unproven until a row-linked manifest is validated.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _markdown_table_cell(value: str) -> str:
+    return value.replace("|", "\\|").replace("\n", " ")
+
+
+def write_coworker_catalog_coverage(
+    manifest_paths: list[Path],
+    output_path: Path,
+    markdown_output_path: Path | None = None,
+) -> None:
     base_directory = output_path.parent
     summary = build_coworker_catalog_coverage(manifest_paths, base_directory)
     with output_path.open("w", encoding="utf-8") as output_file:
         json.dump(summary, output_file, indent=2, sort_keys=True)
         output_file.write("\n")
+    if markdown_output_path is not None:
+        with markdown_output_path.open("w", encoding="utf-8") as output_file:
+            output_file.write(coworker_catalog_markdown(summary))

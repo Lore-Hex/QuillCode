@@ -249,11 +249,13 @@ Multiple validated live SaaS manifests can be rolled up with:
 scripts/native-click-probe-contracts.py coworker-catalog \
   path/to/live-saas-manifest-1.json \
   path/to/live-saas-manifest-2.json \
-  --output path/to/coworker-coverage.json
+  --output path/to/coworker-coverage.json \
+  --markdown-output path/to/coworker-coverage.md
 ```
 
 The coverage summary records `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID` for the full
-1-206 catalog range, so spreadsheet updates can be reviewed from row-linked evidence rather than
+1-206 catalog range. The optional Markdown report lists proven rows, evidence type, service, task,
+and source manifest, so spreadsheet updates can be reviewed from row-linked evidence rather than
 manual memory.
 
 ## Packaged Computer Use Evidence Slice
