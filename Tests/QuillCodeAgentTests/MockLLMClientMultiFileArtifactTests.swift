@@ -397,6 +397,138 @@ final class MockLLMClientMultiFileArtifactTests: XCTestCase {
         )
     }
 
+    func testCapacityPlanningStartsByReadingAllocations() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "Check `allocations.csv` for anyone booked over 100% across the three concurrent projects and propose a rebalance with named swaps.",
+            tools: ToolRouter.definitions
+        )
+
+        let call = try XCTUnwrap(action.toolCall)
+        XCTAssertEqual(call.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(call.argumentsJSON).string("path"), "allocations.csv")
+    }
+
+    func testCapacityPlanningReadsProjectPlansThenWritesRebalance() async throws {
+        let user = ChatMessage(
+            role: .user,
+            content: "Check `allocations.csv` for anyone booked over 100% across the three concurrent projects and propose a rebalance with named swaps."
+        )
+        let allocationsRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "allocations.csv"])
+        )
+        let afterAllocations = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: allocationsRead, stdout: "Ana total 125; Dev total 115")
+            ]
+        )
+
+        let atlasAction = try await MockLLMClient().nextAction(
+            thread: afterAllocations,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let atlasCall = try XCTUnwrap(atlasAction.toolCall)
+        XCTAssertEqual(atlasCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(atlasCall.argumentsJSON).string("path"), "project-plans/project-atlas.md")
+
+        let atlasRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "project-plans/project-atlas.md"])
+        )
+        let afterAtlas = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: allocationsRead, stdout: "Ana total 125; Dev total 115"),
+                try toolFeedbackMessage(for: atlasRead, stdout: "Cy owns launch-critical Atlas coordination")
+            ]
+        )
+
+        let beaconAction = try await MockLLMClient().nextAction(
+            thread: afterAtlas,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let beaconCall = try XCTUnwrap(beaconAction.toolCall)
+        XCTAssertEqual(beaconCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(beaconCall.argumentsJSON).string("path"), "project-plans/project-beacon.md")
+
+        let beaconRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "project-plans/project-beacon.md"])
+        )
+        let afterBeacon = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: beaconRead, stdout: "Eli owns Beacon analytics context")
+            ]
+        )
+
+        let cometAction = try await MockLLMClient().nextAction(
+            thread: afterBeacon,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let cometCall = try XCTUnwrap(cometAction.toolCall)
+        XCTAssertEqual(cometCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(cometCall.argumentsJSON).string("path"), "project-plans/project-comet.md")
+
+        let cometRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "project-plans/project-comet.md"])
+        )
+        let afterComet = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: cometRead, stdout: "Bo owns Comet QA automation plan")
+            ]
+        )
+
+        let writeAction = try await MockLLMClient().nextAction(
+            thread: afterComet,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let writeCall = try XCTUnwrap(writeAction.toolCall)
+        XCTAssertEqual(writeCall.name, ToolDefinition.fileWrite.name)
+        let writeArguments = try ToolArguments(writeCall.argumentsJSON)
+        XCTAssertEqual(writeArguments.string("path"), "capacity-rebalance.md")
+        let content = try XCTUnwrap(writeArguments.string("content"))
+        XCTAssertTrue(content.contains("Ana is booked at 125%"))
+        XCTAssertTrue(content.contains("Move 20% of Ana's Beacon reporting work to Eli"))
+        XCTAssertTrue(content.contains("Dev drops from 115% to 100%"))
+
+        let writeFeedback = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json(["path": "capacity-rebalance.md"])
+        )
+        let afterWrite = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: writeFeedback, stdout: "wrote capacity-rebalance.md")
+            ]
+        )
+        let finalAction = try await MockLLMClient().nextAction(
+            thread: afterWrite,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        guard case .say(let finalAnswer) = finalAction else {
+            return XCTFail("Expected a final answer after the capacity plan is written.")
+        }
+        XCTAssertEqual(
+            finalAnswer,
+            "Created `capacity-rebalance.md` from `allocations.csv` and the three project plans."
+        )
+    }
+
     private func toolFeedbackMessage(for call: ToolCall, stdout: String) throws -> ChatMessage {
         let feedback = AgentToolFeedback(
             toolCall: call,

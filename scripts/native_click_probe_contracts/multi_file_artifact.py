@@ -11,7 +11,7 @@ from .live_saas import CATALOG_SPREADSHEET_URL
 
 EXPECTED_PROMPT = "Create the team action brief from `notes/research.md` and `notes/risks.md`."
 EXPECTED_TOOL_SEQUENCE = ["host.file.read", "host.file.read", "host.file.write"]
-EXPECTED_CATALOG_TASK_IDS = [69, 70, 71]
+EXPECTED_CATALOG_TASK_IDS = [69, 70, 71, 72]
 EXPECTED_ALL_HANDS_PROMPT = (
     "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` "
     "and the answers in `reorg-qa`, covering the eight hardest questions."
@@ -23,6 +23,10 @@ EXPECTED_ANALYST_SYNTHESIS_PROMPT = (
 EXPECTED_BULK_RENAME_PROMPT = (
     "Rename every PDF in `Documents/Invoices` to YYYY-MM-DD_Vendor_Amount.pdf "
     "based on what's inside each file, and leave an undo log."
+)
+EXPECTED_CAPACITY_PLANNING_PROMPT = (
+    "Check `allocations.csv` for anyone booked over 100% across the three concurrent projects "
+    "and propose a rebalance with named swaps."
 )
 EXPECTED_ALL_HANDS_ASSERTIONS = {
     "announcesReorg",
@@ -41,6 +45,12 @@ EXPECTED_BULK_RENAME_ASSERTIONS = {
     "renamesNorthwindInvoice",
     "writesUndoLog",
     "usesInvoiceFields",
+}
+EXPECTED_CAPACITY_PLANNING_ASSERTIONS = {
+    "findsOverbookedPeople",
+    "proposesNamedSwaps",
+    "usesProjectConstraints",
+    "balancesUnderOrAtCapacity",
 }
 
 
@@ -105,6 +115,15 @@ def validated_multi_file_artifact(report: dict[str, Any], label: str) -> dict[st
     ]
     require(len(bulk_rename_cases) == 1, f"{label} multi-file catalogCases must include exactly one row #71 case")
     validate_bulk_rename_case(bulk_rename_cases[0], label)
+    capacity_planning_cases = [
+        case for case in catalog_cases
+        if isinstance(case, dict) and case.get("taskID") == 72
+    ]
+    require(
+        len(capacity_planning_cases) == 1,
+        f"{label} multi-file catalogCases must include exactly one row #72 case",
+    )
+    validate_capacity_planning_case(capacity_planning_cases[0], label)
     return smoke
 
 
@@ -211,12 +230,56 @@ def validate_bulk_rename_case(case: dict[str, Any], label: str) -> None:
     require(not missing, f"{label} row #71 assertions were not all true: {missing}")
 
 
+def validate_capacity_planning_case(case: dict[str, Any], label: str) -> None:
+    require(case.get("prompt") == EXPECTED_CAPACITY_PLANNING_PROMPT, f"{label} row #72 prompt drifted")
+    require(
+        case.get("toolSequence") == [
+            "host.file.read",
+            "host.file.read",
+            "host.file.read",
+            "host.file.read",
+            "host.file.write",
+        ],
+        f"{label} row #72 tool sequence was {case.get('toolSequence')!r}",
+    )
+    source_paths = case.get("sourcePaths")
+    require(
+        isinstance(source_paths, list) and len(source_paths) == 4,
+        f"{label} row #72 sourcePaths was malformed: {source_paths!r}",
+    )
+    for expected_suffix in (
+        "allocations.csv",
+        "project-plans/project-atlas.md",
+        "project-plans/project-beacon.md",
+        "project-plans/project-comet.md",
+    ):
+        require(
+            any(isinstance(path, str) and path.endswith(expected_suffix) for path in source_paths),
+            f"{label} row #72 missed {expected_suffix}: {source_paths!r}",
+        )
+    deliverable_path = case.get("deliverablePath")
+    require(
+        isinstance(deliverable_path, str) and deliverable_path.endswith("capacity-rebalance.md"),
+        f"{label} row #72 deliverable path was malformed: {deliverable_path!r}",
+    )
+    final_answer = case.get("finalAnswer")
+    require(
+        isinstance(final_answer, str) and "Created `capacity-rebalance.md`" in final_answer,
+        f"{label} row #72 final answer was malformed: {final_answer!r}",
+    )
+    assertions = case.get("assertions")
+    require(isinstance(assertions, dict), f"{label} row #72 assertions must be an object")
+    missing = sorted(name for name in EXPECTED_CAPACITY_PLANNING_ASSERTIONS if assertions.get(name) is not True)
+    require(not missing, f"{label} row #72 assertions were not all true: {missing}")
+
+
 def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
     source_paths = smoke["sourcePaths"]
     catalog_cases = smoke["catalogCases"]
     all_hands_case = next(case for case in catalog_cases if case["taskID"] == 69)
     analyst_case = next(case for case in catalog_cases if case["taskID"] == 70)
     bulk_rename_case = next(case for case in catalog_cases if case["taskID"] == 71)
+    capacity_planning_case = next(case for case in catalog_cases if case["taskID"] == 72)
     return {
         "prompt": smoke["prompt"],
         "toolSequence": smoke["toolSequence"],
@@ -272,6 +335,22 @@ def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
                 "deliverablePathSuffix": "Documents/Invoices/invoice-rename-undo.csv",
                 "finalAnswer": bulk_rename_case["finalAnswer"],
                 "assertions": bulk_rename_case["assertions"],
+            },
+            {
+                "taskID": 72,
+                "prompt": capacity_planning_case["prompt"],
+                "toolSequence": capacity_planning_case["toolSequence"],
+                "sourcePathSuffixes": sorted(
+                    "allocations.csv"
+                    if str(path).endswith("allocations.csv")
+                    else str(path).split("project-plans/", 1)[-1]
+                    if "project-plans/" in str(path)
+                    else str(path)
+                    for path in capacity_planning_case["sourcePaths"]
+                ),
+                "deliverablePathSuffix": "capacity-rebalance.md",
+                "finalAnswer": capacity_planning_case["finalAnswer"],
+                "assertions": capacity_planning_case["assertions"],
             }
         ],
     }

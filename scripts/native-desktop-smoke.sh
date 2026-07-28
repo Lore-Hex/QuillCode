@@ -429,6 +429,39 @@ for assertion in ("renamesAcmeInvoice", "renamesNorthwindInvoice", "writesUndoLo
 bulk_rename_final_answer = bulk_rename.get("finalAnswer")
 if not isinstance(bulk_rename_final_answer, str) or "wrote `Documents/Invoices/invoice-rename-undo.csv`" not in bulk_rename_final_answer:
     fail(f"row #71 final answer was malformed: {bulk_rename_final_answer!r}")
+capacity_planning_cases = [
+    case for case in catalog_cases
+    if isinstance(case, dict) and case.get("taskID") == 72
+]
+if len(capacity_planning_cases) != 1:
+    fail(f"multi-file artifact smoke expected exactly one row #72 case: {catalog_cases!r}")
+capacity_planning = capacity_planning_cases[0]
+expected_capacity_planning_prompt = "Check `allocations.csv` for anyone booked over 100% across the three concurrent projects and propose a rebalance with named swaps."
+if capacity_planning.get("prompt") != expected_capacity_planning_prompt:
+    fail(f"row #72 prompt drifted: {capacity_planning.get('prompt')!r}")
+if capacity_planning.get("toolSequence") != ["host.file.read", "host.file.read", "host.file.read", "host.file.read", "host.file.write"]:
+    fail(f"row #72 tool sequence drifted: {capacity_planning.get('toolSequence')!r}")
+capacity_planning_sources = capacity_planning.get("sourcePaths")
+if not isinstance(capacity_planning_sources, list) or len(capacity_planning_sources) != 4:
+    fail(f"row #72 source paths were malformed: {capacity_planning_sources!r}")
+for expected_suffix in (
+    "allocations.csv",
+    "project-plans/project-atlas.md",
+    "project-plans/project-beacon.md",
+    "project-plans/project-comet.md",
+):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in capacity_planning_sources):
+        fail(f"row #72 missed source path {expected_suffix}: {capacity_planning_sources!r}")
+capacity_planning_deliverable = capacity_planning.get("deliverablePath")
+if not isinstance(capacity_planning_deliverable, str) or not capacity_planning_deliverable.endswith("capacity-rebalance.md"):
+    fail(f"row #72 deliverable path was malformed: {capacity_planning_deliverable!r}")
+capacity_planning_assertions = capacity_planning.get("assertions")
+for assertion in ("findsOverbookedPeople", "proposesNamedSwaps", "usesProjectConstraints", "balancesUnderOrAtCapacity"):
+    if not isinstance(capacity_planning_assertions, dict) or capacity_planning_assertions.get(assertion) is not True:
+        fail(f"row #72 assertion {assertion} was not true: {capacity_planning_assertions!r}")
+capacity_planning_final_answer = capacity_planning.get("finalAnswer")
+if not isinstance(capacity_planning_final_answer, str) or "Created `capacity-rebalance.md`" not in capacity_planning_final_answer:
+    fail(f"row #72 final answer was malformed: {capacity_planning_final_answer!r}")
 
 one_turn_coworker_smoke = report.get("oneTurnCoworkerSmoke")
 if not isinstance(one_turn_coworker_smoke, dict):
@@ -1396,6 +1429,11 @@ if ! grep -q 'invoice-rename-undo.csv' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q 'capacity-rebalance.md' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected row #72 capacity planning answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 if ! grep -q 'Contents of `hello.txt`:' "$REPORT_PATH" || ! grep -q 'hello world' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not produce the expected follow-up file-read answer" >&2
   cat "$REPORT_PATH" >&2
@@ -1408,6 +1446,7 @@ if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" \
   || ! grep -q 'Created `ceo-reorg-all-hands-email.md`' "$HTML_PATH" \
   || ! grep -q 'Created `analyst-claims-contradictions.md`' "$HTML_PATH" \
   || ! grep -q 'invoice-rename-undo.csv' "$HTML_PATH" \
+  || ! grep -q 'capacity-rebalance.md' "$HTML_PATH" \
   || ! grep -q 'Inspected `Browser Smoke`' "$HTML_PATH" \
   || ! grep -q 'host.browser.inspect' "$HTML_PATH" \
   || ! grep -q 'host.file.write' "$HTML_PATH" \

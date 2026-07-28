@@ -169,7 +169,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 Packaged macOS smoke now preserves row-linked multi-file coworker evidence:
 
 - `multiFileArtifactSmoke.catalogCases` includes catalog row #69, All-Hands Email, row #70,
-  Analyst Synthesis, and row #71, Bulk Rename.
+  Analyst Synthesis, row #71, Bulk Rename, and row #72, Capacity Planning.
 - The row #69 smoke creates `org-changes.pptx` plus `reorg-qa/hardest-questions.md`, asks QuillCode
   to draft the CEO all-hands email from those sources, and requires the desktop agent/tool loop to
   dispatch `host.file.read`, `host.file.read`, and `host.file.write` in order.
@@ -188,8 +188,14 @@ Packaged macOS smoke now preserves row-linked multi-file coworker evidence:
   `2026-07-03_Acme_1542.10.pdf` and `2026-07-09_Northwind_880.00.pdf`, and that
   `Documents/Invoices/invoice-rename-undo.csv` maps each old path to the new path before the row can
   count as covered.
+- The row #72 smoke creates `allocations.csv` plus three project plans under `project-plans`, asks
+  QuillCode to find anyone booked over 100% and propose named swaps, and requires the desktop
+  agent/tool loop to dispatch four `host.file.read` calls followed by `host.file.write`.
+- The smoke verifies `capacity-rebalance.md` identifies Ana and Dev as overbooked, proposes named
+  swaps to Eli and Bo, preserves the Atlas launch-critical constraint, and brings the plan to
+  at-or-under-capacity before the row can count as covered.
 - `packaged-multi-file-artifact.json` now carries the canonical spreadsheet URL and exact
-  `catalogTaskIDs: [69, 70, 71]`, and the coworker coverage rollup accepts it beside packaged
+  `catalogTaskIDs: [69, 70, 71, 72]`, and the coworker coverage rollup accepts it beside packaged
   one-turn, live SaaS, live app Computer Use, and scheduled notification evidence.
 
 ## Packaged One-Turn Coworker Evidence Slice
@@ -342,6 +348,9 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   to date/vendor/amount filenames, removes the original names, and writes
   `Documents/Invoices/invoice-rename-undo.csv` through two `host.file.read` calls followed by
   `host.shell.run`.
+- Row #72 proves capacity planning reads `allocations.csv` and three project plans, identifies Ana
+  and Dev as overbooked, proposes named swaps to Eli and Bo, and writes `capacity-rebalance.md`
+  through four `host.file.read` calls followed by `host.file.write`.
 - `packaged-one-turn-coworker.json` compares direct packaged executable and Launch Services launches,
   recording task IDs, tool sequence, artifact suffixes, artifact assertions, and final answers.
 - The manifest carries the canonical spreadsheet URL and exact `catalogTaskIDs`, and
@@ -349,9 +358,9 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   accepts it beside live SaaS and scheduled-notification evidence.
 
 Together with packaged one-turn evidence, this moves deterministic row-linked coverage through row
-#71. Similar local rows can graduate only when their row ID appears in current smoke or coverage
+#72. Similar local rows can graduate only when their row ID appears in current smoke or coverage
 evidence, or when a stricter row-specific test proves the same tool path. The next multi-file gap is
-row #72, Capacity Planning.
+row #73 from the coworker catalog.
 
 ## Packaged Browser Workflow Evidence Slice
 
