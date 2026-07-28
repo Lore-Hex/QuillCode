@@ -226,6 +226,18 @@ EXPECTED_CASES = {
             },
         ],
     },
+    38: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "sales-ops-analyst-scorecard.md",
+        "artifactContains": "Anchored 1-4 ratings",
+        "answerContains": "wrote sales-ops-analyst-scorecard.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "sales-ops-analyst-interview-questions.md",
+                "artifactContains": "pipeline hygiene",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",

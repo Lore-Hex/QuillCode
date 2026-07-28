@@ -168,7 +168,7 @@ gated until a row-specific live or packaged smoke proves the same workflow on th
 
 Packaged macOS smoke now preserves task-specific one-turn office coworker evidence:
 
-- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #40, #43, #48, #52, and #68 through the actual
+- `oneTurnCoworkerSmoke` drives representative catalog rows #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #40, #43, #48, #52, and #68 through the actual
   desktop agent/tool loop.
 - Row #15 proves a clear file-write request creates `launch-announcement.md` with the requested
   customer-comms text through `host.file.write`.
@@ -217,6 +217,8 @@ Packaged macOS smoke now preserves task-specific one-turn office coworker eviden
   standardized vendor master that collapses Acme variants through `host.shell.run`.
 - Row #37 proves recruiting drafting creates a Senior Customer Success Manager job description
   with must-haves plus five screening questions through `host.shell.run`.
+- Row #38 proves interview scorecard drafting creates a Sales Ops Analyst scorecard with anchored
+  ratings and sample questions through `host.shell.run`.
 - Row #40 proves a KPI dashboard request creates a single-file HTML dashboard,
   `finance-kpi-dashboard.html`, with revenue, churn, headcount, and sparkline evidence through
   `host.shell.run`.
