@@ -941,6 +941,14 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("Finance KPI Dashboard")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 43,
+                prompt: "Run `printf 'week,theme,type,title,owner\\n2026-Q3-W01,Migration,blog,Migration planning checklist,Ada\\n2026-Q3-W01,Migration,webinar,Modernize legacy data,Ben\\n2026-Q3-W01,Migration,social,Four migration mistakes,Cam\\n2026-Q3-W02,Security,blog,Security review guide,Ada\\n2026-Q3-W02,Security,social,Audit-ready teams,Cam\\n' > q3-content-calendar.csv && printf 'wrote q3-content-calendar.csv\\n'`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote q3-content-calendar.csv",
+                artifactRelativePath: "q3-content-calendar.csv",
+                artifactExpectation: .textContains("2026-Q3-W01,Migration,webinar,Modernize legacy data,Ben")
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
