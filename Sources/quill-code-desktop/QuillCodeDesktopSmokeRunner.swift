@@ -1387,6 +1387,24 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 56,
+                prompt: "Run \(salesProposalCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote northwind-logistics-proposal.md",
+                artifactRelativePath: "northwind-logistics-proposal.md",
+                artifactExpectation: .textContains("Northwind Logistics proposal"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "discovery-call-notes.md",
+                        expectation: .textContains("Northwind Logistics discovery")
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "pricing-sheet.xlsx",
+                        expectation: .textContains("approved pricing tiers")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1624,6 +1642,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var roadmapDraftingCommand: String {
         return """
         echo Q3 OKR source>Q3-OKRs.docx&&echo Objective improve retention through onboarding activation and reporting>>Q3-OKRs.docx&&echo Objective expand enterprise readiness with permissions and audit trails>>Q3-OKRs.docx&&echo Q3 Roadmap>roadmap.md&&echo Theme: Retention-led Q3>>roadmap.md&&echo Milestone: Onboarding activation by 2026-07-31>>roadmap.md&&echo Milestone: Usage reporting by 2026-08-21>>roadmap.md&&echo Milestone: Enterprise permissions by 2026-09-11>>roadmap.md&&echo Milestone: Audit trail beta by 2026-09-25>>roadmap.md&&echo wrote roadmap.md
+        """
+    }
+
+    private static var salesProposalCommand: String {
+        return """
+        echo Northwind Logistics discovery>discovery-call-notes.md&&echo Need cross dock scheduling warehouse analytics and carrier exception alerts>>discovery-call-notes.md&&echo Target pilot starts 2026-09-01 and executive rollout by 2026-10-15>>discovery-call-notes.md&&echo approved pricing tiers>pricing-sheet.xlsx&&echo Starter USD25000 Growth USD54000 Enterprise USD98000>>pricing-sheet.xlsx&&echo Northwind Logistics proposal>northwind-logistics-proposal.md&&echo Scope: cross dock scheduling warehouse analytics and carrier exception alerts>>northwind-logistics-proposal.md&&echo Timeline: pilot kickoff 2026-09-01 rollout 2026-10-15>>northwind-logistics-proposal.md&&echo Pricing tiers: Starter USD25000 Growth USD54000 Enterprise USD98000>>northwind-logistics-proposal.md&&echo Assumptions: Northwind provides carrier feeds warehouse contacts and pilot success metrics>>northwind-logistics-proposal.md&&echo wrote northwind-logistics-proposal.md
         """
     }
 
