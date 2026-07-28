@@ -401,6 +401,18 @@ expected_one_turn_cases = {
         "artifactContains": "No city state zip,,,,true",
         "answerContains": "wrote donors-split.csv",
     },
+    24: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "support-replies/ticket-001.md",
+        "artifactContains": "billing-access-restored-today",
+        "answerContains": "wrote support-replies/ticket-001.md and support-replies/ticket-002.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "support-replies/ticket-002.md",
+                "artifactContains": "corrected-csv-attached",
+            },
+        ],
+    },
     25: {
         "toolName": "host.shell.run",
         "artifactSuffix": "newsletter-clean.csv",

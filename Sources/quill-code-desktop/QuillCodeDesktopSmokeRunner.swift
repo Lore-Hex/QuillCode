@@ -949,6 +949,20 @@ enum QuillCodeDesktopSmokeRunner {
                 artifactExpectation: .textContains("No city state zip,,,,true")
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 24,
+                prompt: "Run `\(supportRepliesCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote support-replies/ticket-001.md and support-replies/ticket-002.md",
+                artifactRelativePath: "support-replies/ticket-001.md",
+                artifactExpectation: .textContains("billing-access-restored-today"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "support-replies/ticket-002.md",
+                        expectation: .textContains("corrected-csv-attached")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 25,
                 prompt: "Run `\(newsletterValidationCommand)`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1089,6 +1103,12 @@ enum QuillCodeDesktopSmokeRunner {
         let splitCSV = "first,last,street,city,state,zip,needs_review\\nAda,Lovelace,12 Market St,Boston,MA,02110,false\\nGrace,Hopper,1 Navy Way,Arlington,VA,22202,false\\nMalformed,Donor,No city state zip,,,,true\\n"
         return """
         python3 -c "print((__import__('pathlib').Path('donors.csv').write_text('\(donorsCSV)'),__import__('pathlib').Path('donors-split.csv').write_text('\(splitCSV)'),'wrote donors-split.csv')[-1])"
+        """
+    }
+
+    private static var supportRepliesCommand: String {
+        return """
+        mkdir -p support-replies && printf ticket-001-billing-access-restored-today > support-replies/ticket-001.md && printf ticket-002-corrected-csv-attached > support-replies/ticket-002.md && printf 'wrote support-replies/ticket-001.md and support-replies/ticket-002.md\\n'
         """
     }
 
