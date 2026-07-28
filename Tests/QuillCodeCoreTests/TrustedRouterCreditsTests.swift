@@ -34,9 +34,54 @@ final class TrustedRouterCreditsTests: XCTestCase {
 
         XCTAssertEqual(refreshing.phase, .refreshing)
         XCTAssertEqual(refreshing.snapshot, snapshot)
+        XCTAssertEqual(refreshing.history, [snapshot])
         XCTAssertEqual(stale.phase, .stale)
         XCTAssertEqual(stale.snapshot, snapshot)
+        XCTAssertEqual(stale.history, [snapshot])
         XCTAssertEqual(stale.failureMessage, "network failed retry later")
+    }
+
+    func testSuccessfulRefreshHistoryIsMostRecentFirstDeduplicatedAndBounded() throws {
+        let snapshots = try (0..<30).map { index in
+            try XCTUnwrap(TrustedRouterCreditsSnapshot(
+                balance: Double(index),
+                currency: "USD",
+                fetchedAt: Date(timeIntervalSince1970: Double(index))
+            ))
+        }
+
+        let state = snapshots.reduce(TrustedRouterCreditsState.unavailable) { previous, snapshot in
+            TrustedRouterCreditsState.current(snapshot, previous: previous)
+        }
+        let repeated = TrustedRouterCreditsState.current(snapshots[29], previous: state)
+
+        XCTAssertEqual(state.history.count, TrustedRouterCreditsState.maxHistoryCount)
+        XCTAssertEqual(state.history.first, snapshots[29])
+        XCTAssertEqual(state.history.last, snapshots[6])
+        XCTAssertEqual(repeated.history, state.history)
+    }
+
+    func testDecodesOlderStateWithoutHistoryAndSeedsSnapshotAsHistory() throws {
+        let json = """
+        {
+          "phase": "current",
+          "snapshot": {
+            "balance": 4.25,
+            "currency": "USD",
+            "fetchedAt": 100
+          },
+          "lastAttemptAt": 100
+        }
+        """
+
+        let state = try JSONDecoder().decode(
+            TrustedRouterCreditsState.self,
+            from: Data(json.utf8)
+        )
+
+        XCTAssertEqual(state.phase, .current)
+        XCTAssertEqual(state.snapshot?.balance, 4.25)
+        XCTAssertEqual(state.history, [state.snapshot].compactMap { $0 })
     }
 
     func testFailureWithoutSnapshotIsFailedAndBoundsDiagnosticText() {

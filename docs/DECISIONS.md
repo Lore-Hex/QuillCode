@@ -22,6 +22,16 @@
   `coworker-coverage.json` summary with `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID`.
   This gives the spreadsheet a durable row-level audit artifact before changing status cells.
 
+## 2026-07-27: TrustedRouter balance history is locally observed
+
+- **Decision:** Keep a bounded, most-recent-first history of successful TrustedRouter account-balance
+  snapshots in `TrustedRouterCreditsState` and surface it in the top-bar balance detail.
+- **Why:** Users need to see whether their provider credits are moving, and Codex parity expects
+  account/quota visibility. The current TrustedRouter credits endpoint returns the present balance,
+  not a provider-hosted ledger, so QuillCode should be explicit that history is locally observed.
+- **Boundary:** This is not a provider-owned transaction ledger. If TrustedRouter exposes a ledger or
+  quota-history API later, that should replace or augment the local observation list.
+
 ## 2026-07-19: Render Robot XML As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.xml` files whose root validates as Robot Framework `robot` output as
