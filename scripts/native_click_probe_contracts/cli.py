@@ -163,6 +163,7 @@ def main() -> None:
     )
     safety_reviewer_rollup_parser.add_argument("manifests", nargs="+", type=Path)
     safety_reviewer_rollup_parser.add_argument("--output", required=True, type=Path)
+    safety_reviewer_rollup_parser.add_argument("--markdown-output", type=Path)
 
     scheduled_notification_parser = subparsers.add_parser(
         "scheduled-notification-observation",
@@ -257,7 +258,7 @@ def main() -> None:
     elif args.command == "safety-reviewer-calibration":
         write_safety_reviewer_calibration_manifest(args.evidence, args.manifest)
     elif args.command == "safety-reviewer-calibration-rollup":
-        write_safety_reviewer_calibration_rollup(args.manifests, args.output)
+        write_safety_reviewer_calibration_rollup(args.manifests, args.output, args.markdown_output)
     elif args.command == "scheduled-notification-observation":
         write_scheduled_notification_observation_manifest(args.evidence, args.manifest)
     elif args.command == "scheduled-notification-observation-template":

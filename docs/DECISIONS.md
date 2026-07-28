@@ -806,8 +806,8 @@
 - Recurring safety calibration is a rollup over validated manifests, not a second raw evidence format.
   `scripts/safety-reviewer-calibration-rollup.sh` accepts only `safetyReviewerCalibrationValidated`
   manifests, rejects duplicate case identities across runs, and summarizes verdict, source, and reviewer
-  model coverage. This lets production calibration evidence accumulate over time while keeping raw
-  prompts, arguments, responses, and secrets outside the repo.
+  model coverage as both JSON and Markdown. This lets production calibration evidence accumulate over
+  time while keeping raw prompts, arguments, responses, and secrets outside the repo.
 - The Auto safety model prompt is a compact contract over the same static safety floor, not a second broad policy
   system. It now names explicit approve/clarify/deny boundaries: approve bounded user-requested work, clarify missing
   or empty arguments and ambiguous targets, and deny credential exfiltration, unrelated extra shell actions, broad
