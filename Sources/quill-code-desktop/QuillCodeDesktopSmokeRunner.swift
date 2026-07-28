@@ -1261,6 +1261,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 47,
+                prompt: "Run \(obligationTrackingCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote acme-sow-obligations.csv",
+                artifactRelativePath: "acme-sow-obligations.csv",
+                artifactExpectation: .textContains("2026-09-15,2026-09-01,Acme kickoff workshop,Ada"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "Acme-SOW.pdf",
+                        expectation: .textContains("Acme SOW source")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 48,
                 prompt: "Run `printf 'view,rep,region,quarter,revenue\\nby_rep,Ada,All,All,184000\\nby_rep,Ben,All,All,132000\\nby_region,All,West,All,201000\\nby_region,All,East,All,115000\\nby_quarter,All,All,Q1,146000\\nby_quarter,All,All,Q2,170000\\ntop_deal,Ada,West,Q2,92000\\n' > sales-pivot-summary.csv && printf 'wrote sales-pivot-summary.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1472,6 +1486,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var maintenanceNoticeCommand: String {
         return """
         echo Original maintenance window notice>maintenance-window-notice.md&&echo Enterprise admins: Scheduled maintenance starts 2026-08-14 22:00 UTC for 45 minutes>maintenance-notice-variants.md&&echo End users: QuillCode maintenance starts 2026-08-14 22:00 UTC for 45 minutes>>maintenance-notice-variants.md&&echo Status page post: Planned maintenance begins 2026-08-14 22:00 UTC>>maintenance-notice-variants.md&&echo wrote maintenance-notice-variants.md
+        """
+    }
+
+    private static var obligationTrackingCommand: String {
+        return """
+        echo Acme SOW source>Acme-SOW.pdf&&echo due_date,reminder_date,deliverable,owner>acme-sow-obligations.csv&&echo 2026-09-15,2026-09-01,Acme kickoff workshop,Ada>>acme-sow-obligations.csv&&echo 2026-10-01,2026-09-17,Data migration plan,Ben>>acme-sow-obligations.csv&&echo 2026-10-20,2026-10-06,Security review package,Cam>>acme-sow-obligations.csv&&echo wrote acme-sow-obligations.csv
         """
     }
 
