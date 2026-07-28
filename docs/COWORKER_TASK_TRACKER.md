@@ -137,8 +137,11 @@ notifier boundary. `scripts/scheduled-notification-observation-smoke.sh <evidenc
 [manifest.json]` now validates an optional redacted native observation capture that links back to the
 packaged scheduled-coworker manifest, proves the `QuillCode scheduled task ready` notification was
 visible, proves the original task text was visible, proves the Open follow-up action was observed and
-opened the scheduled thread, and rejects raw prompts or captured secrets. Scheduling rows should not
-graduate on this alone; they need an actual captured observation manifest from a packaged app run.
+opened the scheduled thread, carries exact `catalogTaskIDs`, and rejects raw prompts or captured
+secrets. `scripts/native-click-probe-contracts.py coworker-catalog ... --output
+coworker-coverage.json` accepts these manifests alongside live SaaS manifests, so scheduling rows can
+graduate only when a real captured observation manifest is tied to the corresponding spreadsheet
+row IDs.
 
 ## Multi-File Artifact Smoke Slice
 

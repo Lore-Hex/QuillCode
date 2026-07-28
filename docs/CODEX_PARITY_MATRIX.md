@@ -87,9 +87,11 @@
   macOS smoke now preserves `packaged-scheduled-coworker.json`, proving the same scheduled coworker
   evidence survives both direct packaged executable launch and Launch Services launch. Optional
   `scripts/scheduled-notification-observation-smoke.sh` now validates redacted packaged native
-  notification observations tied to that manifest, including visible task-specific notification text,
-  screenshot proof, and an observed Open follow-up action; recurring coworker rows that require real
-  OS notification behavior remain gated until such a captured manifest exists. Native desktop
+  notification observations tied to that manifest, including exact `catalogTaskIDs`, visible
+  task-specific notification text, screenshot proof, and an observed Open follow-up action; the
+  coworker catalog coverage aggregator consumes those manifests alongside live SaaS evidence, so
+  recurring coworker rows that require real OS notification behavior remain gated until such a
+  captured row-linked manifest exists. Native desktop
   smoke now also records `multiFileArtifactSmoke`, proving a coworker-style deliverable can read two
   source files, write `team-action-brief.md`, preserve the exact read/read/write tool sequence, and
   render that artifact workflow into the transcript HTML evidence. Packaged macOS smoke preserves

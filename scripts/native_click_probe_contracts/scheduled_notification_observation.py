@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from .json_io import load_json_object, require, required_string
+from .live_saas import CATALOG_SPREADSHEET_URL, require_catalog_task_ids
 
 EXPECTED_TASK_TEXT = "check competitor pricing pages and notify me with a diff"
 EXPECTED_TITLE = "QuillCode scheduled task ready"
@@ -87,6 +88,7 @@ def _validate_observation(evidence: dict[str, Any]) -> dict[str, Any]:
     )
 
     captured_at = required_string(evidence.get("capturedAt"), "capturedAt")
+    catalog_task_ids = require_catalog_task_ids(evidence.get("catalogTaskIDs"))
     app_name = required_string(evidence.get("appName"), "appName")
     observation_method = required_string(evidence.get("observationMethod"), "observationMethod")
     title = required_string(evidence.get("notificationTitle"), "notificationTitle")
@@ -136,6 +138,8 @@ def _validate_observation(evidence: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "capturedAt": captured_at,
+        "catalogSpreadsheetURL": CATALOG_SPREADSHEET_URL,
+        "catalogTaskIDs": catalog_task_ids,
         "appName": app_name,
         "observationMethod": observation_method,
         "notificationTitle": title,

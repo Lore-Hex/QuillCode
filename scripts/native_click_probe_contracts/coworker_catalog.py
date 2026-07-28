@@ -24,14 +24,22 @@ def _require_catalog_task_ids(value: Any, label: str) -> list[int]:
     return task_ids
 
 
-def _validated_live_saas_manifest(manifest: dict[str, Any], path: Path, base_directory: Path) -> dict[str, Any]:
+def _manifest_base(manifest: dict[str, Any], path: Path, base_directory: Path) -> dict[str, Any]:
     require(manifest.get("ok") is True, f"{path} ok must be true")
-    require(manifest.get("liveSaaSValidated") is True, f"{path} must be a live SaaS validation manifest")
     require(
         manifest.get("catalogSpreadsheetURL") == CATALOG_SPREADSHEET_URL,
         f"{path} must reference the canonical coworker catalog spreadsheet",
     )
     catalog_task_ids = _require_catalog_task_ids(manifest.get("catalogTaskIDs"), f"{path}.catalogTaskIDs")
+    return {
+        "manifestPath": relative_manifest_path(path, base_directory),
+        "catalogTaskIDs": catalog_task_ids,
+    }
+
+
+def _validated_live_saas_manifest(manifest: dict[str, Any], path: Path, base_directory: Path) -> dict[str, Any]:
+    require(manifest.get("liveSaaSValidated") is True, f"{path} must be a live SaaS validation manifest")
+    base = _manifest_base(manifest, path, base_directory)
 
     service_name = manifest.get("serviceName")
     task_name = manifest.get("taskName")
@@ -41,18 +49,71 @@ def _validated_live_saas_manifest(manifest: dict[str, Any], path: Path, base_dir
     require(isinstance(url_host, str) and url_host, f"{path}.urlHost must be non-empty")
 
     return {
-        "manifestPath": relative_manifest_path(path, base_directory),
+        **base,
+        "evidenceType": "live-saas",
         "serviceName": service_name,
         "taskName": task_name,
         "urlHost": url_host,
-        "catalogTaskIDs": catalog_task_ids,
     }
 
 
+def _validated_scheduled_notification_manifest(
+    manifest: dict[str, Any],
+    path: Path,
+    base_directory: Path,
+) -> dict[str, Any]:
+    require(
+        manifest.get("scheduledNotificationObservationValidated") is True,
+        f"{path} must be a scheduled notification observation manifest",
+    )
+    base = _manifest_base(manifest, path, base_directory)
+    notification_title = manifest.get("notificationTitle")
+    follow_up_thread_title = manifest.get("followUpThreadTitle")
+    observation_method = manifest.get("observationMethod")
+    require(
+        notification_title == "QuillCode scheduled task ready",
+        f"{path}.notificationTitle must prove the QuillCode scheduled task notification",
+    )
+    require(
+        isinstance(follow_up_thread_title, str) and follow_up_thread_title.startswith("Scheduled check: "),
+        f"{path}.followUpThreadTitle must identify the scheduled follow-up thread",
+    )
+    require(
+        observation_method in {"accessibility", "computer-use", "manual-screenshot"},
+        f"{path}.observationMethod must be accessibility, computer-use, or manual-screenshot",
+    )
+    require(
+        manifest.get("notificationVisible") is True
+        and manifest.get("activationOpenedFollowUp") is True
+        and manifest.get("notificationBodyContainsTask") is True,
+        f"{path} must prove visible notification text and follow-up activation",
+    )
+    return {
+        **base,
+        "evidenceType": "scheduled-notification-observation",
+        "serviceName": "QuillCode Notifications",
+        "taskName": follow_up_thread_title,
+        "urlHost": "local-notification-center",
+        "notificationTitle": notification_title,
+        "observationMethod": observation_method,
+    }
+
+
+def _validated_manifest(manifest: dict[str, Any], path: Path, base_directory: Path) -> dict[str, Any]:
+    if manifest.get("liveSaaSValidated") is True:
+        return _validated_live_saas_manifest(manifest, path, base_directory)
+    if manifest.get("scheduledNotificationObservationValidated") is True:
+        return _validated_scheduled_notification_manifest(manifest, path, base_directory)
+    raise SystemExit(
+        f"{path} must be a supported coworker evidence manifest "
+        "(live SaaS or scheduled notification observation)"
+    )
+
+
 def build_coworker_catalog_coverage(manifest_paths: list[Path], base_directory: Path) -> dict[str, Any]:
-    require(manifest_paths, "at least one live SaaS manifest path is required")
+    require(manifest_paths, "at least one coworker evidence manifest path is required")
     evidence = [
-        _validated_live_saas_manifest(load_report(path), path, base_directory)
+        _validated_manifest(load_report(path), path, base_directory)
         for path in manifest_paths
     ]
 
@@ -62,6 +123,7 @@ def build_coworker_catalog_coverage(manifest_paths: list[Path], base_directory: 
             evidence_by_task_id.setdefault(task_id, []).append(
                 {
                     "manifestPath": entry["manifestPath"],
+                    "evidenceType": entry["evidenceType"],
                     "serviceName": entry["serviceName"],
                     "taskName": entry["taskName"],
                     "urlHost": entry["urlHost"],
