@@ -132,7 +132,7 @@ extension QuillCodeWorkspaceModel {
         case .unavailable:
             root.trustedRouterCredits = .unavailable
         case .success(let snapshot):
-            root.trustedRouterCredits = .current(snapshot)
+            root.trustedRouterCredits = .current(snapshot, previous: previous)
         case .failure(let attemptedAt, let message):
             root.trustedRouterCredits = .failed(
                 previous: previous,
