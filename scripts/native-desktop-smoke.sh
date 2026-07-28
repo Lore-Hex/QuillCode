@@ -569,6 +569,22 @@ expected_one_turn_cases = {
             },
         ],
     },
+    39: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "july-image-prep-report.md",
+        "artifactContains": "ready/hero-launch.png <= 1600px and under 500KB",
+        "answerContains": "wrote july-image-prep-report.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Newsletter/July/ready/hero-launch.png",
+                "artifactContains": "PNG ready/hero-launch.png under 500KB and <=1600px wide",
+            },
+            {
+                "artifactSuffix": "Newsletter/July/originals/IMG_0001.png",
+                "artifactContains": "PNG originals/IMG_0001.png preserved",
+            },
+        ],
+    },
     40: {
         "toolName": "host.shell.run",
         "artifactSuffix": "finance-kpi-dashboard.html",

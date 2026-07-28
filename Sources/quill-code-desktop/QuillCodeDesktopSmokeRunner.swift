@@ -1147,6 +1147,34 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 39,
+                prompt: "Run `\(newsletterImagePrepCommand)`",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote july-image-prep-report.md",
+                artifactRelativePath: "july-image-prep-report.md",
+                artifactExpectation: .textContains("ready/hero-launch.png <= 1600px and under 500KB"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "Newsletter/July/ready/hero-launch.png",
+                        expectation: .png(
+                            width: 320,
+                            height: 200,
+                            minimumByteCount: 700,
+                            assertion: "PNG ready/hero-launch.png under 500KB and <=1600px wide"
+                        )
+                    ),
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "Newsletter/July/originals/IMG_0001.png",
+                        expectation: .png(
+                            width: 320,
+                            height: 200,
+                            minimumByteCount: 700,
+                            assertion: "PNG originals/IMG_0001.png preserved"
+                        )
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 40,
                 prompt: "Run `printf '<h1>Finance KPI Dashboard</h1><p>Revenue USD 1.24M</p><p>Churn 3.1 percent</p><p>Headcount 58</p><svg><polyline points=0,40 60,20 120,8></polyline></svg>\\n' > finance-kpi-dashboard.html && printf 'wrote finance-kpi-dashboard.html\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1338,6 +1366,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var interviewScorecardCommand: String {
         return """
         printf 'Sales Ops Analyst JD\\nPanel: RevOps, Sales, Finance\\n' > sales-ops-analyst-loop.md && printf 'Sales Ops Analyst Scorecard\\nAnchored 1-4 ratings\\nCompetency: pipeline hygiene\\nCompetency: forecasting accuracy\\n' > sales-ops-analyst-scorecard.md && printf 'pipeline hygiene question\\nforecasting question\\n' > sales-ops-analyst-interview-questions.md && printf 'wrote sales-ops-analyst-scorecard.md\\n'
+        """
+    }
+
+    private static var newsletterImagePrepCommand: String {
+        return """
+        mkdir -p Newsletter/July/originals Newsletter/July/ready && printf 'source,caption\\nIMG_0001.png,hero launch\\n' > Newsletter/July/captions.csv && cp regional-revenue-chart.png Newsletter/July/originals/IMG_0001.png && cp regional-revenue-chart.png Newsletter/July/ready/hero-launch.png && printf 'ready/hero-launch.png <= 1600px and under 500KB\\noriginals kept in Newsletter/July/originals\\nnames came from captions.csv\\n' > july-image-prep-report.md && printf 'wrote july-image-prep-report.md\\n'
         """
     }
 
