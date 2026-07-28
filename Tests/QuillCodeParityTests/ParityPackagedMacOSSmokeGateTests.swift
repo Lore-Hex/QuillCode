@@ -53,6 +53,9 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
             packagedSmoke.contains("MULTI_FILE_ARTIFACT_MANIFEST=\"$SMOKE_ROOT/packaged-multi-file-artifact.json\"")
         )
         XCTAssertTrue(
+            packagedSmoke.contains("ONE_TURN_COWORKER_MANIFEST=\"$SMOKE_ROOT/packaged-one-turn-coworker.json\"")
+        )
+        XCTAssertTrue(
             packagedSmoke.contains("BROWSER_WORKFLOW_MANIFEST=\"$SMOKE_ROOT/packaged-browser-workflow.json\"")
         )
         XCTAssertTrue(packagedSmoke.contains("COMPUTER_USE_MANIFEST=\"$SMOKE_ROOT/packaged-computer-use.json\""))
@@ -61,11 +64,13 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(packagedSmoke.contains("scheduled_coworker_manifest=packaged-scheduled-coworker.json"))
         XCTAssertTrue(packagedSmoke.contains("multi_file_artifact_manifest=packaged-multi-file-artifact.json"))
+        XCTAssertTrue(packagedSmoke.contains("one_turn_coworker_manifest=packaged-one-turn-coworker.json"))
         XCTAssertTrue(packagedSmoke.contains("browser_workflow_manifest=packaged-browser-workflow.json"))
         XCTAssertTrue(packagedSmoke.contains("computer_use_manifest=packaged-computer-use.json"))
         XCTAssertTrue(packagedSmoke.contains("computer_use_action_manifest=packaged-computer-use-action.json"))
         XCTAssertTrue(packagedSmoke.contains(" scheduled-coworker \\"))
         XCTAssertTrue(packagedSmoke.contains(" multi-file-artifact \\"))
+        XCTAssertTrue(packagedSmoke.contains(" one-turn-coworker \\"))
         XCTAssertTrue(packagedSmoke.contains(" browser-workflow \\"))
         XCTAssertTrue(packagedSmoke.contains(" computer-use \\"))
         XCTAssertTrue(packagedSmoke.contains(" computer-use-action \\"))
@@ -129,6 +134,21 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(multiFileArtifactValidator.contains(#""host.file.read", "host.file.read", "host.file.write""#))
         XCTAssertTrue(multiFileArtifactValidator.contains(#""team-action-brief.md""#))
         XCTAssertTrue(multiFileArtifactValidator.contains(#""multiFileArtifactMatchesDirect": True"#))
+
+        XCTAssertTrue(supportText.contains("struct QuillCodeDesktopOneTurnCoworkerSmokeReport"))
+        XCTAssertTrue(supportText.contains(#""oneTurnCoworkerSmoke": oneTurnCoworkerSmoke.dictionary"#))
+        let oneTurnCoworkerValidator = try String(
+            contentsOf: Self.packageRoot()
+                .appendingPathComponent("scripts/native_click_probe_contracts/one_turn_coworker.py"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""oneTurnCoworkerSmoke""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""oneTurnCoworkerMatchesDirect": True"#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""host.file.write""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""host.shell.run""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""launch-announcement.md""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""signup-slice.csv""#))
+        XCTAssertTrue(oneTurnCoworkerValidator.contains(#""weekly-review.csv""#))
 
         let browserWorkflowValidator = try String(
             contentsOf: Self.packageRoot()

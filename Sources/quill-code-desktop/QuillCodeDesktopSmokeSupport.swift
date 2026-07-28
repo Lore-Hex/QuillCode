@@ -165,6 +165,7 @@ struct QuillCodeDesktopSmokeReport {
     var browserAuthenticatedWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
     var computerUseActionSmoke: QuillCodeDesktopComputerUseActionSmokeReport
     var multiFileArtifactSmoke: QuillCodeDesktopMultiFileArtifactSmokeReport
+    var oneTurnCoworkerSmoke: QuillCodeDesktopOneTurnCoworkerSmokeReport
     var scheduledCoworkerSmoke: QuillCodeDesktopScheduledCoworkerSmokeReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
 
@@ -198,6 +199,7 @@ struct QuillCodeDesktopSmokeReport {
                 "browserAuthenticatedWorkflowSmoke": browserAuthenticatedWorkflowSmoke.dictionary,
                 "computerUseActionSmoke": computerUseActionSmoke.dictionary,
                 "multiFileArtifactSmoke": multiFileArtifactSmoke.dictionary,
+                "oneTurnCoworkerSmoke": oneTurnCoworkerSmoke.dictionary,
                 "scheduledCoworkerSmoke": scheduledCoworkerSmoke.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary
             ],
@@ -427,6 +429,39 @@ struct QuillCodeDesktopMultiFileArtifactSmokeReport {
     }
 }
 
+struct QuillCodeDesktopOneTurnCoworkerSmokeReport {
+    var cases: [QuillCodeDesktopOneTurnCoworkerSmokeCaseReport]
+
+    var dictionary: [String: Any] {
+        [
+            "cases": cases.map(\.dictionary),
+            "taskIDs": cases.map(\.taskID),
+            "toolSequence": cases.map(\.toolName),
+            "artifactPaths": cases.map(\.artifactPath)
+        ]
+    }
+}
+
+struct QuillCodeDesktopOneTurnCoworkerSmokeCaseReport {
+    var taskID: Int
+    var prompt: String
+    var toolName: String
+    var artifactPath: String
+    var artifactContains: String
+    var finalAnswer: String
+
+    var dictionary: [String: Any] {
+        [
+            "taskID": taskID,
+            "prompt": prompt,
+            "toolName": toolName,
+            "artifactPath": artifactPath,
+            "artifactContains": artifactContains,
+            "finalAnswer": finalAnswer
+        ]
+    }
+}
+
 struct QuillCodeDesktopWindowSmokeReport {
     var ok: Bool
     var appName: String
@@ -620,6 +655,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case invalidImageSize(Int, Int)
     case computerUseActionMismatch(String)
     case multiFileArtifactMismatch(String)
+    case oneTurnCoworkerMismatch(String)
     case nativeAccessibilityActivationFailed([String])
     case nativeAccessibilityFrameSamplingFailed([String])
     case nativeHitTargetAuditFailed([String])

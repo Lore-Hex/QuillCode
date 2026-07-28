@@ -12,6 +12,7 @@ from .computer_use_action import write_computer_use_action_manifest
 from .coworker_catalog import write_coworker_catalog_coverage
 from .live_saas import write_live_saas_manifest
 from .multi_file_artifact import write_multi_file_artifact_manifest
+from .one_turn_coworker import write_one_turn_coworker_manifest
 from .packaged_window import (
     validate_packaged_window_report,
     write_accessibility_readiness_manifest,
@@ -53,6 +54,14 @@ def main() -> None:
     multi_file_parser.add_argument("direct_report", type=Path)
     multi_file_parser.add_argument("launch_services_report", type=Path)
     multi_file_parser.add_argument("--manifest", required=True, type=Path)
+
+    one_turn_coworker_parser = subparsers.add_parser(
+        "one-turn-coworker",
+        help="write packaged one-turn office coworker evidence",
+    )
+    one_turn_coworker_parser.add_argument("direct_report", type=Path)
+    one_turn_coworker_parser.add_argument("launch_services_report", type=Path)
+    one_turn_coworker_parser.add_argument("--manifest", required=True, type=Path)
 
     browser_workflow_parser = subparsers.add_parser(
         "browser-workflow",
@@ -120,6 +129,12 @@ def main() -> None:
         )
     elif args.command == "multi-file-artifact":
         write_multi_file_artifact_manifest(
+            args.direct_report,
+            args.launch_services_report,
+            args.manifest,
+        )
+    elif args.command == "one-turn-coworker":
+        write_one_turn_coworker_manifest(
             args.direct_report,
             args.launch_services_report,
             args.manifest,
