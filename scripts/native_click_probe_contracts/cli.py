@@ -25,7 +25,10 @@ from .probe_contracts import validate_report
 from .scheduled_coworker import write_scheduled_coworker_manifest
 from .scheduled_notification_observation import write_scheduled_notification_observation_manifest
 from .scheduled_notification_observation_template import write_scheduled_notification_observation_template
-from .safety_reviewer_calibration import write_safety_reviewer_calibration_manifest
+from .safety_reviewer_calibration import (
+    write_safety_reviewer_calibration_manifest,
+    write_safety_reviewer_calibration_rollup,
+)
 
 
 def main() -> None:
@@ -154,6 +157,13 @@ def main() -> None:
     safety_reviewer_parser.add_argument("evidence", type=Path)
     safety_reviewer_parser.add_argument("--manifest", required=True, type=Path)
 
+    safety_reviewer_rollup_parser = subparsers.add_parser(
+        "safety-reviewer-calibration-rollup",
+        help="roll up validated Auto safety reviewer calibration manifests",
+    )
+    safety_reviewer_rollup_parser.add_argument("manifests", nargs="+", type=Path)
+    safety_reviewer_rollup_parser.add_argument("--output", required=True, type=Path)
+
     scheduled_notification_parser = subparsers.add_parser(
         "scheduled-notification-observation",
         help="validate optional packaged native notification observation evidence",
@@ -246,6 +256,8 @@ def main() -> None:
         write_coworker_catalog_coverage(args.manifests, args.output, args.markdown_output)
     elif args.command == "safety-reviewer-calibration":
         write_safety_reviewer_calibration_manifest(args.evidence, args.manifest)
+    elif args.command == "safety-reviewer-calibration-rollup":
+        write_safety_reviewer_calibration_rollup(args.manifests, args.output)
     elif args.command == "scheduled-notification-observation":
         write_scheduled_notification_observation_manifest(args.evidence, args.manifest)
     elif args.command == "scheduled-notification-observation-template":
