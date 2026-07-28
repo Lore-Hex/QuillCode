@@ -1497,6 +1497,20 @@ enum QuillCodeDesktopSmokeRunner {
                 ]
             ),
             OneTurnCoworkerSmokeCase(
+                taskID: 63,
+                prompt: "Run \(timelineBuildingCommand)",
+                expectedToolName: ToolDefinition.shellRun.name,
+                expectedAnswer: "wrote timeline.xlsx",
+                artifactRelativePath: "timeline.xlsx",
+                artifactExpectation: .textContains("Launch readiness,2026-10-20,2026-11-03,14d"),
+                secondaryArtifacts: [
+                    OneTurnCoworkerArtifactCheck(
+                        relativePath: "milestones.csv",
+                        expectation: .textContains("Launch,2026-11-03")
+                    )
+                ]
+            ),
+            OneTurnCoworkerSmokeCase(
                 taskID: 68,
                 prompt: "Run `printf 'project,files,todos\\nLaunch,3,2\\n' > weekly-review.csv && printf 'wrote weekly-review.csv\\n'`",
                 expectedToolName: ToolDefinition.shellRun.name,
@@ -1776,6 +1790,12 @@ enum QuillCodeDesktopSmokeRunner {
     private static var workBreakdownCommand: String {
         return """
         echo name,role>team-roster.csv&&echo Ada,Product>>team-roster.csv&&echo Ben,Engineering>>team-roster.csv&&echo Cam,Design>>team-roster.csv&&echo Dee,Customer Success>>team-roster.csv&&echo Goal launch self serve onboarding by October>onboarding-goal.md&&echo phase,workstream,owner,effort_estimate,due_month>wbs.xlsx&&echo Discovery,Current signup audit,Ada,3d,July>>wbs.xlsx&&echo Design,Activation path mockups,Cam,4d,August>>wbs.xlsx&&echo Implementation,Onboarding checklist,Ada,5d,August>>wbs.xlsx&&echo Implementation,In app guide builder,Ben,8d,September>>wbs.xlsx&&echo Enablement,Help center refresh,Dee,3d,September>>wbs.xlsx&&echo Launch,October rollout readiness,Ada,2d,October>>wbs.xlsx&&echo wrote wbs.xlsx
+        """
+    }
+
+    private static var timelineBuildingCommand: String {
+        return """
+        echo milestone,due_date,duration_days>milestones.csv&&echo Requirements freeze,2026-08-12,duration7>>milestones.csv&&echo Beta content ready,2026-09-09,duration10>>milestones.csv&&echo QA complete,2026-10-06,duration12>>milestones.csv&&echo Launch,2026-11-03,duration14>>milestones.csv&&echo task,start_date,end_date,duration,dependency>timeline.xlsx&&echo Requirements freeze,2026-08-05,2026-08-12,7d,none>>timeline.xlsx&&echo Beta content ready,2026-08-30,2026-09-09,10d,Requirements freeze>>timeline.xlsx&&echo QA complete,2026-09-24,2026-10-06,12d,Beta content ready>>timeline.xlsx&&echo Launch readiness,2026-10-20,2026-11-03,14d,QA complete>>timeline.xlsx&&echo wrote timeline.xlsx
         """
     }
 
