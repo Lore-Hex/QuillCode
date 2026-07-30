@@ -122,6 +122,10 @@ public enum ApprovalReviewSource: String, Codable, Sendable, Hashable {
     case primaryModel = "primary_model"
     case fallbackModel = "fallback_model"
     case permissionRule = "permission_rule"
+    /// A headless autonomous run (--sandbox workspace-write/danger) turned a base reviewer's
+    /// `.clarify` into `.approve` because there is no human to answer. Hard-deny floors and the
+    /// filesystem sandbox are untouched; only the "ask a human" step is removed.
+    case autonomousOverride = "autonomous_override"
 }
 
 public enum ApprovalReviewFallbackReason: String, Codable, Sendable, Hashable {
