@@ -84,6 +84,60 @@ struct QuillCodeDesktopBrowserCoordinator {
         refresh()
     }
 
+    /// The agent-facing `host.browser.open`: open (or reuse) the session window, actually NAVIGATE
+    /// it, wait for the load, and hand the model the rendered DOM.
+    ///
+    /// Before this existed, `host.browser.open` only mutated in-memory browser state and returned
+    /// metadata — so an unattended agent could never read a page, and an `open` followed by
+    /// `inspect` silently returned the DOM of whatever unrelated page the window was showing.
+    ///
+    /// Returns nil when there is no live session surface (headless runs, the Noop presenter used in
+    /// tests). Nil makes the caller fall through to the legacy metadata-only path, so this can only
+    /// ever add capability, never break an environment that has no window.
+    func openSessionAndCaptureLiveDOM(
+        model: QuillCodeWorkspaceModel,
+        addressDraft: String,
+        workspaceRoot: URL,
+        refresh: @escaping @MainActor () -> Void
+    ) async -> ToolResult? {
+        let root = activeWorkspaceRoot(for: model, fallback: workspaceRoot)
+        let targetAddress = sessionTargetAddress(
+            addressDraft: addressDraft,
+            fallbackAddress: model.browser.currentURL ?? model.browser.addressDraft
+        )
+        guard let url = WorkspaceBrowserLocationResolver(workspaceRoot: root).resolve(targetAddress) else {
+            return nil
+        }
+
+        // Reuse the existing open/sync path so the app's own browser pane state (address bar, tab
+        // list, history) stays consistent with what the agent is driving.
+        openSession(
+            model: model,
+            addressDraft: targetAddress,
+            workspaceRoot: workspaceRoot,
+            refresh: refresh
+        )
+
+        do {
+            let snapshot = try await sessionPresenter.navigateSelectedTab(to: url)
+            refresh()
+            return ToolResult(
+                ok: true,
+                stdout: (try? JSONHelpers.encodePretty(inspectionOutput(from: snapshot))) ?? "{}"
+            )
+        } catch DesktopBrowserSessionScriptError.noOpenSession,
+                DesktopBrowserSessionScriptError.noSelectedTab {
+            return nil
+        } catch DesktopBrowserSessionScriptError.navigationFailed(let message) {
+            return ToolResult(
+                ok: false,
+                error: "Could not load \(url.absoluteString): \(message)"
+            )
+        } catch {
+            return nil
+        }
+    }
+
     func syncOpenSession(model: QuillCodeWorkspaceModel) {
         let snapshot = BrowserSessionSyncSnapshot(browser: model.browser)
         guard !snapshot.isEmpty else { return }

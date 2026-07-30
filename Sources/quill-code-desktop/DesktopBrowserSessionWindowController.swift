@@ -22,6 +22,9 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
 
     private let tabView: NSTabView
     private var tabs: [UUID: SessionTab] = [:]
+    /// Continuations parked by `navigateSelectedTab`, keyed by tab, resumed exactly once by
+    /// `didFinish` / a load failure / the navigation timeout — whichever lands first.
+    private var navigationWaiters: [UUID: [CheckedContinuation<Void, Error>]] = [:]
 
     init(snapshot: BrowserSessionSyncSnapshot) {
         self.tabView = NSTabView()
@@ -58,7 +61,30 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         emitSessionUpdate()
     }
 
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation?, withError error: Error) {
+        guard let id = tabID(for: webView) else { return }
+        resumeNavigationWaiters(
+            for: id,
+            error: DesktopBrowserSessionScriptError.navigationFailed(error.localizedDescription)
+        )
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        didFailProvisionalNavigation navigation: WKNavigation?,
+        withError error: Error
+    ) {
+        guard let id = tabID(for: webView) else { return }
+        resumeNavigationWaiters(
+            for: id,
+            error: DesktopBrowserSessionScriptError.navigationFailed(error.localizedDescription)
+        )
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
+        if let id = tabID(for: webView) {
+            resumeNavigationWaiters(for: id, error: nil)
+        }
         guard let id = tabID(for: webView),
               var tab = tabs[id]
         else {
@@ -148,6 +174,55 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
             url: tab.webView.url ?? tab.snapshot.url,
             valueDescription: DesktopBrowserSessionValueDescriber.boundedDescription(value)
         )
+    }
+
+    /// How long to wait for a navigation before giving up on `didFinish` and capturing whatever
+    /// has rendered. A page that never fires `didFinish` (long-polling, a stalled subresource,
+    /// a hung analytics beacon) must never wedge the agent loop — a partial DOM beats a hang.
+    static let navigationTimeoutSeconds: Double = 25
+
+    func navigateSelectedTab(to url: URL) async throws -> BrowserLiveDOMSnapshot {
+        guard let selectedID = selectedTabID(),
+              let tab = tabs[selectedID]
+        else {
+            throw DesktopBrowserSessionScriptError.noSelectedTab
+        }
+
+        // Already on this exact URL: the page is loaded, so capture it rather than forcing a
+        // reload (a reload would also lose any state the user or a prior step established).
+        if tab.webView.url?.absoluteString != url.absoluteString {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                // Register BEFORE navigating. Everything here is @MainActor-serialized, so the
+                // waiter cannot miss a `didFinish` that lands between these two statements.
+                navigationWaiters[selectedID, default: []].append(continuation)
+                navigate(tab.webView, to: url)
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(
+                        nanoseconds: UInt64(Self.navigationTimeoutSeconds * 1_000_000_000)
+                    )
+                    // Timeout resolves SUCCESSFULLY: capture the partial page instead of failing.
+                    self?.resumeNavigationWaiters(for: selectedID, error: nil)
+                }
+            }
+        }
+
+        return try await captureLiveDOMSnapshotInSelectedTab()
+    }
+
+    /// Resume and CLEAR every waiter for a tab. Clearing first is what makes a double-resume
+    /// (didFinish racing the timeout, or didFail racing didFinish) impossible — resuming a
+    /// continuation twice is a hard crash in Swift.
+    private func resumeNavigationWaiters(for id: UUID, error: Error?) {
+        guard let waiters = navigationWaiters.removeValue(forKey: id), !waiters.isEmpty else {
+            return
+        }
+        for waiter in waiters {
+            if let error {
+                waiter.resume(throwing: error)
+            } else {
+                waiter.resume()
+            }
+        }
     }
 
     func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {

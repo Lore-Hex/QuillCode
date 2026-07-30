@@ -138,10 +138,24 @@ final class QuillCodeDesktopController: ObservableObject {
             refresh: { [weak self] in self?.refresh() }
         )
         let browserCoordinator = self.browserCoordinator
-        model.visibleBrowserToolOverride = { call, _ in
-            await QuillCodeDesktopVisibleBrowserToolExecutor.execute(
+        // `model` is captured weakly: the closure is stored ON the model, so a strong capture would
+        // retain it forever. The workspace root arrives per call from the agent session.
+        model.visibleBrowserToolOverride = { [weak self, weak model] call, workspaceRoot in
+            // The context touches @MainActor state (the workspace model, the refresh closure), so
+            // it is built on the main actor rather than in this nonisolated closure body.
+            let context: QuillCodeDesktopVisibleBrowserToolExecutor.BrowserNavigationContext? =
+                await MainActor.run {
+                    guard let model else { return nil }
+                    return QuillCodeDesktopVisibleBrowserToolExecutor.BrowserNavigationContext(
+                        model: model,
+                        workspaceRoot: workspaceRoot,
+                        refresh: { [weak self] in self?.refresh() }
+                    )
+                }
+            return await QuillCodeDesktopVisibleBrowserToolExecutor.execute(
                 call,
-                browserCoordinator: browserCoordinator
+                browserCoordinator: browserCoordinator,
+                navigationContext: context
             )
         }
         automationCoordinator.runDueAutomations(

@@ -403,6 +403,9 @@ private final class RenderSmokeNoopBrowserSessionPresenter: DesktopBrowserSessio
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
+    func navigateSelectedTab(to url: URL) async throws -> BrowserLiveDOMSnapshot {
+        throw DesktopBrowserSessionScriptError.noOpenSession
+    }
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
