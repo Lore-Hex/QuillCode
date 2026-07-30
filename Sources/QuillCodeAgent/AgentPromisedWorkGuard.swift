@@ -274,7 +274,13 @@ enum AgentPromisedWorkGuard {
         "i will",
         "i'm going to",
         "i am going to",
-        "let me"
+        "let me",
+        // Collaborative framing is the SAME stall in a different voice: gemini ends a setup turn on
+        // "Let's design and run a budget-friendly evaluation…" — a promise of work with no tool
+        // action. The trailing work-verb requirement (containsWorkVerb) keeps a bare "Let's see …"
+        // final answer from firing.
+        "let's",
+        "let us"
     ]
 
     private static let unresolvedStarterPreviewCharacterLimit = 8

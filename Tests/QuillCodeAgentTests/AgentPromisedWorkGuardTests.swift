@@ -216,3 +216,30 @@ extension AgentPromisedWorkGuardTests {
         XCTAssertTrue(prompt.lowercased().contains("blocked"))
     }
 }
+
+extension AgentPromisedWorkGuardTests {
+    // MARK: - "Let's …" collaborative-framing promise (the gemini stall shape)
+
+    func testDetectsLetsWorkPromise() {
+        // The exact live gemini stall: a promise of work with no tool action.
+        XCTAssertEqual(
+            AgentPromisedWorkGuard.correctionNeeded(
+                for: "I have set up the environment and verified the catalog. Let's design and run a budget-friendly evaluation within the $5 ceiling.",
+                tools: [.shellRun]
+            ),
+            .promisedWork
+        )
+        XCTAssertTrue(AgentPromisedWorkGuard.shouldRequestCorrection(
+            for: "Let us install the dependencies now.",
+            tools: [.shellRun]
+        ))
+    }
+
+    func testBareLetsSeeFinalAnswerIsNotAPromise() {
+        // "Let's see" with no work verb following must NOT be re-driven — it's a normal answer.
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "Let's see — the total comes to 42 rows across the three files.",
+            tools: [.shellRun]
+        ))
+    }
+}
