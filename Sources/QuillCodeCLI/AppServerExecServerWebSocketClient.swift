@@ -67,6 +67,9 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
         guard !permanentlyClosed else {
             return .disconnected(lastConnectionError ?? "the client has been closed")
         }
+        if !initialized, socket == nil, let lastConnectionError {
+            return .disconnected(lastConnectionError)
+        }
         if connectionTask != nil { return .pending }
         guard initialized, socket != nil else {
             return lastConnectionError.map(AppServerEnvironmentConnectionSnapshot.disconnected)

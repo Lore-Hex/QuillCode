@@ -61,6 +61,47 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
+    func createScheduledCoworkerAutomation(
+        _ request: WorkspaceScheduledCoworkerRequest,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> QuillAutomation? {
+        guard let project = selectedProject else {
+            appendNotice("Select a workspace before scheduling this recurring coworker task.")
+            return nil
+        }
+        guard let schedule = ThreadFollowUpScheduleParser.parse(
+            request.scheduleText,
+            now: now,
+            calendar: calendar
+        ) else {
+            reportUnrecognizedAutomationSchedule(workspaceScheduleErrorMessage)
+            return nil
+        }
+
+        let mutation = WorkspaceAutomationStateReducer.createScheduledCoworker(
+            in: automations,
+            project: project,
+            taskText: request.taskText,
+            scheduleDescription: schedule.scheduleDescription,
+            nextRunAt: schedule.nextRunAt,
+            recurrence: schedule.recurrence,
+            now: now
+        )
+        applyAutomationState(mutation.state)
+        if selectedThread == nil {
+            _ = newChat(projectID: project.id)
+        }
+        mutateSelectedThread { thread in
+            WorkspaceThreadNoticeAppender.appendAssistantNotice(
+                "Scheduled \"\(request.taskText)\" for \(schedule.scheduleDescription).",
+                to: &thread
+            )
+        }
+        return mutation.value
+    }
+
+    @discardableResult
     public func createWorkspaceScheduleAutomation(
         every recurrence: QuillAutomationRecurrence,
         now: Date = Date()

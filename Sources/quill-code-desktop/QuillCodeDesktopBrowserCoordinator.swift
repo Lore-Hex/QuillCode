@@ -235,6 +235,9 @@ struct QuillCodeDesktopBrowserCoordinator {
     }
 
     private func sourceLabel(for url: URL) -> String {
+        if url.isFileURL {
+            return "Local HTML"
+        }
         let host = url.host ?? url.absoluteString
         return ["localhost", "127.0.0.1", "::1"].contains(host) ? "Local web app" : "Web page"
     }

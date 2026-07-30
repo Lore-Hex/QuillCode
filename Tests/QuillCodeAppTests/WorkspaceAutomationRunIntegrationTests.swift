@@ -204,6 +204,39 @@ final class WorkspaceAutomationRunIntegrationTests: XCTestCase {
         XCTAssertEqual(workspace.model.root.threads.filter { $0.title == "Scheduled check: QuillCode" }.count, 1)
     }
 
+    func testDueScheduledCoworkerReportIdentifiesOriginalTask() throws {
+        let runAt = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970) + 60)
+        let workspace = try makeProjectAutomationWorkspace()
+        let project = try XCTUnwrap(workspace.model.selectedProject)
+        let automation = WorkspaceAutomationFactory.scheduledCoworker(
+            for: project,
+            taskText: "check competitor pricing pages and notify me with a diff",
+            scheduleDescription: "Every Monday at 8:00 AM",
+            nextRunAt: runAt.addingTimeInterval(-10),
+            recurrence: QuillAutomationRecurrence(interval: 1, unit: .weeks, weekdays: [2], hour: 8, minute: 0),
+            now: runAt.addingTimeInterval(-3_600)
+        )
+        workspace.model.setAutomations([automation])
+
+        let report = try XCTUnwrap(workspace.model.runDueAutomationReports(now: runAt).first)
+
+        XCTAssertEqual(report.title, "QuillCode scheduled task ready")
+        XCTAssertEqual(
+            report.body,
+            "Scheduled check: QuillCode was created for QuillCode: check competitor pricing pages and notify me with a diff."
+        )
+        let thread = try XCTUnwrap(workspace.model.root.threads.first { $0.id == report.followUpThreadID })
+        XCTAssertEqual(thread.projectID, project.id)
+        XCTAssertEqual(
+            thread.messages.first?.content,
+            """
+            Run the scheduled coworker task for QuillCode.
+            Task: check competitor pricing pages and notify me with a diff
+            Report what changed, whether action is needed, and the next concrete step.
+            """
+        )
+    }
+
     func testCalendarRecurringAutomationAdvancesToNextMatchingWallClockRun() throws {
         let calendar = makeUTCCalendar()
         let runAt = try XCTUnwrap(makeUTCDate(day: 6, hour: 18, minute: 0))

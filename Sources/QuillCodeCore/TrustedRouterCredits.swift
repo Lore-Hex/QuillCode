@@ -30,19 +30,26 @@ public enum TrustedRouterCreditsPhase: String, Codable, Sendable, Hashable {
 }
 
 public struct TrustedRouterCreditsState: Codable, Sendable, Hashable {
+    public static let maxHistoryCount = 24
+
     public var phase: TrustedRouterCreditsPhase
     public var snapshot: TrustedRouterCreditsSnapshot?
+    /// Most-recent-first successful TrustedRouter credit snapshots observed by this client.
+    /// This is local observation history, not a provider-side ledger.
+    public var history: [TrustedRouterCreditsSnapshot]
     public var lastAttemptAt: Date?
     public var failureMessage: String?
 
     public init(
         phase: TrustedRouterCreditsPhase = .unavailable,
         snapshot: TrustedRouterCreditsSnapshot? = nil,
+        history: [TrustedRouterCreditsSnapshot] = [],
         lastAttemptAt: Date? = nil,
         failureMessage: String? = nil
     ) {
         self.phase = phase
         self.snapshot = snapshot
+        self.history = Self.normalizedHistory(history, snapshot: snapshot)
         self.lastAttemptAt = lastAttemptAt
         self.failureMessage = Self.normalizedFailureMessage(failureMessage)
     }
@@ -56,14 +63,19 @@ public struct TrustedRouterCreditsState: Codable, Sendable, Hashable {
         TrustedRouterCreditsState(
             phase: .refreshing,
             snapshot: previous.snapshot,
+            history: previous.history,
             lastAttemptAt: attemptedAt
         )
     }
 
-    public static func current(_ snapshot: TrustedRouterCreditsSnapshot) -> TrustedRouterCreditsState {
+    public static func current(
+        _ snapshot: TrustedRouterCreditsSnapshot,
+        previous: TrustedRouterCreditsState = .unavailable
+    ) -> TrustedRouterCreditsState {
         TrustedRouterCreditsState(
             phase: .current,
             snapshot: snapshot,
+            history: appendedHistory(snapshot, to: previous.history),
             lastAttemptAt: snapshot.fetchedAt
         )
     }
@@ -76,9 +88,62 @@ public struct TrustedRouterCreditsState: Codable, Sendable, Hashable {
         TrustedRouterCreditsState(
             phase: previous.snapshot == nil ? .failed : .stale,
             snapshot: previous.snapshot,
+            history: previous.history,
             lastAttemptAt: attemptedAt,
             failureMessage: message
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case phase
+        case snapshot
+        case history
+        case lastAttemptAt
+        case failureMessage
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let snapshot = try container.decodeIfPresent(TrustedRouterCreditsSnapshot.self, forKey: .snapshot)
+        self.phase = try container.decodeIfPresent(TrustedRouterCreditsPhase.self, forKey: .phase) ?? .unavailable
+        self.snapshot = snapshot
+        self.history = Self.normalizedHistory(
+            try container.decodeIfPresent([TrustedRouterCreditsSnapshot].self, forKey: .history) ?? [],
+            snapshot: snapshot
+        )
+        self.lastAttemptAt = try container.decodeIfPresent(Date.self, forKey: .lastAttemptAt)
+        self.failureMessage = Self.normalizedFailureMessage(
+            try container.decodeIfPresent(String.self, forKey: .failureMessage)
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(phase, forKey: .phase)
+        try container.encodeIfPresent(snapshot, forKey: .snapshot)
+        try container.encode(history, forKey: .history)
+        try container.encodeIfPresent(lastAttemptAt, forKey: .lastAttemptAt)
+        try container.encodeIfPresent(failureMessage, forKey: .failureMessage)
+    }
+
+    private static func appendedHistory(
+        _ snapshot: TrustedRouterCreditsSnapshot,
+        to history: [TrustedRouterCreditsSnapshot]
+    ) -> [TrustedRouterCreditsSnapshot] {
+        normalizedHistory([snapshot] + history, snapshot: nil)
+    }
+
+    private static func normalizedHistory(
+        _ history: [TrustedRouterCreditsSnapshot],
+        snapshot: TrustedRouterCreditsSnapshot?
+    ) -> [TrustedRouterCreditsSnapshot] {
+        var result: [TrustedRouterCreditsSnapshot] = []
+        for entry in [snapshot].compactMap({ $0 }) + history {
+            guard !result.contains(entry) else { continue }
+            result.append(entry)
+            if result.count == maxHistoryCount { break }
+        }
+        return result
     }
 
     private static func normalizedFailureMessage(_ value: String?) -> String? {

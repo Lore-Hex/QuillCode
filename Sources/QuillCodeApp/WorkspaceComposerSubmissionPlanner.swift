@@ -4,6 +4,7 @@ struct WorkspaceComposerSubmissionPlanner {
     enum Plan: Equatable {
         case ignore
         case slash(command: SlashCommand, originalPrompt: String)
+        case scheduledCoworker(WorkspaceScheduledCoworkerRequest)
         case agent(prompt: String)
     }
 
@@ -26,6 +27,11 @@ struct WorkspaceComposerSubmissionPlanner {
                 return .agent(prompt: skillPrompt)
             }
             return .slash(command: command, originalPrompt: prompt)
+        }
+
+        if !hasAttachments,
+           let request = WorkspaceScheduledCoworkerRequestParser.parse(prompt) {
+            return .scheduledCoworker(request)
         }
 
         return .agent(prompt: prompt)

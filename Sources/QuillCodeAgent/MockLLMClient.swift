@@ -16,6 +16,13 @@ public struct MockLLMClient: LLMClient {
         if thread.messages.last?.role == .tool,
            let lastToolOutput = thread.messages.last?.content,
            let feedback = try? JSONHelpers.decode(AgentToolFeedback.self, from: lastToolOutput) {
+            if let action = Self.nextMultiFileArtifactAction(
+                thread: thread,
+                feedback: feedback,
+                tools: tools
+            ) {
+                return action
+            }
             return .say(AgentRunner.finalAnswer(
                 for: feedback.toolCall,
                 result: feedback.result,
@@ -144,6 +151,10 @@ public struct MockLLMClient: LLMClient {
                     "cmd": "df -h / /Quill 2>/dev/null || df -h /"
                 ])
             ))
+        }
+
+        if let action = Self.startMultiFileArtifactAction(for: lower, tools: tools) {
+            return action
         }
 
         if let fileWrite = AgentFileWriteRequestParser.request(from: request) {
@@ -365,6 +376,431 @@ public struct MockLLMClient: LLMClient {
             return tokens[nextIndex]
         }
         return nil
+    }
+
+    private static func startMultiFileArtifactAction(
+        for lowercasedRequest: String,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        if lowercasedRequest.contains("allocations.csv"),
+           lowercasedRequest.contains("booked over 100%"),
+           lowercasedRequest.contains("rebalance"),
+           lowercasedRequest.contains("named swaps"),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "allocations.csv"])
+            ))
+        }
+
+        if lowercasedRequest.contains("rename every pdf"),
+           lowercasedRequest.contains("invoices"),
+           lowercasedRequest.contains("undo log"),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "Documents/Invoices/invoice-acme.pdf"])
+            ))
+        }
+
+        if lowercasedRequest.contains("gartner"),
+           lowercasedRequest.contains("forrester"),
+           lowercasedRequest.contains("analyst-reports"),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "analyst-reports/gartner-market-guide.pdf"])
+            ))
+        }
+
+        if lowercasedRequest.contains("all-hands email"),
+           lowercasedRequest.contains("org-changes.pptx"),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "org-changes.pptx"])
+            ))
+        }
+
+        guard lowercasedRequest.contains("team action brief"),
+              tools.contains(where: { $0.name == ToolDefinition.fileRead.name })
+        else { return nil }
+        return .tool(.init(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "notes/research.md"])
+        ))
+    }
+
+    private static func nextMultiFileArtifactAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        if let action = Self.nextCapacityPlanningAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
+        if let action = Self.nextBulkInvoiceRenameAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
+        if let action = Self.nextAnalystSynthesisAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
+        if let action = Self.nextAllHandsEmailAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
+        if let action = Self.nextTeamActionBriefAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
+        return nil
+    }
+
+    private static func nextCapacityPlanningAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            let content = $0.content.lowercased()
+            return $0.role == .user
+                && content.contains("allocations.csv")
+                && content.contains("booked over 100%")
+                && content.contains("rebalance")
+                && content.contains("named swaps")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "allocations.csv",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "project-plans/project-atlas.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "project-plans/project-atlas.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "project-plans/project-beacon.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "project-plans/project-beacon.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "project-plans/project-comet.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "project-plans/project-comet.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "capacity-rebalance.md",
+                    "content": Self.capacityPlanningContent
+                ])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileWrite.name,
+           path == "capacity-rebalance.md" {
+            return .say(
+                "Created `capacity-rebalance.md` from `allocations.csv` and the three project plans."
+            )
+        }
+
+        return nil
+    }
+
+    private static func nextBulkInvoiceRenameAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            let content = $0.content.lowercased()
+            return $0.role == .user
+                && content.contains("rename every pdf")
+                && content.contains("invoices")
+                && content.contains("undo log")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "Documents/Invoices/invoice-acme.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "Documents/Invoices/invoice-northwind.pdf"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "Documents/Invoices/invoice-northwind.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.shellRun.name }) {
+            return .tool(.init(
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": Self.bulkInvoiceRenameCommand])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.shellRun.name,
+           Self.stringArgument("cmd", from: feedback.toolCall.argumentsJSON)?.contains("invoice-rename-undo.csv") == true {
+            return .say(
+                "Renamed invoice PDFs in `Documents/Invoices` and wrote `Documents/Invoices/invoice-rename-undo.csv`."
+            )
+        }
+
+        return nil
+    }
+
+    private static func nextTeamActionBriefAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            $0.role == .user && $0.content.lowercased().contains("team action brief")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "notes/research.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "notes/risks.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "notes/risks.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "team-action-brief.md",
+                    "content": Self.teamActionBriefContent
+                ])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileWrite.name,
+           path == "team-action-brief.md" {
+            return .say("Created `team-action-brief.md` from `notes/research.md` and `notes/risks.md`.")
+        }
+
+        return nil
+    }
+
+    private static func nextAnalystSynthesisAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            let content = $0.content.lowercased()
+            return $0.role == .user
+                && content.contains("gartner")
+                && content.contains("forrester")
+                && content.contains("analyst-reports")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "analyst-reports/gartner-market-guide.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "analyst-reports/forrester-wave.pdf"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "analyst-reports/forrester-wave.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "analyst-reports/forrester-now-tech.pdf"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "analyst-reports/forrester-now-tech.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "analyst-claims-contradictions.md",
+                    "content": Self.analystSynthesisContent
+                ])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileWrite.name,
+           path == "analyst-claims-contradictions.md" {
+            return .say(
+                "Created `analyst-claims-contradictions.md` from the three reports in `analyst-reports`."
+            )
+        }
+
+        return nil
+    }
+
+    private static func nextAllHandsEmailAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            let content = $0.content.lowercased()
+            return $0.role == .user
+                && content.contains("all-hands email")
+                && content.contains("org-changes.pptx")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "org-changes.pptx",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "reorg-qa/hardest-questions.md"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "reorg-qa/hardest-questions.md",
+           tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "ceo-reorg-all-hands-email.md",
+                    "content": Self.allHandsEmailContent
+                ])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileWrite.name,
+           path == "ceo-reorg-all-hands-email.md" {
+            return .say(
+                "Created `ceo-reorg-all-hands-email.md` from `org-changes.pptx` and `reorg-qa/hardest-questions.md`."
+            )
+        }
+
+        return nil
+    }
+
+    private static var teamActionBriefContent: String {
+        """
+        # Team Action Brief
+
+        ## Key facts
+        - Customers asked for QuillCloud relay reliability before shipment.
+        - The launch owner is Maya.
+
+        ## Risks
+        - The top risk is pairing fallback after a bad Wi-Fi password.
+        - The mitigation is a deterministic AP fallback smoke before shipping.
+
+        ## Next action
+        - Run the pairing fallback smoke and attach the evidence to the release tracker.
+        """
+    }
+
+    private static var bulkInvoiceRenameCommand: String {
+        """
+        mv 'Documents/Invoices/invoice-acme.pdf' 'Documents/Invoices/2026-07-03_Acme_1542.10.pdf' && mv 'Documents/Invoices/invoice-northwind.pdf' 'Documents/Invoices/2026-07-09_Northwind_880.00.pdf' && printf 'old_path,new_path\\nDocuments/Invoices/invoice-acme.pdf,Documents/Invoices/2026-07-03_Acme_1542.10.pdf\\nDocuments/Invoices/invoice-northwind.pdf,Documents/Invoices/2026-07-09_Northwind_880.00.pdf\\n' > 'Documents/Invoices/invoice-rename-undo.csv'
+        """
+    }
+
+    private static var capacityPlanningContent: String {
+        """
+        # Capacity Rebalance
+
+        ## Over 100%
+        - Ana is booked at 125% across Atlas, Beacon, and Comet.
+        - Dev is booked at 115% across Atlas, Beacon, and Comet.
+
+        ## Named swaps
+        - Move 20% of Ana's Beacon reporting work to Eli, who has 65% allocation and Beacon analytics context.
+        - Move 15% of Dev's Comet QA automation work to Bo, who has 70% allocation and owns the Comet test plan.
+        - Keep Cy on Atlas launch coordination because the Atlas plan marks that work as launch-critical.
+
+        ## Result
+        - Ana drops from 125% to 105%, then moves 5% Atlas documentation to Eli to reach 100%.
+        - Dev drops from 115% to 100%.
+        - Eli rises from 65% to 90%; Bo rises from 70% to 85%.
+        """
+    }
+
+    private static var analystSynthesisContent: String {
+        """
+        # Analyst Claims And Contradictions
+
+        ## Key claims
+        - Gartner says the market is consolidating around orchestration layers and values governance depth.
+        - Forrester Wave says buyers prioritize fast time-to-value and gives CloudSync the highest execution score.
+        - Forrester Now Tech says open-source extensibility is a key evaluation filter for platform teams.
+
+        ## Contradictions
+        - Gartner expects suite consolidation, while Forrester Now Tech says extensibility keeps best-of-breed tools viable.
+        - Forrester Wave ranks CloudSync highest on execution, while Gartner warns CloudSync has weaker governance controls.
+        - Gartner frames regulated enterprises as governance-first buyers, while Forrester Wave says mid-market buyers accept lighter governance for faster deployment.
+
+        ## Recommended framing
+        Lead with governance depth for regulated enterprise accounts, but keep open extensibility and fast onboarding as proof points for platform and mid-market buyers.
+        """
+    }
+
+    private static var allHandsEmailContent: String {
+        """
+        # CEO All-Hands Email: Customer-Response Reorg
+
+        Team,
+
+        We are reorganizing around a simpler customer-response operating model. Product Operations moves under Engineering, and Customer Success and Support will become one Customer Experience team. The transition starts August 12 and finishes September 30.
+
+        No layoffs are planned. Pay and benefits stay the same, and managers will support every employee through the change.
+
+        ## Eight hardest questions
+
+        1. Why now? Customer handoff delays need one accountable operating model.
+        2. Are there layoffs? No layoffs are planned.
+        3. Will compensation change? Pay and benefits stay the same.
+        4. Who changes managers? Product Operations and Support have the listed reporting changes.
+        5. What happens to current projects? Customer commitments remain funded.
+        6. How will decisions be made? Weekly escalation review with Engineering and Customer Experience.
+        7. What should managers say today? Use the provided team script and collect concerns.
+        8. Where do questions go? Send questions to reorg-qa@quill.example by Friday.
+
+        Thank you for helping make this transition clear and calm for customers and teams.
+        """
+    }
+
+    private static func stringArgument(_ key: String, from json: String) -> String? {
+        guard let data = json.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return nil
+        }
+        return object[key] as? String
     }
 
     private static func parentDirectory(for path: String) -> String {

@@ -196,6 +196,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("save into a relative workspace path"))
         XCTAssertTrue(prompt.contains("create parent directories first with mkdir -p"))
         XCTAssertTrue(prompt.contains("do not pipe remote content into a shell"))
+        XCTAssertTrue(prompt.contains("use host.browser.open immediately with \"url\""))
+        XCTAssertTrue(prompt.contains("browser/SaaS page"))
         XCTAssertTrue(prompt.contains("call host.skill.load immediately"))
         XCTAssertTrue(prompt.contains("with a non-empty \"name\" string"))
     }
@@ -235,6 +237,27 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
             TrustedRouterPromptBuilder.trustedRouterModelAdvisorPrompt.count,
             900,
             "Detailed model-advisor knowledge belongs in on-demand skills/docs, not the base prompt."
+        )
+    }
+
+    func testPromptIncludesCompactOfficeCoworkerGuidance() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .shellRun,
+            .fileWrite,
+            .computerScreenshot
+        ])
+
+        XCTAssertTrue(prompt.contains("Office coworker tasks"))
+        XCTAssertTrue(prompt.contains("Treat requests to inventory, clean up, summarize"))
+        XCTAssertTrue(prompt.contains("Use available file, shell, browser, Computer Use, and artifact tools immediately"))
+        XCTAssertTrue(prompt.contains("ask a concise question only for a missing folder"))
+        XCTAssertTrue(prompt.contains("For named SaaS workflows without a URL"))
+        XCTAssertTrue(prompt.contains("do not stop after saying you will do it or after only opening the page"))
+        XCTAssertTrue(prompt.contains("Save requested CSV, PDF, Markdown, spreadsheet, or document deliverables"))
+        XCTAssertLessThan(
+            TrustedRouterPromptBuilder.officeCoworkerPrompt.count,
+            800,
+            "Office coworker behavior belongs in compact routing guidance plus skills/tests, not a giant base prompt."
         )
     }
 

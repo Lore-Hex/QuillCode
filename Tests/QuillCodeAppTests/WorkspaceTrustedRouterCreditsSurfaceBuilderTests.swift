@@ -26,6 +26,33 @@ final class WorkspaceTrustedRouterCreditsSurfaceBuilderTests: XCTestCase {
         XCTAssertFalse(surface.accessibilityLabel.localizedCaseInsensitiveContains("quota"))
     }
 
+    func testCurrentBalanceDetailIncludesBoundedProviderHistory() throws {
+        let older = try XCTUnwrap(TrustedRouterCreditsSnapshot(
+            balance: 14,
+            currency: "USD",
+            fetchedAt: now.addingTimeInterval(-3_600)
+        ))
+        let current = try XCTUnwrap(TrustedRouterCreditsSnapshot(
+            balance: 12.5,
+            currency: "USD",
+            fetchedAt: now.addingTimeInterval(-90)
+        ))
+        let state = TrustedRouterCreditsState.current(
+            current,
+            previous: .current(older)
+        )
+
+        let surface = try XCTUnwrap(WorkspaceTrustedRouterCreditsSurfaceBuilder(
+            state: state,
+            hasCredential: true,
+            now: now
+        ).surface())
+
+        XCTAssertEqual(surface.historyLabel, "Recent provider balance history: $12.50 updated 1m ago; $14.00 updated 1h ago.")
+        XCTAssertTrue(surface.detailLabel.contains("Recent provider balance history"))
+        XCTAssertTrue(surface.accessibilityLabel.contains("$14.00 updated 1h ago"))
+    }
+
     func testStaleSurfaceRetainsPreciseSmallBalanceAndFailureReason() throws {
         let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
             balance: 0.0123,

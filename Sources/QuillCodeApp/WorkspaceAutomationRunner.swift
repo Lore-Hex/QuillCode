@@ -101,7 +101,7 @@ enum WorkspaceAutomationRunner {
             messages: [
                 .init(
                     role: .user,
-                    content: workspaceScheduleMessage(for: project)
+                    content: workspaceScheduleMessage(for: project, automation: automation)
                 )
             ],
             events: [
@@ -114,8 +114,8 @@ enum WorkspaceAutomationRunner {
             automation: updatedAfterRun(automation, now: now),
             thread: thread,
             selectedProjectID: project.id,
-            title: "QuillCode workspace check ready",
-            body: "\(thread.title) was created for \(project.name)."
+            title: workspaceScheduleReportTitle(for: automation),
+            body: workspaceScheduleReportBody(for: automation, thread: thread, project: project)
         )
     }
 
@@ -237,11 +237,43 @@ enum WorkspaceAutomationRunner {
         ].compactMap(\.self)
     }
 
-    private static func workspaceScheduleMessage(for project: ProjectRef) -> String {
-        """
+    private static func workspaceScheduleMessage(
+        for project: ProjectRef,
+        automation: QuillAutomation
+    ) -> String {
+        let task = automation.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        if WorkspaceAutomationFactory.isScheduledCoworker(automation),
+           !task.isEmpty {
+            return """
+            Run the scheduled coworker task for \(project.name).
+            Task: \(task)
+            Report what changed, whether action is needed, and the next concrete step.
+            """
+        }
+        return """
         Run the scheduled workspace check for \(project.name). Start with project status, recent changes, \
         local actions, and anything needing attention.
         """
+    }
+
+    private static func workspaceScheduleReportTitle(for automation: QuillAutomation) -> String {
+        WorkspaceAutomationFactory.isScheduledCoworker(automation)
+            ? "QuillCode scheduled task ready"
+            : "QuillCode workspace check ready"
+    }
+
+    private static func workspaceScheduleReportBody(
+        for automation: QuillAutomation,
+        thread: ChatThread,
+        project: ProjectRef
+    ) -> String {
+        let task = automation.detail.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard WorkspaceAutomationFactory.isScheduledCoworker(automation),
+              !task.isEmpty
+        else {
+            return "\(thread.title) was created for \(project.name)."
+        }
+        return "\(thread.title) was created for \(project.name): \(task)."
     }
 
     private static func localEnvironmentActionMessage(

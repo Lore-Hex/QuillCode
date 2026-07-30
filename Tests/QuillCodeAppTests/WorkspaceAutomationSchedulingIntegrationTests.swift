@@ -354,6 +354,82 @@ final class WorkspaceAutomationSchedulingIntegrationTests: XCTestCase {
         XCTAssertEqual(workspace.model.surface().automations.statusLabel, "1 active")
     }
 
+    func testPlainRecurringCoworkerPromptCreatesWorkspaceAutomation() async throws {
+        let workspace = try makeProjectAutomationWorkspace()
+        let project = try XCTUnwrap(workspace.model.selectedProject)
+
+        workspace.model.setDraft("Every Monday at 8am, check competitor pricing pages and notify me with a diff")
+        await workspace.model.submitComposer(workspaceRoot: workspace.root)
+
+        let saved = try XCTUnwrap(try workspace.automationStore.load().first)
+        XCTAssertEqual(saved.kind, .workspaceSchedule)
+        XCTAssertEqual(saved.projectID, project.id)
+        XCTAssertEqual(saved.scheduleDescription, "Every Monday at 8:00 AM")
+        XCTAssertEqual(saved.detail, "check competitor pricing pages and notify me with a diff")
+        XCTAssertEqual(saved.recurrence, QuillAutomationRecurrence(
+            interval: 1,
+            unit: .weeks,
+            weekdays: [2],
+            hour: 8,
+            minute: 0
+        ))
+        XCTAssertEqual(
+            workspace.model.selectedThread?.messages.last?.content,
+            "Scheduled \"check competitor pricing pages and notify me with a diff\" for Every Monday at 8:00 AM."
+        )
+        XCTAssertEqual(workspace.model.surface().automations.statusLabel, "1 active")
+        XCTAssertTrue(workspace.model.composer.draft.isEmpty)
+    }
+
+    func testPlainRecurringCoworkerPromptKeepsTaskInDueRunThread() throws {
+        let workspace = try makeProjectAutomationWorkspace()
+        let now = try XCTUnwrap(makeUTCDate(day: 6, hour: 10, minute: 0))
+        let calendar = makeUTCCalendar()
+        let request = try XCTUnwrap(WorkspaceScheduledCoworkerRequestParser.parse(
+            "Weekdays at 6 PM, scan the invoices folder for new bills over $5,000 and notify me"
+        ))
+        let automation = try XCTUnwrap(workspace.model.createScheduledCoworkerAutomation(
+            request,
+            now: now,
+            calendar: calendar
+        ))
+        let project = try XCTUnwrap(workspace.model.selectedProject)
+        let runTime = try XCTUnwrap(makeUTCDate(day: 6, hour: 18, minute: 0))
+        let draft = WorkspaceAutomationRunner.workspaceScheduleDraft(
+            automation: automation,
+            project: project,
+            mode: .auto,
+            model: "trustedrouter/fast",
+            instructions: [],
+            memories: [],
+            now: runTime
+        )
+
+        XCTAssertEqual(draft.thread.title, "Scheduled check: QuillCode")
+        XCTAssertEqual(draft.thread.messages.first?.role, .user)
+        XCTAssertEqual(
+            draft.thread.messages.first?.content,
+            """
+            Run the scheduled coworker task for QuillCode.
+            Task: scan the invoices folder for new bills over $5,000 and notify me
+            Report what changed, whether action is needed, and the next concrete step.
+            """
+        )
+        XCTAssertEqual(draft.automation.lastRunAt, runTime)
+        XCTAssertNotNil(draft.automation.nextRunAt)
+    }
+
+    func testPlainRecurringPromptWithoutTaskFallsThroughToAgent() {
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "Every Monday at 8am"),
+            .agent(prompt: "Every Monday at 8am")
+        )
+        XCTAssertEqual(
+            WorkspaceComposerSubmissionPlanner.plan(draft: "On the first of each month, scan invoices"),
+            .agent(prompt: "On the first of each month, scan invoices")
+        )
+    }
+
     func testMonitorCreationPersistsFeedEventSource() throws {
         let workspace = try makeProjectAutomationWorkspace()
         let project = try XCTUnwrap(workspace.model.selectedProject)

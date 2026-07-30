@@ -157,6 +157,26 @@ if ! grep -q '"browserSmoke"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q '"browserWorkflowSmoke"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report browser workflow smoke evidence" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q '"browserSpreadsheetWorkflowSmoke"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report browser spreadsheet workflow smoke evidence" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q '"multiFileArtifactSmoke"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report multi-file artifact smoke evidence" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q '"scheduledCoworkerSmoke"' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not report scheduled coworker smoke evidence" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 python3 - "$REPORT_PATH" <<'PY'
 import json
 import math
@@ -222,6 +242,926 @@ for field in ("textSnippet", "finalAnswer"):
         fail(f"browser smoke {field} did not include rendered page text: {value!r}")
 if "Check the smoke hero" not in browser_smoke.get("finalAnswer", ""):
     fail("browser smoke final answer did not include the browser comment")
+
+def require_browser_workflow_smoke(
+    key,
+    typed_selector,
+    typed_text,
+    clicked_selector,
+    heading,
+    script_state,
+    text_state,
+):
+    browser_workflow_smoke = report.get(key)
+    if not isinstance(browser_workflow_smoke, dict):
+        fail(f"did not include {key} evidence")
+
+    expected_browser_workflow_fields = {
+        "typeToolName": "host.browser.type",
+        "clickToolName": "host.browser.click",
+        "scriptToolName": "host.browser.script",
+        "inspectToolName": "host.browser.inspect",
+        "typedSelector": typed_selector,
+        "clickedSelector": clicked_selector,
+        "typedText": typed_text,
+        "inspectionDepth": "Live DOM snapshot",
+        "sourceLabel": "Local HTML",
+    }
+    for field, expected in expected_browser_workflow_fields.items():
+        if browser_workflow_smoke.get(field) != expected:
+            fail(
+                f"{key} field "
+                f"{field} was {browser_workflow_smoke.get(field)!r}, expected {expected!r}"
+            )
+
+    workflow_outline = browser_workflow_smoke.get("outline")
+    if not isinstance(workflow_outline, list) or heading not in workflow_outline:
+        fail(f"{key} outline did not include {heading!r}: {workflow_outline}")
+    for field in ("scriptValue", "textSnippet"):
+        value = browser_workflow_smoke.get(field)
+        if not isinstance(value, str) or typed_text not in value:
+            fail(f"{key} {field} did not include the typed value: {value!r}")
+    if script_state not in browser_workflow_smoke.get("scriptValue", ""):
+        fail(f"{key} script value did not include {script_state} after click")
+    if text_state not in browser_workflow_smoke.get("textSnippet", ""):
+        fail(f"{key} text snippet did not include {text_state} after click")
+
+
+require_browser_workflow_smoke(
+    key="browserWorkflowSmoke",
+    typed_selector="input[name='status']",
+    typed_text="Qualified",
+    clicked_selector="button[data-action='save']",
+    heading="H1: CRM Workflow Smoke",
+    script_state="saved=true",
+    text_state="Saved",
+)
+require_browser_workflow_smoke(
+    key="browserSpreadsheetWorkflowSmoke",
+    typed_selector="[data-cell='launch-date']",
+    typed_text="2026-09-15",
+    clicked_selector="button[data-action='mark-done']",
+    heading="H1: Shared Sheet Workflow Smoke",
+    script_state="done=true",
+    text_state="Done",
+)
+
+multi_file_smoke = report.get("multiFileArtifactSmoke")
+if not isinstance(multi_file_smoke, dict):
+    fail("did not include multi-file artifact smoke evidence")
+
+expected_multi_file_fields = {
+    "prompt": "Create the team action brief from `notes/research.md` and `notes/risks.md`.",
+    "toolSequence": ["host.file.read", "host.file.read", "host.file.write"],
+    "deliverableContainsResearch": True,
+    "deliverableContainsRisk": True,
+    "deliverableContainsNextAction": True,
+}
+for field, expected in expected_multi_file_fields.items():
+    if multi_file_smoke.get(field) != expected:
+        fail(
+            "multi-file artifact smoke field "
+            f"{field} was {multi_file_smoke.get(field)!r}, expected {expected!r}"
+        )
+source_paths = multi_file_smoke.get("sourcePaths")
+if not isinstance(source_paths, list) or len(source_paths) != 2:
+    fail(f"multi-file artifact smoke did not report two source paths: {source_paths!r}")
+for expected_suffix in ("notes/research.md", "notes/risks.md"):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in source_paths):
+        fail(f"multi-file artifact smoke missed source path {expected_suffix}: {source_paths!r}")
+deliverable_path = multi_file_smoke.get("deliverablePath")
+if not isinstance(deliverable_path, str) or not deliverable_path.endswith("team-action-brief.md"):
+    fail(f"multi-file artifact smoke reported malformed deliverable path: {deliverable_path!r}")
+final_answer = multi_file_smoke.get("finalAnswer")
+if not isinstance(final_answer, str) or "Created `team-action-brief.md`" not in final_answer:
+    fail(f"multi-file artifact smoke reported malformed final answer: {final_answer!r}")
+catalog_cases = multi_file_smoke.get("catalogCases")
+if not isinstance(catalog_cases, list):
+    fail(f"multi-file artifact smoke catalogCases was malformed: {catalog_cases!r}")
+all_hands_cases = [
+    case for case in catalog_cases
+    if isinstance(case, dict) and case.get("taskID") == 69
+]
+if len(all_hands_cases) != 1:
+    fail(f"multi-file artifact smoke expected exactly one row #69 case: {catalog_cases!r}")
+all_hands = all_hands_cases[0]
+expected_all_hands_prompt = "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` and the answers in `reorg-qa`, covering the eight hardest questions."
+if all_hands.get("prompt") != expected_all_hands_prompt:
+    fail(f"row #69 prompt drifted: {all_hands.get('prompt')!r}")
+if all_hands.get("toolSequence") != ["host.file.read", "host.file.read", "host.file.write"]:
+    fail(f"row #69 tool sequence drifted: {all_hands.get('toolSequence')!r}")
+all_hands_sources = all_hands.get("sourcePaths")
+if not isinstance(all_hands_sources, list) or len(all_hands_sources) != 2:
+    fail(f"row #69 source paths were malformed: {all_hands_sources!r}")
+for expected_suffix in ("org-changes.pptx", "reorg-qa/hardest-questions.md"):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in all_hands_sources):
+        fail(f"row #69 missed source path {expected_suffix}: {all_hands_sources!r}")
+all_hands_deliverable = all_hands.get("deliverablePath")
+if not isinstance(all_hands_deliverable, str) or not all_hands_deliverable.endswith("ceo-reorg-all-hands-email.md"):
+    fail(f"row #69 deliverable path was malformed: {all_hands_deliverable!r}")
+all_hands_assertions = all_hands.get("assertions")
+for assertion in ("announcesReorg", "preservesTimeline", "coversEightQuestions", "answersHardestQuestions"):
+    if not isinstance(all_hands_assertions, dict) or all_hands_assertions.get(assertion) is not True:
+        fail(f"row #69 assertion {assertion} was not true: {all_hands_assertions!r}")
+all_hands_final_answer = all_hands.get("finalAnswer")
+if not isinstance(all_hands_final_answer, str) or "Created `ceo-reorg-all-hands-email.md`" not in all_hands_final_answer:
+    fail(f"row #69 final answer was malformed: {all_hands_final_answer!r}")
+analyst_cases = [
+    case for case in catalog_cases
+    if isinstance(case, dict) and case.get("taskID") == 70
+]
+if len(analyst_cases) != 1:
+    fail(f"multi-file artifact smoke expected exactly one row #70 case: {catalog_cases!r}")
+analyst = analyst_cases[0]
+expected_analyst_prompt = "Pull the key claims from the three Gartner and Forrester PDFs in `analyst-reports` and flag where they contradict each other."
+if analyst.get("prompt") != expected_analyst_prompt:
+    fail(f"row #70 prompt drifted: {analyst.get('prompt')!r}")
+if analyst.get("toolSequence") != ["host.file.read", "host.file.read", "host.file.read", "host.file.write"]:
+    fail(f"row #70 tool sequence drifted: {analyst.get('toolSequence')!r}")
+analyst_sources = analyst.get("sourcePaths")
+if not isinstance(analyst_sources, list) or len(analyst_sources) != 3:
+    fail(f"row #70 source paths were malformed: {analyst_sources!r}")
+for expected_suffix in (
+    "analyst-reports/gartner-market-guide.pdf",
+    "analyst-reports/forrester-wave.pdf",
+    "analyst-reports/forrester-now-tech.pdf",
+):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in analyst_sources):
+        fail(f"row #70 missed source path {expected_suffix}: {analyst_sources!r}")
+analyst_deliverable = analyst.get("deliverablePath")
+if not isinstance(analyst_deliverable, str) or not analyst_deliverable.endswith("analyst-claims-contradictions.md"):
+    fail(f"row #70 deliverable path was malformed: {analyst_deliverable!r}")
+analyst_assertions = analyst.get("assertions")
+for assertion in ("pullsGartnerClaims", "pullsForresterClaims", "flagsContradictions", "recommendsFraming"):
+    if not isinstance(analyst_assertions, dict) or analyst_assertions.get(assertion) is not True:
+        fail(f"row #70 assertion {assertion} was not true: {analyst_assertions!r}")
+analyst_final_answer = analyst.get("finalAnswer")
+if not isinstance(analyst_final_answer, str) or "Created `analyst-claims-contradictions.md`" not in analyst_final_answer:
+    fail(f"row #70 final answer was malformed: {analyst_final_answer!r}")
+bulk_rename_cases = [
+    case for case in catalog_cases
+    if isinstance(case, dict) and case.get("taskID") == 71
+]
+if len(bulk_rename_cases) != 1:
+    fail(f"multi-file artifact smoke expected exactly one row #71 case: {catalog_cases!r}")
+bulk_rename = bulk_rename_cases[0]
+expected_bulk_rename_prompt = "Rename every PDF in `Documents/Invoices` to YYYY-MM-DD_Vendor_Amount.pdf based on what's inside each file, and leave an undo log."
+if bulk_rename.get("prompt") != expected_bulk_rename_prompt:
+    fail(f"row #71 prompt drifted: {bulk_rename.get('prompt')!r}")
+if bulk_rename.get("toolSequence") != ["host.file.read", "host.file.read", "host.shell.run"]:
+    fail(f"row #71 tool sequence drifted: {bulk_rename.get('toolSequence')!r}")
+bulk_rename_sources = bulk_rename.get("sourcePaths")
+if not isinstance(bulk_rename_sources, list) or len(bulk_rename_sources) != 2:
+    fail(f"row #71 source paths were malformed: {bulk_rename_sources!r}")
+for expected_suffix in (
+    "Documents/Invoices/invoice-acme.pdf",
+    "Documents/Invoices/invoice-northwind.pdf",
+):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in bulk_rename_sources):
+        fail(f"row #71 missed source path {expected_suffix}: {bulk_rename_sources!r}")
+bulk_rename_deliverable = bulk_rename.get("deliverablePath")
+if not isinstance(bulk_rename_deliverable, str) or not bulk_rename_deliverable.endswith("Documents/Invoices/invoice-rename-undo.csv"):
+    fail(f"row #71 deliverable path was malformed: {bulk_rename_deliverable!r}")
+bulk_rename_assertions = bulk_rename.get("assertions")
+for assertion in ("renamesAcmeInvoice", "renamesNorthwindInvoice", "writesUndoLog", "usesInvoiceFields"):
+    if not isinstance(bulk_rename_assertions, dict) or bulk_rename_assertions.get(assertion) is not True:
+        fail(f"row #71 assertion {assertion} was not true: {bulk_rename_assertions!r}")
+bulk_rename_final_answer = bulk_rename.get("finalAnswer")
+if not isinstance(bulk_rename_final_answer, str) or "wrote `Documents/Invoices/invoice-rename-undo.csv`" not in bulk_rename_final_answer:
+    fail(f"row #71 final answer was malformed: {bulk_rename_final_answer!r}")
+capacity_planning_cases = [
+    case for case in catalog_cases
+    if isinstance(case, dict) and case.get("taskID") == 72
+]
+if len(capacity_planning_cases) != 1:
+    fail(f"multi-file artifact smoke expected exactly one row #72 case: {catalog_cases!r}")
+capacity_planning = capacity_planning_cases[0]
+expected_capacity_planning_prompt = "Check `allocations.csv` for anyone booked over 100% across the three concurrent projects and propose a rebalance with named swaps."
+if capacity_planning.get("prompt") != expected_capacity_planning_prompt:
+    fail(f"row #72 prompt drifted: {capacity_planning.get('prompt')!r}")
+if capacity_planning.get("toolSequence") != ["host.file.read", "host.file.read", "host.file.read", "host.file.read", "host.file.write"]:
+    fail(f"row #72 tool sequence drifted: {capacity_planning.get('toolSequence')!r}")
+capacity_planning_sources = capacity_planning.get("sourcePaths")
+if not isinstance(capacity_planning_sources, list) or len(capacity_planning_sources) != 4:
+    fail(f"row #72 source paths were malformed: {capacity_planning_sources!r}")
+for expected_suffix in (
+    "allocations.csv",
+    "project-plans/project-atlas.md",
+    "project-plans/project-beacon.md",
+    "project-plans/project-comet.md",
+):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in capacity_planning_sources):
+        fail(f"row #72 missed source path {expected_suffix}: {capacity_planning_sources!r}")
+capacity_planning_deliverable = capacity_planning.get("deliverablePath")
+if not isinstance(capacity_planning_deliverable, str) or not capacity_planning_deliverable.endswith("capacity-rebalance.md"):
+    fail(f"row #72 deliverable path was malformed: {capacity_planning_deliverable!r}")
+capacity_planning_assertions = capacity_planning.get("assertions")
+for assertion in ("findsOverbookedPeople", "proposesNamedSwaps", "usesProjectConstraints", "balancesUnderOrAtCapacity"):
+    if not isinstance(capacity_planning_assertions, dict) or capacity_planning_assertions.get(assertion) is not True:
+        fail(f"row #72 assertion {assertion} was not true: {capacity_planning_assertions!r}")
+capacity_planning_final_answer = capacity_planning.get("finalAnswer")
+if not isinstance(capacity_planning_final_answer, str) or "Created `capacity-rebalance.md`" not in capacity_planning_final_answer:
+    fail(f"row #72 final answer was malformed: {capacity_planning_final_answer!r}")
+
+one_turn_coworker_smoke = report.get("oneTurnCoworkerSmoke")
+if not isinstance(one_turn_coworker_smoke, dict):
+    fail("did not include one-turn coworker smoke evidence")
+
+expected_one_turn_cases = {
+    15: {
+        "toolName": "host.file.write",
+        "artifactSuffix": "launch-announcement.md",
+        "artifactContains": "Billing portal launch email ready.",
+        "answerContains": "Wrote `launch-announcement.md`.",
+    },
+    16: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "signup-slice.csv",
+        "artifactContains": "organic,31",
+        "answerContains": "wrote signup-slice.csv",
+    },
+    17: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "archive-readme.md",
+        "artifactContains": "Archive/2024-Q4/Acme-old.txt",
+        "answerContains": "wrote archive-readme.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Archive/2024-Q4/Acme-old.txt",
+                "artifactContains": "Acme contract",
+            },
+        ],
+    },
+    18: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "benefits-plan-matrix.csv",
+        "artifactContains": "Silver,150,1000,4000,35,Tier 2",
+        "answerContains": "wrote benefits-plan-matrix.csv",
+    },
+    19: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "marketing-budget-model.csv",
+        "artifactContains": "quarter_rollup,Q1,all,24500,Q1",
+        "answerContains": "wrote marketing-budget-model.csv",
+    },
+    20: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "regional-revenue-chart.png",
+        "artifactContains": "PNG 320x200 stacked revenue chart",
+        "answerContains": "wrote regional-revenue-chart.png",
+    },
+    21: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "cohort-retention.csv",
+        "artifactContains": "2026-01,3,67%,2026-02",
+        "answerContains": "wrote cohort-retention.csv",
+    },
+    22: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "collections-chase-emails.md",
+        "artifactContains": "90-plus,urgent payment plan,INV-309",
+        "answerContains": "wrote collections-chase-emails.md",
+    },
+    23: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "donors-split.csv",
+        "artifactContains": "No city state zip,,,,true",
+        "answerContains": "wrote donors-split.csv",
+    },
+    24: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "support-replies/ticket-001.md",
+        "artifactContains": "billing-access-restored-today",
+        "answerContains": "wrote support-replies/ticket-001.md and support-replies/ticket-002.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "support-replies/ticket-002.md",
+                "artifactContains": "corrected-csv-attached",
+            },
+        ],
+    },
+    25: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "newsletter-clean.csv",
+        "artifactContains": "+14155550100",
+        "answerContains": "wrote newsletter-clean.csv and newsletter-bad-rows.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "newsletter-bad-rows.csv",
+                "artifactContains": "invalid-email,not-a-phone",
+            },
+        ],
+    },
+    26: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "members-normalized.csv",
+        "artifactContains": "Cam,2026-07-14,text date",
+        "answerContains": "wrote members-normalized.csv",
+    },
+    27: {
+        "toolName": "host.file.write",
+        "artifactSuffix": "delay-notice.md",
+        "artifactContains": "your order is delayed until Friday",
+        "answerContains": "Wrote `delay-notice.md`.",
+    },
+    28: {
+        "toolName": "host.file.write",
+        "artifactSuffix": "dependency-map.mmd",
+        "artifactContains": "Engineering --> Launch",
+        "answerContains": "Wrote `dependency-map.mmd`.",
+    },
+    29: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "exhibits/Exhibit-A-Purchase-Agreement.pdf",
+        "artifactContains": "Exhibit A - Purchase Agreement",
+        "answerContains": "wrote exhibits/Exhibit-A-Purchase-Agreement.pdf and exhibits/Exhibit-B-Disclosure-Schedule.pdf",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "exhibits/Exhibit-B-Disclosure-Schedule.pdf",
+                "artifactContains": "Exhibit B - Disclosure Schedule",
+            },
+            {
+                "artifactSuffix": "exhibits/exhibit-index.csv",
+                "artifactContains": "B,Disclosure Schedule,Exhibit-B-Disclosure-Schedule.pdf",
+            },
+        ],
+    },
+    30: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "amex_q3-categorized.csv",
+        "artifactContains": "2026-07-18,Adobe,79.99,Software,6100",
+        "answerContains": "wrote amex_q3-categorized.csv and amex_q3-review.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "amex_q3-review.csv",
+                "artifactContains": "2026-07-22,Unknown Vendor,312.00,needs_review",
+            },
+        ],
+    },
+    31: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "june-variance-pack.csv",
+        "artifactContains": "Support,42000,36500,15.1%,over,billing backlog temporary contractors",
+        "answerContains": "wrote june-variance-pack.csv",
+    },
+    32: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "downloads-organization-report.md",
+        "artifactContains": "Junk pile: Downloads/Junk/installer.tmp",
+        "answerContains": "wrote downloads-organization-report.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Downloads/Receipts/receipt-1042.pdf",
+                "artifactContains": "Receipt 1042",
+            },
+            {
+                "artifactSuffix": "Downloads/Screenshots/screenshot-launch.png",
+                "artifactContains": "Screenshot launch",
+            },
+        ],
+    },
+    33: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "prospect-followups/ada-day-1.md",
+        "artifactContains": "Great talking about the warehouse pilot",
+        "answerContains": "wrote prospect-followups/ada-day-1.md, prospect-followups/ada-day-3.md, and prospect-followups/ada-day-7.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "prospect-followups/ada-day-3.md",
+                "artifactContains": "bring the warehouse checklist",
+            },
+            {
+                "artifactSuffix": "prospect-followups/ben-day-1.md",
+                "artifactContains": "pricing analytics dashboard",
+            },
+        ],
+    },
+    34: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "forecast-review.md",
+        "artifactContains": "Flag: Q3 Upside assumes 42 pct close rate",
+        "answerContains": "wrote forecast-review.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "pipeline-forecast.xlsx",
+                "artifactContains": "Q3 Upside,1200000,42 pct",
+            },
+        ],
+    },
+    35: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "q2-funnel-summary.md",
+        "artifactContains": "Biggest drop-off: Demo to Proposal",
+        "answerContains": "wrote q2-funnel-summary.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "q2-funnel-conversions.csv",
+                "artifactContains": "Demo to Proposal,40 pct,14",
+            },
+        ],
+    },
+    36: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "vendor-name-mapping.csv",
+        "artifactContains": "ACME, Inc.,Acme",
+        "answerContains": "wrote vendor-name-mapping.csv and ap-vendors-standardized.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "ap-vendors-standardized.csv",
+                "artifactContains": "Acme,3,merged",
+            },
+        ],
+    },
+    37: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "senior-csm-job-description.md",
+        "artifactContains": "Senior Customer Success Manager",
+        "answerContains": "wrote senior-csm-job-description.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "senior-csm-screening-questions.md",
+                "artifactContains": "at-risk account",
+            },
+        ],
+    },
+    38: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "sales-ops-analyst-scorecard.md",
+        "artifactContains": "Anchored 1-4 ratings",
+        "answerContains": "wrote sales-ops-analyst-scorecard.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "sales-ops-analyst-interview-questions.md",
+                "artifactContains": "pipeline hygiene",
+            },
+        ],
+    },
+    39: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "july-image-prep-report.md",
+        "artifactContains": "ready/hero-launch.png <= 1600px and under 500KB",
+        "answerContains": "wrote july-image-prep-report.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Newsletter/July/ready/hero-launch.png",
+                "artifactContains": "PNG ready/hero-launch.png under 500KB and <=1600px wide",
+            },
+            {
+                "artifactSuffix": "Newsletter/July/originals/IMG_0001.png",
+                "artifactContains": "PNG originals/IMG_0001.png preserved",
+            },
+        ],
+    },
+    40: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "finance-kpi-dashboard.html",
+        "artifactContains": "Finance KPI Dashboard",
+        "answerContains": "wrote finance-kpi-dashboard.html",
+    },
+    41: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "march-pricing-go-live-checklist.md",
+        "artifactContains": "Legal | Priya | 2026-03-04",
+        "answerContains": "wrote march-pricing-go-live-checklist.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "march-pricing-launch-brief.md",
+                "artifactContains": "March pricing launch",
+            },
+        ],
+    },
+    42: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "safety-guide-es.pdf",
+        "artifactContains": "Safety_Guide_WARNING_BOX_ES_1_2",
+        "answerContains": "wrote safety-guide-es.pdf and safety-guide-pt.pdf",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "safety-guide-pt.pdf",
+                "artifactContains": "Safety_Guide_WARNING_BOX_PT_1_2",
+            },
+        ],
+    },
+    43: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "q3-content-calendar.csv",
+        "artifactContains": "2026-Q3-W01,Migration,webinar,Modernize legacy data,Ben",
+        "answerContains": "wrote q3-content-calendar.csv",
+    },
+    44: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "zoom-meeting-notes.md",
+        "artifactContains": "Decision: Ship onboarding checklist by 2026-07-21",
+        "answerContains": "wrote zoom-meeting-notes.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "zoom-0714.txt",
+                "artifactContains": "Raw Zoom transcript 2026-07-14",
+            },
+        ],
+    },
+    45: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "board-prep-recap-email.md",
+        "artifactContains": "Priya | Final board deck | 2026-08-02",
+        "answerContains": "wrote board-prep-recap-email.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "board-prep-call.txt",
+                "artifactContains": "Raw board prep call transcript",
+            },
+        ],
+    },
+    46: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "maintenance-notice-variants.md",
+        "artifactContains": "Enterprise admins: Scheduled maintenance starts 2026-08-14 22:00 UTC",
+        "answerContains": "wrote maintenance-notice-variants.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "maintenance-window-notice.md",
+                "artifactContains": "Original maintenance window notice",
+            },
+        ],
+    },
+    47: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "acme-sow-obligations.csv",
+        "artifactContains": "2026-09-15,2026-09-01,Acme kickoff workshop,Ada",
+        "answerContains": "wrote acme-sow-obligations.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Acme-SOW.pdf",
+                "artifactContains": "Acme SOW source",
+            },
+        ],
+    },
+    48: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "sales-pivot-summary.csv",
+        "artifactContains": "top_deal,Ada,West,Q2,92000",
+        "answerContains": "wrote sales-pivot-summary.csv",
+    },
+    49: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "erp-migration-raci.csv",
+        "artifactContains": "Data migration,Ada,Ben,Cam,Dee",
+        "answerContains": "wrote erp-migration-raci.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "stakeholders.csv",
+                "artifactContains": "Ada,Migration Lead",
+            },
+            {
+                "artifactSuffix": "phase-plan.md",
+                "artifactContains": "Data migration",
+            },
+        ],
+    },
+    50: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "invoice-reconciliation.csv",
+        "artifactContains": "INV-1002,1200,0,unpaid",
+        "answerContains": "wrote invoice-reconciliation.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "open_invoices.csv",
+                "artifactContains": "INV-1003,Cedar,900",
+            },
+            {
+                "artifactSuffix": "november-bank.csv",
+                "artifactContains": "INV-1003,900",
+            },
+        ],
+    },
+    51: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "amendment-redline-impact.csv",
+        "artifactContains": (
+            "Limitation of liability,cap increased from 12 months fees to 24 months fees,"
+            "raises maximum exposure"
+        ),
+        "answerContains": "wrote amendment-redline-impact.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "executed-msa.pdf",
+                "artifactContains": "Executed MSA baseline",
+            },
+            {
+                "artifactSuffix": "vendor-amendment-2.pdf",
+                "artifactContains": "Vendor Amendment Two",
+            },
+        ],
+    },
+    52: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "release-notes-2026-08.md",
+        "artifactContains": "## Collaboration",
+        "answerContains": "wrote release-notes-2026-08.md",
+    },
+    53: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "rfp-compliance-matrix.csv",
+        "artifactContains": "3.2,shall encrypt data at rest,,Security",
+        "answerContains": "wrote rfp-compliance-matrix.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "RFP-2026-DOT.pdf",
+                "artifactContains": "RFP 2026 DOT source",
+            },
+        ],
+    },
+    54: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "project-risk-register.csv",
+        "artifactContains": "Data migration delay,4,5,stage dry runs weekly,Ben",
+        "answerContains": "wrote project-risk-register.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "project-charter.pdf",
+                "artifactContains": "Project charter source",
+            },
+        ],
+    },
+    55: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "roadmap.md",
+        "artifactContains": "Theme: Retention-led Q3",
+        "answerContains": "wrote roadmap.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Q3-OKRs.docx",
+                "artifactContains": "Q3 OKR source",
+            },
+        ],
+    },
+    56: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "northwind-logistics-proposal.md",
+        "artifactContains": "Northwind Logistics proposal",
+        "answerContains": "wrote northwind-logistics-proposal.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "discovery-call-notes.md",
+                "artifactContains": "Northwind Logistics discovery",
+            },
+            {
+                "artifactSuffix": "pricing-sheet.xlsx",
+                "artifactContains": "approved pricing tiers",
+            },
+        ],
+    },
+    57: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "customer-leave-behind.md",
+        "artifactContains": "Three proof points",
+        "answerContains": "wrote customer-leave-behind.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "product-deck-20-slides.pptx",
+                "artifactContains": "20 slide product deck source",
+            },
+            {
+                "artifactSuffix": "approved-pricing.csv",
+                "artifactContains": "approved pricing",
+            },
+        ],
+    },
+    58: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "pension-vesting-retirement-table.csv",
+        "artifactContains": "early_retirement_reduction,age60,70pct",
+        "answerContains": "wrote pension-vesting-retirement-table.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "pension-plan-1994-scanned.pdf",
+                "artifactContains": "image-only pension booklet source",
+            },
+        ],
+    },
+    59: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "zendesk-theme-triage.csv",
+        "artifactContains": "billing_access,3,2h15m,ZD-101 ZD-104 ZD-108",
+        "answerContains": "wrote zendesk-theme-triage.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "zendesk-export.csv",
+                "artifactContains": "ZD-101,billing_access",
+            },
+        ],
+    },
+    60: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "billing-support-macros.md",
+        "artifactContains": "Macro 6 refund timing apology variant",
+        "answerContains": "wrote billing-support-macros.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "existing-macros.md",
+                "artifactContains": "Tone sample",
+            },
+        ],
+    },
+    61: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "nps-plan-tier-summary.csv",
+        "artifactContains": "Enterprise,67,3,2,1",
+        "answerContains": "wrote nps-plan-tier-summary.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "customer-survey-q2.csv",
+                "artifactContains": "survey export q2",
+            },
+            {
+                "artifactSuffix": "nps-detractor-complaints.md",
+                "artifactContains": "complaint_1,Reporting is slow",
+            },
+        ],
+    },
+    62: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "wbs.xlsx",
+        "artifactContains": "Implementation,Onboarding checklist,Ada,5d",
+        "answerContains": "wrote wbs.xlsx",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "team-roster.csv",
+                "artifactContains": "Ada,Product",
+            },
+        ],
+    },
+    63: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "timeline.xlsx",
+        "artifactContains": "Launch readiness,2026-10-20,2026-11-03,14d",
+        "answerContains": "wrote timeline.xlsx",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "milestones.csv",
+                "artifactContains": "Launch,2026-11-03",
+            },
+        ],
+    },
+    64: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "draft-price-increase-email-rewrite.docx",
+        "artifactContains": "warmer rewrite keeps protected date and is at least 30 pct shorter",
+        "answerContains": "wrote draft-price-increase-email-rewrite.docx",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "draft-price-increase-email.docx",
+                "artifactContains": (
+                    "Grandfathering clause: all existing customers keep current pricing"
+                ),
+            },
+        ],
+    },
+    65: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "variance-analysis.csv",
+        "artifactContains": "Support,42000,36000,16.7pct,over,temporary contractor coverage",
+        "answerContains": "wrote variance-analysis.csv",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "budget-fy26.xlsx",
+                "artifactContains": "Support,36000",
+            },
+            {
+                "artifactSuffix": "actuals-june.csv",
+                "artifactContains": "Events,22000",
+            },
+        ],
+    },
+    66: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "shared-cleanup-plan.md",
+        "artifactContains": "Keep: Shared/Proposals/acme-final.pdf",
+        "answerContains": "wrote shared-cleanup-plan.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "Shared/Proposals/acme-final.pdf",
+                "artifactContains": "newest proposal",
+            },
+            {
+                "artifactSuffix": "Shared/cleanup-audit.csv",
+                "artifactContains": "deleted,Shared/empty-folder,empty folder",
+            },
+        ],
+    },
+    67: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "weekly-sales-summary.md",
+        "artifactContains": "Week-over-week revenue change: +12.4pct",
+        "answerContains": "wrote weekly-sales-summary.md",
+        "secondaryArtifacts": [
+            {
+                "artifactSuffix": "weekly-sales-2026-W29.csv",
+                "artifactContains": "Delta,25500,14200",
+            },
+            {
+                "artifactSuffix": "weekly-sales-top-movers.csv",
+                "artifactContains": "Delta,+11300,+79.6pct",
+            },
+        ],
+    },
+    68: {
+        "toolName": "host.shell.run",
+        "artifactSuffix": "weekly-review.csv",
+        "artifactContains": "Launch,3,2",
+        "answerContains": "wrote weekly-review.csv",
+    },
+}
+one_turn_cases = one_turn_coworker_smoke.get("cases")
+if not isinstance(one_turn_cases, list):
+    fail(f"one-turn coworker smoke cases were malformed: {one_turn_cases!r}")
+one_turn_by_id = {
+    case.get("taskID"): case
+    for case in one_turn_cases
+    if isinstance(case, dict) and isinstance(case.get("taskID"), int)
+}
+if set(one_turn_by_id) != set(expected_one_turn_cases):
+    fail(
+        "one-turn coworker task IDs were "
+        f"{sorted(one_turn_by_id)}, expected {sorted(expected_one_turn_cases)}"
+    )
+for task_id, expected in expected_one_turn_cases.items():
+    case = one_turn_by_id[task_id]
+    if case.get("toolName") != expected["toolName"]:
+        fail(f"one-turn coworker task {task_id} tool was {case.get('toolName')!r}")
+    artifact_path = case.get("artifactPath")
+    if not isinstance(artifact_path, str) or not artifact_path.endswith(expected["artifactSuffix"]):
+        fail(f"one-turn coworker task {task_id} artifact path was malformed: {artifact_path!r}")
+    if case.get("artifactContains") != expected["artifactContains"]:
+        fail(
+            "one-turn coworker task "
+            f"{task_id} artifact assertion was {case.get('artifactContains')!r}"
+        )
+    expected_secondary = expected.get("secondaryArtifacts", [])
+    secondary_artifacts = case.get("secondaryArtifacts", [])
+    if not isinstance(secondary_artifacts, list):
+        fail(f"one-turn coworker task {task_id} secondary artifacts were malformed: {secondary_artifacts!r}")
+    if len(secondary_artifacts) != len(expected_secondary):
+        fail(
+            f"one-turn coworker task {task_id} secondary artifact count was "
+            f"{len(secondary_artifacts)}, expected {len(expected_secondary)}"
+        )
+    for index, expected_artifact in enumerate(expected_secondary):
+        artifact = secondary_artifacts[index]
+        if not isinstance(artifact, dict):
+            fail(f"one-turn coworker task {task_id} secondary artifact {index} was malformed")
+        secondary_path = artifact.get("artifactPath")
+        if not isinstance(secondary_path, str) or not secondary_path.endswith(expected_artifact["artifactSuffix"]):
+            fail(
+                f"one-turn coworker task {task_id} secondary artifact {index} path was "
+                f"{secondary_path!r}, expected suffix {expected_artifact['artifactSuffix']!r}"
+            )
+        if artifact.get("artifactContains") != expected_artifact["artifactContains"]:
+            fail(
+                f"one-turn coworker task {task_id} secondary artifact {index} assertion was "
+                f"{artifact.get('artifactContains')!r}, expected {expected_artifact['artifactContains']!r}"
+            )
+    final_answer = case.get("finalAnswer")
+    if not isinstance(final_answer, str) or expected["answerContains"] not in final_answer:
+        fail(f"one-turn coworker task {task_id} final answer was malformed: {final_answer!r}")
+
+scheduled_coworker_smoke = report.get("scheduledCoworkerSmoke")
+if not isinstance(scheduled_coworker_smoke, dict):
+    fail("did not include scheduled coworker smoke evidence")
+
+expected_scheduled_coworker_fields = {
+    "automationTitle": "Scheduled task: check competitor pricing pages and notify me with a diff",
+    "taskText": "check competitor pricing pages and notify me with a diff",
+    "scheduleDescription": "Every Monday at 8:00 AM",
+    "reportTitle": "QuillCode scheduled task ready",
+    "notificationCount": 1,
+    "automationsVisible": True,
+    "lastRunRecorded": True,
+    "nextRunRecorded": True,
+}
+for field, expected in expected_scheduled_coworker_fields.items():
+    if scheduled_coworker_smoke.get(field) != expected:
+        fail(
+            "scheduled coworker smoke field "
+            f"{field} was {scheduled_coworker_smoke.get(field)!r}, expected {expected!r}"
+        )
+
+scheduled_report_body = scheduled_coworker_smoke.get("reportBody")
+if not isinstance(scheduled_report_body, str) or "check competitor pricing pages" not in scheduled_report_body:
+    fail(f"scheduled coworker report body did not identify the original task: {scheduled_report_body!r}")
+scheduled_thread_title = scheduled_coworker_smoke.get("followUpThreadTitle")
+if not isinstance(scheduled_thread_title, str) or not scheduled_thread_title.startswith("Scheduled check: "):
+    fail(f"scheduled coworker follow-up thread title was malformed: {scheduled_thread_title!r}")
+scheduled_prompt = scheduled_coworker_smoke.get("followUpPrompt")
+if not isinstance(scheduled_prompt, str):
+    fail(f"scheduled coworker follow-up prompt was malformed: {scheduled_prompt!r}")
+for expected_snippet in (
+    "Run the scheduled coworker task for ",
+    "Task: check competitor pricing pages and notify me with a diff",
+    "Report what changed, whether action is needed, and the next concrete step.",
+):
+    if expected_snippet not in scheduled_prompt:
+        fail(f"scheduled coworker follow-up prompt missed {expected_snippet!r}: {scheduled_prompt!r}")
 
 
 native_targets = report.get("nativeHitTargets")
@@ -438,18 +1378,59 @@ for command_id in command-palette keyboard-shortcuts settings toggle-terminal to
     exit 1
   fi
 done
-if ! grep -Eq '"messageCount" : [2-9][0-9]*' "$REPORT_PATH"; then
-  echo "quill-code-desktop native smoke did not record enough transcript messages" >&2
-  cat "$REPORT_PATH" >&2
-  exit 1
-fi
-if ! grep -Eq '"timelineItemCount" : [3-9][0-9]*' "$REPORT_PATH"; then
-  echo "quill-code-desktop native smoke did not record enough timeline items" >&2
-  cat "$REPORT_PATH" >&2
-  exit 1
-fi
+python3 - "$REPORT_PATH" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as report_file:
+    report = json.load(report_file)
+
+message_count = report.get("messageCount")
+if not isinstance(message_count, int) or message_count < 14:
+    raise SystemExit(
+        "quill-code-desktop native smoke did not record enough transcript messages: "
+        f"{message_count!r}"
+    )
+tool_card_count = report.get("toolCardCount")
+if not isinstance(tool_card_count, int) or tool_card_count < 9:
+    raise SystemExit(
+        "quill-code-desktop native smoke did not record enough tool cards: "
+        f"{tool_card_count!r}"
+    )
+timeline_count = report.get("timelineItemCount")
+if not isinstance(timeline_count, int) or timeline_count < 23:
+    raise SystemExit(
+        "quill-code-desktop native smoke did not record enough timeline items: "
+        f"{timeline_count!r}"
+    )
+PY
 if ! grep -q 'Wrote `hello.txt`.' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not produce the expected final answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q 'Created `team-action-brief.md`' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected multi-file artifact answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q 'Created `ceo-reorg-all-hands-email.md`' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected row #69 multi-file artifact answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q 'Created `analyst-claims-contradictions.md`' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected row #70 multi-file artifact answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q 'invoice-rename-undo.csv' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected row #71 bulk rename answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
+if ! grep -q 'capacity-rebalance.md' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected row #72 capacity planning answer" >&2
   cat "$REPORT_PATH" >&2
   exit 1
 fi
@@ -461,6 +1442,11 @@ fi
 if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" \
   || ! grep -q 'Contents of `hello.txt`:' "$HTML_PATH" \
   || ! grep -q 'hello world' "$HTML_PATH" \
+  || ! grep -q 'Created `team-action-brief.md`' "$HTML_PATH" \
+  || ! grep -q 'Created `ceo-reorg-all-hands-email.md`' "$HTML_PATH" \
+  || ! grep -q 'Created `analyst-claims-contradictions.md`' "$HTML_PATH" \
+  || ! grep -q 'invoice-rename-undo.csv' "$HTML_PATH" \
+  || ! grep -q 'capacity-rebalance.md' "$HTML_PATH" \
   || ! grep -q 'Inspected `Browser Smoke`' "$HTML_PATH" \
   || ! grep -q 'host.browser.inspect' "$HTML_PATH" \
   || ! grep -q 'host.file.write' "$HTML_PATH" \

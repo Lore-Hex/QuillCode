@@ -45,7 +45,8 @@ final class ParityAppServerBackgroundTerminalsGateTests: QuillCodeParityTestCase
         Self.assertSource(userShell, containsAll: [
             "terminationRequested",
             "remoteSessions",
-            "for session in remoteSessions { await session.terminate() }"
+            "for session in remoteSessions",
+            "Task { await session.terminate() }"
         ])
         Self.assertSource(
             tests,

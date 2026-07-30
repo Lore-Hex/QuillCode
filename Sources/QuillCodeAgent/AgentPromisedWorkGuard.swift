@@ -182,9 +182,12 @@ enum AgentPromisedWorkGuard {
     private static let unresolvedStarterPreviewCharacterLimit = 8
 
     private static let workVerbs: Set<String> = [
-        "apply", "build", "check", "commit", "create", "delete", "download",
-        "edit", "execute", "fetch", "fix", "inspect", "install", "list",
-        "merge", "open", "push", "read", "review", "run", "search", "test",
-        "update", "write"
+        "add", "analyze", "apply", "archive", "build", "chart", "check", "clean",
+        "commit", "condense", "convert", "create", "dedupe", "delete", "download",
+        "draft", "edit", "execute", "extract", "fetch", "fix", "flag", "highlight",
+        "inspect", "install", "inventory", "list", "maintain", "mark", "merge",
+        "normalize", "open", "pull", "push", "read", "review", "run", "save",
+        "search", "standardize", "summarize", "sync", "test", "triage", "update",
+        "write"
     ]
 }

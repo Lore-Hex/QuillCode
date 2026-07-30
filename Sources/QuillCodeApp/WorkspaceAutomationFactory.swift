@@ -2,6 +2,8 @@ import Foundation
 import QuillCodeCore
 
 enum WorkspaceAutomationFactory {
+    private static let scheduledCoworkerTitlePrefix = "Scheduled task:"
+
     static func threadFollowUp(
         for thread: ChatThread,
         selectedProjectID: UUID?,
@@ -45,6 +47,34 @@ enum WorkspaceAutomationFactory {
             nextRunAt: nextRunAt,
             recurrence: recurrence
         )
+    }
+
+    static func scheduledCoworker(
+        for project: ProjectRef,
+        taskText: String,
+        scheduleDescription: String,
+        nextRunAt: Date?,
+        recurrence: QuillAutomationRecurrence?,
+        now: Date
+    ) -> QuillAutomation {
+        let task = normalizedTaskText(taskText)
+        return QuillAutomation(
+            title: scheduledCoworkerTitle(task: task),
+            detail: task,
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: scheduleDescription,
+            projectID: project.id,
+            createdAt: now,
+            updatedAt: now,
+            nextRunAt: nextRunAt,
+            recurrence: recurrence
+        )
+    }
+
+    static func isScheduledCoworker(_ automation: QuillAutomation) -> Bool {
+        automation.kind == .workspaceSchedule
+            && automation.title.hasPrefix(scheduledCoworkerTitlePrefix)
     }
 
     static func localEnvironmentAction(
@@ -141,6 +171,19 @@ enum WorkspaceAutomationFactory {
             return lastPath.map { "\(host)/\($0)" } ?? host
         }
         return URL(fileURLWithPath: trimmed).lastPathComponent.nilIfEmpty ?? trimmed
+    }
+
+    private static func normalizedTaskText(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".!?"))
+    }
+
+    private static func scheduledCoworkerTitle(task: String) -> String {
+        let collapsed = task.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard collapsed.count > 64 else { return "\(scheduledCoworkerTitlePrefix) \(collapsed)" }
+        let end = collapsed.index(collapsed.startIndex, offsetBy: 61)
+        return "\(scheduledCoworkerTitlePrefix) \(collapsed[..<end])..."
     }
 }
 

@@ -64,6 +64,8 @@ enum AgentImmediateActionPlanner {
         "turn", "write", "create", "make", "run", "fix", "update", "summarize",
         "produce", "generate", "draft", "convert", "then", "read", "list",
         "delete", "rename", "move", "install", "build", "test", "commit", "push", "open",
+        "add", "archive", "correct", "fill", "highlight", "mark", "merge", "pull",
+        "standardize",
     ]
 
     private static func thenConnectorCount(in lower: String) -> Int {
@@ -118,6 +120,14 @@ enum AgentImmediateActionPlanner {
         if let downloadCommand = AgentDownloadRequestParser.shellCommand(from: request),
            hasTool(ToolDefinition.shellRun.name, in: tools) {
             return shell(downloadCommand)
+        }
+
+        if let browserTarget = AgentBrowserOpenRequestParser.request(from: request),
+           hasTool(ToolDefinition.browserOpen.name, in: tools) {
+            return .tool(.init(
+                name: ToolDefinition.browserOpen.name,
+                argumentsJSON: ToolArguments.json(["url": browserTarget])
+            ))
         }
 
         if isDiskUsageRequest(lower),

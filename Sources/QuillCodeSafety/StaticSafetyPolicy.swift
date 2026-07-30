@@ -86,6 +86,12 @@ struct StaticSafetyPolicy: Sendable {
         if StaticSafetyBuildRunShellPolicy.intentMatches(request: request, context: context) {
             return true
         }
+        if Self.bulkWorkspaceRenameIntentMatches(request: request, context: context) {
+            return true
+        }
+        if StaticSafetyRunIntentShellPolicy.intentMatches(request: request, context: context) {
+            return true
+        }
         if intentRules.contains(where: { $0.matches(request: request) && $0.allows(toolName: toolName) }) {
             return true
         }
@@ -122,6 +128,69 @@ struct StaticSafetyPolicy: Sendable {
         guard !urls.isEmpty else { return false }
         let message = context.userMessage.lowercased()
         return urls.contains { message.contains($0) }
+    }
+
+    private static func bulkWorkspaceRenameIntentMatches(
+        request: StaticSafetyRequest,
+        context: SafetyContext
+    ) -> Bool {
+        guard context.toolCall.name == "host.shell.run",
+              request.containsAffirmedAny(["rename"]),
+              request.containsToken("pdf"),
+              request.containsToken("invoices"),
+              request.containsToken("undo"),
+              let command = shellCommand(from: context.toolCall.argumentsJSON)
+        else {
+            return false
+        }
+
+        let lower = command.lowercased()
+        guard lower.contains("documents/invoices/"),
+              lower.contains(".pdf"),
+              lower.contains("invoice-rename-undo.csv"),
+              !StaticSafetyShellCommandSafety.containsNetworkReference(lower),
+              !lower.contains(";"),
+              !lower.contains("|"),
+              !lower.contains("`"),
+              !lower.contains("$("),
+              !lower.contains("<"),
+              !lower.contains(".."),
+              !lower.contains("~"),
+              !lower.contains("sudo "),
+              !lower.contains(" chmod "),
+              !lower.contains(" chown ")
+        else {
+            return false
+        }
+
+        let normalized = collapseWhitespace(command, foldNewlines: true)
+        let segments = normalized
+            .components(separatedBy: "&&")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard segments.count >= 2 else { return false }
+        return segments.allSatisfy { segment in
+            isInvoiceMoveSegment(segment) || isInvoiceUndoLogSegment(segment)
+        }
+    }
+
+    private static func isInvoiceMoveSegment(_ segment: String) -> Bool {
+        guard segment.hasPrefix("mv ") else { return false }
+        let lower = segment.lowercased()
+        return lower.contains("documents/invoices/")
+            && lower.filter({ $0 == "/" }).count >= 2
+            && lower.components(separatedBy: ".pdf").count == 3
+            && !lower.contains(" -")
+    }
+
+    private static func isInvoiceUndoLogSegment(_ segment: String) -> Bool {
+        guard segment.hasPrefix("printf ") else { return false }
+        let lower = segment.lowercased()
+        return lower.contains("old_path,new_path")
+            && lower.contains("documents/invoices/")
+            && lower.contains("invoice-rename-undo.csv")
+            && lower.contains(">")
+            && !lower.contains(">>")
     }
 
     /// Lowercased http(s) URLs found in `text`, trailing sentence punctuation trimmed.
@@ -222,6 +291,17 @@ struct StaticSafetyPolicy: Sendable {
         return parts.joined(separator: " ")
     }
 
+    private static func shellCommand(from json: String) -> String? {
+        guard let data = json.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data, options: [.fragmentsAllowed])
+                as? [String: Any],
+              let command = object["cmd"] as? String
+        else {
+            return nil
+        }
+        return command
+    }
+
     private static func collectStrings(from object: Any, into parts: inout [String]) {
         switch object {
         case let string as String:
@@ -268,10 +348,12 @@ struct StaticSafetyPolicy: Sendable {
     ]
 
     private static let defaultIntentRules: [StaticSafetyIntentRule] = [
-        .init(
-            requestTriggers: ["run", "execute"],
-            allowedToolNames: ["shell.run"]
-        ),
+        // NOTE: the blanket ["run","execute"] -> shell.run rule that used to sit here was removed.
+        // A declarative rule can only see request words + tool name, so it approved ANY shell
+        // command whenever "run"/"execute" appeared in the request (network exfil, absolute-path
+        // reads, download-to-file all slipped past the hard-deny floors). Shell approval for an
+        // explicit run/execute intent is now content-aware — see StaticSafetyRunIntentShellPolicy,
+        // wired into userIntentMatches below.
         .init(
             requestTriggers: ["mcp"],
             allowedToolNames: ["mcp.call"]
@@ -289,8 +371,13 @@ struct StaticSafetyPolicy: Sendable {
             allowedToolNames: ["apply_patch"]
         ),
         .init(
+            // "shell" was removed here for the same reason the run/execute rule was: "make sure",
+            // "create", "write" are common words that blanket-approved ANY shell command (the live
+            // task message "Run the tests and make sure they pass" tripped this via "make").
+            // Runner commands under a make/create/write intent still approve via
+            // StaticSafetyBuildRunShellPolicy; other shell commands fall through to the reviewer.
             requestTriggers: ["make", "create", "write"],
-            allowedToolNames: ["file", "shell", "git.worktree"]
+            allowedToolNames: ["file", "git.worktree"]
         ),
         .init(
             requestTriggers: ["commit"],

@@ -1,5 +1,68 @@
 # QuillCode Decisions
 
+## 2026-07-27: Office Coworker Catalog Drives QuillCode Parity Tracking
+
+- **Decision:** Treat the office coworker task spreadsheet as the canonical QuillCode coverage
+  tracker for business-user workflows, not just a brainstorming list.
+- **Rationale:** The 206-row catalog spans file cleanup, document packets, multi-file summaries,
+  spreadsheets, browser/SaaS tasks, and Computer Use. A durable tracker makes it clear which rows are
+  covered by current code/tests and which still need focused smoke evidence.
+- **Implementation:** Columns K:N in the sheet now derive QuillCode coverage, evidence, next gap, and
+  review date from the existing row metadata. QuillCode also gained compact office-task prompt
+  guidance and broader promised-work verb detection so "inventory assets", "standardize the sheet",
+  and "chart usage" cannot silently degrade into future-tense narration when tools are available.
+- **Constraint:** The base prompt remains small; row-specific instructions belong in the sheet,
+  focused tests, and optional skills. Rows move to covered only when current source/test/smoke
+  evidence proves the actual user-facing task.
+- **Update:** Optional live SaaS evidence now must include `catalogTaskIDs`, the exact row IDs from
+  the office coworker catalog that a signed-in SaaS run proves. The manifest writes those IDs and the
+  canonical spreadsheet URL beside service, task, tool sequence, live-DOM, and Computer Use evidence
+  so humans or secure live-SaaS harnesses can update only the proven rows.
+- **Update:** Live SaaS capture now has a row-linked evidence template generator,
+  `scripts/live-saas-template.sh`. The generated JSON starts with the exact catalog rows, the
+  required browser proof shape, optional Computer Use proof shape, and the validation command, but it
+  remains intentionally invalid until every placeholder is replaced by a real signed-in capture.
+- **Update:** The native smoke contract CLI can now roll validated live SaaS manifests into a
+  `coworker-coverage.json` summary with `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID`.
+  This gives the spreadsheet a durable row-level audit artifact before changing status cells.
+- **Update:** Packaged macOS smoke now emits `packaged-one-turn-coworker.json` for catalog rows
+  #15, #16, #17, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30, #31, #32, #33, #34, #35, #36, #37, #38, #39, #40, #41, #42, #43, #44, #45, #46, #47, #48, #49, #50, #51, #52, #53, #54, #55, #56, #57, #58, #59, #60, #61, #62, #63, #64, #65, #66, #67, and #68. The manifest compares direct packaged executable and Launch Services
+  evidence, proving non-empty `host.file.write`/`host.shell.run` actions plus artifact assertions
+  before those rows can be treated as row-linked one-turn coworker coverage. The manifest now carries
+  the canonical spreadsheet URL and `catalogTaskIDs`, and the coworker coverage rollup accepts it as
+  first-class row evidence.
+- **Update:** Packaged macOS smoke now emits row-linked multi-file artifact evidence in
+  `packaged-multi-file-artifact.json`. The row #69 case reads `org-changes.pptx` and
+  `reorg-qa/hardest-questions.md`, writes `ceo-reorg-all-hands-email.md`, verifies the reorg details,
+  transition dates, and eight hard questions, so the coworker coverage rollup can count deterministic
+  multi-source deliverables independently from one-turn shell rows.
+- **Update:** The same packaged multi-file artifact manifest now includes catalog row #70. The row
+  #70 case reads three `analyst-reports` sources, writes `analyst-claims-contradictions.md`, verifies
+  Gartner claims, Forrester claims, explicit contradictions, and recommended framing, and exposes
+  row-linked catalog evidence so deterministic multi-document synthesis advances in the coworker
+  coverage rollup.
+- **Update:** The packaged multi-file artifact manifest now includes catalog row #71, Bulk Rename.
+  The row #71 case reads two invoice PDFs under `Documents/Invoices`, runs a shell rename operation
+  that moves them to `YYYY-MM-DD_Vendor_Amount.pdf` names, writes
+  `Documents/Invoices/invoice-rename-undo.csv`, verifies both renamed outputs and undo mappings, and
+  exposes `catalogTaskIDs: [69, 70, 71]` so deterministic multi-file mutation coverage advances in
+  the coworker coverage rollup.
+- **Update:** The packaged multi-file artifact manifest now includes catalog row #72, Capacity
+  Planning. The row #72 case reads `allocations.csv` plus three project plans, writes
+  `capacity-rebalance.md`, verifies overbooked people, named swaps, project constraints, and
+  at-or-under-capacity outcomes, and exposes `catalogTaskIDs: [69, 70, 71, 72]` so deterministic
+  multi-document planning coverage advances in the coworker coverage rollup.
+
+## 2026-07-27: TrustedRouter balance history is locally observed
+
+- **Decision:** Keep a bounded, most-recent-first history of successful TrustedRouter account-balance
+  snapshots in `TrustedRouterCreditsState` and surface it in the top-bar balance detail.
+- **Why:** Users need to see whether their provider credits are moving, and Codex parity expects
+  account/quota visibility. The current TrustedRouter credits endpoint returns the present balance,
+  not a provider-hosted ledger, so QuillCode should be explicit that history is locally observed.
+- **Boundary:** This is not a provider-owned transaction ledger. If TrustedRouter exposes a ledger or
+  quota-history API later, that should replace or augment the local observation list.
+
 ## 2026-07-19: Render Robot XML As A Bounded Artifact Preview
 
 - **Decision:** Treat local `.xml` files whose root validates as Robot Framework `robot` output as
@@ -756,6 +819,16 @@
   fixtures run through the real `AutoSafetyReviewer` model path and pin representative reviewer decisions for bounded
   diagnostics, missing shell arguments, unrelated chained credential reads, and project-local file creation. Live
   reviewer-model transcript calibration can build on this table instead of relying on ad hoc manual prompts.
+- Redacted live reviewer calibration uses a manifest contract, not raw transcript dumps.
+  `scripts/safety-reviewer-calibration-smoke.sh` validates expected-versus-actual approve/clarify/deny
+  outcomes, reviewer route/model attribution, and bounded rationale summaries while rejecting raw prompts,
+  raw arguments, responses, cookies, auth headers, and API keys. This gives production calibration an
+  auditable artifact without leaking hidden prompts or sensitive command payloads.
+- Recurring safety calibration is a rollup over validated manifests, not a second raw evidence format.
+  `scripts/safety-reviewer-calibration-rollup.sh` accepts only `safetyReviewerCalibrationValidated`
+  manifests, rejects duplicate case identities across runs, and summarizes verdict, source, and reviewer
+  model coverage as both JSON and Markdown. This lets production calibration evidence accumulate over
+  time while keeping raw prompts, arguments, responses, and secrets outside the repo.
 - The Auto safety model prompt is a compact contract over the same static safety floor, not a second broad policy
   system. It now names explicit approve/clarify/deny boundaries: approve bounded user-requested work, clarify missing
   or empty arguments and ambiguous targets, and deny credential exfiltration, unrelated extra shell actions, broad
@@ -948,6 +1021,7 @@
 - Primary sidebar actions are part of the packaged live-frame gate, not optional evidence. The Accessibility sampler now requires New Chat, Search, Plugins, Automations, and Settings command frames because those first-run controls are always visible and must fail CI if their hit targets disappear, shrink, or lose stable identifiers.
 - Reduced-motion behavior belongs in one shared rendered harness contract. The HTML harness already models the native surface for Playwright, so it now has a single `prefers-reduced-motion` block near the final interaction styles that disables the thinking-dot animation, shortens transitions to 1ms, and suppresses hover/press transforms for the shared hit-target primitives. A Playwright test holds the Send button in `:active` under reduced motion and verifies both the missing scale transform and stopped thinking animation, while a Swift parity gate rejects split screen-local media blocks or one-off press scales such as `0.97`.
 - Live smoke should prove explicit negative action intent without weakening positive transcript integrity. Positive live TrustedRouter scenarios still must persist nonempty queued tool calls and successful completed results. Negative live scenarios such as `Do not run`, `Do not write`, and `Don't download` are now their own no-tool lane: they must produce an assistant response, must not create forbidden output/files, and their persisted transcripts must contain zero queued tool calls. This keeps model-provider regressions visible in release smoke without depending on exact refusal wording.
+- Native OS notification observation is a separate release-evidence contract from the app notifier boundary. Packaged scheduled-coworker smoke proves QuillCode emitted the task-specific notification report through the desktop notifier path, while `scripts/scheduled-notification-observation-smoke.sh` validates a redacted captured OS-banner/action observation only when a reviewer has real screenshot or Accessibility/Computer Use evidence. The validator requires exact `catalogTaskIDs`, the existing packaged scheduled-coworker manifest, visible task text, visible follow-up action, screenshot evidence, and rejects raw prompts or secrets. The coworker catalog coverage aggregator accepts these manifests beside live SaaS manifests, so scheduling rows cannot be marked covered by notification intent alone or by evidence that is not tied to spreadsheet row IDs.
 - Obvious Git branch commands should execute through deterministic preflight before asking the model. Users expect `list git branches`, `switch to branch name`, and `create branch name from ref` to act immediately just like `git status` or `run whoami`; routing these through a shared parser avoids provider-dependent "I'll switch..." responses while preserving the model path for ambiguous Git prose. Live transcript integrity also allows legitimate zero-argument read tools such as branch-list, worktree-list, and browser-inspect instead of treating them as empty-command regressions.
 - Real-world smoke should prove explicit negative action intent as well as positive one-turn execution. The immediate-action path exists to make obvious commands fast, but it must never treat `do not run/write/download` as an action request. Deterministic CLI smoke, native desktop controller smoke, and Playwright real-world actions now cover no-tool/no-side-effect cases for shell, file-write, and download wording, with parity gates keeping that release evidence in the focused smoke surfaces.
 - Immediate-action preflight must be clause scoped and negation-aware before it bypasses model planning. The preflight path exists to make obvious local actions fast and reliable, but it runs before normal model planning. `AgentActionIntentSegments` now splits user prompts into coarse clauses, ignores clauses with nearby negated action intent such as `do not run`, `don't check`, or `do not write`, and can still execute a later affirmative clause like `run pwd` in `do not run whoami; run pwd`. The deterministic mock client uses the same segment helper, so offline demos do not create noisy denied tool cards for all-negated prompts.
@@ -3142,3 +3216,143 @@
   suppression, incomplete-report exclusion, and remote exclusion.
   `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesCargoAuditJSONArtifactPreview` covers
   static HTML selectors, rendered metadata, package/advisory lists, and generic JSON suppression.
+
+## 2026-07-19: pip-audit JSON artifacts render bounded Python security summaries
+
+- **Decision:** Local `.json` artifacts with `pip-audit --format json`-compatible dependency entries
+  render as structured pip-audit cards instead of generic JSON. The preview shows dependency count,
+  vulnerable package count, vulnerability count, fixable vulnerability count, file size, capped
+  package labels, and capped vulnerability labels with aliases/fix versions when available.
+- **Why:** Python dependency security cleanup commonly emits pip-audit JSON. A Codex-style artifact
+  surface should make those findings scannable beside command output without requiring raw JSON
+  expansion or another tool run.
+- **Boundary:** The parser is local-file-only, regular-file-only, NUL-rejecting, JSON-only, and
+  capped at 512 KB. It reads only shallow `dependencies`, `name`, `version`, `vulns`, `id`,
+  `aliases`, and `fix_versions` fields; it never imports Python packages, opens requirements or lock
+  files, resolves dependency graphs, verifies exploitability, contacts vulnerability services, or
+  fetches remote reports.
+- **Evidence:** `QuillCodeToolCardSurfaceTests.testArtifactStateDerivesPipAuditJSONPreviewMetadata`
+  covers pip-audit shape detection, dependency/package/vulnerability/fix metadata, generic JSON
+  suppression, incomplete-report exclusion, and remote exclusion.
+  `WorkspaceHTMLToolCardRendererTests.testHTMLRendererIncludesPipAuditJSONArtifactPreview` covers
+  static HTML selectors, rendered metadata, package/vulnerability lists, and generic JSON
+  suppression.
+
+## 2026-07-27: packaged browser coworker smoke is a release artifact
+
+- **Decision:** Packaged macOS smoke writes `packaged-browser-workflow.json` beside the existing
+  packaged click-probe, Accessibility, scheduled-coworker, and multi-file artifact manifests. The
+  validator reads the direct packaged executable and Launch Services reports, then compares semantic
+  CRM-like and shared-sheet-like browser workflow evidence.
+- **Why:** Office coworker tasks depend heavily on browser/SaaS surfaces. Burying browser workflow
+  proof inside two `report.json` files made release review too easy to miss and let packaged launch
+  drift hide behind passing native smoke. A first-class manifest makes the release boundary explicit.
+- **Boundary:** The smoke still uses deterministic local HTML pages, not a signed-in live SaaS
+  account. It proves `host.browser.type`, `host.browser.click`, `host.browser.script`, and
+  `host.browser.inspect` keep canonical arguments and live-DOM edited state through packaging. Real
+  SaaS rows remain gated until a signed-in browser/Computer Use smoke proves the same workflow.
+- **Evidence:** `scripts/native_click_probe_contracts/browser_workflow.py` validates both
+  `browserWorkflowSmoke` and `browserSpreadsheetWorkflowSmoke`.
+  `scripts/packaged-macos-smoke.sh` writes and preserves `packaged-browser-workflow.json`.
+  `ParityPackagedMacOSSmokeGateTests` requires the validator, manifest, and CLI wiring.
+
+## 2026-07-27: packaged Computer Use setup evidence is explicit
+
+- **Decision:** Packaged macOS smoke writes `packaged-computer-use.json` after the live-window
+  Accessibility frame manifest. The validator records recognized direct executable and Launch
+  Services Computer Use top-bar statuses, requires the packaged window surface to expose Computer Use
+  setup, Screen Recording settings, Accessibility settings, and refresh commands, and verifies those
+  command contracts are present in the packaged click-probe and Accessibility frame manifests.
+- **Why:** Computer Use is a major Codex parity surface and a prerequisite for browser/SaaS coworker
+  tasks. Before claiming live app control, release artifacts should at least make the setup/status
+  entry points explicit and fail when packaging hides or deroutes them.
+- **Boundary:** This is not a real-app-control smoke. It proves setup/status/permission command
+  availability and command-contract coverage at the package boundary. Direct executable and Launch
+  Services status labels may differ because macOS Screen Recording and Accessibility permissions are
+  app-identity-specific. Future work must still add a live Computer Use action smoke against a
+  controlled app or signed-in SaaS surface.
+- **Evidence:** `scripts/native_click_probe_contracts/computer_use.py`,
+  `scripts/packaged-macos-smoke.sh`, `QuillCodeDesktopWindowSmokeSurfaceReport.requiredCommandIDs`,
+  and `ParityPackagedMacOSSmokeGateTests`.
+
+## 2026-07-27: packaged Computer Use action evidence is explicit
+
+- **Decision:** Desktop native smoke now runs a deterministic Computer Use action sequence through
+  the real `ComputerUseToolExecutor`, and packaged macOS smoke preserves the result as
+  `packaged-computer-use-action.json`. The action smoke dispatches `host.computer.screenshot`,
+  `host.computer.click`, `host.computer.type`, `host.computer.scroll`, `host.computer.move`, and
+  `host.computer.key` with canonical non-empty arguments, records the backend action sequence, and
+  requires screenshot artifact, foreground-app, and accessibility-summary evidence.
+- **Why:** Setup/status evidence alone can pass while the actual action path is broken. Office
+  coworker tasks that depend on QuillCode controlling another app need a release artifact proving
+  packaged action dispatch still routes through the same executor as agent turns.
+- **Boundary:** This is deterministic backend evidence, not a signed-in SaaS or arbitrary-app smoke.
+  The validator compares semantic direct executable and Launch Services evidence while allowing
+  temporary screenshot paths to differ. Real SaaS rows remain gated until the same action path drives
+  a signed-in browser/app surface.
+- **Evidence:** `QuillCodeDesktopSmokeRunner.runComputerUseActionSmoke`,
+  `QuillCodeDesktopComputerUseActionSmokeReport`,
+  `scripts/native_click_probe_contracts/computer_use_action.py`,
+  `scripts/packaged-macos-smoke.sh`, and `ParityPackagedMacOSSmokeGateTests`.
+
+## 2026-07-27: browser workflow smoke includes authenticated session state
+
+- **Decision:** The packaged browser workflow manifest now validates
+  `browserAuthenticatedWorkflowSmoke` in addition to the CRM-like and shared-sheet-like workflows.
+  The authenticated smoke opens a login-like workspace page, types a workspace key, clicks Sign in,
+  and requires both script output and live DOM inspection to preserve `signed-in=true` plus the
+  selected workspace.
+- **Why:** Browser/SaaS coworker tasks often depend on being signed in, not just typing into a form.
+  Before using fragile external SaaS credentials in CI, QuillCode should at least prove that its
+  visible browser-session tool path can carry authenticated-session state through packaged direct and
+  Launch Services entrypoints.
+- **Boundary:** The page is deterministic local HTML presented through the same visible-session tool
+  override path, not a live external SaaS account. Real SaaS rows remain gated until a signed-in
+  live SaaS smoke proves equivalent behavior on an actual service.
+- **Evidence:** `QuillCodeDesktopSmokeRunner.runBrowserAuthenticatedWorkflowSmoke`,
+  `SmokeBrowserSessionPresenter`, `scripts/native_click_probe_contracts/browser_workflow.py`,
+  `scripts/packaged-macos-smoke.sh`, and `ParityPackagedMacOSSmokeGateTests`.
+
+## 2026-07-27: live SaaS coworker rows use an explicit optional evidence contract
+
+- **Decision:** Real signed-in SaaS coworker validation now has a separate optional gate:
+  `scripts/live-saas-smoke.sh` delegates to `native-click-probe-contracts.py live-saas`, validates a
+  captured live SaaS evidence JSON file, and writes a `live-saas-manifest.json` only when the evidence
+  proves signed-in state, HTTPS URL, live DOM inspection, and real browser/Computer Use action tools.
+- **Why:** The deterministic packaged smoke should stay stable and should not require private
+  Salesforce, HubSpot, Google Sheets, or other third-party credentials. At the same time, the coworker
+  spreadsheet needs a concrete acceptance artifact before a live SaaS row can move from "gated" to
+  "covered". A typed validator gives manual/secure-environment SaaS runs the same reviewable manifest
+  shape as packaged smoke.
+- **Boundary:** This is not run in default CI and does not itself prove any external service works.
+  It is the acceptance contract for evidence captured from a real signed-in service. Rows remain gated
+  until such a manifest is produced for the relevant service/task.
+- **Safety:** The validator rejects common captured secrets, including TrustedRouter/QuillCloud keys,
+  private keys, and obvious password/token/secret fields, before writing the manifest.
+- **Evidence:** `scripts/native_click_probe_contracts/live_saas.py`,
+  `scripts/native_click_probe_contracts/cli.py`, `scripts/live-saas-smoke.sh`, and
+  `ParityLiveSaaSSmokeGateTests`.
+
+## 2026-07-27: live local-app Computer Use rows use an explicit optional evidence contract
+
+- **Decision:** Arbitrary foreground-app coworker validation has a separate optional gate:
+  `scripts/live-app-computer-use-smoke.sh` delegates to
+  `native-click-probe-contracts.py live-app-computer-use`, validates a captured local-app evidence
+  JSON file, and writes `live-app-computer-use-manifest.json` only when the evidence proves exact
+  spreadsheet row IDs, matching app/foreground names, screenshot plus a real Computer Use action,
+  visible before/after state change, completed result evidence, and an existing screenshot/appshot
+  artifact.
+- **Why:** Packaged Computer Use action smoke proves executor routing, but office coworker rows often
+  depend on private desktop apps or signed-in native tools that default CI cannot open. A typed
+  optional contract lets secure/manual captures graduate exact spreadsheet rows without conflating
+  deterministic backend proof with real local-app task completion.
+- **Boundary:** This is not run in default CI and does not itself prove arbitrary app parity. It is
+  the acceptance contract for evidence captured from a real foreground app. Rows remain gated until
+  such a manifest exists for the relevant task.
+- **Safety:** The validator rejects raw prompts/messages and common captured secrets, including
+  TrustedRouter/QuillCloud keys, private keys, and obvious password/token/secret fields, before
+  writing the manifest.
+- **Evidence:** `scripts/native_click_probe_contracts/live_app_computer_use.py`,
+  `scripts/native_click_probe_contracts/live_app_computer_use_template.py`,
+  `scripts/live-app-computer-use-smoke.sh`, `scripts/live-app-computer-use-template.sh`, and
+  `ParityLiveAppComputerUseSmokeGateTests`.

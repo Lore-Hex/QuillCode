@@ -91,6 +91,40 @@ final class DesktopNotificationPolicyTests: XCTestCase {
         XCTAssertEqual(notifier.automationReports.count, 1)
         XCTAssertEqual(notifier.automationReports.first?.automationID, automation.id)
     }
+
+    func testAutomationCoordinatorDeliversScheduledCoworkerReport() {
+        let project = ProjectRef(name: "QuillCode", path: "/tmp/QuillCode")
+        let automation = QuillAutomation(
+            title: "Scheduled task: Check competitors",
+            detail: "check competitor pricing pages and notify me with a diff",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: "Every Monday at 8:00 AM",
+            projectID: project.id,
+            nextRunAt: Date(timeIntervalSince1970: 1)
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [project],
+            selectedProjectID: project.id
+        ))
+        let notifier = RecordingDesktopAutomationNotifier()
+        model.setAutomations([automation])
+
+        QuillCodeDesktopAutomationCoordinator().runDueAutomations(
+            model: model,
+            notifier: notifier,
+            refresh: {}
+        )
+
+        let report = notifier.automationReports.first
+        XCTAssertEqual(notifier.automationReports.count, 1)
+        XCTAssertEqual(report?.automationID, automation.id)
+        XCTAssertEqual(report?.title, "QuillCode scheduled task ready")
+        XCTAssertEqual(
+            report?.body,
+            "Scheduled check: QuillCode was created for QuillCode: check competitor pricing pages and notify me with a diff."
+        )
+    }
 }
 
 private final class RecordingDesktopAutomationNotifier: QuillCodeAutomationNotifying, @unchecked Sendable {

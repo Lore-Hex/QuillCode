@@ -11,17 +11,20 @@ public struct ProviderAccountBalanceSurface: Codable, Sendable, Hashable {
     public var amountLabel: String?
     public var statusLabel: String
     public var detailLabel: String
+    public var historyLabel: String?
     public var tone: ProviderAccountBalanceTone
 
     public init(
         amountLabel: String?,
         statusLabel: String,
         detailLabel: String,
+        historyLabel: String? = nil,
         tone: ProviderAccountBalanceTone
     ) {
         self.amountLabel = amountLabel
         self.statusLabel = statusLabel
         self.detailLabel = detailLabel
+        self.historyLabel = historyLabel
         self.tone = tone
     }
 
@@ -64,7 +67,8 @@ struct WorkspaceTrustedRouterCreditsSurfaceBuilder: Sendable, Hashable {
             return ProviderAccountBalanceSurface(
                 amountLabel: Self.amountLabel(snapshot),
                 statusLabel: "Balance current",
-                detailLabel: "Current TrustedRouter account balance. \(ageLabel(snapshot.fetchedAt)).",
+                detailLabel: detailWithHistory("Current TrustedRouter account balance. \(ageLabel(snapshot.fetchedAt))."),
+                historyLabel: historyLabel,
                 tone: .normal
             )
         case .stale:
@@ -74,7 +78,8 @@ struct WorkspaceTrustedRouterCreditsSurfaceBuilder: Sendable, Hashable {
             return ProviderAccountBalanceSurface(
                 amountLabel: Self.amountLabel(snapshot),
                 statusLabel: "Balance may be stale",
-                detailLabel: staleDetail(snapshot),
+                detailLabel: detailWithHistory(staleDetail(snapshot)),
+                historyLabel: historyLabel,
                 tone: .warning
             )
         case .failed:
@@ -110,6 +115,19 @@ struct WorkspaceTrustedRouterCreditsSurfaceBuilder: Sendable, Hashable {
             parts.append(failureMessage)
         }
         return parts.joined(separator: " ")
+    }
+
+    private func detailWithHistory(_ detail: String) -> String {
+        guard let historyLabel else { return detail }
+        return "\(detail) \(historyLabel)"
+    }
+
+    private var historyLabel: String? {
+        let entries = state.history.prefix(4).map { snapshot in
+            "\(Self.amountLabel(snapshot)) \(ageLabel(snapshot.fetchedAt).lowercased())"
+        }
+        guard !entries.isEmpty else { return nil }
+        return "Recent provider balance history: \(entries.joined(separator: "; "))."
     }
 
     private func ageLabel(_ fetchedAt: Date) -> String {

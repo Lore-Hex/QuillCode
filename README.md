@@ -34,7 +34,6 @@ This initial repository contains the compile-stable foundation:
 - Codex-compatible `quill-code mcp-server` JSON-RPC stdio bridge with the exact public `codex` and
   `codex-reply` tools, durable threads, streamed events, approvals, cancellation, and EOF cleanup
 - `quill-code-desktop` SwiftUI workspace shell with persisted config/thread bootstrap, project rail, grouped model picker, and developer settings
-- Playwright mock UI harness (test-only; any `node_modules` lives under `E2E/playwright` and is ignored)
 - parity, roadmap, decision, and test-plan docs
 
 ## Try It
@@ -58,14 +57,12 @@ swift run quill-code review --base main --mock
 swift run quill-code mcp-server --mock
 swift run quill-code auth status
 swift run quill-code-desktop
-cd E2E/playwright && npm install && npx playwright install chromium && npm test
 ```
 
 `./scripts/smoke.sh` runs the Swift tests, exercises the exec, doctor, review, app-server, and MCP-server
 process contracts in temporary workspaces, verifies that file creation plus list/read follow-up works
 without dirtying
-the repo, runs native/packaged desktop smoke with the same create-then-read follow-through, and runs
-Playwright automatically when `E2E/playwright/node_modules` is present. Set
+the repo, runs native/packaged desktop smoke with the same create-then-read follow-through. Set
 `QUILLCODE_SMOKE_ARTIFACT_DIR` to preserve native smoke screenshots and a
 `deterministic-smoke-manifest.json` that records which deterministic sub-suites ran.
 
@@ -201,7 +198,7 @@ swift run quill-code-desktop
 Image attachments require a model whose TrustedRouter catalog metadata includes image input; QuillCode
 keeps the selected model explicit rather than silently routing the image through a different model. The
 live adapter asks the model for a strict QuillCode action JSON object, then routes that through the same
-safety and tool executor path as the mock harness.
+safety and tool executor path as every other run.
 
 To store or clear the local developer key used by the desktop shell:
 

@@ -160,6 +160,13 @@ struct QuillCodeDesktopSmokeReport {
     var chromeImage: QuillCodeDesktopSmokePixelReport
     var chrome: QuillCodeDesktopChromeSmokeReport
     var browserSmoke: QuillCodeDesktopBrowserSmokeReport
+    var browserWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
+    var browserSpreadsheetWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
+    var browserAuthenticatedWorkflowSmoke: QuillCodeDesktopBrowserWorkflowSmokeReport
+    var computerUseActionSmoke: QuillCodeDesktopComputerUseActionSmokeReport
+    var multiFileArtifactSmoke: QuillCodeDesktopMultiFileArtifactSmokeReport
+    var oneTurnCoworkerSmoke: QuillCodeDesktopOneTurnCoworkerSmokeReport
+    var scheduledCoworkerSmoke: QuillCodeDesktopScheduledCoworkerSmokeReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
 
     func prettyJSON() throws -> Data {
@@ -187,6 +194,13 @@ struct QuillCodeDesktopSmokeReport {
                 "chromeImage": chromeImage.dictionary,
                 "chrome": chrome.dictionary,
                 "browserSmoke": browserSmoke.dictionary,
+                "browserWorkflowSmoke": browserWorkflowSmoke.dictionary,
+                "browserSpreadsheetWorkflowSmoke": browserSpreadsheetWorkflowSmoke.dictionary,
+                "browserAuthenticatedWorkflowSmoke": browserAuthenticatedWorkflowSmoke.dictionary,
+                "computerUseActionSmoke": computerUseActionSmoke.dictionary,
+                "multiFileArtifactSmoke": multiFileArtifactSmoke.dictionary,
+                "oneTurnCoworkerSmoke": oneTurnCoworkerSmoke.dictionary,
+                "scheduledCoworkerSmoke": scheduledCoworkerSmoke.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary
             ],
             options: [.prettyPrinted, .sortedKeys]
@@ -301,6 +315,180 @@ struct QuillCodeDesktopSmokePixelStats {
     }
 }
 
+struct QuillCodeDesktopComputerUseActionSmokeReport {
+    var toolSequence: [String]
+    var actionSequence: [String]
+    var argumentJSON: [String]
+    var outputSummaries: [String]
+    var screenshotPath: String
+    var screenshotArtifactExists: Bool
+    var foregroundApplication: String
+    var accessibilitySummary: String
+
+    var dictionary: [String: Any] {
+        [
+            "toolSequence": toolSequence,
+            "actionSequence": actionSequence,
+            "argumentJSON": argumentJSON,
+            "outputSummaries": outputSummaries,
+            "screenshotPath": screenshotPath,
+            "screenshotArtifactExists": screenshotArtifactExists,
+            "foregroundApplication": foregroundApplication,
+            "accessibilitySummary": accessibilitySummary
+        ]
+    }
+}
+
+struct QuillCodeDesktopBrowserWorkflowSmokeReport {
+    var previewPath: String
+    var url: String
+    var typedSelector: String
+    var typedText: String
+    var clickedSelector: String
+    var typeToolName: String
+    var clickToolName: String
+    var scriptToolName: String
+    var inspectToolName: String
+    var scriptValue: String
+    var inspectionDepth: String
+    var sourceLabel: String
+    var outline: [String]
+    var textSnippet: String
+
+    var dictionary: [String: Any] {
+        [
+            "previewPath": previewPath,
+            "url": url,
+            "typedSelector": typedSelector,
+            "typedText": typedText,
+            "clickedSelector": clickedSelector,
+            "typeToolName": typeToolName,
+            "clickToolName": clickToolName,
+            "scriptToolName": scriptToolName,
+            "inspectToolName": inspectToolName,
+            "scriptValue": scriptValue,
+            "inspectionDepth": inspectionDepth,
+            "sourceLabel": sourceLabel,
+            "outline": outline,
+            "textSnippet": textSnippet
+        ]
+    }
+}
+
+struct QuillCodeDesktopScheduledCoworkerSmokeReport {
+    var automationTitle: String
+    var taskText: String
+    var scheduleDescription: String
+    var reportTitle: String
+    var reportBody: String
+    var notificationCount: Int
+    var followUpThreadTitle: String
+    var followUpPrompt: String
+    var automationsVisible: Bool
+    var lastRunRecorded: Bool
+    var nextRunRecorded: Bool
+
+    var dictionary: [String: Any] {
+        [
+            "automationTitle": automationTitle,
+            "taskText": taskText,
+            "scheduleDescription": scheduleDescription,
+            "reportTitle": reportTitle,
+            "reportBody": reportBody,
+            "notificationCount": notificationCount,
+            "followUpThreadTitle": followUpThreadTitle,
+            "followUpPrompt": followUpPrompt,
+            "automationsVisible": automationsVisible,
+            "lastRunRecorded": lastRunRecorded,
+            "nextRunRecorded": nextRunRecorded
+        ]
+    }
+}
+
+struct QuillCodeDesktopMultiFileArtifactSmokeReport {
+    var prompt: String
+    var sourcePaths: [String]
+    var deliverablePath: String
+    var toolSequence: [String]
+    var finalAnswer: String
+    var deliverableContainsResearch: Bool
+    var deliverableContainsRisk: Bool
+    var deliverableContainsNextAction: Bool
+    var catalogCases: [QuillCodeDesktopMultiFileCatalogSmokeCaseReport] = []
+
+    var dictionary: [String: Any] {
+        [
+            "prompt": prompt,
+            "sourcePaths": sourcePaths,
+            "deliverablePath": deliverablePath,
+            "toolSequence": toolSequence,
+            "finalAnswer": finalAnswer,
+            "deliverableContainsResearch": deliverableContainsResearch,
+            "deliverableContainsRisk": deliverableContainsRisk,
+            "deliverableContainsNextAction": deliverableContainsNextAction,
+            "catalogCases": catalogCases.map(\.dictionary),
+            "catalogTaskIDs": catalogCases.map(\.taskID)
+        ]
+    }
+}
+
+struct QuillCodeDesktopMultiFileCatalogSmokeCaseReport {
+    var taskID: Int
+    var prompt: String
+    var sourcePaths: [String]
+    var deliverablePath: String
+    var toolSequence: [String]
+    var finalAnswer: String
+    var assertions: [String: Bool]
+
+    var dictionary: [String: Any] {
+        [
+            "taskID": taskID,
+            "prompt": prompt,
+            "sourcePaths": sourcePaths,
+            "deliverablePath": deliverablePath,
+            "toolSequence": toolSequence,
+            "finalAnswer": finalAnswer,
+            "assertions": assertions
+        ]
+    }
+}
+
+struct QuillCodeDesktopOneTurnCoworkerSmokeReport {
+    var cases: [QuillCodeDesktopOneTurnCoworkerSmokeCaseReport]
+
+    var dictionary: [String: Any] {
+        [
+            "cases": cases.map(\.dictionary),
+            "taskIDs": cases.map(\.taskID),
+            "toolSequence": cases.map(\.toolName),
+            "artifactPaths": cases.map(\.artifactPath)
+        ]
+    }
+}
+
+struct QuillCodeDesktopOneTurnCoworkerSmokeCaseReport {
+    var taskID: Int
+    var prompt: String
+    var toolName: String
+    var artifactPath: String
+    var artifactContains: String
+    var secondaryArtifacts: [[String: String]] = []
+    var finalAnswer: String
+
+    var dictionary: [String: Any] {
+        [
+            "taskID": taskID,
+            "prompt": prompt,
+            "toolName": toolName,
+            "artifactPath": artifactPath,
+            "artifactContains": artifactContains,
+            "secondaryArtifacts": secondaryArtifacts,
+            "finalAnswer": finalAnswer
+        ]
+    }
+}
+
 struct QuillCodeDesktopWindowSmokeReport {
     var ok: Bool
     var appName: String
@@ -379,6 +567,10 @@ struct QuillCodeDesktopWindowSmokeSurfaceReport {
         "command-palette",
         "keyboard-shortcuts",
         "settings",
+        "computer-use-setup",
+        "computer-use-open-screen-recording",
+        "computer-use-open-accessibility",
+        "computer-use-refresh",
         "toggle-terminal",
         "toggle-browser",
         "stop-all",
@@ -488,12 +680,15 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case htmlMissingResult
     case incompleteTranscript
     case invalidImageSize(Int, Int)
+    case computerUseActionMismatch(String)
+    case multiFileArtifactMismatch(String)
+    case oneTurnCoworkerMismatch(String)
     case nativeAccessibilityActivationFailed([String])
     case nativeAccessibilityFrameSamplingFailed([String])
     case nativeHitTargetAuditFailed([String])
     case pngEncodingFailed
     case renderFailed
-    case timedOut
+    case timedOut(String)
     case toolCardDidNotComplete
     case windowCaptureFailed
     case windowContentTooSmall(Double, Double)

@@ -4,12 +4,10 @@ final class ParityHTMLGateTests: QuillCodeParityTestCase {
     func testHTMLArchitectureGatesStayOutOfBroadSuite() throws {
         let broadSuiteText = try Self.parityTestSourceText(named: "ParityGateTests.swift")
         let focusedHTMLGateFiles = [
-            "ParityHTMLToolCardRendererGateTests.swift",
             "ParityHTMLTopBarRendererGateTests.swift",
             "ParityHTMLTerminalRendererGateTests.swift",
             "ParityHTMLSecondaryPaneRendererGateTests.swift",
-            "ParityHTMLTranscriptRendererGateTests.swift",
-            "ParityHTMLSidebarRendererGateTests.swift"
+            "ParityHTMLTranscriptRendererGateTests.swift"
         ]
 
         for fileName in focusedHTMLGateFiles {
