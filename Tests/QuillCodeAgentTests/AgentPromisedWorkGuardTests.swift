@@ -216,3 +216,59 @@ extension AgentPromisedWorkGuardTests {
         XCTAssertTrue(prompt.lowercased().contains("blocked"))
     }
 }
+
+extension AgentPromisedWorkGuardTests {
+    // MARK: - "Let's …" + readiness-to-proceed (the gemini verbose-planner stalls)
+
+    func testDetectsLetsWorkPromise() {
+        XCTAssertEqual(
+            AgentPromisedWorkGuard.correctionNeeded(
+                for: "I verified the catalog. Let's design and run a budget-friendly evaluation within the $5 ceiling.",
+                tools: [.shellRun]
+            ),
+            .promisedWork
+        )
+    }
+
+    func testLetsWithoutWorkVerbIsNotAPromise() {
+        // The work-verb gate: "Let's see …" is a final answer, not a promise to do work.
+        XCTAssertNil(
+            AgentPromisedWorkGuard.correctionNeeded(
+                for: "Let's see — the totals reconcile, so the ledger is balanced.",
+                tools: [.shellRun]
+            )
+        )
+    }
+
+    func testDetectsReadinessToProceedDeclaration() {
+        // The exact live gem3 stall: explored everything, then declared readiness with no action.
+        let readiness = [
+            "I have reviewed the handlers and configs. I am fully prepared to proceed with the execution steps under the $5 ceiling.",
+            "The environment is set up. I am ready to proceed.",
+            "I will now proceed to run the evaluation.",
+            "Ready to begin the benchmark."
+        ]
+        for text in readiness {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.shellRun]),
+                .promisedWork,
+                "readiness declaration should re-drive: \(text)"
+            )
+        }
+    }
+
+    func testCompletedResultReadyIsNotAReadinessStall() {
+        // "X is ready" (a finished artifact) must NOT fire — only "ready to <proceed/begin/...>".
+        let closers = [
+            "The report is ready to send whenever you are.",
+            "Your cleaned CSV is ready in output.csv.",
+            "Done — the summary is ready."
+        ]
+        for text in closers {
+            XCTAssertNil(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.shellRun]),
+                "a finished-artifact 'ready' must not re-drive: \(text)"
+            )
+        }
+    }
+}

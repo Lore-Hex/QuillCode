@@ -134,7 +134,40 @@ enum AgentPromisedWorkGuard {
         guard canContainActionablePromise(normalized) else { return false }
 
         return containsFutureWorkPhrase(in: normalized)
+            || declaresReadinessToProceed(in: normalized)
     }
+
+    /// A say that ENDS the turn by announcing the model is ABOUT to work rather than working — the
+    /// verbose-planner stall a fast orchestrator falls into: after exploring the repo it wrote
+    /// "I am fully prepared to proceed with the execution steps" and stopped, with no tool call.
+    /// No "I'll…"/"Let's…" starter appears, so the promise lexicon misses it; the signal is the
+    /// readiness-to-<act> phrase itself.
+    ///
+    /// Matched on the "ready/prepared/about + to + <act>" shape, so "the report is ready to send"
+    /// (a completed result) does NOT fire — only readiness to PROCEED / BEGIN / EXECUTE / RUN /
+    /// START / CONTINUE the task does.
+    private static func declaresReadinessToProceed(in normalizedText: String) -> Bool {
+        readinessToProceedPhrases.contains { normalizedText.contains($0) }
+    }
+
+    private static let readinessToProceedPhrases = [
+        "ready to proceed",
+        "prepared to proceed",
+        "ready to begin",
+        "prepared to begin",
+        "ready to execute",
+        "ready to run the",
+        "ready to start",
+        "ready to continue",
+        "about to proceed",
+        "about to begin",
+        "about to run the",
+        "will now proceed",
+        "will now begin",
+        "will now execute",
+        "proceeding to run",
+        "proceeding to execute"
+    ]
 
     // MARK: - Trailing-off narration (structural, no first-person phrase required)
 
@@ -274,7 +307,12 @@ enum AgentPromisedWorkGuard {
         "i will",
         "i'm going to",
         "i am going to",
-        "let me"
+        "let me",
+        // Collaborative framing is the same stall in a different voice: "Let's design and run the
+        // evaluation…" is a promise of work with no tool action. The trailing work-verb requirement
+        // (containsWorkVerb) keeps a bare "Let's see …" final answer from firing.
+        "let's",
+        "let us"
     ]
 
     private static let unresolvedStarterPreviewCharacterLimit = 8
