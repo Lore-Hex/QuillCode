@@ -1,13 +1,17 @@
 import Foundation
+import QuillCodeApp
 import QuillCodeCore
 
 @MainActor
 enum QuillCodeDesktopVisibleBrowserToolExecutor {
     static func execute(
         _ call: ToolCall,
-        browserCoordinator: QuillCodeDesktopBrowserCoordinator
+        browserCoordinator: QuillCodeDesktopBrowserCoordinator,
+        navigationContext: BrowserNavigationContext? = nil
     ) async -> ToolResult? {
         switch call.name {
+        case ToolDefinition.browserOpen.name:
+            return await open(call, browserCoordinator: browserCoordinator, context: navigationContext)
         case ToolDefinition.browserInspect.name:
             return await browserCoordinator.inspectLiveDOMSnapshotInOpenSession()
         case ToolDefinition.browserClick.name:
@@ -19,6 +23,57 @@ enum QuillCodeDesktopVisibleBrowserToolExecutor {
         default:
             return nil
         }
+    }
+
+    /// What `host.browser.open` needs beyond the coordinator: the workspace model whose browser
+    /// state must stay in sync, the root used to resolve relative/file targets, and the UI refresh.
+    /// Optional so every existing caller (and every test) keeps compiling and keeps the old
+    /// metadata-only behavior when no live surface is wired.
+    @MainActor
+    struct BrowserNavigationContext {
+        var model: QuillCodeWorkspaceModel
+        var workspaceRoot: URL
+        var refresh: @MainActor () -> Void
+
+        init(
+            model: QuillCodeWorkspaceModel,
+            workspaceRoot: URL,
+            refresh: @escaping @MainActor () -> Void
+        ) {
+            self.model = model
+            self.workspaceRoot = workspaceRoot
+            self.refresh = refresh
+        }
+    }
+
+    private static func open(
+        _ call: ToolCall,
+        browserCoordinator: QuillCodeDesktopBrowserCoordinator,
+        context: BrowserNavigationContext?
+    ) async -> ToolResult? {
+        // No live surface wired -> nil, so the caller falls back to the legacy state-only executor.
+        guard let context else { return nil }
+        guard let address = openTarget(from: call) else { return nil }
+        return await browserCoordinator.openSessionAndCaptureLiveDOM(
+            model: context.model,
+            addressDraft: address,
+            workspaceRoot: context.workspaceRoot,
+            refresh: context.refresh
+        )
+    }
+
+    /// Mirrors the argument keys the legacy state-only executor accepts, so a model that already
+    /// says `{"address": …}` or `{"href": …}` keeps working on the navigating path too.
+    private static let openArgumentKeys = ["url", "address", "href", "target", "page"]
+
+    private static func openTarget(from call: ToolCall) -> String? {
+        guard let arguments = try? ToolArguments(call.argumentsJSON) else { return nil }
+        for key in openArgumentKeys {
+            guard let value = arguments.string(key) else { continue }
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+        }
+        return nil
     }
 
     private static func click(
