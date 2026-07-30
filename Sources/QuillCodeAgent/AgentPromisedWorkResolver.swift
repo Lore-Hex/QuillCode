@@ -12,22 +12,28 @@ extension AgentRunner {
         var retryThread = thread
         for _ in 0..<Self.promisedWorkCorrectionLimit {
             guard case .say(let text) = candidate,
-                  AgentPromisedWorkGuard.shouldRequestCorrection(for: text, tools: tools)
+                  let correction = AgentPromisedWorkGuard.correctionNeeded(for: text, tools: tools)
             else {
                 return candidate
             }
 
-            if let recovered = Self.recoveredPromisedWorkAction(from: text, tools: tools) {
-                return recovered
-            }
-            if let recovered = Self.recoveredPromisedUserIntentAction(
-                from: userMessage,
-                tools: tools
-            ) {
-                return recovered
+            // Local recovery only applies to promised work (an embedded tool action, or the
+            // immediate-action planner re-deriving the user's ask). A deferral has no embedded
+            // action to recover — it must be re-driven by the model.
+            if correction == .promisedWork {
+                if let recovered = Self.recoveredPromisedWorkAction(from: text, tools: tools) {
+                    return recovered
+                }
+                if let recovered = Self.recoveredPromisedUserIntentAction(
+                    from: userMessage,
+                    tools: tools
+                ) {
+                    return recovered
+                }
             }
 
             let correctionPrompt = AgentPromisedWorkGuard.correctionPrompt(
+                for: correction,
                 assistantText: text,
                 userMessage: userMessage
             )
@@ -41,8 +47,12 @@ extension AgentRunner {
             )
         }
 
+        // Budget spent. Only unmet promised work is a hard failure — a model that keeps ASKING
+        // (deferral) after being nudged to continue probably genuinely needs input, so that say is
+        // allowed through rather than turned into an error.
         if case .say(let text) = candidate,
-           AgentPromisedWorkGuard.shouldRequestCorrection(for: text, tools: tools) {
+           let correction = AgentPromisedWorkGuard.correctionNeeded(for: text, tools: tools),
+           correction.isHardFailure {
             throw AgentError.promisedWorkWithoutToolAction
         }
         return candidate

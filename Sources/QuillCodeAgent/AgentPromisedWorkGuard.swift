@@ -1,11 +1,71 @@
 import Foundation
 import QuillCodeCore
 
+/// Why a `.say` needs to be re-driven instead of ending the run. The two kinds have DIFFERENT
+/// failure semantics after the retry budget is spent, which is why this is a typed enum rather than
+/// a bool:
+/// - `.promisedWork` — the say claimed/started work it never did ("I'll run the tests", or a
+///   trailing-off "Step 3:" heading). If the model keeps doing this it is a hard failure — throw.
+/// - `.deferralToUser` — the say abandons a multi-step task by handing the next-action decision
+///   back to the user ("what would you like me to do next?"). Fatal for an UNATTENDED run, where
+///   nobody answers. But if, after being nudged to continue, the model still insists on asking, it
+///   probably genuinely needs input — so this is ALLOWED through rather than thrown.
+enum AgentSayCorrection: Sendable, Equatable {
+    case promisedWork
+    case deferralToUser
+
+    /// Only unmet promised work is a hard error; a persistent, specific question is legitimate.
+    var isHardFailure: Bool { self == .promisedWork }
+}
+
 enum AgentPromisedWorkGuard {
-    static func shouldRequestCorrection(for assistantText: String, tools: [ToolDefinition]) -> Bool {
-        guard !tools.isEmpty else { return false }
-        return promisesExecutableWork(assistantText) || endsWithUnfinishedNarration(assistantText)
+    /// The single classifier the resolver drives off of. `nil` = let the say end the run.
+    static func correctionNeeded(for assistantText: String, tools: [ToolDefinition]) -> AgentSayCorrection? {
+        guard !tools.isEmpty else { return nil }
+        if promisesExecutableWork(assistantText) || endsWithUnfinishedNarration(assistantText) {
+            return .promisedWork
+        }
+        if defersNextStepToUser(assistantText) {
+            return .deferralToUser
+        }
+        return nil
     }
+
+    static func shouldRequestCorrection(for assistantText: String, tools: [ToolDefinition]) -> Bool {
+        correctionNeeded(for: assistantText, tools: tools) != nil
+    }
+
+    /// A say that ABANDONS a multi-step task by asking the user to choose the next action —
+    /// "what would you like me to do next?", "how should I proceed?". In an unattended run this
+    /// stalls forever: no one answers.
+    ///
+    /// Deliberately high-precision to avoid re-driving a legitimately-finished task:
+    /// - Only strong "you choose my next step" interrogatives count. A polite completion closer
+    ///   ("let me know if you'd like anything else") is NOT here — that follows a finished task.
+    /// - `asksForPermission` ("should I delete…?") is a SPECIFIC confirmation the safety layer
+    ///   already gates; it is not a whole-task deferral and is intentionally excluded.
+    static func defersNextStepToUser(_ text: String) -> Bool {
+        let normalized = normalizedText(text)
+        return deferralPhrases.contains { normalized.contains($0) }
+    }
+
+    private static let deferralPhrases = [
+        "what would you like me to do next",
+        "what would you like me to do?",
+        "what do you want me to do next",
+        "what do you want me to do?",
+        "what should i do next",
+        "what would you like to do next",
+        "how would you like me to proceed",
+        "how would you like to proceed",
+        "how do you want me to proceed",
+        "how should i proceed",
+        "let me know how you'd like me to proceed",
+        "let me know how you would like me to proceed",
+        "let me know what you'd like me to do",
+        "let me know what you would like me to do",
+        "shall i proceed with"
+    ]
 
     static func shouldSuppressStreamingPreview(for assistantText: String) -> Bool {
         let normalized = normalizedText(assistantText)
@@ -15,7 +75,25 @@ enum AgentPromisedWorkGuard {
             || containsUnresolvedFutureWorkStarter(in: normalized)
     }
 
+    static func correctionPrompt(
+        for correction: AgentSayCorrection,
+        assistantText: String,
+        userMessage: String
+    ) -> String {
+        switch correction {
+        case .promisedWork:
+            return promisedWorkCorrectionPrompt(assistantText: assistantText, userMessage: userMessage)
+        case .deferralToUser:
+            return deferralCorrectionPrompt(assistantText: assistantText, userMessage: userMessage)
+        }
+    }
+
+    /// Back-compat overload for callers/tests that predate the typed correction.
     static func correctionPrompt(assistantText: String, userMessage: String) -> String {
+        promisedWorkCorrectionPrompt(assistantText: assistantText, userMessage: userMessage)
+    }
+
+    private static func promisedWorkCorrectionPrompt(assistantText: String, userMessage: String) -> String {
         """
         Your previous response promised to perform work but did not return a QuillCode tool action.
 
@@ -28,6 +106,26 @@ enum AgentPromisedWorkGuard {
         Return exactly one QuillCode JSON action now. If you intended to perform the promised work,
         return the appropriate {"type":"tool",...} action with complete arguments. If no tool is
         needed, return {"type":"say","text":"..."} with a direct final answer and no future-tense promise.
+        """
+    }
+
+    /// The nudge for a task-abandoning deferral. It does NOT scold; it re-establishes that the run
+    /// is autonomous and that continuing is the expectation. Crucially it leaves an escape hatch: a
+    /// GENUINE blocker, stated specifically, is allowed — which is how a real question survives the
+    /// retry (a specific blocker is not one of the deferral phrases, so it passes through).
+    private static func deferralCorrectionPrompt(assistantText: String, userMessage: String) -> String {
+        """
+        You asked what to do next, but you are running this task autonomously — the user is not
+        available to answer, so asking will stall the run. Do not ask the user to choose the next
+        step.
+
+        Original task:
+        \(userMessage)
+
+        Continue the task yourself using what you already know. Make a reasonable decision and act on
+        it. Only if a step is genuinely blocked — a required credential is missing, or an action is
+        destructive and truly needs confirmation — state the SPECIFIC blocker and exactly what you
+        tried. Otherwise return exactly one QuillCode JSON tool action that makes progress now.
         """
     }
 

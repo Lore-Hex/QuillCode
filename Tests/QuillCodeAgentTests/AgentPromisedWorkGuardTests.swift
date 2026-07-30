@@ -157,3 +157,62 @@ final class AgentPromisedWorkGuardTests: XCTestCase {
         ))
     }
 }
+
+extension AgentPromisedWorkGuardTests {
+    // MARK: - Task-abandoning deferral (the unattended-stall fix)
+
+    func testDetectsDeferralQuestions() {
+        let deferrals = [
+            "I'm ready to continue. Based on the context, we're working on the BFCL evaluation. What would you like me to do next — run a specific evaluation, analyze available models, or something else?",
+            "The venv is set up. What would you like me to do?",
+            "How would you like me to proceed?",
+            "How should I proceed with the remaining steps?",
+            "Let me know how you'd like me to proceed.",
+            "What should I do next?"
+        ]
+        for text in deferrals {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.shellRun]),
+                .deferralToUser,
+                "should re-drive: \(text)"
+            )
+        }
+    }
+
+    func testPoliteCompletionCloserIsNotADeferral() {
+        let closers = [
+            "Done — I created report.md and verified its contents. Let me know if you'd like anything else.",
+            "All 42 tests pass. Is there anything else you need?",
+            "The summary is ready in findings.md."
+        ]
+        for text in closers {
+            XCTAssertNil(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.shellRun]),
+                "must not re-drive a finished task: \(text)"
+            )
+        }
+    }
+
+    func testSpecificPermissionQuestionIsNotAWholeTaskDeferral() {
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "This will permanently delete 12 files. Should I proceed?",
+            tools: [.shellRun]
+        ))
+    }
+
+    func testDeferralIsNotAHardFailure() {
+        XCTAssertFalse(AgentSayCorrection.deferralToUser.isHardFailure)
+        XCTAssertTrue(AgentSayCorrection.promisedWork.isHardFailure)
+    }
+
+    func testDeferralCorrectionPromptTellsModelToContinueAutonomously() {
+        let prompt = AgentPromisedWorkGuard.correctionPrompt(
+            for: .deferralToUser,
+            assistantText: "What would you like me to do next?",
+            userMessage: "Set up BFCL and run a small eval."
+        )
+        XCTAssertTrue(prompt.contains("autonomously"))
+        XCTAssertTrue(prompt.lowercased().contains("do not ask the user"))
+        XCTAssertTrue(prompt.lowercased().contains("blocked"))
+    }
+}
