@@ -107,12 +107,23 @@ public enum CLIRuntimeFactory {
             configuration: appConfig.skillConfiguration
         )
 
-        guard !request.ignoresPermissionRules else { return runner }
-        var gated = runner
-        gated.safety = PermissionRuleGatedSafetyReviewer(
-            base: runner.safety,
-            rules: PermissionRuleFileStore(directory: configuration.paths.permissionsDirectory)
-        )
-        return gated
+        if !request.ignoresPermissionRules {
+            runner.safety = PermissionRuleGatedSafetyReviewer(
+                base: runner.safety,
+                rules: PermissionRuleFileStore(directory: configuration.paths.permissionsDirectory)
+            )
+        }
+
+        // A headless exec run whose sandbox permits writes is autonomous — it is what --full-auto
+        // became. There is no human to answer an approval prompt, so a `.clarify` verdict must not
+        // dead-end the whole run at the first unrecognized-but-safe command (a plain `git clone` /
+        // `uv venv` during setup). This converts `.clarify` -> `.approve` while leaving hard-deny
+        // floors and the filesystem sandbox fully in force. Interactive runs are untouched: the
+        // human at the keyboard still gets the approval prompt.
+        if request.style == .exec,
+           request.sandbox == .workspaceWrite || request.sandbox == .dangerFullAccess {
+            runner.safety = AutonomousApprovalSafetyReviewer(base: runner.safety)
+        }
+        return runner
     }
 }
