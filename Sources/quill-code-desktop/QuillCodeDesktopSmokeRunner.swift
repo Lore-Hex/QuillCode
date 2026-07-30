@@ -2431,6 +2431,13 @@ private final class SmokeBrowserSessionPresenter: DesktopBrowserSessionPresentin
         selectedTab = snapshot.tabs.first { $0.id == snapshot.activeTabID } ?? snapshot.tabs.first
     }
 
+    func navigateSelectedTab(to url: URL) async throws -> BrowserLiveDOMSnapshot {
+        // The navigate-and-read path is exercised by the dedicated
+        // DesktopBrowserOpenNavigationTests double; this smoke presenter only reports a session
+        // was never opened for it, matching how it handles the other action methods.
+        throw DesktopBrowserSessionScriptError.noOpenSession
+    }
+
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
 

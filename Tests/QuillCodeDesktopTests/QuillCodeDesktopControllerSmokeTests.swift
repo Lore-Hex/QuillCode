@@ -1022,6 +1022,9 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     private(set) var clickedSelectors: [String] = []
     private(set) var typedRequests: [TypedRequest] = []
     private(set) var reloadedSessionCount = 0
+    private(set) var navigatedURLs: [URL] = []
+    /// Set to simulate a page that fails to load (DNS/refused/TLS).
+    var navigationFailureMessage: String?
     private var hasOpenSession = false
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {
@@ -1032,6 +1035,25 @@ private final class NoopDesktopBrowserSessionPresenter: DesktopBrowserSessionPre
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {
         hasOpenSession = true
         syncedSnapshots.append(snapshot)
+    }
+
+    /// Records the navigation and returns a DOM snapshot whose content is DERIVED FROM THE URL, so
+    /// a test can prove the returned page is the one that was navigated to — not a stale capture of
+    /// whatever the window happened to be showing (the exact bug this feature fixes).
+    func navigateSelectedTab(to url: URL) async throws -> BrowserLiveDOMSnapshot {
+        guard hasOpenSession else { throw DesktopBrowserSessionScriptError.noOpenSession }
+        if let failure = navigationFailureMessage {
+            throw DesktopBrowserSessionScriptError.navigationFailed(failure)
+        }
+        navigatedURLs.append(url)
+        return BrowserLiveDOMSnapshot(
+            finalURL: url,
+            title: "Loaded \(url.host ?? url.absoluteString)",
+            visibleText: "Rendered content for \(url.absoluteString)",
+            outline: ["H1: Loaded \(url.host ?? "page")"],
+            html: "<h1>Loaded \(url.host ?? "page")</h1>",
+            viewportDescription: "1120x760 @2x"
+        )
     }
 
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {

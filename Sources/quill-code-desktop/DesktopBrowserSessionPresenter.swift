@@ -36,6 +36,11 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
         session.sync(snapshot)
     }
 
+    func navigateSelectedTab(to url: URL) async throws -> BrowserLiveDOMSnapshot {
+        guard let session else { throw DesktopBrowserSessionScriptError.noOpenSession }
+        return try await session.navigateSelectedTab(to: url)
+    }
+
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {
         session?.goBackSelectedTab(fallback: snapshot)
     }
@@ -76,6 +81,9 @@ final class DesktopBrowserSessionPresenter: DesktopBrowserSessionPresenting {
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) {}
     func syncSession(_ snapshot: BrowserSessionSyncSnapshot) {}
+    func navigateSelectedTab(to url: URL) async throws -> BrowserLiveDOMSnapshot {
+        throw DesktopBrowserSessionScriptError.noOpenSession
+    }
     func goBackSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func goForwardSession(fallback snapshot: BrowserSessionSyncSnapshot) {}
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {

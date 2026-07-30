@@ -137,13 +137,7 @@ final class QuillCodeDesktopController: ObservableObject {
             model: model,
             refresh: { [weak self] in self?.refresh() }
         )
-        let browserCoordinator = self.browserCoordinator
-        model.visibleBrowserToolOverride = { call, _ in
-            await QuillCodeDesktopVisibleBrowserToolExecutor.execute(
-                call,
-                browserCoordinator: browserCoordinator
-            )
-        }
+        installVisibleBrowserToolOverride(on: model)
         automationCoordinator.runDueAutomations(
             model: model,
             notifier: automationNotifier,
