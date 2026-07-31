@@ -107,13 +107,18 @@ public struct QuillCodeRuntimeFactory: Sendable {
             apiKeyOverride: apiKey,
             baseURL: config.apiBaseURL
         )
-        // host.web.search routes through the same TrustedRouter credentials as the run loop, so the
-        // gateway selects the search provider (issue #861).
-        let webSearch = TrustedRouterWebSearchClient(
-            sessionStore: sessionStore,
-            apiKeyOverride: apiKey,
-            model: config.defaultModel,
-            baseURL: config.apiBaseURL
+        // host.web.search: grounded DuckDuckGo search first (a real index over the SSRF-safe fetch
+        // transport), falling back to the TrustedRouter LLM-guess client only when the real engine
+        // fails or finds nothing (F18: an LLM with no live index hallucinates URLs that 404; the
+        // downstream liveness filter still vets whatever the fallback returns).
+        let webSearch = FallbackWebSearchClient(
+            primary: DuckDuckGoWebSearchClient(),
+            fallback: TrustedRouterWebSearchClient(
+                sessionStore: sessionStore,
+                apiKeyOverride: apiKey,
+                model: config.defaultModel,
+                baseURL: config.apiBaseURL
+            )
         )
         // Compaction (issue #862): when a model call overflows the context window, the run loop folds
         // the thread's older turns into a summary and resumes instead of failing. It reuses the same

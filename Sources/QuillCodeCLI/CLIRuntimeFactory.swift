@@ -70,11 +70,17 @@ public enum CLIRuntimeFactory {
                 apiKeyOverride: key,
                 baseURL: baseURL
             )
-            let webSearch = TrustedRouterWebSearchClient(
-                sessionStore: sessionStore,
-                apiKeyOverride: key,
-                model: model,
-                baseURL: baseURL
+            // Grounded search first (a real index over the SSRF-safe fetch transport); the
+            // LLM-guess client survives only as a fallback whose URLs the downstream liveness
+            // filter still vets (F18: guessed URLs 404 and get cited).
+            let webSearch = FallbackWebSearchClient(
+                primary: DuckDuckGoWebSearchClient(),
+                fallback: TrustedRouterWebSearchClient(
+                    sessionStore: sessionStore,
+                    apiKeyOverride: key,
+                    model: model,
+                    baseURL: baseURL
+                )
             )
             runner = AgentRunner(
                 llm: llm,
