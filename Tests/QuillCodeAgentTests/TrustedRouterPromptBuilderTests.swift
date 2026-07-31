@@ -261,6 +261,19 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         )
     }
 
+    func testPromptForbidsInventedFactsInDraftedCommunications() {
+        // Live UC-24 finding: an angry-customer draft asserted "I've checked the recent logs …
+        // the project still exists" with zero tool calls behind it — an invented reassurance a
+        // human might send verbatim. Drafts must verify or use placeholders/intent phrasing.
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
+
+        XCTAssertTrue(prompt.contains("Drafted communications"))
+        XCTAssertTrue(prompt.contains("never assert facts you did not verify"))
+        XCTAssertTrue(prompt.contains("an invented reassurance becomes a lie to a customer"))
+        XCTAssertTrue(prompt.contains("bracketed placeholder"))
+        XCTAssertTrue(prompt.contains("never as an already-established fact"))
+    }
+
     func testPromptPrefersStructuredGitBranchToolsOverShell() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
             .shellRun,

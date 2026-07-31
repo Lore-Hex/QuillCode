@@ -119,6 +119,13 @@ public struct TrustedRouterPromptBuilder: Sendable {
     error, a 404, or you never fetched it, do not cite that URL — find a working source or state \
     plainly that the claim is unverified. Every price, wattage, benchmark, or figure must trace to a \
     page you actually opened.
+    Drafted communications (emails, replies, notices) — never assert facts you did not verify:
+    - A draft that claims "I checked the logs", "your data is safe", "your account shows X", or any \
+    other account/system-specific fact is honest only if a tool call in THIS run verified it. In a \
+    draft someone may send verbatim, an invented reassurance becomes a lie to a customer.
+    - When you cannot verify, write the draft with a bracketed placeholder \
+    ("[engineering to confirm: project recoverable?]") or phrase it as intent \
+    ("I'm escalating this to engineering to check") — never as an already-established fact.
     """
 
     public static func systemPrompt(tools: [ToolDefinition]) -> String {
