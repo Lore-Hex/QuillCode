@@ -30,6 +30,11 @@ extension AgentRunner {
         var correctiveThread = thread
         var pendingCorrectionPrompt: String?
         var attempt = 0
+        // F22: which client resolves this action. Flips to `fallbackLLM` (at most once) when the
+        // primary exhausts the empty-response budget — a route-quality death an alternate model
+        // reliably survives. Scoped per-action: the next action starts back on the primary.
+        var activeLLM: LLMClient = llm
+        var usedFallback = false
         while true {
             do {
                 if let correctionPrompt = pendingCorrectionPrompt {
@@ -38,14 +43,16 @@ extension AgentRunner {
                         correctionPrompt: correctionPrompt,
                         tools: tools,
                         thread: &thread,
-                        onProgress: onProgress
+                        onProgress: onProgress,
+                        via: activeLLM
                     )
                 }
                 return try await dispatchNextAction(
                     thread: &thread,
                     userMessage: userMessage,
                     tools: tools,
-                    onProgress: onProgress
+                    onProgress: onProgress,
+                    via: activeLLM
                 )
             } catch TrustedRouterAgentError.emptyToolArguments(let toolName) {
                 if let action = AgentImmediateActionPlanner.action(for: userMessage, tools: tools) {
@@ -146,6 +153,22 @@ extension AgentRunner {
                 // which the transport classifier already deems "worth one more try".
                 try Task.checkCancellation()
                 guard attempt < Self.malformedActionCorrectionLimit else {
+                    // F22: the primary cannot produce this step at all. Try the fallback model —
+                    // once — with a fresh correction budget before declaring the run dead.
+                    if let fallback = fallbackLLM, !usedFallback {
+                        usedFallback = true
+                        activeLLM = fallback
+                        attempt = 0
+                        pendingCorrectionPrompt = nil
+                        thread.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: the model kept returning empty responses; "
+                                + "switching to the fallback model for this step."
+                        ))
+                        thread.updatedAt = Date()
+                        await onProgress?(thread)
+                        continue
+                    }
                     throw AgentError.emptyStreamingResponse
                 }
                 attempt += 1
@@ -172,7 +195,8 @@ extension AgentRunner {
         correctionPrompt: String,
         tools: [ToolDefinition],
         thread: inout ChatThread,
-        onProgress: AgentRunProgressHandler?
+        onProgress: AgentRunProgressHandler?,
+        via llm: LLMClient
     ) async throws -> AgentAction {
         var correctiveRun = correctiveThread
         let priorEventCount = correctiveRun.events.count
@@ -180,7 +204,8 @@ extension AgentRunner {
             thread: &correctiveRun,
             userMessage: correctionPrompt,
             tools: tools,
-            onProgress: nil
+            onProgress: nil,
+            via: llm
         )
         if correctiveRun.events.count > priorEventCount {
             thread.events.append(contentsOf: correctiveRun.events[priorEventCount...])
@@ -195,7 +220,8 @@ extension AgentRunner {
         thread: inout ChatThread,
         userMessage: String,
         tools: [ToolDefinition],
-        onProgress: AgentRunProgressHandler?
+        onProgress: AgentRunProgressHandler?,
+        via llm: LLMClient
     ) async throws -> AgentAction {
         if let usageStreamingLLM = llm as? any UsageStreamingLLMClient {
             return try await nextUsageStreamingAction(
