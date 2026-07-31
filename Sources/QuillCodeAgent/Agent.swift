@@ -84,6 +84,13 @@ public struct AgentRunner: Sendable {
     /// action" correction (F20: a reasoner can stream thinking tokens indefinitely without ever
     /// acting; no terminal say means the phrase guards never see it). nil disables the deadline.
     public var turnDeadlineSeconds: TimeInterval?
+    /// Last-resort model for a step the primary cannot produce at all (F22): when the primary
+    /// exhausts the empty-response correction budget — a route-quality failure observed at ~1-in-6
+    /// runs on one provider while an alternate model completed the same step first try — the
+    /// resolver retries the SAME step once on this client instead of killing the run. All prior
+    /// tool work is preserved (same thread); the switch is recorded as a Self-healing notice.
+    /// nil (the default) keeps today's behavior: exhaustion is terminal.
+    public var fallbackLLM: LLMClient?
 
     public init(
         llm: LLMClient = MockLLMClient(),
@@ -109,7 +116,8 @@ public struct AgentRunner: Sendable {
         compaction: AgentCompactionPolicy? = nil,
         lsp: LSPCoordinator? = nil,
         runSpendFusePolicy: RunSpendFusePolicy? = nil,
-        turnDeadlineSeconds: TimeInterval? = AgentRunner.defaultTurnDeadlineSeconds
+        turnDeadlineSeconds: TimeInterval? = AgentRunner.defaultTurnDeadlineSeconds,
+        fallbackLLM: LLMClient? = nil
     ) {
         self.llm = llm
         self.safety = safety
@@ -135,6 +143,7 @@ public struct AgentRunner: Sendable {
         self.lsp = lsp
         self.runSpendFusePolicy = runSpendFusePolicy
         self.turnDeadlineSeconds = turnDeadlineSeconds
+        self.fallbackLLM = fallbackLLM
     }
 
     public func send(

@@ -82,6 +82,22 @@ public enum CLIRuntimeFactory {
                     baseURL: baseURL
                 )
             )
+            // F22: when the session model exhausts the empty-response budget on a step (a
+            // route-quality death observed ~1-in-6 runs on one provider), retry that step once on
+            // a different model instead of killing the run. The alternate flips so the fallback is
+            // never the same route that just failed.
+            let fallbackModel = model == "google/gemini-3.5-flash"
+                ? "deepseek/deepseek-v4-pro"
+                : "google/gemini-3.5-flash"
+            let fallbackLLM = TrustedRouterLLMClient(
+                promptBuilder: TrustedRouterPromptBuilder(
+                    imageAttachmentStore: configuration.imageAttachmentStore
+                ),
+                sessionStore: sessionStore,
+                apiKeyOverride: key,
+                model: fallbackModel,
+                baseURL: baseURL
+            )
             runner = AgentRunner(
                 llm: llm,
                 safety: AutoSafetyReviewer(client: safety),
@@ -93,7 +109,8 @@ public enum CLIRuntimeFactory {
                     llm: llm,
                     catalog: [],
                     sessionModelID: model
-                ))
+                )),
+                fallbackLLM: fallbackLLM
             )
         } else {
             runner = AgentRunner(
