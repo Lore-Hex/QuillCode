@@ -10,6 +10,11 @@ public struct AgentRunner: Sendable {
     /// `AppConfig.maxToolSteps` (default 64): real coding tasks need dozens of tool steps, and the
     /// spend fuse is the runaway guard. Bare `AgentRunner()` (tests, ad-hoc embedding) stays tight.
     public static let defaultMaxToolSteps = 6
+    /// Wall-clock cap for ONE model turn (first token → completed action). Generous on purpose:
+    /// legitimate turns finish in seconds-to-a-couple-minutes even for verbose reasoners; the F20
+    /// spiral streamed thinking for 25 minutes without ever acting. Overrun → bounded corrective
+    /// re-prompt, not a dead run.
+    public static let defaultTurnDeadlineSeconds: TimeInterval = 300
     static let promisedWorkCorrectionLimit = 2
     /// Bounded recovery for a malformed model action (garbage/mojibake tokens) or a mid-stream
     /// transport reset: re-prompt/re-request up to this many times before the failure is terminal.
@@ -74,6 +79,11 @@ public struct AgentRunner: Sendable {
     /// Optional cost-control gate. When configured with a positive fuse and priced model catalog,
     /// provider usage events pause the run before the next model/tool step once spend crosses a bucket.
     public var runSpendFusePolicy: RunSpendFusePolicy?
+    /// Wall-clock budget for a SINGLE model turn (first token to completed action), in seconds.
+    /// Exceeding it cancels the stream and triggers the bounded "stop planning — emit the next
+    /// action" correction (F20: a reasoner can stream thinking tokens indefinitely without ever
+    /// acting; no terminal say means the phrase guards never see it). nil disables the deadline.
+    public var turnDeadlineSeconds: TimeInterval?
 
     public init(
         llm: LLMClient = MockLLMClient(),
@@ -98,7 +108,8 @@ public struct AgentRunner: Sendable {
         workspaceStateSignature: (@Sendable (URL) -> String)? = nil,
         compaction: AgentCompactionPolicy? = nil,
         lsp: LSPCoordinator? = nil,
-        runSpendFusePolicy: RunSpendFusePolicy? = nil
+        runSpendFusePolicy: RunSpendFusePolicy? = nil,
+        turnDeadlineSeconds: TimeInterval? = AgentRunner.defaultTurnDeadlineSeconds
     ) {
         self.llm = llm
         self.safety = safety
@@ -123,6 +134,7 @@ public struct AgentRunner: Sendable {
         self.compaction = compaction
         self.lsp = lsp
         self.runSpendFusePolicy = runSpendFusePolicy
+        self.turnDeadlineSeconds = turnDeadlineSeconds
     }
 
     public func send(
