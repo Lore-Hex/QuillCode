@@ -139,6 +139,10 @@ public enum ApprovalReviewFallbackReason: String, Codable, Sendable, Hashable {
     case permissionRuleAllowed = "permission_rule_allowed"
     case permissionRuleAsked = "permission_rule_asked"
     case explicitApprovalRequired = "explicit_approval_required"
+    /// F24: the shell command references a path outside the workspace root in Auto mode. Surfaced
+    /// to the human (interactive) or honestly denied (headless exec) — never silently approved by
+    /// the model reviewer or the autonomous override.
+    case outsideWorkspacePath = "outside_workspace_path"
 }
 
 public struct ApprovalReviewTelemetry: Codable, Sendable, Hashable {
