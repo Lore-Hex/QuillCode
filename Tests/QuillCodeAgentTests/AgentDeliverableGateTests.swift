@@ -37,6 +37,28 @@ final class AgentDeliverableGateTests: XCTestCase {
         )
     }
 
+    func testNegatedCreateVerbsAreNotDeliverables() {
+        // The CI catch: "Do not write `forbidden.txt` with content `nope`." — the gate must never
+        // force into existence a file the user explicitly forbade.
+        XCTAssertTrue(
+            AgentDeliverableGate.requiredDeliverables(
+                in: "Do not write `forbidden.txt` with content `nope`."
+            ).isEmpty
+        )
+        XCTAssertTrue(
+            AgentDeliverableGate.requiredDeliverables(
+                in: "Don't create debug.log, and never save temp.json anywhere."
+            ).isEmpty
+        )
+        // A negation elsewhere must not suppress a REAL deliverable later in the message.
+        XCTAssertEqual(
+            AgentDeliverableGate.requiredDeliverables(
+                in: "Do not touch the originals. Write summary.md with the results."
+            ),
+            ["summary.md"]
+        )
+    }
+
     func testPlainMentionsWithoutCreateVerbAreIgnored() {
         XCTAssertTrue(
             AgentDeliverableGate.requiredDeliverables(

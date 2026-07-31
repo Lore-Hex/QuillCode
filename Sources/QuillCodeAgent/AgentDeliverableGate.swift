@@ -40,6 +40,17 @@ enum AgentDeliverableGate {
                 for preposition in ["from ", " using ", "against ", " of ", "based on ", "reading "] {
                     if between.contains(preposition) { return }
                 }
+                // Reject NEGATED create verbs — "Do not write forbidden.txt" forbids the file;
+                // forcing it into existence would invert the user's instruction.
+                let precedingStart = userMessage.index(
+                    fullRange.lowerBound,
+                    offsetBy: -24,
+                    limitedBy: userMessage.startIndex
+                ) ?? userMessage.startIndex
+                let preceding = userMessage[precedingStart..<fullRange.lowerBound].lowercased()
+                for negation in ["do not ", "don't ", "dont ", "never ", "won't ", "not to ", "without ", "avoid "] {
+                    if preceding.hasSuffix(negation) || preceding.contains(negation) { return }
+                }
             }
             var name = String(userMessage[fileRange])
             if name.hasPrefix("./") { name.removeFirst(2) }
