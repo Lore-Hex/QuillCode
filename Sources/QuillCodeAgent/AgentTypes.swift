@@ -30,6 +30,9 @@ public enum AgentError: Error, CustomStringConvertible {
     case emptyStreamingResponse
     case promisedWorkWithoutToolAction
     case tooManyToolSteps(Int)
+    // Appended last: never insert enum cases mid-list — discriminants shift and stale incremental
+    // builds misread persisted values.
+    case missingNamedDeliverable(String)
 
     public var description: String {
         switch self {
@@ -39,6 +42,8 @@ public enum AgentError: Error, CustomStringConvertible {
             return "The model promised to perform work but did not return a tool action."
         case .tooManyToolSteps(let limit):
             return "The agent reached the tool-step limit (\(limit)) before returning a final answer."
+        case .missingNamedDeliverable(let path):
+            return "The run ended without creating the task-required file \(path)."
         }
     }
 }
