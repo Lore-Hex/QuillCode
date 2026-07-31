@@ -155,6 +155,40 @@ final class AgentDeliverableGateTests: XCTestCase {
         }
     }
 
+    func testRepeatedCallFinalizationAlsoPassesThroughTheGate() async throws {
+        // F25 live failure: an enrichment run repeated a search, the repeated-call path
+        // "finalized" with raw search results, and exited with the required CSV never written —
+        // bypassing the gate entirely. The finalized say must be gated like any terminal say;
+        // the corrective sample here writes the file via a real tool action.
+        let root = try makeWorkspace()
+        let search = ToolCall(name: "host.file.list", argumentsJSON: #"{"path":"."}"#)
+        let write = ToolCall(
+            name: "host.file.write",
+            argumentsJSON: try XCTUnwrap(String(
+                data: JSONSerialization.data(withJSONObject: [
+                    "path": "./leads.csv", "content": "company\nStripe\n",
+                ]),
+                encoding: .utf8
+            ))
+        )
+        let state = ScriptedState([
+            .tool(search),
+            .tool(search),        // repeat → finalization path
+            .tool(write),         // corrective sample: write the missing deliverable
+            .say("leads.csv written."),
+        ], root: root)
+        let runner = AgentRunner(llm: ScriptedClient(state: state))
+
+        let result = try await runner.send(
+            "Search the folder and build leads.csv from what you find.",
+            in: ChatThread(title: "t"),
+            workspaceRoot: root
+        )
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("leads.csv").path))
+        XCTAssertTrue(result.thread.messages.contains { $0.content.contains("leads.csv written") })
+    }
+
     func testSayWithNoNamedDeliverablesPassesUntouched() async throws {
         let root = try makeWorkspace()
         let state = ScriptedState([.say("The answer is 42.")], root: root)

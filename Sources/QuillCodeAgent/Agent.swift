@@ -220,14 +220,37 @@ public struct AgentRunner: Sendable {
                     await onProgress?(next)
                     return AgentRunResult(thread: next, toolResults: runLoop.toolResults)
                 case .tool(let call):
-                    if let lastCompletion = runLoop.repeatedCompletion(for: call) {
-                        appendAssistantMessage(Self.finalAnswer(
+                    var activeCall = call
+                    if let lastCompletion = runLoop.repeatedCompletion(for: activeCall) {
+                        // F25: repeated-call finalization synthesizes an answer from the last tool
+                        // result — it must not slip past the named-deliverable gate the ordinary
+                        // terminal-say path enforces (live: an enrichment run repeated a search,
+                        // "finalized" with raw search results, and exited with the required CSV
+                        // never written). Route the synthesized say through the same gate; if the
+                        // corrective sample answers with a fresh tool action (e.g. the missing
+                        // file's write), execute it below like any tool step.
+                        var finalized: AgentAction = .say(Self.finalAnswer(
                             for: lastCompletion.call,
                             result: lastCompletion.result,
                             followUpReviewResult: lastCompletion.followUpReviewResult
-                        ), to: &next)
-                        await onProgress?(next)
-                        return AgentRunResult(thread: next, toolResults: runLoop.toolResults)
+                        ))
+                        if !runLoop.hadDeniedStep {
+                            finalized = try await actionByRequiringNamedDeliverables(
+                                finalized,
+                                thread: next,
+                                userMessage: userMessage,
+                                tools: tools,
+                                workspaceRoot: workspaceRoot
+                            )
+                        }
+                        switch finalized {
+                        case .say(let text):
+                            appendAssistantMessage(text, to: &next)
+                            await onProgress?(next)
+                            return AgentRunResult(thread: next, toolResults: runLoop.toolResults)
+                        case .tool(let recoveredCall):
+                            activeCall = recoveredCall
+                        }
                     }
 
                     // Baseline the workspace state before the first tool step, so that step's own
@@ -237,7 +260,7 @@ public struct AgentRunner: Sendable {
                         stateSignature: stateSignature
                     )
                     let step = try await runToolStep(
-                        call,
+                        activeCall,
                         userMessage: userMessage,
                         thread: &next,
                         workspaceRoot: workspaceRoot,
