@@ -1,0 +1,147 @@
+import XCTest
+import QuillCodeCore
+@testable import QuillCodeAgent
+
+/// F23 — shape-5 enforcement. Live failures this closes: a BFCL run that finished `generate` and
+/// ended without the required RESULT.md, and a folder-index run that ended on a bare "Done." with
+/// index.md never written. Both had "write <file>" verbatim in the task.
+final class AgentDeliverableGateTests: XCTestCase {
+    // MARK: - Extraction
+
+    func testExtractsCreatedFilenames() {
+        XCTAssertEqual(
+            AgentDeliverableGate.requiredDeliverables(
+                in: "Research this and write ./recommendation.md containing a comparison."
+            ),
+            ["recommendation.md"]
+        )
+        XCTAssertEqual(
+            AgentDeliverableGate.requiredDeliverables(
+                in: "build index.md with a table, and also produce summary.csv please"
+            ),
+            ["index.md", "summary.csv"]
+        )
+    }
+
+    func testSourcePrepositionFilenamesAreNotDeliverables() {
+        XCTAssertEqual(
+            AgentDeliverableGate.requiredDeliverables(
+                in: "Create a summary of report.pdf and write findings.md"
+            ),
+            ["findings.md"]
+        )
+        XCTAssertTrue(
+            AgentDeliverableGate.requiredDeliverables(
+                in: "Generate insights from sales.csv using config.yaml"
+            ).isEmpty
+        )
+    }
+
+    func testPlainMentionsWithoutCreateVerbAreIgnored() {
+        XCTAssertTrue(
+            AgentDeliverableGate.requiredDeliverables(
+                in: "The data lives in metrics.csv; tell me what changed."
+            ).isEmpty
+        )
+    }
+
+    // MARK: - Existence gate
+
+    private func makeWorkspace() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("deliverable-gate-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
+        return url
+    }
+
+    func testExistingDeliverableDoesNotFire() throws {
+        let root = try makeWorkspace()
+        try "done".write(to: root.appendingPathComponent("out.md"), atomically: true, encoding: .utf8)
+        XCTAssertTrue(
+            AgentDeliverableGate.missingDeliverables(in: "write out.md now", workspaceRoot: root).isEmpty
+        )
+    }
+
+    func testMissingDeliverableFires() throws {
+        let root = try makeWorkspace()
+        XCTAssertEqual(
+            AgentDeliverableGate.missingDeliverables(in: "write out.md now", workspaceRoot: root),
+            ["out.md"]
+        )
+    }
+
+    // MARK: - End-to-end recovery
+
+    private actor ScriptedState {
+        var steps: [AgentAction]
+        let root: URL
+        init(_ steps: [AgentAction], root: URL) { self.steps = steps; self.root = root }
+        func next() -> AgentAction {
+            guard !steps.isEmpty else { return .say("out of steps") }
+            let step = steps.removeFirst()
+            // Simulate the corrective sample actually writing the file when scripted to comply.
+            if case .say(let text) = step, text == "WRITE_THEN_DONE" {
+                try? "content".write(
+                    to: root.appendingPathComponent("index.md"), atomically: true, encoding: .utf8
+                )
+                return .say("index.md is written and verified.")
+            }
+            return step
+        }
+    }
+
+    private struct ScriptedClient: LLMClient {
+        let state: ScriptedState
+        func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+            await state.next()
+        }
+    }
+
+    func testBareDoneWithMissingDeliverableIsCorrectedAndRunSucceeds() async throws {
+        let root = try makeWorkspace()
+        // First sample: the live failure verbatim — "Done." with nothing written. The corrective
+        // sample complies (writes the file), and the run ends cleanly.
+        let state = ScriptedState([.say("Done."), .say("WRITE_THEN_DONE")], root: root)
+        let runner = AgentRunner(llm: ScriptedClient(state: state))
+
+        let result = try await runner.send(
+            "Search the folders and build index.md with a table of matches.",
+            in: ChatThread(title: "t"),
+            workspaceRoot: root
+        )
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("index.md").path))
+        XCTAssertTrue(result.thread.messages.contains { $0.content.contains("index.md is written") })
+    }
+
+    func testPersistentRefusalFailsHonestly() async throws {
+        let root = try makeWorkspace()
+        let state = ScriptedState([.say("Done."), .say("Done."), .say("Done.")], root: root)
+        let runner = AgentRunner(llm: ScriptedClient(state: state))
+        do {
+            _ = try await runner.send(
+                "Search the folders and build index.md with a table of matches.",
+                in: ChatThread(title: "t"),
+                workspaceRoot: root
+            )
+            XCTFail("expected missingNamedDeliverable")
+        } catch AgentError.missingNamedDeliverable(let path) {
+            XCTAssertEqual(path, "index.md")
+        } catch {
+            XCTFail("wrong error: \(error)")
+        }
+    }
+
+    func testSayWithNoNamedDeliverablesPassesUntouched() async throws {
+        let root = try makeWorkspace()
+        let state = ScriptedState([.say("The answer is 42.")], root: root)
+        let runner = AgentRunner(llm: ScriptedClient(state: state))
+        let result = try await runner.send(
+            "What is six times seven?",
+            in: ChatThread(title: "t"),
+            workspaceRoot: root
+        )
+        XCTAssertTrue(result.thread.messages.contains { $0.content.contains("42") })
+    }
+}

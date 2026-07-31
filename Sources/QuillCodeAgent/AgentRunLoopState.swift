@@ -5,6 +5,9 @@ struct AgentRunLoopState: Sendable {
     private(set) var toolResults: [ToolResult] = []
     private(set) var lastExecutedCall: ToolCall?
     private(set) var lastCompletion: AgentToolStepCompletion?
+    /// True once any tool action was DENIED this run. The deliverable gate (F23) skips
+    /// enforcement then: a blocked write is a legitimate reason for a missing file.
+    private(set) var hadDeniedStep = false
 
     private var flailDetector = FlailDetector()
     private var previousWorkspaceState: String?
@@ -60,6 +63,7 @@ struct AgentRunLoopState: Sendable {
 
     mutating func recordDeniedStep(_ completion: AgentToolStepCompletion) {
         toolResults.append(contentsOf: completion.toolResults)
+        hadDeniedStep = true
     }
 
     mutating func recordFlailAssessmentIfNeeded() -> Bool {

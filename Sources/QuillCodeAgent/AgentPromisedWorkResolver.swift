@@ -58,6 +58,51 @@ extension AgentRunner {
         return candidate
     }
 
+    /// Shape-5 enforcement (F23): a terminal say while a task-named CREATED file is missing on
+    /// disk gets a bounded corrective re-prompt to write it — the mechanical backstop behind the
+    /// "deliverables go to disk" prompt guidance, which a bare "Done." sails straight past. Runs
+    /// the fix loop only for says, only when file tools are available, and hard-fails honestly if
+    /// the model still won't produce the artifact (the correction's escape hatch — "write what
+    /// blocked you" — means persistent refusal is model failure, not a legitimate outcome).
+    func actionByRequiringNamedDeliverables(
+        _ action: AgentAction,
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition],
+        workspaceRoot: URL
+    ) async throws -> AgentAction {
+        guard tools.contains(where: { $0.name == "host.file.write" }) else { return action }
+        var candidate = action
+        var retryThread = thread
+        for _ in 0..<Self.promisedWorkCorrectionLimit {
+            guard case .say(let text) = candidate else { return candidate }
+            let missing = AgentDeliverableGate.missingDeliverables(
+                in: userMessage,
+                workspaceRoot: workspaceRoot
+            )
+            guard !missing.isEmpty else { return candidate }
+            let correctionPrompt = AgentDeliverableGate.correctionPrompt(missing: missing)
+            retryThread.messages.append(.init(role: .assistant, content: text))
+            retryThread.messages.append(.init(role: .user, content: correctionPrompt))
+            retryThread.updatedAt = Date()
+            candidate = try await llm.nextAction(
+                thread: retryThread,
+                userMessage: correctionPrompt,
+                tools: tools
+            )
+        }
+        if case .say = candidate {
+            let stillMissing = AgentDeliverableGate.missingDeliverables(
+                in: userMessage,
+                workspaceRoot: workspaceRoot
+            )
+            if let first = stillMissing.first {
+                throw AgentError.missingNamedDeliverable(first)
+            }
+        }
+        return candidate
+    }
+
     private static func recoveredPromisedWorkAction(
         from text: String,
         tools: [ToolDefinition]

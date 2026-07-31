@@ -193,12 +193,26 @@ public struct AgentRunner: Sendable {
                         pendingApproval: paused.pendingApproval
                     )
                 }
-                let resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
+                var resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
                     action,
                     thread: next,
                     userMessage: userMessage,
                     tools: tools
                 )
+                // F23: a terminal say may not end the run while a task-named created file is
+                // missing on disk. A corrective re-sample that returns a tool action flows into
+                // the tool arm below and the loop continues; the gate re-checks at the next say.
+                // Skipped when any tool action was denied this run — a blocked write is a
+                // legitimate reason for the file to be missing, not a model failure.
+                if !runLoop.hadDeniedStep {
+                    resolvedAction = try await actionByRequiringNamedDeliverables(
+                        resolvedAction,
+                        thread: next,
+                        userMessage: userMessage,
+                        tools: tools,
+                        workspaceRoot: workspaceRoot
+                    )
+                }
                 try Task.checkCancellation()
                 switch resolvedAction {
                 case .say(let text):
