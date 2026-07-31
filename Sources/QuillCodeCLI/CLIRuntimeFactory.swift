@@ -86,18 +86,30 @@ public enum CLIRuntimeFactory {
             // route-quality death observed ~1-in-6 runs on one provider), retry that step once on
             // a different model instead of killing the run. The alternate flips so the fallback is
             // never the same route that just failed.
-            let fallbackModel = model == "google/gemini-3.5-flash"
-                ? "deepseek/deepseek-v4-pro"
-                : "google/gemini-3.5-flash"
-            let fallbackLLM = TrustedRouterLLMClient(
-                promptBuilder: TrustedRouterPromptBuilder(
-                    imageAttachmentStore: configuration.imageAttachmentStore
-                ),
-                sessionStore: sessionStore,
-                apiKeyOverride: key,
-                model: fallbackModel,
-                baseURL: baseURL
-            )
+            //
+            // F26 (privacy boundary): NO fallback when the session model is a pinned privacy
+            // route — trustedrouter/e2e (confidential enclave) or trustedrouter/zdr (zero data
+            // retention). Falling back would silently move the user's sensitive content onto an
+            // ordinary route; observed live on an E2E-pinned pulse-survey run before this guard.
+            // A privacy-pinned run that cannot proceed fails honestly instead of downgrading.
+            let privacyPinnedRoutes: Set<String> = ["trustedrouter/e2e", "trustedrouter/zdr"]
+            let fallbackLLM: TrustedRouterLLMClient?
+            if privacyPinnedRoutes.contains(model) {
+                fallbackLLM = nil
+            } else {
+                let fallbackModel = model == "google/gemini-3.5-flash"
+                    ? "deepseek/deepseek-v4-pro"
+                    : "google/gemini-3.5-flash"
+                fallbackLLM = TrustedRouterLLMClient(
+                    promptBuilder: TrustedRouterPromptBuilder(
+                        imageAttachmentStore: configuration.imageAttachmentStore
+                    ),
+                    sessionStore: sessionStore,
+                    apiKeyOverride: key,
+                    model: fallbackModel,
+                    baseURL: baseURL
+                )
+            }
             runner = AgentRunner(
                 llm: llm,
                 safety: AutoSafetyReviewer(client: safety),

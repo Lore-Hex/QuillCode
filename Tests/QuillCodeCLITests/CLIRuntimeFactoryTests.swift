@@ -116,4 +116,39 @@ final class CLIRuntimeFactoryTests: XCTestCase {
 
         XCTAssertNotNil(runner.compaction)
     }
+
+    func testPrivacyPinnedRoutesGetNoFallbackModel() throws {
+        // F26: an E2E/ZDR-pinned run must never silently fall back to an ordinary route —
+        // observed live: an E2E-pinned pulse-survey run hit the empty-response fallback and its
+        // sensitive content left the confidential enclave. Privacy-pinned runs fail honestly.
+        let workspace = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cli-privacy-\(UUID().uuidString)", isDirectory: true)
+        let paths = QuillCodePaths(home: workspace.appendingPathComponent("home"))
+        try paths.ensure()
+        defer { try? FileManager.default.removeItem(at: workspace) }
+
+        func runner(model: String) throws -> AgentRunner {
+            try CLIRuntimeFactory.make(CLIRuntimeConfiguration(
+                request: CLIRunRequest(
+                    style: .exec,
+                    prompt: "inspect",
+                    live: true,
+                    model: model,
+                    cwd: workspace,
+                    sandbox: .workspaceWrite
+                ),
+                appConfig: AppConfig(),
+                paths: paths,
+                imageAttachmentStore: ImageAttachmentStore(directory: paths.attachmentsDirectory),
+                environment: ["TRUSTEDROUTER_API_KEY": "sk-tr-test-key"]
+            ))
+        }
+
+        XCTAssertNil(try runner(model: "trustedrouter/e2e").fallbackLLM, "e2e must not fall back")
+        XCTAssertNil(try runner(model: "trustedrouter/zdr").fallbackLLM, "zdr must not fall back")
+        XCTAssertNotNil(
+            try runner(model: "deepseek/deepseek-v4-pro").fallbackLLM,
+            "ordinary routes keep the F22 fallback"
+        )
+    }
 }
