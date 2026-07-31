@@ -143,9 +143,18 @@ public enum CLIRuntimeFactory {
         // `uv venv` during setup). This converts `.clarify` -> `.approve` while leaving hard-deny
         // floors and the filesystem sandbox fully in force. Interactive runs are untouched: the
         // human at the keyboard still gets the approval prompt.
+        //
+        // F24 exception: under workspace-write, a shell command referencing paths outside the
+        // workspace root is honestly DENIED instead of waived (the sandbox does not clamp
+        // host.shell.run reads, and the live incident grepped the real ~/Documents). Only
+        // --sandbox danger-full-access — an explicit opt-in to full filesystem reach — keeps the
+        // waive for out-of-workspace paths.
         if request.style == .exec,
            request.sandbox == .workspaceWrite || request.sandbox == .dangerFullAccess {
-            runner.safety = AutonomousApprovalSafetyReviewer(base: runner.safety)
+            runner.safety = AutonomousApprovalSafetyReviewer(
+                base: runner.safety,
+                waivesOutsideWorkspacePaths: request.sandbox == .dangerFullAccess
+            )
         }
         return runner
     }

@@ -122,6 +122,21 @@ public struct StaticSafetyReviewer: SafetyReviewer {
         if let explicitReview = ExplicitApprovalPolicy.review(for: context) {
             return explicitReview
         }
+        // F24: a shell command reaching outside the workspace root must surface to a human — it
+        // must never ride in on an intent rule or a static approve. Hard-deny floors stay senior
+        // (an out-of-workspace command that ALSO trips a floor stays `.deny`, it does not soften
+        // to an approvable `.clarify`), which is why the floor is consulted first here.
+        if context.mode == .auto,
+           hardDenyReason(context) == nil,
+           let violation = StaticSafetyOutsideWorkspaceShellPolicy.violation(context) {
+            return SafetyReview(
+                verdict: .clarify,
+                rationale: violation.rationale
+            ).withReviewTelemetry(.init(
+                source: .staticPolicy,
+                fallbackReason: .outsideWorkspacePath
+            ))
+        }
         let review: SafetyReview = switch context.mode {
         case .readOnly:
             if context.toolDefinition?.risk == .read {
@@ -225,6 +240,18 @@ public struct AutoSafetyReviewer: SafetyReviewer {
             return baseline.withReviewTelemetry(.init(
                 source: .staticPolicy,
                 fallbackReason: .staticDenied
+            ))
+        }
+        // F24: never hand an outside-workspace shell command to the model reviewer — the live
+        // incident's `grep` over ~/Documents was exactly a model-reviewer approval. The verbatim
+        // user-named-path exception is inside `violation`; hard-denies returned above.
+        if let violation = StaticSafetyOutsideWorkspaceShellPolicy.violation(context) {
+            return SafetyReview(
+                verdict: .clarify,
+                rationale: violation.rationale
+            ).withReviewTelemetry(.init(
+                source: .staticPolicy,
+                fallbackReason: .outsideWorkspacePath
             ))
         }
         guard let client else {
