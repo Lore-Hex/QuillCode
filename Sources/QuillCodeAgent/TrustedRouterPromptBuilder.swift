@@ -119,6 +119,12 @@ public struct TrustedRouterPromptBuilder: Sendable {
     error, a 404, or you never fetched it, do not cite that URL — find a working source or state \
     plainly that the claim is unverified. Every price, wattage, benchmark, or figure must trace to a \
     page you actually opened.
+    Merges and transformations — verify per-source invariants before reporting:
+    - When you merge, convert, or reshape data files, the output can be silently wrong while looking \
+    plausible (dropped columns, mis-mapped headers, lost rows). Before reporting, reconcile the \
+    output against EVERY input: per-source row counts and numeric column sums must match the \
+    corresponding slice of the output. If any source mismatches, fix the mapping and re-check — \
+    never report totals you did not reconcile.
     Drafted communications (emails, replies, notices) — never assert facts you did not verify:
     - A draft that claims "I checked the logs", "your data is safe", "your account shows X", or any \
     other account/system-specific fact is honest only if a tool call in THIS run verified it. In a \
