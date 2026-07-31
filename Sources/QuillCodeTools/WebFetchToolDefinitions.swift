@@ -9,7 +9,9 @@ public extension ToolDefinition {
         links, lists, code blocks, tables); markdown and plain-text responses pass through; binary content \
         is refused. Responses are capped at 5 MB and long pages are truncated with a marker. Requests to \
         private, loopback, or link-local hosts are refused; redirects are re-checked against the same rules. \
-        For pages behind bot protection or requiring JavaScript, use host.browser.open instead.
+        For pages behind bot protection or requiring JavaScript, use host.browser.open instead when it \
+        is listed in your available tools; when it is not, report the page as unreachable honestly \
+        instead of guessing at its content.
         """,
         parametersJSON: """
         {"type":"object","properties":{"url":{"type":"string","description":"Absolute http or https URL to fetch."}},"required":["url"]}

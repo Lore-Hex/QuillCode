@@ -146,6 +146,20 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue((image["url"] as? String)?.hasPrefix("data:image/png;base64,") == true)
     }
 
+    func testBrowserGuidanceMatchesAdvertisedSurface() {
+        // F28: with browser tools advertised (app/desktop surfaces), the prompt steers to
+        // host.browser.open; without them (headless exec), it must NOT — it flips to
+        // honest-limitation guidance so weak models don't emit unknown-tool calls.
+        let withBrowser = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .browserOpen, .browserInspect])
+        XCTAssertTrue(withBrowser.contains("use host.browser.open immediately"))
+        XCTAssertFalse(withBrowser.contains("NOT available in this run"))
+
+        let headless = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .webFetch])
+        XCTAssertFalse(headless.contains("use host.browser.open immediately"))
+        XCTAssertTrue(headless.contains("Browser tools (host.browser.*) are NOT available in this run"))
+        XCTAssertTrue(headless.contains("report the limitation honestly"))
+    }
+
     func testComputerUsePromptRequiresFreshScreenshotsAndTreatsPixelsAsUntrusted() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
             .computerScreenshot,
@@ -196,8 +210,9 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("save into a relative workspace path"))
         XCTAssertTrue(prompt.contains("create parent directories first with mkdir -p"))
         XCTAssertTrue(prompt.contains("do not pipe remote content into a shell"))
-        XCTAssertTrue(prompt.contains("use host.browser.open immediately with \"url\""))
-        XCTAssertTrue(prompt.contains("browser/SaaS page"))
+        // F28: no browser tools in this list, so browser steering must be absent
+        // (testBrowserGuidanceMatchesAdvertisedSurface covers both sides).
+        XCTAssertFalse(prompt.contains("use host.browser.open immediately with \"url\""))
         XCTAssertTrue(prompt.contains("call host.skill.load immediately"))
         XCTAssertTrue(prompt.contains("with a non-empty \"name\" string"))
     }
