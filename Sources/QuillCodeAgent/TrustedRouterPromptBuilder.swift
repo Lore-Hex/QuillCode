@@ -139,6 +139,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
             "- \(tool.name): \(tool.description). Parameters JSON schema: \(tool.parametersJSON)"
         }.joined(separator: "\n")
         let computerUseGuidance = computerUsePrompt(tools: tools)
+        let browserGuidance = browserPrompt(tools: tools)
         return """
         You are QuillCode, a native Swift coding agent.
 
@@ -174,9 +175,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
         - If the user asks to download, save, or fetch a URL or domain, use host.shell.run immediately \
         with curl or wget, save into a relative workspace path such as downloads/example.com.html, create \
         parent directories first with mkdir -p when needed, and do not pipe remote content into a shell.
-        - If the user asks to open, inspect, check, view, or maintain a browser/SaaS page and gives a URL \
-        or domain, use host.browser.open immediately with "url"; then inspect or interact with the page \
-        using browser or Computer Use tools as needed.
+        \(browserGuidance)
         - If the user asks to fetch git refs or remote updates, use host.git.fetch instead of host.shell.run.
         - If the user asks to pull, sync, or update the current git branch from a remote, use \
         host.git.pull instead of host.shell.run. Omit "ffOnly" unless the user explicitly requests a \
@@ -564,6 +563,26 @@ public struct TrustedRouterPromptBuilder: Sendable {
             }
         }
         return parts
+    }
+
+    /// F28 — browser guidance must match the advertised surface. Headless exec never registers the
+    /// `host.browser.*` executors (they live in the app/desktop surfaces), so steering a model toward
+    /// `host.browser.open` there directs it at a tool that is not in its schema list; weak models burn
+    /// their correction budget emitting unknown-tool calls. With browser tools absent the guidance
+    /// flips to honest-limitation reporting, matching the webFetch description's conditional hint.
+    static func browserPrompt(tools: [ToolDefinition]) -> String {
+        guard tools.contains(where: { $0.name == ToolDefinition.browserOpen.name }) else {
+            return """
+            - Browser tools (host.browser.*) are NOT available in this run. For pages that require \
+            JavaScript or block plain fetches, report the limitation honestly in your answer instead of \
+            attempting browser actions or guessing at page content.
+            """
+        }
+        return """
+        - If the user asks to open, inspect, check, view, or maintain a browser/SaaS page and gives a URL \
+        or domain, use host.browser.open immediately with "url"; then inspect or interact with the page \
+        using browser or Computer Use tools as needed.
+        """
     }
 
     static func computerUsePrompt(tools: [ToolDefinition]) -> String {
