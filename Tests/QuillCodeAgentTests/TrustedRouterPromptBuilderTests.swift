@@ -261,6 +261,19 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         )
     }
 
+    func testPromptRequiresMergeInvariantSelfCheck() {
+        // Live UC-81 finding: a 12-file schema-drift merge silently lost months 5-12's dates and
+        // misread their amounts (ledger total 84,206.52 vs true 120,805.90) while the summary
+        // reported the wrong numbers confidently. The re-drive with an explicit per-source
+        // reconciliation instruction produced the exact correct ledger — so the guidance works.
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
+
+        XCTAssertTrue(prompt.contains("Merges and transformations"))
+        XCTAssertTrue(prompt.contains("verify per-source invariants"))
+        XCTAssertTrue(prompt.contains("row counts and numeric column sums must match"))
+        XCTAssertTrue(prompt.contains("never report totals you did not reconcile"))
+    }
+
     func testPromptForbidsInventedFactsInDraftedCommunications() {
         // Live UC-24 finding: an angry-customer draft asserted "I've checked the recent logs …
         // the project still exists" with zero tool calls behind it — an invented reassurance a
