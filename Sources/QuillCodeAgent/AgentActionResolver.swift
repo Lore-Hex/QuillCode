@@ -100,6 +100,28 @@ extension AgentRunner {
                 ))
                 thread.updatedAt = Date()
                 await onProgress?(thread)
+            } catch let overrun as AgentTurnDeadlineExceededError {
+                // F20: a reasoner streamed thinking past the turn budget without ever completing an
+                // action (no terminal say — the phrase guards cannot see this shape). Honor a stop
+                // first, then spend a bounded corrective attempt telling the model to stop planning
+                // and emit the next action grounded in the tool output it actually has.
+                try Task.checkCancellation()
+                guard attempt < Self.malformedActionCorrectionLimit else {
+                    throw overrun
+                }
+                attempt += 1
+                let correctionPrompt = AgentTurnDeadline.correctionPrompt
+                correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
+                correctiveThread.updatedAt = Date()
+                pendingCorrectionPrompt = correctionPrompt
+                thread.events.append(.init(
+                    kind: .notice,
+                    summary: "Self-healing: the model reasoned past the turn deadline without acting; "
+                        + "asked it to emit the next action "
+                        + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
+                ))
+                thread.updatedAt = Date()
+                await onProgress?(thread)
             } catch let interrupted as AgentStreamInterruptedError {
                 // Honor a stop before the exhaustion guard — see the invalidActionJSON arm.
                 try Task.checkCancellation()

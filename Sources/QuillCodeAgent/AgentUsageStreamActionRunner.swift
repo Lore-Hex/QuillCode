@@ -10,11 +10,14 @@ extension AgentRunner {
         onProgress: AgentRunProgressHandler?
     ) async throws -> AgentAction {
         await publishStreamingNotice(in: &thread, onProgress: onProgress)
-        let stream = try await streamingLLM.actionEventStream(
+        var stream = try await streamingLLM.actionEventStream(
             thread: thread,
             userMessage: userMessage,
             tools: tools
         )
+        if let deadline = turnDeadlineSeconds {
+            stream = AgentTurnDeadline.enforcing(seconds: deadline, on: stream)
+        }
         do {
             return try await Self.collectStreamingAction(
                 from: stream,
