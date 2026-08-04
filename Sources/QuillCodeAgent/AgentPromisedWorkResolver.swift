@@ -213,6 +213,61 @@ extension AgentRunner {
         AgentImmediateActionPlanner.action(for: userMessage, tools: tools)
     }
 
+
+    /// F30 — an explicit `N-word` phrase in the task is a mechanical spec, not a vibe. When a
+    /// terminal say arrives with a task-named `.md` deliverable outside ±25% of the requested
+    /// length, the model gets a bounded corrective (escalated on the final attempt) to rewrite
+    /// with substance; persistent shortfall appends an honest length notice — never a dead run.
+    func actionByRequiringWordBudget(
+        _ action: AgentAction,
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition],
+        workspaceRoot: URL
+    ) async throws -> AgentAction {
+        guard AgentQuantitativeSpecGate.wordBudget(in: userMessage) != nil,
+              tools.contains(where: { $0.name == "host.file.write" })
+        else { return action }
+        var candidate = action
+        var retryThread = thread
+        for attempt in 0..<Self.promisedWorkCorrectionLimit {
+            guard case .say(let text) = candidate else { return candidate }
+            let violations = AgentQuantitativeSpecGate.violations(
+                userMessage: userMessage,
+                workspaceRoot: workspaceRoot
+            )
+            guard !violations.isEmpty else { return candidate }
+            let correctionPrompt = AgentCorrectionEscalation.escalated(
+                AgentQuantitativeSpecGate.correctionPrompt(violations: violations),
+                attempt: attempt,
+                limit: Self.promisedWorkCorrectionLimit,
+                alternatives: [
+                    "rewrite the deliverable to the requested length NOW with host.file.write (full revised content, substance not filler)",
+                    "if the source material cannot support the requested length, state exactly what is missing",
+                ]
+            )
+            retryThread.messages.append(.init(role: .assistant, content: text))
+            retryThread.messages.append(.init(role: .user, content: correctionPrompt))
+            retryThread.updatedAt = Date()
+            guard let sampled = try await correctiveSample(
+                thread: retryThread,
+                prompt: correctionPrompt,
+                tools: tools
+            ) else { continue }
+            candidate = sampled
+        }
+        if case .say(let text) = candidate {
+            let violations = AgentQuantitativeSpecGate.violations(
+                userMessage: userMessage,
+                workspaceRoot: workspaceRoot
+            )
+            if !violations.isEmpty {
+                return .say(text + "\n\n" + AgentQuantitativeSpecGate.lengthNotice(violations: violations))
+            }
+        }
+        return candidate
+    }
+
     /// F31: gate corrective samples call the raw LLM client, which throws on a malformed or
     /// empty response — with no recovery arm around these calls, ONE thinking-only sample killed
     /// an otherwise-finished research run (live: the deliverable gate's corrective after a
