@@ -49,11 +49,12 @@ extension AgentRunner {
             retryThread.messages.append(.init(role: .assistant, content: text))
             retryThread.messages.append(.init(role: .user, content: correctionPrompt))
             retryThread.updatedAt = Date()
-            candidate = try await llm.nextAction(
+            guard let sampled = try await correctiveSample(
                 thread: retryThread,
-                userMessage: correctionPrompt,
+                prompt: correctionPrompt,
                 tools: tools
-            )
+            ) else { continue }
+            candidate = sampled
         }
 
         // Budget spent. Only unmet promised work is a hard failure — a model that keeps ASKING
@@ -102,11 +103,12 @@ extension AgentRunner {
             retryThread.messages.append(.init(role: .assistant, content: text))
             retryThread.messages.append(.init(role: .user, content: correctionPrompt))
             retryThread.updatedAt = Date()
-            candidate = try await llm.nextAction(
+            guard let sampled = try await correctiveSample(
                 thread: retryThread,
-                userMessage: correctionPrompt,
+                prompt: correctionPrompt,
                 tools: tools
-            )
+            ) else { continue }
+            candidate = sampled
         }
         if case .say = candidate {
             let stillMissing = AgentDeliverableGate.missingDeliverables(
@@ -175,11 +177,12 @@ extension AgentRunner {
             retryThread.messages.append(.init(role: .assistant, content: text))
             retryThread.messages.append(.init(role: .user, content: correctionPrompt))
             retryThread.updatedAt = Date()
-            candidate = try await llm.nextAction(
+            guard let sampled = try await correctiveSample(
                 thread: retryThread,
-                userMessage: correctionPrompt,
+                prompt: correctionPrompt,
                 tools: tools
-            )
+            ) else { continue }
+            candidate = sampled
         }
         if case .say(let text) = candidate {
             let ungrounded = offenders(in: text)
@@ -209,4 +212,28 @@ extension AgentRunner {
     ) -> AgentAction? {
         AgentImmediateActionPlanner.action(for: userMessage, tools: tools)
     }
+
+    /// F31: gate corrective samples call the raw LLM client, which throws on a malformed or
+    /// empty response — with no recovery arm around these calls, ONE thinking-only sample killed
+    /// an otherwise-finished research run (live: the deliverable gate's corrective after a
+    /// misnamed deliverable; TrustedRouterAgentError.invalidActionJSON propagated straight out of
+    /// send()). The main resolver's malformed-recovery loop does not cover these paths — the
+    /// F25 lesson applied to sampling: every model-sampling path needs bounded tolerance, not
+    /// just the main action loop. A bad sample returns nil, consuming the attempt; the caller's
+    /// loop re-prompts (escalated on the final attempt) or falls through to the gate's terminal
+    /// behavior (hard fail / integrity notice / budget-spent tail). Transport and cancellation
+    /// errors still propagate.
+    private func correctiveSample(
+        thread: ChatThread,
+        prompt: String,
+        tools: [ToolDefinition]
+    ) async throws -> AgentAction? {
+        do {
+            return try await llm.nextAction(thread: thread, userMessage: prompt, tools: tools)
+        } catch TrustedRouterAgentError.invalidActionJSON, TrustedRouterAgentError.emptyResponse,
+                TrustedRouterAgentError.emptyToolArguments {
+            return nil
+        }
+    }
+
 }
