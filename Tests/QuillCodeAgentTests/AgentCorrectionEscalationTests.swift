@@ -56,6 +56,53 @@ final class AgentCorrectionEscalationTests: XCTestCase {
         }
     }
 
+    // MARK: - F31: a malformed corrective sample must not kill the run
+
+    private actor ThrowingState {
+        var steps: [Result<AgentAction, Error>]
+        init(_ steps: [Result<AgentAction, Error>]) { self.steps = steps }
+        func next() throws -> AgentAction {
+            guard !steps.isEmpty else { return .say("out of steps") }
+            return try steps.removeFirst().get()
+        }
+    }
+
+    private struct ThrowingClient: LLMClient {
+        let state: ThrowingState
+        func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+            try await state.next()
+        }
+    }
+
+    func testMalformedCorrectiveSampleConsumesAttemptInsteadOfKillingRun() async throws {
+        // Live F31: terminal say with the named deliverable missing → gate corrective sample
+        // returns thinking-only garbage (invalidActionJSON). The run must NOT die on it; the
+        // attempt is consumed and the gate reaches its honest terminal behavior.
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("f31-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+
+        let state = ThrowingState([
+            .success(.say("Done.")),
+            .failure(TrustedRouterAgentError.invalidActionJSON("thinking-only garbage")),
+            .failure(TrustedRouterAgentError.invalidActionJSON("more garbage")),
+        ])
+        let runner = AgentRunner(llm: ThrowingClient(state: state))
+        do {
+            _ = try await runner.send(
+                "Search the folders and build index.md with a table.",
+                in: ChatThread(title: "t"),
+                workspaceRoot: root
+            )
+            XCTFail("expected missingNamedDeliverable")
+        } catch AgentError.missingNamedDeliverable(let path) {
+            XCTAssertEqual(path, "index.md")
+        } catch {
+            XCTFail("run died on the malformed sample instead of the gate's honest failure: \(error)")
+        }
+    }
+
     func testDeliverableGateSecondCorrectiveIsDirective() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("escalation-\(UUID().uuidString)", isDirectory: true)
