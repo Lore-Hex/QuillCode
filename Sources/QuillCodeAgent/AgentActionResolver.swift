@@ -89,9 +89,17 @@ extension AgentRunner {
                     throw TrustedRouterAgentError.invalidActionJSON(text)
                 }
                 attempt += 1
-                let correctionPrompt = AgentMalformedActionGuard.correctionPrompt(
-                    malformedText: text,
-                    userMessage: userMessage
+                let correctionPrompt = AgentCorrectionEscalation.escalated(
+                    AgentMalformedActionGuard.correctionPrompt(
+                        malformedText: text,
+                        userMessage: userMessage
+                    ),
+                    attempt: attempt - 1,
+                    limit: Self.malformedActionCorrectionLimit,
+                    alternatives: [
+                        "respond with EXACTLY one JSON object — {\"type\":\"tool\",...} or {\"type\":\"say\",...} — and nothing else: no prose, no markdown, no code fences",
+                        "if you cannot produce the intended action, respond {\"type\":\"say\",\"text\":\"<what blocked you>\"}",
+                    ]
                 )
                 correctiveThread.messages.append(.init(
                     role: .assistant,
