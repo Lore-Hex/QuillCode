@@ -231,6 +231,16 @@ public struct AgentRunner: Sendable {
                         writtenWorkspacePaths: runLoop.writtenWorkspacePaths
                     )
                 }
+                // F30: explicit N-word specs are checked mechanically, like every other gate.
+                if !runLoop.hadDeniedStep {
+                    resolvedAction = try await actionByRequiringWordBudget(
+                        resolvedAction,
+                        thread: next,
+                        userMessage: userMessage,
+                        tools: tools,
+                        workspaceRoot: workspaceRoot
+                    )
+                }
                 try Task.checkCancellation()
                 switch resolvedAction {
                 case .say(let text):
@@ -274,6 +284,16 @@ public struct AgentRunner: Sendable {
                                 workspaceRoot: workspaceRoot,
                                 groundedURLs: runLoop.groundedURLs,
                                 writtenWorkspacePaths: runLoop.writtenWorkspacePaths
+                            )
+                        }
+                        // F30: the finalized say is a terminal say (F25 lesson) — same gates.
+                        if !runLoop.hadDeniedStep {
+                            finalized = try await actionByRequiringWordBudget(
+                                finalized,
+                                thread: next,
+                                userMessage: userMessage,
+                                tools: tools,
+                                workspaceRoot: workspaceRoot
                             )
                         }
                         switch finalized {
