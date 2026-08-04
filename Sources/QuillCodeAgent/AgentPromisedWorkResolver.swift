@@ -103,6 +103,68 @@ extension AgentRunner {
         return candidate
     }
 
+    /// F29 — a terminal say may not cite markdown-linked URLs the run never successfully fetched.
+    /// The corrective loop gives the model a bounded chance to fetch or remove each link; a tool
+    /// action from the corrective sample flows back into the run loop like any other step.
+    /// Persistent refusal does NOT hard-fail the run: the say passes through with a visible
+    /// integrity notice appended, so a rare false positive degrades to a note, never a dead run.
+    func actionByRequiringCitationIntegrity(
+        _ action: AgentAction,
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition],
+        workspaceRoot: URL,
+        groundedURLs: Set<String>,
+        writtenWorkspacePaths: Set<String>
+    ) async throws -> AgentAction {
+        var candidate = action
+        var retryThread = thread
+        func offenders(in text: String) -> [String] {
+            AgentCitationIntegrityGate.ungroundedCitations(
+                sayText: text,
+                userMessage: userMessage,
+                workspaceRoot: workspaceRoot,
+                groundedURLs: groundedURLs,
+                writtenWorkspacePaths: writtenWorkspacePaths
+            )
+        }
+        for _ in 0..<Self.promisedWorkCorrectionLimit {
+            guard case .say(let text) = candidate else { return candidate }
+            let ungrounded = offenders(in: text)
+            let correctionPrompt: String
+            if !ungrounded.isEmpty {
+                correctionPrompt = AgentCitationIntegrityGate.correctionPrompt(unfetched: ungrounded)
+            } else if let promise = AgentPromisedWorkGuard.correctionNeeded(for: text, tools: tools) {
+                // A corrective sample can dodge the gate with a link-free promise ("I'll fetch it
+                // now") — no offenders, so it would pass, and the promised-work guard upstream has
+                // already run. Re-screen promises here within the same budget (proven live by a
+                // review probe: the run ended on exactly that bare promise).
+                correctionPrompt = AgentPromisedWorkGuard.correctionPrompt(
+                    for: promise,
+                    assistantText: text,
+                    userMessage: userMessage
+                )
+            } else {
+                return candidate
+            }
+            retryThread.messages.append(.init(role: .assistant, content: text))
+            retryThread.messages.append(.init(role: .user, content: correctionPrompt))
+            retryThread.updatedAt = Date()
+            candidate = try await llm.nextAction(
+                thread: retryThread,
+                userMessage: correctionPrompt,
+                tools: tools
+            )
+        }
+        if case .say(let text) = candidate {
+            let ungrounded = offenders(in: text)
+            if !ungrounded.isEmpty {
+                return .say(text + "\n\n" + AgentCitationIntegrityGate.integrityNotice(unfetched: ungrounded))
+            }
+        }
+        return candidate
+    }
+
     private static func recoveredPromisedWorkAction(
         from text: String,
         tools: [ToolDefinition]

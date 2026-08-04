@@ -170,6 +170,9 @@ public struct AgentRunner: Sendable {
                 Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
             )
             var runLoop = AgentRunLoopState()
+            // F29: URLs from the request and the thread's prior turns are grounded provenance —
+            // a follow-up send must not flag citations the previous send legitimately fetched.
+            runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
             var autoReviewCircuit = AutoReviewCircuitBreaker()
             let limit = max(1, maxToolSteps)
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
@@ -213,6 +216,21 @@ public struct AgentRunner: Sendable {
                         workspaceRoot: workspaceRoot
                     )
                 }
+                // F29: terminal citations must trace to grounded provenance. Deliberately NOT
+                // behind the hadDeniedStep guard — a denied write explains a missing file, never
+                // an ungrounded citation — and its failure mode is a bounded corrective plus an
+                // honest notice, so a denied-run false flag costs a note, not the run.
+                if runLoop.didFetchSuccessfully {
+                    resolvedAction = try await actionByRequiringCitationIntegrity(
+                        resolvedAction,
+                        thread: next,
+                        userMessage: userMessage,
+                        tools: tools,
+                        workspaceRoot: workspaceRoot,
+                        groundedURLs: runLoop.groundedURLs,
+                        writtenWorkspacePaths: runLoop.writtenWorkspacePaths
+                    )
+                }
                 try Task.checkCancellation()
                 switch resolvedAction {
                 case .say(let text):
@@ -241,6 +259,21 @@ public struct AgentRunner: Sendable {
                                 userMessage: userMessage,
                                 tools: tools,
                                 workspaceRoot: workspaceRoot
+                            )
+                        }
+                        // F29: the synthesized finalization answer is a terminal say and must
+                        // clear the citation gate like the model-say path (F25 lesson). The
+                        // grounded set includes the repeated fetch's own content, so a
+                        // finalization that quotes the fetched page never self-flags.
+                        if runLoop.didFetchSuccessfully {
+                            finalized = try await actionByRequiringCitationIntegrity(
+                                finalized,
+                                thread: next,
+                                userMessage: userMessage,
+                                tools: tools,
+                                workspaceRoot: workspaceRoot,
+                                groundedURLs: runLoop.groundedURLs,
+                                writtenWorkspacePaths: runLoop.writtenWorkspacePaths
                             )
                         }
                         switch finalized {
