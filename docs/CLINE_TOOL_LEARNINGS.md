@@ -1,0 +1,88 @@
+# Cline tool-excellence analysis → QuillCode plan
+
+Analyzed 2026-08-04 from a shallow clone of github.com/cline/cline (post-SDK restructure:
+`apps/vscode` extension + `sdk/packages/{core,shared,agents}`). Findings verified by reading the
+actual sources; file references below are to that tree.
+
+## Why Cline is "great at tools" — the real mechanics
+
+Cline's reputation does not come from exotic tools — its tool *set* is ordinary (read/write/
+replace_in_file/execute_command/browser/MCP). It comes from **feedback engineering**: what the
+model is told when a tool call goes wrong, and how that message changes as failures accumulate.
+
+### 1. Progressive, failure-count-aware error feedback (the standout)
+`apps/vscode/src/core/prompts/responses.ts` — `writeToFileMissingContentError(relPath,
+consecutiveFailures, contextUsagePercent)`:
+- **1st failure**: diagnosis + gentle suggestions (skeleton first; prefer replace_in_file).
+- **2nd failure**: "You must use a different strategy" + three enumerated alternatives.
+- **3rd+**: "CRITICAL: You have failed N times. Do NOT retry write_to_file for this file again.
+  Required action — choose ONE:" with concrete numbered strategies and size bounds
+  ("no more than 50-100 lines per replace_in_file call").
+- Blends in **context-window awareness**: past 50% usage it warns that output budget may be the
+  cause and mandates smaller-output strategies.
+
+The correction *teaches an alternative*, never just restates the rule. Every error message names
+the exact tool and parameter syntax to use next (`replaceInFileMissingDiffError` embeds a full
+SEARCH/REPLACE example; `executeCommandMissingCommandError` embeds a full XML example).
+
+### 2. Graded loop detection: soft warn, then hard stop
+`sdk/packages/core/src/runtime/safety/loop-detection.ts` — identical-call detection over a
+canonical **key-sorted JSON signature**, with two thresholds (default soft=3, hard=5). At soft
+the model gets "consider trying a different approach" and keeps going; at hard the run stops
+with a clear reason. Escalation is graduated, not binary.
+
+### 3. Session-level consecutive-mistake budget across categories
+`sdk/packages/core/src/runtime/safety/mistake-tracker.ts` — one counter spanning
+`api_error | invalid_tool_call | tool_execution_failed`; any successful step resets it. At the
+limit, a host callback can inject recovery guidance (and reset) or stop with a message that
+explicitly says **state was preserved and how to resume**. Per-step budgets alone can't see a
+run that alternates failure *kinds*.
+
+### 4. Context hygiene around tools
+- `duplicateFileReadNotice`: a repeated file read is *replaced in history* with a one-line
+  pointer to the latest read — precise dedup, cheaper than generic compaction.
+- `contextTruncationNotice` tells the model exactly what was dropped and what was kept.
+- `noToolsUsed()`: an automated, non-conversational retry message when a response contains no
+  tool call, with explicit next-step menu (attempt_completion / ask_followup_question / next
+  tool). Cline counts it as a mistake toward the budget.
+
+### 5. Honest denial/interruption semantics
+- Tool denied → the canonical string "The user denied this operation." — never euphemised.
+- `.clineignore` block → names the blocking mechanism and the two honest ways forward.
+- Interrupted tools are recorded in-history as "[tool] was interrupted and not executed" so the
+  model never believes a cancelled call ran.
+
+### 6. Conversation-boundary markers
+`sdk/packages/shared/src/prompt/format.ts` — mode switches (plan↔act) are marked *in the
+message stream* (`<mode_notice>`) at the exact boundary, with round-trip cancellation so a
+plan→act→plan toggle before sending never emits a stale notice.
+
+## What QuillCode already has (no action)
+- Tolerant fuzzy apply_patch (≈ Cline's multi-tier SEARCH/REPLACE matcher).
+- Flail detection on workspace deltas; repeated-call finalization; turn deadline (F20);
+  promised-work/deferral/readiness guards (#1538/#1540); deliverable gate (F23/F25); citation
+  gate (F29); model fallback (F22); async approval; auto-approval policy floors.
+- Mode-aware prompt guidance (read-only/review) — static per-mode, see gap 5.
+
+## Gaps → prioritized plan
+
+1. **Escalating corrective prompts** (Cline #1) — HIGH, low risk. QuillCode's corrective
+   re-prompts (malformed action, promised work, deliverable gate, citation gate) send the SAME
+   text on every attempt. Add attempt-indexed escalation: final budgeted attempt switches to a
+   directive form — "this is your Nth failed attempt; do NOT repeat the same response; choose
+   ONE of: …" with gate-specific concrete alternatives (the escape hatch made explicit).
+   → **Implemented in this PR** (`AgentCorrectionEscalation`).
+2. **Soft-warning tier before repeated-call finalization** (Cline #2) — MEDIUM-HIGH. Today the
+   second identical call finalizes immediately; a transient-failure retry is legitimate. Inject
+   one "you already ran exactly this; try a different approach or finish" notice first,
+   finalize on the next repeat. (Next PR.)
+3. **Cross-category consecutive-mistake budget** (Cline #3) — MEDIUM. Aggregate malformed +
+   denied + failed-tool streaks into one per-run counter with a preserved-state stop message.
+   maxToolSteps bounds runaway today, but spends the whole step budget doing it. (Next PR.)
+4. **Duplicate-file-read dedup** (Cline #4) — MEDIUM. On re-read of an unchanged file, replace
+   the older read's content in the thread with a pointer notice. Pairs with existing compaction.
+5. **Mode-switch notices** (Cline #6) — LOW-MED. Emit a one-line boundary notice into the next
+   user message after a plan/read-only/review mode change, with round-trip cancellation.
+6. **Context-usage-aware error guidance** (Cline #1's second axis) — LOW-MED. Thread current
+   context-usage % into write-failure corrections ("output budget likely insufficient — write a
+   skeleton, then extend in sections").

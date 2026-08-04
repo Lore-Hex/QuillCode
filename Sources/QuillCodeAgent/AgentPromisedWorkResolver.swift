@@ -10,7 +10,7 @@ extension AgentRunner {
     ) async throws -> AgentAction {
         var candidate = action
         var retryThread = thread
-        for _ in 0..<Self.promisedWorkCorrectionLimit {
+        for attempt in 0..<Self.promisedWorkCorrectionLimit {
             guard case .say(let text) = candidate,
                   let correction = AgentPromisedWorkGuard.correctionNeeded(for: text, tools: tools)
             else {
@@ -32,10 +32,19 @@ extension AgentRunner {
                 }
             }
 
-            let correctionPrompt = AgentPromisedWorkGuard.correctionPrompt(
-                for: correction,
-                assistantText: text,
-                userMessage: userMessage
+            let correctionPrompt = AgentCorrectionEscalation.escalated(
+                AgentPromisedWorkGuard.correctionPrompt(
+                    for: correction,
+                    assistantText: text,
+                    userMessage: userMessage
+                ),
+                attempt: attempt,
+                limit: Self.promisedWorkCorrectionLimit,
+                alternatives: [
+                    "emit the promised tool call as your next action, with no prose around it",
+                    "if the work is already complete, state the concrete result plainly in past tense",
+                    "if you are blocked, write exactly what you did and what blocked you",
+                ]
             )
             retryThread.messages.append(.init(role: .assistant, content: text))
             retryThread.messages.append(.init(role: .user, content: correctionPrompt))
@@ -74,14 +83,22 @@ extension AgentRunner {
         guard tools.contains(where: { $0.name == "host.file.write" }) else { return action }
         var candidate = action
         var retryThread = thread
-        for _ in 0..<Self.promisedWorkCorrectionLimit {
+        for attempt in 0..<Self.promisedWorkCorrectionLimit {
             guard case .say(let text) = candidate else { return candidate }
             let missing = AgentDeliverableGate.missingDeliverables(
                 in: userMessage,
                 workspaceRoot: workspaceRoot
             )
             guard !missing.isEmpty else { return candidate }
-            let correctionPrompt = AgentDeliverableGate.correctionPrompt(missing: missing)
+            let correctionPrompt = AgentCorrectionEscalation.escalated(
+                AgentDeliverableGate.correctionPrompt(missing: missing),
+                attempt: attempt,
+                limit: Self.promisedWorkCorrectionLimit,
+                alternatives: [
+                    "create the named file NOW with host.file.write (path + full content)",
+                    "if genuinely blocked, write exactly what you did and what blocked you — do not promise future work",
+                ]
+            )
             retryThread.messages.append(.init(role: .assistant, content: text))
             retryThread.messages.append(.init(role: .user, content: correctionPrompt))
             retryThread.updatedAt = Date()
@@ -128,12 +145,20 @@ extension AgentRunner {
                 writtenWorkspacePaths: writtenWorkspacePaths
             )
         }
-        for _ in 0..<Self.promisedWorkCorrectionLimit {
+        for attempt in 0..<Self.promisedWorkCorrectionLimit {
             guard case .say(let text) = candidate else { return candidate }
             let ungrounded = offenders(in: text)
             let correctionPrompt: String
             if !ungrounded.isEmpty {
-                correctionPrompt = AgentCitationIntegrityGate.correctionPrompt(unfetched: ungrounded)
+                correctionPrompt = AgentCorrectionEscalation.escalated(
+                    AgentCitationIntegrityGate.correctionPrompt(unfetched: ungrounded),
+                    attempt: attempt,
+                    limit: Self.promisedWorkCorrectionLimit,
+                    alternatives: [
+                        "call host.web.fetch on each listed URL now and keep only the ones that succeed",
+                        "remove the listed links and mark those claims 'unverified' in the deliverable file and your answer",
+                    ]
+                )
             } else if let promise = AgentPromisedWorkGuard.correctionNeeded(for: text, tools: tools) {
                 // A corrective sample can dodge the gate with a link-free promise ("I'll fetch it
                 // now") — no offenders, so it would pass, and the promised-work guard upstream has
