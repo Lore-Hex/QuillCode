@@ -203,6 +203,49 @@ final class AgentCitationIntegrityGateTests: XCTestCase {
         XCTAssertTrue(state.writtenWorkspacePaths.contains("/tmp/brief.md"))
     }
 
+    func testReadingBackOwnDeliverableDoesNotGroundItsCitations() throws {
+        // The prompt MANDATES reading a written artifact back ("read the artifact back
+        // (host.file.read / host.file.list) to confirm it exists"). Harvesting that read's stdout
+        // as provenance lets a model launder a fabricated URL: write it, read it back, cite it.
+        var state = AgentRunLoopState()
+        let root = URL(fileURLWithPath: "/tmp")
+        func record(_ name: String, args: String, stdout: String, artifacts: [String] = []) {
+            _ = state.recordCompletedStep(
+                AgentToolStepCompletion(
+                    call: ToolCall(name: name, argumentsJSON: args),
+                    result: ToolResult(ok: true, stdout: stdout, artifacts: artifacts),
+                    followUpReviewResult: nil,
+                    toolResults: []
+                ),
+                workspaceRoot: root,
+                stateSignature: { _ in "" }
+            )
+        }
+        let fabricated = "https://fabricated.example.com/never-fetched"
+        record(
+            "host.file.write",
+            args: #"{"path":"brief.md","content":"see [x](https://fabricated.example.com/never-fetched)"}"#,
+            stdout: "Wrote /tmp/brief.md",
+            artifacts: ["/tmp/brief.md"]
+        )
+        record(
+            "host.file.read",
+            args: #"{"path":"brief.md"}"#,
+            stdout: "1\tsee [x](https://fabricated.example.com/never-fetched)"
+        )
+
+        XCTAssertFalse(
+            state.groundedURLs.contains(AgentCitationIntegrityGate.normalize(fabricated)),
+            "a read-back of the run's own deliverable must not ground its citations"
+        )
+
+        // A read of a genuine SOURCE file the run did not write still grounds normally.
+        record("host.file.read", args: #"{"path":"sources/notes.md"}"#, stdout: "1\tsee https://real.example.com/page")
+        XCTAssertTrue(
+            state.groundedURLs.contains(AgentCitationIntegrityGate.normalize("https://real.example.com/page"))
+        )
+    }
+
     func testSeededProvenanceCoversUserMessageAndPriorTurns() {
         var state = AgentRunLoopState()
         var thread = ChatThread(title: "t")

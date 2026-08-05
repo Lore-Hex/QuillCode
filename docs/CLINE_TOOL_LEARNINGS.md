@@ -86,3 +86,48 @@ plan→act→plan toggle before sending never emits a stale notice.
 6. **Context-usage-aware error guidance** (Cline #1's second axis) — LOW-MED. Thread current
    context-usage % into write-failure corrections ("output budget likely insufficient — write a
    skeleton, then extend in sections").
+
+---
+
+## Appendix: F21 (merge/extraction data-loss gate) — attempted twice, NOT shipped
+
+The live failure is real: a twelve-month merge silently dropped months 5–12 (reported total
+84,206.52 against a true 120,805.90), and a re-drive produced the right rows with a completely
+empty amount column. The prompt rule shipped in #1543 reduced but did not close it. Two mechanical
+gate designs were built, adversarially reviewed, and **both were rejected on their premise**.
+
+**Draft 1 — "an empty column in an extraction output is lost data."** Review (18 agents, 3 lenses;
+8/9 findings verified by compiling and executing the real source) killed it:
+- The premise is false for ordinary output. No vendor gave a discount → the `discount` column is
+  correctly empty; no source lists middle names → `middle` is correctly empty. Both were flagged.
+- The escalated correction then told the model to *delete a column the user had asked for*.
+- A path bug (absolute artifact path collapsed to a basename) made a subdirectory deliverable
+  resolve to a same-named file at the workspace root — auditing, and offering to **overwrite**, a
+  user's source file the run never wrote.
+
+**Draft 2 — "an empty column whose header words appear in what the run READ is lost data."**
+Provenance narrowing, harvesting a bounded vocabulary from read/shell/fetch output. Review round 2
+(19 agents) killed it too:
+- **Self-confirmation.** The system prompt *mandates* reading a written artifact back
+  ("read the artifact back … to confirm it exists"). That read injects the deliverable's own header
+  words into the vocabulary, so provenance collapses back to "any empty column" — the exact premise
+  round 1 rejected. Reproduced end-to-end through the real `AgentRunner`.
+- `host.file.search` echoes the model's own query into stdout, so grepping for a field name makes
+  that field "source-backed" even with zero matches.
+- Harness JSON envelope keys (`name`, `path`, `kind`, `query`, `matches`, `preview`) enter the
+  vocabulary as if they were source text.
+- For generic single-word headers (`date`, `total`, `notes`, `amount`) the requirement is close to
+  vacuous anyway — and the correction then asserts a falsehood ("those field names DO appear in the
+  source material"), pressuring the model to **fabricate values**. In a data-integrity gate that is
+  the worst possible failure mode: it manufactures exactly the wrong numbers the program exists to
+  prevent.
+
+**Decision: do not ship.** Numeric reconciliation needs task semantics the runner does not have
+(is an output row a source row, an aggregate, or a filtered subset?), and every cheap proxy tried
+here fails worse than the defect. The prompt rule (#1543) stands; verification of merges stays with
+the human or an explicit per-task check.
+
+**Transferable lesson (already applied, see F32 below):** any invariant derived from the run's own
+tool output can be poisoned by the run's own writing, because the product's prompt requires the
+model to read its artifacts back. A gate's evidence must come from somewhere the model cannot
+author.
