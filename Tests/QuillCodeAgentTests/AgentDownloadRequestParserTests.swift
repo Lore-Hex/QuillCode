@@ -32,3 +32,30 @@ final class AgentDownloadRequestParserTests: XCTestCase {
         XCTAssertNil(AgentDownloadRequestParser.shellCommand(from: "Open https://example.com in the browser"))
     }
 }
+
+extension AgentDownloadRequestParserTests {
+    /// Live desktop failure: "Pull the transaction tables … Save it as transactions.csv" opened the
+    /// run with `curl -L --fail … --output 'transactions.csv' 'https://transactions.csv'`, which
+    /// died on "Could not resolve host". A bare local filename is an OUTPUT, never a fetch source.
+    func testSaveAsLocalFilenameIsNotADownload() {
+        XCTAssertNil(AgentDownloadRequestParser.shellCommand(
+            from: "Pull the transaction tables out of these three bank statement PDFs into one clean CSV with date, description, and amount. Save it as transactions.csv"
+        ))
+        XCTAssertNil(AgentDownloadRequestParser.shellCommand(from: "Save it as report.md"))
+        XCTAssertNil(AgentDownloadRequestParser.shellCommand(from: "save the summary as deck.pptx"))
+        XCTAssertNil(AgentDownloadRequestParser.shellCommand(from: "fetch the numbers and save them as q3.xlsx"))
+    }
+
+    /// The real download paths must keep working.
+    func testGenuineDownloadsStillParse() {
+        let bareHost = AgentDownloadRequestParser.shellCommand(from: "download example.com/data.csv")
+        XCTAssertNotNil(bareHost)
+        XCTAssertEqual(bareHost?.contains("https://example.com/data.csv"), true)
+
+        let explicit = AgentDownloadRequestParser.shellCommand(
+            from: "save https://example.com/report.pdf as downloads/report.pdf"
+        )
+        XCTAssertNotNil(explicit)
+        XCTAssertEqual(explicit?.contains("https://example.com/report.pdf"), true)
+    }
+}

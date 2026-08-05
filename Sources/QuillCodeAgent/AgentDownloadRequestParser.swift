@@ -26,8 +26,14 @@ enum AgentDownloadRequestParser {
 
     private static func extractDownloadTarget(from request: String) -> String? {
         let tokens = downloadTokens(in: request)
+        // The file the user asked us to WRITE is never the thing to fetch. "Save it as
+        // transactions.csv" used to yield `curl https://transactions.csv` as the run's first
+        // action (live: seen as the opening step of an office task in the desktop app).
+        let destination = extractRequestedDownloadPath(from: request)?.lowercased()
 
-        if let token = tokens.first(where: looksLikeDownloadSource) {
+        if let token = tokens.first(where: {
+            looksLikeDownloadSource($0) && $0.lowercased() != destination
+        }) {
             return token
         }
         if let quoted = AgentRequestTextScanner.backtickQuotedValues(in: request).first(where: looksLikeDownloadSource) {
@@ -71,8 +77,24 @@ enum AgentDownloadRequestParser {
             return false
         }
         let firstPathComponent = lower.split(separator: "/", maxSplits: 1).first ?? ""
-        return firstPathComponent.contains(".")
+        guard firstPathComponent.contains(".") else { return false }
+        // A bare local filename is not a host. `report.md`, `transactions.csv`, `deck.pptx` all
+        // "contain a dot", but their final component is a FILE EXTENSION, not a TLD — treating
+        // them as download sources fabricates `https://<filename>` and fires a doomed curl.
+        // A real bare-host source ("example.com/data.csv") keeps its host in the first component.
+        let suffix = firstPathComponent.split(separator: ".").last.map(String.init) ?? ""
+        return !localFileExtensions.contains(suffix)
     }
+
+    /// Extensions that mark a token as a local artifact rather than a hostname. Deliberately the
+    /// document/data/media types office tasks name as OUTPUTS; unknown suffixes still pass so a
+    /// genuine `example.io/report` style source is unaffected.
+    private static let localFileExtensions: Set<String> = [
+        "csv", "tsv", "md", "markdown", "txt", "text", "log", "json", "yaml", "yml", "xml",
+        "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "rtf", "odt", "ods",
+        "png", "jpg", "jpeg", "gif", "svg", "webp", "heic", "mp3", "mp4", "mov", "wav",
+        "zip", "tar", "gz", "sql", "db", "sqlite", "ics", "vcf",
+    ]
 
     private static func extractRequestedDownloadPath(from request: String) -> String? {
         if let quotedPath = AgentRequestTextScanner.backtickQuotedValues(in: request)
