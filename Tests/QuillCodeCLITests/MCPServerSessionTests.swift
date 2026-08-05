@@ -651,12 +651,22 @@ private struct MCPServerTestFixture {
         await session.receive(try MCPServerWireTestCodec.responseData(id: id, result: result))
     }
 
+    /// Wall-clock budget for an EXPECTED message to arrive. Generous on purpose: the smoke job
+    /// runs this alongside the full 5290-test suite, and the cancellation case has to spawn a
+    /// sandboxed shell and tear it down. At 3s it produced a false red on a correct change (CI
+    /// reported 15s wall for a 3s budget — the polling loop itself was starved), which costs a
+    /// whole review cycle to disprove. Raising it cannot mask a real failure: a message that never
+    /// arrives still fails, just later.
+    static let messageWaitBudget = Duration.seconds(30)
+    private static let messagePollInterval = Duration.milliseconds(10)
+
     func waitForMessage(
         _ predicate: @escaping ([String: CLIJSONValue]) -> Bool
     ) async throws -> [String: CLIJSONValue] {
-        for _ in 0..<300 {
+        let deadline = ContinuousClock.now.advanced(by: Self.messageWaitBudget)
+        while ContinuousClock.now < deadline {
             if let message = await sink.snapshot().first(where: predicate) { return message }
-            try await Task.sleep(for: .milliseconds(10))
+            try await Task.sleep(for: Self.messagePollInterval)
         }
         throw MCPServerTestError.timeout
     }
