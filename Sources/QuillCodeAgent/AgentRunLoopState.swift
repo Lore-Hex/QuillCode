@@ -17,6 +17,11 @@ struct AgentRunLoopState: Sendable {
     private(set) var didFetchSuccessfully = false
     private(set) var writtenWorkspacePaths: Set<String> = []
 
+    /// Call signatures that have already received the repeat SOFT WARNING (Cline learning #2).
+    /// One nudge per distinct call; a further repeat of the same call finalizes as before, so the
+    /// tier can never loop.
+    private var softWarnedCallSignatures: Set<String> = []
+
     private var flailDetector = FlailDetector()
     private var previousWorkspaceState: String?
     private var injectedFlailAssessment = false
@@ -141,6 +146,13 @@ struct AgentRunLoopState: Sendable {
 
     private func normalizedPath(_ path: String) -> String {
         path.hasPrefix("./") ? String(path.dropFirst(2)) : path
+    }
+
+    /// True the FIRST time a given call repeats: the caller should nudge the model instead of
+    /// finalizing. Returns false on any later repeat of the same call, restoring the old
+    /// finalize-immediately behavior so the run always terminates.
+    mutating func shouldSoftWarnOnRepeat(of call: ToolCall) -> Bool {
+        softWarnedCallSignatures.insert("\(call.name)\u{1}\(call.argumentsJSON)").inserted
     }
 
     mutating func recordDeniedStep(_ completion: AgentToolStepCompletion) {

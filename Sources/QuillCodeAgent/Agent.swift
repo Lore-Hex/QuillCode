@@ -170,6 +170,8 @@ public struct AgentRunner: Sendable {
                 Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
             )
             var runLoop = AgentRunLoopState()
+            /// One-shot corrective for the next sample only (Cline learning #2 repeat nudge).
+            var pendingRepeatNudge: String?
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -178,12 +180,15 @@ public struct AgentRunner: Sendable {
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
 
             for _ in 0..<limit {
+                let repeatNudge = pendingRepeatNudge
+                pendingRepeatNudge = nil
                 let action = try await nextActionCompactingOnOverflow(
                     thread: &next,
                     userMessage: userMessage,
                     tools: tools,
                     workspaceRoot: workspaceRoot,
-                    onProgress: onProgress
+                    onProgress: onProgress,
+                    injectedCorrection: repeatNudge
                 )
                 if let paused = await pauseIfSpendFuseRequiresApproval(
                     thread: &next,
@@ -250,6 +255,42 @@ public struct AgentRunner: Sendable {
                 case .tool(let call):
                     var activeCall = call
                     if let lastCompletion = runLoop.repeatedCompletion(for: activeCall) {
+                        // Cline learning #2 (graded loop detection): finalizing on the FIRST repeat
+                        // converts a recoverable moment into a terminal answer — the F25 incident
+                        // was exactly that (an enrichment run repeated a search and "finished" with
+                        // raw search results instead of writing the required CSV). Hand the model
+                        // the result it already has and let it take one more turn. The nudge rides
+                        // the resolver's corrective seam, so it never enters the durable transcript
+                        // and its action still passes every guard and gate.
+                        //
+                        // A preflight action is re-derived deterministically from the user's own
+                        // message each iteration — the MODEL never chose to repeat it, so nudging
+                        // it would spend a provider round-trip that direct commands are designed
+                        // never to need.
+                        let isPreflightRepeat: Bool = {
+                            guard enablesImmediateActionPreflight,
+                                  case .tool(let planned)? = AgentImmediateActionPlanner.action(
+                                    for: userMessage,
+                                    tools: tools
+                                  )
+                            else { return false }
+                            return planned.name == activeCall.name
+                                && planned.argumentsJSON == activeCall.argumentsJSON
+                        }()
+                        if !isPreflightRepeat, runLoop.shouldSoftWarnOnRepeat(of: activeCall) {
+                            pendingRepeatNudge = AgentRepeatedCallGuard.softWarning(
+                                call: activeCall,
+                                previousResult: lastCompletion.result
+                            )
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: repeated the same \(activeCall.name) call; "
+                                    + "asked for a different step before finalizing."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue
+                        }
                         // F25: repeated-call finalization synthesizes an answer from the last tool
                         // result — it must not slip past the named-deliverable gate the ordinary
                         // terminal-say path enforces (live: an enrichment run repeated a search,

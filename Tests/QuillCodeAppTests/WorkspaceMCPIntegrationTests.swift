@@ -178,11 +178,14 @@ final class WorkspaceMCPIntegrationTests: XCTestCase {
         let toolEventKinds = (model.selectedThread?.events ?? [])
             .filter { !RunIntegrityRecord.isRecord($0) }
             .map(\.kind)
+        // The scripted client repeats its MCP call, so the first repeat is NUDGED (Cline learning
+        // #2) before the run finalizes — one extra .notice between the tool completing and the
+        // final message.
         XCTAssertEqual(Array(toolEventKinds.suffix(5)), [
-            .message,
             .toolQueued,
             .toolRunning,
             .toolCompleted,
+            .notice,
             .message
         ])
         XCTAssertEqual(model.selectedThread?.messages.last?.content, "Output:\nhello from MCP")

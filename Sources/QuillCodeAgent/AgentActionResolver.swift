@@ -2,14 +2,22 @@ import Foundation
 import QuillCodeCore
 
 extension AgentRunner {
+    /// `injectedCorrection` seeds the resolver's existing corrective seam for ONE sample: the
+    /// prompt is delivered on the value-copy corrective thread (never the durable transcript) and
+    /// the resulting action flows back through the caller's whole pipeline — promised-work guard,
+    /// deliverable/citation/word-budget gates — exactly like any other action. The repeat nudge
+    /// (Cline learning #2) uses it; splicing a raw sample in at the call site instead bypassed the
+    /// streaming path, the promised-work guard, and put a user turn in the transcript.
     func nextAction(
         thread: inout ChatThread,
         userMessage: String,
         tools: [ToolDefinition],
         workspaceRoot: URL,
-        onProgress: AgentRunProgressHandler?
+        onProgress: AgentRunProgressHandler?,
+        injectedCorrection: String? = nil
     ) async throws -> AgentAction {
-        if enablesImmediateActionPreflight,
+        if injectedCorrection == nil,
+           enablesImmediateActionPreflight,
            let action = AgentImmediateActionPlanner.action(for: userMessage, tools: tools) {
             // The planner parsed this action from the user's own command. A user-authored file
             // write is not a model blind-overwrite, so record that target as known for this
@@ -28,7 +36,11 @@ extension AgentRunner {
         // AgentPromisedWorkResolver's retryThread) so malformed text never persists in the durable
         // transcript; the durable thread gets only a Self-healing notice per attempt.
         var correctiveThread = thread
-        var pendingCorrectionPrompt: String?
+        var pendingCorrectionPrompt: String? = injectedCorrection
+        if let injectedCorrection {
+            correctiveThread.messages.append(.init(role: .user, content: injectedCorrection))
+            correctiveThread.updatedAt = Date()
+        }
         var attempt = 0
         // F22: which client resolves this action. Flips to `fallbackLLM` (at most once) when the
         // primary exhausts the empty-response budget — a route-quality death an alternate model
