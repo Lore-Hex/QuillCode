@@ -86,8 +86,11 @@ final class AgentRepeatedCallGuardTests: XCTestCase {
 
         let final = try XCTUnwrap(result.thread.messages.last?.content)
         XCTAssertEqual(final, "The folder is empty.", "the nudged run must reach the model's own answer")
-        XCTAssertTrue(result.thread.messages.contains { $0.content.contains("Do not repeat that call") })
-        XCTAssertTrue(result.thread.events.contains { ($0.summary ?? "").contains("repeated the same") })
+        XCTAssertTrue(result.thread.events.contains { $0.summary.contains("repeated the same") })
+        // The nudge itself lives only on a value copy: recording it durably would put a user turn
+        // in the transcript that the human never typed (caught by the MCP protocol smoke).
+        XCTAssertFalse(result.thread.messages.contains { $0.content.contains("Do not repeat that call") })
+        XCTAssertFalse(result.thread.messages.contains { $0.role == .user && $0.content.contains("already have") })
     }
 
     func testSecondRepeatStillFinalizes() async throws {

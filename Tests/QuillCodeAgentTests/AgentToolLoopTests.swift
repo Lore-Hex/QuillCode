@@ -512,7 +512,11 @@ final class AgentToolLoopTests: XCTestCase {
         // answer. The nudge notice also names the tool, hence four matching events, not three.
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.shell.run") }.count, 4)
-        XCTAssertTrue(result.thread.messages.contains { $0.content.contains("Do not repeat that call") })
+        XCTAssertTrue(result.thread.events.contains { $0.summary.contains("repeated the same") })
+        XCTAssertFalse(
+            result.thread.messages.contains { $0.content.contains("Do not repeat that call") },
+            "the nudge must not become a durable user turn"
+        )
         XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
     }
 

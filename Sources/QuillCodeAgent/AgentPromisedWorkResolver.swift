@@ -278,7 +278,7 @@ extension AgentRunner {
     /// loop re-prompts (escalated on the final attempt) or falls through to the gate's terminal
     /// behavior (hard fail / integrity notice / budget-spent tail). Transport and cancellation
     /// errors still propagate.
-    private func correctiveSample(
+    func correctiveSample(
         thread: ChatThread,
         prompt: String,
         tools: [ToolDefinition]
