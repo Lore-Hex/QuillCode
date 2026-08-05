@@ -135,7 +135,23 @@ public struct QuillCodeRuntimeFactory: Sendable {
         return QuillCodeRuntime(
             runner: AgentRunner(
                 llm: llm,
-                safety: AutoSafetyReviewer(client: safetyClient),
+                // Auto mode is the DAILY-DRIVER mode: the human picked "just do it". The static
+                // policy still falls through to `.clarify` whenever a tool's effect is not
+                // lexically implied by the user's own words, which in office work means a plain
+                // `python3 --version`, a `pdftotext` probe, or any setup step stops the task dead
+                // behind an approval whose stated reason ("does not clearly match the latest user
+                // message") means nothing to the person reading it. Observed live in the desktop
+                // on the very first coworker task.
+                //
+                // Headless runs already resolve this with AutonomousApprovalSafetyReviewer;
+                // applying it here gives the desktop the same permissiveness. What it does NOT
+                // relax: `.deny` verdicts pass through untouched (the hard floors — destructive
+                // commands, credential exfiltration — still block), and shell commands touching
+                // paths OUTSIDE the workspace are still denied (F24). Containment stays with the
+                // hard-deny floors and the filesystem sandbox, not with lexical intent-matching.
+                safety: AutonomousApprovalSafetyReviewer(
+                    base: AutoSafetyReviewer(client: safetyClient)
+                ),
                 webSearch: webSearch,
                 webSearchLivenessChecker: WebFetchURLLivenessChecker(),
                 maxToolSteps: config.maxToolSteps,
