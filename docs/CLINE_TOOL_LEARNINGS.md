@@ -131,3 +131,41 @@ the human or an explicit per-task check.
 tool output can be poisoned by the run's own writing, because the product's prompt requires the
 model to read its artifacts back. A gate's evidence must come from somewhere the model cannot
 author.
+
+---
+
+## Appendix 2: two more Cline learnings, rejected on evidence (2026-08-05)
+
+Before building either, the coworker corpus (120 most recent persisted runs in `~/.quillcode/threads`)
+was measured. Both premises turned out to be false **for this codebase**, so neither shipped.
+
+### Cross-category consecutive-mistake budget — REJECTED
+Cline's `MistakeTracker` aggregates `api_error | invalid_tool_call | tool_execution_failed` into one
+per-session counter, because a run alternating failure *kinds* never trips any single per-kind
+budget. QuillCode has no such counter (only `promisedWorkCorrectionLimit` = 2,
+`malformedActionCorrectionLimit` = 2, and `maxToolSteps`).
+
+Measured: 11 of 120 runs mixed multiple failure categories, with exactly the predicted alternating
+shape — `MEMMMM`, `EMMME`, `EEEMM` (M = malformed, E = empty response, D = denied).
+
+But **every one of those runs succeeded**: a real final answer, the deliverable verified on disk, no
+step ceiling, no flail stop. The existing per-category self-healing (F13 empty-response retry, F22
+model fallback, F31 malformed-sample tolerance) already absorbs the churn. A Cline-style budget of
+~3 consecutive mistakes would have **killed** runs that currently work — e.g. `MEMMMM` (23 tool
+steps → a complete speaker brief) and `EEEEE` (23 steps → same). The mechanism's only effect here
+would be premature stops on healthy runs.
+
+### Duplicate-file-read dedup — REJECTED
+Cline replaces a repeated file read in history with a one-line pointer to save context.
+
+Measured: only **2 of 120 runs** (1%) re-read the same path at all, and both were a second read-back
+of the run's *own* output (`contacts_clean.csv`, `speaker-brief.md`) — the artifact confirmation the
+system prompt mandates. There is no context bloat to reclaim.
+
+### Still unevaluated
+Mode-switch notices and context-usage-aware write-failure guidance are interactive/desktop concerns;
+the headless corpus contains no mode switches and no size-driven write failures, so there is no
+evidence either way. They need interactive telemetry before they are worth building.
+
+**Method note:** measuring first cost one thread scan. The F21 gate cost two full build-and-review
+rounds to reach the same kind of "premise is false" verdict. Measure the corpus before building.
