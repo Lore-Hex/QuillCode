@@ -96,7 +96,11 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         let requiresE2EOnlyTraffic = threadIsConfidential
             || TrustedRouterDefaults.isE2EEligible(modelID ?? "", catalog: modelCatalog)
         if requiresE2EOnlyTraffic {
-            activeRunner.safety = AutoSafetyReviewer()
+            // Same daily-driver permissiveness as the non-confidential path (see RuntimeFactory):
+            // the model reviewer is dropped for E2E threads, so the static policy's `.clarify`
+            // fallthrough would stall confidential runs even more often. Hard denies and the
+            // out-of-workspace shell guard still apply.
+            activeRunner.safety = AutonomousApprovalSafetyReviewer(base: AutoSafetyReviewer())
             if var compaction = activeRunner.compaction {
                 compaction.compactor.summarizer = DeterministicThreadCompactionSummarizer()
                 activeRunner.compaction = compaction
