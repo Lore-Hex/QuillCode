@@ -123,7 +123,9 @@ final class AgentStreamingTests: XCTestCase {
         let eventKinds = await recorder.eventKinds()
         XCTAssertEqual(
             eventKinds,
-            [.message, .notice, .toolQueued, .toolRunning, .toolCompleted, .notice, .message]
+            // Two extra .notice events: the repeat NUDGE (Cline learning #2 — the first repeat is
+            // nudged rather than finalized) and the finalization notice after the model repeats again.
+            [.message, .notice, .toolQueued, .toolRunning, .toolCompleted, .notice, .notice, .notice, .message]
         )
         XCTAssertEqual(result.thread.events.map(\.kind), [
             .message,
@@ -132,9 +134,15 @@ final class AgentStreamingTests: XCTestCase {
             .toolRunning,
             .toolCompleted,
             .notice,
+            .notice,
+            .notice,
             .message
         ])
         XCTAssertEqual(result.thread.events[1].summary, AgentRunner.streamingNotice)
+        XCTAssertTrue(
+            result.thread.events.contains { $0.summary.contains("repeated the same") },
+            "the first repeat must be nudged before any finalization"
+        )
         XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
     }
 

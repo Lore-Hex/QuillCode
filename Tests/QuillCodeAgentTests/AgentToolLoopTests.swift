@@ -507,8 +507,12 @@ final class AgentToolLoopTests: XCTestCase {
             workspaceRoot: root
         )
 
+        // Two-tier repeat handling (Cline learning #2): the tool runs once; the first repeat is
+        // NUDGED with the result already in hand; only the next repeat synthesizes the final
+        // answer. The nudge notice also names the tool, hence four matching events, not three.
         XCTAssertEqual(result.toolResults.count, 1)
-        XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.shell.run") }.count, 3)
+        XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.shell.run") }.count, 4)
+        XCTAssertTrue(result.thread.messages.contains { $0.content.contains("Do not repeat that call") })
         XCTAssertTrue(result.thread.messages.last?.content.hasPrefix("You are `") == true)
     }
 
@@ -676,6 +680,9 @@ final class AgentToolLoopTests: XCTestCase {
             .toolQueued,
             .toolRunning,
             .toolCompleted,
+            // The scripted client repeats its last call; the first repeat is nudged
+            // (Cline learning #2) instead of finalizing immediately.
+            .notice,
             .message
         ])
         XCTAssertEqual(result.thread.events.filter { $0.summary.contains("host.git.diff") }.count, 3)

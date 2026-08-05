@@ -249,6 +249,28 @@ public struct AgentRunner: Sendable {
                     return AgentRunResult(thread: next, toolResults: runLoop.toolResults)
                 case .tool(let call):
                     var activeCall = call
+                    if let lastCompletion = runLoop.repeatedCompletion(for: activeCall),
+                       runLoop.shouldSoftWarnOnRepeat(of: activeCall) {
+                        // Cline learning #2 (graded loop detection): finalizing on the FIRST repeat
+                        // converts a recoverable moment into a terminal answer — the F25 incident
+                        // was exactly that (an enrichment run repeated a search and "finished" with
+                        // raw search results instead of writing the required CSV). Nudge once with
+                        // the result the model already has, then let it act. A further repeat of the
+                        // same call falls through to finalization below, so this cannot loop.
+                        let notice = AgentRepeatedCallGuard.softWarning(
+                            call: activeCall,
+                            previousResult: lastCompletion.result
+                        )
+                        next.messages.append(.init(role: .user, content: notice))
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: repeated the same \(activeCall.name) call; "
+                                + "asked for a different step before finalizing."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
                     if let lastCompletion = runLoop.repeatedCompletion(for: activeCall) {
                         // F25: repeated-call finalization synthesizes an answer from the last tool
                         // result — it must not slip past the named-deliverable gate the ordinary
