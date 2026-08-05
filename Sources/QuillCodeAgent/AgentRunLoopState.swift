@@ -112,9 +112,35 @@ struct AgentRunLoopState: Sendable {
         // run read, addresses printed by shell commands. Search output stays ungrounded — a
         // snippet listing is not a read page, and it is the observed leak source.
         guard name != "host.web.search" else { return }
+        // Self-confirmation guard: the system prompt MANDATES reading a written artifact back
+        // ("read the artifact back (host.file.read / host.file.list) to confirm it exists"), so
+        // harvesting that read's output would launder the model's own text into provenance — write
+        // a fabricated URL, read the file back, and the citation gate blesses it. A read of a file
+        // this run wrote proves nothing about the world. (Residual: `cat`-style shell echoes of an
+        // own-written file are not detectable here; the mandated path is host.file.read.)
+        guard !isReadOfOwnOutput(completion) else { return }
         for url in AgentCitationIntegrityGate.allURLs(in: completion.result.stdout) {
             groundedURLs.insert(AgentCitationIntegrityGate.normalize(url))
         }
+    }
+
+    private func isReadOfOwnOutput(_ completion: AgentToolStepCompletion) -> Bool {
+        guard completion.call.name == "host.file.read",
+              let data = completion.call.argumentsJSON.data(using: .utf8),
+              let arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let path = arguments["path"] as? String
+        else { return false }
+        let read = normalizedPath(path)
+        return writtenWorkspacePaths.contains { written in
+            let candidate = normalizedPath(written)
+            return candidate == read
+                || candidate.hasSuffix("/" + read)
+                || read.hasSuffix("/" + candidate)
+        }
+    }
+
+    private func normalizedPath(_ path: String) -> String {
+        path.hasPrefix("./") ? String(path.dropFirst(2)) : path
     }
 
     mutating func recordDeniedStep(_ completion: AgentToolStepCompletion) {
