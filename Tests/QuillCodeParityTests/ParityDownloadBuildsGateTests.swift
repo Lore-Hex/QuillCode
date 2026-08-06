@@ -8,7 +8,19 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
-        try "product=Quill Cowork\nplatform=macOS\narch=arm64\nversion=0.2.0\nbuild=123\n"
+        try """
+        product=Quill Cowork
+        platform=macOS
+        arch=arm64
+        version=0.2.0
+        build=123
+        bundleIdentifier=co.lorehex.QuillCowork
+        minimumSystemVersion=14.0
+        updateChannel=tester
+        updateManifestURL=https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
+        stableUpdateManifestURL=https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json
+        testerUpdateManifestURL=https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
+        """
             .write(to: temporaryDirectory.appendingPathComponent("BUILD_INFO.txt"), atomically: true, encoding: .utf8)
         try "product=Quill Cowork\nplatform=Linux\narch=x86_64\nversion=0.2.0\nbuild=123\n"
             .write(
@@ -54,6 +66,27 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "https://github.com/Lore-Hex/QuillCode/actions/runs/1"
         )
 
+        let updater = try XCTUnwrap(manifest["updater"] as? [String: Any])
+        XCTAssertEqual(updater["schemaVersion"] as? Int, 1)
+        XCTAssertEqual(updater["format"] as? String, "github-release-manifest")
+        XCTAssertEqual(updater["channel"] as? String, "tester")
+        XCTAssertEqual(
+            updater["manifestURL"] as? String,
+            "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json"
+        )
+        XCTAssertEqual(
+            updater["stableManifestURL"] as? String,
+            "https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json"
+        )
+        XCTAssertEqual(
+            updater["testerManifestURL"] as? String,
+            "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json"
+        )
+        XCTAssertEqual(updater["bundleIdentifier"] as? String, "co.lorehex.QuillCowork")
+        XCTAssertEqual(updater["minimumSystemVersion"] as? String, "14.0")
+        let updaterAppAsset = try XCTUnwrap(updater["macOSAppAsset"] as? [String: Any])
+        XCTAssertEqual(updaterAppAsset["name"] as? String, "Quill-Cowork-macOS-arm64.zip")
+
         let assets = try XCTUnwrap(manifest["assets"] as? [[String: Any]])
         XCTAssertEqual(assets.count, 6)
 
@@ -91,11 +124,17 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         Self.assertSource(workflow, containsAll: [
             "group: download-builds-${{ github.ref }}",
             "cancel-in-progress: false",
+            "QUILLCODE_UPDATE_CHANNEL=stable",
+            "QUILLCODE_UPDATE_CHANNEL=tester",
             "scripts/build-download-manifest.py",
-            "--output \"$RUNNER_TEMP/release-assets/latest-tester-build.json\"",
+            "MANIFEST_NAME=\"latest-${RELEASE_CHANNEL}-build.json\"",
+            "--output \"$RUNNER_TEMP/release-assets/$MANIFEST_NAME\"",
             "RELEASE_CHANNEL=\"tester\"",
             "RELEASE_CHANNEL=\"stable\"",
-            "\\`latest-tester-build.json\\`: machine-readable build metadata",
+            "\\`${MANIFEST_NAME}\\`: machine-readable build metadata",
+            "updater feed metadata",
+            "current-release-assets.txt",
+            "gh release delete-asset \"$RELEASE_TAG\" \"$asset_name\" --yes",
             "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/* --clobber"
         ])
         XCTAssertFalse(
@@ -110,11 +149,58 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
 
         Self.assertSource(downloads, containsAll: [
             "latest-tester-build.json",
-            "Build manifest",
+            "latest-stable-build.json",
+            "app updater, website, and support script contract",
+            "Auto-Update Contract",
+            "QuillCodeUpdateChannel",
+            "QuillCodeUpdateManifestURL",
+            "QuillCodeStableUpdateManifestURL",
+            "QuillCodeTesterUpdateManifestURL",
             "channel is `tester`",
             "channel is `stable`"
         ])
         Self.assertSource(readme, contains: "machine-readable build manifest")
+    }
+
+    func testMacOSDownloadPackagingEmbedsUpdaterMetadata() throws {
+        let root = Self.packageRoot()
+        let buildScript = try String(
+            contentsOf: root.appendingPathComponent("scripts").appendingPathComponent("build-macos-app.sh"),
+            encoding: .utf8
+        )
+        let packageScript = try String(
+            contentsOf: root.appendingPathComponent("scripts").appendingPathComponent("package-macos-downloads.sh"),
+            encoding: .utf8
+        )
+        let smokeScript = try String(
+            contentsOf: root.appendingPathComponent("scripts").appendingPathComponent("packaged-macos-smoke.sh"),
+            encoding: .utf8
+        )
+
+        Self.assertSource(buildScript, containsAll: [
+            "QUILLCODE_MACOS_UPDATE_CHANNEL",
+            "QUILLCODE_MACOS_UPDATE_MANIFEST_URL",
+            "QUILLCODE_MACOS_UPDATE_STABLE_MANIFEST_URL",
+            "QUILLCODE_MACOS_UPDATE_TESTER_MANIFEST_URL",
+            "<key>QuillCodeUpdateChannel</key>",
+            "<key>QuillCodeUpdateManifestURL</key>",
+            "<key>QuillCodeStableUpdateManifestURL</key>",
+            "<key>QuillCodeTesterUpdateManifestURL</key>"
+        ])
+        Self.assertSource(packageScript, containsAll: [
+            "bundleIdentifier=$BUNDLE_ID",
+            "minimumSystemVersion=$MINIMUM_SYSTEM_VERSION",
+            "updateChannel=$UPDATE_CHANNEL",
+            "updateManifestURL=$UPDATE_MANIFEST_URL",
+            "stableUpdateManifestURL=$STABLE_MANIFEST_URL",
+            "testerUpdateManifestURL=$TESTER_MANIFEST_URL"
+        ])
+        Self.assertSource(smokeScript, containsAll: [
+            "assert_plist_value QuillCodeUpdateChannel tester",
+            "assert_plist_value QuillCodeUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json",
+            "assert_plist_value QuillCodeStableUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json",
+            "assert_plist_value QuillCodeTesterUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json"
+        ])
     }
 
     func testMergeTrainRefreshesTesterDownloadsAfterMerges() throws {

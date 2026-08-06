@@ -17,7 +17,7 @@ PRODUCT = "Quill Cowork"
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Write latest-tester-build.json for Quill Cowork release assets."
+        description="Write a channel download manifest for Quill Cowork release assets."
     )
     parser.add_argument("--assets-dir", required=True, help="Directory containing release assets.")
     parser.add_argument("--repo", required=True, help="GitHub repository, for example Lore-Hex/QuillCode.")
@@ -76,6 +76,37 @@ def release_download_url(repo: str, tag: str, asset_name: str) -> str:
     return f"https://github.com/{repo}/releases/download/{encoded_tag}/{encoded_name}"
 
 
+def latest_release_download_url(repo: str, asset_name: str) -> str:
+    encoded_name = quote(asset_name, safe="")
+    return f"https://github.com/{repo}/releases/latest/download/{encoded_name}"
+
+
+def build_updater_metadata(
+    *,
+    repo: str,
+    tag: str,
+    channel: str,
+    output_path: Path,
+    build_info: dict[str, str],
+    assets: list[dict[str, object]],
+) -> dict[str, object]:
+    app_assets = [
+        asset for asset in assets
+        if asset.get("kind") == "app" and asset.get("platform") == "macOS"
+    ]
+    return {
+        "schemaVersion": 1,
+        "format": "github-release-manifest",
+        "channel": channel,
+        "manifestURL": release_download_url(repo, tag, output_path.name),
+        "stableManifestURL": latest_release_download_url(repo, "latest-stable-build.json"),
+        "testerManifestURL": release_download_url(repo, "tester-latest", "latest-tester-build.json"),
+        "bundleIdentifier": build_info.get("bundleIdentifier", "co.lorehex.QuillCowork"),
+        "minimumSystemVersion": build_info.get("minimumSystemVersion", "14.0"),
+        "macOSAppAsset": app_assets[0] if app_assets else None,
+    }
+
+
 def build_manifest(arguments: argparse.Namespace) -> dict[str, object]:
     asset_directory = Path(arguments.assets_dir)
     output_path = Path(arguments.output)
@@ -107,6 +138,15 @@ def build_manifest(arguments: argparse.Namespace) -> dict[str, object]:
     if not assets:
         raise SystemExit(f"no release assets found in {asset_directory}")
 
+    updater = build_updater_metadata(
+        repo=arguments.repo,
+        tag=arguments.tag,
+        channel=arguments.channel,
+        output_path=output_path,
+        build_info=build_info,
+        assets=assets,
+    )
+
     return {
         "schemaVersion": SCHEMA_VERSION,
         "product": PRODUCT,
@@ -118,6 +158,7 @@ def build_manifest(arguments: argparse.Namespace) -> dict[str, object]:
         "build": build_info.get("build", "unknown"),
         "generatedAt": generated_at,
         "workflowRunURL": arguments.workflow_run_url,
+        "updater": updater,
         "assets": assets,
     }
 

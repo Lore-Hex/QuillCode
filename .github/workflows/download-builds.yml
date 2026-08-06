@@ -24,8 +24,10 @@ jobs:
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
             echo "QUILLCODE_BUILD_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+            echo "QUILLCODE_UPDATE_CHANNEL=stable" >> "$GITHUB_ENV"
           else
             echo "QUILLCODE_BUILD_VERSION=0.1.0" >> "$GITHUB_ENV"
+            echo "QUILLCODE_UPDATE_CHANNEL=tester" >> "$GITHUB_ENV"
           fi
           echo "QUILLCODE_BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
       - name: Package macOS app and CLI
@@ -49,8 +51,10 @@ jobs:
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
             echo "QUILLCODE_BUILD_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+            echo "QUILLCODE_UPDATE_CHANNEL=stable" >> "$GITHUB_ENV"
           else
             echo "QUILLCODE_BUILD_VERSION=0.1.0" >> "$GITHUB_ENV"
+            echo "QUILLCODE_UPDATE_CHANNEL=tester" >> "$GITHUB_ENV"
           fi
           echo "QUILLCODE_BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
       - name: Package Linux CLI
@@ -86,6 +90,7 @@ jobs:
             RELEASE_TAG="tester-latest"
             RELEASE_CHANNEL="tester"
           fi
+          MANIFEST_NAME="latest-${RELEASE_CHANNEL}-build.json"
           (
             cd "$RUNNER_TEMP/release-assets"
             find . -maxdepth 1 -type f ! -name SHASUMS256.txt -printf '%P\0' | sort -z | xargs -0 sha256sum > SHASUMS256.txt
@@ -97,7 +102,7 @@ jobs:
             --channel "$RELEASE_CHANNEL" \
             --commit "$GITHUB_SHA" \
             --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            --output "$RUNNER_TEMP/release-assets/latest-tester-build.json"
+            --output "$RUNNER_TEMP/release-assets/$MANIFEST_NAME"
           find "$RUNNER_TEMP/release-assets" -maxdepth 1 -type f -print | sort
       - name: Publish tester or tagged release
         env:
@@ -108,11 +113,13 @@ jobs:
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
             RELEASE_TAG="${GITHUB_REF_NAME}"
             RELEASE_TITLE="Quill Cowork ${GITHUB_REF_NAME}"
+            RELEASE_CHANNEL="stable"
             PRERELEASE_FLAG=()
             LATEST_FLAG=(--latest)
           else
             RELEASE_TAG="tester-latest"
             RELEASE_TITLE="Quill Cowork Tester Build"
+            RELEASE_CHANNEL="tester"
             PRERELEASE_FLAG=(--prerelease)
             LATEST_FLAG=(--latest=false)
             git config user.name "github-actions[bot]"
@@ -120,9 +127,10 @@ jobs:
             git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
             git push origin "refs/tags/$RELEASE_TAG" --force
           fi
+          MANIFEST_NAME="latest-${RELEASE_CHANNEL}-build.json"
 
           cat > "$RUNNER_TEMP/release-notes.md" <<NOTES
-          Automated Quill Cowork tester build.
+          Automated Quill Cowork ${RELEASE_CHANNEL} build.
 
           Commit: \`${GITHUB_SHA}\`
           Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
@@ -132,9 +140,9 @@ jobs:
           - \`quill-code-macOS-*.tar.gz\`: macOS CLI.
           - \`quill-code-linux-*.tar.gz\`: Linux CLI.
           - \`SHASUMS256.txt\`: checksum manifest for every asset.
-          - \`latest-tester-build.json\`: machine-readable build metadata, download URLs, sizes, and SHA-256 digests.
+          - \`${MANIFEST_NAME}\`: machine-readable build metadata, updater feed metadata, download URLs, sizes, and SHA-256 digests.
 
-          macOS tester note: this build is ad-hoc signed but not notarized yet. If Gatekeeper blocks first launch, use right-click > Open. Computer Use still requires normal macOS Screen Recording and Accessibility permissions.
+          macOS distribution note: this build is ad-hoc signed but not notarized yet. If Gatekeeper blocks first launch, use right-click > Open. Computer Use still requires normal macOS Screen Recording and Accessibility permissions.
           NOTES
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
@@ -151,5 +159,13 @@ jobs:
               "${PRERELEASE_FLAG[@]}" \
               "${LATEST_FLAG[@]}"
           fi
+
+          find "$RUNNER_TEMP/release-assets" -maxdepth 1 -type f -printf '%f\n' | sort > "$RUNNER_TEMP/current-release-assets.txt"
+          gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' |
+            while IFS= read -r asset_name; do
+              if [[ -n "$asset_name" ]] && ! grep -Fxq "$asset_name" "$RUNNER_TEMP/current-release-assets.txt"; then
+                gh release delete-asset "$RELEASE_TAG" "$asset_name" --yes
+              fi
+            done
 
           gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/release-assets/* --clobber

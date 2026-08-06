@@ -14,12 +14,14 @@ Direct asset links for the current tester channel:
 - [macOS CLI: `quill-code-macOS-arm64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-macOS-arm64.tar.gz)
 - [Linux CLI: `quill-code-linux-x86_64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-linux-x86_64.tar.gz)
 - [Checksums: `SHASUMS256.txt`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/SHASUMS256.txt)
-- [Build manifest: `latest-tester-build.json`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json)
+- [Tester manifest: `latest-tester-build.json`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json)
+- [Stable manifest: `latest-stable-build.json`](https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json)
 
-The build manifest is intended for the website, updater experiments, and support
-scripts. It records the build channel, tag, commit, workflow run URL, version,
-build number, and per-asset download URL, size, platform, architecture, and
-SHA-256 digest.
+The build manifest is the app updater, website, and support script contract. It
+records the build channel, tag, commit, workflow run URL, version, build number,
+per-asset download URL, size, platform, architecture, and SHA-256 digest. It also
+includes an `updater` object with the feed URL, bundle identifier, minimum macOS
+version, and current macOS app asset.
 
 ## Build Cadence
 
@@ -32,6 +34,36 @@ The tester release is refreshed:
 
 The workflow updates the stable `tester-latest` tag and replaces release assets
 in place, so the links above do not change as new builds are published.
+
+## Auto-Update Contract
+
+The packaged macOS app embeds update metadata in `Info.plist`:
+
+- `QuillCodeUpdateChannel`
+- `QuillCodeUpdateManifestURL`
+- `QuillCodeStableUpdateManifestURL`
+- `QuillCodeTesterUpdateManifestURL`
+
+The tester feed is:
+
+```text
+https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
+```
+
+The stable feed is:
+
+```text
+https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json
+```
+
+Updater clients should fetch the configured manifest, compare
+`CFBundleShortVersionString` plus `CFBundleVersion` against the manifest
+`version` plus `build`, select the `assets` entry where `kind` is `app`,
+`platform` is `macOS`, and `arch` matches the machine, verify the SHA-256 digest,
+then download and install that zip. Current tester builds are ad-hoc signed and
+not notarized, so silent in-place replacement should stay behind a signed and
+notarized stable release path. Tester updates can safely present the verified
+download and installation handoff.
 
 ## Tester Install Notes
 
@@ -72,9 +104,10 @@ Then watch it:
 gh run list --repo Lore-Hex/QuillCode --workflow download-builds.yml --limit 1
 ```
 
-The workflow publishes the same `latest-tester-build.json` schema for manual,
-scheduled, `main`, and `v*` tag builds. For `v*` tags, the channel is `stable`;
-for `tester-latest`, the channel is `tester`.
+The workflow publishes the same manifest schema for manual, scheduled, `main`,
+and `v*` tag builds. For `v*` tags, the channel is `stable` and the asset is
+`latest-stable-build.json`; for `tester-latest`, the channel is `tester` and the
+asset is `latest-tester-build.json`.
 
 ## Local Packaging
 
