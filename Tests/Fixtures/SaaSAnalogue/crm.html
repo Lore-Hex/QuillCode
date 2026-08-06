@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pipeline CRM Analogue</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #17211b;
+      background: #f4f6f5;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 720px; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 184px 1fr;
+    }
+
+    aside {
+      padding: 22px 16px;
+      color: #eef6f1;
+      background: #173b2a;
+    }
+
+    .brand { font-size: 17px; font-weight: 750; }
+    .account { margin: 6px 0 28px; color: #b8cfc0; font-size: 12px; }
+    nav { display: grid; gap: 6px; }
+    nav span { padding: 9px 10px; border-radius: 6px; color: #c9dbcf; font-size: 13px; }
+    nav .active { color: #173b2a; background: #eef6f1; font-weight: 700; }
+
+    main { padding: 30px 34px 42px; }
+    .topline { display: flex; justify-content: space-between; gap: 24px; align-items: start; }
+    h1 { margin: 0; font-size: 25px; letter-spacing: 0; }
+    .subtitle { margin: 7px 0 0; color: #68736c; font-size: 13px; }
+    .synthetic {
+      padding: 6px 9px;
+      border: 1px solid #dfc986;
+      border-radius: 5px;
+      color: #765914;
+      background: #fff9e8;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin: 26px 0;
+      border: 1px solid #d8ddda;
+      border-radius: 7px;
+      background: #fff;
+    }
+    .metric { padding: 16px 18px; border-right: 1px solid #e4e8e5; }
+    .metric:last-child { border-right: 0; }
+    .metric strong { display: block; margin-top: 5px; font-size: 21px; }
+    .metric span { color: #6d7771; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+
+    .workspace { border-top: 1px solid #d8ddda; background: #fff; }
+    .row { display: grid; grid-template-columns: 1.5fr 1fr 1fr 104px; min-height: 52px; border-bottom: 1px solid #e4e8e5; align-items: center; }
+    .row > * { padding: 10px 14px; }
+    .header { min-height: 38px; color: #67716b; background: #f8faf9; font-size: 11px; font-weight: 750; text-transform: uppercase; }
+    .company { font-weight: 750; }
+    .muted { color: #68736c; font-size: 12px; }
+
+    input[name="status"] {
+      width: 100%;
+      min-height: 34px;
+      padding: 7px 9px;
+      border: 1px solid #bbc5bf;
+      border-radius: 5px;
+      color: #17211b;
+      background: #fff;
+    }
+    input[name="status"]:focus { outline: 2px solid #76a88a; outline-offset: 1px; }
+    .save {
+      min-height: 34px;
+      border: 0;
+      border-radius: 5px;
+      color: #fff;
+      background: #19673d;
+      font-weight: 750;
+    }
+    .save:hover { background: #125330; }
+    [data-testid="status"] { margin: 14px 0 0; color: #52605a; font-size: 12px; }
+    [data-testid="status"][data-saved="true"] { color: #19673d; font-weight: 750; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand">Northstar CRM</div>
+      <div class="account">Revenue workspace</div>
+      <nav aria-label="Workspace">
+        <span>Overview</span>
+        <span class="active">Pipeline</span>
+        <span>Accounts</span>
+        <span>Activity</span>
+      </nav>
+    </aside>
+
+    <main>
+      <div class="topline">
+        <div>
+          <h1>Pipeline review</h1>
+          <p class="subtitle">Update a stale opportunity and record the saved state.</p>
+        </div>
+        <span class="synthetic">LOCAL SYNTHETIC DATA</span>
+      </div>
+
+      <section class="metrics" aria-label="Pipeline metrics">
+        <div class="metric"><span>Open pipeline</span><strong>$842k</strong></div>
+        <div class="metric"><span>Stale deals</span><strong>7</strong></div>
+        <div class="metric"><span>Close rate</span><strong>31%</strong></div>
+      </section>
+
+      <section class="workspace" aria-label="Opportunities">
+        <div class="row header"><span>Opportunity</span><span>Owner</span><span>Status</span><span>Action</span></div>
+        <div class="row">
+          <div><div class="company">Acme Expansion</div><div class="muted">No activity for 18 days</div></div>
+          <span>Maya Chen</span>
+          <label><span class="muted">Stage</span><input name="status" value="Open" aria-label="Opportunity status"></label>
+          <button class="save" data-action="save" type="button">Save</button>
+        </div>
+      </section>
+      <p data-testid="status" data-saved="false" role="status">Status: Open; saved=false</p>
+    </main>
+  </div>
+
+  <script>
+    document.querySelector("button[data-action='save']").addEventListener("click", () => {
+      const status = document.querySelector("input[name='status']").value.trim();
+      const result = document.querySelector("[data-testid='status']");
+      result.textContent = `Status: ${status}; saved=true`;
+      result.dataset.saved = "true";
+    });
+  </script>
+</body>
+</html>

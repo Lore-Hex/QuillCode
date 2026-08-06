@@ -290,6 +290,9 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(browserWorkflowValidator.contains(#""H1: Signed-In Workspace Smoke""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""signed-in=true""#))
         XCTAssertTrue(browserWorkflowValidator.contains(#""browserWorkflowMatchesDirect": True"#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""saasAnalogueValidated": True"#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""catalogTaskIDs": [199, 200]"#))
+        XCTAssertTrue(browserWorkflowValidator.contains(#""externalSaaSValidated": False"#))
 
         let computerUseValidator = try String(
             contentsOf: Self.packageRoot()
