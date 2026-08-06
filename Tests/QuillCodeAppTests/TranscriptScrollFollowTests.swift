@@ -45,6 +45,13 @@ final class TranscriptScrollFollowTests: XCTestCase {
         XCTAssertFalse(TranscriptScrollFollow.isPinnedToBottom(bottomSentinelMaxY: 800, viewportHeight: 480, threshold: 60))
     }
 
+    func testGeometrySamplesIgnoreSubPixelJitterAndNonFiniteValues() {
+        XCTAssertFalse(TranscriptScrollFollow.shouldCommitGeometrySample(100.4, current: 100))
+        XCTAssertFalse(TranscriptScrollFollow.shouldCommitGeometrySample(.nan, current: 100))
+        XCTAssertFalse(TranscriptScrollFollow.shouldCommitGeometrySample(.infinity, current: 100))
+        XCTAssertTrue(TranscriptScrollFollow.shouldCommitGeometrySample(100.6, current: 100))
+    }
+
     // MARK: - resolvePinned (the pin transition)
 
     func testResolvePinnedWithinThresholdRepinsRegardlessOfScroll() {

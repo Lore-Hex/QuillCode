@@ -59,15 +59,11 @@ struct QuillCodeTranscriptView: View {
     /// out `.onPreferenceChange`).
     @State private var isPinnedToBottom = true
     @State private var viewportHeight: CGFloat = 0
+    @State private var viewportWidth: CGFloat = 0
     @State private var bottomSentinelMaxY: CGFloat = 0
     /// Last sampled content-top offset; nil re-baselines the next sample (first appear + thread switch)
     /// so a fresh transcript's opening offset is never mistaken for a scroll gesture.
     @State private var lastContentTopMinY: CGFloat?
-    /// Total transcript content height. It grows on ANY content growth — a streamed chunk OR a
-    /// layout-only reflow (window narrows, text rewraps taller) that changes no content signature — but
-    /// is invariant to scrolling. Watching it lets a pinned reader stay caught up through reflows the
-    /// signature-driven follow would miss, without the feedback loop a scroll-position trigger risks.
-    @State private var contentHeight: CGFloat = 0
     private let bottomPinThreshold: CGFloat = 60
     private static let transcriptScrollSpace = "quillcode.transcript.scroll"
     private static let bottomSentinelID = "quillcode.transcript.bottom-sentinel"
@@ -219,11 +215,28 @@ struct QuillCodeTranscriptView: View {
                         GeometryReader { geometry in
                             Color.clear
                                 .onChange(of: geometry.size.height, initial: true) { _, height in
+                                    guard TranscriptScrollFollow.shouldCommitGeometrySample(
+                                        height,
+                                        current: viewportHeight
+                                    ) else { return }
                                     viewportHeight = height
                                     // A resize is never a scroll gesture: re-pin if the shorter/taller
                                     // viewport put the end back within reach, but never strand an
                                     // at-bottom reader.
                                     applyPinned(unpinBeyondThreshold: false)
+                                }
+                                .onChange(of: geometry.size.width, initial: true) { oldWidth, width in
+                                    guard TranscriptScrollFollow.shouldCommitGeometrySample(
+                                        width,
+                                        current: viewportWidth
+                                    ) else { return }
+                                    viewportWidth = width
+                                    // Width is the layout-only input that can rewrap transcript text.
+                                    // Follow it directly instead of observing content height, which
+                                    // creates a scroll -> layout -> height feedback path while streaming.
+                                    if oldWidth > 0 {
+                                        scrollToTranscriptEnd(proxy, id: scrollAnchorID)
+                                    }
                                 }
                         }
                     )
@@ -248,14 +261,6 @@ struct QuillCodeTranscriptView: View {
                         scrollForReviewVisibility(review.isVisible, proxy: proxy)
                     }
                     .onChange(of: scrollContentSignature) { _, _ in
-                        scrollToTranscriptEnd(proxy, id: scrollAnchorID)
-                    }
-                    .onChange(of: contentHeight) { _, _ in
-                        // Layout-only growth (e.g. text reflow when the window narrows) changes no
-                        // content signature, so the signature-driven follow above won't fire. Keep a
-                        // pinned reader caught up to the bottom here too. scrollToTranscriptEnd no-ops
-                        // when un-pinned or suppressed, and contentHeight is scroll-invariant, so this
-                        // can't feedback-loop off the follow-scroll's own motion.
                         scrollToTranscriptEnd(proxy, id: scrollAnchorID)
                     }
                     .onChange(of: activeFindIndex) { _, _ in
@@ -518,8 +523,18 @@ struct QuillCodeTranscriptView: View {
         // appear and on every scroll-anchor change, including on return to a grown thread) would
         // advance the watermark before the pill could ever evaluate — the exact bug that made the
         // pill unreachable. The watermark advances only on leaving the thread or a pill tap.
-        DispatchQueue.main.async {
-            quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
+        if force {
+            DispatchQueue.main.async {
+                quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
+                    proxy.scrollTo(id, anchor: .bottom)
+                }
+            }
+        } else {
+            // Stream chunks can arrive faster than an animation completes. Starting a fresh animation
+            // for every published chunk grows an unbounded transaction queue on long chats.
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
                 proxy.scrollTo(id, anchor: .bottom)
             }
         }
@@ -553,6 +568,10 @@ struct QuillCodeTranscriptView: View {
                             of: geometry.frame(in: .named(Self.transcriptScrollSpace)).maxY,
                             initial: true
                         ) { _, maxY in
+                            guard TranscriptScrollFollow.shouldCommitGeometrySample(
+                                maxY,
+                                current: bottomSentinelMaxY
+                            ) else { return }
                             bottomSentinelMaxY = maxY
                             // The end-of-content moved (a chunk grew, or the follow-scroll ran). While
                             // follow-scroll is live this may only RE-pin (end back within reach), never
@@ -579,9 +598,6 @@ struct QuillCodeTranscriptView: View {
                     initial: true
                 ) { _, minY in
                     applyContentTopOffsetSample(minY)
-                }
-                .onChange(of: geometry.size.height, initial: true) { _, height in
-                    contentHeight = height
                 }
         }
     }

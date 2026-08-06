@@ -13,7 +13,7 @@ struct QuillCodeThinkingView: View {
                     Text(thinking.title)
                         .font(.callout.weight(.semibold))
                         .foregroundStyle(QuillCodePalette.text)
-                    QuillCodeThinkingDots(reduceMotion: reduceMotion)
+                    QuillCodeThinkingDots()
                 }
                 Text(thinking.subtitle)
                     .font(.caption)
@@ -76,30 +76,11 @@ struct QuillCodeThinkingView: View {
 }
 
 private struct QuillCodeThinkingDots: View {
-    var reduceMotion: Bool
-
-    @ViewBuilder
     var body: some View {
-        if reduceMotion {
-            dots(activeIndex: 2)
-        } else {
-            TimelineView(.animation) { context in
-                dots(activeIndex: Int(context.date.timeIntervalSinceReferenceDate * 2.8) % 3)
-            }
-        }
-    }
-
-    private func dots(activeIndex: Int) -> some View {
-        HStack(spacing: 4) {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .fill(QuillCodePalette.blue)
-                    .frame(width: 5, height: 5)
-                    .scaleEffect(index == activeIndex ? 1 : 0.72)
-                    .opacity(index == activeIndex ? 1 : 0.42)
-            }
-        }
-        .frame(width: 28, height: 12)
-        .accessibilityHidden(true)
+        Image(systemName: "ellipsis")
+            .font(.caption.weight(.bold))
+            .foregroundStyle(QuillCodePalette.blue)
+            .frame(width: 28, height: 12)
+            .accessibilityHidden(true)
     }
 }

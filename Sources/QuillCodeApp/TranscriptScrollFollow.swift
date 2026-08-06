@@ -60,6 +60,16 @@ enum TranscriptScrollFollow {
     /// Sub-pixel below which a content-offset change is layout jitter, not a scroll.
     static let scrollEpsilon: CGFloat = 0.5
 
+    /// GeometryReader can report tiny floating-point oscillations while a scroll settles. Committing
+    /// each one to `@State` invalidates the same layout that produced it and can keep the graph alive.
+    static func shouldCommitGeometrySample(
+        _ sample: CGFloat,
+        current: CGFloat,
+        epsilon: CGFloat = TranscriptScrollFollow.scrollEpsilon
+    ) -> Bool {
+        sample.isFinite && abs(sample - current) > epsilon
+    }
+
     /// The result of classifying one content-offset sample: the resolved pin, and the baseline the
     /// caller should carry into the next sample.
     struct ScrollSampleOutcome: Equatable {
