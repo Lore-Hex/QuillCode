@@ -95,6 +95,23 @@ final class AgentImmediateActionMultiStepGateTests: XCTestCase {
         XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt("list files and folders here"))
     }
 
+    /// A sentence boundary must not hide the second action. This exact eval prompt previously ran
+    /// only the failing test command in preflight and completed without making a model request.
+    func testSentenceSeparatedFixAndTestTaskIsNeverPreflighted() {
+        let prompt = "Fix safe_join.py so safe_join(root, user_path) rejects paths outside root "
+            + "with ValueError and accepts paths inside root. Run python3 test_security.py."
+        XCTAssertTrue(AgentImmediateActionPlanner.isMultiStepTaskPrompt(prompt))
+        XCTAssertNil(AgentImmediateActionPlanner.action(for: prompt, tools: tools))
+
+        XCTAssertFalse(AgentImmediateActionPlanner.isMultiStepTaskPrompt(
+            "Run python3 test_security.py. Report the output."
+        ))
+        XCTAssertNotNil(AgentImmediateActionPlanner.action(
+            for: "Run python3 test_security.py. Report the output.",
+            tools: tools
+        ))
+    }
+
     func testCoworkerBrowserContinuationsAreNeverPreflighted() {
         let prompts = [
             "Open the Q3 Invoice Tracker Google Sheet and add a status column.",
