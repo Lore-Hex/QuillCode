@@ -28,7 +28,13 @@ extension AgentRunner {
         guard thread.events.last?.kind != .notice || thread.events.last?.summary != notice else {
             return
         }
-        thread.events.append(.init(kind: .notice, summary: notice))
+        if let lastIndex = thread.events.indices.last,
+           thread.events[lastIndex].kind == .notice,
+           thread.events[lastIndex].summary.hasPrefix("Thinking:") {
+            thread.events[lastIndex].summary = notice
+        } else {
+            thread.events.append(.init(kind: .notice, summary: notice))
+        }
         thread.updatedAt = Date()
     }
 }

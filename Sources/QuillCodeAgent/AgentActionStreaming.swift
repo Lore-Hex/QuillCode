@@ -62,13 +62,14 @@ public enum AgentActionStreamCollector {
                 }
                 lastVisibleText = visibleText
                 await onVisibleAssistantText?(visibleText)
-            case .reasoning(let summary):
-                let trimmed = summary.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmed.isEmpty, trimmed != lastReasoningText else {
+            case .reasoning(let fragment):
+                // Preserve boundary whitespace: several providers emit reasoning one token at a
+                // time, and trimming here would join words in the accumulated presentation.
+                guard !fragment.isEmpty, fragment != lastReasoningText else {
                     continue
                 }
-                lastReasoningText = trimmed
-                await onReasoning?(trimmed)
+                lastReasoningText = fragment
+                await onReasoning?(fragment)
             case .usage(let usage):
                 await onUsage?(usage)
             }
