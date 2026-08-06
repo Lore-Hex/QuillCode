@@ -5,7 +5,16 @@ import QuillCodePersistence
 import QuillCodeTools
 import XCTest
 
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
+
 final class CLIDoctorTests: XCTestCase {
+    override func tearDown() {
+        DoctorURLProtocol.reset()
+        super.tearDown()
+    }
+
     func testHealthyReportIsCompleteStableAndDoesNotCreateState() async throws {
         let fixture = try Fixture()
         let home = fixture.root.appendingPathComponent("missing-home", isDirectory: true)
@@ -28,6 +37,33 @@ final class CLIDoctorTests: XCTestCase {
         XCTAssertEqual(object["schemaVersion"] as? Int, 1)
         XCTAssertEqual(object["overallStatus"] as? String, "ok")
         XCTAssertEqual((object["checks"] as? [String: Any])?.count, 15)
+    }
+
+    func testDirectExecutableInvocationDoesNotWarnWhenCLIIsAbsentFromPath() throws {
+        let fixture = try Fixture()
+        let pathWithoutQuillCode = fixture.root.appendingPathComponent("search-bin", isDirectory: true)
+        try FileManager.default.createDirectory(at: pathWithoutQuillCode, withIntermediateDirectories: true)
+        _ = try Fixture.makeExecutable(named: "rg", in: pathWithoutQuillCode)
+        let check = CLIDoctorLocalChecks.installation(
+            runtime: fixture.runtime(inputIsTerminal: false),
+            environment: ["PATH": pathWithoutQuillCode.path]
+        )
+
+        XCTAssertEqual(check.status, .ok)
+        XCTAssertEqual(check.summary, "Quill Cowork is running directly; quill-code is not on PATH")
+        XCTAssertNil(check.remediation)
+    }
+
+    func testNoninteractiveStreamsDoNotCreateATerminalWarning() throws {
+        let fixture = try Fixture()
+        let check = CLIDoctorLocalChecks.terminal(
+            runtime: fixture.runtime(inputIsTerminal: false),
+            environment: ["TERM": "xterm-256color"]
+        )
+
+        XCTAssertEqual(check.status, .ok)
+        XCTAssertEqual(check.summary, "noninteractive terminal environment is usable")
+        XCTAssertTrue(check.issues.isEmpty)
     }
 
     func testReportsNeverExposeCredentialsProxyValuesOrMCPSecrets() async throws {
@@ -59,7 +95,7 @@ final class CLIDoctorTests: XCTestCase {
         ).saveTokens(MCPOAuthTokens(accessToken: mcpToken))
         let apiKey = "sk-tr-doctor-private"
         let doctor = fixture.doctor(networkResult: CLIDoctorNetworkResult(
-            endpoint: "https://network-user:network-password@example.test/v1/models?key=query-secret",
+            endpoint: "https://network-user:network-password@example.test/attestation?key=query-secret",
             statusCode: nil,
             error: "transport accidentally echoed \(apiKey)"
         ))
@@ -177,11 +213,11 @@ final class CLIDoctorTests: XCTestCase {
         XCTAssertEqual(text("scan cap reached", in: check), "true")
     }
 
-    func testReachabilityClassifiesAuthenticationRateLimitsAndTransportFailures() async throws {
+    func testReachabilityClassifiesAccessRateLimitsAndTransportFailures() async throws {
         let fixture = try Fixture()
         let home = fixture.root.appendingPathComponent("missing-home", isDirectory: true)
         let unauthorizedWithoutKey = await fixture.doctor(networkResult: .init(
-            endpoint: "https://api.example.test/v1/models",
+            endpoint: "https://api.example.test/attestation",
             statusCode: 401,
             error: nil
         )).collect(
@@ -191,7 +227,7 @@ final class CLIDoctorTests: XCTestCase {
             inputIsTerminal: true
         )
         let unauthorizedWithKey = await fixture.doctor(networkResult: .init(
-            endpoint: "https://api.example.test/v1/models",
+            endpoint: "https://api.example.test/attestation",
             statusCode: 401,
             error: nil
         )).collect(
@@ -201,7 +237,7 @@ final class CLIDoctorTests: XCTestCase {
             inputIsTerminal: true
         )
         let rateLimited = await fixture.doctor(networkResult: .init(
-            endpoint: "https://api.example.test/v1/models",
+            endpoint: "https://api.example.test/attestation",
             statusCode: 429,
             error: nil
         )).collect(
@@ -211,7 +247,7 @@ final class CLIDoctorTests: XCTestCase {
             inputIsTerminal: true
         )
         let transportFailure = await fixture.doctor(networkResult: .init(
-            endpoint: "https://api.example.test/v1/models",
+            endpoint: "https://api.example.test/attestation",
             statusCode: nil,
             error: "timed out"
         )).collect(
@@ -221,10 +257,41 @@ final class CLIDoctorTests: XCTestCase {
             inputIsTerminal: true
         )
 
-        XCTAssertEqual(unauthorizedWithoutKey.checks["network.provider_reachability"]?.status, .ok)
-        XCTAssertEqual(unauthorizedWithKey.checks["network.provider_reachability"]?.status, .fail)
+        XCTAssertEqual(unauthorizedWithoutKey.checks["network.provider_reachability"]?.status, .warning)
+        XCTAssertEqual(unauthorizedWithKey.checks["network.provider_reachability"]?.status, .warning)
         XCTAssertEqual(rateLimited.checks["network.provider_reachability"]?.status, .warning)
         XCTAssertEqual(transportFailure.checks["network.provider_reachability"]?.status, .fail)
+    }
+
+    func testLiveReachabilityUsesCredentialFreeAttestationEndpoint() async throws {
+        DoctorURLProtocol.handler = { request in
+            XCTAssertEqual(
+                request.url?.absoluteString,
+                "https://api.example.test/attestation"
+            )
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+            return (
+                HTTPURLResponse(
+                    url: try XCTUnwrap(request.url),
+                    statusCode: 204,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!,
+                Data()
+            )
+        }
+
+        let result = await LiveCLIDoctorNetworkProbe(
+            session: DoctorURLProtocol.session()
+        ).probe(
+            apiBaseURL: "https://user:password@api.example.test/v1?token=secret#fragment",
+            apiKey: "test-key"
+        )
+
+        XCTAssertEqual(result.endpoint, "https://api.example.test/attestation")
+        XCTAssertEqual(result.statusCode, 204)
+        XCTAssertNil(result.error)
     }
 
     func testHumanRendererSupportsSummaryExpansionAndStrictASCII() throws {
@@ -335,7 +402,7 @@ private extension CLIDoctorTests {
 
         func doctor(
             networkResult: CLIDoctorNetworkResult = CLIDoctorNetworkResult(
-                endpoint: "https://api.trustedrouter.com/v1/models",
+                endpoint: "https://api.trustedrouter.com/attestation",
                 statusCode: 200,
                 error: nil
             )
@@ -348,16 +415,18 @@ private extension CLIDoctorTests {
                     error: nil
                 )),
                 networkProbe: StubNetworkProbe(result: networkResult),
-                runtimeProvider: { inputIsTerminal in
-                    CLIDoctorRuntimeSnapshot(
-                        executablePath: self.quillCodeExecutable.path,
-                        operatingSystem: "TestOS 1.0",
-                        inputIsTerminal: inputIsTerminal,
-                        outputIsTerminal: false,
-                        errorIsTerminal: false
-                    )
-                },
+                runtimeProvider: { inputIsTerminal in self.runtime(inputIsTerminal: inputIsTerminal) },
                 now: { Date(timeIntervalSince1970: 1_700_000_000) }
+            )
+        }
+
+        func runtime(inputIsTerminal: Bool) -> CLIDoctorRuntimeSnapshot {
+            CLIDoctorRuntimeSnapshot(
+                executablePath: quillCodeExecutable.path,
+                operatingSystem: "TestOS 1.0",
+                inputIsTerminal: inputIsTerminal,
+                outputIsTerminal: false,
+                errorIsTerminal: false
             )
         }
 
@@ -370,7 +439,7 @@ private extension CLIDoctorTests {
             )
         }
 
-        private static func makeExecutable(named name: String, in directory: URL) throws -> URL {
+        fileprivate static func makeExecutable(named name: String, in directory: URL) throws -> URL {
             let url = directory.appendingPathComponent(name)
             try "#!/bin/sh\nexit 0\n".write(to: url, atomically: true, encoding: .utf8)
             try FileManager.default.setAttributes(
@@ -396,4 +465,38 @@ private struct StubNetworkProbe: CLIDoctorNetworkProbing {
     func probe(apiBaseURL: String, apiKey: String?) async -> CLIDoctorNetworkResult {
         result
     }
+}
+
+private final class DoctorURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var handler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    static func session() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [DoctorURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    static func reset() {
+        handler = nil
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }

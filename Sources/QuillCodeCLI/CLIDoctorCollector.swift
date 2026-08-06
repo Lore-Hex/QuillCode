@@ -270,12 +270,11 @@ struct CLIDoctor: Sendable {
         _ result: CLIDoctorNetworkResult,
         apiKey: String?
     ) -> CLIDoctorCheck {
-        let hasCredential = apiKey != nil
         let endpoint = CLIDoctorSanitizer.safeURL(result.endpoint)
         let details: [String: CLIDoctorDetail] = [
             "endpoint": .text(endpoint),
             "HTTP status": .text(result.statusCode.map(String.init) ?? "no response"),
-            "credential sent": .text(String(hasCredential))
+            "credential sent": .text("false")
         ]
         if let error = result.error {
             return CLIDoctorCheck(
@@ -305,25 +304,17 @@ struct CLIDoctor: Sendable {
                 id: "network.provider_reachability",
                 category: "reachability",
                 status: .ok,
-                summary: "TrustedRouter model endpoint is reachable",
-                details: details
-            )
-        case 401 where !hasCredential, 403 where !hasCredential:
-            return CLIDoctorCheck(
-                id: "network.provider_reachability",
-                category: "reachability",
-                status: .ok,
-                summary: "TrustedRouter is reachable and requires authentication",
+                summary: "TrustedRouter attested gateway is reachable",
                 details: details
             )
         case 401, 403:
             return CLIDoctorCheck(
                 id: "network.provider_reachability",
                 category: "reachability",
-                status: .fail,
-                summary: "TrustedRouter rejected the configured credential",
+                status: .warning,
+                summary: "TrustedRouter is reachable but attestation access was denied",
                 details: details,
-                remediation: "Sign in again or replace the TrustedRouter API key."
+                remediation: "Check the configured TrustedRouter base URL and gateway access policy."
             )
         case 429:
             return CLIDoctorCheck(
