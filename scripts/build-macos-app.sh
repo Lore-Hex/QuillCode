@@ -9,6 +9,10 @@ BUNDLE_ID="${QUILLCODE_MACOS_BUNDLE_ID:-co.lorehex.QuillCowork}"
 MINIMUM_SYSTEM_VERSION="${QUILLCODE_MACOS_MINIMUM_SYSTEM_VERSION:-14.0}"
 VERSION="${QUILLCODE_MACOS_APP_VERSION:-0.1.0}"
 BUILD_NUMBER="${QUILLCODE_MACOS_BUILD_NUMBER:-1}"
+UPDATE_CHANNEL="${QUILLCODE_MACOS_UPDATE_CHANNEL:-tester}"
+UPDATE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json}"
+UPDATE_STABLE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_STABLE_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json}"
+UPDATE_TESTER_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_TESTER_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -99,6 +103,14 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <true/>
   <key>NSSupportsSuddenTermination</key>
   <true/>
+  <key>QuillCodeUpdateChannel</key>
+  <string>$UPDATE_CHANNEL</string>
+  <key>QuillCodeUpdateManifestURL</key>
+  <string>$UPDATE_MANIFEST_URL</string>
+  <key>QuillCodeStableUpdateManifestURL</key>
+  <string>$UPDATE_STABLE_MANIFEST_URL</string>
+  <key>QuillCodeTesterUpdateManifestURL</key>
+  <string>$UPDATE_TESTER_MANIFEST_URL</string>
 </dict>
 </plist>
 PLIST
