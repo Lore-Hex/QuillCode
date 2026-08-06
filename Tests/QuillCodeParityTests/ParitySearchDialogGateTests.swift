@@ -6,6 +6,7 @@ final class ParitySearchDialogGateTests: QuillCodeParityTestCase {
         let searchSelectionText = try Self.appSourceText(named: "WorkspaceSearchSelection.swift")
         let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
         let commandPaletteSelectionText = try Self.appSourceText(named: "WorkspaceCommandPaletteSelection.swift")
+        let workspaceText = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
 
         for expected in [
             "@State private var localQuery",
@@ -52,6 +53,15 @@ final class ParitySearchDialogGateTests: QuillCodeParityTestCase {
             "func selectedCommand(in commands: [WorkspaceCommandSurface]) -> WorkspaceCommandSurface?"
         ] {
             Self.assertSource(commandPaletteSelectionText, contains: expected)
+        }
+        for expected in [
+            "private func presentSearch()",
+            ".onChange(of: isSearchPresented)",
+            "if isPresented {",
+            "isComposerFocused = false",
+            "if !isSearchPresented {"
+        ] {
+            Self.assertSource(workspaceText, contains: expected)
         }
     }
 }

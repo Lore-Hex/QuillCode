@@ -272,9 +272,18 @@ public struct QuillCodeWorkspaceView: View {
                 attentionDigestOverlay(digest)
             }
         }
+        .onChange(of: isSearchPresented) { _, isPresented in
+            // External menu/controller bindings can present Search without going through
+            // presentSearch(). Keep the underlying workspace from competing for first responder.
+            if isPresented {
+                isComposerFocused = false
+            }
+        }
         .onChange(of: surface.composer.focusToken) { _, _ in
             // The `focus-composer` (Cmd+L) command bumps this token; grab focus when it changes.
-            isComposerFocused = true
+            if !isSearchPresented {
+                isComposerFocused = true
+            }
         }
         .quillCodeWorkspaceSheets(
             surface: surface,
@@ -394,8 +403,7 @@ public struct QuillCodeWorkspaceView: View {
             settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
             isSettingsPresented = true
         case .presentSearch:
-            searchQuery = ""
-            isSearchPresented = true
+            presentSearch()
         case .presentFind:
             isFindPresented = true
         case .requestAddProject:
@@ -468,6 +476,14 @@ public struct QuillCodeWorkspaceView: View {
         sshConnectionDialog.present(loadHosts: actions.onDiscoverSSHHosts)
     }
 
+    private func presentSearch() {
+        // Revoke the current focus owner before inserting Search into the hierarchy. Waiting for
+        // the presentation binding's onChange is too late when AppKit is also dismissing a popover.
+        isComposerFocused = false
+        searchQuery = ""
+        isSearchPresented = true
+    }
+
     private func retrySSHHostDiscovery() {
         sshConnectionDialog.retry(loadHosts: actions.onDiscoverSSHHosts)
     }
@@ -491,8 +507,7 @@ public struct QuillCodeWorkspaceView: View {
         draft = ""
         switch commandID {
         case "search":
-            searchQuery = ""
-            isSearchPresented = true
+            presentSearch()
         case "find-in-chat":
             isFindPresented = true
         case "settings":
