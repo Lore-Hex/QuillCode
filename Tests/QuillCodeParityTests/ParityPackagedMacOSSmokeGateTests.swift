@@ -165,6 +165,13 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         )
         XCTAssertTrue(multiFileArtifactValidator.contains(#""capacity-rebalance.md""#))
         XCTAssertTrue(multiFileArtifactValidator.contains(#""findsOverbookedPeople""#))
+        XCTAssertTrue(
+            multiFileArtifactValidator.contains(
+                #""Audit the 30 subcontractor COI PDFs in `coi-pdfs`: pull carrier, policy number, limits, and "#
+            )
+        )
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""coi-compliance-audit.csv""#))
+        XCTAssertTrue(multiFileArtifactValidator.contains(#""flagsExpiringSoon""#))
 
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopOneTurnCoworkerSmokeReport"))
         XCTAssertTrue(supportText.contains("struct QuillCodeDesktopMultiFileCatalogSmokeCaseReport"))

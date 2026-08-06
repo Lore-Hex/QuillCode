@@ -211,8 +211,8 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
           "ok": true,
           "packagedMultiFileArtifactValidated": true,
           "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
-          "catalogTaskIDs": [69, 70, 71, 72],
-          "taskIDs": [69, 70, 71, 72],
+          "catalogTaskIDs": [69, 70, 71, 72, 73],
+          "taskIDs": [69, 70, 71, 72, 73],
           "launchServicesMatchesDirect": true,
           "multiFileArtifactMatchesDirect": true,
           "catalogCases": [
@@ -231,6 +231,10 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
             {
               "taskID": 72,
               "prompt": "Check `allocations.csv` for anyone booked over 100% across the three concurrent projects and propose a rebalance with named swaps."
+            },
+            {
+              "taskID": 73,
+              "prompt": "Audit the 30 subcontractor COI PDFs in `coi-pdfs`: pull carrier, policy number, limits, and expiry, then flag anything under $1M or expiring within 60 days."
             }
           ]
         }
@@ -249,13 +253,14 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
-        XCTAssertTrue(coverage.contains(#""provenTaskCount": 58"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 148"#), coverage)
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 59"#), coverage)
+        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 147"#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceType": "packaged-multi-file-artifact""#), coverage)
         XCTAssertTrue(coverage.contains(#""69": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""70": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""71": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""72": ["#), coverage)
+        XCTAssertTrue(coverage.contains(#""73": ["#), coverage)
     }
 
     func testCoworkerCatalogCoverageRejectsManifestWithoutCatalogRows() throws {

@@ -529,6 +529,116 @@ final class MockLLMClientMultiFileArtifactTests: XCTestCase {
         )
     }
 
+    func testComplianceAuditStartsByReadingFirstCOI() async throws {
+        let action = try await MockLLMClient().nextAction(
+            thread: ChatThread(mode: .auto),
+            userMessage: "Audit the 30 subcontractor COI PDFs in `coi-pdfs`: pull carrier, policy number, limits, and expiry, then flag anything under $1M or expiring within 60 days.",
+            tools: ToolRouter.definitions
+        )
+
+        let call = try XCTUnwrap(action.toolCall)
+        XCTAssertEqual(call.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(call.argumentsJSON).string("path"), "coi-pdfs/acme-electric.pdf")
+    }
+
+    func testComplianceAuditReadsCOIsThenWritesAuditCSV() async throws {
+        let user = ChatMessage(
+            role: .user,
+            content: "Audit the 30 subcontractor COI PDFs in `coi-pdfs`: pull carrier, policy number, limits, and expiry, then flag anything under $1M or expiring within 60 days."
+        )
+        let acmeRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "coi-pdfs/acme-electric.pdf"])
+        )
+        let afterAcme = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: acmeRead, stdout: "Acme Electric Harbor Mutual HM-1042")
+            ]
+        )
+
+        let northwindAction = try await MockLLMClient().nextAction(
+            thread: afterAcme,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let northwindCall = try XCTUnwrap(northwindAction.toolCall)
+        XCTAssertEqual(northwindCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(northwindCall.argumentsJSON).string("path"), "coi-pdfs/northwind-plumbing.pdf")
+
+        let northwindRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "coi-pdfs/northwind-plumbing.pdf"])
+        )
+        let afterNorthwind = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: northwindRead, stdout: "Northwind Plumbing Cascade Casualty CC-8821")
+            ]
+        )
+
+        let zenithAction = try await MockLLMClient().nextAction(
+            thread: afterNorthwind,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let zenithCall = try XCTUnwrap(zenithAction.toolCall)
+        XCTAssertEqual(zenithCall.name, ToolDefinition.fileRead.name)
+        XCTAssertEqual(try ToolArguments(zenithCall.argumentsJSON).string("path"), "coi-pdfs/zenith-roofing.pdf")
+
+        let zenithRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "coi-pdfs/zenith-roofing.pdf"])
+        )
+        let afterZenith = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: zenithRead, stdout: "Zenith Roofing Summit Indemnity SI-4470")
+            ]
+        )
+
+        let writeAction = try await MockLLMClient().nextAction(
+            thread: afterZenith,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        let writeCall = try XCTUnwrap(writeAction.toolCall)
+        XCTAssertEqual(writeCall.name, ToolDefinition.fileWrite.name)
+        let writeArguments = try ToolArguments(writeCall.argumentsJSON)
+        XCTAssertEqual(writeArguments.string("path"), "coi-compliance-audit.csv")
+        let content = try XCTUnwrap(writeArguments.string("content"))
+        XCTAssertTrue(content.contains("Harbor Mutual,HM-1042"))
+        XCTAssertTrue(content.contains("Northwind Plumbing,Cascade Casualty,CC-8821,750000"))
+        XCTAssertTrue(content.contains("EXPIRING_WITHIN_60_DAYS"))
+
+        let writeFeedback = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json(["path": "coi-compliance-audit.csv"])
+        )
+        let afterWrite = ChatThread(
+            mode: .auto,
+            messages: [
+                user,
+                try toolFeedbackMessage(for: writeFeedback, stdout: "wrote coi-compliance-audit.csv")
+            ]
+        )
+        let finalAction = try await MockLLMClient().nextAction(
+            thread: afterWrite,
+            userMessage: user.content,
+            tools: ToolRouter.definitions
+        )
+        guard case .say(let finalAnswer) = finalAction else {
+            return XCTFail("Expected a final answer after the COI audit is written.")
+        }
+        XCTAssertEqual(
+            finalAnswer,
+            "Created `coi-compliance-audit.csv` with carrier, policy number, limits, expiry, and compliance flags."
+        )
+    }
+
     private func toolFeedbackMessage(for call: ToolCall, stdout: String) throws -> ChatMessage {
         let feedback = AgentToolFeedback(
             toolCall: call,
