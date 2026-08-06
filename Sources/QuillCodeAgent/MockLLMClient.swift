@@ -382,6 +382,18 @@ public struct MockLLMClient: LLMClient {
         for lowercasedRequest: String,
         tools: [ToolDefinition]
     ) -> AgentAction? {
+        if lowercasedRequest.contains("subcontractor coi"),
+           lowercasedRequest.contains("carrier"),
+           lowercasedRequest.contains("policy number"),
+           lowercasedRequest.contains("under $1m"),
+           lowercasedRequest.contains("expiring within 60 days"),
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "coi-pdfs/acme-electric.pdf"])
+            ))
+        }
+
         if lowercasedRequest.contains("allocations.csv"),
            lowercasedRequest.contains("booked over 100%"),
            lowercasedRequest.contains("rebalance"),
@@ -436,6 +448,9 @@ public struct MockLLMClient: LLMClient {
         feedback: AgentToolFeedback,
         tools: [ToolDefinition]
     ) -> AgentAction? {
+        if let action = Self.nextComplianceAuditAction(thread: thread, feedback: feedback, tools: tools) {
+            return action
+        }
         if let action = Self.nextCapacityPlanningAction(thread: thread, feedback: feedback, tools: tools) {
             return action
         }
@@ -451,6 +466,64 @@ public struct MockLLMClient: LLMClient {
         if let action = Self.nextTeamActionBriefAction(thread: thread, feedback: feedback, tools: tools) {
             return action
         }
+        return nil
+    }
+
+    private static func nextComplianceAuditAction(
+        thread: ChatThread,
+        feedback: AgentToolFeedback,
+        tools: [ToolDefinition]
+    ) -> AgentAction? {
+        guard thread.messages.contains(where: {
+            let content = $0.content.lowercased()
+            return $0.role == .user
+                && content.contains("subcontractor coi")
+                && content.contains("carrier")
+                && content.contains("policy number")
+                && content.contains("under $1m")
+                && content.contains("expiring within 60 days")
+        }) else {
+            return nil
+        }
+
+        let path = Self.stringArgument("path", from: feedback.toolCall.argumentsJSON)
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "coi-pdfs/acme-electric.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "coi-pdfs/northwind-plumbing.pdf"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "coi-pdfs/northwind-plumbing.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileRead.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "coi-pdfs/zenith-roofing.pdf"])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileRead.name,
+           path == "coi-pdfs/zenith-roofing.pdf",
+           tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }) {
+            return .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "coi-compliance-audit.csv",
+                    "content": Self.complianceAuditCSV
+                ])
+            ))
+        }
+
+        if feedback.toolCall.name == ToolDefinition.fileWrite.name,
+           path == "coi-compliance-audit.csv" {
+            return .say(
+                "Created `coi-compliance-audit.csv` with carrier, policy number, limits, expiry, and compliance flags."
+            )
+        }
+
         return nil
     }
 
@@ -747,6 +820,15 @@ public struct MockLLMClient: LLMClient {
         - Ana drops from 125% to 105%, then moves 5% Atlas documentation to Eli to reach 100%.
         - Dev drops from 115% to 100%.
         - Eli rises from 65% to 90%; Bo rises from 70% to 85%.
+        """
+    }
+
+    private static var complianceAuditCSV: String {
+        """
+        subcontractor,carrier,policy_number,limit,expiry,flags
+        Acme Electric,Harbor Mutual,HM-1042,2000000,2026-10-15,OK
+        Northwind Plumbing,Cascade Casualty,CC-8821,750000,2026-11-30,UNDER_LIMIT
+        Zenith Roofing,Summit Indemnity,SI-4470,1000000,2026-08-20,EXPIRING_WITHIN_60_DAYS
         """
     }
 

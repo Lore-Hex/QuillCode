@@ -52,6 +52,11 @@
   `capacity-rebalance.md`, verifies overbooked people, named swaps, project constraints, and
   at-or-under-capacity outcomes, and exposes `catalogTaskIDs: [69, 70, 71, 72]` so deterministic
   multi-document planning coverage advances in the coworker coverage rollup.
+- **Update:** The packaged multi-file artifact manifest now includes catalog row #73, Compliance
+  Audit. The row #73 case reads three subcontractor COI PDFs under `coi-pdfs`, writes
+  `coi-compliance-audit.csv`, verifies carrier, policy number, limits, expiry, under-limit, and
+  expiring-soon flags, and exposes `catalogTaskIDs: [69, 70, 71, 72, 73]` so deterministic
+  compliance extraction coverage advances in the coworker coverage rollup.
 
 ## 2026-07-27: TrustedRouter balance history is locally observed
 

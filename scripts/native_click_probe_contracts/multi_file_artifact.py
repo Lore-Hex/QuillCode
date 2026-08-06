@@ -11,7 +11,7 @@ from .live_saas import CATALOG_SPREADSHEET_URL
 
 EXPECTED_PROMPT = "Create the team action brief from `notes/research.md` and `notes/risks.md`."
 EXPECTED_TOOL_SEQUENCE = ["host.file.read", "host.file.read", "host.file.write"]
-EXPECTED_CATALOG_TASK_IDS = [69, 70, 71, 72]
+EXPECTED_CATALOG_TASK_IDS = [69, 70, 71, 72, 73]
 EXPECTED_ALL_HANDS_PROMPT = (
     "Draft the CEO all-hands email announcing the reorg from `org-changes.pptx` "
     "and the answers in `reorg-qa`, covering the eight hardest questions."
@@ -27,6 +27,10 @@ EXPECTED_BULK_RENAME_PROMPT = (
 EXPECTED_CAPACITY_PLANNING_PROMPT = (
     "Check `allocations.csv` for anyone booked over 100% across the three concurrent projects "
     "and propose a rebalance with named swaps."
+)
+EXPECTED_COMPLIANCE_AUDIT_PROMPT = (
+    "Audit the 30 subcontractor COI PDFs in `coi-pdfs`: pull carrier, policy number, limits, and "
+    "expiry, then flag anything under $1M or expiring within 60 days."
 )
 EXPECTED_ALL_HANDS_ASSERTIONS = {
     "announcesReorg",
@@ -51,6 +55,12 @@ EXPECTED_CAPACITY_PLANNING_ASSERTIONS = {
     "proposesNamedSwaps",
     "usesProjectConstraints",
     "balancesUnderOrAtCapacity",
+}
+EXPECTED_COMPLIANCE_AUDIT_ASSERTIONS = {
+    "extractsCarriersAndPolicies",
+    "extractsLimitsAndExpiries",
+    "flagsUnderLimit",
+    "flagsExpiringSoon",
 }
 
 
@@ -124,6 +134,15 @@ def validated_multi_file_artifact(report: dict[str, Any], label: str) -> dict[st
         f"{label} multi-file catalogCases must include exactly one row #72 case",
     )
     validate_capacity_planning_case(capacity_planning_cases[0], label)
+    compliance_audit_cases = [
+        case for case in catalog_cases
+        if isinstance(case, dict) and case.get("taskID") == 73
+    ]
+    require(
+        len(compliance_audit_cases) == 1,
+        f"{label} multi-file catalogCases must include exactly one row #73 case",
+    )
+    validate_compliance_audit_case(compliance_audit_cases[0], label)
     return smoke
 
 
@@ -273,6 +292,47 @@ def validate_capacity_planning_case(case: dict[str, Any], label: str) -> None:
     require(not missing, f"{label} row #72 assertions were not all true: {missing}")
 
 
+def validate_compliance_audit_case(case: dict[str, Any], label: str) -> None:
+    require(case.get("prompt") == EXPECTED_COMPLIANCE_AUDIT_PROMPT, f"{label} row #73 prompt drifted")
+    require(
+        case.get("toolSequence") == [
+            "host.file.read",
+            "host.file.read",
+            "host.file.read",
+            "host.file.write",
+        ],
+        f"{label} row #73 tool sequence was {case.get('toolSequence')!r}",
+    )
+    source_paths = case.get("sourcePaths")
+    require(
+        isinstance(source_paths, list) and len(source_paths) == 3,
+        f"{label} row #73 sourcePaths was malformed: {source_paths!r}",
+    )
+    for expected_suffix in (
+        "coi-pdfs/acme-electric.pdf",
+        "coi-pdfs/northwind-plumbing.pdf",
+        "coi-pdfs/zenith-roofing.pdf",
+    ):
+        require(
+            any(isinstance(path, str) and path.endswith(expected_suffix) for path in source_paths),
+            f"{label} row #73 missed {expected_suffix}: {source_paths!r}",
+        )
+    deliverable_path = case.get("deliverablePath")
+    require(
+        isinstance(deliverable_path, str) and deliverable_path.endswith("coi-compliance-audit.csv"),
+        f"{label} row #73 deliverable path was malformed: {deliverable_path!r}",
+    )
+    final_answer = case.get("finalAnswer")
+    require(
+        isinstance(final_answer, str) and "Created `coi-compliance-audit.csv`" in final_answer,
+        f"{label} row #73 final answer was malformed: {final_answer!r}",
+    )
+    assertions = case.get("assertions")
+    require(isinstance(assertions, dict), f"{label} row #73 assertions must be an object")
+    missing = sorted(name for name in EXPECTED_COMPLIANCE_AUDIT_ASSERTIONS if assertions.get(name) is not True)
+    require(not missing, f"{label} row #73 assertions were not all true: {missing}")
+
+
 def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
     source_paths = smoke["sourcePaths"]
     catalog_cases = smoke["catalogCases"]
@@ -280,6 +340,7 @@ def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
     analyst_case = next(case for case in catalog_cases if case["taskID"] == 70)
     bulk_rename_case = next(case for case in catalog_cases if case["taskID"] == 71)
     capacity_planning_case = next(case for case in catalog_cases if case["taskID"] == 72)
+    compliance_audit_case = next(case for case in catalog_cases if case["taskID"] == 73)
     return {
         "prompt": smoke["prompt"],
         "toolSequence": smoke["toolSequence"],
@@ -351,6 +412,20 @@ def semantic_multi_file_artifact(smoke: dict[str, Any]) -> dict[str, Any]:
                 "deliverablePathSuffix": "capacity-rebalance.md",
                 "finalAnswer": capacity_planning_case["finalAnswer"],
                 "assertions": capacity_planning_case["assertions"],
+            },
+            {
+                "taskID": 73,
+                "prompt": compliance_audit_case["prompt"],
+                "toolSequence": compliance_audit_case["toolSequence"],
+                "sourcePathSuffixes": sorted(
+                    str(path).split("coi-pdfs/", 1)[-1]
+                    if "coi-pdfs/" in str(path)
+                    else str(path)
+                    for path in compliance_audit_case["sourcePaths"]
+                ),
+                "deliverablePathSuffix": "coi-compliance-audit.csv",
+                "finalAnswer": compliance_audit_case["finalAnswer"],
+                "assertions": compliance_audit_case["assertions"],
             }
         ],
     }

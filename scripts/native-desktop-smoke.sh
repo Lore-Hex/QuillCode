@@ -462,6 +462,38 @@ for assertion in ("findsOverbookedPeople", "proposesNamedSwaps", "usesProjectCon
 capacity_planning_final_answer = capacity_planning.get("finalAnswer")
 if not isinstance(capacity_planning_final_answer, str) or "Created `capacity-rebalance.md`" not in capacity_planning_final_answer:
     fail(f"row #72 final answer was malformed: {capacity_planning_final_answer!r}")
+compliance_audit_cases = [
+    case for case in catalog_cases
+    if isinstance(case, dict) and case.get("taskID") == 73
+]
+if len(compliance_audit_cases) != 1:
+    fail(f"multi-file artifact smoke expected exactly one row #73 case: {catalog_cases!r}")
+compliance_audit = compliance_audit_cases[0]
+expected_compliance_audit_prompt = "Audit the 30 subcontractor COI PDFs in `coi-pdfs`: pull carrier, policy number, limits, and expiry, then flag anything under $1M or expiring within 60 days."
+if compliance_audit.get("prompt") != expected_compliance_audit_prompt:
+    fail(f"row #73 prompt drifted: {compliance_audit.get('prompt')!r}")
+if compliance_audit.get("toolSequence") != ["host.file.read", "host.file.read", "host.file.read", "host.file.write"]:
+    fail(f"row #73 tool sequence drifted: {compliance_audit.get('toolSequence')!r}")
+compliance_audit_sources = compliance_audit.get("sourcePaths")
+if not isinstance(compliance_audit_sources, list) or len(compliance_audit_sources) != 3:
+    fail(f"row #73 source paths were malformed: {compliance_audit_sources!r}")
+for expected_suffix in (
+    "coi-pdfs/acme-electric.pdf",
+    "coi-pdfs/northwind-plumbing.pdf",
+    "coi-pdfs/zenith-roofing.pdf",
+):
+    if not any(isinstance(path, str) and path.endswith(expected_suffix) for path in compliance_audit_sources):
+        fail(f"row #73 missed source path {expected_suffix}: {compliance_audit_sources!r}")
+compliance_audit_deliverable = compliance_audit.get("deliverablePath")
+if not isinstance(compliance_audit_deliverable, str) or not compliance_audit_deliverable.endswith("coi-compliance-audit.csv"):
+    fail(f"row #73 deliverable path was malformed: {compliance_audit_deliverable!r}")
+compliance_audit_assertions = compliance_audit.get("assertions")
+for assertion in ("extractsCarriersAndPolicies", "extractsLimitsAndExpiries", "flagsUnderLimit", "flagsExpiringSoon"):
+    if not isinstance(compliance_audit_assertions, dict) or compliance_audit_assertions.get(assertion) is not True:
+        fail(f"row #73 assertion {assertion} was not true: {compliance_audit_assertions!r}")
+compliance_audit_final_answer = compliance_audit.get("finalAnswer")
+if not isinstance(compliance_audit_final_answer, str) or "Created `coi-compliance-audit.csv`" not in compliance_audit_final_answer:
+    fail(f"row #73 final answer was malformed: {compliance_audit_final_answer!r}")
 
 one_turn_coworker_smoke = report.get("oneTurnCoworkerSmoke")
 if not isinstance(one_turn_coworker_smoke, dict):
@@ -1434,6 +1466,11 @@ if ! grep -q 'capacity-rebalance.md' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
+if ! grep -q 'coi-compliance-audit.csv' "$REPORT_PATH"; then
+  echo "quill-code-desktop native smoke did not produce the expected row #73 compliance audit answer" >&2
+  cat "$REPORT_PATH" >&2
+  exit 1
+fi
 if ! grep -q 'Contents of `hello.txt`:' "$REPORT_PATH" || ! grep -q 'hello world' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not produce the expected follow-up file-read answer" >&2
   cat "$REPORT_PATH" >&2
@@ -1447,6 +1484,7 @@ if ! grep -q 'Wrote `hello.txt`.' "$HTML_PATH" \
   || ! grep -q 'Created `analyst-claims-contradictions.md`' "$HTML_PATH" \
   || ! grep -q 'invoice-rename-undo.csv' "$HTML_PATH" \
   || ! grep -q 'capacity-rebalance.md' "$HTML_PATH" \
+  || ! grep -q 'coi-compliance-audit.csv' "$HTML_PATH" \
   || ! grep -q 'Inspected `Browser Smoke`' "$HTML_PATH" \
   || ! grep -q 'host.browser.inspect' "$HTML_PATH" \
   || ! grep -q 'host.file.write' "$HTML_PATH" \

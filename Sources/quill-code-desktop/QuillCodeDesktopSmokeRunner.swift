@@ -855,7 +855,8 @@ enum QuillCodeDesktopSmokeRunner {
             try await runAllHandsEmailCatalogSmoke(controller: controller, root: root),
             try await runAnalystSynthesisCatalogSmoke(controller: controller, root: root),
             try await runBulkInvoiceRenameCatalogSmoke(controller: controller, root: root),
-            try await runCapacityPlanningCatalogSmoke(controller: controller, root: root)
+            try await runCapacityPlanningCatalogSmoke(controller: controller, root: root),
+            try await runComplianceAuditCatalogSmoke(controller: controller, root: root)
         ]
 
         return QuillCodeDesktopMultiFileArtifactSmokeReport(
@@ -1190,6 +1191,96 @@ enum QuillCodeDesktopSmokeRunner {
             taskID: 72,
             prompt: prompt,
             sourcePaths: [allocations.path, atlas.path, beacon.path, comet.path],
+            deliverablePath: deliverable.path,
+            toolSequence: toolSequence,
+            finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
+            assertions: assertions
+        )
+    }
+
+    private static func runComplianceAuditCatalogSmoke(
+        controller: QuillCodeDesktopController,
+        root: QuillCodeDesktopSmokeWorkspaceRoot
+    ) async throws -> QuillCodeDesktopMultiFileCatalogSmokeCaseReport {
+        let coiDirectory = root.workspace.appendingPathComponent("coi-pdfs", isDirectory: true)
+        try FileManager.default.createDirectory(at: coiDirectory, withIntermediateDirectories: true)
+
+        let acme = coiDirectory.appendingPathComponent("acme-electric.pdf")
+        let northwind = coiDirectory.appendingPathComponent("northwind-plumbing.pdf")
+        let zenith = coiDirectory.appendingPathComponent("zenith-roofing.pdf")
+        try """
+        Certificate of Insurance
+        Subcontractor: Acme Electric
+        Carrier: Harbor Mutual
+        Policy Number: HM-1042
+        General Liability Limit: $2,000,000
+        Expiry: 2026-10-15
+        """.write(to: acme, atomically: true, encoding: .utf8)
+        try """
+        Certificate of Insurance
+        Subcontractor: Northwind Plumbing
+        Carrier: Cascade Casualty
+        Policy Number: CC-8821
+        General Liability Limit: $750,000
+        Expiry: 2026-11-30
+        """.write(to: northwind, atomically: true, encoding: .utf8)
+        try """
+        Certificate of Insurance
+        Subcontractor: Zenith Roofing
+        Carrier: Summit Indemnity
+        Policy Number: SI-4470
+        General Liability Limit: $1,000,000
+        Expiry: 2026-08-20
+        """.write(to: zenith, atomically: true, encoding: .utf8)
+
+        let prompt = "Audit the 30 subcontractor COI PDFs in `coi-pdfs`: pull carrier, policy number, limits, and expiry, then flag anything under $1M or expiring within 60 days."
+        let previousTimelineCount = controller.surface.transcript.timelineItems.count
+        let previousToolCardCount = controller.surface.transcript.toolCards.count
+        controller.draft = prompt
+        controller.send()
+
+        let expectedAnswer = "Created `coi-compliance-audit.csv` with carrier, policy number, limits, expiry, and compliance flags."
+        try await waitForDesktopRun(
+            controller,
+            previousTimelineCount: previousTimelineCount,
+            expectedAnswer: expectedAnswer
+        )
+
+        let deliverable = root.workspace.appendingPathComponent("coi-compliance-audit.csv")
+        let deliverableText = try String(contentsOf: deliverable, encoding: .utf8)
+        let assertions = [
+            "extractsCarriersAndPolicies": deliverableText.contains("Harbor Mutual,HM-1042")
+                && deliverableText.contains("Cascade Casualty,CC-8821")
+                && deliverableText.contains("Summit Indemnity,SI-4470"),
+            "extractsLimitsAndExpiries": deliverableText.contains("2000000,2026-10-15")
+                && deliverableText.contains("750000,2026-11-30")
+                && deliverableText.contains("1000000,2026-08-20"),
+            "flagsUnderLimit": deliverableText.contains("Northwind Plumbing")
+                && deliverableText.contains("UNDER_LIMIT"),
+            "flagsExpiringSoon": deliverableText.contains("Zenith Roofing")
+                && deliverableText.contains("EXPIRING_WITHIN_60_DAYS")
+        ]
+        guard assertions.values.allSatisfy({ $0 }) else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(deliverable.path)
+        }
+
+        let toolSequence = Array(controller.surface.transcript.toolCards.dropFirst(previousToolCardCount))
+            .map(\.title)
+        guard toolSequence == [
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileRead.name,
+            ToolDefinition.fileWrite.name
+        ] else {
+            throw QuillCodeDesktopSmokeFailure.multiFileArtifactMismatch(
+                "unexpected compliance audit tool sequence: \(toolSequence.joined(separator: ", "))"
+            )
+        }
+
+        return QuillCodeDesktopMultiFileCatalogSmokeCaseReport(
+            taskID: 73,
+            prompt: prompt,
+            sourcePaths: [acme.path, northwind.path, zenith.path],
             deliverablePath: deliverable.path,
             toolSequence: toolSequence,
             finalAnswer: controller.surface.transcript.messages.last?.text ?? "",
