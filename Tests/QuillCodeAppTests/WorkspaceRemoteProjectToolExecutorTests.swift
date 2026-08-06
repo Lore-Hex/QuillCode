@@ -705,7 +705,7 @@ final class WorkspaceRemoteProjectToolExecutorTests: XCTestCase {
         ) { error in
             XCTAssertEqual(
                 String(describing: error),
-                "Managed worktree tasks require a local project so QuillCode can transfer local changes safely."
+                "Managed worktree tasks require a local project so Quill Cowork can transfer local changes safely."
             )
         }
     }

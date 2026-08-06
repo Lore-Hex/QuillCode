@@ -307,7 +307,7 @@ public enum AgentImportError: Error, Sendable, CustomStringConvertible {
         case .invalidSourceOrDestination:
             "An import source or destination failed boundary validation."
         case .destinationAlreadyExists:
-            "Import would overwrite an existing QuillCode file."
+            "Import would overwrite an existing Quill Cowork file."
         case .unsupportedSource:
             "This import source is not supported."
         case .noSelectedProjects:

@@ -1,4 +1,5 @@
 import AppKit
+import QuillCodeApp
 
 enum QuillCodeMenuBarIcon {
     static var image: NSImage {
@@ -14,7 +15,7 @@ enum QuillCodeMenuBarIcon {
 
         let fallback = NSImage(
             systemSymbolName: "q.circle.fill",
-            accessibilityDescription: "QuillCode"
+            accessibilityDescription: QuillCodeProduct.displayName
         ) ?? NSImage(size: NSSize(width: 18, height: 18))
         fallback.isTemplate = true
         return fallback

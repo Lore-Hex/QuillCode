@@ -97,7 +97,7 @@ enum MemoryNoteFileReader {
             return nil
         }
         if wasTruncated {
-            text += "\n\n[QuillCode truncated this memory file at \(maxBytes) bytes.]"
+            text += "\n\n[\(QuillCodeProduct.displayName) truncated this memory file at \(maxBytes) bytes.]"
         }
         return MemoryNoteBoundedContent(
             text: text,

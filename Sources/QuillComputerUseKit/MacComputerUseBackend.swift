@@ -163,7 +163,7 @@ public struct MacComputerUseBackend: ComputerUseBackend,
     private func requireScreenRecording() throws {
         guard CGPreflightScreenCaptureAccess() else {
             throw ComputerUseError.permissionDenied(
-                "Grant Screen Recording to QuillCode in System Settings."
+                "Grant Screen Recording to Quill Cowork in System Settings."
             )
         }
     }
@@ -171,7 +171,7 @@ public struct MacComputerUseBackend: ComputerUseBackend,
     private func requireAccessibility() throws {
         guard AXIsProcessTrusted() else {
             throw ComputerUseError.permissionDenied(
-                "Grant Accessibility to QuillCode in System Settings."
+                "Grant Accessibility to Quill Cowork in System Settings."
             )
         }
     }

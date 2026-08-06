@@ -16,9 +16,9 @@ extension QuillCodeParityTestCase {
         return """
         {
           "ok": true,
-          "appName": "QuillCode",
-          "bundleIdentifier": "co.lorehex.QuillCode",
-          "windowTitle": "QuillCode",
+          "appName": "Quill Cowork",
+          "bundleIdentifier": "co.lorehex.QuillCowork",
+          "windowTitle": "Quill Cowork",
           "screenshotPath": "window.png",
           "image": {
             "width": 1280,
@@ -26,12 +26,12 @@ extension QuillCodeParityTestCase {
             "distinctColorBuckets": 16
           },
           "surface": {
-            "appName": "QuillCode",
+            "appName": "Quill Cowork",
             "primaryTitle": "run whoami",
             "modelLabel": "Nike 1.0",
             "modeLabel": "Auto",
             "agentStatus": "TrustedRouter signed in",
-            "composerPlaceholder": "Message QuillCode",
+            "composerPlaceholder": "Message Quill Cowork",
             "composerCanSend": false,
             "sidebarTitle": "Chats",
             "commandIDs": [

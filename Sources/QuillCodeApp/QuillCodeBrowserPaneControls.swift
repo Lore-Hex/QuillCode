@@ -85,7 +85,7 @@ extension QuillCodeBrowserPaneView {
                     .buttonStyle(QuillCodePressableButtonStyle())
                     .quillCodeTextButtonTarget(minWidth: 84)
                     .disabled(!browser.canOpen && browser.currentURL == nil)
-                    .help("Open a visible browser session using QuillCode's persistent browser profile.")
+                    .help("Open a visible browser session using \(QuillCodeProduct.displayName)'s persistent browser profile.")
                     .accessibilityIdentifier("quillcode-browser-session")
             }
         }

@@ -89,7 +89,7 @@ public enum GlobalHookConfigurationLoader {
         appendLayer(
             paths.systemQuillCodeDirectory,
             id: "system-quillcode",
-            name: "QuillCode system hooks",
+            name: "Quill Cowork system hooks",
             displayPrefix: "/etc/quillcode",
             trustScope: .managed,
             catalogSource: .system,
@@ -107,7 +107,7 @@ public enum GlobalHookConfigurationLoader {
         appendLayer(
             paths.userQuillCodeDirectory,
             id: "user-quillcode",
-            name: "QuillCode user hooks",
+            name: "Quill Cowork user hooks",
             displayPrefix: "~/.quillcode",
             trustScope: .user,
             catalogSource: .user,

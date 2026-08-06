@@ -128,7 +128,7 @@ final class ProjectInstructionLoaderTests: XCTestCase {
 
         XCTAssertEqual(instructions.map(\.path), [".quillcode/rules/imported-claude.md"])
         XCTAssertEqual(instructions.map(\.scopePath), ["."])
-        XCTAssertEqual(instructions.map(\.title), ["QuillCode rule: imported-claude"])
+        XCTAssertEqual(instructions.map(\.title), ["Quill Cowork rule: imported-claude"])
         XCTAssertFalse(instructions.contains { $0.content.contains("Do not load") })
     }
 }

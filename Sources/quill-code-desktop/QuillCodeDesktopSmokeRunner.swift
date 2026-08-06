@@ -747,7 +747,7 @@ enum QuillCodeDesktopSmokeRunner {
             )
         }
         guard report.automationID == automation.id,
-              report.title == "QuillCode scheduled task ready",
+              report.title == "\(QuillCodeProduct.displayName) scheduled task ready",
               report.body.contains(taskText)
         else {
             throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(

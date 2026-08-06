@@ -22,8 +22,8 @@ enum BrowserInspector {
             sourceLabel: isLocal ? "Local web app" : "Web page",
             inspectionDepth: .metadataOnly,
             summary: isLocal
-                ? "Live DOM capture is not attached yet; QuillCode has URL metadata for this local page."
-                : "Live DOM capture is not attached yet; QuillCode has URL metadata for this web page.",
+                ? "Live DOM capture is not attached yet; \(QuillCodeProduct.displayName) has URL metadata for this local page."
+                : "Live DOM capture is not attached yet; \(QuillCodeProduct.displayName) has URL metadata for this web page.",
             details: [
                 "Host: \(host)",
                 "Scheme: \(scheme)",

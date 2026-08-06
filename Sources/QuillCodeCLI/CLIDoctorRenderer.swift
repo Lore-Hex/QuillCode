@@ -18,7 +18,7 @@ enum CLIDoctorRenderer {
             && cquill_fd_isatty(Int32(FileHandle.standardOutput.fileDescriptor)) == 1
         let headingSeparator = request.usesASCII ? "|" : "·"
         var lines = [
-            "QuillCode Doctor v\(report.quillCodeVersion) \(headingSeparator) \(platform(in: report))",
+            "Quill Cowork Doctor v\(report.quillCodeVersion) \(headingSeparator) \(platform(in: report))",
             ""
         ]
 

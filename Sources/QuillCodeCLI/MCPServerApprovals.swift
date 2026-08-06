@@ -164,12 +164,12 @@ extension MCPServerSession {
         isPatch: Bool
     ) -> String {
         if isPatch {
-            return [reason, "Allow QuillCode to apply the proposed code changes?"]
+            return [reason, "Allow Quill Cowork to apply the proposed code changes?"]
                 .filter { !$0.isEmpty }
                 .joined(separator: "\n")
         }
         let command = shellCommand(call) ?? call.name
-        return "Allow QuillCode to run `\(command)` in `\(workspaceRoot.path)`?"
+        return "Allow Quill Cowork to run `\(command)` in `\(workspaceRoot.path)`?"
     }
 
     private func shellCommand(_ call: ToolCall) -> String? {

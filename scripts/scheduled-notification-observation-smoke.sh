@@ -19,4 +19,4 @@ fi
   "$EVIDENCE_PATH" \
   --manifest "$MANIFEST_PATH"
 
-echo "QuillCode scheduled notification observation evidence validated: $MANIFEST_PATH"
+echo "Quill Cowork scheduled notification observation evidence validated: $MANIFEST_PATH"

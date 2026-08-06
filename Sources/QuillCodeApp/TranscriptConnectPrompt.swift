@@ -15,7 +15,7 @@ public struct TranscriptConnectPrompt: Equatable, Sendable {
 
     public static let title = "Connect TrustedRouter to start"
     public static let subtitle =
-        "QuillCode runs on TrustedRouter — private, attested inference. Sign in to pick a model and "
+        "\(QuillCodeProduct.displayName) runs on TrustedRouter — private, attested inference. Sign in to pick a model and "
         + "start coding. Your keys never touch the page."
     public static let signInButtonTitle = "Sign in with TrustedRouter"
     public static let createAccountTitle = "Create an account"

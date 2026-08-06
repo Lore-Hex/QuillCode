@@ -12,7 +12,7 @@ struct QuillCodeDesktopCommands: Commands {
     }
 
     var body: some Commands {
-        CommandMenu("QuillCode") {
+        CommandMenu(QuillCodeProduct.displayName) {
             command("New Chat", id: "new-chat")
             command("New Confidential Chat", id: "new-confidential-chat")
             command("Quick Chat", id: "quick-chat")

@@ -197,9 +197,9 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
         let report = QuillCodeDesktopWindowSmokeReport(
             ok: true,
-            appName: "QuillCode",
-            bundleIdentifier: "co.lorehex.QuillCode",
-            windowTitle: "QuillCode",
+            appName: "Quill Cowork",
+            bundleIdentifier: "co.lorehex.QuillCowork",
+            windowTitle: "Quill Cowork",
             windowFrame: CGRect(x: 0, y: 0, width: 1280, height: 928),
             contentSize: CGSize(width: 1280, height: 900),
             screenshotPath: "/tmp/quillcode-window.png",

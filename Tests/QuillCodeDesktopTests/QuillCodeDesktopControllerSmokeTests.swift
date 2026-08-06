@@ -60,7 +60,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         let controller = try makeController(workspaceRoot: try makeTempDirectory())
         let report = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: controller.surface)
 
-        XCTAssertEqual(report.appName, "QuillCode")
+        XCTAssertEqual(report.appName, "Quill Cowork")
         XCTAssertFalse(report.primaryTitle.isEmpty)
         XCTAssertFalse(report.modelLabel.isEmpty)
         XCTAssertFalse(report.modeLabel.isEmpty)
@@ -81,7 +81,7 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         }
 
         let dictionary = report.dictionary
-        XCTAssertEqual(dictionary["appName"] as? String, "QuillCode")
+        XCTAssertEqual(dictionary["appName"] as? String, "Quill Cowork")
         XCTAssertEqual(dictionary["composerCanSend"] as? Bool, false)
         XCTAssertEqual(dictionary["sidebarTitle"] as? String, "Chats")
     }

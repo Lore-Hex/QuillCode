@@ -98,7 +98,7 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(coverage.contains(#"200"#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceByTaskID": {"#), coverage)
         let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
-        XCTAssertTrue(markdown.contains("# QuillCode Coworker Coverage"), markdown)
+        XCTAssertTrue(markdown.contains("# Quill Cowork Coworker Coverage"), markdown)
         XCTAssertTrue(markdown.contains("| Row | Evidence | Service | Task | Source |"), markdown)
         XCTAssertTrue(markdown.contains("| 199 | live-saas | Salesforce | Update CRM status |"), markdown)
         XCTAssertTrue(markdown.contains("Rows not listed here remain unproven"), markdown)

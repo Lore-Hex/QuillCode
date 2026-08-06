@@ -8,7 +8,7 @@ struct QuillCodeDesktopApp: App {
     @StateObject private var controller: QuillCodeDesktopController
 
     init() {
-        // QuillCode is a dark-themed appliance: pin the whole app (every window, sheet, popover, and
+        // Quill Cowork is a dark-themed appliance: pin the whole app (every window, sheet, popover, and
         // system-drawn control) to the dark aqua appearance. Without this, system chrome — .roundedBorder
         // text fields, sheet/popover backgrounds, menu text — follows the user's macOS appearance, so on a
         // Light-mode Mac you get black text on our dark surfaces and "modal colors way off". One global
@@ -40,7 +40,7 @@ struct QuillCodeDesktopApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("QuillCode") {
+        WindowGroup(QuillCodeProduct.displayName) {
             QuillCodeDesktopRootView(controller: controller)
         }
         .defaultSize(width: 1280, height: 900)
@@ -77,7 +77,7 @@ struct QuillCodeDesktopApp: App {
             )
         } label: {
             Image(nsImage: QuillCodeMenuBarIcon.image)
-                .accessibilityLabel("QuillCode")
+                .accessibilityLabel(QuillCodeProduct.displayName)
         }
     }
 }

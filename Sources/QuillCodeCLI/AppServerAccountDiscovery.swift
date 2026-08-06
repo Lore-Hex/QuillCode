@@ -191,7 +191,7 @@ private struct AppServerLocalSpendControls {
     ) -> CLIJSONValue {
         .object([
             "limitId": .string(period.id),
-            "limitName": .string("QuillCode local \(period.label) spend control"),
+            "limitName": .string("Quill Cowork local \(period.label) spend control"),
             "primary": .object([
                 "usedPercent": .number(usedPercent),
                 "windowDurationMins": .number(period.end.timeIntervalSince(period.start) / 60),

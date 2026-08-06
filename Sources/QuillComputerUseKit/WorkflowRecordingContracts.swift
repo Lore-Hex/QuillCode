@@ -222,7 +222,7 @@ public struct WorkflowRecordingCapture: Codable, Sendable, Hashable {
 
     public var skillDraftingPrompt: String {
         var lines = [
-            "The user finished demonstrating a workflow and asked QuillCode to turn it into a reusable skill.",
+            "The user finished demonstrating a workflow and asked Quill Cowork to turn it into a reusable skill.",
             "Goal: \(goal)",
             "Duration: \(durationSeconds) seconds",
             "",

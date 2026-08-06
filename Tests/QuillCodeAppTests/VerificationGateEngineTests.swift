@@ -69,7 +69,7 @@ final class VerificationGateEngineTests: XCTestCase {
     func testVerifiedGreen() {
         let note = plan(didEditFiles: true, hasVerificationAction: true, verification: .passed)
         XCTAssertEqual(note?.kind, .verifiedGreen)
-        XCTAssertEqual(note?.title, "QuillCode verified")
+        XCTAssertEqual(note?.title, "Quill Cowork verified")
     }
 
     func testChecksFailingWithAndWithoutCount() {

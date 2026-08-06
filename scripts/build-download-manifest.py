@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a machine-readable manifest for QuillCode download releases."""
+"""Build a machine-readable manifest for Quill Cowork download releases."""
 
 from __future__ import annotations
 
@@ -12,12 +12,12 @@ from urllib.parse import quote
 
 
 SCHEMA_VERSION = 1
-PRODUCT = "QuillCode"
+PRODUCT = "Quill Cowork"
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Write latest-tester-build.json for QuillCode release assets."
+        description="Write latest-tester-build.json for Quill Cowork release assets."
     )
     parser.add_argument("--assets-dir", required=True, help="Directory containing release assets.")
     parser.add_argument("--repo", required=True, help="GitHub repository, for example Lore-Hex/QuillCode.")
@@ -49,8 +49,8 @@ def parse_build_info(asset_directory: Path) -> dict[str, str]:
 
 
 def classify_asset(name: str) -> dict[str, str]:
-    if name.startswith("QuillCode-macOS-") and name.endswith(".zip"):
-        arch = name.removeprefix("QuillCode-macOS-").removesuffix(".zip")
+    if name.startswith("Quill-Cowork-macOS-") and name.endswith(".zip"):
+        arch = name.removeprefix("Quill-Cowork-macOS-").removesuffix(".zip")
         return {"kind": "app", "platform": "macOS", "arch": arch, "install": "zip-app"}
     if name.startswith("quill-code-macOS-") and name.endswith(".tar.gz"):
         arch = name.removeprefix("quill-code-macOS-").removesuffix(".tar.gz")

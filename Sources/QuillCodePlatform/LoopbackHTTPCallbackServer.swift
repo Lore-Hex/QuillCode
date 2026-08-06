@@ -186,14 +186,14 @@ public final class LoopbackHTTPCallbackServer: @unchecked Sendable {
                 else {
                     try sendResponse(
                         status: "404 Not Found",
-                        message: "QuillCode is waiting for its sign-in callback.",
+                        message: "Quill Cowork is waiting for its sign-in callback.",
                         to: clientDescriptor
                     )
                     continue
                 }
                 try sendResponse(
                     status: "200 OK",
-                    message: "QuillCode sign-in is complete. You can return to QuillCode.",
+                    message: "Quill Cowork sign-in is complete. You can return to Quill Cowork.",
                     to: clientDescriptor
                 )
                 return callback
@@ -201,7 +201,7 @@ public final class LoopbackHTTPCallbackServer: @unchecked Sendable {
                 if isCancelled { throw LoopbackHTTPCallbackError.cancelled }
                 try? sendResponse(
                     status: "400 Bad Request",
-                    message: "QuillCode could not read the sign-in callback.",
+                    message: "Quill Cowork could not read the sign-in callback.",
                     to: clientDescriptor
                 )
                 continue

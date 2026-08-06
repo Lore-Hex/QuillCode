@@ -21,7 +21,7 @@ final class LinuxNotificationCommandRunnerTests: XCTestCase {
         XCTAssertEqual(result.status, .delivered)
         XCTAssertEqual(result.command.executable, "notify-send")
         XCTAssertEqual(try fixture.loggedArguments(), [
-            "--app-name=QuillCode",
+            "--app-name=Quill Cowork",
             "--urgency=critical",
             "--expire-time=0",
             "Approve command",
@@ -36,7 +36,7 @@ final class LinuxNotificationCommandRunnerTests: XCTestCase {
         let runner = LinuxNotificationCommandRunner(environment: ["PATH": root.path])
         let result = await runner.run(SystemNotificationCommand(
             executable: "notify-send",
-            arguments: ["QuillCode", "Hello"]
+            arguments: ["Quill Cowork", "Hello"]
         ))
 
         guard case .unavailable(let exitCode, _) = result.status else {
@@ -72,7 +72,7 @@ final class LinuxNotificationCommandRunnerTests: XCTestCase {
         let runner = LinuxNotificationCommandRunner(environment: ["PATH": ""])
         let result = await runner.run(SystemNotificationCommand(
             executable: "   ",
-            arguments: ["QuillCode"]
+            arguments: ["Quill Cowork"]
         ))
 
         guard case .unavailable(let exitCode, let stderr) = result.status else {

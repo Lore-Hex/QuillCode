@@ -81,7 +81,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
 
         return QuillCodeDesktopWindowSmokeReport(
             ok: true,
-            appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "QuillCode",
+            appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? QuillCodeProduct.displayName,
             bundleIdentifier: Bundle.main.bundleIdentifier ?? "",
             windowTitle: window.title,
             windowFrame: window.frame,
@@ -126,7 +126,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
             backing: .buffered,
             defer: false
         )
-        window.title = "QuillCode"
+        window.title = QuillCodeProduct.displayName
         window.contentView = contentView
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -142,7 +142,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
     }
 
     private static func isSmokeWindow(_ window: NSWindow) -> Bool {
-        guard window.isVisible, window.title == "QuillCode" else {
+        guard window.isVisible, window.title == QuillCodeProduct.displayName else {
             return false
         }
         guard let contentView = window.contentView else {

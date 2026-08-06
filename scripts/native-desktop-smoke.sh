@@ -45,11 +45,11 @@ cleanup() {
       printf 'workspace_html=workspace.html\n'
       printf 'stdout=stdout.log\n'
     } > "$ARTIFACT_DIR/manifest.txt"
-    echo "QuillCode $TARGET_LABEL smoke artifacts: $ARTIFACT_DIR"
+    echo "Quill Cowork $TARGET_LABEL smoke artifacts: $ARTIFACT_DIR"
   fi
 
   if [[ "$KEEP_ARTIFACTS" == "1" ]]; then
-    echo "QuillCode $TARGET_LABEL temporary smoke root preserved: $SMOKE_ROOT"
+    echo "Quill Cowork $TARGET_LABEL temporary smoke root preserved: $SMOKE_ROOT"
   else
     rm -rf "$SMOKE_ROOT"
   fi
@@ -147,7 +147,7 @@ if ! grep -q '"resultRenderPath"' "$REPORT_PATH"; then
   cat "$REPORT_PATH" >&2
   exit 1
 fi
-if ! grep -q '"appName" : "QuillCode"' "$REPORT_PATH"; then
+if ! grep -q '"appName" : "Quill Cowork"' "$REPORT_PATH"; then
   echo "quill-code-desktop native smoke did not validate the desktop chrome surface" >&2
   cat "$REPORT_PATH" >&2
   exit 1
@@ -1165,7 +1165,7 @@ expected_scheduled_coworker_fields = {
     "automationTitle": "Scheduled task: check competitor pricing pages and notify me with a diff",
     "taskText": "check competitor pricing pages and notify me with a diff",
     "scheduleDescription": "Every Monday at 8:00 AM",
-    "reportTitle": "QuillCode scheduled task ready",
+    "reportTitle": "Quill Cowork scheduled task ready",
     "notificationCount": 1,
     "automationsVisible": True,
     "lastRunRecorded": True,
@@ -1512,4 +1512,4 @@ if [[ "$(wc -c < "$CHROME_RENDER_PATH" | tr -d ' ')" -lt 2048 ]]; then
   exit 1
 fi
 
-echo "QuillCode $TARGET_LABEL smoke passed."
+echo "Quill Cowork $TARGET_LABEL smoke passed."

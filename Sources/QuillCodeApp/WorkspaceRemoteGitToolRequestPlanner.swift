@@ -55,7 +55,7 @@ enum WorkspaceRemoteGitToolRequestPlannerError: Error, CustomStringConvertible {
         case .unsupportedTool(let name):
             return "Tool is not available for SSH Remote projects: \(name)"
         case .managedWorktreeRequiresLocalProject:
-            return "Managed worktree tasks require a local project so QuillCode can transfer local changes safely."
+            return "Managed worktree tasks require a local project so \(QuillCodeProduct.displayName) can transfer local changes safely."
         }
     }
 }

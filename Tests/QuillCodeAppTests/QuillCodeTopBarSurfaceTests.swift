@@ -333,7 +333,7 @@ final class QuillCodeTopBarSurfaceTests: XCTestCase {
         XCTAssertEqual(option.modelInfo.id, TrustedRouterDefaults.defaultModel)
         XCTAssertEqual(option.modelInfo.displayName, TrustedRouterDefaults.fastModelDisplayName)
         XCTAssertTrue(option.metadataDetails.contains("Default model"))
-        XCTAssertTrue(option.metadataDetails.contains("Recommended by QuillCode"))
+        XCTAssertTrue(option.metadataDetails.contains("Recommended by Quill Cowork"))
         XCTAssertEqual(
             option.accessibilityLabel,
             "Nike 1.0, Provider trustedrouter, Category Recommended, State Current, Default, Recommended, Nike 1.0 is the fast default for everyday coding, shell, and file-editing turns."

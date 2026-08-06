@@ -119,7 +119,7 @@ final class DesktopNotificationPolicyTests: XCTestCase {
         let report = notifier.automationReports.first
         XCTAssertEqual(notifier.automationReports.count, 1)
         XCTAssertEqual(report?.automationID, automation.id)
-        XCTAssertEqual(report?.title, "QuillCode scheduled task ready")
+        XCTAssertEqual(report?.title, "Quill Cowork scheduled task ready")
         XCTAssertEqual(
             report?.body,
             "Scheduled check: QuillCode was created for QuillCode: check competitor pricing pages and notify me with a diff."

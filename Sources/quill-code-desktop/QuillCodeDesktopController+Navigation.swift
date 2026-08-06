@@ -132,7 +132,7 @@ extension QuillCodeDesktopController {
             with: probe.resolvedPath ?? request.connection.path
         )
         guard let projectID = model.addSSHProject(connection: connection, name: request.name) else {
-            return .failure(message: "QuillCode could not save the SSH project.")
+            return .failure(message: "\(QuillCodeProduct.displayName) could not save the SSH project.")
         }
         refresh()
         return .success(projectID: projectID)

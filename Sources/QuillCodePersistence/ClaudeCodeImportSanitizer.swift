@@ -1,7 +1,7 @@
 import Foundation
 
 enum ClaudeCodeImportSanitizer {
-    private static let replacement = "<redacted; configure again in QuillCode>"
+    private static let replacement = "<redacted; configure again in Quill Cowork>"
 
     static func redactedJSON(_ data: Data) -> Data? {
         guard let object = try? JSONSerialization.jsonObject(with: data) else { return nil }

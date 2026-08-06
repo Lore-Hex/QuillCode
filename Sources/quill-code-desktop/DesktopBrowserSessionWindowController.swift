@@ -35,7 +35,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
             backing: .buffered,
             defer: false
         )
-        window.title = "QuillCode Browser Session"
+        window.title = "\(QuillCodeProduct.displayName) Browser Session"
         window.contentView = tabView
         window.center()
 
@@ -340,9 +340,9 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         let selectedID = selectedTabID()
         let selectedTitle = selectedID.flatMap { tabs[$0]?.snapshot.title }
         if let selectedTitle = nonEmpty(selectedTitle) {
-            window?.title = "QuillCode Browser Session - \(selectedTitle)"
+            window?.title = "\(QuillCodeProduct.displayName) Browser Session - \(selectedTitle)"
         } else {
-            window?.title = "QuillCode Browser Session"
+            window?.title = "\(QuillCodeProduct.displayName) Browser Session"
         }
     }
 

@@ -7,7 +7,7 @@ extension AppServerSession {
         guard let provider = try params.optionalString("modelProvider") else { return }
         guard provider == "trustedrouter" else {
             throw AppServerRPCError.invalidParams(
-                "modelProvider must be trustedrouter for the QuillCode app server"
+                "modelProvider must be trustedrouter for the Quill Cowork app server"
             )
         }
     }

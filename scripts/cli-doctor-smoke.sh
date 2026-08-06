@@ -94,7 +94,7 @@ PY
 echo "==> Checking doctor human summary and read-only state inspection"
 HUMAN_OUTPUT="$(env "${COMMON_ENV[@]}" \
   "$CLI" --home "$HOME_DIR" doctor --summary --ascii --no-color)"
-grep -Fq "QuillCode Doctor" <<<"$HUMAN_OUTPUT"
+grep -Fq "Quill Cowork Doctor" <<<"$HUMAN_OUTPUT"
 grep -Fq "Connectivity" <<<"$HUMAN_OUTPUT"
 grep -Fq "[ok]" <<<"$HUMAN_OUTPUT"
 for secret in "$API_KEY" "$QUERY_SECRET" "$PROXY_SECRET" "proxy-user"; do
@@ -105,7 +105,7 @@ for secret in "$API_KEY" "$QUERY_SECRET" "$PROXY_SECRET" "proxy-user"; do
 done
 AFTER_STATE="$(find "$HOME_DIR" -mindepth 1 -print | sort)"
 [[ "$BEFORE_STATE" == "$AFTER_STATE" ]] || {
-  echo "Doctor mutated QuillCode state" >&2
+  echo "Doctor mutated Quill Cowork state" >&2
   diff -u <(printf '%s\n' "$BEFORE_STATE") <(printf '%s\n' "$AFTER_STATE") >&2 || true
   exit 1
 }

@@ -100,7 +100,7 @@ enum WorkspaceActivityContextSurfaceBuilder {
         ):
             return NoticePresentation(
                 title: "Deterministic fallback used",
-                detail: "Model context summary was unavailable, so QuillCode kept a local fallback summary.",
+                detail: "Model context summary was unavailable, so \(QuillCodeProduct.displayName) kept a local fallback summary.",
                 statusLabel: ActivityStatusLabel.checked
             )
         case WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(
@@ -112,7 +112,7 @@ enum WorkspaceActivityContextSurfaceBuilder {
         ):
             return NoticePresentation(
                 title: "Fork fallback used",
-                detail: "Model fork summary was unavailable, so QuillCode kept a local fallback summary.",
+                detail: "Model fork summary was unavailable, so \(QuillCodeProduct.displayName) kept a local fallback summary.",
                 statusLabel: ActivityStatusLabel.checked
             )
         case WorkspaceContextSummaryTelemetryPlanner.sourceFinishedSummary(

@@ -14,7 +14,7 @@ final class AgentRunNotificationPlannerTests: XCTestCase {
             finalAnswer: "I plan to run the migration."
         )
         XCTAssertEqual(note?.kind, .needsApproval)
-        XCTAssertEqual(note?.title, "QuillCode needs your approval")
+        XCTAssertEqual(note?.title, "Quill Cowork needs your approval")
         XCTAssertTrue(note?.body.contains("Shell command") == true, note?.body ?? "")
         XCTAssertFalse(note?.body.contains("host.shell.run") == true, note?.body ?? "")
         XCTAssertTrue(note?.body.contains("Refactor auth") == true, note?.body ?? "")
@@ -96,7 +96,7 @@ final class AgentRunNotificationPlannerTests: XCTestCase {
             finalAnswer: "Added 6 tests for the login flow.\nAll passing."
         )
         XCTAssertEqual(note?.kind, .finished)
-        XCTAssertEqual(note?.title, "QuillCode finished")
+        XCTAssertEqual(note?.title, "Quill Cowork finished")
         // Only the first line, and it carries the thread title as context.
         XCTAssertTrue(note?.body.contains("Added 6 tests for the login flow.") == true, note?.body ?? "")
         XCTAssertFalse(note?.body.contains("All passing.") == true, note?.body ?? "")
@@ -151,7 +151,7 @@ final class AgentRunNotificationPlannerTests: XCTestCase {
         )
         XCTAssertEqual(note?.integrity, .verified)
         // A clean run does not need a loud badge in the title.
-        XCTAssertEqual(note?.title, "QuillCode finished")
+        XCTAssertEqual(note?.title, "Quill Cowork finished")
     }
 
     func testUnverifiedBadgeStampsTheTitle() {
@@ -205,6 +205,6 @@ final class AgentRunNotificationPlannerTests: XCTestCase {
             integrity: .red
         )
         XCTAssertEqual(note?.kind, .needsApproval)
-        XCTAssertEqual(note?.title, "QuillCode needs your approval")
+        XCTAssertEqual(note?.title, "Quill Cowork needs your approval")
     }
 }

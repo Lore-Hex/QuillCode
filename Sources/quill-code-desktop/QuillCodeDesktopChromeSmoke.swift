@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import QuillCodeApp
 import SwiftUI
 
 struct QuillCodeDesktopChromeSmokeReport {
@@ -44,7 +45,7 @@ enum QuillCodeDesktopChromeSmoke {
         for commandID in requiredCommandIDs where !commandIDs.contains(commandID) {
             throw QuillCodeDesktopSmokeFailure.chromeCommandMissing(commandID)
         }
-        guard controller.surface.topBar.appName == "QuillCode",
+        guard controller.surface.topBar.appName == QuillCodeProduct.displayName,
               !controller.surface.topBar.primaryTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !controller.surface.topBar.modelLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !controller.surface.topBar.modeLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty

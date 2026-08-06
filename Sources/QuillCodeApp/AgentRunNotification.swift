@@ -96,7 +96,7 @@ public enum AgentRunNotificationPlanner {
             let approvalLabel = WorkspaceToolDisplayNameBuilder.displayName(for: approval)
             return AgentRunNotification(
                 kind: .needsApproval,
-                title: "QuillCode needs your approval",
+                title: "\(QuillCodeProduct.displayName) needs your approval",
                 body: "\(title): approve \(approvalLabel) to continue.",
                 threadID: threadID,
                 approvalRequestID: trimmedNonEmpty(pendingApprovalRequestID)
@@ -105,7 +105,7 @@ public enum AgentRunNotificationPlanner {
         if didFail {
             return AgentRunNotification(
                 kind: .failed,
-                title: "QuillCode run failed",
+                title: "\(QuillCodeProduct.displayName) run failed",
                 body: "\(title) — the run hit an error and stopped.",
                 threadID: threadID
             )
@@ -132,7 +132,7 @@ public enum AgentRunNotificationPlanner {
             return stamped(
                 AgentRunNotification(
                     kind: .finished,
-                    title: "QuillCode finished",
+                    title: "\(QuillCodeProduct.displayName) finished",
                     body: summaryLine(title: title, answer: answer),
                     threadID: threadID
                 ),
@@ -145,7 +145,7 @@ public enum AgentRunNotificationPlanner {
             return stamped(
                 AgentRunNotification(
                     kind: .finished,
-                    title: "QuillCode finished",
+                    title: "\(QuillCodeProduct.displayName) finished",
                     body: title,
                     threadID: threadID
                 ),
@@ -177,7 +177,7 @@ public enum AgentRunNotificationPlanner {
         case .ceilingReached(let limit):
             return AgentRunNotification(
                 kind: .ceilingReached,
-                title: "QuillCode hit its step limit",
+                title: "\(QuillCodeProduct.displayName) hit its step limit",
                 body: "\(title) — stopped after \(limit) tool step\(limit == 1 ? "" : "s") without finishing.",
                 threadID: threadID
             )
@@ -185,7 +185,7 @@ public enum AgentRunNotificationPlanner {
             let detail = trimmedNonEmpty(reason).map { firstLine($0, limit: 100) }
             return AgentRunNotification(
                 kind: .flailed,
-                title: "QuillCode stopped — stuck",
+                title: "\(QuillCodeProduct.displayName) stopped — stuck",
                 body: detail.map { "\(title) — \($0)" } ?? "\(title) — the run was busy but not making progress.",
                 threadID: threadID
             )
@@ -193,7 +193,7 @@ public enum AgentRunNotificationPlanner {
             let detail = trimmedNonEmpty(reason).map { firstLine($0, limit: 100) }
             return AgentRunNotification(
                 kind: .autoReviewStopped,
-                title: "QuillCode paused after safety denials",
+                title: "\(QuillCodeProduct.displayName) paused after safety denials",
                 body: detail.map { "\(title) — \($0)" }
                     ?? "\(title) — inspect Auto-review Denials before retrying an exact action.",
                 threadID: threadID
@@ -211,7 +211,7 @@ public enum AgentRunNotificationPlanner {
         case .passed:
             return AgentRunNotification(
                 kind: .verifiedGreen,
-                title: "QuillCode verified",
+                title: "\(QuillCodeProduct.displayName) verified",
                 body: "\(title) — verification passed.",
                 threadID: threadID
             )
@@ -219,14 +219,14 @@ public enum AgentRunNotificationPlanner {
             let checks = count.map { "\($0) check\($0 == 1 ? "" : "s")" } ?? "checks"
             return AgentRunNotification(
                 kind: .checksFailing,
-                title: "QuillCode verification failed",
+                title: "\(QuillCodeProduct.displayName) verification failed",
                 body: "\(title) — \(checks) failing.",
                 threadID: threadID
             )
         case .timedOut:
             return AgentRunNotification(
                 kind: .checksFailing,
-                title: "QuillCode verification failed",
+                title: "\(QuillCodeProduct.displayName) verification failed",
                 body: "\(title) — verification timed out.",
                 threadID: threadID
             )
@@ -236,7 +236,7 @@ public enum AgentRunNotificationPlanner {
             guard hasVerificationAction else { return nil }
             return AgentRunNotification(
                 kind: .unverified,
-                title: "QuillCode finished (unverified)",
+                title: "\(QuillCodeProduct.displayName) finished (unverified)",
                 body: "\(title) — edits made, no verification check ran.",
                 threadID: threadID
             )

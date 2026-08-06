@@ -27,7 +27,7 @@ BIN_DIR="$(swift build --configuration "$CONFIGURATION" --product quill-code --s
 cp "$BIN_DIR/quill-code" "$CLI_DIR/quill-code"
 chmod 755 "$CLI_DIR/quill-code"
 cat > "$CLI_DIR/README.txt" <<README
-QuillCode CLI for Linux $ARCH
+Quill Cowork CLI for Linux $ARCH
 
 Install:
   sudo install -m 755 quill-code /usr/local/bin/quill-code
@@ -40,7 +40,7 @@ CLI_TARBALL="$ASSET_DIR/quill-code-linux-$ARCH.tar.gz"
 tar -C "$CLI_ROOT" -czf "$CLI_TARBALL" "$(basename "$CLI_DIR")"
 
 cat > "$ASSET_DIR/BUILD_INFO-linux-$ARCH.txt" <<INFO
-product=QuillCode
+product=Quill Cowork
 platform=Linux
 arch=$ARCH
 version=$VERSION
@@ -57,5 +57,5 @@ INFO
     > "quill-code-linux-$ARCH-SHASUMS256.txt"
 )
 
-echo "QuillCode Linux download assets:"
+echo "Quill Cowork Linux download assets:"
 find "$ASSET_DIR" -maxdepth 1 -type f -print | sort

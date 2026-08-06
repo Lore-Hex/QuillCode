@@ -38,7 +38,7 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertEqual(surface.browser.snapshot?.inspectionDepthLabel, "Metadata only")
         XCTAssertEqual(
             surface.browser.snapshot?.summary,
-            "Live DOM capture is not attached yet; QuillCode has URL metadata for this web page."
+            "Live DOM capture is not attached yet; Quill Cowork has URL metadata for this web page."
         )
         XCTAssertEqual(surface.browser.snapshot?.details, [
             "Host: example.com",
@@ -145,7 +145,7 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .metadataOnly)
         XCTAssertEqual(
             model.browser.snapshot?.summary,
-            "Live DOM capture is not attached yet; QuillCode has URL metadata for this local page."
+            "Live DOM capture is not attached yet; Quill Cowork has URL metadata for this local page."
         )
         XCTAssertEqual(model.browser.snapshot?.details, [
             "Host: localhost",

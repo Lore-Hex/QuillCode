@@ -126,7 +126,7 @@ final class WorkspaceRunNotificationBuilderTests: XCTestCase {
         )
         let note = WorkspaceRunNotificationBuilder.notification(thread: t, didFail: false)
         XCTAssertEqual(note?.integrity, .verified)
-        XCTAssertEqual(note?.title, "QuillCode finished")
+        XCTAssertEqual(note?.title, "Quill Cowork finished")
     }
 
     func testBuilderPrefersRecordedVerdictOverRescan() {

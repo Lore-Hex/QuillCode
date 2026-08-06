@@ -429,7 +429,7 @@ enum ManagedWorktreeSettingsProjection {
 
     static func summary(_ settings: ManagedWorktreeSettings, resolvedRoot: URL) -> String {
         if settings.automaticCleanupEnabled {
-            return "New task worktrees use \(resolvedRoot.path). QuillCode snapshots and removes the oldest eligible worktrees after the newest \(settings.retentionLimit)."
+            return "New task worktrees use \(resolvedRoot.path). \(QuillCodeProduct.displayName) snapshots and removes the oldest eligible worktrees after the newest \(settings.retentionLimit)."
         }
         return "New task worktrees use \(resolvedRoot.path). Automatic deletion is off; archive cleanup still saves work before removing disposable worktrees."
     }
@@ -463,7 +463,7 @@ enum NotificationSettingsProjection {
         var parts: [String] = []
         if preferences.agentRunNotificationsEnabled {
             parts.append(preferences.agentRunNotificationsOnlyWhenInactive
-                ? "Agent runs notify only when QuillCode is in the background"
+                ? "Agent runs notify only when \(QuillCodeProduct.displayName) is in the background"
                 : "Agent runs notify whenever they need attention")
         }
         if preferences.automationNotificationsEnabled {

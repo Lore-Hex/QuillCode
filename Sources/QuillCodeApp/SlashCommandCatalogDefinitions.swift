@@ -97,7 +97,7 @@ extension SlashCommandCatalog {
         slashDefinition(
             "/delete",
             "Delete chat",
-            "Remove the current chat from QuillCode without touching project files.",
+            "Remove the current chat from \(QuillCodeProduct.displayName) without touching project files.",
             aliases: ["delete-chat", "remove-chat"]
         ),
         slashDefinition(
@@ -245,7 +245,7 @@ extension SlashCommandCatalog {
         slashDefinition(
             "/project rename name",
             "Rename project",
-            "Rename the selected project in QuillCode.",
+            "Rename the selected project in \(QuillCodeProduct.displayName).",
             insert: "/project rename ",
             aliases: ["project title"]
         ),
@@ -378,7 +378,7 @@ extension SlashCommandCatalog {
         ),
         slashDefinition(
             "/review",
-            "Review changes with QuillCode",
+            "Review changes with \(QuillCodeProduct.displayName)",
             "Run a dedicated read-only reviewer against uncommitted changes, a base branch, a commit, or custom criteria.",
             aliases: ["code review", "review changes"]
         ),

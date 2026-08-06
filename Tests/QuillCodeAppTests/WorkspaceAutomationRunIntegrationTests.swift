@@ -220,7 +220,7 @@ final class WorkspaceAutomationRunIntegrationTests: XCTestCase {
 
         let report = try XCTUnwrap(workspace.model.runDueAutomationReports(now: runAt).first)
 
-        XCTAssertEqual(report.title, "QuillCode scheduled task ready")
+        XCTAssertEqual(report.title, "Quill Cowork scheduled task ready")
         XCTAssertEqual(
             report.body,
             "Scheduled check: QuillCode was created for QuillCode: check competitor pricing pages and notify me with a diff."
@@ -344,7 +344,7 @@ final class WorkspaceAutomationRunIntegrationTests: XCTestCase {
         let report = try XCTUnwrap(reports.first)
         XCTAssertEqual(reports.count, 1)
         XCTAssertEqual(report.automationID, due.id)
-        XCTAssertEqual(report.title, "QuillCode follow-up ready")
+        XCTAssertEqual(report.title, "Quill Cowork follow-up ready")
         XCTAssertEqual(report.body, "Follow-up: Due follow-up was created from Due follow-up.")
         XCTAssertEqual(workspace.model.root.selectedThreadID, report.followUpThreadID)
         XCTAssertEqual(workspace.model.root.threads.first?.id, report.followUpThreadID)

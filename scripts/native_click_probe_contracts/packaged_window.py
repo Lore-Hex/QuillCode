@@ -20,14 +20,14 @@ from .probe_contracts import normalized_probe_contracts, window_command_contract
 def validate_packaged_window_report(report_path: Path, screenshot_path: Path) -> None:
     report = load_report(report_path)
     require(report.get("ok") is True, f"{report_path} does not report ok=true")
-    require(report.get("appName") == "QuillCode", f"{report_path} does not report the QuillCode app identity")
-    require(report.get("windowTitle") == "QuillCode", f"{report_path} does not report the QuillCode window title")
+    require(report.get("appName") == "Quill Cowork", f"{report_path} does not report the Quill Cowork app identity")
+    require(report.get("windowTitle") == "Quill Cowork", f"{report_path} does not report the Quill Cowork window title")
 
     probe_contracts = normalized_probe_contracts(report, "packaged live-window")
 
     surface = report.get("surface")
     require(isinstance(surface, dict), f"{report_path} is missing workspace surface semantics")
-    require(surface.get("appName") == "QuillCode", f"{report_path} surface appName is not QuillCode")
+    require(surface.get("appName") == "Quill Cowork", f"{report_path} surface appName is not Quill Cowork")
     require(isinstance(surface.get("primaryTitle"), str) and surface["primaryTitle"].strip(), f"{report_path} surface primaryTitle is empty")
     require(isinstance(surface.get("modelLabel"), str) and surface["modelLabel"].strip(), f"{report_path} surface modelLabel is empty")
     require(isinstance(surface.get("modeLabel"), str) and surface["modeLabel"].strip(), f"{report_path} surface modeLabel is empty")

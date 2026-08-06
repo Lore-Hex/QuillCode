@@ -273,7 +273,7 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
             runtimeIssue: nil
         ).surface()
 
-        XCTAssertEqual(topBar.primaryTitle, "QuillCode")
+        XCTAssertEqual(topBar.primaryTitle, "Quill Cowork")
         XCTAssertEqual(topBar.subtitle, "No project - Not started")
         XCTAssertEqual(topBar.instructionLabel, "No project instructions")
         XCTAssertEqual(topBar.memoryLabel, "No memories")

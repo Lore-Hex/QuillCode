@@ -7,7 +7,7 @@ final class WorkspaceUIStateTests: XCTestCase {
 
         XCTAssertEqual(state.draft, "")
         XCTAssertFalse(state.isSending)
-        XCTAssertEqual(state.placeholder, "Message QuillCode")
+        XCTAssertEqual(state.placeholder, "Message Quill Cowork")
     }
 
     @MainActor

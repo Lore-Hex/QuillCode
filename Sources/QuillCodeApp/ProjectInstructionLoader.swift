@@ -208,7 +208,7 @@ public enum ProjectInstructionLoader {
         }
 
         if wasTruncated {
-            content += "\n\n[QuillCode truncated this instruction file at \(maxBytes) bytes.]"
+            content += "\n\n[\(QuillCodeProduct.displayName) truncated this instruction file at \(maxBytes) bytes.]"
         }
 
         return ProjectInstruction(
@@ -226,12 +226,12 @@ public enum ProjectInstructionLoader {
         case "AGENTS.md":
             return "Project AGENTS.md"
         case ".quillcode/rules.md":
-            return "QuillCode rules"
+            return "\(QuillCodeProduct.displayName) rules"
         case ".quillcode/instructions.md":
-            return "QuillCode instructions"
+            return "\(QuillCodeProduct.displayName) instructions"
         default:
             if relativePath.contains(".quillcode/rules/") {
-                return "QuillCode rule: \(URL(fileURLWithPath: relativePath).deletingPathExtension().lastPathComponent)"
+                return "\(QuillCodeProduct.displayName) rule: \(URL(fileURLWithPath: relativePath).deletingPathExtension().lastPathComponent)"
             }
             return relativePath
         }

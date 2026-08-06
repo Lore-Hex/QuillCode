@@ -111,7 +111,7 @@ extension ModelOptionSurface {
             case "Default":
                 details.append("Default model")
             case "Recommended":
-                details.append("Recommended by QuillCode")
+                details.append("Recommended by \(QuillCodeProduct.displayName)")
             case "Recent":
                 details.append("Recently used")
             case "Current", "Favorite":

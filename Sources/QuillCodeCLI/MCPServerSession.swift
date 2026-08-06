@@ -169,7 +169,7 @@ actor MCPServerSession {
             ]),
             "serverInfo": .object([
                 "name": .string("quillcode-mcp-server"),
-                "title": .string("QuillCode"),
+                "title": .string("Quill Cowork"),
                 "version": .string(QuillCodeCommandRunner.version),
                 "user_agent": .string("QuillCode/\(QuillCodeCommandRunner.version)")
             ])
@@ -226,7 +226,7 @@ actor MCPServerSession {
                 message: .object(["type": .string("turn_aborted"), "reason": .string("cancelled")])
             )
             result = MCPServerToolCatalog.error(
-                "The QuillCode request was cancelled.",
+                "The Quill Cowork request was cancelled.",
                 threadID: invocation.threadID
             )
         } catch {

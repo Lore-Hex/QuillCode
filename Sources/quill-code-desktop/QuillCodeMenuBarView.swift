@@ -65,7 +65,7 @@ struct QuillCodeMenuBarView: View {
             action: onDisconnectAll
         )
         Divider()
-        menuActionButton("Quit QuillCode", action: onQuit)
+        menuActionButton("Quit \(QuillCodeProduct.displayName)", action: onQuit)
     }
 
     private var stopAllCommand: WorkspaceCommandSurface? {

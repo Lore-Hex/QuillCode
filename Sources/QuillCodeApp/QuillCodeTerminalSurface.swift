@@ -43,7 +43,7 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
     public init(
         terminal: TerminalState,
         cwd: URL?,
-        emptyTitle: String = "Run commands in this project without leaving QuillCode.",
+        emptyTitle: String = "Run commands in this project without leaving \(QuillCodeProduct.displayName).",
         ambiguousWidthPolicy: TerminalOutputAmbiguousWidthPolicy = .automatic()
     ) {
         self.isVisible = terminal.isVisible

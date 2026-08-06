@@ -23,7 +23,7 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
         XCTAssertTrue(manifest.contains(#""catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/"#), manifest)
         XCTAssertTrue(manifest.contains(#""catalogTaskIDs": ["#), manifest)
         XCTAssertTrue(manifest.contains(#"42"#), manifest)
-        XCTAssertTrue(manifest.contains(#""notificationTitle": "QuillCode scheduled task ready""#), manifest)
+        XCTAssertTrue(manifest.contains(#""notificationTitle": "Quill Cowork scheduled task ready""#), manifest)
         XCTAssertTrue(manifest.contains(#""activationAction": "open-follow-up-thread""#), manifest)
         XCTAssertTrue(manifest.contains(#""notificationVisible": true"#), manifest)
         XCTAssertTrue(manifest.contains(#""activationOpenedFollowUp": true"#), manifest)
@@ -110,7 +110,7 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
         XCTAssertTrue(coverage.contains(#""pendingTaskCount": 205"#), coverage)
         XCTAssertTrue(coverage.contains(#""42": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceType": "scheduled-notification-observation""#), coverage)
-        XCTAssertTrue(coverage.contains(#""serviceName": "QuillCode Notifications""#), coverage)
+        XCTAssertTrue(coverage.contains(#""serviceName": "Quill Cowork Notifications""#), coverage)
     }
 
     func testScheduledNotificationObservationTemplateWritesRowLinkedSkeleton() throws {
@@ -137,7 +137,7 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
         XCTAssertTrue(template.contains(#""catalogTaskIDs": ["#), template)
         XCTAssertTrue(template.contains(#"42"#), template)
         XCTAssertTrue(template.contains(#"43"#), template)
-        XCTAssertTrue(template.contains(#""notificationTitle": "QuillCode scheduled task ready""#), template)
+        XCTAssertTrue(template.contains(#""notificationTitle": "Quill Cowork scheduled task ready""#), template)
         XCTAssertTrue(template.contains(#""activationAction": "open-follow-up-thread""#), template)
         XCTAssertTrue(template.contains(#""packagedScheduledCoworkerManifest": {"#), template)
         XCTAssertTrue(template.contains("Replace every TODO before running scripts/scheduled-notification-observation-smoke.sh"), template)
@@ -167,9 +167,9 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
           "ok": true,
           "catalogTaskIDs": [42],
           "capturedAt": "2026-07-28T02:05:00Z",
-          "appName": "QuillCode",
+          "appName": "Quill Cowork",
           "observationMethod": "accessibility",
-          "notificationTitle": "QuillCode scheduled task ready",
+          "notificationTitle": "Quill Cowork scheduled task ready",
           "notificationBody": "check competitor pricing pages and notify me with a diff",
           "notificationVisible": true,
           "activationAction": "open-follow-up-thread",
@@ -178,7 +178,7 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
           "screenshotArtifact": "scheduled-notification.png",
           "screenshotArtifactExists": true,
           "observedElements": [
-            "QuillCode scheduled task ready",
+            "Quill Cowork scheduled task ready",
             "check competitor pricing pages and notify me with a diff",
             "Open follow-up thread"
           ],

@@ -23,7 +23,7 @@ enum ThreadCompactionSummaryText {
     ) -> String {
         let transcript = boundedTranscript(olderMessages: olderMessages, recentMessages: recentMessages)
         let instruction = boundedCustomPrompt(customPrompt)
-            ?? "Please compact this QuillCode coding-agent thread so the run can continue within its context window."
+            ?? "Please compact this Quill Cowork coding-agent thread so the run can continue within its context window."
         return """
         \(instruction)
 

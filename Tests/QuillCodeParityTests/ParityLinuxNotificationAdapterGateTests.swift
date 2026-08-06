@@ -10,7 +10,7 @@ final class ParityLinuxNotificationAdapterGateTests: QuillCodeParityTestCase {
             "public enum LinuxNotificationAdapter",
             "public struct SystemNotificationCommand",
             "notify-send",
-            "--app-name=QuillCode",
+            "--app-name=\\(QuillCodeProduct.displayName)",
             "--urgency=",
             "--expire-time=",
             "AutomationRunReport",

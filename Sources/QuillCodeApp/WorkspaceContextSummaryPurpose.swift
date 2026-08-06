@@ -7,9 +7,9 @@ public enum WorkspaceContextSummaryPurpose: String, Codable, Sendable, Hashable 
     var promptTitle: String {
         switch self {
         case .compact:
-            return "compact this QuillCode thread"
+            return "compact this \(QuillCodeProduct.displayName) thread"
         case .forkSummary:
-            return "summarize this QuillCode thread for a fork"
+            return "summarize this \(QuillCodeProduct.displayName) thread for a fork"
         }
     }
 }
