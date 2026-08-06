@@ -55,7 +55,7 @@ final class ParityLiveSmokeScriptGateTests: QuillCodeParityTestCase {
         let script = try Self.scriptText(named: "real-world-smoke.sh")
 
         XCTAssertTrue(script.contains("LIVE_KEY_SOURCE=\"missing\""))
-        XCTAssertTrue(script.contains("LIVE_MODEL=\"${QUILLCODE_LIVE_MODEL:-deepseekv4flash}\""))
+        XCTAssertTrue(script.contains("LIVE_MODEL=\"${QUILLCODE_LIVE_MODEL:-deepseekv4flash0731}\""))
         XCTAssertTrue(script.contains("LIVE_BASE_URL=\"${QUILLCODE_LIVE_BASE_URL:-https://api.trustedrouter.com/v1}\""))
         XCTAssertTrue(script.contains("live_key_source()"))
         XCTAssertTrue(script.contains("printf 'env:QUILLCODE_API_KEY'"))
@@ -125,7 +125,7 @@ final class ParityLiveSmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(workflow.contains("default: true"))
         XCTAssertTrue(workflow.contains("schedule:"))
         XCTAssertTrue(workflow.contains("QUILLCODE_API_KEY: ${{ secrets.QUILLCODE_LIVE_API_KEY }}"))
-        XCTAssertTrue(workflow.contains("QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash' }}"))
+        XCTAssertTrue(workflow.contains("QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash0731' }}"))
         XCTAssertTrue(workflow.contains("QUILLCODE_REQUIRE_LIVE_SMOKE: ${{ inputs.require_live && '1' || '0' }}"))
         XCTAssertTrue(workflow.contains("QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR:"))
         XCTAssertTrue(workflow.contains("./scripts/real-world-smoke.sh"))

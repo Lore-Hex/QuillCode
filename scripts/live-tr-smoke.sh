@@ -8,7 +8,7 @@ SMOKE_WORKSPACE="$SMOKE_ROOT/workspace"
 REPORT_FILE="$SMOKE_ROOT/live-smoke-report.jsonl"
 MANIFEST_FILE="$SMOKE_ROOT/live-smoke-manifest.json"
 KEY_FILE="${QUILLCODE_LIVE_KEY_FILE:-$HOME/.quill.code.keyfile}"
-RAW_MODEL="${QUILLCODE_LIVE_MODEL:-deepseekv4flash}"
+RAW_MODEL="${QUILLCODE_LIVE_MODEL:-deepseekv4flash0731}"
 BASE_URL="${QUILLCODE_LIVE_BASE_URL:-https://api.trustedrouter.com/v1}"
 KEEP_ARTIFACTS="${QUILLCODE_LIVE_KEEP_ARTIFACTS:-0}"
 ARTIFACT_DIR="${QUILLCODE_LIVE_SMOKE_ARTIFACT_DIR:-}"
@@ -23,8 +23,8 @@ PASSIVE_ACTION_VERBS="run|check|do|download|create|write|execute|inspect|list|sh
 PASSIVE_ACTION_PATTERN="No shell command was specified|(I'?ll|I will) ($PASSIVE_ACTION_VERBS)"
 
 case "$RAW_MODEL" in
-  deepseekv4flash|deepseek-v4-flash)
-    MODEL="deepseek/deepseek-v4-flash"
+  deepseekv4flash0731|deepseek-v4-flash-0731|deepseekv4flash|deepseek-v4-flash)
+    MODEL="deepseek/deepseek-v4-flash-0731"
     ;;
   *)
     MODEL="$RAW_MODEL"
