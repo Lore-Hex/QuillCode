@@ -19,7 +19,8 @@ enum ToolArtifactTextPreviewBuilder {
 
     private static func payload(for value: String, kind: ToolArtifactKind) -> TextPreviewPayload? {
         let artifact = ToolArtifactState(value: value)
-        guard kind == .file,
+        guard artifact.canLoadLocalPreview,
+              kind == .file,
               !artifact.isImagePreview,
               artifact.documentPreview?.kind != .appshot,
               artifact.documentPreview?.extensionLabel.lowercased() != "env",

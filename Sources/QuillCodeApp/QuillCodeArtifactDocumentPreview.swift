@@ -5,7 +5,9 @@ struct QuillCodeArtifactDocumentPreview: View {
 
     @ViewBuilder
     var body: some View {
-        if let pdfPreview = artifact.pdfPreview,
+        if !artifact.canLoadLocalPreview {
+            genericLinkedContent
+        } else if let pdfPreview = artifact.pdfPreview,
            let previewURL = artifactURL {
             pdfContent(pdfPreview, previewURL: previewURL)
                 .accessibilityElement(children: .contain)
@@ -25,6 +27,24 @@ struct QuillCodeArtifactDocumentPreview: View {
             .accessibilityLabel(accessibilityLabel)
         } else {
             content
+                .quillCodeTextButtonTarget(minWidth: 160, alignment: .leading, radius: 18)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(accessibilityLabel)
+        }
+    }
+
+    @ViewBuilder
+    private var genericLinkedContent: some View {
+        if let url = artifactURL {
+            Link(destination: url) {
+                genericContent
+                    .quillCodeLinkTarget(minWidth: 160, alignment: .leading, radius: 18)
+            }
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
+        } else {
+            genericContent
                 .quillCodeTextButtonTarget(minWidth: 160, alignment: .leading, radius: 18)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(accessibilityLabel)
