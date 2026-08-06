@@ -1,6 +1,6 @@
 # Worktree Setup
 
-QuillCode can prepare each new managed Worktree task automatically. Add one of these scripts to the project:
+Quill Cowork can prepare each new managed Worktree task automatically. Add one of these scripts to the project:
 
 1. `.quillcode/setup.macos.sh` on macOS
 2. `.quillcode/setup.linux.sh` on Linux

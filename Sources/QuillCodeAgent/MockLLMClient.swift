@@ -239,7 +239,7 @@ public struct MockLLMClient: LLMClient {
             return .tool(.init(
                 name: ToolDefinition.gitCommit.name,
                 argumentsJSON: ToolArguments.json([
-                    "message": Self.extractCommitMessage(from: request) ?? "QuillCode changes"
+                    "message": Self.extractCommitMessage(from: request) ?? "Quill Cowork changes"
                 ])
             ))
         }

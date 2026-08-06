@@ -62,7 +62,7 @@ struct QuillCodeAgentImportView: View {
         case .loading:
             progressState(title: "Looking for supported setup", detail: "Scanning local agent data safely…")
         case .importing:
-            progressState(title: "Importing selected items", detail: "QuillCode is adding data without replacing existing files…")
+            progressState(title: "Importing selected items", detail: "\(QuillCodeProduct.displayName) is adding data without replacing existing files…")
         case .review:
             reviewContent
         case .result:

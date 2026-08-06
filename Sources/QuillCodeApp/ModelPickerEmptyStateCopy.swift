@@ -25,7 +25,7 @@ struct ModelPickerEmptyStateCopy: Sendable, Hashable {
         case .fallbackAfterFailure:
             return ModelPickerEmptyStateCopy(
                 title: "No fallback model matches",
-                detail: "The last TrustedRouter refresh failed, so QuillCode is searching the bundled fallback catalog for \(queryLabel).",
+                detail: "The last TrustedRouter refresh failed, so \(QuillCodeProduct.displayName) is searching the bundled fallback catalog for \(queryLabel).",
                 footnote: catalogStatusDetail
             )
         case .liveTrustedRouter, .publicTrustedRouter:

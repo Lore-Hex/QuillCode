@@ -86,7 +86,7 @@ private final class WebKitBrowserLiveDOMCaptureSession: NSObject, WKNavigationDe
             }
 
             var request = URLRequest(url: url)
-            request.setValue("QuillCode BrowserPreview", forHTTPHeaderField: "User-Agent")
+            request.setValue("\(QuillCodeProduct.displayName) BrowserPreview", forHTTPHeaderField: "User-Agent")
             webView.load(request)
         }
     }

@@ -8,15 +8,15 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
-        try "product=QuillCode\nplatform=macOS\narch=arm64\nversion=0.2.0\nbuild=123\n"
+        try "product=Quill Cowork\nplatform=macOS\narch=arm64\nversion=0.2.0\nbuild=123\n"
             .write(to: temporaryDirectory.appendingPathComponent("BUILD_INFO.txt"), atomically: true, encoding: .utf8)
-        try "product=QuillCode\nplatform=Linux\narch=x86_64\nversion=0.2.0\nbuild=123\n"
+        try "product=Quill Cowork\nplatform=Linux\narch=x86_64\nversion=0.2.0\nbuild=123\n"
             .write(
                 to: temporaryDirectory.appendingPathComponent("BUILD_INFO-linux-x86_64.txt"),
                 atomically: true,
                 encoding: .utf8
             )
-        try Data("mac app".utf8).write(to: temporaryDirectory.appendingPathComponent("QuillCode-macOS-arm64.zip"))
+        try Data("mac app".utf8).write(to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64.zip"))
         try Data("mac cli".utf8).write(to: temporaryDirectory.appendingPathComponent("quill-code-macOS-arm64.tar.gz"))
         try Data("linux cli".utf8).write(to: temporaryDirectory.appendingPathComponent("quill-code-linux-x86_64.tar.gz"))
         try "placeholder checksums\n"
@@ -41,7 +41,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         let data = try Data(contentsOf: manifestURL)
         let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(manifest["schemaVersion"] as? Int, 1)
-        XCTAssertEqual(manifest["product"] as? String, "QuillCode")
+        XCTAssertEqual(manifest["product"] as? String, "Quill Cowork")
         XCTAssertEqual(manifest["channel"] as? String, "tester")
         XCTAssertEqual(manifest["tag"] as? String, "tester-latest")
         XCTAssertEqual(manifest["releaseURL"] as? String, "https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest")
@@ -57,12 +57,12 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         let assets = try XCTUnwrap(manifest["assets"] as? [[String: Any]])
         XCTAssertEqual(assets.count, 6)
 
-        let appAsset = try asset(named: "QuillCode-macOS-arm64.zip", in: assets)
+        let appAsset = try asset(named: "Quill-Cowork-macOS-arm64.zip", in: assets)
         XCTAssertEqual(appAsset["kind"] as? String, "app")
         XCTAssertEqual(appAsset["platform"] as? String, "macOS")
         XCTAssertEqual(appAsset["arch"] as? String, "arm64")
         XCTAssertEqual(appAsset["install"] as? String, "zip-app")
-        XCTAssertEqual(appAsset["url"] as? String, "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/QuillCode-macOS-arm64.zip")
+        XCTAssertEqual(appAsset["url"] as? String, "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip")
         XCTAssertEqual(appAsset["sizeBytes"] as? Int, 7)
         XCTAssertEqual((appAsset["sha256"] as? String)?.count, 64)
 

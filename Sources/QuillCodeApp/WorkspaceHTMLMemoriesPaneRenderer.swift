@@ -5,7 +5,7 @@ enum WorkspaceHTMLMemoriesPaneRenderer {
         guard memories.isVisible else { return "" }
         let content = renderContent(memories)
         return """
-        <section class="memories-pane" data-testid="memories-pane" aria-label="QuillCode memories">
+        <section class="memories-pane" data-testid="memories-pane" aria-label="\(escape(QuillCodeProduct.displayName)) memories">
           <header>
             <div>
               <strong>\(escape(memories.title))</strong>

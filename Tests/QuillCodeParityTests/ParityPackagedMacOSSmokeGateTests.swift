@@ -35,7 +35,7 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopNativeHitTargetSmoke.validatedReport"))
         XCTAssertTrue(windowSmokeText.contains("bitmapImageRepForCachingDisplay"))
         XCTAssertTrue(windowSmokeText.contains("QuillCodeDesktopSmokePixelStats"))
-        XCTAssertTrue(windowSmokeText.contains("window.title == \"QuillCode\""))
+        XCTAssertTrue(windowSmokeText.contains("window.title == QuillCodeProduct.displayName"))
         XCTAssertTrue(packagedSmoke.contains("wait_for_smoke_process"))
         XCTAssertTrue(packagedSmoke.contains("--native-window-smoke"))
         XCTAssertTrue(packagedSmoke.contains("--window-smoke-report \"$WINDOW_REPORT_PATH\""))
@@ -85,7 +85,7 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(clickProbeValidator.contains(#"write_scheduled_coworker_manifest"#))
         XCTAssertTrue(clickProbeValidator.contains(#"live-accessibility-frame-sampled"#))
         XCTAssertTrue(clickProbeValidator.contains(#"REQUIRED_LIVE_ACCESSIBILITY_CONTRACT_IDS"#))
-        XCTAssertTrue(clickProbeValidator.contains(#"windowTitle") == "QuillCode""#))
+        XCTAssertTrue(clickProbeValidator.contains(#"windowTitle") == "Quill Cowork""#))
         XCTAssertTrue(clickProbeValidator.contains(#"normalized_probe_contracts(report, "packaged live-window")"#))
         XCTAssertTrue(clickProbeValidator.contains(#"composerCanSend") is False"#))
         XCTAssertTrue(clickProbeValidator.contains(#"sidebarTitle") == "Chats""#))
@@ -116,7 +116,7 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
                 #""Scheduled task: check competitor pricing pages and notify me with a diff""#
             )
         )
-        XCTAssertTrue(scheduledCoworkerValidator.contains(#""QuillCode scheduled task ready""#))
+        XCTAssertTrue(scheduledCoworkerValidator.contains(#""Quill Cowork scheduled task ready""#))
         XCTAssertTrue(scheduledCoworkerValidator.contains(#""Every Monday at 8:00 AM""#))
         XCTAssertTrue(scheduledCoworkerValidator.contains(#""scheduledCoworkerMatchesDirect": True"#))
 

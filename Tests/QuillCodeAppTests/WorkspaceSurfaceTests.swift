@@ -103,7 +103,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
             .first { $0.id == TrustedRouterDefaults.defaultModel }
         XCTAssertEqual(defaultOption?.metadataSummary, "Fast everyday agent")
         XCTAssertTrue(defaultOption?.metadataDetails.contains("Default model") == true)
-        XCTAssertTrue(defaultOption?.metadataDetails.contains("Recommended by QuillCode") == true)
+        XCTAssertTrue(defaultOption?.metadataDetails.contains("Recommended by Quill Cowork") == true)
         XCTAssertEqual(surface.topBar.modeLabel, "Auto")
         XCTAssertEqual(surface.topBar.instructionLabel, "No project instructions")
         XCTAssertEqual(surface.topBar.instructionSources, [])
@@ -138,7 +138,7 @@ final class WorkspaceSurfaceTests: XCTestCase {
         XCTAssertEqual(surface.sidebar.bulkActions.map(\.kind), [.select])
         XCTAssertEqual(surface.sidebar.items[0].actions.map(\.kind), [.rename, .duplicate, .pin, .archive, .delete])
         XCTAssertEqual(surface.transcript.messages.count, 2)
-        XCTAssertEqual(surface.composer.placeholder, "Message QuillCode")
+        XCTAssertEqual(surface.composer.placeholder, "Message Quill Cowork")
         XCTAssertTrue(surface.composer.canSend)
         XCTAssertEqual(surface.composer.slashSuggestions, [])
         XCTAssertEqual(surface.commands.map(\.id), [
@@ -423,9 +423,9 @@ final class WorkspaceSurfaceTests: XCTestCase {
     func testEmptySurfaceShowsCodexLikeEmptyState() {
         let surface = QuillCodeWorkspaceModel().surface()
 
-        XCTAssertEqual(surface.topBar.primaryTitle, "QuillCode")
+        XCTAssertEqual(surface.topBar.primaryTitle, "Quill Cowork")
         XCTAssertEqual(surface.sidebar.items.count, 0)
-        XCTAssertEqual(surface.transcript.emptyTitle, "Ask QuillCode to inspect, edit, or run this project.")
+        XCTAssertEqual(surface.transcript.emptyTitle, "Ask Quill Cowork to inspect, edit, or run this project.")
         XCTAssertEqual(surface.transcript.emptyStarterActions.map(\.title), [
             "Review changes",
             "Run tests",

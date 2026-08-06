@@ -1,4 +1,5 @@
 import AppKit
+import QuillCodeApp
 import SwiftUI
 
 @MainActor
@@ -44,7 +45,7 @@ final class QuillCodeDesktopMainWindowPresenter: NSObject, NSWindowDelegate {
             return window
         }
         return NSApplication.shared.windows.first {
-            $0.title == "QuillCode" && $0.isVisible
+            $0.title == QuillCodeProduct.displayName && $0.isVisible
         }
     }
 
@@ -56,7 +57,7 @@ final class QuillCodeDesktopMainWindowPresenter: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "QuillCode"
+        window.title = QuillCodeProduct.displayName
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.styleMask.insert(.fullSizeContentView)

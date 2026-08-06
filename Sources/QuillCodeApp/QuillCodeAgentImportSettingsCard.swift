@@ -14,7 +14,7 @@ struct QuillCodeAgentImportSettingsCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Import from another agent")
                         .font(.callout.weight(.semibold))
-                    Text("Bring your projects, recent chats, instructions, and extensions into QuillCode.")
+                    Text("Bring your projects, recent chats, instructions, and extensions into \(QuillCodeProduct.displayName).")
                         .font(.caption)
                         .foregroundStyle(QuillCodePalette.muted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -25,7 +25,7 @@ struct QuillCodeAgentImportSettingsCard: View {
                     .quillCodeFormActionTarget(minWidth: 112)
                     .disabled(!isAvailable)
             }
-            Text("Existing QuillCode files are never replaced. Credentials and provider-specific secrets must be configured again.")
+            Text("Existing \(QuillCodeProduct.displayName) files are never replaced. Credentials and provider-specific secrets must be configured again.")
                 .font(.caption2)
                 .foregroundStyle(QuillCodePalette.muted)
                 .fixedSize(horizontal: false, vertical: true)

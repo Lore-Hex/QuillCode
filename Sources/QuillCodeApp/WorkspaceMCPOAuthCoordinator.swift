@@ -27,7 +27,7 @@ public struct WorkspaceMCPOAuthCoordinator: Sendable {
         secretStore: any MCPSecretStore,
         openURL: @escaping OpenURL,
         awaitCallback: @escaping AwaitCallback,
-        clientName: String = "QuillCode"
+        clientName: String = QuillCodeProduct.displayName
     ) {
         self.flow = MCPOAuthFlow(httpClient: httpClient, clientName: clientName)
         self.secretStore = secretStore

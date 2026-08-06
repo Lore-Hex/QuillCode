@@ -176,7 +176,7 @@ struct CLIDoctor: Sendable {
         do {
             let store = FileSecretStore(directory: paths.secretsDirectory)
             if let key = normalized(try store.read(QuillSecretKeys.trustedRouterAPIKey)) {
-                return configuredCredentials(key: key, source: "QuillCode secret store")
+                return configuredCredentials(key: key, source: "Quill Cowork secret store")
             }
             return CredentialResult(
                 apiKey: nil,
@@ -186,7 +186,7 @@ struct CLIDoctor: Sendable {
                     status: .fail,
                     summary: "no TrustedRouter credential was found",
                     details: .doctorDetails(["credential source": "none"]),
-                    remediation: "Run `quill-code auth set-key KEY` or sign in from QuillCode Settings."
+                    remediation: "Run `quill-code auth set-key KEY` or sign in from Quill Cowork Settings."
                 )
             )
         } catch {
@@ -198,7 +198,7 @@ struct CLIDoctor: Sendable {
                     status: .fail,
                     summary: "TrustedRouter credentials could not be read",
                     details: .doctorDetails([
-                        "credential source": "QuillCode secret store",
+                        "credential source": "Quill Cowork secret store",
                         "error type": String(reflecting: type(of: error))
                     ]),
                     remediation: "Repair secret-store ownership and permissions."

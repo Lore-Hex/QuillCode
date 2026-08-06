@@ -12,7 +12,7 @@ EXPECTED_SCHEDULED_COWORKER = {
     "automationTitle": "Scheduled task: check competitor pricing pages and notify me with a diff",
     "taskText": "check competitor pricing pages and notify me with a diff",
     "scheduleDescription": "Every Monday at 8:00 AM",
-    "reportTitle": "QuillCode scheduled task ready",
+    "reportTitle": "Quill Cowork scheduled task ready",
     "notificationCount": 1,
     "automationsVisible": True,
     "lastRunRecorded": True,

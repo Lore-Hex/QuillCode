@@ -121,7 +121,7 @@ final class WorkspaceRuntimeIssueBuilderTests: XCTestCase {
         ))
         XCTAssertEqual(
             issue?.message,
-            "QuillCode could not reach https://api.example.test/v1. Check the network or API base URL, then retry."
+            "Quill Cowork could not reach https://api.example.test/v1. Check the network or API base URL, then retry."
         )
     }
 

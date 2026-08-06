@@ -633,7 +633,7 @@ struct QuillCodeDesktopWindowSmokeSurfaceReport {
     }
 
     private func validate() throws {
-        try require(appName == "QuillCode", "top bar app name was \(appName)")
+        try require(appName == QuillCodeProduct.displayName, "top bar app name was \(appName)")
         try require(!primaryTitle.trimmedForSmoke.isEmpty, "primary title was empty")
         try require(!modelLabel.trimmedForSmoke.isEmpty, "model label was empty")
         try require(!modeLabel.trimmedForSmoke.isEmpty, "mode label was empty")

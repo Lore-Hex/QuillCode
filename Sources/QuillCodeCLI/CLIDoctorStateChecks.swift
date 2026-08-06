@@ -21,9 +21,9 @@ enum CLIDoctorStateChecks {
                 id: "state.paths",
                 category: "state",
                 status: .fail,
-                summary: "the QuillCode state home is not a directory",
+                summary: "the Quill Cowork state home is not a directory",
                 details: .doctorDetails(["QUILLCODE_HOME": paths.home.path]),
-                remediation: "Move the conflicting file and relaunch QuillCode."
+                remediation: "Move the conflicting file and relaunch Quill Cowork."
             )
         }
 
@@ -44,7 +44,7 @@ enum CLIDoctorStateChecks {
                 "readable": String(readable),
                 "writable": String(writable)
             ]),
-            remediation: status == .ok ? nil : "Repair ownership and permissions for the QuillCode state directory."
+            remediation: status == .ok ? nil : "Repair ownership and permissions for the Quill Cowork state directory."
         )
     }
 

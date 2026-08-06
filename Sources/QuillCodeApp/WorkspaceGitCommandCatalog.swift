@@ -5,7 +5,7 @@ enum WorkspaceGitCommandCatalog {
         let gitCommands = [
             WorkspaceCommandSurface(
                 id: "code-review",
-                title: "Review changes with QuillCode",
+                title: "Review changes with \(QuillCodeProduct.displayName)",
                 category: WorkspaceCommandPalette.gitCategory,
                 keywords: ["git", "code review", "find bugs", "review changes", "review commit", "base branch"],
                 isEnabled: hasWorkspaceOrRemoteProject

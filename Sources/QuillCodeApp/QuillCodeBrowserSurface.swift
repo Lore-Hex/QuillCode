@@ -24,7 +24,7 @@ public struct BrowserSurface: Codable, Sendable, Hashable {
 
     public init(
         browser: BrowserState,
-        emptyTitle: String = "Open a localhost, file, or web page inside QuillCode.",
+        emptyTitle: String = "Open a localhost, file, or web page inside \(QuillCodeProduct.displayName).",
         emptySubtitle: String = "Use browser comments to keep observations attached to the current page."
     ) {
         self.isVisible = browser.isVisible

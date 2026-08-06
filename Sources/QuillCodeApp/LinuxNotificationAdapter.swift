@@ -37,11 +37,11 @@ public enum LinuxNotificationAdapter {
         SystemNotificationCommand(
             executable: executable,
             arguments: [
-                "--app-name=QuillCode",
+                "--app-name=\(QuillCodeProduct.displayName)",
                 "--urgency=\(policy.urgency.rawValue)",
                 "--expire-time=\(policy.expireTimeMilliseconds)",
-                boundedText(title, fallback: "QuillCode", limit: 96),
-                boundedText(body, fallback: "Open QuillCode for details.", limit: 240)
+                boundedText(title, fallback: QuillCodeProduct.displayName, limit: 96),
+                boundedText(body, fallback: "Open \(QuillCodeProduct.displayName) for details.", limit: 240)
             ]
         )
     }

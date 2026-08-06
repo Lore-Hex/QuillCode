@@ -20,7 +20,7 @@ struct QuillCodeNotificationSettingsCard: View {
             Toggle(isOn: $draft.agentRunNotificationsOnlyWhenInactive) {
                 toggleLabel(
                     title: "Only when inactive",
-                    detail: "Skip run alerts while QuillCode is already frontmost."
+                    detail: "Skip run alerts while \(QuillCodeProduct.displayName) is already frontmost."
                 )
             }
             .toggleStyle(.switch)

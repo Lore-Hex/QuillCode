@@ -3,7 +3,7 @@ import Foundation
 enum MockPullRequestArgumentExtractor {
     static func createArguments(from request: String) -> [String: String] {
         var arguments: [String: String] = [:]
-        arguments["title"] = pullRequestTitle(from: request) ?? "QuillCode changes"
+        arguments["title"] = pullRequestTitle(from: request) ?? "Quill Cowork changes"
 
         let tokens = tokenizeArguments(request)
         if let baseIndex = tokens.firstIndex(where: { $0.lowercased() == "base" }),

@@ -42,9 +42,9 @@ enum MCPServerToolCatalog {
 
     private static let runTool: CLIJSONValue = .object([
         "name": .string(runToolName),
-        "title": .string("QuillCode"),
+        "title": .string("Quill Cowork"),
         "description": .string(
-            "Run a QuillCode session. Accepts configuration parameters matching the Codex MCP tool."
+            "Run a Quill Cowork session. Accepts configuration parameters matching the Codex MCP tool."
         ),
         "inputSchema": .object([
             "type": .string("object"),
@@ -75,7 +75,7 @@ enum MCPServerToolCatalog {
                 "type": .string("string")
             ]),
             "prompt": .object([
-                "description": .string("The *initial user prompt* to start the QuillCode conversation."),
+                "description": .string("The *initial user prompt* to start the Quill Cowork conversation."),
                 "type": .string("string")
             ])
         ]
@@ -141,8 +141,8 @@ enum MCPServerToolCatalog {
 
     private static let replyTool: CLIJSONValue = .object([
         "name": .string(replyToolName),
-        "title": .string("QuillCode Reply"),
-        "description": .string("Continue a QuillCode conversation by providing the thread id and prompt."),
+        "title": .string("Quill Cowork Reply"),
+        "description": .string("Continue a Quill Cowork conversation by providing the thread id and prompt."),
         "inputSchema": .object([
             "type": .string("object"),
             "properties": .object([
@@ -151,12 +151,12 @@ enum MCPServerToolCatalog {
                     "type": .string("string")
                 ]),
                 "prompt": .object([
-                    "description": .string("The *next user prompt* to continue the QuillCode conversation."),
+                    "description": .string("The *next user prompt* to continue the Quill Cowork conversation."),
                     "type": .string("string")
                 ]),
                 "threadId": .object([
                     "description": .string(
-                        "The thread id for this QuillCode session. Required at runtime; optional in the "
+                        "The thread id for this Quill Cowork session. Required at runtime; optional in the "
                             + "schema for clients that still send conversationId."
                     ),
                     "type": .string("string")

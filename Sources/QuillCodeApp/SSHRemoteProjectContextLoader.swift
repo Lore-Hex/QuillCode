@@ -74,7 +74,7 @@ enum SSHRemoteProjectContextLoader {
                     path: path,
                     title: instructionTitle(for: path),
                     content: wasTruncated
-                        ? content + "\n\n[QuillCode truncated this instruction file at \(ProjectInstructionLoader.maxFileBytes) bytes.]"
+                        ? content + "\n\n[\(QuillCodeProduct.displayName) truncated this instruction file at \(ProjectInstructionLoader.maxFileBytes) bytes.]"
                         : content,
                     byteCount: byteCount,
                     wasTruncated: wasTruncated
@@ -86,7 +86,7 @@ enum SSHRemoteProjectContextLoader {
                     scope: .project,
                     title: memoryTitle(for: path),
                     content: wasTruncated
-                        ? content + "\n\n[QuillCode truncated this memory file at \(MemoryNoteLoader.maxFileBytes) bytes.]"
+                        ? content + "\n\n[\(QuillCodeProduct.displayName) truncated this memory file at \(MemoryNoteLoader.maxFileBytes) bytes.]"
                         : content,
                     relativePath: path,
                     byteCount: byteCount,
@@ -264,12 +264,12 @@ enum SSHRemoteProjectContextLoader {
         case "AGENTS.md":
             return "Project AGENTS.md"
         case ".quillcode/rules.md":
-            return "QuillCode rules"
+            return "\(QuillCodeProduct.displayName) rules"
         case ".quillcode/instructions.md":
-            return "QuillCode instructions"
+            return "\(QuillCodeProduct.displayName) instructions"
         default:
             if relativePath.contains(".quillcode/rules/") {
-                return "QuillCode rule: \(URL(fileURLWithPath: relativePath).deletingPathExtension().lastPathComponent)"
+                return "\(QuillCodeProduct.displayName) rule: \(URL(fileURLWithPath: relativePath).deletingPathExtension().lastPathComponent)"
             }
             return relativePath
         }

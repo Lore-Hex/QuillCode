@@ -124,7 +124,7 @@ enum MCPServerConfigOverlay {
             from: encoder.encode(base)
         )
         guard var object = baseValue.objectValue else {
-            throw MCPServerToolInputError.invalid("could not encode the base QuillCode config")
+            throw MCPServerToolInputError.invalid("could not encode the base Quill Cowork config")
         }
         object.merge(normalized) { _, override in override }
         do {

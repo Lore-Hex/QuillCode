@@ -11,8 +11,8 @@ from .json_io import load_json_object, require, required_string
 from .live_saas import CATALOG_SPREADSHEET_URL, require_catalog_task_ids
 
 EXPECTED_TASK_TEXT = "check competitor pricing pages and notify me with a diff"
-EXPECTED_TITLE = "QuillCode scheduled task ready"
-EXPECTED_APP_NAME = "QuillCode"
+EXPECTED_TITLE = "Quill Cowork scheduled task ready"
+EXPECTED_APP_NAME = "Quill Cowork"
 EXPECTED_ACTION = "open-follow-up-thread"
 
 RAW_FIELD_NAMES = {
@@ -127,7 +127,7 @@ def _validate_observation(evidence: dict[str, Any]) -> dict[str, Any]:
         "activationOpenedFollowUp must be true",
     )
     for required_element in (
-        "QuillCode scheduled task ready",
+        "Quill Cowork scheduled task ready",
         "check competitor pricing pages",
         "Open follow-up thread",
     ):

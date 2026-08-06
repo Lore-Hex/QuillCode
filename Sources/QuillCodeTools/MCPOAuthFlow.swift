@@ -19,7 +19,7 @@ public struct MCPOAuthFlow: Sendable {
     public var httpClient: any MCPHTTPClient
     public var clientName: String
 
-    public init(httpClient: any MCPHTTPClient, clientName: String = "QuillCode") {
+    public init(httpClient: any MCPHTTPClient, clientName: String = "Quill Cowork") {
         self.httpClient = httpClient
         self.clientName = clientName
     }

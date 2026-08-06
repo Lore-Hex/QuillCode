@@ -22,7 +22,7 @@ cd "$ROOT_DIR"
 rm -rf "$DIST_DIR"
 mkdir -p "$ASSET_DIR" "$CLI_DIR"
 
-echo "==> Packaging QuillCode macOS app ($ARCH, version $VERSION build $BUILD_NUMBER)"
+echo "==> Packaging Quill Cowork macOS app ($ARCH, version $VERSION build $BUILD_NUMBER)"
 APP_BUNDLE="$(
   QUILLCODE_MACOS_APP_VERSION="$VERSION" \
   QUILLCODE_MACOS_BUILD_NUMBER="$BUILD_NUMBER" \
@@ -32,7 +32,7 @@ APP_BUNDLE="$(
       --output "$APP_OUTPUT_DIR"
 )"
 
-APP_ZIP="$ASSET_DIR/QuillCode-macOS-$ARCH.zip"
+APP_ZIP="$ASSET_DIR/Quill-Cowork-macOS-$ARCH.zip"
 ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$APP_ZIP"
 
 echo "==> Packaging quill-code macOS CLI ($ARCH)"
@@ -41,7 +41,7 @@ BIN_DIR="$(swift build --configuration "$CONFIGURATION" --product quill-code --s
 cp "$BIN_DIR/quill-code" "$CLI_DIR/quill-code"
 chmod 755 "$CLI_DIR/quill-code"
 cat > "$CLI_DIR/README.txt" <<README
-QuillCode CLI for macOS $ARCH
+Quill Cowork CLI for macOS $ARCH
 
 Install:
   sudo install -m 755 quill-code /usr/local/bin/quill-code
@@ -54,7 +54,7 @@ CLI_TARBALL="$ASSET_DIR/quill-code-macOS-$ARCH.tar.gz"
 tar -C "$CLI_ROOT" -czf "$CLI_TARBALL" "$(basename "$CLI_DIR")"
 
 cat > "$ASSET_DIR/BUILD_INFO.txt" <<INFO
-product=QuillCode
+product=Quill Cowork
 platform=macOS
 arch=$ARCH
 version=$VERSION
@@ -62,7 +62,7 @@ build=$BUILD_NUMBER
 commit=$COMMIT
 createdAt=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 configuration=$CONFIGURATION
-app=QuillCode-macOS-$ARCH.zip
+app=Quill-Cowork-macOS-$ARCH.zip
 cli=quill-code-macOS-$ARCH.tar.gz
 codesign=ad-hoc
 notarized=false
@@ -70,9 +70,9 @@ INFO
 
 (
   cd "$ASSET_DIR"
-  shasum -a 256 QuillCode-macOS-"$ARCH".zip quill-code-macOS-"$ARCH".tar.gz BUILD_INFO.txt \
-    > "QuillCode-macOS-$ARCH-SHASUMS256.txt"
+  shasum -a 256 Quill-Cowork-macOS-"$ARCH".zip quill-code-macOS-"$ARCH".tar.gz BUILD_INFO.txt \
+    > "Quill-Cowork-macOS-$ARCH-SHASUMS256.txt"
 )
 
-echo "QuillCode macOS download assets:"
+echo "Quill Cowork macOS download assets:"
 find "$ASSET_DIR" -maxdepth 1 -type f -print | sort

@@ -39,7 +39,7 @@ struct QuillCodeDesktopSignInCoordinator {
 
         let authorization = try client.createAuthorization(
             callbackURL: server.callbackURL.absoluteString,
-            keyLabel: "QuillCode"
+            keyLabel: QuillCodeProduct.displayName
         )
         openURL(authorization.url)
         status("Waiting for TrustedRouter", nil)

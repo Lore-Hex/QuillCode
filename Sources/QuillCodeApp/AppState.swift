@@ -63,7 +63,7 @@ public struct TopBarState: Sendable, Hashable {
     public var branchStatusProjectID: UUID?
 
     public init(
-        appName: String = "QuillCode",
+        appName: String = QuillCodeProduct.displayName,
         projectName: String? = nil,
         threadTitle: String? = nil,
         model: String = TrustedRouterDefaults.defaultModel,

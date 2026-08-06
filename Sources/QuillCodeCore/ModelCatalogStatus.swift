@@ -62,7 +62,7 @@ public struct ModelCatalogStatus: Codable, Sendable, Hashable {
     public func detailLabel(now: Date = Date(), staleAfter: TimeInterval = 60 * 60) -> String? {
         switch source {
         case .bundled:
-            return "Using QuillCode's built-in recommended models until TrustedRouter sign-in refreshes the catalog."
+            return "Using Quill Cowork's built-in recommended models until TrustedRouter sign-in refreshes the catalog."
         case .liveTrustedRouter:
             return "Provider, pricing, modality, and health metadata last refreshed \(freshnessLabel(now: now, staleAfter: staleAfter))."
         case .publicTrustedRouter:

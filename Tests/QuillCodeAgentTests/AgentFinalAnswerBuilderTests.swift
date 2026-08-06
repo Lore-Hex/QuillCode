@@ -432,7 +432,7 @@ final class AgentFinalAnswerBuilderTests: XCTestCase {
             status: "Preview ready",
             sourceLabel: "Local web app",
             inspectionDepth: .metadataOnly,
-            summary: "Live DOM capture is not attached yet; QuillCode has URL metadata for this local page.",
+            summary: "Live DOM capture is not attached yet; Quill Cowork has URL metadata for this local page.",
             details: ["Host: localhost", "Scheme: HTTP", "Path: /"],
             outline: ["Page: localhost", "Path: /", "H1: Hero Preview"],
             textSnippet: "Hero Preview Buy now",

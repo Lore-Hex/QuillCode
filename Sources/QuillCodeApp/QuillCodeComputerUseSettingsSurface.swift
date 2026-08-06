@@ -55,44 +55,44 @@ enum ComputerUseSettingsProjection {
         if let unavailableReason = status.unavailableReason {
             return unavailableReason
         }
-        return "Computer Use needs desktop permissions before QuillCode can inspect or control the screen."
+        return "Computer Use needs desktop permissions before \(QuillCodeProduct.displayName) can inspect or control the screen."
     }
 
     static func nextAction(_ status: ComputerUseStatus) -> String {
         if status.available {
-            return "Computer Use is enabled. Ask QuillCode to inspect the screen or operate an app."
+            return "Computer Use is enabled. Ask \(QuillCodeProduct.displayName) to inspect the screen or operate an app."
         }
         if status.unavailableReason != nil {
             return "Install or enable the required desktop backend, then refresh status."
         }
         if !status.screenRecordingGranted && !status.accessibilityGranted {
-            return "Open Screen Recording first, enable QuillCode, then open Accessibility."
+            return "Open Screen Recording first, enable \(QuillCodeProduct.displayName), then open Accessibility."
         }
         if !status.screenRecordingGranted {
-            return "Open Screen Recording, enable QuillCode, then refresh status."
+            return "Open Screen Recording, enable \(QuillCodeProduct.displayName), then refresh status."
         }
-        return "Open Accessibility, enable QuillCode, then refresh status."
+        return "Open Accessibility, enable \(QuillCodeProduct.displayName), then refresh status."
     }
 
     static func onboardingSteps(status: ComputerUseStatus, config: AppConfig) -> [String] {
         if let unavailableReason = status.unavailableReason {
             return [
                 unavailableReason,
-                "After installing the missing backend or helper tools, refresh status before asking QuillCode to use the screen."
+                "After installing the missing backend or helper tools, refresh status before asking \(QuillCodeProduct.displayName) to use the screen."
             ]
         }
 
         var steps = [String]()
         if !status.screenRecordingGranted {
-            steps.append("Enable Screen Recording so QuillCode can see screenshots and verify visual state.")
+            steps.append("Enable Screen Recording so \(QuillCodeProduct.displayName) can see screenshots and verify visual state.")
         }
         if !status.accessibilityGranted {
-            steps.append("Enable Accessibility so QuillCode can click, type, scroll, move the cursor, and send shortcuts.")
+            steps.append("Enable Accessibility so \(QuillCodeProduct.displayName) can click, type, scroll, move the cursor, and send shortcuts.")
         }
         if steps.isEmpty {
             steps.append("Computer Use can inspect screenshots and dispatch input to the foreground app.")
         } else {
-            steps.append("Return to QuillCode and refresh status after macOS accepts the permission changes.")
+            steps.append("Return to \(QuillCodeProduct.displayName) and refresh status after macOS accepts the permission changes.")
         }
 
         if config.computerUseApprovedBundleIdentifiers.isEmpty && config.computerUseApprovedAppNames.isEmpty {

@@ -72,8 +72,8 @@ def _validated_scheduled_notification_manifest(
     follow_up_thread_title = manifest.get("followUpThreadTitle")
     observation_method = manifest.get("observationMethod")
     require(
-        notification_title == "QuillCode scheduled task ready",
-        f"{path}.notificationTitle must prove the QuillCode scheduled task notification",
+        notification_title == "Quill Cowork scheduled task ready",
+        f"{path}.notificationTitle must prove the Quill Cowork scheduled task notification",
     )
     require(
         isinstance(follow_up_thread_title, str) and follow_up_thread_title.startswith("Scheduled check: "),
@@ -92,7 +92,7 @@ def _validated_scheduled_notification_manifest(
     return {
         **base,
         "evidenceType": "scheduled-notification-observation",
-        "serviceName": "QuillCode Notifications",
+        "serviceName": "Quill Cowork Notifications",
         "taskName": follow_up_thread_title,
         "urlHost": "local-notification-center",
         "notificationTitle": notification_title,
@@ -163,7 +163,7 @@ def _validated_packaged_one_turn_manifest(
     return {
         **base,
         "evidenceType": "packaged-one-turn-coworker",
-        "serviceName": "QuillCode Packaged Smoke",
+        "serviceName": "Quill Cowork Packaged Smoke",
         "taskName": "One-turn local shell/file coworker smoke",
         "urlHost": "local-packaged-app",
     }
@@ -208,7 +208,7 @@ def _validated_packaged_multi_file_manifest(
     return {
         **base,
         "evidenceType": "packaged-multi-file-artifact",
-        "serviceName": "QuillCode Packaged Smoke",
+        "serviceName": "Quill Cowork Packaged Smoke",
         "taskName": "Multi-file artifact coworker smoke",
         "urlHost": "local-packaged-app",
     }
@@ -278,7 +278,7 @@ def build_coworker_catalog_coverage(manifest_paths: list[Path], base_directory: 
 
 def coworker_catalog_markdown(summary: dict[str, Any]) -> str:
     lines = [
-        "# QuillCode Coworker Coverage",
+        "# Quill Cowork Coworker Coverage",
         "",
         f"- Catalog: {summary['catalogSpreadsheetURL']}",
         f"- Evidence manifests: {summary['evidenceManifestCount']}",

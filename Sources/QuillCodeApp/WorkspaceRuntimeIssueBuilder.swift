@@ -132,7 +132,7 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             return RuntimeIssueSurface(
                 severity: .error,
                 title: "TrustedRouter network issue",
-                message: "QuillCode could not reach \(config.apiBaseURL). " +
+                message: "\(QuillCodeProduct.displayName) could not reach \(config.apiBaseURL). " +
                     "Check the network or API base URL, then retry.",
                 actionLabel: "Retry",
                 recovery: .retry(reason: .networkUnreachable)
@@ -151,7 +151,7 @@ struct WorkspaceRuntimeIssueBuilder: Sendable, Hashable {
             return RuntimeIssueSurface(
                 severity: .warning,
                 title: "Model response was malformed",
-                message: "The selected model did not follow QuillCode's action schema. " +
+                message: "The selected model did not follow \(QuillCodeProduct.displayName)'s action schema. " +
                     "Try \(TrustedRouterDefaults.fastModelDisplayName), " +
                     "\(TrustedRouterDefaults.prometheusModelDisplayName), or another coding model.",
                 actionLabel: "Switch model",

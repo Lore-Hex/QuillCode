@@ -91,7 +91,7 @@ cleanup() {
       printf 'window_smoke=window-report.json\n'
       printf 'window_screenshot=window.png\n'
     } > "$ARTIFACT_DIR/manifest.txt"
-    echo "QuillCode packaged macOS app smoke artifacts: $ARTIFACT_DIR"
+    echo "Quill Cowork packaged macOS app smoke artifacts: $ARTIFACT_DIR"
   fi
 
   rm -rf "$SMOKE_ROOT"
@@ -109,7 +109,7 @@ cd "$ROOT_DIR"
 echo "==> Building packaged macOS app"
 APP_BUNDLE="$("$ROOT_DIR/scripts/build-macos-app.sh" --output "$APP_OUTPUT_DIR")"
 INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"
-APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/QuillCode"
+APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/Quill Cowork"
 
 assert_plist_value() {
   local key="$1"
@@ -152,10 +152,10 @@ if [[ ! -x "$APP_EXECUTABLE" ]]; then
 fi
 
 plutil -lint "$INFO_PLIST" >/dev/null
-assert_plist_value CFBundleName QuillCode
-assert_plist_value CFBundleDisplayName QuillCode
-assert_plist_value CFBundleExecutable QuillCode
-assert_plist_value CFBundleIdentifier co.lorehex.QuillCode
+assert_plist_value CFBundleName "Quill Cowork"
+assert_plist_value CFBundleDisplayName "Quill Cowork"
+assert_plist_value CFBundleExecutable "Quill Cowork"
+assert_plist_value CFBundleIdentifier co.lorehex.QuillCowork
 assert_plist_value CFBundlePackageType APPL
 assert_plist_value LSApplicationCategoryType public.app-category.developer-tools
 assert_plist_value NSPrincipalClass NSApplication
@@ -242,4 +242,4 @@ fi
   "$LAUNCH_SERVICES_SMOKE_ARTIFACT_DIR/report.json" \
   --manifest "$COMPUTER_USE_ACTION_MANIFEST"
 
-echo "QuillCode packaged macOS app smoke passed."
+echo "Quill Cowork packaged macOS app smoke passed."

@@ -37,7 +37,7 @@ struct DefaultAppServerAccountLoginStarter: AppServerAccountLoginStarting {
         let callbackServer = try LoopbackHTTPCallbackServer(callbackURL: callbackURL)
         let authorization = try client.createAuthorization(
             callbackURL: callbackServer.callbackURL.absoluteString,
-            keyLabel: "QuillCode app-server"
+            keyLabel: "Quill Cowork app-server"
         )
         return AppServerAccountBrowserLogin(
             authURL: authorization.url,

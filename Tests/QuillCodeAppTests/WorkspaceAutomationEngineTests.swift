@@ -452,7 +452,7 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         XCTAssertEqual(draft.selectedProjectID, projectID)
         XCTAssertEqual(draft.report.automationID, automation.id)
         XCTAssertEqual(draft.report.followUpThreadID, draft.thread.id)
-        XCTAssertEqual(draft.report.title, "QuillCode follow-up ready")
+        XCTAssertEqual(draft.report.title, "Quill Cowork follow-up ready")
         XCTAssertEqual(draft.report.body, "Follow-up: Launch plan was created from Launch plan.")
     }
 
@@ -505,7 +505,7 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         XCTAssertEqual(draft.selectedProjectID, project.id)
         XCTAssertEqual(draft.report.automationID, automation.id)
         XCTAssertEqual(draft.report.followUpThreadID, draft.thread.id)
-        XCTAssertEqual(draft.report.title, "QuillCode workspace check ready")
+        XCTAssertEqual(draft.report.title, "Quill Cowork workspace check ready")
         XCTAssertEqual(draft.report.body, "Scheduled check: QuillCode was created for QuillCode.")
     }
 
@@ -567,7 +567,7 @@ final class WorkspaceAutomationEngineTests: XCTestCase {
         XCTAssertEqual(draft.selectedProjectID, project.id)
         XCTAssertEqual(draft.report.automationID, automation.id)
         XCTAssertEqual(draft.report.followUpThreadID, draft.thread.id)
-        XCTAssertEqual(draft.report.title, "QuillCode monitor check ready")
+        XCTAssertEqual(draft.report.title, "Quill Cowork monitor check ready")
         XCTAssertEqual(draft.report.body, "Monitor: Watch CI was created for QuillCode.")
     }
 

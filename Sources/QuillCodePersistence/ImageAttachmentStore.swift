@@ -20,7 +20,7 @@ public enum ImageAttachmentStoreError: LocalizedError, Equatable {
         case .attachmentLimitReached(let maximumCount):
             "You can attach up to \(maximumCount) images to one message."
         case .unmanagedAttachment:
-            "The attachment is outside QuillCode's managed image storage."
+            "The attachment is outside Quill Cowork's managed image storage."
         case .attachmentChanged:
             "The attachment changed after it was added. Remove it and attach it again."
         }

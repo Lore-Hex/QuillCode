@@ -338,9 +338,9 @@ private enum SSHRemoteAppServerClientError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .invalidConnection: "SSH Remote project is missing a usable host."
-        case .launchFailed(let detail): "Failed to launch the remote QuillCode app server: \(detail)"
-        case .disconnected: "The remote QuillCode app server disconnected."
-        case .timeout: "The remote QuillCode app server did not respond before the timeout."
+        case .launchFailed(let detail): "Failed to launch the remote Quill Cowork app server: \(detail)"
+        case .disconnected: "The remote Quill Cowork app server disconnected."
+        case .timeout: "The remote Quill Cowork app server did not respond before the timeout."
         case .responseError(let detail): "Remote app-server request failed: \(detail)"
         case .invalidMessage(let detail): "Remote app-server protocol error: \(detail)"
         case .ioFailure(let detail): "Remote app-server transport error: \(detail)"

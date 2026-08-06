@@ -23,7 +23,7 @@ final class URLSessionBrowserPageFetcher: BrowserPageFetching, @unchecked Sendab
 
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.setValue("text/html,application/xhtml+xml;q=0.9,*/*;q=0.1", forHTTPHeaderField: "Accept")
-        request.setValue("QuillCode BrowserPreview", forHTTPHeaderField: "User-Agent")
+        request.setValue("\(QuillCodeProduct.displayName) BrowserPreview", forHTTPHeaderField: "User-Agent")
 
         do {
             let (data, response) = try await session.data(for: request)

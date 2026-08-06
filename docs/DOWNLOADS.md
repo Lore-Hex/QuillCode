@@ -1,16 +1,16 @@
 # Downloadable Builds
 
-QuillCode publishes automated tester builds from GitHub Actions.
+Quill Cowork publishes automated tester builds from GitHub Actions.
 
 ## What To Send Testers
 
 Send testers this moving prerelease link:
 
-- [QuillCode Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
+- [Quill Cowork Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
 Direct asset links for the current tester channel:
 
-- [macOS app: `QuillCode-macOS-arm64.zip`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/QuillCode-macOS-arm64.zip)
+- [macOS app: `Quill-Cowork-macOS-arm64.zip`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip)
 - [macOS CLI: `quill-code-macOS-arm64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-macOS-arm64.tar.gz)
 - [Linux CLI: `quill-code-linux-x86_64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-linux-x86_64.tar.gz)
 - [Checksums: `SHASUMS256.txt`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/SHASUMS256.txt)

@@ -8,7 +8,7 @@ extension QuillCodeWorkspaceModel {
         guard let agentImporter else {
             return AgentImportPreview(
                 source: .claudeCode,
-                diagnostics: ["Import is unavailable in this QuillCode session."]
+                diagnostics: ["Import is unavailable in this \(QuillCodeProduct.displayName) session."]
             )
         }
         let projects = root.projects
@@ -21,7 +21,7 @@ extension QuillCodeWorkspaceModel {
         guard let agentImporter else {
             return AgentImportOutcome(
                 source: selection.source,
-                diagnostics: ["Import is unavailable in this QuillCode session."]
+                diagnostics: ["Import is unavailable in this \(QuillCodeProduct.displayName) session."]
             )
         }
         let projectSnapshot = root.projects

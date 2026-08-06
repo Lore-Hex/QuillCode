@@ -18,7 +18,7 @@ public extension ToolDefinition {
     static let mcpCall = ToolDefinition(
         name: "host.mcp.call",
         description: "Call a tool on a verified project MCP server (stdio or remote). "
-            + "Use only server IDs and tool names listed in the description supplied by QuillCode.",
+            + "Use only server IDs and tool names listed in the description supplied by Quill Cowork.",
         parametersJSON: MCPToolDefinitionSchema.call,
         host: .mcp,
         risk: .append
@@ -27,7 +27,7 @@ public extension ToolDefinition {
     static let mcpReadResource = ToolDefinition(
         name: "host.mcp.resource.read",
         description: "Read an advertised resource from a verified project MCP server (stdio or remote). "
-            + "Use only server IDs and resource names or URIs listed in the description supplied by QuillCode.",
+            + "Use only server IDs and resource names or URIs listed in the description supplied by Quill Cowork.",
         parametersJSON: MCPToolDefinitionSchema.readResource,
         host: .mcp,
         risk: .read
@@ -36,7 +36,7 @@ public extension ToolDefinition {
     static let mcpGetPrompt = ToolDefinition(
         name: "host.mcp.prompt.get",
         description: "Get an advertised prompt from a verified project MCP server (stdio or remote). "
-            + "Use only server IDs and prompt names listed in the description supplied by QuillCode.",
+            + "Use only server IDs and prompt names listed in the description supplied by Quill Cowork.",
         parametersJSON: MCPToolDefinitionSchema.getPrompt,
         host: .mcp,
         risk: .read

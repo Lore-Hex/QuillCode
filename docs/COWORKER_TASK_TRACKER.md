@@ -105,7 +105,7 @@ management in the packaged app.
 
 Scheduled coworker due-runs now carry task-specific notification evidence:
 
-- Due-run reports for scheduled coworker tasks use "QuillCode scheduled task ready" instead of the
+- Due-run reports for scheduled coworker tasks use "Quill Cowork scheduled task ready" instead of the
   generic workspace-check title.
 - The notification body includes the original task text, so the desktop notification path proves which
   recurring coworker task produced the follow-up thread.
@@ -137,7 +137,7 @@ notifier boundary. `scripts/scheduled-notification-observation-template.sh <outp
 <catalog-task-id> [catalog-task-id ...]` writes the row-linked capture skeleton, and
 `scripts/scheduled-notification-observation-smoke.sh <evidence.json> [manifest.json]` validates the
 completed redacted native observation capture. The evidence links back to the packaged
-scheduled-coworker manifest, proves the `QuillCode scheduled task ready` notification was visible,
+scheduled-coworker manifest, proves the `Quill Cowork scheduled task ready` notification was visible,
 proves the original task text was visible, proves the Open follow-up action was observed and opened
 the scheduled thread, carries exact `catalogTaskIDs`, and rejects raw prompts or captured secrets.
 `scripts/native-click-probe-contracts.py coworker-catalog ... --output coworker-coverage.json`

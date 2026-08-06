@@ -20,7 +20,7 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
 
         let transcript = TranscriptSurface(messages: [message], toolCards: [toolCard])
 
-        XCTAssertEqual(transcript.emptyTitle, "Ask QuillCode to inspect, edit, or run this project.")
+        XCTAssertEqual(transcript.emptyTitle, "Ask Quill Cowork to inspect, edit, or run this project.")
         XCTAssertEqual(transcript.emptySubtitle, "Use Auto for normal coding work, Review for manual gates, or Read-only for exploration.")
         XCTAssertEqual(transcript.emptyStarterActions.map(\.id), ["review-changes", "run-tests", "explain-project"])
         XCTAssertEqual(transcript.emptyStarterActions.first?.prompt, "Review the current git diff and call out risks, missing tests, and next steps.")
@@ -70,7 +70,7 @@ final class QuillCodeTranscriptSurfaceTests: XCTestCase {
         let sending = ComposerSurface(composer: ComposerState(draft: "run tests", isSending: true))
 
         XCTAssertTrue(ready.canSend)
-        XCTAssertEqual(ready.placeholder, "Message QuillCode")
+        XCTAssertEqual(ready.placeholder, "Message Quill Cowork")
         XCTAssertEqual(ready.slashSuggestions.first?.usage, "/pr list [open|closed|merged|all] [limit]")
         XCTAssertEqual(ready.slashSuggestions.first?.insertText, "/pr list ")
         XCTAssertFalse(blank.canSend)

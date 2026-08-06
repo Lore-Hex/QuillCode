@@ -54,19 +54,19 @@ Verified live against cua-driver 0.8.3 (this machine, sandboxed terminal):
 - ✅ Every action mapping emits the correct cua tool call, and cua **accepts** each without error
   (`effect: "unverifiable"` = the event was posted; the driver simply can't self-verify a keystroke).
 
-Needs verification in the **packaged QuillCode app** (holds Accessibility for the native backend):
+Needs verification in the **packaged Quill Cowork app** (holds Accessibility for the native backend):
 
 - ⚠️ **AX-dependent write landing** (`type_text` via `AXSetAttribute(kAXSelectedText)`, `get_window_state`,
   `set_value`). Under a sandboxed terminal's TCC identity the per-app AX tree walk returned empty
   (`window_id: None, elements: 0`) even though `check_permissions` reported Accessibility granted, so a
   keystroke could not be confirmed landing. In the packaged app the `call` path attributes AX to
-  QuillCode's own grant, which should resolve this. **This is the top manual-QA item**, and it is the
+  Quill Cowork's own grant, which should resolve this. **This is the top manual-QA item**, and it is the
   strongest argument for increment 2 (persistent `mcp --embedded`, which explicitly *inherits the
   host's TCC grants* and also enables the agent-cursor overlay).
 
 ### Manual QA checklist (packaged app)
 
-1. Grant QuillCode Screen Recording + Accessibility (existing native-backend setup).
+1. Grant Quill Cowork Screen Recording + Accessibility (existing native-backend setup).
 2. Launch with `QUILLCODE_USE_CUA_DRIVER=1`; confirm Settings → Computer Use shows "ready" (cua status).
 3. Ask the agent to screenshot; confirm the artifact is a real screen capture at ≤1568px.
 4. Ask the agent to click a visible control by coordinates read off the screenshot; confirm the click

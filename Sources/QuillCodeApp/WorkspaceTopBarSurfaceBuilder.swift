@@ -48,7 +48,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
         ).surface()
         return TopBarSurface(
             appName: topBarState.appName,
-            primaryTitle: thread?.title ?? "QuillCode",
+            primaryTitle: thread?.title ?? QuillCodeProduct.displayName,
             subtitle: WorkspaceStatusTextBuilder.topBarSubtitle(
                 projectName: projectName ?? "No project",
                 thread: thread

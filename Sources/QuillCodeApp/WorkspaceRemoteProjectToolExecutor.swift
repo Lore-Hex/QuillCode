@@ -91,7 +91,7 @@ struct WorkspaceRemoteProjectToolExecutor: Sendable, Hashable {
             case .executionStateUnknown(let detail):
                 return ToolResult(
                     ok: false,
-                    error: "The SSH Remote command may have run before the app-server connection was lost. QuillCode did not retry it to avoid duplicate changes. Verify the remote project before trying again. \(detail)"
+                    error: "The SSH Remote command may have run before the app-server connection was lost. \(QuillCodeProduct.displayName) did not retry it to avoid duplicate changes. Verify the remote project before trying again. \(detail)"
                 )
             }
         } catch {

@@ -28,16 +28,16 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseStatusLabel, "Setup needed")
         XCTAssertEqual(
             settings.computerUseSetupSummary,
-            "Computer Use needs desktop permissions before QuillCode can inspect or control the screen."
+            "Computer Use needs desktop permissions before Quill Cowork can inspect or control the screen."
         )
         XCTAssertEqual(
             settings.computerUseNextAction,
-            "Open Screen Recording first, enable QuillCode, then open Accessibility."
+            "Open Screen Recording first, enable Quill Cowork, then open Accessibility."
         )
         XCTAssertEqual(settings.computerUseOnboardingSteps, [
-            "Enable Screen Recording so QuillCode can see screenshots and verify visual state.",
-            "Enable Accessibility so QuillCode can click, type, scroll, move the cursor, and send shortcuts.",
-            "Return to QuillCode and refresh status after macOS accepts the permission changes.",
+            "Enable Screen Recording so Quill Cowork can see screenshots and verify visual state.",
+            "Enable Accessibility so Quill Cowork can click, type, scroll, move the cursor, and send shortcuts.",
+            "Return to Quill Cowork and refresh status after macOS accepts the permission changes.",
             "Add foreground app approvals when you want Computer Use limited to specific apps."
         ])
         XCTAssertEqual(settings.computerUseRequirements.map(\.title), ["Screen Recording", "Accessibility"])
@@ -65,7 +65,7 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         )
         XCTAssertEqual(
             settings.notificationSummary,
-            "Agent runs notify only when QuillCode is in the background. Automation runs post completion alerts."
+            "Agent runs notify only when Quill Cowork is in the background. Automation runs post completion alerts."
         )
         XCTAssertEqual(
             settings.runSpendLimitSummary,
@@ -284,13 +284,13 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.computerUseStatusLabel, "Accessibility needed")
         XCTAssertEqual(
             settings.computerUseNextAction,
-            "Open Accessibility, enable QuillCode, then refresh status."
+            "Open Accessibility, enable Quill Cowork, then refresh status."
         )
         XCTAssertEqual(settings.computerUseRequirements.map(\.title), ["Screen Recording", "Accessibility"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.statusLabel), ["Granted", "Required"])
         XCTAssertEqual(settings.computerUseRequirements.map(\.command.isEnabled), [false, true])
         XCTAssertTrue(settings.computerUseOnboardingSteps.contains(
-            "Enable Accessibility so QuillCode can click, type, scroll, move the cursor, and send shortcuts."
+            "Enable Accessibility so Quill Cowork can click, type, scroll, move the cursor, and send shortcuts."
         ))
         XCTAssertNil(settings.computerUseForegroundApplication)
         XCTAssertEqual(settings.computerUseApprovedBundleIdentifiers, ["com.apple.Terminal"])
@@ -340,7 +340,7 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         )
         XCTAssertEqual(settings.computerUseOnboardingSteps, [
             "Linux Computer Use detected Wayland but needs helper tools: ydotool, wtype.",
-            "After installing the missing backend or helper tools, refresh status before asking QuillCode to use the screen."
+            "After installing the missing backend or helper tools, refresh status before asking Quill Cowork to use the screen."
         ])
         XCTAssertTrue(settings.computerUseRequirements.isEmpty)
         XCTAssertTrue(settings.computerUseSetupCommand.isEnabled)

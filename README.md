@@ -1,10 +1,10 @@
-# QuillCode
+# Quill Cowork
 
 [![CI](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml)
 [![Download Builds](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml)
 [Download tester build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
-QuillCode is a Swift and QuillUI coding agent inspired by Codex workflows and backed by TrustedRouter. The long-term target is a public, cross-platform macOS/Linux app with local project chat, tool execution, Computer Use, worktrees, plugins, automations, and browser-assisted development.
+Quill Cowork is a Swift and QuillUI coding agent inspired by Codex workflows and backed by TrustedRouter. The long-term target is a public, cross-platform macOS/Linux app with local project chat, tool execution, Computer Use, worktrees, plugins, automations, and browser-assisted development.
 
 This initial repository contains the compile-stable foundation:
 
@@ -39,7 +39,7 @@ This initial repository contains the compile-stable foundation:
 ## Try It
 
 Download the latest automated tester build from
-[QuillCode Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest).
+[Quill Cowork Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest).
 The tester release is refreshed after every successful `main` push and nightly;
 see [Downloadable Builds](docs/DOWNLOADS.md) for direct app/CLI links, the
 machine-readable build manifest, and tester notes.
@@ -68,7 +68,7 @@ the repo, runs native/packaged desktop smoke with the same create-then-read foll
 
 Agent PRs should merge through the repo merge train instead of racing direct pushes to `main`. Open a PR, wait for CI, then add the `merge-train` label. See [Merge Train](docs/MERGE_TRAIN.md).
 
-The legacy CLI invocation and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account. `quill-code exec` is the automation surface and defaults to live TrustedRouter; pass `--mock` for deterministic local runs. The desktop shell switches to live TrustedRouter automatically when `QUILLCODE_API_KEY` or `TRUSTEDROUTER_API_KEY` is present, or when an API key is stored in the QuillCode secret store. With a key, the desktop shell also refreshes the TrustedRouter model catalog and groups provider/category/model choices in the top bar. The desktop Settings sheet can save, replace, or clear the local developer key and API base URL. Set `QUILLCODE_USE_MOCK_LLM=true` to force deterministic mock mode.
+The legacy CLI invocation and desktop shell use a deterministic mock LLM by default so tests and local demos do not require a TrustedRouter account. `quill-code exec` is the automation surface and defaults to live TrustedRouter; pass `--mock` for deterministic local runs. The desktop shell switches to live TrustedRouter automatically when `QUILLCODE_API_KEY` or `TRUSTEDROUTER_API_KEY` is present, or when an API key is stored in the Quill Cowork secret store. With a key, the desktop shell also refreshes the TrustedRouter model catalog and groups provider/category/model choices in the top bar. The desktop Settings sheet can save, replace, or clear the local developer key and API base URL. Set `QUILLCODE_USE_MOCK_LLM=true` to force deterministic mock mode.
 
 `quill-code exec` writes only the final answer to stdout and progress to stderr. `--json` switches
 stdout to JSON Lines lifecycle events; `--ephemeral` disables transcript persistence; `exec resume
@@ -99,12 +99,12 @@ to stderr, never persists a task transcript, and gives the reviewer only bounded
 tools plus the typed `host.review.submit` report sink. Shell execution, file mutation, Git mutation,
 Computer Use, subagents, hooks, skills, and project write tools are absent from that capability set.
 
-`quill-code mcp-server --mock` exposes QuillCode to MCP clients over strict newline-delimited
+`quill-code mcp-server --mock` exposes Quill Cowork to MCP clients over strict newline-delimited
 JSON-RPC 2.0; omit `--mock` for TrustedRouter. After the standard `initialize` and
 `notifications/initialized` handshake, `tools/list` returns only the Codex-compatible `codex` and
 `codex-reply` tools. A `codex` call creates and persists a thread, applies supported model, cwd,
 sandbox, approval, config, instruction, and compaction overrides, then streams bounded
-`codex/event` notifications while the normal QuillCode agent executes. `codex-reply` continues the
+`codex/event` notifications while the normal Quill Cowork agent executes. `codex-reply` continues the
 same durable thread by `threadId` (or the deprecated `conversationId` alias). Client cancellation
 cooperatively stops the active turn, approval requests fail closed on malformed responses or
 disconnect, and EOF waits for active turns before terminating MCP dependencies. The compatibility
@@ -124,15 +124,15 @@ presence without receiving credentials, read locally observed UTC token usage an
 spend controls, inspect effective config, atomically update the user config through Codex-compatible
 `config/value/write` and `config/batchWrite` with content-version conflict detection, and use
 `plugin/list`, `plugin/installed`, and local `plugin/read` to inspect bounded repository/home
-marketplaces, QuillCode-installed packages, and package skill/hook/app/MCP summaries without
+marketplaces, Quill Cowork-installed packages, and package skill/hook/app/MCP summaries without
 executing marketplace code or loading skill bodies. Remote plugin and remote skill reads return an
-explicit unsupported-service error until QuillCode has a real remote catalog backend. Clients can also use
+explicit unsupported-service error until Quill Cowork has a real remote catalog backend. Clients can also use
 Codex-compatible `fs/readFile`, `fs/writeFile`,
 `fs/createDirectory`, `fs/getMetadata`, `fs/readDirectory`, `fs/remove`, `fs/copy`, `fs/watch`, and
 `fs/unwatch` methods. Files are binary-safe base64 payloads, reads use Codex's 512 MiB bound, recursive
 copy preserves symlinks while skipping special children, and watches emit sorted, 200 ms-debounced
 `fs/changed` notifications until unwatch or disconnect. These methods represent the connected
-app-server client's direct host authority; model-authored file tools still use QuillCode's workspace
+app-server client's direct host authority; model-authored file tools still use Quill Cowork's workspace
 and safety boundaries. Input messages are capped at 1 MiB, local images are copied into managed
 storage, selected skills must exactly match an enabled bounded catalog entry and persist an immutable
 instruction snapshot, and mentions persist bounded structured identity without reading their path.
@@ -166,7 +166,7 @@ App-server clients can also use Codex-compatible `mcpServerStatus/list`,
 `config/mcpServer/reload`, `mcpServer/tool/call`, and `mcpServer/resource/read`. MCP configuration is
 read from global `mcp_servers` tables plus the selected thread workspace's `.codex/config.toml` and
 `.quillcode/config.toml`. Stdio uses MCP's canonical newline-delimited JSON wire format while still
-accepting legacy `Content-Length` responses from early QuillCode servers. Stdio and HTTP transports
+accepting legacy `Content-Length` responses from early Quill Cowork servers. Stdio and HTTP transports
 share the desktop's bounded MCP session runtime;
 status preserves raw tool/resource metadata, while `toolsAndAuthOnly` skips the heavier resource and
 prompt inventory. Reload and disconnect terminate cached sessions. App-server MCP OAuth
@@ -175,7 +175,7 @@ thread-aware completion, and reloads the MCP registry after successful sign-in.
 
 Skill discovery follows the Codex/Open Agent Skills layout without putting full skill instructions in
 the base prompt: repository `.agents/skills` directories from the working directory through the Git
-root, user `~/.agents/skills`, admin/system roots, and legacy QuillCode/Codex roots. `skills/list`
+root, user `~/.agents/skills`, admin/system roots, and legacy Quill Cowork/Codex roots. `skills/list`
 returns validated frontmatter plus optional `agents/openai.yaml` interface/tool metadata;
 `skills/extraRoots/set` updates bounded per-session roots and emits `skills/changed`.
 `skills/config/write` persistently enables or disables an exact manifest path or every skill sharing
@@ -183,7 +183,7 @@ a name. Desktop and CLI agents enforce the same selectors. Once a client lists s
 recursive session watcher invalidates cached catalogs and emits `skills/changed` when roots or files
 change; it is cancelled at disconnect.
 
-Nike 1.0 (`trustedrouter/fast`) is the default model. The only named presets are QuillCode’s branded TrustedRouter profiles: Nike 1.0 for fast everyday work, Zeus 1.0 for deep research, Prometheus 1.0 (`trustedrouter/fusion`) for freedom-oriented OSS deep research, Socrates 1.0 for coding-agent work, Aristotle 1.0 for smart general reasoning, and Plato 1.0 for freedom-oriented OSS coding. The picker searches the live TrustedRouter catalog when signed in, so raw provider/model IDs remain selectable without turning raw model types like synth into named defaults.
+Nike 1.0 (`trustedrouter/fast`) is the default model. The only named presets are Quill Cowork’s branded TrustedRouter profiles: Nike 1.0 for fast everyday work, Zeus 1.0 for deep research, Prometheus 1.0 (`trustedrouter/fusion`) for freedom-oriented OSS deep research, Socrates 1.0 for coding-agent work, Aristotle 1.0 for smart general reasoning, and Plato 1.0 for freedom-oriented OSS coding. The picker searches the live TrustedRouter catalog when signed in, so raw provider/model IDs remain selectable without turning raw model types like synth into named defaults.
 
 To exercise the live TrustedRouter adapter:
 
@@ -195,9 +195,9 @@ swift run quill-code --live --model google/gemini-2.5-flash-lite --image screens
 swift run quill-code-desktop
 ```
 
-Image attachments require a model whose TrustedRouter catalog metadata includes image input; QuillCode
+Image attachments require a model whose TrustedRouter catalog metadata includes image input; Quill Cowork
 keeps the selected model explicit rather than silently routing the image through a different model. The
-live adapter asks the model for a strict QuillCode action JSON object, then routes that through the same
+live adapter asks the model for a strict Quill Cowork action JSON object, then routes that through the same
 safety and tool executor path as every other run.
 
 To store or clear the local developer key used by the desktop shell:
@@ -210,7 +210,7 @@ swift run quill-code auth clear
 
 ## Design Principles
 
-- QuillCode is a standalone public repo, not private QuillConnect code.
+- Quill Cowork is a standalone public repo, not private QuillConnect code.
 - UI should use QuillUI/SwiftUI and keep platform differences behind adapter packages.
 - App-facing code should not contain `#if linux`.
 - “Full Access” is named **Auto** and uses reviewer-model gating instead of blind trust.

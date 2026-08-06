@@ -35,7 +35,7 @@ enum CLIDoctorLocalChecks {
                 "current executable": runtime.executablePath,
                 "platform": runtime.operatingSystem
             ]),
-            remediation: executableExists ? nil : "Reinstall QuillCode from a verified release."
+            remediation: executableExists ? nil : "Reinstall Quill Cowork from a verified release."
         )
     }
 
@@ -48,9 +48,9 @@ enum CLIDoctorLocalChecks {
         let status: CLIDoctorStatus = executableExists ? (matches.isEmpty ? .warning : .ok) : .fail
         let summary: String
         if !executableExists {
-            summary = "the running QuillCode executable is unavailable"
+            summary = "the running Quill Cowork executable is unavailable"
         } else if matches.isEmpty {
-            summary = "QuillCode is running but quill-code is not on PATH"
+            summary = "Quill Cowork is running but quill-code is not on PATH"
         } else if matches.count == 1 {
             summary = "installation looks consistent"
         } else {

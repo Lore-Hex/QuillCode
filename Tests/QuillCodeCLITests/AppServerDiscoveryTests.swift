@@ -171,7 +171,7 @@ final class AppServerDiscoveryTests: XCTestCase {
         XCTAssertEqual(legacy["limitId"]?.stringValue, "quillcode-local-daily")
         XCTAssertEqual(
             legacy["limitName"]?.stringValue,
-            "QuillCode local daily spend control"
+            "Quill Cowork local daily spend control"
         )
         XCTAssertEqual(legacy["primary"]?.objectValue?["usedPercent"]?.numberValue, 0)
         XCTAssertEqual(legacy["individualLimit"]?.objectValue?["limit"]?.stringValue, "5")

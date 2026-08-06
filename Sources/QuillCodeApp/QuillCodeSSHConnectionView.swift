@@ -207,7 +207,7 @@ struct QuillCodeSSHConnectionView: View {
 
     private var footer: some View {
         HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-            Text("QuillCode checks the connection before adding the project.")
+            Text("\(QuillCodeProduct.displayName) checks the connection before adding the project.")
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
             Spacer()

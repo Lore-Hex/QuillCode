@@ -14,7 +14,7 @@ public struct ComposerState: Sendable, Hashable {
         draft: String = "",
         attachments: [ChatAttachment] = [],
         isSending: Bool = false,
-        placeholder: String = "Message QuillCode",
+        placeholder: String = "Message \(QuillCodeProduct.displayName)",
         focusToken: Int = 0
     ) {
         self.draft = draft

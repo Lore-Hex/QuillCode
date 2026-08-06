@@ -14,7 +14,7 @@ final class LinuxNotificationAdapterTests: XCTestCase {
         let command = LinuxNotificationAdapter.command(for: notification)
 
         XCTAssertEqual(command.executable, "notify-send")
-        XCTAssertEqual(command.arguments[0], "--app-name=QuillCode")
+        XCTAssertEqual(command.arguments[0], "--app-name=Quill Cowork")
         XCTAssertEqual(command.arguments.suffix(2).first, "Approve command")
         XCTAssertEqual(command.arguments.last, "Run `ls`; keep $HOME literal")
         XCTAssertFalse(command.arguments.contains("sh"))
@@ -84,14 +84,14 @@ final class LinuxNotificationAdapterTests: XCTestCase {
             threadID: UUID()
         ))
 
-        XCTAssertEqual(command.arguments.suffix(2).first, "QuillCode")
-        XCTAssertEqual(command.arguments.last, "Open QuillCode for details.")
+        XCTAssertEqual(command.arguments.suffix(2).first, "Quill Cowork")
+        XCTAssertEqual(command.arguments.last, "Open Quill Cowork for details.")
     }
 
     private func note(kind: AgentRunNotification.Kind) -> AgentRunNotification {
         AgentRunNotification(
             kind: kind,
-            title: "QuillCode",
+            title: "Quill Cowork",
             body: "Run finished",
             threadID: UUID()
         )

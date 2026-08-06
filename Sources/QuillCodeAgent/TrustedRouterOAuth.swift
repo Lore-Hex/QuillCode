@@ -135,7 +135,7 @@ public struct TrustedRouterOAuthClient: Sendable {
 
     public func createAuthorization(
         callbackURL: String,
-        keyLabel: String = "QuillCode",
+        keyLabel: String = "Quill Cowork",
         limit: String? = nil,
         usageLimitType: String? = nil,
         expiresAt: String? = nil,

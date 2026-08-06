@@ -16,7 +16,7 @@ public struct TranscriptSurface: Codable, Sendable, Hashable {
         toolCards: [ToolCardState],
         timelineItems: [TranscriptTimelineItemSurface]? = nil,
         thinking: TranscriptThinkingSurface? = nil,
-        emptyTitle: String = "Ask QuillCode to inspect, edit, or run this project.",
+        emptyTitle: String = "Ask \(QuillCodeProduct.displayName) to inspect, edit, or run this project.",
         emptySubtitle: String = "Use Auto for normal coding work, Review for manual gates, "
             + "or Read-only for exploration.",
         emptyStarterActions: [TranscriptStarterActionSurface] = TranscriptStarterActionSurface.defaults
@@ -50,7 +50,7 @@ public struct TranscriptSurface: Codable, Sendable, Hashable {
             + toolCards.map(TranscriptTimelineItemSurface.toolCard)
         self.thinking = try container.decodeIfPresent(TranscriptThinkingSurface.self, forKey: .thinking)
         self.emptyTitle = try container.decodeIfPresent(String.self, forKey: .emptyTitle)
-            ?? "Ask QuillCode to inspect, edit, or run this project."
+            ?? "Ask \(QuillCodeProduct.displayName) to inspect, edit, or run this project."
         self.emptySubtitle = try container.decodeIfPresent(String.self, forKey: .emptySubtitle)
             ?? "Use Auto for normal coding work, Review for manual gates, "
             + "or Read-only for exploration."

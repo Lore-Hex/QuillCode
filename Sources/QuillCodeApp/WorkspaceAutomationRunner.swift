@@ -79,7 +79,7 @@ enum WorkspaceAutomationRunner {
             automation: updatedAfterRun(automation, now: now),
             thread: followUp,
             selectedProjectID: selectedProjectID,
-            title: "QuillCode follow-up ready",
+            title: "\(QuillCodeProduct.displayName) follow-up ready",
             body: "\(followUp.title) was created from \(source.title)."
         )
     }
@@ -150,7 +150,7 @@ enum WorkspaceAutomationRunner {
             automation: updatedAfterRun(automation, now: now),
             thread: thread,
             selectedProjectID: project.id,
-            title: "QuillCode local action ready",
+            title: "\(QuillCodeProduct.displayName) local action ready",
             body: "\(action.title) was started for \(project.name)."
         )
     }
@@ -191,7 +191,7 @@ enum WorkspaceAutomationRunner {
             automation: updatedAfterRun(automation, now: now),
             thread: thread,
             selectedProjectID: project?.id,
-            title: "QuillCode monitor check ready",
+            title: "\(QuillCodeProduct.displayName) monitor check ready",
             body: project.map {
                 "\(thread.title) was created for \($0.name)."
             } ?? "\(thread.title) was created."
@@ -258,8 +258,8 @@ enum WorkspaceAutomationRunner {
 
     private static func workspaceScheduleReportTitle(for automation: QuillAutomation) -> String {
         WorkspaceAutomationFactory.isScheduledCoworker(automation)
-            ? "QuillCode scheduled task ready"
-            : "QuillCode workspace check ready"
+            ? "\(QuillCodeProduct.displayName) scheduled task ready"
+            : "\(QuillCodeProduct.displayName) workspace check ready"
     }
 
     private static func workspaceScheduleReportBody(
