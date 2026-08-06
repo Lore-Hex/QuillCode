@@ -27,11 +27,11 @@ extension QuillCodeDesktopController {
             await model.retryFailedRun(
                 threadID: threadID,
                 workspaceRoot: runRoot,
-                onStarted: { [weak self] in self?.refresh() },
-                onProgressUpdated: { [weak self] in self?.refresh() }
+                onStarted: { [weak self] in self?.refreshImmediatelyAfterProgress() },
+                onProgressUpdated: { [weak self] in self?.requestProgressRefresh() }
             )
         } onFinish: { [weak self] in
-            self?.refresh()
+            self?.refreshImmediatelyAfterProgress()
         }
         if model.selectedThread?.id != threadID {
             selectThread(threadID)

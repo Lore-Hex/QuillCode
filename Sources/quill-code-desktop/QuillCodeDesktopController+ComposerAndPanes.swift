@@ -19,7 +19,8 @@ extension QuillCodeDesktopController {
             model: model,
             fallbackWorkspaceRoot: workspaceRoot,
             tasks: tasks,
-            refresh: { [weak self] in self?.refresh() },
+            refresh: { [weak self] in self?.refreshImmediatelyAfterProgress() },
+            progressRefresh: { [weak self] in self?.requestProgressRefresh() },
             onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
         )
     }
@@ -30,7 +31,8 @@ extension QuillCodeDesktopController {
             model: model,
             fallbackWorkspaceRoot: workspaceRoot,
             tasks: tasks,
-            refresh: { [weak self] in self?.refresh() },
+            refresh: { [weak self] in self?.refreshImmediatelyAfterProgress() },
+            progressRefresh: { [weak self] in self?.requestProgressRefresh() },
             onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
         )
     }
@@ -40,7 +42,8 @@ extension QuillCodeDesktopController {
             model: model,
             fallbackWorkspaceRoot: workspaceRoot,
             tasks: tasks,
-            refresh: { [weak self] in self?.refresh() },
+            refresh: { [weak self] in self?.refreshImmediatelyAfterProgress() },
+            progressRefresh: { [weak self] in self?.requestProgressRefresh() },
             onSlotFree: { [weak self] in self?.recoverSelectedThreadDrain() }
         )
     }

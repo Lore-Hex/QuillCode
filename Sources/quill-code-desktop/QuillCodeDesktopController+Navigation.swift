@@ -89,6 +89,8 @@ extension QuillCodeDesktopController {
 
     func runProjectAction(_ mutation: WorkspaceProjectRowMutation) {
         navigationCoordinator.runProjectAction(mutation, model: model)
+        projectAccessCoordinator.reconcileProjects(model.root.projects)
+        refreshArtifactPreviewAccess()
         refresh()
     }
 
@@ -142,11 +144,22 @@ extension QuillCodeDesktopController {
         guard let selection = projectImportCoordinator.selectedProject(from: result) else {
             return
         }
-        addProject(selection.url)
+        addProject(projectAccessCoordinator.retainAccess(to: selection.url))
     }
 
     func addProject(_ url: URL) {
         navigationCoordinator.addProject(url, model: model)
+        projectAccessCoordinator.reconcileProjects(model.root.projects)
+        refreshArtifactPreviewAccess()
         refresh()
+    }
+
+    private func refreshArtifactPreviewAccess() {
+        ToolArtifactLocalPreviewAccess.configure(
+            projectRoots: model.root.projects
+                .filter { !$0.isRemote }
+                .map { URL(fileURLWithPath: $0.path) },
+            readableProjectRoots: projectAccessCoordinator.activeProjectURLs
+        )
     }
 }

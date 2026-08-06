@@ -28,11 +28,11 @@ extension QuillCodeDesktopController {
             await model.runCodeReview(
                 request,
                 workspaceRoot: root,
-                onProgressUpdated: { [weak self] in self?.refresh() }
+                onProgressUpdated: { [weak self] in self?.requestProgressRefresh() }
             )
         } onFinish: { [weak self] in
             guard let self else { return }
-            refresh()
+            refreshImmediatelyAfterProgress()
             if request.delivery == .current {
                 recoverFollowUpDrain(for: sourceThreadID)
             }
