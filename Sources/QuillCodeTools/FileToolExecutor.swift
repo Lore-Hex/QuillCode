@@ -46,7 +46,7 @@ public struct FileToolExecutor: Sendable {
                         + "Use host.file.list to see its contents."
                 )
             }
-            let data = try Data(contentsOf: url)
+            let data = try FileSystemIO.readFile(at: url)
             // Refuse binary/image content gracefully instead of erroring or dumping garbage into
             // context. The refusal must NOT count as a read: the session was never shown the
             // content, so it earns no write/patch rights over it.

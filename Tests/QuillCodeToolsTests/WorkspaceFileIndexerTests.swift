@@ -2,6 +2,19 @@ import XCTest
 @testable import QuillCodeTools
 
 final class WorkspaceFileIndexerTests: XCTestCase {
+    func testIndexingThePackageWorkspaceCompletesPromptly() {
+        let packageRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let startedAt = ContinuousClock.now
+
+        let index = WorkspaceFileIndexer(workspaceRoot: packageRoot).index()
+
+        XCTAssertFalse(index.isEmpty)
+        XCTAssertLessThan(startedAt.duration(to: .now), .seconds(5))
+    }
+
     func testIndexReturnsSortedWorkspaceRelativeFiles() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root)
@@ -59,9 +72,8 @@ final class WorkspaceFileIndexerTests: XCTestCase {
     func testFileCapTruncationAlsoFlagsDirectoriesAsIncomplete() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root)
-        // Far more files than the cap, spread across many directories. The depth-first
-        // enumerator aborts when the file cap is hit, so directories deeper in the walk are
-        // never visited — the index must NOT report that partial directory set as complete.
+        // Far more files than the cap, spread across many directories. The bounded walk aborts
+        // when the file cap is hit, so unvisited directories must be reported as incomplete.
         for index in 0..<20 {
             XCTAssertTrue(files.write(path: "dir-\(index)/file.txt", content: "x\n").ok)
         }
@@ -69,9 +81,9 @@ final class WorkspaceFileIndexerTests: XCTestCase {
         let index = WorkspaceFileIndexer(workspaceRoot: root).index(maxFiles: 2)
         XCTAssertEqual(index.entries.filter { $0.kind == .file }.count, 2)
         XCTAssertTrue(index.truncated)
-        // The honest signal: enumeration stopped early, so the directory set is incomplete.
+        // The honest signal: enumeration stopped early, so nested directories may be incomplete.
+        // Breadth-first discovery can still record every top-level directory before that happens.
         XCTAssertTrue(index.directoriesTruncated)
-        XCTAssertLessThan(index.entries.filter { $0.kind == .directory }.count, 20)
     }
 
     func testWorkspaceFileIndexEntryDecodesLegacyJSONWithoutKind() throws {

@@ -35,62 +35,34 @@ struct FileDirectoryLister: Sendable {
         )
     }
 
-    private func directoryEntries(at directoryURL: URL, includeHidden: Bool) throws -> [URL] {
-        try FileManager.default.contentsOfDirectory(
-            at: directoryURL,
-            includingPropertiesForKeys: [
-                .isDirectoryKey,
-                .isRegularFileKey,
-                .isSymbolicLinkKey,
-                .fileSizeKey
-            ],
-            options: []
-        )
-        .filter { includeHidden || !$0.lastPathComponent.hasPrefix(".") }
+    private func directoryEntries(
+        at directoryURL: URL,
+        includeHidden: Bool
+    ) throws -> [FileSystemIO.DirectoryEntry] {
+        try FileSystemIO.directoryEntries(at: directoryURL)
+        .filter { includeHidden || !$0.url.lastPathComponent.hasPrefix(".") }
         .sorted(by: listEntrySort)
     }
 
-    private func listEntrySort(_ lhs: URL, _ rhs: URL) -> Bool {
-        let lhsKind = fileListEntryKind(lhs)
-        let rhsKind = fileListEntryKind(rhs)
-        if lhsKind != rhsKind {
-            return lhsKind == "directory"
+    private func listEntrySort(
+        _ lhs: FileSystemIO.DirectoryEntry,
+        _ rhs: FileSystemIO.DirectoryEntry
+    ) -> Bool {
+        if lhs.kind != rhs.kind {
+            return lhs.kind == "directory"
         }
-        return lhs.lastPathComponent.localizedCaseInsensitiveCompare(rhs.lastPathComponent) == .orderedAscending
+        return lhs.url.lastPathComponent.localizedCaseInsensitiveCompare(
+            rhs.url.lastPathComponent
+        ) == .orderedAscending
     }
 
-    private func fileListEntry(_ url: URL) -> FileListEntry {
-        let values = try? url.resourceValues(forKeys: [
-            .isDirectoryKey,
-            .isRegularFileKey,
-            .isSymbolicLinkKey,
-            .fileSizeKey
-        ])
-        let kind = fileListEntryKind(url, values: values)
+    private func fileListEntry(_ entry: FileSystemIO.DirectoryEntry) -> FileListEntry {
         return FileListEntry(
-            name: url.lastPathComponent,
-            path: pathResolver.relativePath(for: url),
-            kind: kind,
-            bytes: kind == "file" ? values?.fileSize : nil,
-            isHidden: url.lastPathComponent.hasPrefix(".")
+            name: entry.url.lastPathComponent,
+            path: pathResolver.relativePath(for: entry.url),
+            kind: entry.kind,
+            bytes: entry.bytes,
+            isHidden: entry.url.lastPathComponent.hasPrefix(".")
         )
-    }
-
-    private func fileListEntryKind(_ url: URL, values: URLResourceValues? = nil) -> String {
-        let values = values ?? (try? url.resourceValues(forKeys: [
-            .isDirectoryKey,
-            .isRegularFileKey,
-            .isSymbolicLinkKey
-        ]))
-        if values?.isSymbolicLink == true {
-            return "symlink"
-        }
-        if values?.isDirectory == true {
-            return "directory"
-        }
-        if values?.isRegularFile == true {
-            return "file"
-        }
-        return "other"
     }
 }
