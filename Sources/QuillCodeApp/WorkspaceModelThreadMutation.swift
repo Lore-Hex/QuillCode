@@ -53,7 +53,10 @@ extension QuillCodeWorkspaceModel {
         return index
     }
 
-    func updateThreadFromAgentRun(_ thread: ChatThread) {
+    func updateThreadFromAgentRun(
+        _ thread: ChatThread,
+        preserveMemoryContext: Bool = true
+    ) {
         var thread = thread
         // A destroyed ephemeral thread must STAY destroyed: an in-flight send's progress callbacks
         // carry the run's own thread snapshot, and upserting it would resurrect a confidential/side
@@ -66,9 +69,16 @@ extension QuillCodeWorkspaceModel {
         // Agent sessions operate on a send-start thread snapshot. Composer drafts are UI/model-owned
         // state, so progress and completion snapshots must never resurrect a draft that was sent,
         // cleared, or edited while the run was active.
-        thread.composerDraft = root.threads.first { $0.id == thread.id }?.composerDraft ?? thread.composerDraft
-        thread.composerAttachments = root.threads.first { $0.id == thread.id }?.composerAttachments
-            ?? thread.composerAttachments
+        if let liveThread = root.threads.first(where: { $0.id == thread.id }) {
+            thread.composerDraft = liveThread.composerDraft
+            thread.composerAttachments = liveThread.composerAttachments
+            // Project context can refresh while an agent runs. A progress snapshot captured at
+            // send start must not roll that newer model-owned context back.
+            thread.instructions = liveThread.instructions
+            if preserveMemoryContext {
+                thread.memories = liveThread.memories
+            }
+        }
         let result = WorkspaceThreadLifecycleEngine.applyAgentRunThreadUpdate(
             thread,
             threads: &root.threads,

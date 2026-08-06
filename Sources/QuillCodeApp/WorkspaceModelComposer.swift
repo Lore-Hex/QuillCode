@@ -198,6 +198,11 @@ extension QuillCodeWorkspaceModel {
         beginAgentRun(threadID: sendStart.threadID, lifecycle: sendStart.lifecycle)
         onStarted?()
 
+        // A directory open can block indefinitely and cannot be interrupted by task cancellation.
+        // The run therefore starts with persisted context while one coalesced freshness scan runs
+        // independently for later turns.
+        scheduleProjectContextRefreshForAgentSend(startedThread.projectID)
+
         let outcome = await runAgentSession(
             sendStart,
             workspaceRoot: workspaceRoot,
@@ -319,8 +324,15 @@ extension QuillCodeWorkspaceModel {
             thread.followUpQueue = liveThread.followUpQueue
             thread.composerDraft = liveThread.composerDraft
             thread.composerAttachments = liveThread.composerAttachments
+            thread.instructions = liveThread.instructions
+            if !completion.shouldRefreshMemoryContext {
+                thread.memories = liveThread.memories
+            }
         }
-        updateThreadFromAgentRun(thread)
+        updateThreadFromAgentRun(
+            thread,
+            preserveMemoryContext: !completion.shouldRefreshMemoryContext
+        )
         try threadPersistence.saveOrThrow(thread)
         if let workspaceRoot = workspaceRoot(forThreadID: runThreadID) {
             _ = reconcileManagedWorktreeBranch(threadID: runThreadID, workspaceRoot: workspaceRoot)
@@ -360,6 +372,9 @@ extension QuillCodeWorkspaceModel {
     }
 
     func applyAgentProgress(_ thread: ChatThread, expectedThreadID: UUID) {
+        // Stop removes the run before cancellation has necessarily drained every queued progress
+        // callback. Never let a late snapshot overwrite the stopped thread or presentation.
+        guard agentRuns.isRunning(expectedThreadID) else { return }
         guard let progress = WorkspaceAgentSendProgressPlanner.progress(
             thread: thread,
             expectedThreadID: expectedThreadID,
@@ -404,7 +419,6 @@ extension QuillCodeWorkspaceModel {
         // Existing chats own their project context. A background run must never inherit whichever
         // project the user happened to select after launching it.
         let projectID = thread.projectID
-        refreshProjectMetadata(projectID)
         _ = WorkspaceThreadContextPreparer.syncThreadContext(
             &thread,
             fallbackProjectID: projectID,

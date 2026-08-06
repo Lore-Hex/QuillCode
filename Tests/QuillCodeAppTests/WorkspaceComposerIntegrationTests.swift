@@ -368,6 +368,31 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertTrue(thread.events.contains { $0.kind == .notice && $0.summary == "Stopped by user" })
     }
 
+    func testLateProgressAfterStopCannotResurrectRunOrOverwriteThread() throws {
+        let model = QuillCodeWorkspaceModel()
+        let threadID = model.newChat()
+        model.mutateThread(threadID) { thread in
+            thread.title = "Live stopped thread"
+        }
+        model.beginAgentRun(
+            threadID: threadID,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
+        )
+        XCTAssertTrue(model.composer.isSending)
+
+        model.cancelActiveWork()
+        var staleProgress = try XCTUnwrap(model.selectedThread)
+        staleProgress.title = "Stale running snapshot"
+        staleProgress.events.append(ThreadEvent(kind: .toolRunning, summary: "Still running"))
+        model.applyAgentProgress(staleProgress, expectedThreadID: threadID)
+
+        XCTAssertFalse(model.isAgentRunActive(for: threadID))
+        XCTAssertFalse(model.composer.isSending)
+        XCTAssertEqual(model.root.topBar.agentStatus, TopBarAgentStatusLabel.stopped)
+        XCTAssertEqual(model.selectedThread?.title, "Live stopped thread")
+        XCTAssertFalse(model.selectedThread?.events.contains { $0.summary == "Still running" } == true)
+    }
+
     func testCancelledComposerRunRecordsNoticeOnOriginalThread() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowLLMClient()))

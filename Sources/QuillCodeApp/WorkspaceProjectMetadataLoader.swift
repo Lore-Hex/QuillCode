@@ -9,10 +9,13 @@ enum WorkspaceProjectMetadataLoader {
         from projectRoot: URL,
         hookTrustStore: ProjectHookTrustFileStore? = nil
     ) -> WorkspaceProjectMetadata {
+        guard !Task.isCancelled else { return .empty }
         let root = projectRoot.standardizedFileURL
         let configuration = WorkspaceProjectConfigurationLoader.load(from: root)
+        guard !Task.isCancelled else { return .empty }
         let installed = ProjectExtensionManifestLoader.discover(from: root)
         let installedManifests = installed.manifests
+        guard !Task.isCancelled else { return .empty }
         let pluginHooks = ProjectPluginHookResolver.resolve(
             installed.pluginHooks + ProjectHookConfigurationLoader.load(from: root),
             trust: hookTrustStore?.load(forWorkspaceRoot: root) ?? ProjectHookTrustLoadResult()
@@ -21,6 +24,7 @@ enum WorkspaceProjectMetadataLoader {
             from: root,
             installedManifests: installedManifests
         )
+        guard !Task.isCancelled else { return .empty }
         let standardMarketplaceManifests = CodexPluginMarketplaceLoader.load(
             from: root,
             installedManifests: installedManifests + marketplaceManifests
@@ -28,6 +32,7 @@ enum WorkspaceProjectMetadataLoader {
         let bundledMarketplaceManifests = BundledExtensionMarketplace.availableManifests(
             excluding: installedManifests + marketplaceManifests + standardMarketplaceManifests
         )
+        guard !Task.isCancelled else { return .empty }
         return WorkspaceProjectMetadata(
             instructions: ProjectInstructionLoader.load(from: root),
             localActions: LocalEnvironmentActionLoader.load(

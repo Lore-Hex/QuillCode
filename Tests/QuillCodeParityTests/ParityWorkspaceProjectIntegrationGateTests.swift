@@ -33,12 +33,12 @@ final class ParityWorkspaceProjectIntegrationGateTests: QuillCodeParityTestCase 
         Self.assertSource(projectIntegrationTests, contains: "testProjectLifecycleActionsRenameRefreshNewChatAndRemove")
         Self.assertSource(
             projectIntegrationTests,
-            contains: "testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun"
+            contains: "testProjectInstructionsLoadIntoNewThreadsAndRefreshAfterRunStarts"
         )
         Self.assertSource(modelTests, excludes: "testModelPersistsProjectRegistryChanges")
         Self.assertSource(modelTests, excludes: "testSelectingProjectControlsNextChatAndWorkspaceRoot")
         Self.assertSource(modelTests, excludes: "testProjectLifecycleActionsRenameRefreshNewChatAndRemove")
-        Self.assertSource(modelTests, excludes: "testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun")
+        Self.assertSource(modelTests, excludes: "testProjectInstructionsLoadIntoNewThreadsAndRefreshAfterRunStarts")
     }
 
     func testWorkspaceRemoteProjectIntegrationTestsOwnModelRemoteProjectFlows() throws {

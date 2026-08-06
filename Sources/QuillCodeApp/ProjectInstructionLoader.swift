@@ -34,6 +34,7 @@ public enum ProjectInstructionLoader {
         maxScannedDirectories: Int = maxScannedDirectories,
         maxInstructionFiles: Int = maxInstructionFiles
     ) -> [ProjectInstruction] {
+        guard !Task.isCancelled else { return [] }
         let root = projectRoot.standardizedFileURL.resolvingSymlinksInPath()
         var totalBytes = 0
         var instructions: [ProjectInstruction] = []
@@ -45,7 +46,8 @@ public enum ProjectInstructionLoader {
         )
 
         for relativePath in candidatePaths {
-            guard totalBytes < maxTotalBytes,
+            guard !Task.isCancelled,
+                  totalBytes < maxTotalBytes,
                   instructions.count < maxInstructionFiles
             else { break }
             let remainingBytes = maxTotalBytes - totalBytes
@@ -70,6 +72,7 @@ public enum ProjectInstructionLoader {
         includeNested: Bool,
         maxScannedDirectories: Int
     ) -> [String] {
+        guard !Task.isCancelled else { return [] }
         var candidates = baseRelativePaths
         candidates.append(contentsOf: ruleFilePaths(root: root, scopePath: nil))
         guard includeNested, maxScannedDirectories > 0 else {
@@ -78,6 +81,7 @@ public enum ProjectInstructionLoader {
 
         let directories = nestedDirectoryPaths(root: root, maxScannedDirectories: maxScannedDirectories)
         for directory in directories {
+            guard !Task.isCancelled else { return [] }
             for relativePath in baseRelativePaths {
                 candidates.append("\(directory)/\(relativePath)")
             }
@@ -118,34 +122,36 @@ public enum ProjectInstructionLoader {
     }
 
     private static func nestedDirectoryPaths(root: URL, maxScannedDirectories: Int) -> [String] {
-        guard let enumerator = FileManager.default.enumerator(
-            at: root,
-            includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
-            options: [.skipsPackageDescendants]
-        ) else {
-            return []
-        }
-
+        guard !Task.isCancelled else { return [] }
+        var pendingDirectories = [root]
+        var pendingIndex = 0
         var directories: [String] = []
-        for case let url as URL in enumerator {
-            guard directories.count < maxScannedDirectories else { break }
-            guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]),
-                  values.isDirectory == true
-            else {
-                continue
-            }
+        while pendingIndex < pendingDirectories.count,
+              directories.count < maxScannedDirectories,
+              !Task.isCancelled {
+            let parent = pendingDirectories[pendingIndex]
+            pendingIndex += 1
+            guard let entries = try? FileManager.default.contentsOfDirectory(
+                at: parent,
+                includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+                options: [.skipsHiddenFiles]
+            ) else { continue }
 
-            let directoryName = url.lastPathComponent
-            if values.isSymbolicLink == true || shouldSkipDirectory(named: directoryName) {
-                enumerator.skipDescendants()
-                continue
+            for url in entries.sorted(by: { lhs, rhs in
+                lhs.lastPathComponent.localizedStandardCompare(rhs.lastPathComponent) == .orderedAscending
+            }) {
+                guard !Task.isCancelled,
+                      directories.count < maxScannedDirectories
+                else { break }
+                guard !shouldSkipDirectory(named: url.lastPathComponent),
+                      let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey]),
+                      values.isDirectory == true,
+                      values.isSymbolicLink != true,
+                      let relativePath = relativePath(from: root, to: url)
+                else { continue }
+                directories.append(relativePath)
+                pendingDirectories.append(url)
             }
-
-            guard let relativePath = relativePath(from: root, to: url) else {
-                enumerator.skipDescendants()
-                continue
-            }
-            directories.append(relativePath)
         }
 
         return directories.sorted { lhs, rhs in

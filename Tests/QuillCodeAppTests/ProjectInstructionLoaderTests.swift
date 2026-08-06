@@ -108,6 +108,33 @@ final class ProjectInstructionLoaderTests: XCTestCase {
         ])
     }
 
+    func testDirectoryScanCapUsesDeterministicBreadthFirstOrder() throws {
+        let root = try makeQuillCodeTestDirectory()
+        for path in ["AreaA/Deep", "AreaB", "AreaC"] {
+            try FileManager.default.createDirectory(
+                at: root.appendingPathComponent(path),
+                withIntermediateDirectories: true
+            )
+        }
+        for path in ["AreaA", "AreaB", "AreaC", "AreaA/Deep"] {
+            try "Rules for \(path)\n".write(
+                to: root.appendingPathComponent(path).appendingPathComponent("AGENTS.md"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+
+        let instructions = ProjectInstructionLoader.load(
+            from: root,
+            maxScannedDirectories: 2
+        )
+
+        XCTAssertEqual(instructions.map(\.path), [
+            "AreaA/AGENTS.md",
+            "AreaB/AGENTS.md"
+        ])
+    }
+
     func testLoadsAdditiveRuleFilesWithoutFollowingSymlinks() throws {
         let root = try makeQuillCodeTestDirectory()
         let rules = root.appendingPathComponent(".quillcode/rules")

@@ -107,7 +107,6 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
                 backing: FileSecretStore(directory: paths.secretsDirectory)
             )
         )
-        model.refreshSelectedProjectInstructions()
         model.enforceManagedWorktreeRetention()
         model.scheduleSelectedPullRequestReconciliation()
         return model

@@ -24,6 +24,7 @@ extension QuillCodeWorkspaceModel {
     }
 
     func updateAgentRun(threadID: UUID, status: String) {
+        guard agentRuns.isRunning(threadID) else { return }
         agentRuns.update(threadID: threadID, status: status)
         guard root.selectedThreadID == threadID else { return }
         composer.isSending = true
