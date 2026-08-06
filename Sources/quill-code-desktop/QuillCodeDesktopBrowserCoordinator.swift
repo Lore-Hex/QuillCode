@@ -36,7 +36,10 @@ struct QuillCodeDesktopBrowserCoordinator {
         refresh: @escaping @MainActor () -> Void
     ) {
         model.setBrowserAddressDraft(addressDraft)
-        _ = model.openBrowserPreview(workspaceRoot: activeWorkspaceRoot(for: model, fallback: workspaceRoot))
+        _ = model.openBrowserPreview(
+            workspaceRoot: activeWorkspaceRoot(for: model, fallback: workspaceRoot),
+            inspectLocalFileContents: false
+        )
         refresh()
         syncOpenSession(model: model)
 
@@ -65,13 +68,13 @@ struct QuillCodeDesktopBrowserCoordinator {
 
         guard let url = WorkspaceBrowserLocationResolver(workspaceRoot: root).resolve(targetAddress) else {
             model.setBrowserAddressDraft(targetAddress)
-            _ = model.openBrowserPreview(workspaceRoot: root)
+            _ = model.openBrowserPreview(workspaceRoot: root, inspectLocalFileContents: false)
             refresh()
             return
         }
 
         model.setBrowserAddressDraft(url.absoluteString)
-        guard model.openBrowserPreview(workspaceRoot: root) else {
+        guard model.openBrowserPreview(workspaceRoot: root, inspectLocalFileContents: false) else {
             refresh()
             return
         }
@@ -120,6 +123,19 @@ struct QuillCodeDesktopBrowserCoordinator {
 
         do {
             let snapshot = try await sessionPresenter.navigateSelectedTab(to: url)
+            let selectedTabID = model.browser.selectedTabID
+            _ = model.applyBrowserSessionUpdate(BrowserSessionUpdate(
+                tabs: [
+                    BrowserSessionTabUpdate(
+                        id: selectedTabID,
+                        title: nonEmpty(snapshot.title) ?? BrowserInspectorTitle.title(for: snapshot.finalURL),
+                        url: snapshot.finalURL,
+                        isActive: true,
+                        liveDOMSnapshot: snapshot
+                    )
+                ],
+                activeTabID: selectedTabID
+            ))
             refresh()
             return ToolResult(
                 ok: true,

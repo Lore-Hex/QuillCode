@@ -5,6 +5,44 @@ import QuillCodeApp
 import AppKit
 import WebKit
 
+enum DesktopBrowserLocalPageError: Error, LocalizedError {
+    case pageTooLarge(Int)
+    case unsupportedEncoding
+
+    var errorDescription: String? {
+        switch self {
+        case .pageTooLarge(let maximumBytes):
+            return "Local HTML pages must be no larger than \(maximumBytes) bytes."
+        case .unsupportedEncoding:
+            return "The local HTML page is not valid UTF-8."
+        }
+    }
+}
+
+enum DesktopBrowserLocalPageLoader {
+    static let maximumBytes = 16 * 1_024 * 1_024
+
+    static func loadHTML(at url: URL) async throws -> String {
+        let data = try await Task.detached(priority: .userInitiated) {
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+            return try handle.read(upToCount: maximumBytes + 1) ?? Data()
+        }.value
+        guard data.count <= maximumBytes else {
+            throw DesktopBrowserLocalPageError.pageTooLarge(maximumBytes)
+        }
+        guard let html = String(data: data, encoding: .utf8) else {
+            throw DesktopBrowserLocalPageError.unsupportedEncoding
+        }
+        return html
+    }
+
+    static func handles(_ url: URL) -> Bool {
+        guard url.isFileURL else { return false }
+        return ["html", "htm"].contains(url.pathExtension.lowercased())
+    }
+}
+
 @MainActor
 final class DesktopBrowserSessionWindowController: NSWindowController,
     NSWindowDelegate,
@@ -24,6 +62,9 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
     private let tabView: NSTabView
     private var tabs: [UUID: SessionTab] = [:]
     private let navigationWaiters: DesktopBrowserNavigationWaitRegistry
+    private var pendingNavigationURLs: [UUID: URL] = [:]
+    private var localPageLoadTasks: [UUID: Task<Void, Never>] = [:]
+    private var renderedLocalPageURLs: [UUID: URL] = [:]
 
     init(snapshot: BrowserSessionSyncSnapshot) {
         self.tabView = NSTabView()
@@ -54,6 +95,10 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
     }
 
     func windowWillClose(_ notification: Notification) {
+        localPageLoadTasks.values.forEach { $0.cancel() }
+        localPageLoadTasks.removeAll()
+        pendingNavigationURLs.removeAll()
+        renderedLocalPageURLs.removeAll()
         navigationWaiters.finishAll(error: DesktopBrowserSessionScriptError.noOpenSession)
         tabs.values.forEach {
             $0.webView.stopLoading()
@@ -88,6 +133,9 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         else {
             return
         }
+        pendingNavigationURLs.removeValue(forKey: id)
+        localPageLoadTasks.removeValue(forKey: id)?.cancel()
+        renderedLocalPageURLs.removeValue(forKey: id)
         navigationWaiters.resolve(
             for: id,
             navigation: navigation,
@@ -105,6 +153,9 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         else {
             return
         }
+        pendingNavigationURLs.removeValue(forKey: id)
+        localPageLoadTasks.removeValue(forKey: id)?.cancel()
+        renderedLocalPageURLs.removeValue(forKey: id)
         navigationWaiters.resolve(
             for: id,
             navigation: navigation,
@@ -119,13 +170,23 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         else {
             return
         }
+        let requestedURL = pendingNavigationURLs.removeValue(forKey: id)
+        localPageLoadTasks.removeValue(forKey: id)
         navigationWaiters.resolve(for: id, navigation: navigation, error: nil)
         let title = nonEmpty(webView.title) ?? tab.snapshot.title
-        if let url = webView.url {
+        let resolvedURL: URL?
+        if let requestedURL, DesktopBrowserLocalPageLoader.handles(requestedURL) {
+            resolvedURL = requestedURL
+            renderedLocalPageURLs[id] = requestedURL
+        } else {
+            resolvedURL = webView.url ?? requestedURL
+            renderedLocalPageURLs.removeValue(forKey: id)
+        }
+        if let resolvedURL {
             tab.snapshot = BrowserSessionTabSnapshot(
                 id: tab.snapshot.id,
                 title: title,
-                url: url,
+                url: resolvedURL,
                 isActive: tab.snapshot.isActive
             )
         }
@@ -159,7 +220,16 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         else {
             return
         }
-        beginUserNavigation(tab.webView.reload(), for: selectedID, webView: tab.webView)
+        if DesktopBrowserLocalPageLoader.handles(tab.snapshot.url) {
+            startUnobservedNavigation(
+                tab.webView,
+                to: tab.snapshot.url,
+                tabID: selectedID,
+                force: true
+            )
+        } else {
+            beginUserNavigation(tab.webView.reload(), for: selectedID, webView: tab.webView)
+        }
     }
 
     func goBackSelectedTab(fallback snapshot: BrowserSessionSyncSnapshot) {
@@ -201,7 +271,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         emitRenderedSessionUpdate(for: selectedID, webView: tab.webView)
         return DesktopBrowserSessionScriptResult(
             title: nonEmpty(tab.webView.title) ?? tab.snapshot.title,
-            url: tab.webView.url ?? tab.snapshot.url,
+            url: logicalURL(for: tab),
             valueDescription: DesktopBrowserSessionValueDescriber.boundedDescription(value)
         )
     }
@@ -220,15 +290,12 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
 
         // Already on this exact URL: the page is loaded, so capture it rather than forcing a
         // reload (a reload would also lose any state the user or a prior step established).
-        if tab.webView.url?.absoluteString != url.absoluteString {
+        let navigationIsPending = pendingNavigationURLs[selectedID] == url
+        if navigationIsPending || !isDisplaying(url, in: tab) {
             try await navigationWaiters.wait(for: selectedID) {
-                let navigation = navigate(tab.webView, to: url)
-                storeActiveNavigation(navigation, for: selectedID, webView: tab.webView)
-                return navigation
-            }
-        } else if tab.webView.isLoading {
-            try await navigationWaiters.wait(for: selectedID) {
-                tab.activeNavigation
+                navigationIsPending
+                    ? tabs[selectedID]?.activeNavigation
+                    : navigate(tab.webView, to: url, tabID: selectedID)
             }
         }
 
@@ -245,13 +312,14 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
     private func captureLiveDOMSnapshot(in tabID: UUID) async throws -> BrowserLiveDOMSnapshot {
         guard let tab = tabs[tabID] else { throw DesktopBrowserSessionScriptError.noSelectedTab }
         let webView = tab.webView
-        let snapshot = try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
+        let captured = try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
             from: webView,
             fallbackURL: tab.snapshot.url
         )
         guard let currentTab = tabs[tabID], currentTab.webView === webView else {
             throw DesktopBrowserSessionScriptError.noSelectedTab
         }
+        let snapshot = logicalSnapshot(captured, for: currentTab)
         emitSessionUpdate(liveDOMSnapshots: [tabID: snapshot])
         return snapshot
     }
@@ -302,14 +370,8 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         if var tab = tabs[snapshot.id] {
             tab.snapshot = snapshot
             tab.item.label = snapshot.title
-            if let navigation = navigate(tab.webView, to: snapshot.url) {
-                navigationWaiters.finish(
-                    tabID: snapshot.id,
-                    error: DesktopBrowserSessionScriptError.navigationSuperseded
-                )
-                tab.activeNavigation = navigation
-            }
             tabs[snapshot.id] = tab
+            startUnobservedNavigation(tab.webView, to: snapshot.url, tabID: snapshot.id)
             return
         }
 
@@ -323,17 +385,85 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
             snapshot: snapshot,
             item: item,
             webView: webView,
-            activeNavigation: navigate(webView, to: snapshot.url)
+            activeNavigation: nil
         )
+        startUnobservedNavigation(webView, to: snapshot.url, tabID: snapshot.id)
     }
 
-    private func navigate(_ webView: WKWebView, to url: URL) -> WKNavigation? {
-        guard webView.url?.absoluteString != url.absoluteString else { return nil }
-        if url.isFileURL {
-            return webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
-        } else {
-            return webView.load(URLRequest(url: url))
+    @discardableResult
+    private func navigate(
+        _ webView: WKWebView,
+        to url: URL,
+        tabID: UUID,
+        force: Bool = false
+    ) -> WKNavigation? {
+        guard force || !isDisplaying(url, in: tabs[tabID]) else { return nil }
+        if var tab = tabs[tabID] {
+            tab.snapshot.url = url
+            tab.activeNavigation = nil
+            tabs[tabID] = tab
         }
+        webView.stopLoading()
+        pendingNavigationURLs[tabID] = url
+        localPageLoadTasks.removeValue(forKey: tabID)?.cancel()
+
+        guard DesktopBrowserLocalPageLoader.handles(url) else {
+            let navigation: WKNavigation?
+            if url.isFileURL {
+                navigation = webView.loadFileURL(
+                    url,
+                    allowingReadAccessTo: url.deletingLastPathComponent()
+                )
+            } else {
+                navigation = webView.load(URLRequest(url: url))
+            }
+            storeActiveNavigation(navigation, for: tabID, webView: webView)
+            return navigation
+        }
+
+        localPageLoadTasks[tabID] = Task { @MainActor [weak self, weak webView] in
+            do {
+                let html = try await DesktopBrowserLocalPageLoader.loadHTML(at: url)
+                try Task.checkCancellation()
+                guard let self,
+                      let webView,
+                      self.tabs[tabID]?.webView === webView,
+                      self.pendingNavigationURLs[tabID] == url
+                else {
+                    return
+                }
+                // A nil base URL deliberately keeps WebKit away from file:// sandbox extensions.
+                if let navigation = webView.loadHTMLString(html, baseURL: nil) {
+                    self.storeActiveNavigation(navigation, for: tabID, webView: webView)
+                }
+            } catch is CancellationError {
+                return
+            } catch {
+                guard let self, self.pendingNavigationURLs[tabID] == url else { return }
+                self.pendingNavigationURLs.removeValue(forKey: tabID)
+                self.localPageLoadTasks.removeValue(forKey: tabID)
+                self.renderedLocalPageURLs.removeValue(forKey: tabID)
+                self.navigationWaiters.finish(
+                    tabID: tabID,
+                    error: DesktopBrowserSessionScriptError.navigationFailed(error.localizedDescription)
+                )
+            }
+        }
+        return nil
+    }
+
+    private func startUnobservedNavigation(
+        _ webView: WKWebView,
+        to url: URL,
+        tabID: UUID,
+        force: Bool = false
+    ) {
+        guard force || !isDisplaying(url, in: tabs[tabID]) else { return }
+        navigationWaiters.finish(
+            tabID: tabID,
+            error: DesktopBrowserSessionScriptError.navigationSuperseded
+        )
+        navigate(webView, to: url, tabID: tabID, force: force)
     }
 
     private func removeTabs(excluding retainedIDs: Set<UUID>) {
@@ -341,6 +471,9 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
             guard let tab = tabs.removeValue(forKey: id) else { continue }
             navigationWaiters.finish(tabID: id, error: DesktopBrowserSessionScriptError.noSelectedTab)
             tab.webView.stopLoading()
+            pendingNavigationURLs.removeValue(forKey: id)
+            localPageLoadTasks.removeValue(forKey: id)?.cancel()
+            renderedLocalPageURLs.removeValue(forKey: id)
             tab.webView.navigationDelegate = nil
             tabView.removeTabViewItem(tab.item)
         }
@@ -354,6 +487,9 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
 
     private func beginUserNavigation(_ navigation: WKNavigation?, for id: UUID, webView: WKWebView) {
         guard let navigation else { return }
+        pendingNavigationURLs.removeValue(forKey: id)
+        localPageLoadTasks.removeValue(forKey: id)?.cancel()
+        renderedLocalPageURLs.removeValue(forKey: id)
         navigationWaiters.finish(
             tabID: id,
             error: DesktopBrowserSessionScriptError.navigationSuperseded
@@ -415,7 +551,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
                 return
             }
             do {
-                let snapshot = try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
+                let captured = try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
                     from: webView,
                     fallbackURL: tab.snapshot.url
                 )
@@ -424,7 +560,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
                 else {
                     return
                 }
-                emitSessionUpdate(liveDOMSnapshots: [id: snapshot])
+                emitSessionUpdate(liveDOMSnapshots: [id: logicalSnapshot(captured, for: currentTab)])
             } catch {
                 // URL/title sync above is still useful; rendered DOM is best-effort for visible sessions.
             }
@@ -437,7 +573,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
             guard let id = tabID(for: item),
                   let tab = tabs[id]
             else { return nil }
-            let url = tab.webView.url ?? tab.snapshot.url
+            let url = logicalURL(for: tab)
             let title = nonEmpty(tab.webView.title) ?? tab.snapshot.title
             return BrowserSessionTabUpdate(
                 id: id,
@@ -462,6 +598,35 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
 
     private func tabID(for webView: WKWebView) -> UUID? {
         tabs.first { $0.value.webView === webView }?.key
+    }
+
+    private func isDisplaying(_ url: URL, in tab: SessionTab?) -> Bool {
+        guard let tab else { return false }
+        if pendingNavigationURLs[tab.snapshot.id] == url {
+            return true
+        }
+        if DesktopBrowserLocalPageLoader.handles(url) {
+            return renderedLocalPageURLs[tab.snapshot.id]?.standardizedFileURL
+                == url.standardizedFileURL
+        }
+        return tab.webView.url?.absoluteString == url.absoluteString
+    }
+
+    private func logicalURL(for tab: SessionTab) -> URL {
+        if DesktopBrowserLocalPageLoader.handles(tab.snapshot.url) {
+            return tab.snapshot.url
+        }
+        return tab.webView.url ?? tab.snapshot.url
+    }
+
+    private func logicalSnapshot(
+        _ snapshot: BrowserLiveDOMSnapshot,
+        for tab: SessionTab
+    ) -> BrowserLiveDOMSnapshot {
+        guard DesktopBrowserLocalPageLoader.handles(tab.snapshot.url) else { return snapshot }
+        var snapshot = snapshot
+        snapshot.finalURL = tab.snapshot.url
+        return snapshot
     }
 
     private func nonEmpty(_ value: String?) -> String? {

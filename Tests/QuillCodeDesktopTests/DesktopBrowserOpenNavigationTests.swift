@@ -13,6 +13,51 @@ import QuillCodePersistence
 ///     session window happened to be showing, with no error — silent wrong answers.
 @MainActor
 final class DesktopBrowserOpenNavigationTests: XCTestCase {
+    func testLocalHTMLLoaderReadsPageWithoutAWebKitFileNavigation() async throws {
+        let root = try makeTempDirectory()
+        let page = root.appendingPathComponent("fixture.html")
+        let expected = "<main data-test='local-page'>Rendered locally</main>"
+        try expected.write(to: page, atomically: true, encoding: .utf8)
+
+        XCTAssertTrue(DesktopBrowserLocalPageLoader.handles(page))
+        let loadedHTML = try await DesktopBrowserLocalPageLoader.loadHTML(at: page)
+        XCTAssertEqual(loadedHTML, expected)
+        XCTAssertFalse(
+            DesktopBrowserLocalPageLoader.handles(root.appendingPathComponent("fixture.txt"))
+        )
+    }
+
+    func testLocalHTMLNavigationDoesNotCompleteWithWebViewsInitialBlankPage() async throws {
+        let root = try makeTempDirectory()
+        let page = root.appendingPathComponent("fixture.html")
+        try "<form><input name='status' value='Lead'></form>".write(
+            to: page,
+            atomically: true,
+            encoding: .utf8
+        )
+        let tabID = UUID()
+        let controller = DesktopBrowserSessionWindowController(
+            snapshot: BrowserSessionSyncSnapshot(
+                tabs: [
+                    BrowserSessionTabSnapshot(
+                        id: tabID,
+                        title: "fixture.html",
+                        url: page,
+                        isActive: true
+                    ),
+                ],
+                activeTabID: tabID
+            )
+        )
+        defer { controller.close() }
+
+        let snapshot = try await controller.navigateSelectedTab(to: page)
+
+        XCTAssertEqual(snapshot.finalURL.standardizedFileURL, page.standardizedFileURL)
+        XCTAssertTrue(snapshot.html?.contains("name=\"status\"") == true, snapshot.html ?? "")
+        XCTAssertTrue(snapshot.visibleText?.isEmpty == true)
+    }
+
     func testOpenNavigatesAndReturnsTheNavigatedPagesDOM() async throws {
         let presenter = NavigationRecordingPresenter()
         let controller = try makeController(presenter: presenter)
@@ -36,6 +81,27 @@ final class DesktopBrowserOpenNavigationTests: XCTestCase {
             unwrapped.stdout.contains("yelp.com"),
             "the tool must return the navigated page's DOM, got: \(unwrapped.stdout)"
         )
+        XCTAssertEqual(controller.model.browser.snapshot?.inspectionDepth, .liveDOMSnapshot)
+        XCTAssertEqual(controller.model.browser.title, "Loaded www.yelp.com")
+    }
+
+    func testLocalFileOpenUsesLiveDOMWithoutSynchronousSourceInspection() async throws {
+        let presenter = NavigationRecordingPresenter()
+        let controller = try makeController(presenter: presenter)
+        let root = try makeTempDirectory()
+        let page = root.appendingPathComponent("fixture.html")
+        try "<h1>Local fixture</h1>".write(to: page, atomically: true, encoding: .utf8)
+
+        let result = await controller.browserCoordinator.openSessionAndCaptureLiveDOM(
+            model: controller.model,
+            addressDraft: page.absoluteString,
+            workspaceRoot: root,
+            refresh: {}
+        )
+
+        XCTAssertTrue(try XCTUnwrap(result).ok)
+        XCTAssertEqual(controller.model.browser.snapshot?.inspectionDepth, .liveDOMSnapshot)
+        XCTAssertEqual(presenter.navigatedURLs, [page.standardizedFileURL.resolvingSymlinksInPath()])
     }
 
     /// The silent-corruption regression: navigating to B must never return A's DOM.

@@ -195,6 +195,28 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertEqual(model.lastError, "Enter an http, https, file, localhost, or project file URL.")
     }
 
+    func testBrowserPreviewCanDeferLocalFileInspectionForVisibleUI() throws {
+        let root = try makeTempDirectory()
+        let previewFile = root.appendingPathComponent("deferred-preview.html")
+        try "<html><title>Must not be read yet</title></html>".write(
+            to: previewFile,
+            atomically: true,
+            encoding: .utf8
+        )
+        let model = QuillCodeWorkspaceModel()
+
+        XCTAssertTrue(model.openBrowserPreview(
+            "deferred-preview.html",
+            workspaceRoot: root,
+            inspectLocalFileContents: false
+        ))
+
+        XCTAssertEqual(model.browser.title, "deferred-preview.html")
+        XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Local HTML")
+        XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .fileMetadata)
+        XCTAssertEqual(model.browser.snapshot?.summary, "HTML file is ready to open in the visible browser.")
+    }
+
     func testBrowserPreviewSupportsHistoryNavigationAndReload() throws {
         let model = QuillCodeWorkspaceModel()
 

@@ -22,7 +22,8 @@ enum WorkspaceBrowserWorkflow {
         workspaceRoot: URL?,
         browser: inout BrowserState,
         lastError: inout String?,
-        domainPolicy: BrowserDomainPolicy = .unrestricted
+        domainPolicy: BrowserDomainPolicy = .unrestricted,
+        inspectLocalFileContents: Bool = true
     ) -> Bool {
         let rawValue = input ?? browser.addressDraft
         guard let url = WorkspaceBrowserLocationResolver(workspaceRoot: workspaceRoot).resolve(rawValue) else {
@@ -36,7 +37,12 @@ enum WorkspaceBrowserWorkflow {
             return false
         }
 
-        WorkspaceBrowserEngine.openPage(url, state: &browser, updateHistory: true)
+        WorkspaceBrowserEngine.openPage(
+            url,
+            state: &browser,
+            updateHistory: true,
+            inspectLocalFileContents: inspectLocalFileContents
+        )
         lastError = nil
         return true
     }

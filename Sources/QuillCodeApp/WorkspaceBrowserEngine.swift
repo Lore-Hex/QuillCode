@@ -41,11 +41,19 @@ struct WorkspaceBrowserEngine {
         return true
     }
 
-    static func openPage(_ url: URL, state: inout BrowserState, updateHistory: Bool) {
+    static func openPage(
+        _ url: URL,
+        state: inout BrowserState,
+        updateHistory: Bool,
+        inspectLocalFileContents: Bool = true
+    ) {
         state.isVisible = true
         state.currentURL = url.absoluteString
         state.addressDraft = url.absoluteString
-        state.snapshot = BrowserInspector.snapshot(for: url)
+        state.snapshot = BrowserInspector.snapshot(
+            for: url,
+            inspectLocalFileContents: inspectLocalFileContents
+        )
         state.title = title(from: state.snapshot, fallbackURL: url)
         state.status = "Preview ready"
         if updateHistory {

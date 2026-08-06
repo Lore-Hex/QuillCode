@@ -9,9 +9,12 @@ enum BrowserInspector {
         return url.host ?? url.absoluteString
     }
 
-    static func snapshot(for url: URL) -> BrowserSnapshotState {
+    static func snapshot(
+        for url: URL,
+        inspectLocalFileContents: Bool = true
+    ) -> BrowserSnapshotState {
         if url.isFileURL {
-            return fileSnapshot(for: url)
+            return fileSnapshot(for: url, inspectContents: inspectLocalFileContents)
         }
 
         let scheme = (url.scheme ?? "https").uppercased()
@@ -113,30 +116,48 @@ enum BrowserInspector {
         )
     }
 
-    private static func fileSnapshot(for url: URL) -> BrowserSnapshotState {
+    private static func fileSnapshot(
+        for url: URL,
+        inspectContents: Bool
+    ) -> BrowserSnapshotState {
         let fileName = url.lastPathComponent.isEmpty ? url.path : url.lastPathComponent
-        let attributes = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
-        let byteCount = (attributes[.size] as? NSNumber)?.intValue ?? 0
         let extensionName = url.pathExtension.lowercased()
         let isHTML = ["html", "htm", "xhtml"].contains(extensionName)
-        var details = ["File: \(fileName)", "Size: \(byteCount) bytes"]
+        var details = ["File: \(fileName)"]
 
-        guard isHTML else {
+        guard isHTML, inspectContents else {
+            if isHTML {
+                details.append("Type: HTML")
+            }
             return BrowserSnapshotState(
-                sourceLabel: "Local file",
+                sourceLabel: isHTML ? "Local HTML" : "Local file",
                 inspectionDepth: .fileMetadata,
-                summary: "File is ready to open in the browser preview.",
+                summary: isHTML
+                    ? "HTML file is ready to open in the visible browser."
+                    : "File is ready to open in the browser preview.",
                 details: details,
                 outline: ["File: \(fileName)"]
             )
         }
 
-        details.insert("Type: HTML", at: 1)
-        guard byteCount <= BrowserFetchedPage.defaultMaxHTMLBytes,
-              let data = try? Data(contentsOf: url),
-              let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii)
-        else {
+        details.append("Type: HTML")
+        guard let data = boundedFileContents(
+            at: url,
+            maximumByteCount: BrowserFetchedPage.defaultMaxHTMLBytes
+        ) else {
             details.append("Snapshot: skipped because the file is too large or unreadable")
+            return BrowserSnapshotState(
+                sourceLabel: "Local HTML",
+                inspectionDepth: .fileMetadata,
+                summary: "HTML file is ready to open; metadata snapshot was skipped.",
+                details: details,
+                outline: ["File: \(fileName)"]
+            )
+        }
+        details.append("Size: \(data.count) bytes")
+        guard let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .ascii)
+        else {
+            details.append("Snapshot: skipped because the file is not decodable text")
             return BrowserSnapshotState(
                 sourceLabel: "Local HTML",
                 inspectionDepth: .fileMetadata,
@@ -152,6 +173,17 @@ enum BrowserInspector {
             details: details,
             html: html
         )
+    }
+
+    private static func boundedFileContents(at url: URL, maximumByteCount: Int) -> Data? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard let data = try? handle.read(upToCount: maximumByteCount + 1),
+              data.count <= maximumByteCount
+        else {
+            return nil
+        }
+        return data
     }
 
     private static func sourceLabel(for url: URL) -> String {
