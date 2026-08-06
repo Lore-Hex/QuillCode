@@ -112,6 +112,24 @@ struct QuillCodeDesktopSmokeWorkspaceRoot {
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
     }
 
+    @MainActor
+    func makeLaunchController() -> QuillCodeDesktopController {
+        let paths = QuillCodePaths(home: home)
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+        )
+        return QuillCodeDesktopController(
+            bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
+            browserLiveDOMCapturer: nil,
+            updateController: QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            ),
+            workspaceRoot: workspace
+        )
+    }
+
     func renderURL(request: QuillCodeDesktopSmokeRequest) -> URL {
         if let renderPath = request.renderPath, !renderPath.isEmpty {
             return URL(fileURLWithPath: renderPath)

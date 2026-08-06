@@ -33,22 +33,31 @@ struct QuillCodeDesktopApp: App {
             return
         }
 
-        let smokeRequest = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments)
-        let controller = QuillCodeDesktopController(
-            updateController: smokeRequest == nil ? nil : QuillCodeDesktopUpdateController(
-                configuration: nil,
-                installResultURL: nil
-            )
-        )
-        _controller = StateObject(wrappedValue: controller)
-
-        guard let request = smokeRequest else {
-            QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)
+        if let request = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments) {
+            let controller: QuillCodeDesktopController
+            if let workspaceRoot = try? QuillCodeDesktopSmokeWorkspaceRoot(request: request) {
+                controller = workspaceRoot.makeLaunchController()
+            } else {
+                controller = QuillCodeDesktopController(
+                    updateController: QuillCodeDesktopUpdateController(
+                        configuration: nil,
+                        installResultURL: nil
+                    ),
+                    workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
+                )
+            }
+            _controller = StateObject(wrappedValue: controller)
+            Task { @MainActor in
+                await QuillCodeDesktopSmokeRunner.runAndExit(request)
+            }
             return
         }
-        Task { @MainActor in
-            await QuillCodeDesktopSmokeRunner.runAndExit(request)
-        }
+
+        let controller = QuillCodeDesktopController(
+            workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
+        )
+        _controller = StateObject(wrappedValue: controller)
+        QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)
     }
 
     var body: some Scene {

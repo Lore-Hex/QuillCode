@@ -169,6 +169,58 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertFalse(controller.surface.review.isVisible)
     }
 
+    func testDesktopRenderSmokeLaunchControllerUsesExplicitIsolatedWorkspace() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-render-smoke-root-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        let request = try XCTUnwrap(QuillCodeDesktopSmokeRequest(arguments: [
+            "QuillCode",
+            "--native-render-smoke",
+            "--smoke-workspace",
+            temporaryDirectory.path
+        ]))
+        let root = try QuillCodeDesktopSmokeWorkspaceRoot(request: request)
+        let controller = root.makeLaunchController()
+
+        XCTAssertEqual(root.home.path, temporaryDirectory.appendingPathComponent("home").path)
+        XCTAssertEqual(root.workspace.path, temporaryDirectory.appendingPathComponent("workspace").path)
+        XCTAssertEqual(controller.bootstrap.paths.home, root.home)
+        XCTAssertEqual(controller.workspaceRoot, root.workspace)
+        XCTAssertNotEqual(controller.bootstrap.paths.home, QuillCodePaths().home)
+        XCTAssertTrue(controller.model.root.projects.allSatisfy { $0.path == root.workspace.path })
+    }
+
+    func testDesktopWorkspaceRootResolverRejectsLaunchServicesRootAndHome() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-workspace-root-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        let home = temporaryDirectory.appendingPathComponent("home", isDirectory: true)
+        let project = temporaryDirectory.appendingPathComponent("project", isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+
+        let rootFallback = QuillCodeDesktopWorkspaceRootResolver.resolve(
+            currentDirectory: URL(fileURLWithPath: "/", isDirectory: true),
+            userHome: home
+        )
+        let homeFallback = QuillCodeDesktopWorkspaceRootResolver.resolve(
+            currentDirectory: home,
+            userHome: home
+        )
+        let explicitProject = QuillCodeDesktopWorkspaceRootResolver.resolve(
+            currentDirectory: project,
+            userHome: home
+        )
+        let expectedFallback = home
+            .appendingPathComponent("Documents", isDirectory: true)
+            .appendingPathComponent(QuillCodeDesktopWorkspaceRootResolver.fallbackDirectoryName, isDirectory: true)
+
+        XCTAssertEqual(rootFallback, expectedFallback)
+        XCTAssertEqual(homeFallback, expectedFallback)
+        XCTAssertEqual(explicitProject, project.standardizedFileURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: expectedFallback.path))
+    }
+
     func testDesktopBrowserSmokeReportDocumentsAgentInspection() {
         let report = QuillCodeDesktopBrowserSmokeReport(
             previewPath: "/tmp/browser-smoke.html",
