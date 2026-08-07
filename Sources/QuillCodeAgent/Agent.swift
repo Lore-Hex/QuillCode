@@ -202,6 +202,11 @@ public struct AgentRunner: Sendable {
             /// Unsafe shell paths get one preflight correction per exact call. A repeated proposal
             /// still reaches the approval gate, preserving its authority and bounded termination.
             var preflightCorrectedShellCalls = Set<ToolCallFingerprint>()
+            /// A successful read/fetch may be followed by an exhausted empty or passive model turn.
+            /// Give each failure class one run-level continuation; the action resolver still owns
+            /// its own bounded retries, so provider instability cannot create an unbounded loop.
+            var recoveredExhaustedEmptyAfterTool = false
+            var recoveredExhaustedPromisedWorkAfterTool = false
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -209,7 +214,7 @@ public struct AgentRunner: Sendable {
             let limit = max(1, maxToolSteps)
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
 
-            for _ in 0..<limit {
+            actionLoop: for _ in 0..<limit {
                 let repeatNudge = pendingRepeatNudge
                 pendingRepeatNudge = nil
                 let reasoningBudgetPhase: AgentReasoningBudgetPhase = if !hasEmittedModelAction {
@@ -232,10 +237,48 @@ public struct AgentRunner: Sendable {
                     )
                 } catch AgentError.emptyStreamingResponse {
                     try Task.checkCancellation()
+                    guard let completion = runLoop.latestCompletion,
+                          completion.result.ok
+                    else { throw AgentError.emptyStreamingResponse }
+                    if hasCompletedWorkspaceMutation {
+                        action = .say(Self.finalAnswer(
+                            for: completion.call,
+                            result: completion.result,
+                            followUpReviewResult: completion.followUpReviewResult
+                        ))
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: the model returned no final action after completing "
+                                + "workspace work; finalized from the latest successful tool result."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    } else if !recoveredExhaustedEmptyAfterTool {
+                        recoveredExhaustedEmptyAfterTool = true
+                        pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
+                            after: completion.call,
+                            failure: "an empty response"
+                        )
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: the model returned no action after successful "
+                                + "source work; requested the next concrete step once."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    } else {
+                        throw AgentError.emptyStreamingResponse
+                    }
+                } catch TrustedRouterAgentError.invalidActionJSON(let malformedText) {
+                    try Task.checkCancellation()
                     guard hasCompletedWorkspaceMutation,
                           let completion = runLoop.latestCompletion,
                           completion.result.ok
-                    else { throw AgentError.emptyStreamingResponse }
+                    else { throw TrustedRouterAgentError.invalidActionJSON(malformedText) }
+                    // Treat malformed terminal text after a successful mutation like the existing
+                    // empty-final-action recovery. The synthesized say still passes every named
+                    // deliverable, citation, word-budget, and artifact-readback gate below.
                     action = .say(Self.finalAnswer(
                         for: completion.call,
                         result: completion.result,
@@ -243,8 +286,8 @@ public struct AgentRunner: Sendable {
                     ))
                     next.events.append(.init(
                         kind: .notice,
-                        summary: "Self-healing: the model returned no final action after completing "
-                            + "workspace work; finalized from the latest successful tool result."
+                        summary: "Self-healing: the model returned malformed terminal output after "
+                            + "workspace work; continued through completion verification."
                     ))
                     next.updatedAt = Date()
                     await onProgress?(next)
@@ -261,12 +304,34 @@ public struct AgentRunner: Sendable {
                         pendingApproval: paused.pendingApproval
                     )
                 }
-                var resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
-                    action,
-                    thread: next,
-                    userMessage: userMessage,
-                    tools: tools
-                )
+                var resolvedAction: AgentAction
+                do {
+                    resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
+                        action,
+                        thread: next,
+                        userMessage: userMessage,
+                        tools: tools
+                    )
+                } catch AgentError.promisedWorkWithoutToolAction {
+                    try Task.checkCancellation()
+                    guard let completion = runLoop.latestCompletion,
+                          completion.result.ok,
+                          !recoveredExhaustedPromisedWorkAfterTool
+                    else { throw AgentError.promisedWorkWithoutToolAction }
+                    recoveredExhaustedPromisedWorkAfterTool = true
+                    pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
+                        after: completion.call,
+                        failure: "a passive promise instead of a tool action"
+                    )
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: the model stopped at a promise after successful "
+                            + "tool work; requested the next concrete step once."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
                 // the tool arm below and the loop continues; the gate re-checks at the next say.
@@ -688,6 +753,16 @@ public struct AgentRunner: Sendable {
         "[QuillCode self-check] \(reason.message) Stop and reassess: state in one or two sentences why "
             + "the previous attempts did not work, then either take a clearly different approach or give "
             + "your best final answer now."
+    }
+
+    static func exhaustedActionContinuationPrompt(after call: ToolCall, failure: String) -> String {
+        """
+        [QuillCode continuation] The successful \(call.name) result is already in the conversation, \
+        but your next turn ended with \(failure). Continue the original request now. Return exactly \
+        one concrete next tool action; do not repeat the completed call, describe future work, ask \
+        for confirmation, or return an empty response. If every requested deliverable already exists, \
+        return the concise final answer instead.
+        """
     }
 
     static func finalAnswer(

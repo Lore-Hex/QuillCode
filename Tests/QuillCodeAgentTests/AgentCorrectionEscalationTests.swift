@@ -130,4 +130,47 @@ final class AgentCorrectionEscalationTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(correctives.last).contains("FINAL ATTEMPT"))
         XCTAssertTrue(try XCTUnwrap(correctives.last).contains("host.file.write"))
     }
+
+    func testExhaustedPromisedWorkAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("promised-continuation-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try "source facts\n".write(
+            to: root.appendingPathComponent("source.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+
+        let state = ThrowingState([
+            .success(.tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "source.txt"])
+            ))),
+            .success(.say("I will now create report.md.")),
+            .success(.say("I'll create report.md now.")),
+            .success(.say("Let me write report.md.")),
+            .success(.tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "report.md",
+                    "content": "# Report\n\nSource facts summarized.\n",
+                ])
+            ))),
+            .success(.say("Created report.md.")),
+        ])
+        let runner = AgentRunner(llm: ThrowingClient(state: state))
+
+        let result = try await runner.send(
+            "Read source.txt and write report.md.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("report.md").path))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("stopped at a promise")
+        })
+    }
 }

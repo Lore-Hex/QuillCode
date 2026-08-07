@@ -257,6 +257,83 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertEqual(calls.count, 4)
     }
 
+    func testExhaustedEmptyResponseAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {
+        let root = try makeTempDirectory()
+        try "source facts\n".write(
+            to: root.appendingPathComponent("source.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let readSource = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "source.txt"])
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "report.md",
+                "content": "# Report\n\nSource facts summarized.\n",
+            ])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(readSource)),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .action(.tool(write)),
+            .action(.say("Created and verified report.md.")),
+            .action(.say("Created and verified report.md.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            "Read source.txt, write report.md, then read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 3, "source read, write, and forced readback")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("no action after successful source work")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 7)
+        XCTAssertTrue(calls[4].userMessage.contains("QuillCode continuation"))
+        XCTAssertTrue(calls[4].userMessage.contains("host.file.read"))
+    }
+
+    func testMalformedTerminalOutputAfterWriteStillEnforcesReadback() async throws {
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "report.md",
+                "content": "# Report\n\nCompleted analysis.\n",
+            ])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(write)),
+            .failure(TrustedRouterAgentError.invalidActionJSON("bad1")),
+            .failure(TrustedRouterAgentError.invalidActionJSON("bad2")),
+            .failure(TrustedRouterAgentError.invalidActionJSON("bad3")),
+            .action(.say("Created and verified report.md.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            "Write report.md, then read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true], "write plus forced readback")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("malformed terminal output")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 5)
+    }
+
     func testUserStopAtBudgetExhaustionSurfacesAsCancellationNotFailure() async throws {
         // Both recovery attempts burned, then the user stops during the third call whose garbage
         // arrives after the cancel: the resolver must honor the stop (CancellationError), never
