@@ -31,12 +31,12 @@ jobs:
       QUILLCODE_REQUIRE_LIVE_SMOKE: ${{ inputs.require_live && '1' || '0' }}
       QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR: ${{ github.workspace }}/.quillcode-real-world-smoke
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Run release-candidate real-world smoke
         run: ./scripts/real-world-smoke.sh
       - name: Upload real-world smoke artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: quillcode-real-world-smoke-${{ runner.os }}
           path: .quillcode-real-world-smoke

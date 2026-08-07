@@ -20,7 +20,7 @@ jobs:
   release-policy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Validate download build ref
@@ -32,7 +32,7 @@ jobs:
     needs: release-policy
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set build metadata
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
@@ -70,7 +70,7 @@ jobs:
             rm -f "$QUILLCODE_MACOS_SIGNING_CERTIFICATE_PATH"
           fi
       - name: Upload macOS downloads
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: quillcode-macos-downloads
           path: ${{ runner.temp }}/quillcode-macos-downloads/assets/*
@@ -82,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     container: swift:6.2-noble
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set build metadata
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
@@ -98,7 +98,7 @@ jobs:
           QUILLCODE_DOWNLOAD_DIST_DIR: /tmp/quillcode-linux-downloads
         run: scripts/package-linux-downloads.sh
       - name: Upload Linux downloads
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: quillcode-linux-downloads
           path: /tmp/quillcode-linux-downloads/assets/*
@@ -109,10 +109,10 @@ jobs:
     needs: [macos, linux]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/downloaded-artifacts
       - name: Prepare release assets

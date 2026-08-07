@@ -18,7 +18,7 @@ jobs:
   swift:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Test
         run: swift test
       - name: Enforce no app-level Linux conditionals
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     container: swift:6.2-noble
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build CLI
         run: swift build --product quill-code
       - name: Smoke Linux Computer Use helpers
@@ -41,14 +41,14 @@ jobs:
   smoke:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Smoke
         env:
           QUILLCODE_SMOKE_ARTIFACT_DIR: ${{ github.workspace }}/.quillcode-smoke-artifacts
         run: ./scripts/smoke.sh
       - name: Upload smoke UI artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: quillcode-smoke-ui-${{ runner.os }}
           path: .quillcode-smoke-artifacts
