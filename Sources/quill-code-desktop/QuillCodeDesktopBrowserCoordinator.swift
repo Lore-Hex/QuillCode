@@ -133,6 +133,11 @@ struct QuillCodeDesktopBrowserCoordinator {
                 ok: false,
                 error: "Could not load \(url.absoluteString): \(message)"
             )
+        } catch DesktopBrowserSessionScriptError.navigationSuperseded {
+            return ToolResult(
+                ok: false,
+                error: "A newer browser navigation replaced the request for \(url.absoluteString)."
+            )
         } catch {
             return nil
         }

@@ -31,6 +31,8 @@ enum DesktopBrowserSessionScriptError: Error, Sendable, Equatable {
     case noOpenSession
     case noSelectedTab
     case emptySource
+    /// A newer open replaced an in-flight navigation for the same visible tab.
+    case navigationSuperseded
     /// The page failed to load (DNS, connection refused, TLS, blocked). Carries the platform
     /// message so the model is told what actually went wrong instead of getting a blank DOM.
     case navigationFailed(String)

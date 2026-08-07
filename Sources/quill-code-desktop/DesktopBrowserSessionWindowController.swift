@@ -15,6 +15,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         var snapshot: BrowserSessionTabSnapshot
         var item: NSTabViewItem
         var webView: WKWebView
+        var activeNavigation: WKNavigation?
     }
 
     var onClose: (() -> Void)?
@@ -22,12 +23,13 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
 
     private let tabView: NSTabView
     private var tabs: [UUID: SessionTab] = [:]
-    /// Continuations parked by `navigateSelectedTab`, keyed by tab, resumed exactly once by
-    /// `didFinish` / a load failure / the navigation timeout — whichever lands first.
-    private var navigationWaiters: [UUID: [CheckedContinuation<Void, Error>]] = [:]
+    private let navigationWaiters: DesktopBrowserNavigationWaitRegistry
 
     init(snapshot: BrowserSessionSyncSnapshot) {
         self.tabView = NSTabView()
+        self.navigationWaiters = DesktopBrowserNavigationWaitRegistry(
+            timeoutNanoseconds: UInt64(Self.navigationTimeoutSeconds * 1_000_000_000)
+        )
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1120, height: 760),
@@ -52,8 +54,15 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
     }
 
     func windowWillClose(_ notification: Notification) {
-        tabs.values.forEach { $0.webView.navigationDelegate = nil }
+        navigationWaiters.finishAll(error: DesktopBrowserSessionScriptError.noOpenSession)
+        tabs.values.forEach {
+            $0.webView.stopLoading()
+            $0.webView.navigationDelegate = nil
+        }
+        tabs.removeAll(keepingCapacity: false)
+        onSessionUpdate = nil
         onClose?()
+        onClose = nil
     }
 
     func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
@@ -61,10 +70,27 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         emitSessionUpdate()
     }
 
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation?) {
+        guard let id = tabID(for: webView), let navigation else { return }
+        if let activeNavigation = tabs[id]?.activeNavigation,
+           activeNavigation !== navigation {
+            navigationWaiters.finish(
+                tabID: id,
+                error: DesktopBrowserSessionScriptError.navigationSuperseded
+            )
+        }
+        storeActiveNavigation(navigation, for: id, webView: webView)
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation?, withError error: Error) {
-        guard let id = tabID(for: webView) else { return }
-        resumeNavigationWaiters(
+        guard let id = tabID(for: webView),
+              finishActiveNavigation(for: id, navigation: navigation)
+        else {
+            return
+        }
+        navigationWaiters.resolve(
             for: id,
+            navigation: navigation,
             error: DesktopBrowserSessionScriptError.navigationFailed(error.localizedDescription)
         )
     }
@@ -74,22 +100,26 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         didFailProvisionalNavigation navigation: WKNavigation?,
         withError error: Error
     ) {
-        guard let id = tabID(for: webView) else { return }
-        resumeNavigationWaiters(
+        guard let id = tabID(for: webView),
+              finishActiveNavigation(for: id, navigation: navigation)
+        else {
+            return
+        }
+        navigationWaiters.resolve(
             for: id,
+            navigation: navigation,
             error: DesktopBrowserSessionScriptError.navigationFailed(error.localizedDescription)
         )
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation?) {
-        if let id = tabID(for: webView) {
-            resumeNavigationWaiters(for: id, error: nil)
-        }
         guard let id = tabID(for: webView),
+              finishActiveNavigation(for: id, navigation: navigation),
               var tab = tabs[id]
         else {
             return
         }
+        navigationWaiters.resolve(for: id, navigation: navigation, error: nil)
         let title = nonEmpty(webView.title) ?? tab.snapshot.title
         if let url = webView.url {
             tab.snapshot = BrowserSessionTabSnapshot(
@@ -129,7 +159,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         else {
             return
         }
-        tab.webView.reload()
+        beginUserNavigation(tab.webView.reload(), for: selectedID, webView: tab.webView)
     }
 
     func goBackSelectedTab(fallback snapshot: BrowserSessionSyncSnapshot) {
@@ -142,7 +172,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
             sync(snapshot)
             return
         }
-        tab.webView.goBack()
+        beginUserNavigation(tab.webView.goBack(), for: selectedID, webView: tab.webView)
     }
 
     func goForwardSelectedTab(fallback snapshot: BrowserSessionSyncSnapshot) {
@@ -155,7 +185,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
             sync(snapshot)
             return
         }
-        tab.webView.goForward()
+        beginUserNavigation(tab.webView.goForward(), for: selectedID, webView: tab.webView)
     }
 
     func evaluateJavaScriptInSelectedTab(_ source: String) async throws -> DesktopBrowserSessionScriptResult {
@@ -191,51 +221,38 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         // Already on this exact URL: the page is loaded, so capture it rather than forcing a
         // reload (a reload would also lose any state the user or a prior step established).
         if tab.webView.url?.absoluteString != url.absoluteString {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                // Register BEFORE navigating. Everything here is @MainActor-serialized, so the
-                // waiter cannot miss a `didFinish` that lands between these two statements.
-                navigationWaiters[selectedID, default: []].append(continuation)
-                navigate(tab.webView, to: url)
-                Task { @MainActor [weak self] in
-                    try? await Task.sleep(
-                        nanoseconds: UInt64(Self.navigationTimeoutSeconds * 1_000_000_000)
-                    )
-                    // Timeout resolves SUCCESSFULLY: capture the partial page instead of failing.
-                    self?.resumeNavigationWaiters(for: selectedID, error: nil)
-                }
+            try await navigationWaiters.wait(for: selectedID) {
+                let navigation = navigate(tab.webView, to: url)
+                storeActiveNavigation(navigation, for: selectedID, webView: tab.webView)
+                return navigation
+            }
+        } else if tab.webView.isLoading {
+            try await navigationWaiters.wait(for: selectedID) {
+                tab.activeNavigation
             }
         }
 
-        return try await captureLiveDOMSnapshotInSelectedTab()
-    }
-
-    /// Resume and CLEAR every waiter for a tab. Clearing first is what makes a double-resume
-    /// (didFinish racing the timeout, or didFail racing didFinish) impossible — resuming a
-    /// continuation twice is a hard crash in Swift.
-    private func resumeNavigationWaiters(for id: UUID, error: Error?) {
-        guard let waiters = navigationWaiters.removeValue(forKey: id), !waiters.isEmpty else {
-            return
-        }
-        for waiter in waiters {
-            if let error {
-                waiter.resume(throwing: error)
-            } else {
-                waiter.resume()
-            }
-        }
+        return try await captureLiveDOMSnapshot(in: selectedID)
     }
 
     func captureLiveDOMSnapshotInSelectedTab() async throws -> BrowserLiveDOMSnapshot {
-        guard let selectedID = selectedTabID(),
-              let tab = tabs[selectedID]
-        else {
+        guard let selectedID = selectedTabID() else {
             throw DesktopBrowserSessionScriptError.noSelectedTab
         }
+        return try await captureLiveDOMSnapshot(in: selectedID)
+    }
+
+    private func captureLiveDOMSnapshot(in tabID: UUID) async throws -> BrowserLiveDOMSnapshot {
+        guard let tab = tabs[tabID] else { throw DesktopBrowserSessionScriptError.noSelectedTab }
+        let webView = tab.webView
         let snapshot = try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
-            from: tab.webView,
+            from: webView,
             fallbackURL: tab.snapshot.url
         )
-        emitSessionUpdate(liveDOMSnapshots: [selectedID: snapshot])
+        guard let currentTab = tabs[tabID], currentTab.webView === webView else {
+            throw DesktopBrowserSessionScriptError.noSelectedTab
+        }
+        emitSessionUpdate(liveDOMSnapshots: [tabID: snapshot])
         return snapshot
     }
 
@@ -285,7 +302,13 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         if var tab = tabs[snapshot.id] {
             tab.snapshot = snapshot
             tab.item.label = snapshot.title
-            navigate(tab.webView, to: snapshot.url)
+            if let navigation = navigate(tab.webView, to: snapshot.url) {
+                navigationWaiters.finish(
+                    tabID: snapshot.id,
+                    error: DesktopBrowserSessionScriptError.navigationSuperseded
+                )
+                tab.activeNavigation = navigation
+            }
             tabs[snapshot.id] = tab
             return
         }
@@ -296,25 +319,61 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         item.label = snapshot.title
         item.view = webView
         tabView.addTabViewItem(item)
-        tabs[snapshot.id] = SessionTab(snapshot: snapshot, item: item, webView: webView)
-        navigate(webView, to: snapshot.url)
+        tabs[snapshot.id] = SessionTab(
+            snapshot: snapshot,
+            item: item,
+            webView: webView,
+            activeNavigation: navigate(webView, to: snapshot.url)
+        )
     }
 
-    private func navigate(_ webView: WKWebView, to url: URL) {
-        guard webView.url?.absoluteString != url.absoluteString else { return }
+    private func navigate(_ webView: WKWebView, to url: URL) -> WKNavigation? {
+        guard webView.url?.absoluteString != url.absoluteString else { return nil }
         if url.isFileURL {
-            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+            return webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         } else {
-            webView.load(URLRequest(url: url))
+            return webView.load(URLRequest(url: url))
         }
     }
 
     private func removeTabs(excluding retainedIDs: Set<UUID>) {
         for id in tabs.keys where !retainedIDs.contains(id) {
             guard let tab = tabs.removeValue(forKey: id) else { continue }
+            navigationWaiters.finish(tabID: id, error: DesktopBrowserSessionScriptError.noSelectedTab)
+            tab.webView.stopLoading()
             tab.webView.navigationDelegate = nil
             tabView.removeTabViewItem(tab.item)
         }
+    }
+
+    private func storeActiveNavigation(_ navigation: WKNavigation?, for id: UUID, webView: WKWebView) {
+        guard var tab = tabs[id], tab.webView === webView else { return }
+        tab.activeNavigation = navigation
+        tabs[id] = tab
+    }
+
+    private func beginUserNavigation(_ navigation: WKNavigation?, for id: UUID, webView: WKWebView) {
+        guard let navigation else { return }
+        navigationWaiters.finish(
+            tabID: id,
+            error: DesktopBrowserSessionScriptError.navigationSuperseded
+        )
+        storeActiveNavigation(navigation, for: id, webView: webView)
+    }
+
+    /// Returns false for a stale callback from a load that an active newer navigation replaced.
+    private func finishActiveNavigation(for id: UUID, navigation: WKNavigation?) -> Bool {
+        guard var tab = tabs[id] else { return false }
+        if let navigation {
+            guard let activeNavigation = tab.activeNavigation,
+                  activeNavigation === navigation
+            else {
+                return false
+            }
+        }
+        tab.activeNavigation = nil
+        tabs[id] = tab
+        return true
     }
 
     private func reorderTabs(_ orderedIDs: [UUID]) {
