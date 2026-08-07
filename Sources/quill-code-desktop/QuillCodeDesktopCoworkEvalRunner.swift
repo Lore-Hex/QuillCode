@@ -95,11 +95,14 @@ enum QuillCodeDesktopCoworkEvalRunner {
         let elapsed = started.duration(to: .now).components
         let durationMilliseconds = Int(elapsed.seconds * 1_000)
             + Int(elapsed.attoseconds / 1_000_000_000_000_000)
+        let failedToolCount = tools.count(where: { $0.status == "failed" })
+        let unrecoveredToolFailureCount = QuillCodeDesktopCoworkEvalReport.unrecoveredFailureCount(in: tools)
         let ok = !timedOut
             && selectedModelID == request.modelID
             && surface.lastError == nil
             && !finalAnswer.isEmpty
-            && !tools.contains(where: { $0.status == "failed" || $0.status == "running" })
+            && !tools.contains(where: { $0.status == "running" })
+            && unrecoveredToolFailureCount == 0
 
         return QuillCodeDesktopCoworkEvalReport(
             ok: ok,
@@ -115,6 +118,8 @@ enum QuillCodeDesktopCoworkEvalRunner {
             usage: usage,
             messageCount: surface.transcript.messages.count,
             timelineItemCount: surface.transcript.timelineItems.count,
+            failedToolCount: failedToolCount,
+            unrecoveredToolFailureCount: unrecoveredToolFailureCount,
             tools: tools
         )
     }

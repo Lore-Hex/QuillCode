@@ -117,6 +117,31 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(controller.automationNotifier is QuillCodeDesktopCoworkEvalNotifier)
     }
 
+    func testCoworkEvalReportDistinguishesRecoveredToolFailures() {
+        let tools = [
+            QuillCodeDesktopCoworkEvalReport.Tool(
+                name: "host.shell.run",
+                status: "failed",
+                inputJSON: nil,
+                outputJSON: nil
+            ),
+            QuillCodeDesktopCoworkEvalReport.Tool(
+                name: "host.shell.run",
+                status: "done",
+                inputJSON: nil,
+                outputJSON: nil
+            ),
+            QuillCodeDesktopCoworkEvalReport.Tool(
+                name: "host.file.write",
+                status: "failed",
+                inputJSON: nil,
+                outputJSON: nil
+            ),
+        ]
+
+        XCTAssertEqual(QuillCodeDesktopCoworkEvalReport.unrecoveredFailureCount(in: tools), 1)
+    }
+
     func testDesktopSmokePixelValidationAcceptsConfiguredMinimumColorBuckets() throws {
         let stats = QuillCodeDesktopSmokePixelStats(
             report: QuillCodeDesktopSmokePixelReport(

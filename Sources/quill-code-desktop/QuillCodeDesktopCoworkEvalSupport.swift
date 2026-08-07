@@ -82,7 +82,23 @@ struct QuillCodeDesktopCoworkEvalReport: Encodable {
     var usage: ModelTokenUsage
     var messageCount: Int
     var timelineItemCount: Int
+    var failedToolCount: Int
+    var unrecoveredToolFailureCount: Int
     var tools: [Tool]
+
+    static func unrecoveredFailureCount(in tools: [Tool]) -> Int {
+        var laterSuccessfulToolNames = Set<String>()
+        var count = 0
+
+        for tool in tools.reversed() {
+            if tool.status == "done" {
+                laterSuccessfulToolNames.insert(tool.name)
+            } else if tool.status == "failed", !laterSuccessfulToolNames.contains(tool.name) {
+                count += 1
+            }
+        }
+        return count
+    }
 
     func prettyJSON() throws -> Data {
         let encoder = JSONEncoder()
