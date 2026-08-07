@@ -87,6 +87,26 @@ final class DesktopBrowserOpenNavigationTests: XCTestCase {
         )
     }
 
+    func testSupersededNavigationReportsTheReplacementInsteadOfFallingBack() async throws {
+        let presenter = NavigationRecordingPresenter()
+        presenter.navigationError = .navigationSuperseded
+        let controller = try makeController(presenter: presenter)
+
+        let result = await controller.browserCoordinator.openSessionAndCaptureLiveDOM(
+            model: controller.model,
+            addressDraft: "https://example.com/old-request",
+            workspaceRoot: try makeTempDirectory(),
+            refresh: {}
+        )
+
+        let unwrapped = try XCTUnwrap(result)
+        XCTAssertFalse(unwrapped.ok)
+        XCTAssertEqual(
+            unwrapped.error,
+            "A newer browser navigation replaced the request for https://example.com/old-request."
+        )
+    }
+
     /// With no live browser surface (headless runs, the Noop presenter), the coordinator returns nil
     /// so the caller falls back to the legacy metadata path — this feature can only ADD capability.
     func testNoLiveSessionFallsBackRatherThanFailing() async throws {
@@ -143,6 +163,7 @@ private final class NavigationRecordingPresenter: DesktopBrowserSessionPresentin
     var onSessionUpdate: (@MainActor (BrowserSessionUpdate) -> Void)?
     private(set) var navigatedURLs: [URL] = []
     var navigationFailureMessage: String?
+    var navigationError: DesktopBrowserSessionScriptError?
     private var hasOpenSession = false
 
     func presentSession(_ snapshot: BrowserSessionSyncSnapshot) { hasOpenSession = true }
@@ -150,6 +171,9 @@ private final class NavigationRecordingPresenter: DesktopBrowserSessionPresentin
 
     func navigateSelectedTab(to url: URL) async throws -> BrowserLiveDOMSnapshot {
         guard hasOpenSession else { throw DesktopBrowserSessionScriptError.noOpenSession }
+        if let navigationError {
+            throw navigationError
+        }
         if let navigationFailureMessage {
             throw DesktopBrowserSessionScriptError.navigationFailed(navigationFailureMessage)
         }

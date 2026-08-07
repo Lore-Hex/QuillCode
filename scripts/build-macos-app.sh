@@ -16,6 +16,7 @@ UPDATE_TESTER_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_TESTER_MANIFEST_URL:-https:
 SIGNING_IDENTITY="${QUILLCODE_MACOS_SIGNING_IDENTITY:-}"
 SIGNING_TEAM_IDENTIFIER="${QUILLCODE_MACOS_SIGNING_TEAM_IDENTIFIER:-}"
 SIGNING_KEYCHAIN="${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}"
+SWIFT_DEBUG_INFO_FORMAT="${QUILLCODE_SWIFT_DEBUG_INFO_FORMAT:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -41,9 +42,21 @@ fi
 
 cd "$ROOT_DIR"
 
+SWIFT_BUILD_ARGUMENTS=(--configuration "$CONFIGURATION" --product quill-code-desktop)
+if [[ -n "$SWIFT_DEBUG_INFO_FORMAT" ]]; then
+  case "$SWIFT_DEBUG_INFO_FORMAT" in
+    dwarf|codeview|none) ;;
+    *)
+      echo "Unsupported QUILLCODE_SWIFT_DEBUG_INFO_FORMAT: $SWIFT_DEBUG_INFO_FORMAT" >&2
+      exit 2
+      ;;
+  esac
+  SWIFT_BUILD_ARGUMENTS+=(-debug-info-format "$SWIFT_DEBUG_INFO_FORMAT")
+fi
+
 echo "==> Building quill-code-desktop ($CONFIGURATION)" >&2
-swift build --configuration "$CONFIGURATION" --product quill-code-desktop >&2
-BIN_DIR="$(swift build --configuration "$CONFIGURATION" --product quill-code-desktop --show-bin-path)"
+swift build "${SWIFT_BUILD_ARGUMENTS[@]}" >&2
+BIN_DIR="$(swift build "${SWIFT_BUILD_ARGUMENTS[@]}" --show-bin-path)"
 SOURCE_EXECUTABLE="$BIN_DIR/quill-code-desktop"
 
 if [[ ! -x "$SOURCE_EXECUTABLE" ]]; then
