@@ -274,6 +274,9 @@ CONCEPTS = (
 )
 
 CONCEPT_ALIASES = {
+    "customer commitment": (
+        "customer commitment", "customer promise", "sales commitment", "customer-facing commitment",
+    ),
     "event": ("event", "trigger"),
     "jobs to be done": ("jobs to be done", "jtbd", "functional job"),
     "landing page": ("landing page", "headline", "subhead", "call to action", "cta"),

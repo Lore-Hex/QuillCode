@@ -131,6 +131,11 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         jtbd_output = WAVE5.normalize("JTBD map with four functional jobs and source citations.")
         self.assertTrue(WAVE5.concept_matches("jobs to be done", jtbd_output))
 
+        commitments_output = WAVE5.normalize(
+            "Sales commitments and customer-facing commitments compared with the roadmap."
+        )
+        self.assertTrue(WAVE5.concept_matches("customer commitment", commitments_output))
+
     def test_normalize_ignores_numeric_thousands_separators(self):
         self.assertIn("820000", WAVE5.normalize("Cash: $820,000"))
         self.assertIn("98000", WAVE5.normalize("Burn: 98_000"))
