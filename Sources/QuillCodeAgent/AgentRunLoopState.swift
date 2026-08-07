@@ -19,6 +19,9 @@ struct AgentRunLoopState: Sendable {
     /// A successful write remains here until a LATER successful read of the same path. Rewrites
     /// re-arm verification, preventing an early read from blessing a subsequently changed file.
     private(set) var unverifiedWrittenWorkspacePaths: Set<String> = []
+    /// Workspace files successfully read this run. Empty-response recovery uses this to advance
+    /// only the finite set of source reads the user explicitly requested and has not completed.
+    private(set) var successfullyReadWorkspacePaths: Set<String> = []
     /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
     /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
     private(set) var malformedWrittenTextPaths: Set<String> = []
@@ -101,6 +104,7 @@ struct AgentRunLoopState: Sendable {
                 malformedWrittenTextPaths.remove(normalized)
             }
         case ToolDefinition.fileRead.name:
+            successfullyReadWorkspacePaths.insert(normalized)
             unverifiedWrittenWorkspacePaths = Set(unverifiedWrittenWorkspacePaths.filter {
                 !AgentArtifactVerificationGate.pathsMatch($0, normalized)
             })

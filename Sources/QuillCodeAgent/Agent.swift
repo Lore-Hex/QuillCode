@@ -248,7 +248,21 @@ public struct AgentRunner: Sendable {
                     guard let completion = runLoop.latestCompletion,
                           completion.result.ok
                     else { throw AgentError.emptyStreamingResponse }
-                    if hasCompletedWorkspaceMutation {
+                    if let recoveredRead = AgentExplicitSourceReadRecovery.nextAction(
+                        userMessage: userMessage,
+                        workspaceRoot: workspaceRoot,
+                        tools: tools,
+                        successfullyReadPaths: runLoop.successfullyReadWorkspacePaths
+                    ) {
+                        action = recoveredRead
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: advanced an explicit requested source read "
+                                + "after repeated empty model responses."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    } else if hasCompletedWorkspaceMutation {
                         action = .say(Self.finalAnswer(
                             for: completion.call,
                             result: completion.result,

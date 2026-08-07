@@ -303,6 +303,63 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertTrue(calls[4].userMessage.contains("host.file.read"))
     }
 
+    func testExhaustedEmptyResponseAdvancesUnreadExplicitSourceBeforeModelContinuation() async throws {
+        let root = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("inputs"),
+            withIntermediateDirectories: true
+        )
+        try "founder context\n".write(
+            to: root.appendingPathComponent("inputs/context.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "metric,value\nleads,12\n".write(
+            to: root.appendingPathComponent("inputs/data.csv"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let readContext = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "inputs/context.md"])
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nFounder context with 12 leads.\n",
+            ])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(readContext)),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .action(.tool(write)),
+            .action(.say("Created and verified outputs/report.md.")),
+            .action(.say("Created and verified outputs/report.md.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            """
+            Use the file read tool separately on `inputs/context.md` and `inputs/data.csv`.
+            Write the deliverable to `outputs/report.md`, then read the saved file back to verify it.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 4, "two source reads, write, and forced readback")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("advanced an explicit requested source read")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 7, "local source recovery must not consume another model call")
+        XCTAssertFalse(calls.contains { $0.userMessage.contains("QuillCode continuation") })
+    }
+
     func testMalformedTerminalOutputAfterWriteStillEnforcesReadback() async throws {
         let write = ToolCall(
             name: ToolDefinition.fileWrite.name,
