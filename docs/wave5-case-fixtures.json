@@ -8,7 +8,7 @@
     },
     "216": {
       "appendix": "## Case 216 source appendix: recruiting targets\n\nAllocate 12 interviews across three validated recruiting segments: five Series A SaaS Controllers with a 5-10 day close, four Series A SaaS finance leads who coordinate at least three owners, and three Growth SaaS Controllers evaluating workflow changes. Screen for direct month-end ownership and a close completed in the last 60 days. Disqualify consultants, vendors, people without close responsibility, and anyone unable to consent to note-taking.",
-      "groundingAnchors": ["12 interviews", "five Series A SaaS Controllers", "four Series A SaaS finance leads", "three Growth SaaS Controllers", "last 60 days"]
+      "groundingAnchors": ["12 total", "Series A SaaS Controllers", "Series A SaaS finance leads", "Growth SaaS Controllers", "last 60 days"]
     },
     "217": {
       "appendix": "## Case 217 source appendix: assumption register\n\n| ID | Assumption | Evidence pointer |\n|---|---|---|\n| A01 | Series A controllers lose at least four hours chasing owners | I-01 through I-18 |\n| A02 | Missed dependencies recur in most closes | four of six finance leads |\n| A03 | CFO explanation burden is severe | no direct CFO quote |\n| A04 | A shared status replaces spreadsheet coordination | one growth customer contradicted broad pain |\n| A05 | Deadline-triggered teams activate faster | activated cohort notes |\n| A06 | CSV mapping is the main onboarding blocker | churned cohort notes |\n| A07 | Buyers expect automated bookkeeping | churned customer notes |\n| A08 | Controllers control budget below Series A | no evidence |\n| A09 | Pain exists outside month-end | no evidence |\n| A10 | Teams will replace spreadsheets | no evidence |",

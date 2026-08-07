@@ -289,6 +289,21 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertNotIn("LedgerLoop", anchors)
         self.assertEqual(matched, ["Devon Lee", "Sam Ortiz", "Kim Wu"])
 
+    def test_recruiting_grounding_accepts_counts_in_markdown_table_columns(self):
+        row = {"ID": 216, "Category": "Customer Discovery"}
+        anchors = WAVE5.grounding_anchors(row)
+        output = WAVE5.normalize("""
+        ## Interview allocation (12 total)
+        | Segment | Interviews |
+        | Series A SaaS Controllers | 5 |
+        | Series A SaaS finance leads | 4 |
+        | Growth SaaS Controllers | 3 |
+        A close completed in the last 60 days is required.
+        """)
+        matched = [anchor for anchor in anchors if WAVE5.normalize(anchor) in output]
+
+        self.assertEqual(matched, list(anchors))
+
     def test_every_case_fixture_has_case_specific_grounding(self):
         for case_id, fixture in WAVE5.CASE_FIXTURES.items():
             with self.subTest(case_id=case_id):
