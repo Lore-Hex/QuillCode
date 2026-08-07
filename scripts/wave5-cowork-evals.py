@@ -342,6 +342,67 @@ def task_concepts(task):
     return sorted({concept for concept in CONCEPTS if normalize(concept) in normalized})
 
 
+def required_concept_matches(concept_count):
+    if concept_count <= 0:
+        return 0
+    return min(concept_count, min(4, max(2, (concept_count + 1) // 2)))
+
+
+def tool_payload(tool, field):
+    raw = tool.get(field)
+    if not isinstance(raw, str) or not raw.strip():
+        return {}
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def tool_succeeded(tool):
+    if tool.get("status") != "done":
+        return False
+    output = tool_payload(tool, "outputJSON")
+    if output.get("ok") is False:
+        return False
+    if output.get("verdict") == "deny" or output.get("reviewOutcome") == "denied":
+        return False
+    return True
+
+
+def normalized_tool_path(value):
+    if not isinstance(value, str):
+        return ""
+    return value.replace("\\", "/").removeprefix("./").rstrip("/")
+
+
+def has_artifact_readback(tools, output_path):
+    expected = normalized_tool_path(output_path)
+    writes = []
+    for index, tool in enumerate(tools):
+        if not tool_succeeded(tool):
+            continue
+        name = tool.get("name")
+        arguments = tool_payload(tool, "inputJSON")
+        if name == "host.file.write":
+            path = arguments.get("path") or arguments.get("filename")
+            if normalized_tool_path(path) == expected:
+                writes.append(index)
+        elif name == "host.apply_patch" and expected in json.dumps(arguments):
+            writes.append(index)
+    if not writes:
+        return False
+    last_write = max(writes)
+    for tool in tools[last_write + 1:]:
+        if tool.get("name") != "host.file.read" or not tool_succeeded(tool):
+            continue
+        arguments = tool_payload(tool, "inputJSON")
+        path = arguments.get("path") or arguments.get("filename")
+        if normalized_tool_path(path) == expected:
+            return True
+    return False
+
+
 def write_fixture(row, workspace):
     fixture = CATEGORY_FIXTURES[row["Category"]]
     inputs = workspace / "inputs"
@@ -390,7 +451,8 @@ def sha256(path):
 
 
 def grade(row, workspace, report, source_hashes):
-    output = workspace / "outputs" / f"wave5-{row['ID']}.md"
+    output_path = f"outputs/wave5-{row['ID']}.md"
+    output = workspace / output_path
     checks = []
 
     def add(name, passed, detail):
@@ -403,14 +465,15 @@ def grade(row, workspace, report, source_hashes):
         report.get("selectedModelID") if report else "no report",
     )
     tools = report.get("tools", []) if report else []
-    tool_names = [tool.get("name") for tool in tools if tool.get("status") == "done"]
+    tool_names = [tool.get("name") for tool in tools if tool_succeeded(tool)]
     add("source reads", tool_names.count("host.file.read") >= 2, repr(tool_names))
     add("artifact write", "host.file.write" in tool_names or "host.apply_patch" in tool_names, repr(tool_names))
+    add("artifact verification", has_artifact_readback(tools, output_path), repr(tool_names))
     if row["Capability needed"] == "Browser pane":
         add("browser inspection", "host.browser.inspect" in tool_names, repr(tool_names))
     if row["Capability needed"] == "Files/Shell":
         add("shell validation", "host.shell.run" in tool_names, repr(tool_names))
-    add("no failed tools", all(tool.get("status") == "done" for tool in tools), repr(tools[-2:]))
+    add("no failed tools", all(tool_succeeded(tool) for tool in tools), repr(tools[-2:]))
     add("sources unchanged", all(path.exists() and sha256(path) == digest for path, digest in source_hashes.items()), "fixture hashes")
 
     try:
@@ -432,7 +495,7 @@ def grade(row, workspace, report, source_hashes):
     add("source grounding", len(matched_anchors) >= 2, repr(matched_anchors))
     concepts = task_concepts(row["Task (what the person types)"])
     matched_concepts = [concept for concept in concepts if normalize(concept) in normalized_output]
-    required = min(4, max(2, (len(concepts) + 1) // 2)) if concepts else 0
+    required = required_concept_matches(len(concepts))
     add("task coverage", len(matched_concepts) >= required, f"matched {matched_concepts}; required {required} of {concepts}")
     refusal = bool(re.search(r"(?i)\b(?:i cannot|i can't|unable to complete|cannot complete)\b", text))
     add("no refusal", not refusal, "refusal language" if refusal else "clean")
