@@ -551,6 +551,16 @@ def check_additional_artifact(workspace, artifact):
     return line_count >= required, f"{line_count} lines; required {required}"
 
 
+def artifact_coverage_text(primary_text, workspace, artifacts):
+    texts = [primary_text]
+    for artifact in artifacts:
+        try:
+            texts.append((workspace / artifact["path"]).read_text(encoding="utf-8"))
+        except OSError:
+            continue
+    return "\n".join(texts)
+
+
 def write_fixture(row, workspace):
     fixture = CATEGORY_FIXTURES[row["Category"]]
     context = fixture_context(row)
@@ -662,7 +672,8 @@ def grade(row, workspace, report, source_hashes):
     matched_concepts = [concept for concept in concepts if concept_matches(concept, normalized_output)]
     required = required_concept_matches(len(concepts))
     add("task coverage", len(matched_concepts) >= required, f"matched {matched_concepts}; required {required} of {concepts}")
-    required_terms, matched_terms = required_output_term_matches(row["ID"], text)
+    coverage_text = artifact_coverage_text(text, workspace, additional_artifacts(row))
+    required_terms, matched_terms = required_output_term_matches(row["ID"], coverage_text)
     if required_terms:
         add(
             "repeated item coverage",

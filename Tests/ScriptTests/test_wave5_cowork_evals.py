@@ -162,6 +162,31 @@ class Wave5CoworkEvalTests(unittest.TestCase):
             passed, detail = WAVE5.check_additional_artifact(workspace, artifact)
             self.assertTrue(passed, detail)
 
+    def test_repeated_item_coverage_includes_required_supporting_artifacts(self):
+        row = {
+            "ID": 213,
+            "Category": "Customer Discovery",
+            "Task (what the person types)": "Produce lost-demo-patterns.csv and a summary.",
+            "Capability needed": "Multi-file artifacts",
+        }
+
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            artifact = WAVE5.additional_artifacts(row)[0]
+            output = workspace / artifact["path"]
+            output.parent.mkdir(parents=True)
+            output.write_text(
+                "id,pattern\n" + "\n".join(f"LD{index:02d},pattern" for index in range(1, 9))
+            )
+            coverage = WAVE5.artifact_coverage_text(
+                "# Summary\n\nLost demos cluster around four recurring patterns.",
+                workspace,
+                WAVE5.additional_artifacts(row),
+            )
+            required, matched = WAVE5.required_output_term_matches(213, coverage)
+
+        self.assertEqual(matched, list(required))
+
     def test_case_fixture_catalog_is_valid(self):
         WAVE5.validate_case_fixtures()
 
