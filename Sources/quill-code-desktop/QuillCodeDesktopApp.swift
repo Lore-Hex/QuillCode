@@ -32,10 +32,16 @@ struct QuillCodeDesktopApp: App {
             return
         }
 
-        let controller = QuillCodeDesktopController()
+        let smokeRequest = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments)
+        let controller = QuillCodeDesktopController(
+            updateController: smokeRequest == nil ? nil : QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            )
+        )
         _controller = StateObject(wrappedValue: controller)
 
-        guard let request = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments) else {
+        guard let request = smokeRequest else {
             QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)
             return
         }
