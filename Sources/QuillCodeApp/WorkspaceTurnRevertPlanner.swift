@@ -101,26 +101,37 @@ public enum WorkspaceTurnRevertPlanner {
     }
 
     public static func plans(for thread: ChatThread) -> [TurnRevertPlan] {
-        let userMessages = thread.messages
-            .filter { $0.role == .user }
-            .sorted { $0.createdAt < $1.createdAt }
+        // Most conversational turns do not edit files. Avoid sorting every user message while the
+        // transcript is rendering when no queued tool could possibly produce a revert plan.
+        guard thread.events.contains(where: { $0.kind == .toolQueued }) else { return [] }
+
+        let userMessages = thread.messages.enumerated()
+            .filter { $0.element.role == .user }
+            .sorted(by: chronologicalOrder)
         guard !userMessages.isEmpty else { return [] }
 
-        func turnID(at date: Date) -> UUID? {
-            userMessages.last(where: { $0.createdAt <= date })?.id
-        }
+        let queuedEvents = thread.events.enumerated()
+            .filter { $0.element.kind == .toolQueued }
+            .sorted(by: chronologicalOrder)
 
         var patchesByTurn: [UUID: [String]] = [:]
         var hasNonApplyByTurn: [UUID: Bool] = [:]
         var turnOrder: [UUID] = []
+        var nextUserIndex = userMessages.startIndex
+        var currentTurnID: UUID?
 
         // Sort by createdAt so the within-turn patch order matches the turn-attribution
-        // chronology (the executor reverse-applies newest-first, so order is load-bearing).
-        let queuedEvents = thread.events
-            .filter { $0.kind == .toolQueued }
-            .sorted { $0.createdAt < $1.createdAt }
-        for event in queuedEvents {
-            guard let turn = turnID(at: event.createdAt),
+        // chronology (the executor reverse-applies newest-first, so order is load-bearing). Source
+        // order breaks equal-time ties deterministically for decoded histories with coarse clocks.
+        for queuedEvent in queuedEvents {
+            let event = queuedEvent.element
+            while nextUserIndex < userMessages.endIndex,
+                  userMessages[nextUserIndex].element.createdAt <= event.createdAt {
+                currentTurnID = userMessages[nextUserIndex].element.id
+                userMessages.formIndex(after: &nextUserIndex)
+            }
+
+            guard let turn = currentTurnID,
                   let call = decodeCall(event.payloadJSON)
             else { continue }
 
@@ -143,6 +154,16 @@ public enum WorkspaceTurnRevertPlanner {
                 hasNonApplyPatchEdits: hasNonApplyByTurn[turn] ?? false
             )
         }
+    }
+
+    private static func chronologicalOrder<Element>(
+        _ lhs: EnumeratedSequence<[Element]>.Element,
+        _ rhs: EnumeratedSequence<[Element]>.Element
+    ) -> Bool where Element: ChronologicallyRecorded {
+        if lhs.element.createdAt != rhs.element.createdAt {
+            return lhs.element.createdAt < rhs.element.createdAt
+        }
+        return lhs.offset < rhs.offset
     }
 
     /// The revert plan for one turn (its starting user message), or nil when that turn made
@@ -191,3 +212,10 @@ public enum WorkspaceTurnRevertPlanner {
         (try? ToolArguments(call.argumentsJSON))?.string("patch")
     }
 }
+
+private protocol ChronologicallyRecorded {
+    var createdAt: Date { get }
+}
+
+extension ChatMessage: ChronologicallyRecorded {}
+extension ThreadEvent: ChronologicallyRecorded {}

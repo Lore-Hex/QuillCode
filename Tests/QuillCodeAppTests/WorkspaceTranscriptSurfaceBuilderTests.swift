@@ -227,6 +227,77 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(timeline[3].message?.text, unmatchedAssistant.content)
     }
 
+    func testTimelineConsumesDuplicateMessageTextInPersistedSourceOrder() {
+        let first = ChatMessage(role: .user, content: "same text")
+        let second = ChatMessage(role: .assistant, content: "same text")
+        let third = ChatMessage(role: .user, content: "same text")
+        let thread = ChatThread(
+            messages: [first, second, third],
+            events: [
+                ThreadEvent(kind: .message, summary: "same text"),
+                ThreadEvent(kind: .message, summary: "same text")
+            ]
+        )
+
+        let messages = WorkspaceTranscriptSurfaceBuilder(thread: thread)
+            .timelineItems()
+            .compactMap(\.message)
+
+        XCTAssertEqual(messages.map(\.id), [first.id, second.id, third.id])
+    }
+
+    func testTranscriptMessageIndexConsumesEachCandidateOnce() {
+        let messages = [
+            ChatMessage(role: .user, content: "repeated"),
+            ChatMessage(role: .assistant, content: "other"),
+            ChatMessage(role: .assistant, content: "repeated")
+        ]
+        var index = WorkspaceTranscriptMessageIndex(messages: messages)
+
+        XCTAssertEqual(index.consumeFirstIndex(matching: "repeated"), 0)
+        XCTAssertEqual(index.consumeFirstIndex(matching: "missing"), nil)
+        XCTAssertEqual(index.consumeFirstIndex(matching: "repeated"), 2)
+        XCTAssertEqual(index.consumeFirstIndex(matching: "repeated"), nil)
+        XCTAssertTrue(index.isConsumed(messages[0].id))
+        XCTAssertFalse(index.isConsumed(messages[1].id))
+        XCTAssertTrue(index.isConsumed(messages[2].id))
+    }
+
+    func testTranscriptMessageIndexPreservesDuplicateIDSuppression() {
+        let duplicateID = UUID()
+        let messages = [
+            ChatMessage(id: duplicateID, role: .user, content: "first"),
+            ChatMessage(id: duplicateID, role: .assistant, content: "second")
+        ]
+        var index = WorkspaceTranscriptMessageIndex(messages: messages)
+
+        XCTAssertEqual(index.consumeFirstIndex(matching: "first"), 0)
+        XCTAssertEqual(index.consumeFirstIndex(matching: "second"), nil)
+        XCTAssertTrue(index.isConsumed(duplicateID))
+    }
+
+    func testProjectsTenThousandMessageEventsWithoutLosingOrder() {
+        let count = 10_000
+        let messages = (0..<count).map { index in
+            ChatMessage(
+                role: index.isMultiple(of: 2) ? .user : .assistant,
+                content: "message-\(index)"
+            )
+        }
+        let events = messages.map { message in
+            ThreadEvent(kind: .message, summary: message.content)
+        }
+
+        let timeline = WorkspaceTranscriptSurfaceBuilder(
+            thread: ChatThread(messages: messages, events: events),
+            allowsRevert: false
+        ).timelineItems()
+
+        XCTAssertEqual(timeline.count, count)
+        XCTAssertEqual(timeline.first?.message?.id, messages.first?.id)
+        XCTAssertEqual(timeline.last?.message?.id, messages.last?.id)
+    }
+
     func testApprovalRequestTurnsActiveToolCardIntoActionableReview() throws {
         let call = ToolCall(
             id: "shell-approval-1",

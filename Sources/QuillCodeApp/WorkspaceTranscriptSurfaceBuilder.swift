@@ -44,23 +44,23 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
         }
 
         let revertByMessageID = allowsRevert ? Self.revertByMessageID(for: thread) : [:]
-        var consumedMessageIDs = Set<UUID>()
+        var messageIndex: WorkspaceTranscriptMessageIndex?
         var reducer = WorkspaceToolCardEventReducer<[TranscriptTimelineItemSurface]>.timeline()
-
-        func appendMessage(matching summary: String) {
-            guard let message = thread.messages.first(where: {
-                !consumedMessageIDs.contains($0.id) && $0.content == summary
-            }) else {
-                return
-            }
-            consumedMessageIDs.insert(message.id)
-            reducer.state.append(.message(MessageSurface(message: message, revert: revertByMessageID[message.id])))
-        }
 
         for event in thread.events {
             switch event.kind {
             case .message:
-                appendMessage(matching: event.summary)
+                if messageIndex == nil {
+                    messageIndex = WorkspaceTranscriptMessageIndex(messages: thread.messages)
+                }
+                guard let index = messageIndex?.consumeFirstIndex(matching: event.summary) else {
+                    continue
+                }
+                let message = thread.messages[index]
+                reducer.state.append(.message(MessageSurface(
+                    message: message,
+                    revert: revertByMessageID[message.id]
+                )))
             case .messageFeedback, .reviewComment, .notice:
                 continue
             case .toolQueued, .toolRunning, .toolProgress, .toolCompleted, .toolFailed,
@@ -69,8 +69,13 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
             }
         }
 
-        for message in thread.messages
-        where Self.isVisibleTranscriptRole(message.role) && !consumedMessageIDs.contains(message.id) {
+        for index in thread.messages.indices {
+            let message = thread.messages[index]
+            guard Self.isVisibleTranscriptRole(message.role),
+                  messageIndex?.isConsumed(message.id) != true
+            else {
+                continue
+            }
             reducer.state.append(.message(MessageSurface(message: message, revert: revertByMessageID[message.id])))
         }
         return reducer.state
