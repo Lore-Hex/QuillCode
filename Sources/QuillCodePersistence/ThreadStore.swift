@@ -1,20 +1,77 @@
 import Foundation
 import QuillCodeCore
 
-/// Result of a best-effort thread listing: the healthy threads that decoded, plus the file URLs
-/// that could not be read (truncated, hand-edited, or schema-skewed) so callers can surface a
-/// self-healing notice instead of silently losing data.
+public enum ThreadFileIssueReason: String, Sendable, Hashable {
+    case unreadable
+    case notRegularFile = "not-regular-file"
+    case symbolicLink = "symbolic-link"
+    case exceedsSizeLimit = "exceeds-size-limit"
+}
+
+public struct ThreadFileIssue: Sendable, Hashable {
+    public var fileURL: URL
+    public var reason: ThreadFileIssueReason
+
+    public init(fileURL: URL, reason: ThreadFileIssueReason) {
+        self.fileURL = fileURL
+        self.reason = reason
+    }
+}
+
+/// Result of a best-effort thread listing: the healthy threads that decoded plus bounded,
+/// content-free diagnostics for files that were rejected. Callers can keep healthy chats visible
+/// and offer recovery guidance without loading hostile files or exposing their contents.
 public struct ThreadListing: Sendable {
     public var threads: [ChatThread]
     public var unreadable: [URL]
+    public var issues: [ThreadFileIssue]
+    public var directoryReadFailed: Bool
 
-    public init(threads: [ChatThread], unreadable: [URL]) {
+    public init(
+        threads: [ChatThread],
+        unreadable: [URL],
+        directoryReadFailed: Bool = false
+    ) {
         self.threads = threads
         self.unreadable = unreadable
+        self.issues = unreadable.map {
+            ThreadFileIssue(fileURL: $0, reason: .unreadable)
+        }
+        self.directoryReadFailed = directoryReadFailed
+    }
+
+    public init(
+        threads: [ChatThread],
+        issues: [ThreadFileIssue],
+        directoryReadFailed: Bool = false
+    ) {
+        self.threads = threads
+        self.unreadable = issues.map(\.fileURL)
+        self.issues = issues
+        self.directoryReadFailed = directoryReadFailed
+    }
+}
+
+public enum JSONThreadStoreError: LocalizedError, Equatable, Sendable {
+    case notRegularFile
+    case symbolicLink
+    case exceedsSizeLimit(maximumBytes: Int)
+
+    public var errorDescription: String? {
+        switch self {
+        case .notRegularFile:
+            "The saved chat path is not a regular file."
+        case .symbolicLink:
+            "The saved chat path is a symbolic link."
+        case .exceedsSizeLimit(let maximumBytes):
+            "The saved chat exceeds the \(maximumBytes)-byte loading limit."
+        }
     }
 }
 
 public struct JSONThreadStore: Sendable {
+    public static let maximumThreadFileBytes = 128 * 1_024 * 1_024
+
     public var directory: URL
 
     public init(directory: URL) {
@@ -27,13 +84,18 @@ public struct JSONThreadStore: Sendable {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(thread)
+        guard data.count <= Self.maximumThreadFileBytes else {
+            throw JSONThreadStoreError.exceedsSizeLimit(
+                maximumBytes: Self.maximumThreadFileBytes
+            )
+        }
         try data.write(to: fileURL(for: thread.id), options: .atomic)
     }
 
     public func load(_ id: UUID) throws -> ChatThread {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let data = try Data(contentsOf: fileURL(for: id))
+        let data = try Self.boundedData(contentsOf: fileURL(for: id))
         return try decoder.decode(ChatThread.self, from: data)
     }
 
@@ -53,28 +115,72 @@ public struct JSONThreadStore: Sendable {
     /// strict, so a direct open of a named corrupt thread still surfaces the decode error.
     public func listing() -> ThreadListing {
         guard FileManager.default.fileExists(atPath: directory.path) else {
-            return ThreadListing(threads: [], unreadable: [])
+            return ThreadListing(threads: [], issues: [])
         }
         guard let urls = try? FileManager.default.contentsOfDirectory(
             at: directory,
-            includingPropertiesForKeys: nil
-        ).filter({ $0.pathExtension == "json" }) else {
-            return ThreadListing(threads: [], unreadable: [])
+            includingPropertiesForKeys: [
+                .fileSizeKey,
+                .isRegularFileKey,
+                .isSymbolicLinkKey,
+            ]
+        ).filter({ $0.pathExtension == "json" }).sorted(by: {
+            $0.lastPathComponent < $1.lastPathComponent
+        }) else {
+            return ThreadListing(threads: [], issues: [], directoryReadFailed: true)
         }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         var threads: [ChatThread] = []
-        var unreadable: [URL] = []
+        var issues: [ThreadFileIssue] = []
         for url in urls {
-            guard let data = try? Data(contentsOf: url),
-                  let thread = try? decoder.decode(ChatThread.self, from: data) else {
-                unreadable.append(url)
-                continue
+            do {
+                let data = try Self.boundedData(contentsOf: url)
+                threads.append(try decoder.decode(ChatThread.self, from: data))
+            } catch let error as JSONThreadStoreError {
+                issues.append(ThreadFileIssue(fileURL: url, reason: Self.issueReason(for: error)))
+            } catch {
+                issues.append(ThreadFileIssue(fileURL: url, reason: .unreadable))
             }
-            threads.append(thread)
         }
         threads.sort { $0.updatedAt > $1.updatedAt }
-        return ThreadListing(threads: threads, unreadable: unreadable)
+        return ThreadListing(threads: threads, issues: issues)
+    }
+
+    private static func boundedData(contentsOf url: URL) throws -> Data {
+        let values = try url.resourceValues(forKeys: [
+            .fileSizeKey,
+            .isRegularFileKey,
+            .isSymbolicLinkKey,
+        ])
+        guard values.isSymbolicLink != true else {
+            throw JSONThreadStoreError.symbolicLink
+        }
+        guard values.isRegularFile == true else {
+            throw JSONThreadStoreError.notRegularFile
+        }
+        guard let fileSize = values.fileSize,
+              fileSize >= 0,
+              fileSize <= maximumThreadFileBytes
+        else {
+            throw JSONThreadStoreError.exceedsSizeLimit(maximumBytes: maximumThreadFileBytes)
+        }
+        let data = try Data(contentsOf: url, options: .mappedIfSafe)
+        guard data.count <= maximumThreadFileBytes else {
+            throw JSONThreadStoreError.exceedsSizeLimit(maximumBytes: maximumThreadFileBytes)
+        }
+        return data
+    }
+
+    private static func issueReason(for error: JSONThreadStoreError) -> ThreadFileIssueReason {
+        switch error {
+        case .notRegularFile:
+            .notRegularFile
+        case .symbolicLink:
+            .symbolicLink
+        case .exceedsSizeLimit:
+            .exceedsSizeLimit
+        }
     }
 
     private func fileURL(for id: UUID) -> URL {

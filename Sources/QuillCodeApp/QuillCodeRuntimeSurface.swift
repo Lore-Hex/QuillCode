@@ -22,6 +22,7 @@ public enum RuntimeRecoveryReason: String, Codable, Sendable, Hashable {
     case emptyResponse = "empty-response"
     case malformedModelAction = "malformed-model-action"
     case runFailed = "run-failed"
+    case savedChatsUnreadable = "saved-chats-unreadable"
 }
 
 public struct RuntimeRecoveryTelemetry: Codable, Sendable, Hashable {

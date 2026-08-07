@@ -150,6 +150,84 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         // Compare by filename: contentsOfDirectory resolves the macOS /var -> /private/var symlink,
         // so raw URL equality is unreliable here.
         XCTAssertEqual(listing.unreadable.map(\.lastPathComponent), [corrupt.lastPathComponent])
+        XCTAssertEqual(listing.issues.map(\.reason), [.unreadable])
+        XCTAssertFalse(listing.directoryReadFailed)
+    }
+
+    func testListingRejectsSymlinkedThreadWithoutReadingItsTarget() throws {
+        let directory = try makeTempDirectory()
+        let outsideDirectory = try makeTempDirectory()
+        let outsideStore = JSONThreadStore(directory: outsideDirectory)
+        let outsideThread = ChatThread(title: "Outside")
+        try outsideStore.save(outsideThread)
+        let linkID = UUID()
+        let link = directory.appendingPathComponent("\(linkID.uuidString).json")
+        try FileManager.default.createSymbolicLink(
+            at: link,
+            withDestinationURL: outsideDirectory.appendingPathComponent(
+                "\(outsideThread.id.uuidString).json"
+            )
+        )
+        let store = JSONThreadStore(directory: directory)
+
+        let listing = store.listing()
+
+        XCTAssertTrue(listing.threads.isEmpty)
+        XCTAssertEqual(listing.issues.map(\.reason), [.symbolicLink])
+        XCTAssertThrowsError(try store.load(linkID)) { error in
+            XCTAssertEqual(error as? JSONThreadStoreError, .symbolicLink)
+        }
+    }
+
+    func testListingRejectsSparseOversizedThreadBeforeReadingIt() throws {
+        let directory = try makeTempDirectory()
+        let id = UUID()
+        let fileURL = directory.appendingPathComponent("\(id.uuidString).json")
+        XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: nil))
+        let handle = try FileHandle(forWritingTo: fileURL)
+        try handle.truncate(atOffset: UInt64(JSONThreadStore.maximumThreadFileBytes + 1))
+        try handle.close()
+        let store = JSONThreadStore(directory: directory)
+
+        let listing = store.listing()
+
+        XCTAssertTrue(listing.threads.isEmpty)
+        XCTAssertEqual(listing.issues.map(\.reason), [.exceedsSizeLimit])
+        XCTAssertThrowsError(try store.load(id)) { error in
+            XCTAssertEqual(
+                error as? JSONThreadStoreError,
+                .exceedsSizeLimit(maximumBytes: JSONThreadStore.maximumThreadFileBytes)
+            )
+        }
+    }
+
+    func testListingRejectsNonFileThreadPath() throws {
+        let directory = try makeTempDirectory()
+        let id = UUID()
+        try FileManager.default.createDirectory(
+            at: directory.appendingPathComponent("\(id.uuidString).json"),
+            withIntermediateDirectories: false
+        )
+        let store = JSONThreadStore(directory: directory)
+
+        let listing = store.listing()
+
+        XCTAssertTrue(listing.threads.isEmpty)
+        XCTAssertEqual(listing.issues.map(\.reason), [.notRegularFile])
+        XCTAssertThrowsError(try store.load(id)) { error in
+            XCTAssertEqual(error as? JSONThreadStoreError, .notRegularFile)
+        }
+    }
+
+    func testListingReportsStorageRootThatIsNotADirectory() throws {
+        let rootFile = try makeTempDirectory().appendingPathComponent("threads")
+        try Data("not a directory".utf8).write(to: rootFile)
+
+        let listing = JSONThreadStore(directory: rootFile).listing()
+
+        XCTAssertTrue(listing.threads.isEmpty)
+        XCTAssertTrue(listing.issues.isEmpty)
+        XCTAssertTrue(listing.directoryReadFailed)
     }
 
     func testListToleratesSchemaIncompatibleFile() throws {
