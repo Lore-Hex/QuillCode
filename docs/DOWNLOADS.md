@@ -94,17 +94,22 @@ The app is still a tester build, so ask testers to include:
 ## Versioned Releases
 
 Stable releases are immutable and must use a canonical `vMAJOR.MINOR.PATCH` tag
-pointing to a commit on `main` with a successful **CI** run. Start from a clean,
-current `main`, verify that all Apple distribution secrets below are configured,
-then push the tag:
+pointing to a commit on `main` with a successful **CI** run. Use the fail-closed
+release starter instead of creating a tag by hand:
 
 ```bash
 git switch main
 git pull --ff-only origin main
-gh run list --workflow ci.yml --commit "$(git rev-parse HEAD)" --status success --limit 1
-git tag v0.1.0
-git push origin v0.1.0
+scripts/start-stable-release.sh --check-only v0.1.0
+scripts/start-stable-release.sh v0.1.0
 ```
+
+The preflight verifies the canonical and monotonically increasing version, exact
+clean `origin/main`, expected GitHub remote and public repository, successful
+exact-commit CI, a `tester-latest` tag and prerelease at the same commit, no
+existing local/remote tag or release, and all required Apple distribution secret
+names. The final command creates one annotated tag and pushes it without force.
+If that push fails, the command removes only the local tag it just created.
 
 The workflow rejects tags that are malformed, off `main`, missing successful CI,
 or already published. It creates the stable release as a draft, uploads every
