@@ -37,6 +37,57 @@ final class WorkspaceTurnRevertPlannerTests: XCTestCase {
         XCTAssertEqual(plans[1].patches, ["PATCH-C"])
     }
 
+    func testChronologicalAttributionUsesSourceOrderForEqualTimestamps() {
+        let first = userMessage("first", at: 100)
+        let second = userMessage("second", at: 100)
+        let thread = ChatThread(title: "T", messages: [first, second], events: [
+            applyPatchEvent("PATCH-A", at: 100),
+            applyPatchEvent("PATCH-B", at: 100)
+        ])
+
+        let plans = WorkspaceTurnRevertPlanner.plans(for: thread)
+
+        XCTAssertEqual(plans.map(\.turnMessageID), [second.id])
+        XCTAssertEqual(plans.first?.patches, ["PATCH-A", "PATCH-B"])
+    }
+
+    func testChronologicalAttributionHandlesOutOfOrderPersistedCollections() {
+        let first = userMessage("first", at: 100)
+        let second = userMessage("second", at: 300)
+        let thread = ChatThread(title: "T", messages: [second, first], events: [
+            applyPatchEvent("PATCH-C", at: 350),
+            applyPatchEvent("PATCH-A", at: 150),
+            applyPatchEvent("PATCH-B", at: 160)
+        ])
+
+        let plans = WorkspaceTurnRevertPlanner.plans(for: thread)
+
+        XCTAssertEqual(plans.map(\.turnMessageID), [first.id, second.id])
+        XCTAssertEqual(plans.map(\.patches), [["PATCH-A", "PATCH-B"], ["PATCH-C"]])
+    }
+
+    func testAttributesThousandsOfEditingTurnsWithoutLosingBoundaries() {
+        let count = 2_500
+        let messages = (0..<count).map { index in
+            userMessage("turn-\(index)", at: TimeInterval(index * 2))
+        }
+        let events = (0..<count).map { index in
+            applyPatchEvent("PATCH-\(index)", at: TimeInterval(index * 2 + 1))
+        }
+
+        let plans = WorkspaceTurnRevertPlanner.plans(for: ChatThread(
+            title: "Large history",
+            messages: messages,
+            events: events
+        ))
+
+        XCTAssertEqual(plans.count, count)
+        XCTAssertEqual(plans.first?.turnMessageID, messages.first?.id)
+        XCTAssertEqual(plans.first?.patches, ["PATCH-0"])
+        XCTAssertEqual(plans.last?.turnMessageID, messages.last?.id)
+        XCTAssertEqual(plans.last?.patches, ["PATCH-\(count - 1)"])
+    }
+
     func testTurnWithoutApplyPatchYieldsNoPlan() {
         let u1 = userMessage("only shell", at: 100)
         let thread = ChatThread(title: "T", messages: [u1], events: [

@@ -1,5 +1,23 @@
 # QuillCode Decisions
 
+## 2026-08-07: transcript projection stays linear in long-session history
+
+- **Decision:** Message events use an on-demand content index that consumes duplicate text in
+  persisted source order, and revert planning advances one chronological user-turn cursor across
+  queued tool events. Equal timestamps use persisted source order as the deterministic tie-breaker.
+- **Why:** The native transcript uses lazy view construction, but its model projection still matched
+  every message event by rescanning all messages and attributed every queued tool by searching all
+  prior user turns. Rebuilding a long daily-driving transcript could therefore take quadratic work
+  before SwiftUI displayed any row. Message-only chats also sorted every user turn for revert plans
+  even when no queued tool existed.
+- **Safety boundary:** The message index remains lazy until a message event needs it, unmatched visible
+  messages still append in source order, duplicate IDs retain their historical suppression behavior,
+  and out-of-order persisted collections are sorted without changing within-timestamp source order.
+- **Evidence:** `WorkspaceTranscriptSurfaceBuilderTests` cover duplicate text, duplicate IDs, and
+  unmatched messages, including a 10,000-message projection fixture.
+  `WorkspaceTurnRevertPlannerTests` cover chronological grouping, out-of-order persistence,
+  equal-time attribution, and a 2,500-editing-turn fixture.
+
 ## 2026-08-07: shell subprocesses receive the environment used to plan their launch
 
 - **Decision:** Synchronous and streaming shell execution resolve one effective environment and pass
