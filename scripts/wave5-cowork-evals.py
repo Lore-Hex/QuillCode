@@ -424,6 +424,19 @@ def contains_task_refusal(text):
     return bool(TASK_REFUSAL.search(text))
 
 
+def contains_placeholder(text):
+    if re.search(r"(?i)lorem ipsum", text):
+        return True
+    for match in re.finditer(r"\[([^\]\n]{0,120})\](?!\()", text):
+        field = match.group(1).strip()
+        if not field or field.lower() == "x":
+            continue
+        if re.fullmatch(r"\d+|\^[a-z0-9_.:-]+", field, re.IGNORECASE):
+            continue
+        return True
+    return False
+
+
 def task_concepts(task):
     normalized = normalize(task)
     return sorted({concept for concept in CONCEPTS if normalize(concept) in normalized})
@@ -591,7 +604,7 @@ def build_prompt(row):
     return f"""{row['Task (what the person types)']}
 
 This is a fixture-backed evaluation. {capability_instruction}
-Use only facts in those supplied sources. Do not inspect unrelated workspace files, browse the public web, or send anything externally. If a fact is absent, label it unknown instead of asking a follow-up question or inserting a placeholder. Do not leave bracketed fill-in fields in the completed artifact. Honor any deliverable filenames in the original request.
+Use only facts in those supplied sources. Do not inspect unrelated workspace files, browse the public web, or send anything externally. If a fact is absent, label it unknown instead of asking a follow-up question or inserting a placeholder. Do not leave bracketed fill-in fields in the completed artifact. When the requested deliverable is itself a reusable template, represent future-entry fields with blank lines, empty cells, or checkboxes instead of bracketed prompts. Never use `[their words]` or any other bracketed substitution token. Honor any deliverable filenames in the original request.
 
 Save the complete primary deliverable to `{output_path}`.{extra_instruction} Make it decision-ready, source-grounded, and specific enough for a founder to use without another rewrite. After writing, read the saved primary file back to verify it.
 """
@@ -639,10 +652,7 @@ def grade(row, workspace, report, source_hashes):
     add("structured", bool(re.search(r"(?m)^#{1,4}\s|^[-*]\s|^\|.+\|$", text)), "heading, list, or table")
     malformed = "\\n" in text
     add("decoded text", not malformed, "literal escaped newline" if malformed else "clean")
-    placeholder = bool(re.search(
-        r"(?i)\[(?:insert|todo|tbd|company|name|date|account|opportunity|title|role|email)[^\]]*\]|lorem ipsum",
-        text,
-    ))
+    placeholder = contains_placeholder(text)
     add("no placeholders", not placeholder, "placeholder found" if placeholder else "clean")
     normalized_output = normalize(text)
     anchors = grounding_anchors(row)

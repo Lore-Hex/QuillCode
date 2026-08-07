@@ -47,6 +47,25 @@ class Wave5CoworkEvalTests(unittest.TestCase):
                 self.assertIn("Do not use the shell tool", prompt)
                 self.assertIn("list the output directory", prompt)
 
+    def test_reusable_templates_use_non_placeholder_form_fields(self):
+        prompt = WAVE5.build_prompt({
+            "ID": 212,
+            "Task (what the person types)": "Create an interview guide with a note-taking template.",
+            "Capability needed": "Multi-file artifacts",
+        })
+
+        self.assertIn("blank lines, empty cells, or checkboxes", prompt)
+        self.assertIn("instead of bracketed prompts", prompt)
+        self.assertIn("Never use `[their words]`", prompt)
+
+    def test_placeholder_detection_distinguishes_markdown_controls_and_citations(self):
+        self.assertTrue(WAVE5.contains_placeholder("Ask about [their words]."))
+        self.assertTrue(WAVE5.contains_placeholder("Owner: [TBD]"))
+        self.assertTrue(WAVE5.contains_placeholder("Lorem ipsum"))
+        self.assertFalse(WAVE5.contains_placeholder("- [ ] Pending\n- [x] Complete"))
+        self.assertFalse(WAVE5.contains_placeholder("See [source](https://example.test) and [1]."))
+        self.assertFalse(WAVE5.contains_placeholder("See the note[^source-1]."))
+
     def test_every_capability_requires_dedicated_source_reads(self):
         for capability in ("Browser pane", "Files/Shell", "Multi-file artifacts"):
             with self.subTest(capability=capability):
