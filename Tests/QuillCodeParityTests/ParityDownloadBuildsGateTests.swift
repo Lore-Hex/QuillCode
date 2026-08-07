@@ -181,6 +181,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "QuillCodeStableUpdateManifestURL",
             "QuillCodeTesterUpdateManifestURL",
             "canonical `vMAJOR.MINOR.PATCH` tag",
+            "scripts/start-stable-release.sh --check-only v0.1.0",
+            "creates one annotated tag and pushes it without force",
             "an existing stable release is never edited or clobbered automatically",
             "avoids no-op build-number updates and unnecessary",
             "channel is `tester`",
