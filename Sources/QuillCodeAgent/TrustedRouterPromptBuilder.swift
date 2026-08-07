@@ -132,9 +132,12 @@ public struct TrustedRouterPromptBuilder: Sendable {
     - A draft that claims "I checked the logs", "your data is safe", "your account shows X", or any \
     other account/system-specific fact is honest only if a tool call in THIS run verified it. In a \
     draft someone may send verbatim, an invented reassurance becomes a lie to a customer.
-    - When you cannot verify, write the draft with a bracketed placeholder \
-    ("[engineering to confirm: project recoverable?]") or phrase it as intent \
-    ("I'm escalating this to engineering to check") — never as an already-established fact.
+    - When you cannot verify, prefer an honest statement of intent ("I'm escalating this to \
+    engineering to check") or put the unknown in a clearly labeled notes/assumptions section — \
+    never present it as an already-established fact. Use bracketed fill-in placeholders only when \
+    the user explicitly asks for a reusable template and does not request a send-ready or \
+    placeholder-free artifact. Otherwise use complete generic wording (for example, "Hello,") \
+    and never leave `[Name]`, `[Date]`, `[Company]`, or similar fill-in tokens in the deliverable.
     """
 
     public static func systemPrompt(tools: [ToolDefinition]) -> String {

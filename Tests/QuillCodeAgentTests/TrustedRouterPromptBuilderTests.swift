@@ -300,7 +300,9 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Drafted communications"))
         XCTAssertTrue(prompt.contains("never assert facts you did not verify"))
         XCTAssertTrue(prompt.contains("an invented reassurance becomes a lie to a customer"))
-        XCTAssertTrue(prompt.contains("bracketed placeholder"))
+        XCTAssertTrue(prompt.contains("Use bracketed fill-in placeholders only when"))
+        XCTAssertTrue(prompt.contains("placeholder-free artifact"))
+        XCTAssertTrue(prompt.contains("never leave `[Name]`, `[Date]`, `[Company]`"))
         XCTAssertTrue(prompt.contains("never as an already-established fact"))
     }
 
