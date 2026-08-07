@@ -28,10 +28,62 @@ enum AgentArtifactTextQualityGate {
         )
     }
 
+    static func placeholderCorrection(
+        userMessage: String,
+        placeholderPaths: Set<String>
+    ) -> Correction? {
+        guard requestsPlaceholderFreeArtifact(in: userMessage) else { return nil }
+        let required = AgentDeliverableGate.requiredDeliverables(in: userMessage)
+        guard let path = placeholderPaths.sorted().first(where: { candidate in
+            required.contains(where: { AgentArtifactVerificationGate.pathsMatch($0, candidate) })
+        }) else { return nil }
+
+        return Correction(
+            path: path,
+            prompt: """
+            The named text deliverable ./\(path) still contains a bracketed substitution or \
+            fill-in token even though the user explicitly requested a placeholder-free artifact. \
+            Rewrite that same file so prose reads naturally without tokens such as `[company]` or \
+            `[their words]`. In reusable forms, use blank lines, empty cells, or checkboxes for \
+            future-entry fields. Preserve the substantive content, then read the corrected file \
+            back before finishing.
+            """
+        )
+    }
+
     static func containsMalformedLiteralEscape(content: String, path: String) -> Bool {
-        guard Self.textExtensions.contains(
+        guard let prose = visibleProse(content: content, path: path) else { return false }
+        let range = NSRange(prose.startIndex..., in: prose)
+        return malformedEscapeRegex.firstMatch(in: prose, range: range) != nil
+    }
+
+    static func containsBracketedPlaceholder(content: String, path: String) -> Bool {
+        guard let prose = visibleProse(content: content, path: path) else { return false }
+        let range = NSRange(prose.startIndex..., in: prose)
+        return bracketedFieldRegex.matches(in: prose, range: range).contains { match in
+            guard let fieldRange = Range(match.range(at: 1), in: prose) else { return false }
+            let field = prose[fieldRange].trimmingCharacters(in: .whitespacesAndNewlines)
+            if field.isEmpty || field.lowercased() == "x" {
+                return false
+            }
+            if field.allSatisfy(\.isNumber) || field.hasPrefix("^") {
+                return false
+            }
+            return true
+        }
+    }
+
+    private static func requestsPlaceholderFreeArtifact(in userMessage: String) -> Bool {
+        let range = NSRange(userMessage.startIndex..., in: userMessage)
+        return placeholderFreeRequestRegexes.contains {
+            $0.firstMatch(in: userMessage, range: range) != nil
+        }
+    }
+
+    private static func visibleProse(content: String, path: String) -> String? {
+        guard textExtensions.contains(
             URL(fileURLWithPath: path).pathExtension.lowercased()
-        ) else { return false }
+        ) else { return nil }
 
         var inFence = false
         var proseLines: [String] = []
@@ -44,10 +96,7 @@ enum AgentArtifactTextQualityGate {
             guard !inFence else { continue }
             proseLines.append(removingInlineCode(from: line))
         }
-
-        let prose = proseLines.joined(separator: "\n")
-        let range = NSRange(prose.startIndex..., in: prose)
-        return malformedEscapeRegex.firstMatch(in: prose, range: range) != nil
+        return proseLines.joined(separator: "\n")
     }
 
     private static func removingInlineCode(from line: String) -> String {
@@ -64,4 +113,13 @@ enum AgentArtifactTextQualityGate {
     private static let malformedEscapeRegex = try! NSRegularExpression(
         pattern: #"\\[nrt](?=\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)]\s|[A-Za-z]))"#
     )
+    private static let bracketedFieldRegex = try! NSRegularExpression(
+        pattern: #"\[([^\]\n]{0,120})\](?!\()"#
+    )
+    private static let placeholderFreeRequestRegexes = [
+        try! NSRegularExpression(pattern: #"(?i)\bplaceholder[- ]free\b"#),
+        try! NSRegularExpression(
+            pattern: #"(?is)\bdo\s+not\s+leave\b.{0,60}\bbracketed\b.{0,60}\b(?:field|prompt|placeholder|token)"#
+        ),
+    ]
 }

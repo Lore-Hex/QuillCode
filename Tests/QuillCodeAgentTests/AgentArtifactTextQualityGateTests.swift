@@ -27,6 +27,35 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         ))
     }
 
+    func testDetectsBracketedFieldsButIgnoresMarkdownControlsAndCitations() {
+        XCTAssertTrue(AgentArtifactTextQualityGate.containsBracketedPlaceholder(
+            content: "Ask what their role is at [company], then repeat [their words].",
+            path: "outputs/guide.md"
+        ))
+        XCTAssertFalse(AgentArtifactTextQualityGate.containsBracketedPlaceholder(
+            content: "- [ ] Pending\n- [x] Complete\nSee [source](https://example.test), [1], and [^note].",
+            path: "outputs/guide.md"
+        ))
+        XCTAssertFalse(AgentArtifactTextQualityGate.containsBracketedPlaceholder(
+            content: "Use `[company]` only as a documented example.\n```text\n[name]\n```",
+            path: "outputs/guide.md"
+        ))
+    }
+
+    func testPlaceholderCorrectionRequiresExplicitPlaceholderFreeRequest() throws {
+        let paths: Set<String> = ["outputs/guide.md"]
+        XCTAssertNil(AgentArtifactTextQualityGate.placeholderCorrection(
+            userMessage: "Create a reusable template at outputs/guide.md.",
+            placeholderPaths: paths
+        ))
+        let correction = try XCTUnwrap(AgentArtifactTextQualityGate.placeholderCorrection(
+            userMessage: "Create outputs/guide.md. Do not leave bracketed fill-in fields.",
+            placeholderPaths: paths
+        ))
+        XCTAssertEqual(correction.path, "outputs/guide.md")
+        XCTAssertTrue(correction.prompt.contains("blank lines, empty cells, or checkboxes"))
+    }
+
     func testMalformedNamedArtifactIsRewrittenBeforeReadbackAndCompletion() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
@@ -50,6 +79,37 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("clean text formatting")
+        })
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),
+            corrected
+        )
+    }
+
+    func testPlaceholderFreeNamedArtifactIsRewrittenBeforeCompletion() async throws {
+        let root = try makeTempDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let incomplete = "# Guide\n\nWhat is your role at [company]?\n"
+        let corrected = "# Guide\n\nWhat is your role, and what work do you own?\n"
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .tool(writeCall(content: incomplete)),
+            .say("Created and verified outputs/report.md."),
+            .tool(writeCall(content: corrected)),
+            .say("Created outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+        ]))
+
+        let result = try await runner.send(
+            "Create outputs/report.md. Do not leave bracketed fill-in fields. "
+                + "After writing, read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 3, "two writes and the forced final readback")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("placeholder-free text")
         })
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),

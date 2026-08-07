@@ -215,6 +215,8 @@ public struct AgentRunner: Sendable {
             var preflightCorrectedInvalidShellCalls = Set<ToolCallFingerprint>()
             /// A malformed named prose artifact receives one corrective rewrite request per path.
             var artifactTextQualityNudgedPaths = Set<String>()
+            /// An explicitly placeholder-free named artifact receives one corrective rewrite per path.
+            var artifactPlaceholderNudgedPaths = Set<String>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -369,6 +371,21 @@ public struct AgentRunner: Sendable {
                     await onProgress?(next)
                     continue actionLoop
                 }
+                if case .say = resolvedAction,
+                   let correction = AgentArtifactTextQualityGate.placeholderCorrection(
+                    userMessage: userMessage,
+                    placeholderPaths: runLoop.placeholderWrittenTextPaths
+                   ), artifactPlaceholderNudgedPaths.insert(correction.path).inserted {
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: requested placeholder-free text for "
+                            + "./\(correction.path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
                 // the tool arm below and the loop continues; the gate re-checks at the next say.
@@ -479,6 +496,20 @@ public struct AgentRunner: Sendable {
                             next.events.append(.init(
                                 kind: .notice,
                                 summary: "Self-healing: requested clean text formatting for "
+                                    + "./\(correction.path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
+                        }
+                        if let correction = AgentArtifactTextQualityGate.placeholderCorrection(
+                            userMessage: userMessage,
+                            placeholderPaths: runLoop.placeholderWrittenTextPaths
+                        ), artifactPlaceholderNudgedPaths.insert(correction.path).inserted {
+                            pendingRepeatNudge = correction.prompt
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: requested placeholder-free text for "
                                     + "./\(correction.path) before completion."
                             ))
                             next.updatedAt = Date()

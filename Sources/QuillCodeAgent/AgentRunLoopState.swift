@@ -25,6 +25,9 @@ struct AgentRunLoopState: Sendable {
     /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
     /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
     private(set) var malformedWrittenTextPaths: Set<String> = []
+    /// Named prose artifacts whose latest successful write contains bracketed fill-in tokens.
+    /// Enforcement is armed only when the user explicitly requests a placeholder-free artifact.
+    private(set) var placeholderWrittenTextPaths: Set<String> = []
 
     /// Call signatures that have already received the repeat SOFT WARNING (Cline learning #2).
     /// One nudge per distinct call; a further repeat of the same call finalizes as before, so the
@@ -102,6 +105,16 @@ struct AgentRunLoopState: Sendable {
                 malformedWrittenTextPaths.insert(normalized)
             } else {
                 malformedWrittenTextPaths.remove(normalized)
+            }
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               AgentArtifactTextQualityGate.containsBracketedPlaceholder(
+                content: content,
+                path: normalized
+               ) {
+                placeholderWrittenTextPaths.insert(normalized)
+            } else {
+                placeholderWrittenTextPaths.remove(normalized)
             }
         case ToolDefinition.fileRead.name:
             successfullyReadWorkspacePaths.insert(normalized)
