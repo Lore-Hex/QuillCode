@@ -84,6 +84,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         )
         XCTAssertEqual(updater["bundleIdentifier"] as? String, "co.lorehex.QuillCowork")
         XCTAssertEqual(updater["minimumSystemVersion"] as? String, "14.0")
+        XCTAssertEqual(updater["codesign"] as? String, "unknown")
+        XCTAssertEqual(updater["notarized"] as? Bool, false)
+        XCTAssertNil(updater["signingTeamIdentifier"] as? String)
         let updaterAppAsset = try XCTUnwrap(updater["macOSAppAsset"] as? [String: Any])
         XCTAssertEqual(updaterAppAsset["name"] as? String, "Quill-Cowork-macOS-arm64.zip")
 
@@ -131,6 +134,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--output \"$RUNNER_TEMP/release-assets/$MANIFEST_NAME\"",
             "RELEASE_CHANNEL=\"tester\"",
             "RELEASE_CHANNEL=\"stable\"",
+            "quillcode-macos-downloads/BUILD_INFO.txt",
             "\\`${MANIFEST_NAME}\\`: machine-readable build metadata",
             "updater feed metadata",
             "current-release-assets.txt",
@@ -185,7 +189,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "<key>QuillCodeUpdateChannel</key>",
             "<key>QuillCodeUpdateManifestURL</key>",
             "<key>QuillCodeStableUpdateManifestURL</key>",
-            "<key>QuillCodeTesterUpdateManifestURL</key>"
+            "<key>QuillCodeTesterUpdateManifestURL</key>",
+            "QuillCodeSigningTeamIdentifier"
         ])
         Self.assertSource(packageScript, containsAll: [
             "bundleIdentifier=$BUNDLE_ID",
@@ -193,7 +198,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "updateChannel=$UPDATE_CHANNEL",
             "updateManifestURL=$UPDATE_MANIFEST_URL",
             "stableUpdateManifestURL=$STABLE_MANIFEST_URL",
-            "testerUpdateManifestURL=$TESTER_MANIFEST_URL"
+            "testerUpdateManifestURL=$TESTER_MANIFEST_URL",
+            "signingTeamIdentifier=${SIGNING_TEAM_IDENTIFIER:-none}",
+            "notarized=$NOTARIZED"
         ])
         Self.assertSource(smokeScript, containsAll: [
             "assert_plist_value QuillCodeUpdateChannel tester",

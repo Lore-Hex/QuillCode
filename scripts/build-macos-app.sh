@@ -13,6 +13,9 @@ UPDATE_CHANNEL="${QUILLCODE_MACOS_UPDATE_CHANNEL:-tester}"
 UPDATE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json}"
 UPDATE_STABLE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_STABLE_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json}"
 UPDATE_TESTER_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_TESTER_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json}"
+SIGNING_IDENTITY="${QUILLCODE_MACOS_SIGNING_IDENTITY:-}"
+SIGNING_TEAM_IDENTIFIER="${QUILLCODE_MACOS_SIGNING_TEAM_IDENTIFIER:-}"
+SIGNING_KEYCHAIN="${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -115,10 +118,32 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 </plist>
 PLIST
 
+if [[ -n "$SIGNING_TEAM_IDENTIFIER" ]]; then
+  /usr/libexec/PlistBuddy -c \
+    "Add :QuillCodeSigningTeamIdentifier string $SIGNING_TEAM_IDENTIFIER" \
+    "$CONTENTS_DIR/Info.plist"
+fi
+
 printf 'APPL????' > "$CONTENTS_DIR/PkgInfo"
 plutil -lint "$CONTENTS_DIR/Info.plist" >&2
 
-if [[ "${QUILLCODE_MACOS_ADHOC_CODESIGN:-0}" == "1" ]]; then
+if [[ -n "$SIGNING_IDENTITY" ]]; then
+  if [[ -z "$SIGNING_TEAM_IDENTIFIER" ]]; then
+    echo "QUILLCODE_MACOS_SIGNING_TEAM_IDENTIFIER is required for Developer ID signing." >&2
+    exit 2
+  fi
+  CODESIGN_ARGUMENTS=(
+    --force
+    --options runtime
+    --timestamp
+    --sign "$SIGNING_IDENTITY"
+  )
+  if [[ -n "$SIGNING_KEYCHAIN" ]]; then
+    CODESIGN_ARGUMENTS+=(--keychain "$SIGNING_KEYCHAIN")
+  fi
+  codesign "${CODESIGN_ARGUMENTS[@]}" "$APP_BUNDLE" >&2
+  codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE" >&2
+elif [[ "${QUILLCODE_MACOS_ADHOC_CODESIGN:-0}" == "1" ]]; then
   codesign --force --deep --sign - "$APP_BUNDLE" >&2
 fi
 

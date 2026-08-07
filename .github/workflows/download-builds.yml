@@ -30,10 +30,32 @@ jobs:
             echo "QUILLCODE_UPDATE_CHANNEL=tester" >> "$GITHUB_ENV"
           fi
           echo "QUILLCODE_BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+      - name: Configure Apple distribution signing
+        env:
+          APPLE_DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_BASE64 }}
+          APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          APPLE_DEVELOPER_ID_APPLICATION_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APPLICATION_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+        run: scripts/configure-macos-distribution-signing.sh
       - name: Package macOS app and CLI
         env:
           QUILLCODE_DOWNLOAD_DIST_DIR: ${{ runner.temp }}/quillcode-macos-downloads
         run: scripts/package-macos-downloads.sh
+      - name: Remove temporary Apple signing material
+        if: always()
+        run: |
+          if [[ -n "${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}" && -f "$QUILLCODE_MACOS_SIGNING_KEYCHAIN" ]]; then
+            security delete-keychain "$QUILLCODE_MACOS_SIGNING_KEYCHAIN" || true
+          fi
+          if [[ -n "${QUILLCODE_MACOS_NOTARY_KEY_PATH:-}" && -f "$QUILLCODE_MACOS_NOTARY_KEY_PATH" ]]; then
+            rm -f "$QUILLCODE_MACOS_NOTARY_KEY_PATH"
+          fi
+          if [[ -n "${QUILLCODE_MACOS_SIGNING_CERTIFICATE_PATH:-}" && -f "$QUILLCODE_MACOS_SIGNING_CERTIFICATE_PATH" ]]; then
+            rm -f "$QUILLCODE_MACOS_SIGNING_CERTIFICATE_PATH"
+          fi
       - name: Upload macOS downloads
         uses: actions/upload-artifact@v4
         with:
@@ -82,7 +104,9 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p "$RUNNER_TEMP/release-assets"
-          find "$RUNNER_TEMP/downloaded-artifacts" -maxdepth 3 -type f -print -exec cp {} "$RUNNER_TEMP/release-assets/" \;
+          find "$RUNNER_TEMP/downloaded-artifacts" -maxdepth 3 -type f ! -name BUILD_INFO.txt -print -exec cp {} "$RUNNER_TEMP/release-assets/" \;
+          cp "$RUNNER_TEMP/downloaded-artifacts/quillcode-macos-downloads/BUILD_INFO.txt" \
+            "$RUNNER_TEMP/release-assets/BUILD_INFO.txt"
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
             RELEASE_TAG="${GITHUB_REF_NAME}"
             RELEASE_CHANNEL="stable"
@@ -129,6 +153,13 @@ jobs:
           fi
           MANIFEST_NAME="latest-${RELEASE_CHANNEL}-build.json"
 
+          if grep -Fxq 'codesign=developer-id' "$RUNNER_TEMP/release-assets/BUILD_INFO.txt" &&
+             grep -Fxq 'notarized=true' "$RUNNER_TEMP/release-assets/BUILD_INFO.txt"; then
+            MACOS_DISTRIBUTION_NOTE="The macOS app is Developer ID signed, hardened, notarized by Apple, and stapled for normal first launch."
+          else
+            MACOS_DISTRIBUTION_NOTE="This tester build is ad-hoc signed and not notarized. If Gatekeeper blocks first launch, use right-click > Open."
+          fi
+
           cat > "$RUNNER_TEMP/release-notes.md" <<NOTES
           Automated Quill Cowork ${RELEASE_CHANNEL} build.
 
@@ -142,7 +173,7 @@ jobs:
           - \`SHASUMS256.txt\`: checksum manifest for every asset.
           - \`${MANIFEST_NAME}\`: machine-readable build metadata, updater feed metadata, download URLs, sizes, and SHA-256 digests.
 
-          macOS distribution note: this build is ad-hoc signed but not notarized yet. If Gatekeeper blocks first launch, use right-click > Open. Computer Use still requires normal macOS Screen Recording and Accessibility permissions.
+          macOS distribution note: ${MACOS_DISTRIBUTION_NOTE} Computer Use still requires normal macOS Screen Recording and Accessibility permissions.
           NOTES
 
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then

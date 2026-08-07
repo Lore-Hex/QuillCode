@@ -85,6 +85,10 @@ struct QuillCodeDesktopWindowSmokeWorkspaceRoot: Sendable, Hashable {
         return QuillCodeDesktopController(
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
             browserLiveDOMCapturer: nil,
+            updateController: QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            ),
             workspaceRoot: workspace
         )
     }

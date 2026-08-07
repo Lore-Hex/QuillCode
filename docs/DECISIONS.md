@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-06: macOS updates use a verified staged swap with rollback
+
+- **Decision:** Quill Cowork consumes its embedded GitHub release manifest directly. It checks on a
+  channel-specific cadence and through a manual app-menu command, then validates repository, channel,
+  architecture, version/build, asset size, SHA-256, app identity, code signature, and configured
+  signing team before offering Update and Relaunch.
+- **Crash boundary:** The running app copies the verified bundle to a hidden sibling and launches a
+  copied helper. The helper waits for the parent to exit, keeps the old bundle as a backup, activates
+  the staged bundle, and requires a launch-handshake file from the new app. A missing handshake rolls
+  back and reopens the prior bundle instead of leaving a broken installation.
+- **Distribution boundary:** Tester builds may remain ad-hoc signed for rapid iteration. Stable tags
+  fail closed unless CI has a Developer ID Application certificate, signing team, and App Store
+  Connect API key; configured builds use the hardened runtime, `notarytool`, and a stapled ticket.
+- **Why:** An update feed without an in-app consumer does not make the product updateable, while a
+  blind self-replacement can strand users. The staged handshake keeps updates user-visible and
+  recoverable while preserving a direct browser fallback for read-only or protected locations.
+- **Evidence:** `QuillCodeDesktopUpdateController`, `QuillCodeDesktopUpdatePreparer`,
+  `QuillCodeDesktopUpdateHelper`, `scripts/package-macos-downloads.sh`, and
+  `QuillCodeDesktopUpdateTests`.
+
 ## 2026-07-27: Office Coworker Catalog Drives QuillCode Parity Tracking
 
 - **Decision:** Treat the office coworker task spreadsheet as the canonical QuillCode coverage
@@ -891,8 +911,8 @@
   and explicitly not notarized until Apple signing/notarization credentials are configured.
 - Tester releases also publish `latest-tester-build.json` as a machine-readable download manifest. The manifest records
   channel, tag, commit, workflow run, version/build metadata, and per-asset URL/size/platform/arch/SHA-256 fields so the
-  website, support scripts, and future in-app updater experiments can consume the same stable tester channel without
-  scraping GitHub release HTML.
+  website, support scripts, and in-app updater consume the same stable tester channel without scraping GitHub release
+  HTML.
 - QuillCode keeps TrustedRouter model-advisor guidance as a compact skill-backed pointer in the base prompt instead of
   carrying the full Lore-Hex/LLM-advisor playbook on every request. The prompt names the live-data-first behavior,
   concise 2-5 option recommendations, key privacy filters, and secret-handling guardrails; detailed model-selection

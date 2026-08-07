@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import SwiftUI
 import UniformTypeIdentifiers
 import QuillCodeApp
@@ -8,6 +9,10 @@ struct QuillCodeDesktopApp: App {
     @StateObject private var controller: QuillCodeDesktopController
 
     init() {
+        if let updateRequest = QuillCodeDesktopUpdateHelperRequest.parse(arguments: CommandLine.arguments) {
+            Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
+        }
+
         // Quill Cowork is a dark-themed appliance: pin the whole app (every window, sheet, popover, and
         // system-drawn control) to the dark aqua appearance. Without this, system chrome — .roundedBorder
         // text fields, sheet/popover backgrounds, menu text — follows the user's macOS appearance, so on a
@@ -27,10 +32,16 @@ struct QuillCodeDesktopApp: App {
             return
         }
 
-        let controller = QuillCodeDesktopController()
+        let smokeRequest = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments)
+        let controller = QuillCodeDesktopController(
+            updateController: smokeRequest == nil ? nil : QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            )
+        )
         _controller = StateObject(wrappedValue: controller)
 
-        guard let request = QuillCodeDesktopSmokeRequest(arguments: CommandLine.arguments) else {
+        guard let request = smokeRequest else {
             QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)
             return
         }
@@ -51,7 +62,8 @@ struct QuillCodeDesktopApp: App {
                 shortcutProfile: WorkspaceShortcutRegistry.profile(
                     preferences: controller.surface.settings.keyboardShortcuts
                 ),
-                onCommand: { controller.runCommand(commandID: $0) }
+                onCommand: { controller.runCommand(commandID: $0) },
+                onCheckForUpdates: controller.checkForUpdates
             )
         }
         MenuBarExtra {
@@ -71,6 +83,7 @@ struct QuillCodeDesktopApp: App {
                 onStopAll: controller.stopAll,
                 onDisconnectAll: controller.disconnectAll,
                 onComputerUseSetup: controller.openSettings,
+                onCheckForUpdates: controller.checkForUpdates,
                 onQuit: {
                     NSApplication.shared.terminate(nil)
                 }
@@ -89,6 +102,7 @@ struct QuillCodeDesktopRootView: View {
         workspaceContent
             .preferredColorScheme(.dark)
             .quillCodeDesktopCommandBindings(controller: controller)
+            .modifier(QuillCodeDesktopUpdatePresentation(controller: controller.updateController))
             .fileImporter(
                 isPresented: $controller.isProjectImporterPresented,
                 allowedContentTypes: [.folder],
@@ -107,6 +121,8 @@ struct QuillCodeDesktopRootView: View {
                     }
             }
             .task {
+                QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()
+                controller.updateController.startAutomaticChecks()
                 await controller.refreshModelCatalog()
             }
     }
@@ -189,6 +205,16 @@ struct QuillCodeDesktopRootView: View {
             onLoadSubagentTranscript: controller.loadSubagentTranscript,
             onCommand: controller.runCommand
         )
+    }
+}
+
+private struct QuillCodeDesktopUpdatePresentation: ViewModifier {
+    @ObservedObject var controller: QuillCodeDesktopUpdateController
+
+    func body(content: Content) -> some View {
+        content.sheet(isPresented: $controller.isPresented) {
+            QuillCodeDesktopUpdateView(controller: controller)
+        }
     }
 }
 
