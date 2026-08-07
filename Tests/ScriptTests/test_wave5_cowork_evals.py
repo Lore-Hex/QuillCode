@@ -83,6 +83,23 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertEqual(matched, list(required))
         self.assertIn("H12", WAVE5.fixture_context({"ID": 278, "Category": "Hiring & Team"}))
 
+    def test_rescue_plan_requires_each_stale_open_account(self):
+        complete = "\n".join(
+            f"## Account {index:02d}\n\nHello finance team,"
+            for index in (1, 2, 3, 4, 5, 29, 30, 31, 32, 33)
+        )
+        required, matched = WAVE5.required_output_term_matches(228, complete)
+
+        self.assertEqual(len(required), 10)
+        self.assertEqual(matched, list(required))
+        context = WAVE5.fixture_context({"ID": 228, "Category": "Founder Sales"})
+        self.assertIn("2026-05-06", context)
+        self.assertIn("do not use templates", context)
+
+        incomplete = "Close: 02, 04, 32. Nurture: 01, 05, 29, 31. Re-engage: 03, 30, 33."
+        _, matched = WAVE5.required_output_term_matches(228, incomplete)
+        self.assertEqual(matched, [])
+
     def test_explicit_primary_filename_is_preserved(self):
         row = {
             "ID": 211,
