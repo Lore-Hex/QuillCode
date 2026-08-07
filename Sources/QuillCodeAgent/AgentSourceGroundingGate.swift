@@ -89,6 +89,19 @@ enum AgentSourceGroundingGate {
         }
     }
 
+    static func isMateriallyDifferent(_ lhs: String, _ rhs: String) -> Bool {
+        normalizedAuditContent(lhs) != normalizedAuditContent(rhs)
+    }
+
+    private static func normalizedAuditContent(_ content: String) -> String {
+        var lines = content.components(separatedBy: .newlines).map {
+            $0.replacingOccurrences(of: #"\s+$"#, with: "", options: .regularExpression)
+        }
+        while lines.first?.isEmpty == true { lines.removeFirst() }
+        while lines.last?.isEmpty == true { lines.removeLast() }
+        return lines.joined(separator: "\n")
+    }
+
     private static func unsupportedLineIndexes(
         content: String,
         path: String,

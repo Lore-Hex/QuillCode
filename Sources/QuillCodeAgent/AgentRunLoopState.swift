@@ -39,6 +39,10 @@ struct AgentRunLoopState: Sendable {
     private(set) var contradictoryCountWrittenTextPaths: Set<String> = []
     /// Latest contradictory content by normalized path, retained for a bounded deterministic fix.
     private(set) var contradictoryCountWrittenTextContents: [String: String] = [:]
+    /// Latest successful text write by normalized path. Source-audit verification compares the
+    /// audited rewrite with this snapshot so formatting-only writes do not trigger another model
+    /// pass.
+    private(set) var latestWrittenTextContents: [String: String] = [:]
     /// Explicitly source-only runs retain the user's request plus successful reads of source files.
     /// Latest writes are checked only for a narrow set of high-risk assertions that can be safely
     /// compared mechanically with that corpus.
@@ -115,6 +119,10 @@ struct AgentRunLoopState: Sendable {
         case ToolDefinition.fileWrite.name:
             unverifiedWrittenWorkspacePaths.insert(normalized)
             if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content") {
+                latestWrittenTextContents[normalized] = content
+            }
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
                let content = arguments.string("content"),
                AgentArtifactTextQualityGate.containsMalformedLiteralEscape(
                 content: content,
@@ -178,6 +186,12 @@ struct AgentRunLoopState: Sendable {
         default:
             break
         }
+    }
+
+    func latestWrittenTextContent(for path: String) -> String? {
+        latestWrittenTextContents.first(where: {
+            AgentArtifactVerificationGate.pathsMatch($0.key, path)
+        })?.value
     }
 
     /// Seeds the grounded set from context that predates this run's tool steps: the user's

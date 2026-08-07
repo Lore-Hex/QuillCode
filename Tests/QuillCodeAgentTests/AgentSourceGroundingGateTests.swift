@@ -66,8 +66,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
                 .say("Created outputs/brief.md."),
                 .tool(writeCall(content: stillUnsupported)),
                 .say("Created outputs/brief.md."),
-                .say("Created outputs/brief.md."),
-                .say("Created and verified outputs/brief.md."),
+                .tool(writeCall(content: "# Outreach\n\nNo pitch. Join a 30-minute call.\n")),
             ]),
             maxToolSteps: 10
         )
@@ -95,6 +94,51 @@ final class AgentSourceGroundingGateTests: XCTestCase {
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md"), encoding: .utf8),
             "# Outreach\n\n"
         )
+    }
+
+    func testFormattingOnlyAuditSkipsVerificationAndFinalizesDeterministicRepair() async throws {
+        let root = try makeTempDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let unsupported = "# Outreach\n\nThis is a paid 30-minute call and not a sales pitch.\n"
+        let formattingOnlyRewrite = unsupported.trimmingCharacters(in: .newlines)
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(writeCall(content: unsupported)),
+                .say("Created outputs/brief.md."),
+                .tool(writeCall(content: formattingOnlyRewrite)),
+                .say("Created outputs/brief.md."),
+                .tool(writeCall(content: "# Outreach\n\nNo pitch.\n")),
+            ]),
+            maxToolSteps: 8
+        )
+
+        let result = try await runner.send(
+            "Create outputs/brief.md. Use only facts in the supplied sources. "
+                + "After writing, read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(
+            result.toolResults.count,
+            4,
+            "two model writes, one deterministic repair, and the forced final readback"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/brief.md"), encoding: .utf8),
+            "# Outreach\n"
+        )
+    }
+
+    func testAuditContentComparisonIgnoresOnlyOuterAndTrailingWhitespace() {
+        XCTAssertFalse(AgentSourceGroundingGate.isMateriallyDifferent(
+            "\n# Brief  \n\nBody\t\n",
+            "# Brief\n\nBody"
+        ))
+        XCTAssertTrue(AgentSourceGroundingGate.isMateriallyDifferent(
+            "# Brief\n\nBody",
+            "# Brief\n\nChanged body"
+        ))
     }
 
     func testSensitiveClaimBoundaryPreservesGroundedAndUnknownStatements() throws {

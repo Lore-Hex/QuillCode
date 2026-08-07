@@ -232,7 +232,12 @@ public struct AgentRunner: Sendable {
             var sourceGroundingAuditCounts: [String: Int] = [:]
             var sourceGroundingVerificationPaths = Set<String>()
             var pendingSourceGroundingAuditPath: String?
+            var pendingSourceGroundingAuditBaseline: String?
             var sourceGroundingRepairedPaths = Set<String>()
+            /// A deterministic source repair owns finalization. Keeping this action across the
+            /// forced readback prevents a fresh model turn from restoring the removed claims.
+            var controlledSourceGroundingFinalization: AgentAction?
+            var pendingSourceGroundingRepairPath: String?
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -252,36 +257,78 @@ public struct AgentRunner: Sendable {
                     .synthesis
                 }
                 let action: AgentAction
-                do {
-                    action = try await nextActionCompactingOnOverflow(
-                        thread: &next,
-                        userMessage: userMessage,
-                        tools: tools,
-                        workspaceRoot: workspaceRoot,
-                        onProgress: onProgress,
-                        injectedCorrection: repeatNudge,
-                        reasoningBudgetPhase: reasoningBudgetPhase
-                    )
-                } catch AgentError.emptyStreamingResponse {
-                    try Task.checkCancellation()
-                    guard let completion = runLoop.latestCompletion,
-                          completion.result.ok
-                    else { throw AgentError.emptyStreamingResponse }
-                    if let recoveredRead = AgentExplicitSourceReadRecovery.nextAction(
-                        userMessage: userMessage,
-                        workspaceRoot: workspaceRoot,
-                        tools: tools,
-                        successfullyReadPaths: runLoop.successfullyReadWorkspacePaths
-                    ) {
-                        action = recoveredRead
-                        next.events.append(.init(
-                            kind: .notice,
-                            summary: "Self-healing: advanced an explicit requested source read "
-                                + "after repeated empty model responses."
-                        ))
-                        next.updatedAt = Date()
-                        await onProgress?(next)
-                    } else if hasCompletedWorkspaceMutation {
+                if let controlledSourceGroundingFinalization {
+                    action = controlledSourceGroundingFinalization
+                } else {
+                    do {
+                        action = try await nextActionCompactingOnOverflow(
+                            thread: &next,
+                            userMessage: userMessage,
+                            tools: tools,
+                            workspaceRoot: workspaceRoot,
+                            onProgress: onProgress,
+                            injectedCorrection: repeatNudge,
+                            reasoningBudgetPhase: reasoningBudgetPhase
+                        )
+                    } catch AgentError.emptyStreamingResponse {
+                        try Task.checkCancellation()
+                        guard let completion = runLoop.latestCompletion,
+                              completion.result.ok
+                        else { throw AgentError.emptyStreamingResponse }
+                        if let recoveredRead = AgentExplicitSourceReadRecovery.nextAction(
+                            userMessage: userMessage,
+                            workspaceRoot: workspaceRoot,
+                            tools: tools,
+                            successfullyReadPaths: runLoop.successfullyReadWorkspacePaths
+                        ) {
+                            action = recoveredRead
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: advanced an explicit requested source read "
+                                    + "after repeated empty model responses."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        } else if hasCompletedWorkspaceMutation {
+                            action = .say(Self.finalAnswer(
+                                for: completion.call,
+                                result: completion.result,
+                                followUpReviewResult: completion.followUpReviewResult
+                            ))
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: the model returned no final action after "
+                                    + "completing workspace work; finalized from the latest "
+                                    + "successful tool result."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        } else if !recoveredExhaustedEmptyAfterTool {
+                            recoveredExhaustedEmptyAfterTool = true
+                            pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
+                                after: completion.call,
+                                failure: "an empty response"
+                            )
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: the model returned no action after successful "
+                                    + "source work; requested the next concrete step once."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
+                        } else {
+                            throw AgentError.emptyStreamingResponse
+                        }
+                    } catch TrustedRouterAgentError.invalidActionJSON(let malformedText) {
+                        try Task.checkCancellation()
+                        guard hasCompletedWorkspaceMutation,
+                              let completion = runLoop.latestCompletion,
+                              completion.result.ok
+                        else { throw TrustedRouterAgentError.invalidActionJSON(malformedText) }
+                        // Treat malformed terminal text after a successful mutation like the existing
+                        // empty-final-action recovery. The synthesized say still passes every named
+                        // deliverable, citation, word-budget, and artifact-readback gate below.
                         action = .say(Self.finalAnswer(
                             for: completion.call,
                             result: completion.result,
@@ -289,49 +336,12 @@ public struct AgentRunner: Sendable {
                         ))
                         next.events.append(.init(
                             kind: .notice,
-                            summary: "Self-healing: the model returned no final action after completing "
-                                + "workspace work; finalized from the latest successful tool result."
+                            summary: "Self-healing: the model returned malformed terminal output after "
+                                + "workspace work; continued through completion verification."
                         ))
                         next.updatedAt = Date()
                         await onProgress?(next)
-                    } else if !recoveredExhaustedEmptyAfterTool {
-                        recoveredExhaustedEmptyAfterTool = true
-                        pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
-                            after: completion.call,
-                            failure: "an empty response"
-                        )
-                        next.events.append(.init(
-                            kind: .notice,
-                            summary: "Self-healing: the model returned no action after successful "
-                                + "source work; requested the next concrete step once."
-                        ))
-                        next.updatedAt = Date()
-                        await onProgress?(next)
-                        continue actionLoop
-                    } else {
-                        throw AgentError.emptyStreamingResponse
                     }
-                } catch TrustedRouterAgentError.invalidActionJSON(let malformedText) {
-                    try Task.checkCancellation()
-                    guard hasCompletedWorkspaceMutation,
-                          let completion = runLoop.latestCompletion,
-                          completion.result.ok
-                    else { throw TrustedRouterAgentError.invalidActionJSON(malformedText) }
-                    // Treat malformed terminal text after a successful mutation like the existing
-                    // empty-final-action recovery. The synthesized say still passes every named
-                    // deliverable, citation, word-budget, and artifact-readback gate below.
-                    action = .say(Self.finalAnswer(
-                        for: completion.call,
-                        result: completion.result,
-                        followUpReviewResult: completion.followUpReviewResult
-                    ))
-                    next.events.append(.init(
-                        kind: .notice,
-                        summary: "Self-healing: the model returned malformed terminal output after "
-                            + "workspace work; continued through completion verification."
-                    ))
-                    next.updatedAt = Date()
-                    await onProgress?(next)
                 }
                 hasEmittedModelAction = true
                 if let paused = await pauseIfSpendFuseRequiresApproval(
@@ -476,6 +486,9 @@ public struct AgentRunner: Sendable {
                     sourceGroundingAuditCounts[correction.path, default: 0] += 1
                     sourceGroundingVerificationPaths.remove(correction.path)
                     pendingSourceGroundingAuditPath = correction.path
+                    pendingSourceGroundingAuditBaseline = runLoop.latestWrittenTextContent(
+                        for: correction.path
+                    )
                     pendingRepeatNudge = correction.prompt
                     next.events.append(.init(
                         kind: .notice,
@@ -498,6 +511,7 @@ public struct AgentRunner: Sendable {
                     sourceText: runLoop.sourceGroundingText
                    ) {
                     resolvedAction = .tool(repairCall)
+                    pendingSourceGroundingRepairPath = path
                     next.events.append(.init(
                         kind: .notice,
                         summary: "Self-healing: removed unsupported sensitive claims from "
@@ -707,6 +721,9 @@ public struct AgentRunner: Sendable {
                             sourceGroundingAuditCounts[correction.path, default: 0] += 1
                             sourceGroundingVerificationPaths.remove(correction.path)
                             pendingSourceGroundingAuditPath = correction.path
+                            pendingSourceGroundingAuditBaseline = runLoop.latestWrittenTextContent(
+                                for: correction.path
+                            )
                             pendingRepeatNudge = correction.prompt
                             next.events.append(.init(
                                 kind: .notice,
@@ -727,6 +744,7 @@ public struct AgentRunner: Sendable {
                             sourceText: runLoop.sourceGroundingText
                            ) {
                             finalized = .tool(repairCall)
+                            pendingSourceGroundingRepairPath = path
                             next.events.append(.init(
                                 kind: .notice,
                                 summary: "Self-healing: removed unsupported sensitive claims from "
@@ -886,6 +904,12 @@ public struct AgentRunner: Sendable {
                             pendingApproval: pendingApproval
                         )
                     case .denied(let completion):
+                        if let repairPath = pendingSourceGroundingRepairPath,
+                           let deniedPath = AgentArtifactVerificationGate.pathArgument(
+                            from: completion.call
+                           ), AgentArtifactVerificationGate.pathsMatch(repairPath, deniedPath) {
+                            pendingSourceGroundingRepairPath = nil
+                        }
                         appendToolFeedback(completion, to: &next)
                         runLoop.recordDeniedStep(completion)
                         if let reason = autoReviewCircuit.record(.denied) {
@@ -912,10 +936,34 @@ public struct AgentRunner: Sendable {
                                 from: completion.call
                                ),
                                AgentArtifactVerificationGate.pathsMatch(auditPath, writtenPath),
-                               sourceGroundingAuditCounts[auditPath, default: 0] < 2 {
+                               sourceGroundingAuditCounts[auditPath, default: 0] < 2,
+                               let auditedContent = try? ToolArguments(
+                                completion.call.argumentsJSON
+                               ).requiredString("content"),
+                               pendingSourceGroundingAuditBaseline.map({
+                                AgentSourceGroundingGate.isMateriallyDifferent(
+                                    $0,
+                                    auditedContent
+                                )
+                               }) ?? true {
                                 sourceGroundingVerificationPaths.insert(auditPath)
                             }
                             pendingSourceGroundingAuditPath = nil
+                            pendingSourceGroundingAuditBaseline = nil
+                        }
+                        if let repairPath = pendingSourceGroundingRepairPath {
+                            if completion.result.ok,
+                               completion.call.name == ToolDefinition.fileWrite.name,
+                               let writtenPath = AgentArtifactVerificationGate.pathArgument(
+                                from: completion.call
+                               ), AgentArtifactVerificationGate.pathsMatch(repairPath, writtenPath) {
+                                controlledSourceGroundingFinalization = .say(Self.finalAnswer(
+                                    for: completion.call,
+                                    result: completion.result,
+                                    followUpReviewResult: completion.followUpReviewResult
+                                ))
+                            }
+                            pendingSourceGroundingRepairPath = nil
                         }
                         if completion.result.ok,
                            (completion.call.name == ToolDefinition.fileWrite.name
