@@ -217,6 +217,9 @@ public struct AgentRunner: Sendable {
             var artifactTextQualityNudgedPaths = Set<String>()
             /// An explicitly placeholder-free named artifact receives one corrective rewrite per path.
             var artifactPlaceholderNudgedPaths = Set<String>()
+            /// If the model ignores that rewrite request, one deterministic blank-field repair is
+            /// allowed per path. The resulting write re-arms the normal readback gate.
+            var artifactPlaceholderRepairedPaths = Set<String>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -375,16 +378,32 @@ public struct AgentRunner: Sendable {
                    let correction = AgentArtifactTextQualityGate.placeholderCorrection(
                     userMessage: userMessage,
                     placeholderPaths: runLoop.placeholderWrittenTextPaths
-                   ), artifactPlaceholderNudgedPaths.insert(correction.path).inserted {
-                    pendingRepeatNudge = correction.prompt
-                    next.events.append(.init(
-                        kind: .notice,
-                        summary: "Self-healing: requested placeholder-free text for "
-                            + "./\(correction.path) before completion."
-                    ))
-                    next.updatedAt = Date()
-                    await onProgress?(next)
-                    continue actionLoop
+                   ) {
+                    if artifactPlaceholderNudgedPaths.insert(correction.path).inserted {
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: requested placeholder-free text for "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    if artifactPlaceholderRepairedPaths.insert(correction.path).inserted,
+                       let repairCall = Self.placeholderRepairCall(
+                        path: correction.path,
+                        contentsByPath: runLoop.placeholderWrittenTextContents
+                       ) {
+                        resolvedAction = .tool(repairCall)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: replaced bracketed fill-in fields with blanks in "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    }
                 }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
@@ -505,16 +524,32 @@ public struct AgentRunner: Sendable {
                         if let correction = AgentArtifactTextQualityGate.placeholderCorrection(
                             userMessage: userMessage,
                             placeholderPaths: runLoop.placeholderWrittenTextPaths
-                        ), artifactPlaceholderNudgedPaths.insert(correction.path).inserted {
-                            pendingRepeatNudge = correction.prompt
-                            next.events.append(.init(
-                                kind: .notice,
-                                summary: "Self-healing: requested placeholder-free text for "
-                                    + "./\(correction.path) before completion."
-                            ))
-                            next.updatedAt = Date()
-                            await onProgress?(next)
-                            continue actionLoop
+                        ) {
+                            if artifactPlaceholderNudgedPaths.insert(correction.path).inserted {
+                                pendingRepeatNudge = correction.prompt
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: requested placeholder-free text for "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                continue actionLoop
+                            }
+                            if artifactPlaceholderRepairedPaths.insert(correction.path).inserted,
+                               let repairCall = Self.placeholderRepairCall(
+                                path: correction.path,
+                                contentsByPath: runLoop.placeholderWrittenTextContents
+                               ) {
+                                finalized = .tool(repairCall)
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: replaced bracketed fill-in fields with "
+                                        + "blanks in ./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
                         }
                         if !runLoop.hadDeniedStep {
                             finalized = try await actionByRequiringNamedDeliverables(
@@ -879,6 +914,25 @@ public struct AgentRunner: Sendable {
         for confirmation, or return an empty response. If every requested deliverable already exists, \
         return the concise final answer instead.
         """
+    }
+
+    private static func placeholderRepairCall(
+        path: String,
+        contentsByPath: [String: String]
+    ) -> ToolCall? {
+        guard let content = contentsByPath[path],
+              let repaired = AgentArtifactTextQualityGate.replacingBracketedPlaceholders(
+                content: content,
+                path: path
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
     }
 
     static func finalAnswer(

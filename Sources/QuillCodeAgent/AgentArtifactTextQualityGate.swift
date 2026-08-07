@@ -2,7 +2,8 @@ import Foundation
 
 /// Prevents a named prose deliverable from completing with serialized line-break escapes such as
 /// `\n- item` in its visible text. Code fences and inline code are excluded because escape examples
-/// are legitimate there. The runner issues at most one correction per path.
+/// are legitimate there. The runner first requests a natural rewrite, then can fall back to a
+/// deterministic blank-field replacement when the model ignores that bounded correction.
 enum AgentArtifactTextQualityGate {
     struct Correction: Equatable {
         var path: String
@@ -62,15 +63,45 @@ enum AgentArtifactTextQualityGate {
         let range = NSRange(prose.startIndex..., in: prose)
         return bracketedFieldRegex.matches(in: prose, range: range).contains { match in
             guard let fieldRange = Range(match.range(at: 1), in: prose) else { return false }
-            let field = prose[fieldRange].trimmingCharacters(in: .whitespacesAndNewlines)
-            if field.isEmpty || field.lowercased() == "x" {
-                return false
-            }
-            if field.allSatisfy(\.isNumber) || field.hasPrefix("^") {
-                return false
-            }
-            return true
+            return isPlaceholderField(String(prose[fieldRange]))
         }
+    }
+
+    static func replacingBracketedPlaceholders(content: String, path: String) -> String? {
+        guard textExtensions.contains(
+            URL(fileURLWithPath: path).pathExtension.lowercased()
+        ) else { return nil }
+
+        var inFence = false
+        var replacedAny = false
+        let lines = content.components(separatedBy: "\n").map { line -> String in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                inFence.toggle()
+                return line
+            }
+            guard !inFence else { return line }
+
+            let mutable = NSMutableString(string: line)
+            let fullRange = NSRange(location: 0, length: mutable.length)
+            let inlineCodeRanges = inlineCodeRegex.matches(
+                in: line,
+                range: fullRange
+            ).map(\.range)
+            let replacements = bracketedFieldRegex.matches(in: line, range: fullRange).filter {
+                match in
+                guard !inlineCodeRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }),
+                      let fieldRange = Range(match.range(at: 1), in: line)
+                else { return false }
+                return isPlaceholderField(String(line[fieldRange]))
+            }
+            for match in replacements.reversed() {
+                mutable.replaceCharacters(in: match.range, with: "________")
+                replacedAny = true
+            }
+            return mutable as String
+        }
+        return replacedAny ? lines.joined(separator: "\n") : nil
     }
 
     private static func requestsPlaceholderFreeArtifact(in userMessage: String) -> Bool {
@@ -106,6 +137,17 @@ enum AgentArtifactTextQualityGate {
             range: range,
             withTemplate: ""
         )
+    }
+
+    private static func isPlaceholderField(_ rawField: String) -> Bool {
+        let field = rawField.trimmingCharacters(in: .whitespacesAndNewlines)
+        if field.isEmpty || field.lowercased() == "x" {
+            return false
+        }
+        if field.allSatisfy(\.isNumber) || field.hasPrefix("^") {
+            return false
+        }
+        return true
     }
 
     private static let textExtensions: Set<String> = ["md", "markdown", "txt"]

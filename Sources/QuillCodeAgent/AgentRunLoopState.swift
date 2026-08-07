@@ -28,6 +28,9 @@ struct AgentRunLoopState: Sendable {
     /// Named prose artifacts whose latest successful write contains bracketed fill-in tokens.
     /// Enforcement is armed only when the user explicitly requests a placeholder-free artifact.
     private(set) var placeholderWrittenTextPaths: Set<String> = []
+    /// Latest invalid content by normalized path. Retained across readback so the runner can make
+    /// a deterministic blank-field repair if the model ignores its one natural-rewrite request.
+    private(set) var placeholderWrittenTextContents: [String: String] = [:]
 
     /// Call signatures that have already received the repeat SOFT WARNING (Cline learning #2).
     /// One nudge per distinct call; a further repeat of the same call finalizes as before, so the
@@ -113,8 +116,10 @@ struct AgentRunLoopState: Sendable {
                 path: normalized
                ) {
                 placeholderWrittenTextPaths.insert(normalized)
+                placeholderWrittenTextContents[normalized] = content
             } else {
                 placeholderWrittenTextPaths.remove(normalized)
+                placeholderWrittenTextContents.removeValue(forKey: normalized)
             }
         case ToolDefinition.fileRead.name:
             successfullyReadWorkspacePaths.insert(normalized)

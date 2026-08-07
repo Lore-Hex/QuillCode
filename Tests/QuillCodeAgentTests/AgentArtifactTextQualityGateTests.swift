@@ -56,6 +56,34 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         XCTAssertTrue(correction.prompt.contains("blank lines, empty cells, or checkboxes"))
     }
 
+    func testDeterministicPlaceholderRepairPreservesMarkdownControlsAndCode() throws {
+        let content = """
+        Hi [First name], schedule at [calendar link].
+        - [ ] Pending
+        - [x] Complete
+        See [source](https://example.test), [1], and [^note].
+        Use `[company]` as a documented example.
+        ```text
+        [name]
+        ```
+        """
+
+        let repaired = try XCTUnwrap(AgentArtifactTextQualityGate.replacingBracketedPlaceholders(
+            content: content,
+            path: "outputs/outreach.md"
+        ))
+
+        XCTAssertTrue(repaired.contains("Hi ________, schedule at ________."))
+        XCTAssertTrue(repaired.contains("- [ ] Pending\n- [x] Complete"))
+        XCTAssertTrue(repaired.contains("[source](https://example.test), [1], and [^note]"))
+        XCTAssertTrue(repaired.contains("`[company]`"))
+        XCTAssertTrue(repaired.contains("```text\n[name]\n```"))
+        XCTAssertFalse(AgentArtifactTextQualityGate.containsBracketedPlaceholder(
+            content: repaired,
+            path: "outputs/outreach.md"
+        ))
+    }
+
     func testMalformedNamedArtifactIsRewrittenBeforeReadbackAndCompletion() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
@@ -117,6 +145,40 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         )
     }
 
+    func testPlaceholderFreeArtifactIsRewrittenAfterPrematureReadback() async throws {
+        let root = try makeTempDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let incomplete = "# Outreach\n\nHi [First name], book here: [calendar link].\n"
+        let corrected = "# Outreach\n\nHi ________, book here: ________.\n"
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .tool(writeCall(content: incomplete)),
+            .tool(readCall()),
+            .say("Created and verified outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+            .say("Created outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+        ]), maxToolSteps: 8)
+
+        let result = try await runner.send(
+            "Create outputs/report.md. Do not leave bracketed fill-in fields. "
+                + "After writing, read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 4, "two writes and two readbacks")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("placeholder-free text")
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("fill-in fields with blanks")
+        })
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),
+            corrected
+        )
+    }
+
     private func writeCall(content: String) -> ToolCall {
         ToolCall(
             name: ToolDefinition.fileWrite.name,
@@ -124,6 +186,13 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
                 "path": "outputs/report.md",
                 "content": content,
             ])
+        )
+    }
+
+    private func readCall() -> ToolCall {
+        ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
         )
     }
 }
