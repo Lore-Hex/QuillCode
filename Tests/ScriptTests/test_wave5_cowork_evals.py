@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -73,6 +74,48 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         required, matched = WAVE5.required_output_term_matches(256, incomplete)
         self.assertEqual(len(matched), 2)
         self.assertNotEqual(matched, list(required))
+
+    def test_case_fixture_coverage_requires_every_planned_hire(self):
+        complete = "\n".join(f"H{index:02d}" for index in range(1, 13))
+        required, matched = WAVE5.required_output_term_matches(278, complete)
+
+        self.assertEqual(len(required), 12)
+        self.assertEqual(matched, list(required))
+        self.assertIn("H12", WAVE5.fixture_context({"ID": 278, "Category": "Hiring & Team"}))
+
+    def test_explicit_primary_filename_is_preserved(self):
+        row = {
+            "ID": 211,
+            "Category": "Customer Discovery",
+            "Task (what the person types)": "Save customer-discovery-synthesis.md.",
+            "Capability needed": "Multi-file artifacts",
+        }
+
+        self.assertEqual(WAVE5.primary_output_path(row), "outputs/customer-discovery-synthesis.md")
+        self.assertIn("`outputs/customer-discovery-synthesis.md`", WAVE5.build_prompt(row))
+
+    def test_multi_file_case_requires_supporting_artifact(self):
+        row = {
+            "ID": 213,
+            "Category": "Customer Discovery",
+            "Task (what the person types)": "Produce lost-demo-patterns.csv and a summary.",
+            "Capability needed": "Multi-file artifacts",
+        }
+        artifact = WAVE5.additional_artifacts(row)[0]
+        self.assertIn("`outputs/lost-demo-patterns.csv`", WAVE5.build_prompt(row))
+
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            passed, _ = WAVE5.check_additional_artifact(workspace, artifact)
+            self.assertFalse(passed)
+            output = workspace / artifact["path"]
+            output.parent.mkdir(parents=True)
+            output.write_text("header\n" + "\n".join(f"row-{index}" for index in range(8)))
+            passed, detail = WAVE5.check_additional_artifact(workspace, artifact)
+            self.assertTrue(passed, detail)
+
+    def test_case_fixture_catalog_is_valid(self):
+        WAVE5.validate_case_fixtures()
 
     def test_concept_aliases_accept_equivalent_founder_language(self):
         output = WAVE5.normalize(

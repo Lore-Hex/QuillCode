@@ -19,6 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE_CATALOG = ROOT / "docs" / "founder-task-additions.json"
+CASE_FIXTURE_CATALOG = ROOT / "docs" / "wave5-case-fixtures.json"
 DEFAULT_BINARY = ROOT / ".build" / "debug" / "quill-code-desktop"
 EXACT_MODEL = "deepseek/deepseek-v4-flash-0731"
 EXPECTED_IDS = set(range(211, 311))
@@ -42,6 +43,23 @@ KEY_FILES = (
 
 class EvalError(RuntimeError):
     pass
+
+
+def load_case_fixture_catalog():
+    try:
+        payload = json.loads(CASE_FIXTURE_CATALOG.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise EvalError(f"Cannot read case fixtures {CASE_FIXTURE_CATALOG}: {error}") from error
+    raw_cases = payload.get("cases")
+    if payload.get("version") != 1 or not isinstance(raw_cases, dict):
+        raise EvalError("Wave 5 case fixtures must be version 1 with cases")
+    try:
+        return {int(case_id): fixture for case_id, fixture in raw_cases.items()}
+    except (TypeError, ValueError) as error:
+        raise EvalError("Wave 5 case fixture IDs must be numeric") from error
+
+
+CASE_FIXTURES = load_case_fixture_catalog()
 
 
 CATEGORY_FIXTURES = {
@@ -266,6 +284,10 @@ CASE_REQUIRED_OUTPUT_TERMS = {
     256: tuple(f"Fund {index:02d}" for index in range(1, 16)),
 }
 
+CASE_PRIMARY_OUTPUT_PATHS = {
+    211: "outputs/customer-discovery-synthesis.md",
+}
+
 TASK_REFUSAL = re.compile(
     r"(?i)\b(?:i\s+(?:cannot|can't|am unable to)|we\s+(?:cannot|can't|are unable to)|unable to)\s+"
     r"(?:complete|finish|perform|fulfill|create|write|deliver)\s+"
@@ -313,6 +335,29 @@ def validate_catalog(payload):
         if capability not in {"Multi-file artifacts", "Browser pane", "Files/Shell"}:
             raise EvalError(f"Task {row.get('ID')} has unsupported capability {capability}")
     return sorted(rows, key=lambda row: row["ID"])
+
+
+def validate_case_fixtures():
+    unknown = set(CASE_FIXTURES) - EXPECTED_IDS
+    if unknown:
+        raise EvalError(f"Unknown Wave 5 case fixture IDs: {sorted(unknown)}")
+    for case_id, fixture in CASE_FIXTURES.items():
+        if not isinstance(fixture, dict) or not isinstance(fixture.get("appendix"), str):
+            raise EvalError(f"Case fixture {case_id} must contain an appendix")
+        required = fixture.get("requiredOutputTerms", [])
+        if not isinstance(required, list) or not all(isinstance(term, str) and term for term in required):
+            raise EvalError(f"Case fixture {case_id} has invalid requiredOutputTerms")
+        for artifact in fixture.get("additionalArtifacts", []):
+            path = artifact.get("path") if isinstance(artifact, dict) else None
+            minimum_lines = artifact.get("minimumLines") if isinstance(artifact, dict) else None
+            if (
+                not isinstance(path, str)
+                or not path.startswith("outputs/")
+                or ".." in Path(path).parts
+                or not isinstance(minimum_lines, int)
+                or minimum_lines < 1
+            ):
+                raise EvalError(f"Case fixture {case_id} has an invalid additional artifact")
 
 
 def select_cases(rows, requested):
@@ -385,7 +430,8 @@ def required_concept_matches(concept_count):
 
 
 def required_output_term_matches(case_id, text):
-    required = CASE_REQUIRED_OUTPUT_TERMS.get(case_id, ())
+    fixture_required = CASE_FIXTURES.get(case_id, {}).get("requiredOutputTerms", ())
+    required = CASE_REQUIRED_OUTPUT_TERMS.get(case_id, ()) + tuple(fixture_required)
     normalized_output = normalize(text)
     matched = [term for term in required if normalize(term) in normalized_output]
     return required, matched
@@ -457,11 +503,36 @@ def has_artifact_readback(tools, output_path):
     return False
 
 
+def fixture_context(row):
+    context = CATEGORY_FIXTURES[row["Category"]]["context"].strip()
+    appendix = CASE_FIXTURES.get(row["ID"], {}).get("appendix")
+    return f"{context}\n\n{appendix.strip()}\n" if appendix else f"{context}\n"
+
+
+def primary_output_path(row):
+    return CASE_PRIMARY_OUTPUT_PATHS.get(row["ID"], f"outputs/wave5-{row['ID']}.md")
+
+
+def additional_artifacts(row):
+    return CASE_FIXTURES.get(row["ID"], {}).get("additionalArtifacts", [])
+
+
+def check_additional_artifact(workspace, artifact):
+    artifact_path = workspace / artifact["path"]
+    try:
+        line_count = len(artifact_path.read_text(encoding="utf-8").splitlines())
+    except OSError as error:
+        return False, str(error)
+    required = artifact["minimumLines"]
+    return line_count >= required, f"{line_count} lines; required {required}"
+
+
 def write_fixture(row, workspace):
     fixture = CATEGORY_FIXTURES[row["Category"]]
+    context = fixture_context(row)
     inputs = workspace / "inputs"
     inputs.mkdir(parents=True)
-    (inputs / "context.md").write_text(fixture["context"].strip() + "\n", encoding="utf-8")
+    (inputs / "context.md").write_text(context, encoding="utf-8")
     (inputs / "data.csv").write_text(
         fixture["header"] + "".join(fixture["rows"]), encoding="utf-8"
     )
@@ -471,7 +542,7 @@ def write_fixture(row, workspace):
         page = (
             "<!doctype html><html><head><title>LedgerLoop Wave 5 source packet</title></head><body>"
             f"<main><h1>{html.escape(row['Category'])} source packet</h1>"
-            f"<pre>{html.escape(fixture['context'])}</pre>"
+            f"<pre>{html.escape(context)}</pre>"
             f"<p>Task ID: {row['ID']}</p></main></body></html>"
         )
         (workspace / browser_path).write_text(page, encoding="utf-8")
@@ -479,7 +550,12 @@ def write_fixture(row, workspace):
 
 
 def build_prompt(row):
-    output_path = f"outputs/wave5-{row['ID']}.md"
+    output_path = primary_output_path(row)
+    extra_paths = [artifact["path"] for artifact in additional_artifacts(row)]
+    extra_instruction = ""
+    if extra_paths:
+        quoted = ", ".join(f"`{path}`" for path in extra_paths)
+        extra_instruction = f" Also create the required supporting artifact(s): {quoted}."
     capability_instruction = {
         "Browser pane": (
             "First inspect the currently open Browser page with the browser inspection tool. "
@@ -506,7 +582,7 @@ def build_prompt(row):
 This is a fixture-backed evaluation. {capability_instruction}
 Use only facts in those supplied sources. Do not inspect unrelated workspace files, browse the public web, or send anything externally. If a fact is absent, label it unknown instead of asking a follow-up question or inserting a placeholder. Do not leave bracketed fill-in fields in the completed artifact. Honor any deliverable filenames in the original request.
 
-Save the complete primary deliverable to `{output_path}`. Make it decision-ready, source-grounded, and specific enough for a founder to use without another rewrite. After writing, read the saved file back to verify it.
+Save the complete primary deliverable to `{output_path}`.{extra_instruction} Make it decision-ready, source-grounded, and specific enough for a founder to use without another rewrite. After writing, read the saved primary file back to verify it.
 """
 
 
@@ -515,7 +591,7 @@ def sha256(path):
 
 
 def grade(row, workspace, report, source_hashes):
-    output_path = f"outputs/wave5-{row['ID']}.md"
+    output_path = primary_output_path(row)
     output = workspace / output_path
     checks = []
 
@@ -574,6 +650,9 @@ def grade(row, workspace, report, source_hashes):
         )
     refusal = contains_task_refusal(text)
     add("no refusal", not refusal, "refusal language" if refusal else "clean")
+    for artifact in additional_artifacts(row):
+        passed, detail = check_additional_artifact(workspace, artifact)
+        add(f"supporting artifact {artifact['path']}", passed, detail)
     return checks, output
 
 
@@ -726,6 +805,7 @@ def main():
         raise EvalError("--workers must be between 1 and 4")
     if not 30 <= args.timeout <= 900:
         raise EvalError("--timeout must be between 30 and 900 seconds")
+    validate_case_fixtures()
     rows = select_cases(validate_catalog(read_json(args.catalog)), args.case_ids)
     if len(rows) > 100:
         raise EvalError("Paid invocation fuse exceeded 100 cases")
