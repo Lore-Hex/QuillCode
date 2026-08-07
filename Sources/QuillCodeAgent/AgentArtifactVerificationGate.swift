@@ -72,7 +72,17 @@ enum AgentArtifactVerificationGate {
     static func pathsMatch(_ lhs: String, _ rhs: String) -> Bool {
         let left = normalizedPath(lhs)
         let right = normalizedPath(rhs)
-        return left == right || left.hasSuffix("/" + right) || right.hasSuffix("/" + left)
+        if left == right {
+            return true
+        }
+        let leftIsAbsolute = (left as NSString).isAbsolutePath
+        let rightIsAbsolute = (right as NSString).isAbsolutePath
+        guard leftIsAbsolute != rightIsAbsolute else {
+            return false
+        }
+        let absolute = leftIsAbsolute ? left : right
+        let relative = leftIsAbsolute ? right : left
+        return absolute.hasSuffix("/" + relative)
     }
 
     static func normalizedPath(_ path: String) -> String {

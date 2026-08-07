@@ -20,6 +20,17 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
         ))
     }
 
+    func testPathMatchingDistinguishesRelativeFilesWithTheSameBasename() {
+        XCTAssertFalse(AgentArtifactVerificationGate.pathsMatch(
+            "outputs/report.md",
+            "report.md"
+        ))
+        XCTAssertTrue(AgentArtifactVerificationGate.pathsMatch(
+            "/tmp/workspace/outputs/report.md",
+            "outputs/report.md"
+        ))
+    }
+
     func testPrematureReadOfNamedOutputGetsWriteFirstCorrection() throws {
         let root = try makeWorkspace()
         let prompt = "Save the result to outputs/report.md. After writing, read the saved file back to verify it."
@@ -81,5 +92,47 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("before creating it")
         })
+    }
+
+    func testRunnerDoesNotVerifyRequiredOutputByReadingRootLevelDuplicate() async throws {
+        let root = try makeWorkspace()
+        let outputWrite = ToolCall(
+            name: "host.file.write",
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Required output\n",
+            ])
+        )
+        let rootWrite = ToolCall(
+            name: "host.file.write",
+            argumentsJSON: ToolArguments.json([
+                "path": "report.md",
+                "content": "# Wrong duplicate\n",
+            ])
+        )
+        let rootRead = ToolCall(
+            name: "host.file.read",
+            argumentsJSON: ToolArguments.json(["path": "report.md"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(outputWrite),
+                .tool(rootWrite),
+                .tool(rootRead),
+                .say("The report is complete."),
+                .say("The required output is complete and verified."),
+            ]),
+            maxToolSteps: 8
+        )
+
+        let result = try await runner.send(
+            "Save the deliverable to outputs/report.md. After writing, read the saved file back to verify it.",
+            in: ChatThread(title: "duplicate-path verification"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 4, "the required output needs its own forced readback")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertEqual(result.thread.messages.last?.content, "The required output is complete and verified.")
     }
 }
