@@ -216,6 +216,24 @@ final class TrustedRouterActionParserTests: XCTestCase {
         XCTAssertTrue(call.argumentsJSON.contains(#""cmd":"whoami""#))
     }
 
+    func testActionParserRepairsMissingClosingObjectAtEOF() throws {
+        let action = try AgentActionJSONParser.parse(##"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"# Complete\nBody"}"##)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected repaired file-write action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "report.md")
+        XCTAssertEqual(try arguments.requiredString("content"), "# Complete\nBody")
+    }
+
+    func testActionParserDoesNotRepairUnterminatedContentString() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse(#"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"truncated"#)) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
+        }
+    }
+
     func testActionParserRecoversExplicitBacktickedShellCommandFromProse() throws {
         let action = try AgentActionJSONParser.parse("I'll run `whoami` on the device.")
 

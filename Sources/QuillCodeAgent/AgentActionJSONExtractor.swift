@@ -76,6 +76,15 @@ enum AgentActionJSONExtractor {
             }
         }
 
+        // Some providers occasionally finish a complete tool payload but omit one or more
+        // trailing object braces at EOF. Repair only that structural case: every JSON string
+        // must already be closed, and JSONSerialization still validates the repaired object.
+        if let start = startIndex, !isInsideString, depth > 0 {
+            candidates.append(
+                String(text[start...]) + String(repeating: "}", count: depth)
+            )
+        }
+
         return candidates
     }
 }
