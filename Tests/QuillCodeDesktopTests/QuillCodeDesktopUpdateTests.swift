@@ -160,6 +160,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         XCTAssertEqual(parsed.failedApplicationURL, request.failedApplicationURL)
         XCTAssertEqual(parsed.handshakeURL, request.handshakeURL)
         XCTAssertEqual(parsed.resultURL, request.resultURL)
+        XCTAssertEqual(parsed.logURL, request.logURL)
         XCTAssertEqual(parsed.expectedVersion, request.expectedVersion)
         XCTAssertEqual(parsed.expectedBuild, request.expectedBuild)
     }
@@ -211,7 +212,12 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             launchHandshakeTimeout: 2
         )
 
-        XCTAssertEqual(QuillCodeDesktopUpdateHelper.run(request, environment: environment), 0)
+        let parsedRequest = try XCTUnwrap(QuillCodeDesktopUpdateHelperRequest.parse(
+            arguments: [request.helperURL.path] + request.arguments,
+            executableURL: request.helperURL
+        ))
+
+        XCTAssertEqual(QuillCodeDesktopUpdateHelper.run(parsedRequest, environment: environment), 0)
         XCTAssertEqual(try bundleBuild(at: destination), "2")
         XCTAssertFalse(FileManager.default.fileExists(atPath: incoming.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: request.backupApplicationURL.path))
