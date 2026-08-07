@@ -210,6 +210,9 @@ public struct AgentRunner: Sendable {
             /// Listing a not-yet-created output directory is predictably unsuccessful. Correct each
             /// exact proposal once, then allow a repeat through so this preflight stays bounded.
             var preflightCorrectedMissingListCalls = Set<ToolCallFingerprint>()
+            /// Source paths and data labels are not commands. Redirect each exact model proposal
+            /// once after tool work has begun; a repeated proposal still reaches the shell.
+            var preflightCorrectedInvalidShellCalls = Set<ToolCallFingerprint>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -530,6 +533,17 @@ public struct AgentRunner: Sendable {
                         name: activeCall.name,
                         argumentsJSON: activeCall.argumentsJSON
                     )
+                    if runLoop.latestCompletion != nil,
+                       let correction = AgentInvalidShellProposalPreflight.correction(
+                        for: activeCall,
+                        workspaceRoot: workspaceRoot
+                       ), preflightCorrectedInvalidShellCalls.insert(shellFingerprint).inserted {
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(kind: .notice, summary: correction.summary))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
                     let outsideWorkspacePaths = OutsideWorkspaceShellCommandPreflight.offendingPaths(
                         in: activeCall,
                         userMessage: userMessage,
