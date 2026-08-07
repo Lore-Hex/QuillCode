@@ -88,7 +88,10 @@ Pipeline rules: committed requires buyer-confirmed amount, date, and decision pr
         ],
     },
     "Product & Roadmap": {
-        "anchors": ["LedgerLoop", "Close Checklist", "activation", "48 hours", "CSV mapping"],
+        "anchors": [
+            "LedgerLoop", "Close Checklist", "activation", "48 hours", "CSV mapping",
+            "timezone", "Q3", "rollback owner",
+        ],
         "context": """# LedgerLoop product packet
 
 LedgerLoop's Close Checklist coordinates month-end owners and dependencies for Series A finance teams. Activation is completing the first checklist with three owners within 48 hours. Baseline activation is 42%.
@@ -398,6 +401,18 @@ def tool_succeeded(tool):
     return True
 
 
+def unrecovered_tool_failures(tools):
+    later_successful_tool_names = set()
+    failures = []
+    for tool in reversed(tools):
+        name = tool.get("name")
+        if tool_succeeded(tool):
+            later_successful_tool_names.add(name)
+        elif name not in later_successful_tool_names:
+            failures.append(tool)
+    return list(reversed(failures))
+
+
 def normalized_tool_path(value):
     if not isinstance(value, str):
         return ""
@@ -511,7 +526,8 @@ def grade(row, workspace, report, source_hashes):
         add("browser inspection", "host.browser.inspect" in tool_names, repr(tool_names))
     if row["Capability needed"] == "Files/Shell":
         add("shell validation", "host.shell.run" in tool_names, repr(tool_names))
-    add("no failed tools", all(tool_succeeded(tool) for tool in tools), repr(tools[-2:]))
+    unrecovered = unrecovered_tool_failures(tools)
+    add("tool failures recovered", not unrecovered, repr(unrecovered[-2:]))
     add("sources unchanged", all(path.exists() and sha256(path) == digest for path, digest in source_hashes.items()), "fixture hashes")
 
     try:

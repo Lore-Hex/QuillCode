@@ -97,6 +97,33 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         )))
         self.assertFalse(WAVE5.tool_succeeded(tool("host.file.read", status="failed")))
 
+    def test_tool_failure_recovery_requires_a_later_success_for_the_same_tool(self):
+        recovered = [
+            tool("host.shell.run", status="failed"),
+            tool("host.shell.run", output_payload={"ok": True}),
+        ]
+        wrong_tool = [
+            tool("host.file.write", status="failed"),
+            tool("host.shell.run", output_payload={"ok": True}),
+        ]
+        final_failure = [
+            tool("host.shell.run", output_payload={"ok": True}),
+            tool("host.shell.run", status="failed"),
+        ]
+
+        self.assertEqual(WAVE5.unrecovered_tool_failures(recovered), [])
+        self.assertEqual(WAVE5.unrecovered_tool_failures(wrong_tool), [wrong_tool[0]])
+        self.assertEqual(WAVE5.unrecovered_tool_failures(final_failure), [final_failure[1]])
+
+    def test_product_grounding_accepts_customer_commitment_source_facts(self):
+        anchors = WAVE5.CATEGORY_FIXTURES["Product & Roadmap"]["anchors"]
+        output = WAVE5.normalize(
+            "Timezone-safe reminders remain targeted for Q3, with a rollback owner required."
+        )
+        matched = [anchor for anchor in anchors if WAVE5.normalize(anchor) in output]
+
+        self.assertGreaterEqual(len(matched), 2)
+
     def test_artifact_readback_must_follow_last_successful_write(self):
         output = "outputs/wave5-211.md"
         write = tool("host.file.write", {"path": output}, {"ok": True})
