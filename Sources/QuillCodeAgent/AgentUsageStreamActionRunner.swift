@@ -7,7 +7,8 @@ extension AgentRunner {
         thread: inout ChatThread,
         userMessage: String,
         tools: [ToolDefinition],
-        onProgress: AgentRunProgressHandler?
+        onProgress: AgentRunProgressHandler?,
+        enforcePreActionReasoningBudget: Bool
     ) async throws -> AgentAction {
         await publishStreamingNotice(in: &thread, onProgress: onProgress)
         var stream = try await streamingLLM.actionEventStream(
@@ -18,7 +19,7 @@ extension AgentRunner {
         if let deadline = turnDeadlineSeconds {
             stream = AgentTurnDeadline.enforcing(seconds: deadline, on: stream)
         }
-        if let limit = preActionReasoningCharacterLimit {
+        if enforcePreActionReasoningBudget, let limit = preActionReasoningCharacterLimit {
             stream = AgentPreActionReasoningBudget.enforcing(
                 maximumCharacters: max(1, limit),
                 on: stream

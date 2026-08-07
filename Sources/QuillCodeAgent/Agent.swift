@@ -88,7 +88,9 @@ public struct AgentRunner: Sendable {
     /// action" correction (F20: a reasoner can stream thinking tokens indefinitely without ever
     /// acting; no terminal say means the phrase guards never see it). nil disables the deadline.
     public var turnDeadlineSeconds: TimeInterval?
-    /// Maximum streamed reasoning characters before any action text. nil disables the guard.
+    /// Maximum streamed reasoning characters before the run's first action text. Once the model
+    /// has emitted an action, later turns may synthesize from tool results without re-arming this
+    /// startup guard. nil disables the guard.
     public var preActionReasoningCharacterLimit: Int?
     /// Last-resort model for a step the primary cannot produce at all (F22): when the primary
     /// exhausts the empty-response correction budget — a route-quality failure observed at ~1-in-6
@@ -178,6 +180,7 @@ public struct AgentRunner: Sendable {
                 Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
             )
             var runLoop = AgentRunLoopState()
+            var hasEmittedModelAction = false
             /// One-shot corrective for the next sample only (Cline learning #2 repeat nudge).
             var pendingRepeatNudge: String?
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
@@ -196,8 +199,10 @@ public struct AgentRunner: Sendable {
                     tools: tools,
                     workspaceRoot: workspaceRoot,
                     onProgress: onProgress,
-                    injectedCorrection: repeatNudge
+                    injectedCorrection: repeatNudge,
+                    enforcePreActionReasoningBudget: !hasEmittedModelAction
                 )
+                hasEmittedModelAction = true
                 if let paused = await pauseIfSpendFuseRequiresApproval(
                     thread: &next,
                     onProgress: onProgress

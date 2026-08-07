@@ -71,6 +71,37 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         })
     }
 
+    func testLongReasoningAfterFirstToolActionIsAllowed() async throws {
+        let root = try makeTempDirectory()
+        let inputs = root.appendingPathComponent("inputs", isDirectory: true)
+        try FileManager.default.createDirectory(at: inputs, withIntermediateDirectories: true)
+        try Data("LedgerLoop context".utf8).write(to: inputs.appendingPathComponent("context.md"))
+
+        let state = UsageStreamSequenceState([
+            [
+                .text(#"{"type":"tool","name":"host.file.read","arguments":{"path":"inputs/context.md"}}"#),
+            ],
+            [
+                .reasoning(String(repeating: "synthesis ", count: 1_400)),
+                .text(#"{"type":"say","text":"Synthesis complete."}"#),
+            ],
+        ])
+        let result = try await AgentRunner(
+            llm: UsageStreamSequenceClient(state: state),
+            preActionReasoningCharacterLimit: 12_000
+        ).send(
+            "Read inputs/context.md and synthesize it.",
+            in: ChatThread(title: "t"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(result.thread.messages.last?.content, "Synthesis complete.")
+        let requestCount = await state.requestCount()
+        XCTAssertEqual(requestCount, 2)
+    }
+
     func testRunnerDefaultsToReasoningBudgetAndCanDisableIt() {
         XCTAssertEqual(
             AgentRunner().preActionReasoningCharacterLimit,
@@ -114,6 +145,55 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
             tools: [ToolDefinition]
         ) async throws -> AgentAction {
             try await state.next(thread: thread)
+        }
+    }
+
+    private actor UsageStreamSequenceState {
+        private var streams: [[AgentTextStreamEvent]]
+        private var requests = 0
+
+        init(_ streams: [[AgentTextStreamEvent]]) {
+            self.streams = streams
+        }
+
+        func next() -> [AgentTextStreamEvent] {
+            requests += 1
+            guard !streams.isEmpty else { return [] }
+            return streams.removeFirst()
+        }
+
+        func requestCount() -> Int { requests }
+    }
+
+    private struct UsageStreamSequenceClient: UsageStreamingLLMClient {
+        let state: UsageStreamSequenceState
+
+        func nextAction(
+            thread: ChatThread,
+            userMessage: String,
+            tools: [ToolDefinition]
+        ) async throws -> AgentAction {
+            throw AgentError.emptyStreamingResponse
+        }
+
+        func actionTextStream(
+            thread: ChatThread,
+            userMessage: String,
+            tools: [ToolDefinition]
+        ) async throws -> AsyncThrowingStream<String, Error> {
+            throw AgentError.emptyStreamingResponse
+        }
+
+        func actionEventStream(
+            thread: ChatThread,
+            userMessage: String,
+            tools: [ToolDefinition]
+        ) async throws -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
+            let events = await state.next()
+            return AsyncThrowingStream { continuation in
+                for event in events { continuation.yield(event) }
+                continuation.finish()
+            }
         }
     }
 }

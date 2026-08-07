@@ -1,6 +1,6 @@
 import Foundation
 
-/// A model exhausted the bounded reasoning budget before emitting any action JSON.
+/// A model exhausted the bounded reasoning budget before emitting the run's first action JSON.
 struct AgentPreActionReasoningBudgetExceededError: Error, CustomStringConvertible {
     let maximumCharacters: Int
 
@@ -10,10 +10,11 @@ struct AgentPreActionReasoningBudgetExceededError: Error, CustomStringConvertibl
 }
 
 enum AgentPreActionReasoningBudget {
-    /// Stops a continuously reasoning stream before it consumes the whole provider completion
-    /// budget. Once action text starts, the guard gets out of the way and the normal parser owns
-    /// completion. Providers may send reasoning as deltas or as growing snapshots, so both shapes
-    /// are counted without double-charging snapshots.
+    /// Stops a continuously reasoning startup stream before it consumes the whole provider
+    /// completion budget. The runner applies this only until the run emits its first action; once
+    /// action text starts, the normal parser and the run's other bounds own completion. Providers
+    /// may send reasoning as deltas or as growing snapshots, so both shapes are counted without
+    /// double-charging snapshots.
     static func enforcing(
         maximumCharacters: Int,
         on stream: AsyncThrowingStream<AgentTextStreamEvent, Error>
