@@ -39,6 +39,13 @@ struct AgentRunLoopState: Sendable {
     private(set) var contradictoryCountWrittenTextPaths: Set<String> = []
     /// Latest contradictory content by normalized path, retained for a bounded deterministic fix.
     private(set) var contradictoryCountWrittenTextContents: [String: String] = [:]
+    /// Explicitly source-only runs retain the user's request plus successful reads of source files.
+    /// Latest writes are checked only for a narrow set of high-risk assertions that can be safely
+    /// compared mechanically with that corpus.
+    private var enforcesSourceOnlyGrounding = false
+    private(set) var sourceGroundingText = ""
+    private(set) var unsupportedSourceClaimWrittenTextPaths: Set<String> = []
+    private(set) var unsupportedSourceClaimWrittenTextContents: [String: String] = [:]
 
     /// Call signatures that have already received the repeat SOFT WARNING (Cline learning #2).
     /// One nudge per distinct call; a further repeat of the same call finalizes as before, so the
@@ -143,11 +150,31 @@ struct AgentRunLoopState: Sendable {
                 contradictoryCountWrittenTextPaths.remove(normalized)
                 contradictoryCountWrittenTextContents.removeValue(forKey: normalized)
             }
+            if enforcesSourceOnlyGrounding,
+               let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               AgentSourceGroundingGate.containsUnsupportedSensitiveClaim(
+                content: content,
+                path: normalized,
+                sourceText: sourceGroundingText
+               ) {
+                unsupportedSourceClaimWrittenTextPaths.insert(normalized)
+                unsupportedSourceClaimWrittenTextContents[normalized] = content
+            } else {
+                unsupportedSourceClaimWrittenTextPaths.remove(normalized)
+                unsupportedSourceClaimWrittenTextContents.removeValue(forKey: normalized)
+            }
         case ToolDefinition.fileRead.name:
             successfullyReadWorkspacePaths.insert(normalized)
             unverifiedWrittenWorkspacePaths = Set(unverifiedWrittenWorkspacePaths.filter {
                 !AgentArtifactVerificationGate.pathsMatch($0, normalized)
             })
+            if enforcesSourceOnlyGrounding,
+               !writtenWorkspacePaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, normalized)
+               }) {
+                sourceGroundingText += "\n" + completion.result.stdout
+            }
         default:
             break
         }
@@ -164,6 +191,13 @@ struct AgentRunLoopState: Sendable {
                 groundedURLs.insert(AgentCitationIntegrityGate.normalize(url))
             }
         }
+    }
+
+    mutating func seedSourceGrounding(userMessage: String) {
+        enforcesSourceOnlyGrounding = AgentSourceGroundingGate.requestsSourceOnlyGrounding(
+            in: userMessage
+        )
+        sourceGroundingText = enforcesSourceOnlyGrounding ? userMessage : ""
     }
 
     private mutating func recordCitationProvenance(_ completion: AgentToolStepCompletion) {

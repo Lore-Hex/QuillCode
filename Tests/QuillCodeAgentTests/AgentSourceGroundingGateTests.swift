@@ -57,18 +57,19 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         let unsupported = "# Outreach\n\nThis is a paid 30-minute call and not a sales pitch.\n"
         let partiallyCorrected = "# Outreach\n\nJoin a 30-minute research conversation.\n"
-        let corrected = "# Outreach\n\nShare your experience with us.\n"
+        let stillUnsupported = "# Outreach\n\nWe are not selling. Join a 30-minute call.\n"
         let runner = AgentRunner(
             llm: SequenceLLMClient(actions: [
                 .tool(writeCall(content: unsupported)),
                 .say("Created and verified outputs/brief.md."),
                 .tool(writeCall(content: partiallyCorrected)),
                 .say("Created outputs/brief.md."),
-                .tool(writeCall(content: corrected)),
+                .tool(writeCall(content: stillUnsupported)),
+                .say("Created outputs/brief.md."),
                 .say("Created outputs/brief.md."),
                 .say("Created and verified outputs/brief.md."),
             ]),
-            maxToolSteps: 8
+            maxToolSteps: 10
         )
 
         let result = try await runner.send(
@@ -78,15 +79,52 @@ final class AgentSourceGroundingGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 4, "three writes and the forced final readback")
+        XCTAssertEqual(
+            result.toolResults.count,
+            5,
+            "three model writes, one deterministic repair, and the forced final readback"
+        )
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("source-grounding audit")
         })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("removed unsupported sensitive claims")
+        })
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md"), encoding: .utf8),
-            corrected
+            "# Outreach\n\n"
         )
+    }
+
+    func testSensitiveClaimBoundaryPreservesGroundedAndUnknownStatements() throws {
+        let source = "The interview lasts 30 minutes. This is not a sales call."
+        let artifact = """
+        # Outreach
+        The interview lasts 30 minutes.
+        This is not a sales call.
+        We can work around your schedule.
+        Compensation is unknown.
+        Meet us within the next 2 weeks.
+        `Example: a paid interview`
+        """
+
+        XCTAssertTrue(AgentSourceGroundingGate.containsUnsupportedSensitiveClaim(
+            content: artifact,
+            path: "outputs/brief.md",
+            sourceText: source
+        ))
+        let repaired = try XCTUnwrap(AgentSourceGroundingGate.removingUnsupportedSensitiveClaims(
+            content: artifact,
+            path: "outputs/brief.md",
+            sourceText: source
+        ))
+        XCTAssertTrue(repaired.contains("The interview lasts 30 minutes."))
+        XCTAssertTrue(repaired.contains("This is not a sales call."))
+        XCTAssertTrue(repaired.contains("Compensation is unknown."))
+        XCTAssertTrue(repaired.contains("`Example: a paid interview`"))
+        XCTAssertFalse(repaired.contains("work around"))
+        XCTAssertFalse(repaired.contains("next 2 weeks"))
     }
 
     private func writeCall(content: String) -> ToolCall {

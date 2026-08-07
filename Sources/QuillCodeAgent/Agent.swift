@@ -232,9 +232,11 @@ public struct AgentRunner: Sendable {
             var sourceGroundingAuditCounts: [String: Int] = [:]
             var sourceGroundingVerificationPaths = Set<String>()
             var pendingSourceGroundingAuditPath: String?
+            var sourceGroundingRepairedPaths = Set<String>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
+            runLoop.seedSourceGrounding(userMessage: userMessage)
             var autoReviewCircuit = AutoReviewCircuitBreaker()
             let limit = max(1, maxToolSteps)
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
@@ -484,6 +486,26 @@ public struct AgentRunner: Sendable {
                     await onProgress?(next)
                     continue actionLoop
                 }
+                if case .say = resolvedAction,
+                   let path = AgentSourceGroundingGate.unsupportedSensitiveClaimPath(
+                    userMessage: userMessage,
+                    unsupportedPaths: runLoop.unsupportedSourceClaimWrittenTextPaths
+                   ),
+                   sourceGroundingRepairedPaths.insert(path).inserted,
+                   let repairCall = Self.unsupportedSourceClaimRepairCall(
+                    path: path,
+                    contentsByPath: runLoop.unsupportedSourceClaimWrittenTextContents,
+                    sourceText: runLoop.sourceGroundingText
+                   ) {
+                    resolvedAction = .tool(repairCall)
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: removed unsupported sensitive claims from "
+                            + "./\(path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
                 // the tool arm below and the loop continues; the gate re-checks at the next say.
@@ -694,6 +716,24 @@ public struct AgentRunner: Sendable {
                             next.updatedAt = Date()
                             await onProgress?(next)
                             continue actionLoop
+                        }
+                        if let path = AgentSourceGroundingGate.unsupportedSensitiveClaimPath(
+                            userMessage: userMessage,
+                            unsupportedPaths: runLoop.unsupportedSourceClaimWrittenTextPaths
+                        ), sourceGroundingRepairedPaths.insert(path).inserted,
+                           let repairCall = Self.unsupportedSourceClaimRepairCall(
+                            path: path,
+                            contentsByPath: runLoop.unsupportedSourceClaimWrittenTextContents,
+                            sourceText: runLoop.sourceGroundingText
+                           ) {
+                            finalized = .tool(repairCall)
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: removed unsupported sensitive claims from "
+                                    + "./\(path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
                         }
                         if !runLoop.hadDeniedStep {
                             finalized = try await actionByRequiringNamedDeliverables(
@@ -1118,6 +1158,29 @@ public struct AgentRunner: Sendable {
               let repaired = AgentArtifactTextQualityGate.replacingContradictoryEnumeratedCounts(
                 content: content,
                 path: path
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
+    }
+
+    private static func unsupportedSourceClaimRepairCall(
+        path: String,
+        contentsByPath: [String: String],
+        sourceText: String
+    ) -> ToolCall? {
+        guard let content = contentsByPath.first(where: {
+            AgentArtifactVerificationGate.pathsMatch($0.key, path)
+        })?.value,
+              let repaired = AgentSourceGroundingGate.removingUnsupportedSensitiveClaims(
+                content: content,
+                path: path,
+                sourceText: sourceText
               )
         else { return nil }
         return ToolCall(
