@@ -88,6 +88,7 @@ final class ParityShellFileToolGateTests: QuillCodeParityTestCase {
         let executorText = try Self.toolsSourceText(named: "FileToolExecutor.swift")
         let resolverText = try Self.toolsSourceText(named: "FileWorkspacePathResolver.swift")
         let listerText = try Self.toolsSourceText(named: "FileDirectoryLister.swift")
+        let fileSystemIOText = try Self.toolsSourceText(named: "FileSystemIO.swift")
         let searchText = try Self.toolsSourceText(named: "FileSearchScanner.swift")
         let definitionsText = try Self.toolsSourceText(named: "FileToolDefinitions.swift")
         let limitsText = try Self.toolsSourceText(named: "FileToolLimits.swift")
@@ -106,8 +107,12 @@ final class ParityShellFileToolGateTests: QuillCodeParityTestCase {
             "File path containment should live in the focused workspace resolver."
         )
         XCTAssertTrue(
-            listerText.contains("contentsOfDirectory"),
-            "Directory enumeration should live in FileDirectoryLister."
+            listerText.contains("FileSystemIO.directoryEntries"),
+            "FileDirectoryLister should delegate resilient directory enumeration."
+        )
+        XCTAssertTrue(
+            fileSystemIOText.contains("readdir("),
+            "Resilient directory enumeration should live in FileSystemIO."
         )
         XCTAssertTrue(
             searchText.contains("enumerator("),
