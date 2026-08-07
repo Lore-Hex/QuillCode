@@ -215,6 +215,13 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         competitive_output = WAVE5.normalize("SEO map of customer questions and competitive pages.")
         self.assertTrue(WAVE5.concept_matches("competitor", competitive_output))
 
+        fundraising_output = WAVE5.normalize("Personalized Seed Outreach\n\n## Fund 01")
+        self.assertTrue(WAVE5.concept_matches("investor", fundraising_output))
+        self.assertFalse(WAVE5.concept_matches(
+            "investor",
+            WAVE5.normalize("Continue the product investment approved in the operating plan."),
+        ))
+
     def test_normalize_ignores_numeric_thousands_separators(self):
         self.assertIn("820000", WAVE5.normalize("Cash: $820,000"))
         self.assertIn("98000", WAVE5.normalize("Burn: 98_000"))
