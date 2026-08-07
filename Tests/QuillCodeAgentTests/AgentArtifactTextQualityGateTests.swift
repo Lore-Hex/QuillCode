@@ -27,6 +27,31 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         ))
     }
 
+    func testDeterministicEscapeRepairPreservesInlineAndFencedCode() throws {
+        let content = #"""
+        # Report\n\n## Plan\n- Interview five founders.\n- Ship one workflow.
+
+        Use `\n` to document a newline.
+
+        ```text
+        first\nsecond
+        ```
+        """#
+
+        let repaired = try XCTUnwrap(AgentArtifactTextQualityGate.replacingMalformedLiteralEscapes(
+            content: content,
+            path: "outputs/report.md"
+        ))
+
+        XCTAssertTrue(repaired.contains("# Report\n\n## Plan\n- Interview five founders.\n- Ship one workflow."))
+        XCTAssertTrue(repaired.contains("Use `\\n` to document a newline."))
+        XCTAssertTrue(repaired.contains("```text\nfirst\\nsecond\n```"))
+        XCTAssertFalse(AgentArtifactTextQualityGate.containsMalformedLiteralEscape(
+            content: repaired,
+            path: "outputs/report.md"
+        ))
+    }
+
     func testDetectsBracketedFieldsButIgnoresMarkdownControlsAndCitations() {
         XCTAssertTrue(AgentArtifactTextQualityGate.containsBracketedPlaceholder(
             content: "Ask what their role is at [company], then repeat [their words].",
@@ -107,6 +132,39 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("clean text formatting")
+        })
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),
+            corrected
+        )
+    }
+
+    func testMalformedArtifactIsDeterministicallyRepairedAfterIgnoredRewrite() async throws {
+        let root = try makeTempDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let malformed = "# Report\\n\\n## Plan\\n- Interview five founders.\\n- Ship one workflow.\n"
+        let corrected = "# Report\n\n## Plan\n- Interview five founders.\n- Ship one workflow.\n"
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .tool(writeCall(content: malformed)),
+            .tool(readCall()),
+            .say("Created and verified outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+            .say("Created outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+        ]), maxToolSteps: 8)
+
+        let result = try await runner.send(
+            "Create outputs/report.md. After writing, read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 4, "two writes and two readbacks")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("clean text formatting")
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("decoded literal formatting escapes")
         })
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),

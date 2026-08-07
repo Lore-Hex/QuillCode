@@ -3,7 +3,7 @@ import Foundation
 /// Prevents a named prose deliverable from completing with serialized line-break escapes such as
 /// `\n- item` in its visible text. Code fences and inline code are excluded because escape examples
 /// are legitimate there. The runner first requests a natural rewrite, then can fall back to a
-/// deterministic blank-field replacement when the model ignores that bounded correction.
+/// deterministic formatting repair when the model ignores that bounded correction.
 enum AgentArtifactTextQualityGate {
     struct Correction: Equatable {
         var path: String
@@ -65,6 +65,48 @@ enum AgentArtifactTextQualityGate {
             guard let fieldRange = Range(match.range(at: 1), in: prose) else { return false }
             return isPlaceholderField(String(prose[fieldRange]))
         }
+    }
+
+    static func replacingMalformedLiteralEscapes(content: String, path: String) -> String? {
+        guard textExtensions.contains(
+            URL(fileURLWithPath: path).pathExtension.lowercased()
+        ) else { return nil }
+
+        var inFence = false
+        var replacedAny = false
+        let lines = content.components(separatedBy: "\n").map { line -> String in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                inFence.toggle()
+                return line
+            }
+            guard !inFence else { return line }
+
+            let mutable = NSMutableString(string: line)
+            let fullRange = NSRange(location: 0, length: mutable.length)
+            let inlineCodeRanges = inlineCodeRegex.matches(
+                in: line,
+                range: fullRange
+            ).map(\.range)
+            let replacements = malformedEscapeRunRegex.matches(in: line, range: fullRange).filter {
+                match in
+                !inlineCodeRanges.contains(where: {
+                    NSIntersectionRange($0, match.range).length > 0
+                })
+            }
+            for match in replacements.reversed() {
+                let raw = mutable.substring(with: match.range)
+                let decoded = raw
+                    .replacingOccurrences(of: "\\r\\n", with: "\n")
+                    .replacingOccurrences(of: "\\n", with: "\n")
+                    .replacingOccurrences(of: "\\r", with: "\n")
+                    .replacingOccurrences(of: "\\t", with: "\t")
+                mutable.replaceCharacters(in: match.range, with: decoded)
+                replacedAny = true
+            }
+            return mutable as String
+        }
+        return replacedAny ? lines.joined(separator: "\n") : nil
     }
 
     static func replacingBracketedPlaceholders(content: String, path: String) -> String? {
@@ -154,6 +196,9 @@ enum AgentArtifactTextQualityGate {
     private static let inlineCodeRegex = try! NSRegularExpression(pattern: #"`[^`]*`"#)
     private static let malformedEscapeRegex = try! NSRegularExpression(
         pattern: #"\\[nrt](?=\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)]\s|[A-Za-z]))"#
+    )
+    private static let malformedEscapeRunRegex = try! NSRegularExpression(
+        pattern: #"(?:\\[nrt])+(?=\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)]\s|[A-Za-z]))"#
     )
     private static let bracketedFieldRegex = try! NSRegularExpression(
         pattern: #"\[([^\]\n]{0,120})\](?!\()"#

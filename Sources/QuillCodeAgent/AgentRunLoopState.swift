@@ -25,6 +25,9 @@ struct AgentRunLoopState: Sendable {
     /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
     /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
     private(set) var malformedWrittenTextPaths: Set<String> = []
+    /// Latest malformed content by normalized path. Retained across readback so the runner can
+    /// deterministically decode visible formatting escapes after one ignored rewrite request.
+    private(set) var malformedWrittenTextContents: [String: String] = [:]
     /// Named prose artifacts whose latest successful write contains bracketed fill-in tokens.
     /// Enforcement is armed only when the user explicitly requests a placeholder-free artifact.
     private(set) var placeholderWrittenTextPaths: Set<String> = []
@@ -106,8 +109,10 @@ struct AgentRunLoopState: Sendable {
                 path: normalized
                ) {
                 malformedWrittenTextPaths.insert(normalized)
+                malformedWrittenTextContents[normalized] = content
             } else {
                 malformedWrittenTextPaths.remove(normalized)
+                malformedWrittenTextContents.removeValue(forKey: normalized)
             }
             if let arguments = try? ToolArguments(completion.call.argumentsJSON),
                let content = arguments.string("content"),

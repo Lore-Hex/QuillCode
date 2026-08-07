@@ -215,6 +215,9 @@ public struct AgentRunner: Sendable {
             var preflightCorrectedInvalidShellCalls = Set<ToolCallFingerprint>()
             /// A malformed named prose artifact receives one corrective rewrite request per path.
             var artifactTextQualityNudgedPaths = Set<String>()
+            /// If the model ignores that request, one deterministic escape-decoding repair is
+            /// allowed per path. The resulting write re-arms the normal readback gate.
+            var artifactTextQualityRepairedPaths = Set<String>()
             /// An explicitly placeholder-free named artifact receives one corrective rewrite per path.
             var artifactPlaceholderNudgedPaths = Set<String>()
             /// If the model ignores that rewrite request, one deterministic blank-field repair is
@@ -363,16 +366,32 @@ public struct AgentRunner: Sendable {
                    let correction = AgentArtifactTextQualityGate.correction(
                     userMessage: userMessage,
                     malformedPaths: runLoop.malformedWrittenTextPaths
-                   ), artifactTextQualityNudgedPaths.insert(correction.path).inserted {
-                    pendingRepeatNudge = correction.prompt
-                    next.events.append(.init(
-                        kind: .notice,
-                        summary: "Self-healing: requested clean text formatting for "
-                            + "./\(correction.path) before completion."
-                    ))
-                    next.updatedAt = Date()
-                    await onProgress?(next)
-                    continue actionLoop
+                   ) {
+                    if artifactTextQualityNudgedPaths.insert(correction.path).inserted {
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: requested clean text formatting for "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    if artifactTextQualityRepairedPaths.insert(correction.path).inserted,
+                       let repairCall = Self.malformedTextRepairCall(
+                        path: correction.path,
+                        contentsByPath: runLoop.malformedWrittenTextContents
+                       ) {
+                        resolvedAction = .tool(repairCall)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: decoded literal formatting escapes in "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    }
                 }
                 if case .say = resolvedAction,
                    let correction = AgentArtifactTextQualityGate.placeholderCorrection(
@@ -510,16 +529,32 @@ public struct AgentRunner: Sendable {
                         if let correction = AgentArtifactTextQualityGate.correction(
                             userMessage: userMessage,
                             malformedPaths: runLoop.malformedWrittenTextPaths
-                        ), artifactTextQualityNudgedPaths.insert(correction.path).inserted {
-                            pendingRepeatNudge = correction.prompt
-                            next.events.append(.init(
-                                kind: .notice,
-                                summary: "Self-healing: requested clean text formatting for "
-                                    + "./\(correction.path) before completion."
-                            ))
-                            next.updatedAt = Date()
-                            await onProgress?(next)
-                            continue actionLoop
+                        ) {
+                            if artifactTextQualityNudgedPaths.insert(correction.path).inserted {
+                                pendingRepeatNudge = correction.prompt
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: requested clean text formatting for "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                continue actionLoop
+                            }
+                            if artifactTextQualityRepairedPaths.insert(correction.path).inserted,
+                               let repairCall = Self.malformedTextRepairCall(
+                                path: correction.path,
+                                contentsByPath: runLoop.malformedWrittenTextContents
+                               ) {
+                                finalized = .tool(repairCall)
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: decoded literal formatting escapes in "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
                         }
                         if let correction = AgentArtifactTextQualityGate.placeholderCorrection(
                             userMessage: userMessage,
@@ -922,6 +957,25 @@ public struct AgentRunner: Sendable {
     ) -> ToolCall? {
         guard let content = contentsByPath[path],
               let repaired = AgentArtifactTextQualityGate.replacingBracketedPlaceholders(
+                content: content,
+                path: path
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
+    }
+
+    private static func malformedTextRepairCall(
+        path: String,
+        contentsByPath: [String: String]
+    ) -> ToolCall? {
+        guard let content = contentsByPath[path],
+              let repaired = AgentArtifactTextQualityGate.replacingMalformedLiteralEscapes(
                 content: content,
                 path: path
               )
