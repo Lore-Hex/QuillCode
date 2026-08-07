@@ -120,6 +120,18 @@ final class FileEditSessionGuardWriteTests: XCTestCase {
         XCTAssertTrue(files.write(path: "notes.txt", content: "different\n").ok)
     }
 
+    func testRepeatedSessionWriteIsIdempotentSuccess() throws {
+        let root = try makeTempDirectory()
+        let files = FileToolExecutor(workspaceRoot: root, editGuard: FileEditSessionGuard())
+
+        XCTAssertTrue(files.write(path: "report.csv", content: "id,value\n1,done\n").ok)
+        let repeated = files.write(path: "report.csv", content: "id,value\n1,done\n")
+
+        XCTAssertTrue(repeated.ok, repeated.error ?? "")
+        XCTAssertTrue(repeated.stdout.contains("Already up to date"), repeated.stdout)
+        XCTAssertEqual(repeated.artifacts, [root.appendingPathComponent("report.csv").path])
+    }
+
     func testUnguardedExecutorKeepsLegacyBehavior() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root)

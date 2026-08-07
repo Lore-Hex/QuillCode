@@ -25,6 +25,7 @@ public final class FileEditSessionGuard: @unchecked Sendable {
 
     private let stateLock = NSLock()
     private var readKeys: Set<String> = []
+    private var writtenKeys: Set<String> = []
     private var fileLocks: [String: NSLock] = [:]
 
     public init() {}
@@ -46,11 +47,29 @@ public final class FileEditSessionGuard: @unchecked Sendable {
         readKeys.insert(key)
     }
 
+    /// Records that the session successfully wrote `url`. A written file is also known-read,
+    /// while the separate write marker lets a replay of that exact write remain idempotent
+    /// without accepting a no-op edit to a file the model only inspected.
+    public func markWritten(_ url: URL) {
+        let key = Self.key(for: url)
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        readKeys.insert(key)
+        writtenKeys.insert(key)
+    }
+
     public func hasRead(_ url: URL) -> Bool {
         let key = Self.key(for: url)
         stateLock.lock()
         defer { stateLock.unlock() }
         return readKeys.contains(key)
+    }
+
+    public func hasWritten(_ url: URL) -> Bool {
+        let key = Self.key(for: url)
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return writtenKeys.contains(key)
     }
 
     /// Runs `body` while holding this session's lock for every URL in `urls`, so two edits
