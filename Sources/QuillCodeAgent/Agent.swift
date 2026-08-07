@@ -15,6 +15,10 @@ public struct AgentRunner: Sendable {
     /// spiral streamed thinking for 25 minutes without ever acting. Overrun → bounded corrective
     /// re-prompt, not a dead run.
     public static let defaultTurnDeadlineSeconds: TimeInterval = 300
+    /// Character budget for streamed reasoning before the model starts an action. This catches a
+    /// steady reasoner spiral much earlier than the wall-clock deadline while preserving normal
+    /// reasoning and every stream that has begun producing action JSON.
+    public static let defaultPreActionReasoningCharacterLimit = 12_000
     static let promisedWorkCorrectionLimit = 2
     /// Bounded recovery for a malformed model action (garbage/mojibake tokens) or a mid-stream
     /// transport reset: re-prompt/re-request up to this many times before the failure is terminal.
@@ -84,6 +88,8 @@ public struct AgentRunner: Sendable {
     /// action" correction (F20: a reasoner can stream thinking tokens indefinitely without ever
     /// acting; no terminal say means the phrase guards never see it). nil disables the deadline.
     public var turnDeadlineSeconds: TimeInterval?
+    /// Maximum streamed reasoning characters before any action text. nil disables the guard.
+    public var preActionReasoningCharacterLimit: Int?
     /// Last-resort model for a step the primary cannot produce at all (F22): when the primary
     /// exhausts the empty-response correction budget — a route-quality failure observed at ~1-in-6
     /// runs on one provider while an alternate model completed the same step first try — the
@@ -117,6 +123,7 @@ public struct AgentRunner: Sendable {
         lsp: LSPCoordinator? = nil,
         runSpendFusePolicy: RunSpendFusePolicy? = nil,
         turnDeadlineSeconds: TimeInterval? = AgentRunner.defaultTurnDeadlineSeconds,
+        preActionReasoningCharacterLimit: Int? = AgentRunner.defaultPreActionReasoningCharacterLimit,
         fallbackLLM: LLMClient? = nil
     ) {
         self.llm = llm
@@ -143,6 +150,7 @@ public struct AgentRunner: Sendable {
         self.lsp = lsp
         self.runSpendFusePolicy = runSpendFusePolicy
         self.turnDeadlineSeconds = turnDeadlineSeconds
+        self.preActionReasoningCharacterLimit = preActionReasoningCharacterLimit
         self.fallbackLLM = fallbackLLM
     }
 

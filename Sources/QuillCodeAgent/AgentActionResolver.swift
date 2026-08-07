@@ -149,6 +149,24 @@ extension AgentRunner {
                 ))
                 thread.updatedAt = Date()
                 await onProgress?(thread)
+            } catch let overrun as AgentPreActionReasoningBudgetExceededError {
+                try Task.checkCancellation()
+                guard attempt < Self.malformedActionCorrectionLimit else {
+                    throw overrun
+                }
+                attempt += 1
+                let correctionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
+                correctiveThread.updatedAt = Date()
+                pendingCorrectionPrompt = correctionPrompt
+                thread.events.append(.init(
+                    kind: .notice,
+                    summary: "Self-healing: the model exhausted its pre-action reasoning budget; "
+                        + "asked it to emit the next action "
+                        + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
+                ))
+                thread.updatedAt = Date()
+                await onProgress?(thread)
             } catch let interrupted as AgentStreamInterruptedError {
                 // Honor a stop before the exhaustion guard — see the invalidActionJSON arm.
                 try Task.checkCancellation()
