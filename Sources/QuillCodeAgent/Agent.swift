@@ -227,6 +227,8 @@ public struct AgentRunner: Sendable {
             /// rewrite request, followed by at most one deterministic numeral correction.
             var artifactCountConsistencyNudgedPaths = Set<String>()
             var artifactCountConsistencyRepairedPaths = Set<String>()
+            /// Explicitly source-only named artifacts receive one post-draft semantic audit.
+            var sourceGroundingAuditedPaths = Set<String>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -459,6 +461,23 @@ public struct AgentRunner: Sendable {
                         await onProgress?(next)
                     }
                 }
+                if case .say = resolvedAction,
+                   let correction = AgentSourceGroundingGate.correction(
+                    userMessage: userMessage,
+                    writtenPaths: runLoop.writtenWorkspacePaths,
+                    auditedPaths: sourceGroundingAuditedPaths
+                   ),
+                   sourceGroundingAuditedPaths.insert(correction.path).inserted {
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: requested a source-grounding audit for "
+                            + "./\(correction.path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
                 // the tool arm below and the loop continues; the gate re-checks at the next say.
@@ -650,6 +669,21 @@ public struct AgentRunner: Sendable {
                                 next.updatedAt = Date()
                                 await onProgress?(next)
                             }
+                        }
+                        if let correction = AgentSourceGroundingGate.correction(
+                            userMessage: userMessage,
+                            writtenPaths: runLoop.writtenWorkspacePaths,
+                            auditedPaths: sourceGroundingAuditedPaths
+                        ), sourceGroundingAuditedPaths.insert(correction.path).inserted {
+                            pendingRepeatNudge = correction.prompt
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: requested a source-grounding audit for "
+                                    + "./\(correction.path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
                         }
                         if !runLoop.hadDeniedStep {
                             finalized = try await actionByRequiringNamedDeliverables(
