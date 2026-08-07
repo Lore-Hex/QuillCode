@@ -3419,3 +3419,18 @@
   `QuillCodeDesktopUpdateView`, and `QuillCodeDesktopUpdateControllerTests` cover repeated in-session
   checks, retry backoff, manual rescheduling, visible-state deferral, task deallocation, reentrant menu
   commands, and non-cancellable activation.
+
+## 2026-08-07: downloads wait for successful exact-main CI before packaging
+
+- **Decision:** The **Download Builds** release-policy job validates its ref, then waits up to 30
+  minutes for a successful `CI` workflow run with the exact requested commit, `main` as its head
+  branch, and a `push` or `workflow_dispatch` event before planning or packaging any release.
+- **Why:** Merge-train dispatches CI and downloads independently. Build 629 demonstrated that
+  packaging and publication could finish while exact-main CI was still running and temporarily red,
+  even though branch CI and the eventual rerun were green. Public updater state must never outrun the
+  authoritative main test result.
+- **Failure behavior:** Missing, active, failed, cancelled, or mismatched runs remain non-authorizing.
+  The bounded gate reports state changes without log spam and fails closed at timeout; a later green
+  CI result requires a new or rerun Download Builds attempt.
+- **Evidence:** `scripts/wait-for-successful-ci.sh`, `.github/workflows/download-builds.yml`,
+  `ParityDownloadBuildCIGateTests`, and `ParityDownloadBuildsGateTests`.

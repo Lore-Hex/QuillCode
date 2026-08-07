@@ -192,6 +192,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "contents: write",
             "release-policy:",
             "scripts/validate-download-build-ref.sh",
+            "Wait for successful exact-main CI",
+            "scripts/wait-for-successful-ci.sh",
             "scripts/plan-download-build.sh",
             "build-required: ${{ steps.plan.outputs.build-required }}",
             "if: needs.release-policy.outputs.build-required == 'true'",
@@ -231,6 +233,11 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             workflow.contains("permissions:\n  actions: read\n  contents: write"),
             "repository write permission must remain scoped to the publish job"
         )
+        let validationIndex = try XCTUnwrap(workflow.range(of: "scripts/validate-download-build-ref.sh"))
+        let ciGateIndex = try XCTUnwrap(workflow.range(of: "scripts/wait-for-successful-ci.sh"))
+        let planningIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-build.sh"))
+        XCTAssertLessThan(validationIndex.lowerBound, ciGateIndex.lowerBound)
+        XCTAssertLessThan(ciGateIndex.lowerBound, planningIndex.lowerBound)
     }
 
     func testDownloadDocsExposeStableManifestLink() throws {

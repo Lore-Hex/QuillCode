@@ -34,6 +34,13 @@ The tester release is refreshed:
   names a publishing run that is unavailable, incomplete, failed, or mismatched
 - whenever a maintainer runs **Download Builds** manually from GitHub Actions
 
+Before packaging starts, **Download Builds** waits up to 30 minutes for a
+successful **CI** run whose commit and branch are exactly the requested `main`
+build. Pull-request CI, another branch, another commit, or a failed/cancelled run
+cannot authorize publication. The gate also covers merge-train, push, scheduled,
+manual, and stable-tag entrypoints, so a red or untested main commit cannot race
+ahead into the public updater feed.
+
 The nightly check skips packaging only when the live manifest publishes the
 current `main` commit and its exact **Download Builds** run completed successfully
 on that commit. This avoids no-op build-number updates and unnecessary updater
