@@ -125,6 +125,10 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         let workflow = try Self.workflowText(named: "download-builds.yml")
 
         Self.assertSource(workflow, containsAll: [
+            "actions: read",
+            "release-policy:",
+            "scripts/validate-download-build-ref.sh",
+            "needs: release-policy",
             "group: download-builds-${{ github.ref }}",
             "cancel-in-progress: false",
             "QUILLCODE_UPDATE_CHANNEL=stable",
@@ -139,7 +143,12 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "updater feed metadata",
             "current-release-assets.txt",
             "gh release delete-asset \"$RELEASE_TAG\" \"$asset_name\" --yes",
-            "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/* --clobber"
+            "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/* --clobber",
+            "--verify-tag",
+            "--draft",
+            "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/*",
+            "gh release edit \"$RELEASE_TAG\" --draft=false --latest",
+            "Stable release $RELEASE_TAG already exists and is immutable."
         ])
         XCTAssertFalse(
             workflow.contains("cancel-in-progress: true"),
@@ -160,6 +169,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "QuillCodeUpdateManifestURL",
             "QuillCodeStableUpdateManifestURL",
             "QuillCodeTesterUpdateManifestURL",
+            "canonical `vMAJOR.MINOR.PATCH` tag",
+            "an existing stable release is never edited or clobbered automatically",
             "channel is `tester`",
             "channel is `stable`"
         ])
