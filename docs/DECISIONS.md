@@ -3400,3 +3400,22 @@
   `scripts/plan-download-build.sh`, `.github/workflows/download-builds.yml`,
   `ParityPublishedReleaseVerificationGateTests`, `ParityDownloadBuildPlanGateTests`, and
   `ParityDownloadBuildsGateTests`.
+
+## 2026-08-07: automatic update scheduling survives long-running app sessions
+
+- **Decision:** The desktop updater owns one weakly captured automatic scheduler separately from its
+  foreground check/download/install task. The scheduler remains active for the app lifetime, checks
+  the persisted successful-check timestamp at every wake, and uses channel cadence plus bounded
+  failure and visible-UI deferrals. Foreground commands cannot cancel or overwrite an active update,
+  and activation is non-cancellable after the helper boundary.
+- **Why:** A one-shot launch check misses updates when Quill Cowork remains open for days. Sharing that
+  task with menu checks also allowed a repeated command to cancel a download or strand an activation
+  attempt. Re-reading the due time prevents a successful manual check from being followed by a
+  duplicate scheduled request.
+- **Memory and UX:** The sleeping task does not retain the controller between checks. Background
+  failures remain quiet, visible failures preserve bounded scrollable diagnostics, and failures tied
+  to a known release offer a direct retry without discarding the browser-download fallback.
+- **Evidence:** `QuillCodeDesktopUpdateSchedule`, `QuillCodeDesktopUpdateController`,
+  `QuillCodeDesktopUpdateView`, and `QuillCodeDesktopUpdateControllerTests` cover repeated in-session
+  checks, retry backoff, manual rescheduling, visible-state deferral, task deallocation, reentrant menu
+  commands, and non-cancellable activation.

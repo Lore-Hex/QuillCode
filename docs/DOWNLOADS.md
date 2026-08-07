@@ -75,9 +75,12 @@ in the app: `tester-latest` for tester builds and `releases/latest` for stable
 builds. Manifest generation fails when `BUILD_INFO.txt` and this feed identity
 disagree, because the app intentionally rejects a manifest from any other URL.
 
-The macOS app checks this feed after launch, no more than every six hours on the
-tester channel or daily on stable. **Check for Updates...** in the app menu runs
-an immediate check. The updater compares `CFBundleShortVersionString` plus
+The macOS app starts checking this feed after launch and remains scheduled while
+the app stays open: every six hours on the tester channel or daily on stable.
+**Check for Updates...** in the app menu runs an immediate check and resets the
+next automatic due time when it succeeds. Quiet background failures retry after
+30 minutes; visible update UI or an active foreground update defers background
+work for five minutes. The updater compares `CFBundleShortVersionString` plus
 `CFBundleVersion`, requires the configured repository, product, channel, bundle
 identifier, architecture, and signing identity, downloads on demand, and verifies
 the exact size, SHA-256 digest, app identity, version, architecture, and macOS code
@@ -87,7 +90,9 @@ Installation stages the verified app beside the running bundle, then uses a
 detached helper for the final rename and relaunch. The new app must complete a
 launch handshake within 45 seconds. Otherwise the helper restores and reopens the
 previous bundle. Background check failures stay quiet; user-initiated failures
-remain visible and retain a direct browser-download fallback.
+remain visible and retain direct retry and browser-download actions. Repeated
+menu checks cannot cancel an active download or the non-cancellable activation
+phase, and a background result never replaces update UI that is already visible.
 
 ## Tester Install Notes
 

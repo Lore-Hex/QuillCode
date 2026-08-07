@@ -44,12 +44,20 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     private let installer: any QuillCodeDesktopUpdateInstalling
     private let defaults: UserDefaults
     private let now: () -> Date
-    private let automaticCheckDelay: Duration
+    private let automaticSchedule: QuillCodeDesktopUpdateSchedule
     private let installResultURL: URL?
     private let terminateApplication: @MainActor () -> Void
-    private var task: Task<Void, Never>?
+    private var operationTask: Task<Void, Never>?
+    private var automaticTask: Task<Void, Never>?
     private var generation = UUID()
     private var didStartAutomaticChecks = false
+
+    private enum AutomaticCheckOutcome {
+        case success
+        case failure
+        case deferred
+        case rescheduled(TimeInterval)
+    }
 
     init(
         configuration: QuillCodeDesktopUpdateConfiguration? = .bundled(),
@@ -58,7 +66,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         installer: any QuillCodeDesktopUpdateInstalling = QuillCodeDesktopUpdateInstaller(),
         defaults: UserDefaults = .standard,
         now: @escaping () -> Date = Date.init,
-        automaticCheckDelay: Duration = .seconds(3),
+        automaticSchedule: QuillCodeDesktopUpdateSchedule = .production,
         installResultURL: URL? = try? QuillCodeDesktopUpdatePaths.installResultURL(),
         terminateApplication: @escaping @MainActor () -> Void =
             QuillCodeDesktopSystemApplication.terminateForUpdate
@@ -69,41 +77,69 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         self.installer = installer
         self.defaults = defaults
         self.now = now
-        self.automaticCheckDelay = automaticCheckDelay
+        self.automaticSchedule = automaticSchedule
         self.installResultURL = installResultURL
         self.terminateApplication = terminateApplication
     }
 
     deinit {
-        task?.cancel()
+        operationTask?.cancel()
+        automaticTask?.cancel()
     }
 
     func startAutomaticChecks() {
         guard !didStartAutomaticChecks else { return }
         didStartAutomaticChecks = true
         consumePreviousInstallResult()
-        guard let configuration, shouldAutomaticallyCheck(configuration: configuration) else { return }
+        guard let configuration else { return }
 
-        let generation = beginNewTask()
-        task = Task { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(for: self.automaticCheckDelay)
-            guard !Task.isCancelled else { return }
-            await self.performCheck(userInitiated: false, generation: generation)
+        let schedule = automaticSchedule
+        let firstDelay = schedule.firstDelay(
+            lastSuccessfulCheck: lastSuccessfulCheck(configuration: configuration),
+            now: now(),
+            channel: configuration.channel
+        )
+        automaticTask = Task { [weak self] in
+            var delay = firstDelay
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(delay))
+                } catch {
+                    return
+                }
+                guard let outcome = await self?.performAutomaticCheck(configuration: configuration) else {
+                    return
+                }
+                switch outcome {
+                case .success:
+                    delay = schedule.interval(for: configuration.channel)
+                case .failure:
+                    delay = schedule.failureRetryInterval
+                case .deferred:
+                    delay = schedule.busyRetryInterval
+                case .rescheduled(let remaining):
+                    delay = remaining
+                }
+            }
         }
     }
 
     func checkForUpdates() {
         isPresented = true
-        let generation = beginNewTask()
+        guard !state.isBusy else { return }
+        let generation = beginNewOperation()
         state = .checking
-        task = Task { [weak self] in
+        operationTask = Task { [weak self] in
             guard let self else { return }
-            await self.performCheck(userInitiated: true, generation: generation)
+            await self.performUserCheck(generation: generation)
         }
     }
 
     func updateAndRelaunch() {
+        guard !state.isBusy else {
+            isPresented = true
+            return
+        }
         guard let configuration,
               let release = state.release
         else {
@@ -113,10 +149,11 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             )
             return
         }
-        let generation = beginNewTask()
+        let generation = beginNewOperation()
         state = .downloading(release)
-        task = Task { [weak self] in
+        operationTask = Task { [weak self] in
             guard let self else { return }
+            defer { self.finishOperation(generation: generation) }
             do {
                 let prepared = try await preparer.prepare(
                     release: release,
@@ -143,8 +180,8 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     }
 
     func cancelCurrentOperation() {
-        guard let release = state.release else { return }
-        _ = beginNewTask()
+        guard case .downloading(let release) = state else { return }
+        _ = beginNewOperation()
         state = .updateAvailable(release)
     }
 
@@ -163,9 +200,10 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         NSWorkspace.shared.open(release.asset.url)
     }
 
-    private func performCheck(userInitiated: Bool, generation: UUID) async {
+    private func performUserCheck(generation: UUID) async {
+        defer { finishOperation(generation: generation) }
         guard let configuration else {
-            guard userInitiated, self.generation == generation else { return }
+            guard self.generation == generation else { return }
             state = .failed(
                 message: QuillCodeDesktopUpdateError.updatesUnavailable.localizedDescription,
                 release: nil
@@ -176,42 +214,76 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             let result = try await checker.check(configuration: configuration)
             try Task.checkCancellation()
             guard self.generation == generation else { return }
-            defaults.set(now(), forKey: lastCheckKey(configuration: configuration))
-            switch result {
-            case .updateAvailable(let release):
-                state = .updateAvailable(release)
-                isPresented = true
-            case .upToDate(let latestVersion, let latestBuild):
-                state = userInitiated
-                    ? .upToDate(latestVersion: latestVersion, latestBuild: latestBuild)
-                    : .idle
-            }
+            applySuccessfulCheck(result, userInitiated: true, configuration: configuration)
         } catch is CancellationError {
             return
         } catch {
             guard self.generation == generation else { return }
+            state = .failed(message: error.localizedDescription, release: nil)
+        }
+    }
+
+    private func performAutomaticCheck(
+        configuration: QuillCodeDesktopUpdateConfiguration
+    ) async -> AutomaticCheckOutcome {
+        let remaining = automaticSchedule.remainingDelay(
+            lastSuccessfulCheck: lastSuccessfulCheck(configuration: configuration),
+            now: now(),
+            channel: configuration.channel
+        )
+        guard remaining == 0 else { return .rescheduled(remaining) }
+        guard !state.isBusy, !isPresented else { return .deferred }
+        let startingGeneration = generation
+        do {
+            let result = try await checker.check(configuration: configuration)
+            try Task.checkCancellation()
+            guard generation == startingGeneration, !state.isBusy, !isPresented else {
+                return .deferred
+            }
+            applySuccessfulCheck(result, userInitiated: false, configuration: configuration)
+            return .success
+        } catch is CancellationError {
+            return .deferred
+        } catch {
+            return .failure
+        }
+    }
+
+    private func applySuccessfulCheck(
+        _ result: QuillCodeDesktopUpdateCheckResult,
+        userInitiated: Bool,
+        configuration: QuillCodeDesktopUpdateConfiguration
+    ) {
+        defaults.set(now(), forKey: lastCheckKey(configuration: configuration))
+        switch result {
+        case .updateAvailable(let release):
+            state = .updateAvailable(release)
+            isPresented = true
+        case .upToDate(let latestVersion, let latestBuild):
             state = userInitiated
-                ? .failed(message: error.localizedDescription, release: nil)
+                ? .upToDate(latestVersion: latestVersion, latestBuild: latestBuild)
                 : .idle
         }
     }
 
-    private func beginNewTask() -> UUID {
-        task?.cancel()
+    private func beginNewOperation() -> UUID {
+        operationTask?.cancel()
+        operationTask = nil
         generation = UUID()
         return generation
     }
 
-    private func shouldAutomaticallyCheck(
+    private func finishOperation(generation: UUID) {
+        guard self.generation == generation else { return }
+        operationTask = nil
+    }
+
+    private func lastSuccessfulCheck(
         configuration: QuillCodeDesktopUpdateConfiguration
-    ) -> Bool {
-        guard let lastCheck = defaults.object(
+    ) -> Date? {
+        defaults.object(
             forKey: lastCheckKey(configuration: configuration)
-        ) as? Date else {
-            return true
-        }
-        let interval: TimeInterval = configuration.channel == .tester ? 6 * 60 * 60 : 24 * 60 * 60
-        return now().timeIntervalSince(lastCheck) >= interval
+        ) as? Date
     }
 
     private func lastCheckKey(configuration: QuillCodeDesktopUpdateConfiguration) -> String {
