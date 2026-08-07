@@ -42,7 +42,8 @@ Download the latest automated tester build from
 [Quill Cowork Tester Build](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest).
 The tester release is refreshed after every successful `main` push and nightly;
 see [Downloadable Builds](docs/DOWNLOADS.md) for direct app/CLI links, the
-machine-readable build manifest, and tester notes.
+machine-readable build manifest, tester notes, and the in-app verified update and
+rollback flow.
 
 ```bash
 swift test

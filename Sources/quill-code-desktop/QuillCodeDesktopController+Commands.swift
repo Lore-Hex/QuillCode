@@ -43,6 +43,10 @@ extension QuillCodeDesktopController {
         isSettingsPresented = true
     }
 
+    func checkForUpdates() {
+        updateController.checkForUpdates()
+    }
+
     func stopAll() {
         activeWorkCoordinator.stopAll(
             draft: &draft,

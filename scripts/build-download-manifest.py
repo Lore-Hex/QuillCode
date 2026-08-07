@@ -94,6 +94,9 @@ def build_updater_metadata(
         asset for asset in assets
         if asset.get("kind") == "app" and asset.get("platform") == "macOS"
     ]
+    signing_team = build_info.get("signingTeamIdentifier")
+    if not signing_team or signing_team == "none":
+        signing_team = None
     return {
         "schemaVersion": 1,
         "format": "github-release-manifest",
@@ -103,6 +106,9 @@ def build_updater_metadata(
         "testerManifestURL": release_download_url(repo, "tester-latest", "latest-tester-build.json"),
         "bundleIdentifier": build_info.get("bundleIdentifier", "co.lorehex.QuillCowork"),
         "minimumSystemVersion": build_info.get("minimumSystemVersion", "14.0"),
+        "codesign": build_info.get("codesign", "unknown"),
+        "signingTeamIdentifier": signing_team,
+        "notarized": build_info.get("notarized", "false").lower() == "true",
         "macOSAppAsset": app_assets[0] if app_assets else None,
     }
 

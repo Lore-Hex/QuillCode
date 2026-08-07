@@ -17,6 +17,7 @@ struct QuillCodeMenuBarView: View {
     var onStopAll: () -> Void
     var onDisconnectAll: () -> Void
     var onComputerUseSetup: () -> Void
+    var onCheckForUpdates: () -> Void
     var onQuit: () -> Void
 
     var body: some View {
@@ -57,6 +58,7 @@ struct QuillCodeMenuBarView: View {
             menuActionButton("Computer Use Setup", action: onComputerUseSetup)
         }
         menuActionButton("Settings...", action: onSettings)
+        menuActionButton("Check for Updates...", action: onCheckForUpdates)
         Divider()
         menuActionButton("Stop All", isDisabled: stopAllCommand?.isEnabled != true, action: onStopAll)
         menuActionButton(

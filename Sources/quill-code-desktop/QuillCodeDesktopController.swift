@@ -47,6 +47,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator
     let worktreeCoordinator: QuillCodeDesktopWorktreeCoordinator
     let workflowRecordingCoordinator: QuillCodeDesktopWorkflowRecordingCoordinator
+    let updateController: QuillCodeDesktopUpdateController
     let tasks = QuillCodeDesktopTaskCoordinator()
     // Retained here because UNUserNotificationCenter.delegate is weak; nil until the window installs it.
     private var approvalNotificationDelegate: QuillCodeApprovalNotificationDelegate?
@@ -61,6 +62,7 @@ final class QuillCodeDesktopController: ObservableObject {
         sshRemoteProjectProbe: SSHRemoteProjectProbe = SSHRemoteProjectProbe(),
         transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator =
             QuillCodeDesktopTranscriptExportCoordinator(),
+        updateController: QuillCodeDesktopUpdateController? = nil,
         workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     ) {
         self.bootstrap = bootstrap
@@ -91,6 +93,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.transcriptExportCoordinator = transcriptExportCoordinator
         self.worktreeCoordinator = QuillCodeDesktopWorktreeCoordinator()
         self.workflowRecordingCoordinator = QuillCodeDesktopWorkflowRecordingCoordinator()
+        self.updateController = updateController ?? QuillCodeDesktopUpdateController()
         do {
             self.model = try bootstrap.makeModel()
         } catch {

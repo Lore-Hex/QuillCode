@@ -21,7 +21,7 @@ The build manifest is the app updater, website, and support script contract. It
 records the build channel, tag, commit, workflow run URL, version, build number,
 per-asset download URL, size, platform, architecture, and SHA-256 digest. It also
 includes an `updater` object with the feed URL, bundle identifier, minimum macOS
-version, and current macOS app asset.
+version, signing/notarization status, and current macOS app asset.
 
 ## Build Cadence
 
@@ -56,20 +56,29 @@ The stable feed is:
 https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json
 ```
 
-Updater clients should fetch the configured manifest, compare
-`CFBundleShortVersionString` plus `CFBundleVersion` against the manifest
-`version` plus `build`, select the `assets` entry where `kind` is `app`,
-`platform` is `macOS`, and `arch` matches the machine, verify the SHA-256 digest,
-then download and install that zip. Current tester builds are ad-hoc signed and
-not notarized, so silent in-place replacement should stay behind a signed and
-notarized stable release path. Tester updates can safely present the verified
-download and installation handoff.
+The macOS app checks this feed after launch, no more than every six hours on the
+tester channel or daily on stable. **Check for Updates...** in the app menu runs
+an immediate check. The updater compares `CFBundleShortVersionString` plus
+`CFBundleVersion`, requires the configured repository, product, channel, bundle
+identifier, architecture, and signing identity, downloads on demand, and verifies
+the exact size, SHA-256 digest, app identity, version, architecture, and macOS code
+signature before installation.
+
+Installation stages the verified app beside the running bundle, then uses a
+detached helper for the final rename and relaunch. The new app must complete a
+launch handshake within 45 seconds. Otherwise the helper restores and reopens the
+previous bundle. Background check failures stay quiet; user-initiated failures
+remain visible and retain a direct browser-download fallback.
 
 ## Tester Install Notes
 
 The macOS tester app is ad-hoc signed but not notarized yet. Testers may need to
 right-click **Open** the first time. Computer Use still requires normal macOS
 Screen Recording and Accessibility permissions.
+
+Tester builds support the same user-initiated update and rollback flow. A stable
+tag cannot publish a macOS app unless Developer ID signing and Apple notarization
+are configured.
 
 The app is still a tester build, so ask testers to include:
 
@@ -89,6 +98,26 @@ git push origin v0.1.0
 
 Use versioned releases for public announcements. Use `tester-latest` for quick
 iteration with early testers.
+
+## Apple Distribution Credentials
+
+The **Download Builds** workflow uses these repository secrets when present:
+
+- `APPLE_DEVELOPER_ID_CERTIFICATE_BASE64`
+- `APPLE_DEVELOPER_ID_CERTIFICATE_PASSWORD`
+- `APPLE_DEVELOPER_ID_APPLICATION_IDENTITY`
+- `APPLE_TEAM_ID`
+- `APPLE_NOTARY_KEY_ID`
+- `APPLE_NOTARY_ISSUER_ID`
+- `APPLE_NOTARY_PRIVATE_KEY_BASE64`
+
+The certificate secret is a base64-encoded Developer ID Application `.p12`. The
+notary key secret is a base64-encoded App Store Connect API `.p8`. The workflow
+imports both into a temporary runner-only signing area, enables the hardened
+runtime, submits the zipped app to `notarytool`, staples and validates the ticket,
+and deletes temporary credential files. Partial secret configuration fails the
+macOS job. Missing secrets still permit ad-hoc tester builds, but stable `v*` tags
+fail before packaging.
 
 ## Manual Build Refresh
 

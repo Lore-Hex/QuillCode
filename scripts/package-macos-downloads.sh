@@ -12,6 +12,12 @@ BUNDLE_ID="${QUILLCODE_MACOS_BUNDLE_ID:-co.lorehex.QuillCowork}"
 MINIMUM_SYSTEM_VERSION="${QUILLCODE_MACOS_MINIMUM_SYSTEM_VERSION:-14.0}"
 REPO="${GITHUB_REPOSITORY:-Lore-Hex/QuillCode}"
 UPDATE_CHANNEL="${QUILLCODE_UPDATE_CHANNEL:-tester}"
+SIGNING_IDENTITY="${QUILLCODE_MACOS_SIGNING_IDENTITY:-}"
+SIGNING_TEAM_IDENTIFIER="${QUILLCODE_MACOS_SIGNING_TEAM_IDENTIFIER:-}"
+SIGNING_KEYCHAIN="${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}"
+NOTARY_KEY_ID="${QUILLCODE_MACOS_NOTARY_KEY_ID:-}"
+NOTARY_ISSUER_ID="${QUILLCODE_MACOS_NOTARY_ISSUER_ID:-}"
+NOTARY_KEY_PATH="${QUILLCODE_MACOS_NOTARY_KEY_PATH:-}"
 TESTER_MANIFEST_URL="${QUILLCODE_TESTER_UPDATE_MANIFEST_URL:-https://github.com/$REPO/releases/download/tester-latest/latest-tester-build.json}"
 STABLE_MANIFEST_URL="${QUILLCODE_STABLE_UPDATE_MANIFEST_URL:-https://github.com/$REPO/releases/latest/download/latest-stable-build.json}"
 ASSET_DIR="$DIST_DIR/assets"
@@ -31,6 +37,17 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 2
 fi
 
+if [[ "$UPDATE_CHANNEL" == "stable" ]]; then
+  if [[ -z "$SIGNING_IDENTITY" || -z "$SIGNING_TEAM_IDENTIFIER" ]]; then
+    echo "Stable macOS builds require a Developer ID signing identity and team identifier." >&2
+    exit 2
+  fi
+  if [[ -z "$NOTARY_KEY_ID" || -z "$NOTARY_ISSUER_ID" || -z "$NOTARY_KEY_PATH" ]]; then
+    echo "Stable macOS builds require App Store Connect notarization credentials." >&2
+    exit 2
+  fi
+fi
+
 cd "$ROOT_DIR"
 rm -rf "$DIST_DIR"
 mkdir -p "$ASSET_DIR" "$CLI_DIR"
@@ -45,6 +62,9 @@ APP_BUNDLE="$(
   QUILLCODE_MACOS_UPDATE_MANIFEST_URL="$UPDATE_MANIFEST_URL" \
   QUILLCODE_MACOS_UPDATE_STABLE_MANIFEST_URL="$STABLE_MANIFEST_URL" \
   QUILLCODE_MACOS_UPDATE_TESTER_MANIFEST_URL="$TESTER_MANIFEST_URL" \
+  QUILLCODE_MACOS_SIGNING_IDENTITY="$SIGNING_IDENTITY" \
+  QUILLCODE_MACOS_SIGNING_TEAM_IDENTIFIER="$SIGNING_TEAM_IDENTIFIER" \
+  QUILLCODE_MACOS_SIGNING_KEYCHAIN="$SIGNING_KEYCHAIN" \
   QUILLCODE_MACOS_ADHOC_CODESIGN="${QUILLCODE_MACOS_ADHOC_CODESIGN:-1}" \
     "$ROOT_DIR/scripts/build-macos-app.sh" \
       --configuration "$CONFIGURATION" \
@@ -52,6 +72,30 @@ APP_BUNDLE="$(
 )"
 
 APP_ZIP="$ASSET_DIR/Quill-Cowork-macOS-$ARCH.zip"
+NOTARIZED=false
+CODESIGN_KIND="ad-hoc"
+if [[ -n "$SIGNING_IDENTITY" ]]; then
+  CODESIGN_KIND="developer-id"
+  if [[ -n "$NOTARY_KEY_ID" && -n "$NOTARY_ISSUER_ID" && -n "$NOTARY_KEY_PATH" ]]; then
+    if [[ ! -f "$NOTARY_KEY_PATH" ]]; then
+      echo "Notarization private key does not exist: $NOTARY_KEY_PATH" >&2
+      exit 2
+    fi
+    NOTARY_ARCHIVE="$DIST_DIR/notarization-submission.zip"
+    ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$NOTARY_ARCHIVE"
+    xcrun notarytool submit "$NOTARY_ARCHIVE" \
+      --key "$NOTARY_KEY_PATH" \
+      --key-id "$NOTARY_KEY_ID" \
+      --issuer "$NOTARY_ISSUER_ID" \
+      --wait
+    xcrun stapler staple "$APP_BUNDLE"
+    xcrun stapler validate "$APP_BUNDLE"
+    codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE"
+    spctl --assess --type execute --verbose=2 "$APP_BUNDLE"
+    NOTARIZED=true
+    rm -f "$NOTARY_ARCHIVE"
+  fi
+fi
 ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$APP_ZIP"
 
 echo "==> Packaging quill-code macOS CLI ($ARCH)"
@@ -89,8 +133,9 @@ stableUpdateManifestURL=$STABLE_MANIFEST_URL
 testerUpdateManifestURL=$TESTER_MANIFEST_URL
 app=Quill-Cowork-macOS-$ARCH.zip
 cli=quill-code-macOS-$ARCH.tar.gz
-codesign=ad-hoc
-notarized=false
+codesign=$CODESIGN_KIND
+signingTeamIdentifier=${SIGNING_TEAM_IDENTIFIER:-none}
+notarized=$NOTARIZED
 INFO
 
 (

@@ -6,12 +6,18 @@ struct QuillCodeDesktopCommands: Commands {
     var commands: [WorkspaceCommandSurface]
     var shortcutProfile: WorkspaceShortcutProfile
     var onCommand: (String) -> Void
+    var onCheckForUpdates: () -> Void
 
     private var commandsByID: [String: WorkspaceCommandSurface] {
         Dictionary(uniqueKeysWithValues: commands.map { ($0.id, $0) })
     }
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates...", action: onCheckForUpdates)
+                .accessibilityIdentifier("quillcode-menu-check-for-updates")
+        }
+
         CommandMenu(QuillCodeProduct.displayName) {
             command("New Chat", id: "new-chat")
             command("New Confidential Chat", id: "new-confidential-chat")
