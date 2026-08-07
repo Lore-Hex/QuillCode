@@ -303,6 +303,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Preserve source scope, quantities, qualifiers, and attribution"))
         XCTAssertTrue(prompt.contains("One named person's statement"))
         XCTAssertTrue(prompt.contains("do not turn hypotheses or directional observations into established claims"))
+        XCTAssertTrue(prompt.contains("Do not add assurances or commitments about confidentiality"))
+        XCTAssertTrue(prompt.contains("Omit unsupported assurances instead of inventing them"))
         XCTAssertTrue(prompt.contains("Use bracketed fill-in placeholders only when"))
         XCTAssertTrue(prompt.contains("placeholder-free artifact"))
         XCTAssertTrue(prompt.contains("never leave `[Name]`, `[Date]`, `[Company]`"))
