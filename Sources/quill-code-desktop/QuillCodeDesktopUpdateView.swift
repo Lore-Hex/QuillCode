@@ -95,7 +95,8 @@ struct QuillCodeDesktopUpdateView: View {
                 icon: "exclamationmark.triangle.fill",
                 title: "Update couldn't be completed",
                 detail: message,
-                showsProgress: false
+                showsProgress: false,
+                scrollsDetail: true
             )
         }
     }
@@ -138,7 +139,8 @@ struct QuillCodeDesktopUpdateView: View {
         icon: String,
         title: String,
         detail: String,
-        showsProgress: Bool
+        showsProgress: Bool,
+        scrollsDetail: Bool = false
     ) -> some View {
         VStack(spacing: 14) {
             Image(systemName: icon)
@@ -148,11 +150,22 @@ struct QuillCodeDesktopUpdateView: View {
             Text(title)
                 .font(.headline)
                 .multilineTextAlignment(.center)
-            Text(detail)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+            Group {
+                if scrollsDetail {
+                    ScrollView {
+                        Text(detail)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 4)
+                    }
+                    .frame(maxHeight: 84)
+                } else {
+                    Text(detail)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
             if showsProgress {
                 ProgressView()
                     .controlSize(.small)
@@ -189,14 +202,28 @@ struct QuillCodeDesktopUpdateView: View {
                     .foregroundStyle(.secondary)
             case .failed(_, let release):
                 if release != nil {
-                    Button("Download in Browser", action: controller.openDownloadInBrowser)
-                        .buttonStyle(QuillCodeActionButtonStyle())
-                        .quillCodeFormActionTarget()
+                    Button(action: controller.openDownloadInBrowser) {
+                        Label("Browser Download", systemImage: "safari")
+                    }
+                    .buttonStyle(QuillCodeActionButtonStyle())
+                    .quillCodeFormActionTarget()
                 }
                 Spacer()
-                Button("Check Again", action: controller.checkForUpdates)
+                if release != nil {
+                    Button(action: controller.updateAndRelaunch) {
+                        Label("Try Again", systemImage: "arrow.down.circle.fill")
+                    }
                     .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 110))
                     .quillCodeFormActionTarget(minWidth: 110)
+                    .accessibilityIdentifier("quillcode-update-retry")
+                } else {
+                    Button(action: controller.checkForUpdates) {
+                        Label("Check Again", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(QuillCodeActionButtonStyle(.primary, minWidth: 110))
+                    .quillCodeFormActionTarget(minWidth: 110)
+                    .accessibilityIdentifier("quillcode-update-recheck")
+                }
             case .idle, .checking:
                 Spacer()
             case .upToDate:

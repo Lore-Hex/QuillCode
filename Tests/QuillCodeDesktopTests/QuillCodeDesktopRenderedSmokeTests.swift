@@ -9,6 +9,42 @@ import QuillCodeTools
 
 @MainActor
 final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
+    func testRenderedUpdaterFailureKeepsRecoveryActionsInsideSheet() async throws {
+        let release = makeRelease(version: "0.2.0", build: "7")
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            checker: RenderedUpdateChecker(release: release),
+            preparer: RenderedFailingUpdatePreparer(),
+            defaults: UserDefaults(suiteName: "RenderedUpdaterFailure.\(UUID().uuidString)") ?? .standard,
+            automaticSchedule: .production,
+            installResultURL: nil
+        )
+        controller.checkForUpdates()
+        try await waitForUpdaterState(controller) { $0 == .updateAvailable(release) }
+        controller.updateAndRelaunch()
+        try await waitForUpdaterState(controller) {
+            if case .failed(_, let failedRelease) = $0 {
+                return failedRelease == release
+            }
+            return false
+        }
+
+        let image = try renderHostedView(
+            QuillCodeDesktopUpdateView(controller: controller),
+            width: 470,
+            height: 340,
+            debugPathEnvironmentKey: "QUILLCODE_RENDER_UPDATE_FAILURE_IMAGE_PATH"
+        )
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 470)
+        XCTAssertEqual(stats.height, 340)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.brightPixelRatio, 0.001)
+        XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
+    }
+
     func testRenderedSSHConnectionDialogShowsConfiguredHostsAndActions() throws {
         let coordinator = QuillCodeSSHConnectionDialogCoordinator()
         coordinator.isPresented = true
@@ -291,6 +327,17 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTFail("Desktop send did not complete with expected answer: \(expectedAnswer)", file: file, line: line)
     }
 
+    private func waitForUpdaterState(
+        _ controller: QuillCodeDesktopUpdateController,
+        matches: @escaping (QuillCodeDesktopUpdateController.State) -> Bool
+    ) async throws {
+        for _ in 0..<200 {
+            if matches(controller.state) { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("Updater did not reach the expected rendered state")
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("QuillCodeDesktopRenderTests-\(UUID().uuidString)", isDirectory: true)
@@ -299,6 +346,29 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
             try? FileManager.default.removeItem(at: url)
         }
         return url
+    }
+}
+
+private struct RenderedUpdateChecker: QuillCodeDesktopUpdateChecking {
+    var release: QuillCodeDesktopUpdateRelease
+
+    func check(
+        configuration: QuillCodeDesktopUpdateConfiguration
+    ) async throws -> QuillCodeDesktopUpdateCheckResult {
+        .updateAvailable(release)
+    }
+}
+
+private struct RenderedFailingUpdatePreparer: QuillCodeDesktopUpdatePreparing {
+    func prepare(
+        release: QuillCodeDesktopUpdateRelease,
+        configuration: QuillCodeDesktopUpdateConfiguration
+    ) async throws -> QuillCodeDesktopPreparedUpdate {
+        let detail = String(
+            repeating: "The downloaded bundle contains a component that could not be validated. ",
+            count: 8
+        )
+        throw QuillCodeDesktopUpdateError.invalidApplication(detail)
     }
 }
 
