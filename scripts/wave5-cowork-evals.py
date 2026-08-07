@@ -429,13 +429,19 @@ def build_prompt(row):
     capability_instruction = {
         "Browser pane": (
             "First inspect the currently open Browser page with the browser inspection tool. "
-            "Also read `inputs/context.md` and `inputs/data.csv`."
+            "Also use the file read tool separately on `inputs/context.md` and "
+            "`inputs/data.csv`."
         ),
         "Files/Shell": (
-            "Read `inputs/context.md` and `inputs/data.csv`, and use the shell tool at least once "
-            "to calculate or validate the numeric source data before writing."
+            "Use the file read tool separately on `inputs/context.md` and `inputs/data.csv`, then "
+            "use the shell tool at least once to calculate or validate the numeric source data. "
+            "Keep every temporary script and output inside the workspace, inspect the source "
+            "schema first, and convert only fields known to be numeric."
         ),
-        "Multi-file artifacts": "Read both `inputs/context.md` and `inputs/data.csv` before writing.",
+        "Multi-file artifacts": (
+            "Use the file read tool separately on `inputs/context.md` and `inputs/data.csv` "
+            "before writing."
+        ),
     }[row["Capability needed"]]
     return f"""{row['Task (what the person types)']}
 

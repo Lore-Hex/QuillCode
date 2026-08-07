@@ -21,6 +21,28 @@ def tool(name, input_payload=None, output_payload=None, status="done"):
 
 
 class Wave5CoworkEvalTests(unittest.TestCase):
+    def test_shell_prompt_requires_safe_schema_aware_validation(self):
+        prompt = WAVE5.build_prompt({
+            "ID": 261,
+            "Task (what the person types)": "Build a runway plan.",
+            "Capability needed": "Files/Shell",
+        })
+
+        self.assertIn("file read tool separately", prompt)
+        self.assertIn("temporary script and output inside the workspace", prompt)
+        self.assertIn("inspect the source schema first", prompt)
+        self.assertIn("only fields known to be numeric", prompt)
+
+    def test_every_capability_requires_dedicated_source_reads(self):
+        for capability in ("Browser pane", "Files/Shell", "Multi-file artifacts"):
+            with self.subTest(capability=capability):
+                prompt = WAVE5.build_prompt({
+                    "ID": 211,
+                    "Task (what the person types)": "Synthesize the sources.",
+                    "Capability needed": capability,
+                })
+                self.assertIn("file read tool separately", prompt)
+
     def test_required_concepts_never_exceed_detected_concepts(self):
         self.assertEqual(WAVE5.required_concept_matches(0), 0)
         self.assertEqual(WAVE5.required_concept_matches(1), 1)
