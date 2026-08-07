@@ -63,6 +63,17 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertEqual(WAVE5.required_concept_matches(3), 2)
         self.assertEqual(WAVE5.required_concept_matches(10), 4)
 
+    def test_investor_outreach_requires_all_fifteen_targets(self):
+        complete = "\n".join(f"## Fund {index:02d}" for index in range(1, 16))
+        required, matched = WAVE5.required_output_term_matches(256, complete)
+        self.assertEqual(len(required), 15)
+        self.assertEqual(matched, list(required))
+
+        incomplete = "## Fund 01\n\n## Fund 02\n\nFunds 03-15 summarized together"
+        required, matched = WAVE5.required_output_term_matches(256, incomplete)
+        self.assertEqual(len(matched), 2)
+        self.assertNotEqual(matched, list(required))
+
     def test_concept_aliases_accept_equivalent_founder_language(self):
         output = WAVE5.normalize(
             "Account prioritization by trigger, with Var vs Plan reporting and headline, subhead, CTA copy."

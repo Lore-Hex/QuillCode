@@ -262,6 +262,10 @@ CONCEPT_ALIASES = {
     "variance": ("variance", "var vs", "vs plan"),
 }
 
+CASE_REQUIRED_OUTPUT_TERMS = {
+    256: tuple(f"Fund {index:02d}" for index in range(1, 16)),
+}
+
 TASK_REFUSAL = re.compile(
     r"(?i)\b(?:i\s+(?:cannot|can't|am unable to)|we\s+(?:cannot|can't|are unable to)|unable to)\s+"
     r"(?:complete|finish|perform|fulfill|create|write|deliver)\s+"
@@ -378,6 +382,13 @@ def required_concept_matches(concept_count):
     if concept_count <= 0:
         return 0
     return min(concept_count, min(4, max(2, (concept_count + 1) // 2)))
+
+
+def required_output_term_matches(case_id, text):
+    required = CASE_REQUIRED_OUTPUT_TERMS.get(case_id, ())
+    normalized_output = normalize(text)
+    matched = [term for term in required if normalize(term) in normalized_output]
+    return required, matched
 
 
 def tool_payload(tool, field):
@@ -554,6 +565,13 @@ def grade(row, workspace, report, source_hashes):
     matched_concepts = [concept for concept in concepts if concept_matches(concept, normalized_output)]
     required = required_concept_matches(len(concepts))
     add("task coverage", len(matched_concepts) >= required, f"matched {matched_concepts}; required {required} of {concepts}")
+    required_terms, matched_terms = required_output_term_matches(row["ID"], text)
+    if required_terms:
+        add(
+            "repeated item coverage",
+            len(matched_terms) == len(required_terms),
+            f"matched {len(matched_terms)} of {len(required_terms)} required items",
+        )
     refusal = contains_task_refusal(text)
     add("no refusal", not refusal, "refusal language" if refusal else "clean")
     return checks, output
