@@ -51,8 +51,8 @@ finish launching.
 
 The moving `tester-latest` release is refreshed after verified main-branch changes. A scheduled
 recovery check rebuilds only when the public manifest is missing, malformed, stale, or points at a
-different commit. Direct links, manifests, checksums, channel behavior, and signing details are in
-[Downloadable Builds](docs/DOWNLOADS.md).
+different commit. Direct links, the machine-readable build manifest, checksums, channel behavior,
+and signing details are in [Downloadable Builds](docs/DOWNLOADS.md).
 
 ## Release Status
 
