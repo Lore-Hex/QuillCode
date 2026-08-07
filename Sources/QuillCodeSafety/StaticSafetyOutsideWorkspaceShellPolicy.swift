@@ -57,6 +57,13 @@ enum StaticSafetyOutsideWorkspaceShellPolicy {
     /// void when the command contains substitution (`$(`/backtick), which can smuggle any read.
     private static let contentBlindExecutables: Set<String> = ["df"]
 
+    /// A bare `/` inside one of these executable-language heredocs is an operator, not a shell
+    /// path argument. Keep scanning every other token in the body so explicit path spellings are
+    /// still gated, but do not turn ordinary expressions such as `cash / burn` into root access.
+    private static let executableLanguageHeredocHeads: Set<String> = [
+        "node", "perl", "python", "python3", "ruby",
+    ]
+
     /// The violation for this tool call, or nil when the gate does not apply: not a shell command,
     /// no out-of-workspace path reference, or every offending path is named verbatim in the user's
     /// message. Purely syntactic — never touches the filesystem (`homeDirectoryPath` is injectable
@@ -74,7 +81,8 @@ enum StaticSafetyOutsideWorkspaceShellPolicy {
         let workspaceRoot = context.workspaceRoot.map { normalizedDirectoryPath($0.path) }
 
         var offending: [String] = []
-        let folded = StaticSafetyPolicy.collapseWhitespace(command, foldNewlines: true)
+        let pathScanningCommand = neutralizingExecutableHeredocOperators(in: command)
+        let folded = StaticSafetyPolicy.collapseWhitespace(pathScanningCommand, foldNewlines: true)
         let substitutionFree = !folded.contains("$(") && !folded.contains("`")
         // Segments are split on any run of `;`/`&`/`|` so a content-blind head only ever vouches
         // for its OWN arguments — `df -h / && cat /etc/passwd` still gates the `cat` segment.
@@ -116,6 +124,74 @@ enum StaticSafetyOutsideWorkspaceShellPolicy {
     }
 
     // MARK: - Token cleanup
+
+    /// Shell tokenization and executable-language tokenization disagree about a standalone `/`.
+    /// Preserve the command and heredoc body for the normal safety scan, replacing only bare slash
+    /// tokens in heredocs launched by known expression languages. Shell heredocs remain untouched.
+    private static func neutralizingExecutableHeredocOperators(in command: String) -> String {
+        var activeDelimiter: String?
+        var output: [String] = []
+
+        for lineSlice in command.split(separator: "\n", omittingEmptySubsequences: false) {
+            let line = String(lineSlice)
+            if let delimiter = activeDelimiter {
+                if line.trimmingCharacters(in: .whitespaces) == delimiter {
+                    output.append(line)
+                    activeDelimiter = nil
+                } else {
+                    output.append(neutralizingBareSlashTokens(in: line))
+                }
+                continue
+            }
+
+            output.append(line)
+            activeDelimiter = executableLanguageHeredocDelimiter(in: line)
+        }
+        return output.joined(separator: "\n")
+    }
+
+    private static func executableLanguageHeredocDelimiter(in line: String) -> String? {
+        guard let marker = line.range(of: "<<") else { return nil }
+        let commandPrefix = line[..<marker.lowerBound]
+        let commandTokens = commandPrefix.split(whereSeparator: { $0 == " " || $0 == "\t" })
+        guard commandTokens.contains(where: {
+            executableLanguageHeredocHeads.contains(
+                StaticSafetyShellCommandSafety.basename(String($0))
+            )
+        }) else { return nil }
+
+        var suffix = line[marker.upperBound...]
+        if suffix.first == "-" { suffix = suffix.dropFirst() }
+        suffix = suffix.drop(while: { $0 == " " || $0 == "\t" })
+        guard let rawDelimiter = suffix.split(whereSeparator: { $0 == " " || $0 == "\t" }).first
+        else { return nil }
+        let delimiter = rawDelimiter.trimmingCharacters(in: CharacterSet(charactersIn: "'\""))
+        guard !delimiter.isEmpty,
+              delimiter.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" })
+        else { return nil }
+        return delimiter
+    }
+
+    private static func neutralizingBareSlashTokens(in line: String) -> String {
+        let characters = Array(line)
+        var output = ""
+        output.reserveCapacity(line.count)
+        for index in characters.indices {
+            let character = characters[index]
+            guard character == "/" else {
+                output.append(character)
+                continue
+            }
+            let previousIsBoundary = index == characters.startIndex
+                || characters[characters.index(before: index)].isWhitespace
+            let nextIndex = characters.index(after: index)
+            let nextIsBoundary = nextIndex == characters.endIndex || characters[nextIndex].isWhitespace
+            output += previousIsBoundary && nextIsBoundary
+                ? "__quillcode_arithmetic_slash__"
+                : "/"
+        }
+        return output
+    }
 
     /// Strips the shell syntax wrapped around a path spelling: quotes anywhere in the token
     /// (`"~/My"` and `"$HOME"/x` both unwrap), a redirection prefix (`2>/dev/null`, `&>/tmp/x`),
