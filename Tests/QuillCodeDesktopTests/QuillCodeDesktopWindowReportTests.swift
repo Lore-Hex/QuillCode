@@ -76,6 +76,47 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
     }
 
+    func testCoworkEvalRequestPinsExactModelAndParsesIsolatedPaths() throws {
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-home", "/tmp/quill-eval-home",
+            "--cowork-eval-workspace", "/tmp/quill-eval-workspace",
+            "--cowork-eval-prompt-file", "/tmp/quill-eval-prompt.txt",
+            "--cowork-eval-report", "/tmp/quill-eval-report.json",
+            "--cowork-eval-browser-path", "inputs/browser.html",
+            "--cowork-eval-timeout-seconds", "300"
+        ]))
+
+        XCTAssertEqual(request.homePath, "/tmp/quill-eval-home")
+        XCTAssertEqual(request.workspacePath, "/tmp/quill-eval-workspace")
+        XCTAssertEqual(request.promptPath, "/tmp/quill-eval-prompt.txt")
+        XCTAssertEqual(request.reportPath, "/tmp/quill-eval-report.json")
+        XCTAssertEqual(request.browserPath, "inputs/browser.html")
+        XCTAssertEqual(request.modelID, "deepseek/deepseek-v4-flash-0731")
+        XCTAssertEqual(request.timeoutSeconds, 300)
+        XCTAssertNil(QuillCodeDesktopCoworkEvalRequest(arguments: ["QuillCode"]))
+    }
+
+    func testCoworkEvalControllerUsesExplicitStateAndWorkspace() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-cowork-eval-root-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-home", root.appendingPathComponent("home").path,
+            "--cowork-eval-workspace", root.appendingPathComponent("workspace").path,
+            "--cowork-eval-prompt-file", root.appendingPathComponent("prompt.txt").path
+        ]))
+        let controller = request.makeController(environment: ["QUILLCODE_USE_MOCK_LLM": "1"])
+
+        XCTAssertEqual(controller.bootstrap.paths.home.path, request.homePath)
+        XCTAssertEqual(controller.workspaceRoot.path, request.workspacePath)
+        XCTAssertTrue(controller.model.root.projects.allSatisfy { $0.path == request.workspacePath })
+        XCTAssertTrue(controller.automationNotifier is QuillCodeDesktopCoworkEvalNotifier)
+    }
+
     func testDesktopSmokePixelValidationAcceptsConfiguredMinimumColorBuckets() throws {
         let stats = QuillCodeDesktopSmokePixelStats(
             report: QuillCodeDesktopSmokePixelReport(

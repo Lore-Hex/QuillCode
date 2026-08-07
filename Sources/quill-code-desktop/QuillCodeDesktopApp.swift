@@ -21,6 +21,15 @@ struct QuillCodeDesktopApp: App {
         // pin fixes that class of contrast bugs everywhere at once.
         NSApplication.shared.appearance = NSAppearance(named: .darkAqua)
 
+        if let request = QuillCodeDesktopCoworkEvalRequest(arguments: CommandLine.arguments) {
+            let controller = request.makeController()
+            _controller = StateObject(wrappedValue: controller)
+            Task { @MainActor in
+                await QuillCodeDesktopCoworkEvalRunner.runAndExit(request, controller: controller)
+            }
+            return
+        }
+
         if let windowRequest = QuillCodeDesktopWindowSmokeRequest(arguments: CommandLine.arguments) {
             let workspaceRoot = QuillCodeDesktopWindowSmokeWorkspaceRoot(request: windowRequest)
             let controller = workspaceRoot.makeController()
