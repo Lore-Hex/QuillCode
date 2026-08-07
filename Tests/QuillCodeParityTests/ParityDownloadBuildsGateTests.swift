@@ -125,9 +125,16 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         let workflow = try Self.workflowText(named: "download-builds.yml")
 
         Self.assertSource(workflow, containsAll: [
+            "permissions: {}",
             "actions: read",
+            "contents: read",
+            "contents: write",
             "release-policy:",
             "scripts/validate-download-build-ref.sh",
+            "scripts/plan-download-build.sh",
+            "build-required: ${{ steps.plan.outputs.build-required }}",
+            "if: needs.release-policy.outputs.build-required == 'true'",
+            "persist-credentials: false",
             "needs: release-policy",
             "group: download-builds-${{ github.ref }}",
             "cancel-in-progress: false",
@@ -154,6 +161,10 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             workflow.contains("cancel-in-progress: true"),
             "a scheduled build must not cancel another run while it is publishing release assets"
         )
+        XCTAssertFalse(
+            workflow.contains("permissions:\n  actions: read\n  contents: write"),
+            "repository write permission must remain scoped to the publish job"
+        )
     }
 
     func testDownloadDocsExposeStableManifestLink() throws {
@@ -171,6 +182,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "QuillCodeTesterUpdateManifestURL",
             "canonical `vMAJOR.MINOR.PATCH` tag",
             "an existing stable release is never edited or clobbered automatically",
+            "avoids no-op build-number updates and unnecessary",
             "channel is `tester`",
             "channel is `stable`"
         ])

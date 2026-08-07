@@ -8,9 +8,7 @@ on:
   schedule:
     - cron: "17 10 * * *"
 
-permissions:
-  actions: read
-  contents: write
+permissions: {}
 
 concurrency:
   group: download-builds-${{ github.ref }}
@@ -19,20 +17,36 @@ concurrency:
 jobs:
   release-policy:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      build-required: ${{ steps.plan.outputs.build-required }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Validate download build ref
         env:
           GH_TOKEN: ${{ github.token }}
         run: scripts/validate-download-build-ref.sh
+      - name: Plan download build
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/plan-download-build.sh
 
   macos:
     needs: release-policy
+    if: needs.release-policy.outputs.build-required == 'true'
     runs-on: macos-15
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Set build metadata
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
@@ -79,10 +93,15 @@ jobs:
 
   linux:
     needs: release-policy
+    if: needs.release-policy.outputs.build-required == 'true'
     runs-on: ubuntu-latest
     container: swift:6.2-noble
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Set build metadata
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
@@ -108,6 +127,9 @@ jobs:
   publish:
     needs: [macos, linux]
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -180,7 +202,7 @@ jobs:
           - \`Quill-Cowork-macOS-*.zip\`: macOS app bundle for testers.
           - \`quill-code-macOS-*.tar.gz\`: macOS CLI.
           - \`quill-code-linux-*.tar.gz\`: Linux CLI.
-          - \`SHASUMS256.txt\`: checksum manifest for every asset.
+          - \`SHASUMS256.txt\`: checksums for package and build-info assets.
           - \`${MANIFEST_NAME}\`: machine-readable build metadata, updater feed metadata, download URLs, sizes, and SHA-256 digests.
 
           macOS distribution note: ${MACOS_DISTRIBUTION_NOTE} Computer Use still requires normal macOS Screen Recording and Accessibility permissions.

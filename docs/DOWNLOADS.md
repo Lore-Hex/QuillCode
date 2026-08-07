@@ -29,11 +29,15 @@ The tester release is refreshed:
 
 - after every successful push to `main`
 - after merge-train PR merges, which explicitly dispatch **Download Builds**
-- every night from the scheduled **Download Builds** workflow
+- from the nightly **Download Builds** recovery check when the published tester
+  manifest is missing, malformed, stale, or points to another `main` commit
 - whenever a maintainer runs **Download Builds** manually from GitHub Actions
 
-The workflow updates the stable `tester-latest` tag and replaces release assets
-in place, so the links above do not change as new builds are published.
+The nightly check skips packaging when the live manifest already publishes the
+current `main` commit. This avoids no-op build-number updates and unnecessary
+updater prompts. When a build is required, the workflow updates the stable
+`tester-latest` tag and replaces release assets in place, so the links above do
+not change as new builds are published.
 
 ## Auto-Update Contract
 
