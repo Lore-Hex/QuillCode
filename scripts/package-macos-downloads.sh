@@ -15,6 +15,7 @@ UPDATE_CHANNEL="${QUILLCODE_UPDATE_CHANNEL:-tester}"
 SIGNING_IDENTITY="${QUILLCODE_MACOS_SIGNING_IDENTITY:-}"
 SIGNING_TEAM_IDENTIFIER="${QUILLCODE_MACOS_SIGNING_TEAM_IDENTIFIER:-}"
 SIGNING_KEYCHAIN="${QUILLCODE_MACOS_SIGNING_KEYCHAIN:-}"
+SWIFT_DEBUG_INFO_FORMAT="${QUILLCODE_SWIFT_DEBUG_INFO_FORMAT:-}"
 NOTARY_KEY_ID="${QUILLCODE_MACOS_NOTARY_KEY_ID:-}"
 NOTARY_ISSUER_ID="${QUILLCODE_MACOS_NOTARY_ISSUER_ID:-}"
 NOTARY_KEY_PATH="${QUILLCODE_MACOS_NOTARY_KEY_PATH:-}"
@@ -72,6 +73,7 @@ APP_BUNDLE="$(
 )"
 
 APP_ZIP="$ASSET_DIR/Quill-Cowork-macOS-$ARCH.zip"
+PERFORMANCE_MANIFEST="$ASSET_DIR/Quill-Cowork-macOS-$ARCH-PERFORMANCE.json"
 NOTARIZED=false
 CODESIGN_KIND="ad-hoc"
 if [[ -n "$SIGNING_IDENTITY" ]]; then
@@ -96,11 +98,25 @@ if [[ -n "$SIGNING_IDENTITY" ]]; then
     rm -f "$NOTARY_ARCHIVE"
   fi
 fi
+"$ROOT_DIR/scripts/packaged-macos-performance-smoke.sh" \
+  --app "$APP_BUNDLE" \
+  --manifest "$PERFORMANCE_MANIFEST"
 ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$APP_ZIP"
 
 echo "==> Packaging quill-code macOS CLI ($ARCH)"
-swift build --configuration "$CONFIGURATION" --product quill-code >&2
-BIN_DIR="$(swift build --configuration "$CONFIGURATION" --product quill-code --show-bin-path)"
+SWIFT_BUILD_ARGUMENTS=(--configuration "$CONFIGURATION" --product quill-code)
+if [[ -n "$SWIFT_DEBUG_INFO_FORMAT" ]]; then
+  case "$SWIFT_DEBUG_INFO_FORMAT" in
+    dwarf|codeview|none) ;;
+    *)
+      echo "Unsupported QUILLCODE_SWIFT_DEBUG_INFO_FORMAT: $SWIFT_DEBUG_INFO_FORMAT" >&2
+      exit 2
+      ;;
+  esac
+  SWIFT_BUILD_ARGUMENTS+=(-debug-info-format "$SWIFT_DEBUG_INFO_FORMAT")
+fi
+swift build "${SWIFT_BUILD_ARGUMENTS[@]}" >&2
+BIN_DIR="$(swift build "${SWIFT_BUILD_ARGUMENTS[@]}" --show-bin-path)"
 cp "$BIN_DIR/quill-code" "$CLI_DIR/quill-code"
 chmod 755 "$CLI_DIR/quill-code"
 cat > "$CLI_DIR/README.txt" <<README
@@ -132,6 +148,7 @@ updateManifestURL=$UPDATE_MANIFEST_URL
 stableUpdateManifestURL=$STABLE_MANIFEST_URL
 testerUpdateManifestURL=$TESTER_MANIFEST_URL
 app=Quill-Cowork-macOS-$ARCH.zip
+performance=Quill-Cowork-macOS-$ARCH-PERFORMANCE.json
 cli=quill-code-macOS-$ARCH.tar.gz
 codesign=$CODESIGN_KIND
 signingTeamIdentifier=${SIGNING_TEAM_IDENTIFIER:-none}
@@ -140,7 +157,9 @@ INFO
 
 (
   cd "$ASSET_DIR"
-  shasum -a 256 Quill-Cowork-macOS-"$ARCH".zip quill-code-macOS-"$ARCH".tar.gz BUILD_INFO.txt \
+  shasum -a 256 Quill-Cowork-macOS-"$ARCH".zip \
+    Quill-Cowork-macOS-"$ARCH"-PERFORMANCE.json \
+    quill-code-macOS-"$ARCH".tar.gz BUILD_INFO.txt \
     > "Quill-Cowork-macOS-$ARCH-SHASUMS256.txt"
 )
 

@@ -29,6 +29,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
                 encoding: .utf8
             )
         try Data("mac app".utf8).write(to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64.zip"))
+        try Data(#"{"withinBudget":true}"#.utf8).write(
+            to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64-PERFORMANCE.json")
+        )
         try Data("mac cli".utf8).write(to: temporaryDirectory.appendingPathComponent("quill-code-macOS-arm64.tar.gz"))
         try Data("linux cli".utf8).write(to: temporaryDirectory.appendingPathComponent("quill-code-linux-x86_64.tar.gz"))
         try "placeholder checksums\n"
@@ -91,7 +94,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(updaterAppAsset["name"] as? String, "Quill-Cowork-macOS-arm64.zip")
 
         let assets = try XCTUnwrap(manifest["assets"] as? [[String: Any]])
-        XCTAssertEqual(assets.count, 6)
+        XCTAssertEqual(assets.count, 7)
 
         let appAsset = try asset(named: "Quill-Cowork-macOS-arm64.zip", in: assets)
         XCTAssertEqual(appAsset["kind"] as? String, "app")
@@ -101,6 +104,15 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(appAsset["url"] as? String, "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip")
         XCTAssertEqual(appAsset["sizeBytes"] as? Int, 7)
         XCTAssertEqual((appAsset["sha256"] as? String)?.count, 64)
+
+        let performanceAsset = try asset(
+            named: "Quill-Cowork-macOS-arm64-PERFORMANCE.json",
+            in: assets
+        )
+        XCTAssertEqual(performanceAsset["kind"] as? String, "performance")
+        XCTAssertEqual(performanceAsset["platform"] as? String, "macOS")
+        XCTAssertEqual(performanceAsset["arch"] as? String, "arm64")
+        XCTAssertEqual(performanceAsset["install"] as? String, "json")
 
         let linuxAsset = try asset(named: "quill-code-linux-x86_64.tar.gz", in: assets)
         XCTAssertEqual(linuxAsset["kind"] as? String, "cli")
@@ -300,6 +312,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "updateManifestURL=$UPDATE_MANIFEST_URL",
             "stableUpdateManifestURL=$STABLE_MANIFEST_URL",
             "testerUpdateManifestURL=$TESTER_MANIFEST_URL",
+            "performance=Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",
+            "scripts/packaged-macos-performance-smoke.sh",
             "signingTeamIdentifier=${SIGNING_TEAM_IDENTIFIER:-none}",
             "notarized=$NOTARIZED"
         ])

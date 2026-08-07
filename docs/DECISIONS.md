@@ -3517,3 +3517,19 @@
   CI result requires a new or rerun Download Builds attempt.
 - **Evidence:** `scripts/wait-for-successful-ci.sh`, `.github/workflows/download-builds.yml`,
   `ParityDownloadBuildCIGateTests`, and `ParityDownloadBuildsGateTests`.
+
+## 2026-08-07: published macOS builds carry native performance evidence
+
+- **Decision:** The packaged live-window smoke captures app-entry-to-window-ready time, resident
+  memory, and thread count directly from the native process before screenshot and
+  Accessibility sampling. Default release budgets are three seconds and 256 MiB resident memory.
+- **Why:** Functional smoke alone cannot protect Quill Cowork's native speed and memory advantage.
+  Measuring the release-configured `.app` makes large startup or footprint regressions fail before
+  publication and gives future optimization work a durable baseline rather than anecdotes.
+- **Boundary:** This is an initial empty-workspace measurement, not a claim about long-running peak
+  memory or arbitrary project sizes. The first budgets retain broad headroom across GitHub macOS
+  runners; daily-driving and workload evidence should tighten them without making CI hardware noise
+  the product metric.
+- **Evidence:** `QuillCodeDesktopPerformanceSnapshot`, the window-smoke performance object,
+  `scripts/native_click_probe_contracts/performance.py`, `scripts/packaged-macos-performance-smoke.sh`,
+  packaged smoke artifacts, and the public architecture-specific `PERFORMANCE.json` release asset.

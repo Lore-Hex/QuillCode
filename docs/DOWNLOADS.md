@@ -11,6 +11,7 @@ Send testers this moving prerelease link:
 Direct asset links for the current tester channel:
 
 - [macOS app: `Quill-Cowork-macOS-arm64.zip`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip)
+- [macOS performance evidence: `Quill-Cowork-macOS-arm64-PERFORMANCE.json`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64-PERFORMANCE.json)
 - [macOS CLI: `quill-code-macOS-arm64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-macOS-arm64.tar.gz)
 - [Linux CLI: `quill-code-linux-x86_64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-linux-x86_64.tar.gz)
 - [Checksums: `SHASUMS256.txt`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/SHASUMS256.txt)
@@ -55,6 +56,13 @@ tag to the expected commit, checks the exact release inventory and updater feed
 contract, then downloads every declared asset with bounded streaming and
 verifies GitHub's digest, manifest size/SHA-256, `SHASUMS256.txt`, and
 `BUILD_INFO.txt`. A publication is not green until this consumer check passes.
+
+The release-configured macOS app must also open a real native window within three
+seconds and remain below 256 MiB of resident memory at that initial-window
+boundary. The measured values, thread count, and enforced budgets
+ship as the architecture-specific `PERFORMANCE.json` asset. These intentionally
+conservative first budgets catch major regressions while repeated tester evidence
+establishes tighter native baselines.
 
 ## Auto-Update Contract
 

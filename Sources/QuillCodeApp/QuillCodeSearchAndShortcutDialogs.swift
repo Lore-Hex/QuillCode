@@ -280,7 +280,9 @@ struct QuillCodeSearchView: View {
         .background(QuillCodePalette.background)
         .onAppear {
             selection.reconcile(with: results, preferredID: sidebar.selectedThreadID)
-            focusSearchField()
+        }
+        .task {
+            await focusSearchField()
         }
         .onChange(of: localQuery) { _, newValue in
             if query != newValue {
@@ -324,11 +326,12 @@ struct QuillCodeSearchView: View {
         onSelectThread(id)
     }
 
-    private func focusSearchField() {
-        DispatchQueue.main.async {
-            isSearchFocused = true
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+    @MainActor
+    private func focusSearchField() async {
+        isSearchFocused = true
+        for delay in [50_000_000, 200_000_000] as [UInt64] {
+            try? await Task.sleep(nanoseconds: delay)
+            guard !Task.isCancelled else { return }
             isSearchFocused = true
         }
     }

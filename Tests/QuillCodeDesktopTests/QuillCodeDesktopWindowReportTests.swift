@@ -7,6 +7,31 @@ import QuillComputerUseKit
 
 @MainActor
 final class QuillCodeDesktopWindowReportTests: XCTestCase {
+    func testDesktopPerformanceSnapshotCapturesBoundedProcessResources() throws {
+        let now = ProcessInfo.processInfo.systemUptime
+        let snapshot = try QuillCodeDesktopPerformanceSnapshot.capture(
+            launchStartedAtUptime: now - 1.25,
+            nowUptime: now
+        )
+
+        XCTAssertEqual(snapshot.launchReadyMilliseconds, 1_250, accuracy: 0.01)
+        XCTAssertGreaterThan(snapshot.residentMemoryBytes, 0)
+        XCTAssertGreaterThan(snapshot.threadCount, 0)
+        XCTAssertEqual(
+            snapshot.dictionary["measurement"] as? String,
+            "initial-live-window"
+        )
+    }
+
+    func testDesktopPerformanceSnapshotRejectsInvalidLaunchTiming() {
+        XCTAssertThrowsError(
+            try QuillCodeDesktopPerformanceSnapshot.capture(
+                launchStartedAtUptime: 2,
+                nowUptime: 1
+            )
+        )
+    }
+
     func testDesktopSmokePixelValidationAcceptsConfiguredMinimumColorBuckets() throws {
         let stats = QuillCodeDesktopSmokePixelStats(
             report: QuillCodeDesktopSmokePixelReport(
@@ -206,6 +231,11 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             stateRootPath: "/tmp/quillcode-window-state",
             appStatePath: "/tmp/quillcode-window-state/app-state",
             workspacePath: "/tmp/quillcode-window-state/workspace",
+            performance: QuillCodeDesktopPerformanceSnapshot(
+                launchReadyMilliseconds: 742.5,
+                residentMemoryBytes: 96 * 1_024 * 1_024,
+                threadCount: 18
+            ),
             image: QuillCodeDesktopSmokePixelReport(
                 width: 2560,
                 height: 1800,
@@ -241,9 +271,14 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""allowsTextSelection" : false"#))
         XCTAssertTrue(json.contains(#""surface""#))
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
+        XCTAssertTrue(json.contains(#""measurement" : "initial-live-window""#))
         XCTAssertEqual(jsonObject["stateRootPath"] as? String, "/tmp/quillcode-window-state")
         XCTAssertEqual(jsonObject["appStatePath"] as? String, "/tmp/quillcode-window-state/app-state")
         XCTAssertEqual(jsonObject["workspacePath"] as? String, "/tmp/quillcode-window-state/workspace")
+        XCTAssertEqual(
+            (jsonObject["performance"] as? [String: Any])?["residentMemoryBytes"] as? Int,
+            96 * 1_024 * 1_024
+        )
     }
 
     func testComputerUseCoordinatorRefreshesForegroundApplication() async throws {
