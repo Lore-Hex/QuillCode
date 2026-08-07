@@ -15,7 +15,7 @@ extension AgentRunner {
         workspaceRoot: URL,
         onProgress: AgentRunProgressHandler?,
         injectedCorrection: String? = nil,
-        enforcePreActionReasoningBudget: Bool = true
+        reasoningBudgetPhase: AgentReasoningBudgetPhase = .startup
     ) async throws -> AgentAction {
         if injectedCorrection == nil,
            enablesImmediateActionPreflight,
@@ -58,7 +58,7 @@ extension AgentRunner {
                         thread: &thread,
                         onProgress: onProgress,
                         via: activeLLM,
-                        enforcePreActionReasoningBudget: enforcePreActionReasoningBudget
+                        reasoningBudgetPhase: reasoningBudgetPhase
                     )
                 }
                 return try await dispatchNextAction(
@@ -67,7 +67,7 @@ extension AgentRunner {
                     tools: tools,
                     onProgress: onProgress,
                     via: activeLLM,
-                    enforcePreActionReasoningBudget: enforcePreActionReasoningBudget
+                    reasoningBudgetPhase: reasoningBudgetPhase
                 )
             } catch TrustedRouterAgentError.emptyToolArguments(let toolName) {
                 if let action = AgentImmediateActionPlanner.action(for: userMessage, tools: tools) {
@@ -238,7 +238,7 @@ extension AgentRunner {
         thread: inout ChatThread,
         onProgress: AgentRunProgressHandler?,
         via llm: LLMClient,
-        enforcePreActionReasoningBudget: Bool
+        reasoningBudgetPhase: AgentReasoningBudgetPhase
     ) async throws -> AgentAction {
         var correctiveRun = correctiveThread
         let priorEventCount = correctiveRun.events.count
@@ -248,7 +248,7 @@ extension AgentRunner {
             tools: tools,
             onProgress: nil,
             via: llm,
-            enforcePreActionReasoningBudget: enforcePreActionReasoningBudget
+            reasoningBudgetPhase: reasoningBudgetPhase
         )
         if correctiveRun.events.count > priorEventCount {
             thread.events.append(contentsOf: correctiveRun.events[priorEventCount...])
@@ -265,7 +265,7 @@ extension AgentRunner {
         tools: [ToolDefinition],
         onProgress: AgentRunProgressHandler?,
         via llm: LLMClient,
-        enforcePreActionReasoningBudget: Bool
+        reasoningBudgetPhase: AgentReasoningBudgetPhase
     ) async throws -> AgentAction {
         if let usageStreamingLLM = llm as? any UsageStreamingLLMClient {
             return try await nextUsageStreamingAction(
@@ -274,7 +274,7 @@ extension AgentRunner {
                 userMessage: userMessage,
                 tools: tools,
                 onProgress: onProgress,
-                enforcePreActionReasoningBudget: enforcePreActionReasoningBudget
+                reasoningBudgetPhase: reasoningBudgetPhase
             )
         }
 

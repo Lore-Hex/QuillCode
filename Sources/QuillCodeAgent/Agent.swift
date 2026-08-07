@@ -19,6 +19,10 @@ public struct AgentRunner: Sendable {
     /// steady reasoner spiral much earlier than the wall-clock deadline while preserving normal
     /// reasoning and every stream that has begun producing action JSON.
     public static let defaultPreActionReasoningCharacterLimit = 12_000
+    /// Wider per-turn budget while the model is synthesizing from tool results but has not yet
+    /// produced a workspace mutation. Large grounded deliverables need more room than startup
+    /// routing; the bound still prevents an inter-action reasoner spiral.
+    public static let defaultInterActionReasoningCharacterLimit = 48_000
     static let promisedWorkCorrectionLimit = 2
     /// Bounded recovery for a malformed model action (garbage/mojibake tokens) or a mid-stream
     /// transport reset: re-prompt/re-request up to this many times before the failure is terminal.
@@ -88,10 +92,13 @@ public struct AgentRunner: Sendable {
     /// action" correction (F20: a reasoner can stream thinking tokens indefinitely without ever
     /// acting; no terminal say means the phrase guards never see it). nil disables the deadline.
     public var turnDeadlineSeconds: TimeInterval?
-    /// Maximum streamed reasoning characters before the run's first action text. Once the model
-    /// has emitted an action, later turns may synthesize from tool results without re-arming this
-    /// startup guard. nil disables the guard.
+    /// Maximum streamed reasoning characters at run startup and after a successful workspace
+    /// mutation, when the next action should be a bounded verification or final answer. nil
+    /// disables the tight-phase guard.
     public var preActionReasoningCharacterLimit: Int?
+    /// Maximum streamed reasoning characters between source-gathering actions and the run's first
+    /// successful workspace mutation. nil disables the synthesis-phase guard.
+    public var interActionReasoningCharacterLimit: Int?
     /// Last-resort model for a step the primary cannot produce at all (F22): when the primary
     /// exhausts the empty-response correction budget — a route-quality failure observed at ~1-in-6
     /// runs on one provider while an alternate model completed the same step first try — the
@@ -126,6 +133,7 @@ public struct AgentRunner: Sendable {
         runSpendFusePolicy: RunSpendFusePolicy? = nil,
         turnDeadlineSeconds: TimeInterval? = AgentRunner.defaultTurnDeadlineSeconds,
         preActionReasoningCharacterLimit: Int? = AgentRunner.defaultPreActionReasoningCharacterLimit,
+        interActionReasoningCharacterLimit: Int? = AgentRunner.defaultInterActionReasoningCharacterLimit,
         fallbackLLM: LLMClient? = nil
     ) {
         self.llm = llm
@@ -153,6 +161,7 @@ public struct AgentRunner: Sendable {
         self.runSpendFusePolicy = runSpendFusePolicy
         self.turnDeadlineSeconds = turnDeadlineSeconds
         self.preActionReasoningCharacterLimit = preActionReasoningCharacterLimit
+        self.interActionReasoningCharacterLimit = interActionReasoningCharacterLimit
         self.fallbackLLM = fallbackLLM
     }
 
@@ -181,6 +190,7 @@ public struct AgentRunner: Sendable {
             )
             var runLoop = AgentRunLoopState()
             var hasEmittedModelAction = false
+            var hasCompletedWorkspaceMutation = false
             /// One-shot corrective for the next sample only (Cline learning #2 repeat nudge).
             var pendingRepeatNudge: String?
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
@@ -193,6 +203,13 @@ public struct AgentRunner: Sendable {
             for _ in 0..<limit {
                 let repeatNudge = pendingRepeatNudge
                 pendingRepeatNudge = nil
+                let reasoningBudgetPhase: AgentReasoningBudgetPhase = if !hasEmittedModelAction {
+                    .startup
+                } else if hasCompletedWorkspaceMutation {
+                    .checkpoint
+                } else {
+                    .synthesis
+                }
                 let action = try await nextActionCompactingOnOverflow(
                     thread: &next,
                     userMessage: userMessage,
@@ -200,7 +217,7 @@ public struct AgentRunner: Sendable {
                     workspaceRoot: workspaceRoot,
                     onProgress: onProgress,
                     injectedCorrection: repeatNudge,
-                    enforcePreActionReasoningBudget: !hasEmittedModelAction
+                    reasoningBudgetPhase: reasoningBudgetPhase
                 )
                 hasEmittedModelAction = true
                 if let paused = await pauseIfSpendFuseRequiresApproval(
@@ -402,6 +419,11 @@ public struct AgentRunner: Sendable {
                             )
                         }
                     case .completed(let completion, let reviewOutcome):
+                        if completion.result.ok,
+                           (completion.call.name == ToolDefinition.fileWrite.name
+                            || completion.call.name == ToolDefinition.applyPatch.name) {
+                            hasCompletedWorkspaceMutation = true
+                        }
                         if let reviewOutcome {
                             _ = autoReviewCircuit.record(reviewOutcome)
                         }

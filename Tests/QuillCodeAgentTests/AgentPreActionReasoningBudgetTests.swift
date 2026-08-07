@@ -102,12 +102,48 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(requestCount, 2)
     }
 
+    func testReasoningBudgetRetightensAfterSuccessfulWrite() async throws {
+        let root = try makeTempDirectory()
+        let state = UsageStreamSequenceState([
+            [
+                .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"output.txt","content":"done"}}"#),
+            ],
+            [
+                .reasoning(String(repeating: "verify ", count: 2_000)),
+                .text(#"{"type":"say","text":"too late"}"#),
+            ],
+            [
+                .text(#"{"type":"say","text":"Verified output.txt."}"#),
+            ],
+        ])
+        let result = try await AgentRunner(
+            llm: UsageStreamSequenceClient(state: state),
+            preActionReasoningCharacterLimit: 12_000
+        ).send(
+            "Create output.txt.",
+            in: ChatThread(title: "t"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Verified output.txt.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("pre-action reasoning budget")
+        })
+        let requestCount = await state.requestCount()
+        XCTAssertEqual(requestCount, 3)
+    }
+
     func testRunnerDefaultsToReasoningBudgetAndCanDisableIt() {
         XCTAssertEqual(
             AgentRunner().preActionReasoningCharacterLimit,
             AgentRunner.defaultPreActionReasoningCharacterLimit
         )
+        XCTAssertEqual(
+            AgentRunner().interActionReasoningCharacterLimit,
+            AgentRunner.defaultInterActionReasoningCharacterLimit
+        )
         XCTAssertNil(AgentRunner(preActionReasoningCharacterLimit: nil).preActionReasoningCharacterLimit)
+        XCTAssertNil(AgentRunner(interActionReasoningCharacterLimit: nil).interActionReasoningCharacterLimit)
     }
 
     private func eventStream(

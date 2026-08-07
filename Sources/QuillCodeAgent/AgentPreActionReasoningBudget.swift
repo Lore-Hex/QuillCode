@@ -1,5 +1,11 @@
 import Foundation
 
+enum AgentReasoningBudgetPhase: Sendable {
+    case startup
+    case synthesis
+    case checkpoint
+}
+
 /// A model exhausted the bounded reasoning budget before emitting the run's first action JSON.
 struct AgentPreActionReasoningBudgetExceededError: Error, CustomStringConvertible {
     let maximumCharacters: Int
