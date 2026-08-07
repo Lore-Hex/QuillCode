@@ -121,6 +121,67 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(checksumAsset["kind"] as? String, "checksum")
     }
 
+    func testStableManifestUsesTheMovingFeedEmbeddedInTheStableApp() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-stable-manifest-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let stableFeed = "https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json"
+        let testerFeed = "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/" +
+            "latest-tester-build.json"
+        let buildInfoURL = temporaryDirectory.appendingPathComponent("BUILD_INFO.txt")
+        try """
+        product=Quill Cowork
+        platform=macOS
+        arch=arm64
+        version=1.2.3
+        build=456
+        bundleIdentifier=co.lorehex.QuillCowork
+        minimumSystemVersion=14.0
+        updateChannel=stable
+        updateManifestURL=\(stableFeed)
+        stableUpdateManifestURL=\(stableFeed)
+        testerUpdateManifestURL=\(testerFeed)
+        """.write(to: buildInfoURL, atomically: true, encoding: .utf8)
+        try Data("stable app".utf8).write(
+            to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64.zip")
+        )
+
+        let manifestURL = temporaryDirectory.appendingPathComponent("latest-stable-build.json")
+        let script = Self.packageRoot()
+            .appendingPathComponent("scripts")
+            .appendingPathComponent("build-download-manifest.py")
+        let arguments = [
+            "--assets-dir", temporaryDirectory.path,
+            "--repo", "Lore-Hex/QuillCode",
+            "--tag", "v1.2.3",
+            "--channel", "stable",
+            "--commit", String(repeating: "a", count: 40),
+            "--workflow-run-url", "https://github.com/Lore-Hex/QuillCode/actions/runs/456",
+            "--generated-at", "2026-08-07T00:00:00Z",
+            "--output", manifestURL.path
+        ]
+        let result = try Self.runPython(script, arguments: arguments)
+        XCTAssertEqual(result.exitCode, 0, result.output)
+
+        let data = try Data(contentsOf: manifestURL)
+        let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let updater = try XCTUnwrap(manifest["updater"] as? [String: Any])
+        XCTAssertEqual(updater["channel"] as? String, "stable")
+        XCTAssertEqual(updater["manifestURL"] as? String, stableFeed)
+        XCTAssertEqual(updater["stableManifestURL"] as? String, stableFeed)
+        XCTAssertEqual(updater["testerManifestURL"] as? String, testerFeed)
+
+        let mismatchedBuildInfo = try String(contentsOf: buildInfoURL, encoding: .utf8)
+            .replacingOccurrences(of: stableFeed, with: "https://example.com/stable.json", options: [], range: nil)
+        try mismatchedBuildInfo.write(to: buildInfoURL, atomically: true, encoding: .utf8)
+        let mismatch = try Self.runPython(script, arguments: arguments)
+        XCTAssertNotEqual(mismatch.exitCode, 0)
+        XCTAssertTrue(mismatch.output.contains("BUILD_INFO updateManifestURL must be"), mismatch.output)
+    }
+
     func testDownloadBuildWorkflowPublishesManifestWithReleaseAssets() throws {
         let workflow = try Self.workflowText(named: "download-builds.yml")
 
@@ -155,7 +216,12 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--draft",
             "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/*",
             "gh release edit \"$RELEASE_TAG\" --draft=false --latest",
-            "Stable release $RELEASE_TAG already exists and is immutable."
+            "Stable release $RELEASE_TAG already exists and is immutable.",
+            "verify-published:",
+            "needs: publish",
+            "Verify public release downloads",
+            "scripts/verify-published-release.py",
+            "--workflow-run-url \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\""
         ])
         XCTAssertFalse(
             workflow.contains("cancel-in-progress: true"),
@@ -182,6 +248,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "QuillCodeTesterUpdateManifestURL",
             "canonical `vMAJOR.MINOR.PATCH` tag",
             "scripts/start-stable-release.sh --check-only v0.1.0",
+            "scripts/verify-published-release.py",
+            "same moving channel feed embedded",
+            "publication is not green until this consumer check passes",
             "creates one annotated tag and pushes it without force",
             "an existing stable release is never edited or clobbered automatically",
             "avoids no-op build-number updates and unnecessary",

@@ -30,14 +30,24 @@ The tester release is refreshed:
 - after every successful push to `main`
 - after merge-train PR merges, which explicitly dispatch **Download Builds**
 - from the nightly **Download Builds** recovery check when the published tester
-  manifest is missing, malformed, stale, or points to another `main` commit
+  manifest is missing, malformed, stale, points to another `main` commit, or
+  names a publishing run that is unavailable, incomplete, failed, or mismatched
 - whenever a maintainer runs **Download Builds** manually from GitHub Actions
 
-The nightly check skips packaging when the live manifest already publishes the
-current `main` commit. This avoids no-op build-number updates and unnecessary
-updater prompts. When a build is required, the workflow updates the stable
-`tester-latest` tag and replaces release assets in place, so the links above do
-not change as new builds are published.
+The nightly check skips packaging only when the live manifest publishes the
+current `main` commit and its exact **Download Builds** run completed successfully
+on that commit. This avoids no-op build-number updates and unnecessary updater
+prompts without treating a partial publication as healthy.
+When a build is required, the workflow updates the stable `tester-latest` tag
+and replaces release assets in place, so the links above do not change as new
+builds are published.
+
+After publishing, a separate read-only job consumes the release through the
+same public GitHub API and download URLs users receive. It resolves the release
+tag to the expected commit, checks the exact release inventory and updater feed
+contract, then downloads every declared asset with bounded streaming and
+verifies GitHub's digest, manifest size/SHA-256, `SHASUMS256.txt`, and
+`BUILD_INFO.txt`. A publication is not green until this consumer check passes.
 
 ## Auto-Update Contract
 
@@ -59,6 +69,11 @@ The stable feed is:
 ```text
 https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json
 ```
+
+The manifest's `updater.manifestURL` is the same moving channel feed embedded
+in the app: `tester-latest` for tester builds and `releases/latest` for stable
+builds. Manifest generation fails when `BUILD_INFO.txt` and this feed identity
+disagree, because the app intentionally rejects a manifest from any other URL.
 
 The macOS app checks this feed after launch, no more than every six hours on the
 tester channel or daily on stable. **Check for Updates...** in the app menu runs
@@ -158,6 +173,17 @@ The workflow publishes the same manifest schema for manual, scheduled, `main`,
 and `v*` tag builds. For `v*` tags, the channel is `stable` and the asset is
 `latest-stable-build.json`; for `tester-latest`, the channel is `tester` and the
 asset is `latest-tester-build.json`.
+
+To re-run the public consumer verification for a known publication:
+
+```bash
+scripts/verify-published-release.py \
+  --repo Lore-Hex/QuillCode \
+  --tag tester-latest \
+  --channel tester \
+  --commit "$COMMIT" \
+  --workflow-run-url "$WORKFLOW_RUN_URL"
+```
 
 ## Local Packaging
 

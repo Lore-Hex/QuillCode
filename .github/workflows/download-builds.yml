@@ -247,3 +247,30 @@ jobs:
 
             gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/release-assets/* --clobber
           fi
+
+  verify-published:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Verify public release downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            RELEASE_CHANNEL="stable"
+          else
+            RELEASE_TAG="tester-latest"
+            RELEASE_CHANNEL="tester"
+          fi
+          scripts/verify-published-release.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --channel "$RELEASE_CHANNEL" \
+            --commit "$GITHUB_SHA" \
+            --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

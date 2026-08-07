@@ -3381,3 +3381,22 @@
   `scripts/native_click_probe_contracts/live_app_computer_use_template.py`,
   `scripts/live-app-computer-use-smoke.sh`, `scripts/live-app-computer-use-template.sh`, and
   `ParityLiveAppComputerUseSmokeGateTests`.
+
+## 2026-08-07: published downloads are verified as a public consumer
+
+- **Decision:** Every non-skipped **Download Builds** run has a read-only post-publish job that
+  resolves the release tag, validates the release/manifest/updater contract, downloads every public
+  asset with strict aggregate and per-file bounds, and checks GitHub API digests, manifest digests,
+  `SHASUMS256.txt`, and `BUILD_INFO.txt`. Stable manifests identify the same moving
+  `releases/latest` feed embedded in stable apps; tester manifests identify `tester-latest`.
+- **Why:** Pre-upload package checks cannot prove that GitHub serves a coherent public release. The
+  previous stable manifest also reported its immutable tag URL while the app embedded the moving
+  stable URL, causing the updater's exact-feed defense to reject a legitimate stable manifest.
+- **Recovery:** Scheduled deduplication skips only when the tester manifest is structurally valid and
+  its exact **Download Builds** run completed successfully on the same commit. Failed, partial, or
+  mismatched publications are rebuilt instead of becoming a permanently skipped state.
+- **Evidence:** `scripts/verify-published-release.py`, `scripts/release_verification_contract.py`,
+  `scripts/release_verification_files.py`, `scripts/build-download-manifest.py`,
+  `scripts/plan-download-build.sh`, `.github/workflows/download-builds.yml`,
+  `ParityPublishedReleaseVerificationGateTests`, `ParityDownloadBuildPlanGateTests`, and
+  `ParityDownloadBuildsGateTests`.
