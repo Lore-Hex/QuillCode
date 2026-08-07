@@ -2,6 +2,53 @@ import XCTest
 @testable import QuillCodeCore
 
 final class RunSpendFusePolicyTests: XCTestCase {
+    func testAggregatedUsagePreservesProviderCallCounts() {
+        let thread = ChatThread(
+            title: "Compacted cost",
+            model: "acme/agent",
+            events: [
+                ModelTokenUsageEvent.event(
+                    usage: ModelTokenUsage(promptTokens: 10_000, completionTokens: 5_000),
+                    modelID: "acme/agent",
+                    callCount: 37
+                ),
+                ModelTokenUsageEvent.event(
+                    usage: ModelTokenUsage(promptTokens: 500, completionTokens: 100),
+                    modelID: "unknown/agent",
+                    callCount: 4
+                )
+            ]
+        )
+
+        let ledger = RunSpendLedger(thread: thread, modelCatalog: [pricedModel()], fuseUSD: nil)
+
+        XCTAssertEqual(ledger.receipts.count, 2)
+        XCTAssertEqual(ledger.pricedCallCount, 37)
+        XCTAssertEqual(ledger.unpricedCallCount, 4)
+        XCTAssertEqual(ledger.summaryDetail, "$0.05 across 41 model calls · 4 unpriced · fuse off")
+    }
+
+    func testAggregatedCallCountsSaturateInsteadOfOverflowing() {
+        let events = (0..<2).map { _ in
+            ModelTokenUsageEvent.event(
+                usage: ModelTokenUsage(promptTokens: 1),
+                modelID: "acme/agent",
+                callCount: Int.max
+            )
+        } + [ModelTokenUsageEvent.event(
+            usage: ModelTokenUsage(promptTokens: 1),
+            modelID: "unknown/agent",
+            callCount: Int.max
+        )]
+        let thread = ChatThread(title: "Malformed aggregate", model: "acme/agent", events: events)
+
+        let ledger = RunSpendLedger(thread: thread, modelCatalog: [pricedModel()], fuseUSD: nil)
+
+        XCTAssertEqual(ledger.pricedCallCount, Int.max)
+        XCTAssertEqual(ledger.unpricedCallCount, Int.max)
+        XCTAssertTrue(ledger.summaryDetail.contains("across \(Int.max) model calls"))
+    }
+
     func testRequestsApprovalWhenPricedThreadSpendCrossesFuse() throws {
         let thread = ChatThread(
             title: "Cost",

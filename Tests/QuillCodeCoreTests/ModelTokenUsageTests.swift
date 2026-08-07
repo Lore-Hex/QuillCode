@@ -38,12 +38,13 @@ final class ModelTokenUsageTests: XCTestCase {
 
     func testUsageEventRoundTripsThroughThreadEventPayload() throws {
         let usage = ModelTokenUsage(promptTokens: 10, completionTokens: 2, totalTokens: 12)
-        let event = ModelTokenUsageEvent.event(usage: usage, modelID: " /prometheus ")
+        let event = ModelTokenUsageEvent.event(usage: usage, modelID: " /prometheus ", callCount: 7)
 
         XCTAssertEqual(event.kind, .notice)
         XCTAssertEqual(event.summary, ModelTokenUsageEvent.summary)
         XCTAssertEqual(ModelTokenUsageEvent.usage(from: event), usage)
         XCTAssertEqual(ModelTokenUsageEvent.record(from: event)?.modelID, TrustedRouterDefaults.prometheusModel)
+        XCTAssertEqual(ModelTokenUsageEvent.record(from: event)?.callCount, 7)
     }
 
     func testUsageEventReadsLegacyUsagePayload() throws {
@@ -57,5 +58,18 @@ final class ModelTokenUsageTests: XCTestCase {
         XCTAssertEqual(ModelTokenUsageEvent.usage(from: event), usage)
         XCTAssertEqual(ModelTokenUsageEvent.record(from: event)?.usage, usage)
         XCTAssertNil(ModelTokenUsageEvent.record(from: event)?.modelID)
+        XCTAssertEqual(ModelTokenUsageEvent.record(from: event)?.callCount, 1)
+    }
+
+    func testStructuredRecordDefaultsLegacyCallCountAndOmitsOrdinaryCountWhenEncoding() throws {
+        let legacyData = #"{"usage":{"promptTokens":10,"completionTokens":2,"totalTokens":12},"modelID":"acme/agent"}"#
+            .data(using: .utf8)!
+
+        let record = try JSONDecoder().decode(ModelTokenUsageRecord.self, from: legacyData)
+        let encoded = try JSONEncoder().encode(record)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+
+        XCTAssertEqual(record.callCount, 1)
+        XCTAssertNil(object["callCount"], "ordinary usage receipts should not grow on disk")
     }
 }

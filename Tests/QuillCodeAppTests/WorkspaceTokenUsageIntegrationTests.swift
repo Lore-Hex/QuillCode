@@ -313,6 +313,31 @@ final class WorkspaceTokenUsageIntegrationTests: XCTestCase {
         )
     }
 
+    func testTopBarSpendHistoryIncludesDestroyedEphemeralSessions() throws {
+        let current = ChatThread(title: "Durable", model: "acme/agent")
+        var ephemeral = ChatThread(
+            title: "Side",
+            model: "acme/agent",
+            messages: [.init(role: .user, content: "private")],
+            events: [usageEvent(prompt: 1_000, completion: 500, modelID: "acme/agent")],
+            runtimeContext: .sideConversation(parentThreadID: current.id)
+        )
+        ephemeral.updatedAt = Date()
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: [current],
+                selectedThreadID: current.id,
+                modelCatalog: pricedModelCatalog()
+            )
+        )
+        model.discardedEphemeralSpendLedger.retain(ephemeral)
+
+        let quotaRows = try XCTUnwrap(model.surface().topBar.tokenBudget?.visibleQuotaLimits)
+
+        XCTAssertEqual(quotaRows.map(\.periodLabel), ["Today", "Week", "Month"])
+        XCTAssertEqual(quotaRows.map(\.usageLabel), ["$0.0050", "$0.0050", "$0.0050"])
+    }
+
     func testActivityRunReceiptsKeepLegacyUnpricedUsageAuditable() throws {
         let legacyUsage = ModelTokenUsage(promptTokens: 100, completionTokens: 25)
         let legacyEvent = ThreadEvent(

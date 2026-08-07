@@ -12,6 +12,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     var defaultModelID: String
     var favoriteModelIDs: [String]
     var recentThreads: [ChatThread]
+    var spendPeriodThreads: [ChatThread]? = nil
     var runtimeIssue: RuntimeIssueSurface?
     var trustedRouterCredits: TrustedRouterCreditsState = .unavailable
     var hasTrustedRouterCredential: Bool = false
@@ -188,7 +189,7 @@ struct WorkspaceTopBarSurfaceBuilder: Sendable, Hashable {
     private func quotaLimitSurfaces() -> [TokenQuotaLimitSurface] {
         WorkspaceQuotaLimitSurfaceBuilder(runtimeIssue: runtimeIssue).quotaLimits()
             + WorkspaceSpendHistoryQuotaBuilder(
-                threads: recentThreads,
+                threads: spendPeriodThreads ?? recentThreads,
                 modelCatalog: modelCatalog,
                 periodLimits: runSpendPeriodLimits
             ).quotaLimits()

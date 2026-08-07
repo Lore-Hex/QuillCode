@@ -19,6 +19,7 @@ public struct RunSpendLedger: Sendable, Hashable {
                 usage: record.usage,
                 modelID: modelID,
                 modelName: model?.displayName,
+                callCount: record.callCount,
                 price: RunSpendReceiptPrice.price(usage: record.usage, model: model)
             )
         }
@@ -34,11 +35,15 @@ public struct RunSpendLedger: Sendable, Hashable {
     }
 
     public var pricedCallCount: Int {
-        receipts.count - unpricedCallCount
+        receipts.reduce(0) { count, receipt in
+            Self.saturatingAdd(count, receipt.price == nil ? 0 : receipt.callCount)
+        }
     }
 
     public var unpricedCallCount: Int {
-        receipts.filter { $0.price == nil }.count
+        receipts.reduce(0) { count, receipt in
+            Self.saturatingAdd(count, receipt.price == nil ? receipt.callCount : 0)
+        }
     }
 
     public var blocksNextRun: Bool {
@@ -65,9 +70,10 @@ public struct RunSpendLedger: Sendable, Hashable {
     }
 
     public var summaryDetail: String {
-        let totalLabel = unpricedCallCount == receipts.count ? "Unpriced" : Self.costLabel(totalUSD)
+        let totalLabel = pricedCallCount == 0 ? "Unpriced" : Self.costLabel(totalUSD)
+        let totalCallCount = Self.saturatingAdd(pricedCallCount, unpricedCallCount)
         var parts = [
-            "\(totalLabel) across \(Self.count(receipts.count, singular: "model call"))"
+            "\(totalLabel) across \(Self.count(totalCallCount, singular: "model call"))"
         ]
         if unpricedCallCount > 0 {
             parts.append("\(unpricedCallCount) unpriced")
@@ -97,6 +103,11 @@ public struct RunSpendLedger: Sendable, Hashable {
         "\(value) \(singular)\(value == 1 ? "" : "s")"
     }
 
+    private static func saturatingAdd(_ lhs: Int, _ rhs: Int) -> Int {
+        let (sum, overflow) = lhs.addingReportingOverflow(rhs)
+        return overflow ? Int.max : sum
+    }
+
     /// Tolerance for the "spend has reached the fuse" float comparison. Shared with
     /// `RunSpendFusePolicy` so the ledger's `blocksNextRun` and the policy's bucket math never drift.
     static let spendComparisonEpsilon = 0.000_000_001
@@ -107,6 +118,7 @@ public struct RunSpendReceipt: Sendable, Hashable {
     public var usage: ModelTokenUsage
     public var modelID: String
     public var modelName: String?
+    public var callCount: Int
     public var price: RunSpendReceiptPrice?
 
     public init(
@@ -114,12 +126,14 @@ public struct RunSpendReceipt: Sendable, Hashable {
         usage: ModelTokenUsage,
         modelID: String,
         modelName: String?,
+        callCount: Int = 1,
         price: RunSpendReceiptPrice?
     ) {
         self.id = id
         self.usage = usage
         self.modelID = modelID
         self.modelName = modelName
+        self.callCount = max(1, callCount)
         self.price = price
     }
 }

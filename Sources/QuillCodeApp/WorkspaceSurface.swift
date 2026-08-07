@@ -142,6 +142,7 @@ public extension QuillCodeWorkspaceModel {
             agentRuns: agentRuns,
             attentionCursorID: attentionCursorID
         ).surface()
+        let spendPeriodThreads = root.threads + discardedEphemeralSpendLedger.periodThreads()
         let topBar = WorkspaceTopBarSurfaceBuilder(
             topBarState: topBarState,
             thread: thread,
@@ -153,6 +154,7 @@ public extension QuillCodeWorkspaceModel {
             defaultModelID: root.config.defaultModel,
             favoriteModelIDs: root.config.favoriteModels,
             recentThreads: root.threads,
+            spendPeriodThreads: spendPeriodThreads,
             runtimeIssue: runtimeIssue,
             trustedRouterCredits: root.trustedRouterCredits,
             hasTrustedRouterCredential: root.trustedRouterAPIKeyConfigured,

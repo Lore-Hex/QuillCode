@@ -63,14 +63,15 @@ extension QuillCodeWorkspaceModel {
         workspaceRoot: URL,
         runProject: ProjectRef?
     ) -> WorkspaceAgentSendSessionFactory {
-        WorkspaceAgentSendSessionFactory(
+        let ephemeralSpendThreads = discardedEphemeralSpendLedger.periodThreads()
+        return WorkspaceAgentSendSessionFactory(
             baseRunner: runner,
             selectedProject: runProject,
             config: root.config,
             modelCatalog: root.modelCatalog,
-            // Include receipts from destroyed confidential sessions so the period ledger keeps counting
-            // spend the threads themselves no longer exist to report.
-            spendPeriodThreads: root.threads + discardedEphemeralSpendThreads,
+            // Include compact receipts from destroyed ephemeral sessions so the period ledger keeps
+            // counting spend the threads themselves no longer exist to report.
+            spendPeriodThreads: root.threads + ephemeralSpendThreads,
             browser: browser,
             browserToolOverride: WorkspaceBrowserAgentToolOverride.make { [weak self] call, workspaceRoot in
                 guard let self else { return nil }
