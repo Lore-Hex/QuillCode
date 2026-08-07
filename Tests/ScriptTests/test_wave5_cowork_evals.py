@@ -100,6 +100,18 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         _, matched = WAVE5.required_output_term_matches(228, incomplete)
         self.assertEqual(matched, [])
 
+    def test_seo_topic_map_includes_supplied_competitor_pages(self):
+        context = WAVE5.fixture_context({"ID": 248, "Category": "Launch & Growth"})
+        self.assertIn("CloseFlow pricing page captured 2026-07-15", context)
+        self.assertIn("MonthEnd Pro pricing page captured 2026-07-20", context)
+
+        required, matched = WAVE5.required_output_term_matches(
+            248,
+            "CloseFlow supplies no outcome evidence. MonthEnd Pro supplies no adoption data.",
+        )
+        self.assertEqual(required, ("CloseFlow", "MonthEnd Pro"))
+        self.assertEqual(matched, list(required))
+
     def test_explicit_primary_filename_is_preserved(self):
         row = {
             "ID": 211,
@@ -155,6 +167,9 @@ class Wave5CoworkEvalTests(unittest.TestCase):
 
         outreach_output = WAVE5.normalize("Five personalized cold outreach drafts with follow-ups.")
         self.assertTrue(WAVE5.concept_matches("cold email", outreach_output))
+
+        competitive_output = WAVE5.normalize("SEO map of customer questions and competitive pages.")
+        self.assertTrue(WAVE5.concept_matches("competitor", competitive_output))
 
     def test_normalize_ignores_numeric_thousands_separators(self):
         self.assertIn("820000", WAVE5.normalize("Cash: $820,000"))
