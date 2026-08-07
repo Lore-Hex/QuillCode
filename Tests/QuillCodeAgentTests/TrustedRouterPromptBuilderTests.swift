@@ -303,7 +303,7 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Use bracketed fill-in placeholders only when"))
         XCTAssertTrue(prompt.contains("placeholder-free artifact"))
         XCTAssertTrue(prompt.contains("never leave `[Name]`, `[Date]`, `[Company]`"))
-        XCTAssertTrue(prompt.contains("never as an already-established fact"))
+        XCTAssertTrue(prompt.contains("never present it as an already-established fact"))
     }
 
     func testPromptPrefersStructuredGitBranchToolsOverShell() {
