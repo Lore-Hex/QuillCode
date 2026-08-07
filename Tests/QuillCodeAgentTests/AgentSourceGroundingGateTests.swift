@@ -9,18 +9,21 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         XCTAssertNil(AgentSourceGroundingGate.correction(
             userMessage: "Create outputs/brief.md from the supplied sources.",
             writtenPaths: written,
-            auditedPaths: []
+            auditCounts: [:],
+            verificationPaths: []
         ))
         XCTAssertNil(AgentSourceGroundingGate.correction(
             userMessage: "Use only facts in the supplied sources.",
             writtenPaths: written,
-            auditedPaths: []
+            auditCounts: [:],
+            verificationPaths: []
         ))
 
         let correction = try XCTUnwrap(AgentSourceGroundingGate.correction(
             userMessage: "Create outputs/brief.md. Use only facts in those supplied sources.",
             writtenPaths: written,
-            auditedPaths: []
+            auditCounts: [:],
+            verificationPaths: []
         ))
         XCTAssertEqual(correction.path, "outputs/brief.md")
         XCTAssertTrue(correction.prompt.contains("invented payment or compensation"))
@@ -29,7 +32,23 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         XCTAssertNil(AgentSourceGroundingGate.correction(
             userMessage: "Create outputs/brief.md. Use only facts in those supplied sources.",
             writtenPaths: written,
-            auditedPaths: written
+            auditCounts: ["outputs/brief.md": 1],
+            verificationPaths: []
+        ))
+
+        let verification = try XCTUnwrap(AgentSourceGroundingGate.correction(
+            userMessage: "Create outputs/brief.md. Use only facts in those supplied sources.",
+            writtenPaths: written,
+            auditCounts: ["outputs/brief.md": 1],
+            verificationPaths: written
+        ))
+        XCTAssertTrue(verification.prompt.contains("verification pass"))
+        XCTAssertTrue(verification.prompt.contains("subject lines"))
+        XCTAssertNil(AgentSourceGroundingGate.correction(
+            userMessage: "Create outputs/brief.md. Use only facts in those supplied sources.",
+            writtenPaths: written,
+            auditCounts: ["outputs/brief.md": 2],
+            verificationPaths: written
         ))
     }
 
@@ -37,14 +56,20 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         let unsupported = "# Outreach\n\nThis is a paid 30-minute call and not a sales pitch.\n"
-        let corrected = "# Outreach\n\nWe are conducting a research conversation.\n"
-        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
-            .tool(writeCall(content: unsupported)),
-            .say("Created and verified outputs/brief.md."),
-            .tool(writeCall(content: corrected)),
-            .say("Created outputs/brief.md."),
-            .say("Created and verified outputs/brief.md."),
-        ]))
+        let partiallyCorrected = "# Outreach\n\nJoin a 30-minute research conversation.\n"
+        let corrected = "# Outreach\n\nShare your experience with us.\n"
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(writeCall(content: unsupported)),
+                .say("Created and verified outputs/brief.md."),
+                .tool(writeCall(content: partiallyCorrected)),
+                .say("Created outputs/brief.md."),
+                .tool(writeCall(content: corrected)),
+                .say("Created outputs/brief.md."),
+                .say("Created and verified outputs/brief.md."),
+            ]),
+            maxToolSteps: 8
+        )
 
         let result = try await runner.send(
             "Create outputs/brief.md. Use only facts in the supplied sources. "
@@ -53,7 +78,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(result.toolResults.count, 3, "two writes and the forced final readback")
+        XCTAssertEqual(result.toolResults.count, 4, "three writes and the forced final readback")
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("source-grounding audit")

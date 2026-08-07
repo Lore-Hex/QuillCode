@@ -227,8 +227,11 @@ public struct AgentRunner: Sendable {
             /// rewrite request, followed by at most one deterministic numeral correction.
             var artifactCountConsistencyNudgedPaths = Set<String>()
             var artifactCountConsistencyRepairedPaths = Set<String>()
-            /// Explicitly source-only named artifacts receive one post-draft semantic audit.
-            var sourceGroundingAuditedPaths = Set<String>()
+            /// Explicitly source-only named artifacts receive one post-draft semantic audit. A
+            /// rewrite from that audit receives one verification pass; read-only audits stop at one.
+            var sourceGroundingAuditCounts: [String: Int] = [:]
+            var sourceGroundingVerificationPaths = Set<String>()
+            var pendingSourceGroundingAuditPath: String?
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -465,9 +468,12 @@ public struct AgentRunner: Sendable {
                    let correction = AgentSourceGroundingGate.correction(
                     userMessage: userMessage,
                     writtenPaths: runLoop.writtenWorkspacePaths,
-                    auditedPaths: sourceGroundingAuditedPaths
-                   ),
-                   sourceGroundingAuditedPaths.insert(correction.path).inserted {
+                    auditCounts: sourceGroundingAuditCounts,
+                    verificationPaths: sourceGroundingVerificationPaths
+                   ) {
+                    sourceGroundingAuditCounts[correction.path, default: 0] += 1
+                    sourceGroundingVerificationPaths.remove(correction.path)
+                    pendingSourceGroundingAuditPath = correction.path
                     pendingRepeatNudge = correction.prompt
                     next.events.append(.init(
                         kind: .notice,
@@ -673,8 +679,12 @@ public struct AgentRunner: Sendable {
                         if let correction = AgentSourceGroundingGate.correction(
                             userMessage: userMessage,
                             writtenPaths: runLoop.writtenWorkspacePaths,
-                            auditedPaths: sourceGroundingAuditedPaths
-                        ), sourceGroundingAuditedPaths.insert(correction.path).inserted {
+                            auditCounts: sourceGroundingAuditCounts,
+                            verificationPaths: sourceGroundingVerificationPaths
+                        ) {
+                            sourceGroundingAuditCounts[correction.path, default: 0] += 1
+                            sourceGroundingVerificationPaths.remove(correction.path)
+                            pendingSourceGroundingAuditPath = correction.path
                             pendingRepeatNudge = correction.prompt
                             next.events.append(.init(
                                 kind: .notice,
@@ -855,6 +865,18 @@ public struct AgentRunner: Sendable {
                             )
                         }
                     case .completed(let completion, let reviewOutcome):
+                        if let auditPath = pendingSourceGroundingAuditPath {
+                            if completion.result.ok,
+                               completion.call.name == ToolDefinition.fileWrite.name,
+                               let writtenPath = AgentArtifactVerificationGate.pathArgument(
+                                from: completion.call
+                               ),
+                               AgentArtifactVerificationGate.pathsMatch(auditPath, writtenPath),
+                               sourceGroundingAuditCounts[auditPath, default: 0] < 2 {
+                                sourceGroundingVerificationPaths.insert(auditPath)
+                            }
+                            pendingSourceGroundingAuditPath = nil
+                        }
                         if completion.result.ok,
                            (completion.call.name == ToolDefinition.fileWrite.name
                             || completion.call.name == ToolDefinition.applyPatch.name) {

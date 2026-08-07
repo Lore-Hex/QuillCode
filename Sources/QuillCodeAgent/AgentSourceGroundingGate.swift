@@ -7,26 +7,39 @@ enum AgentSourceGroundingGate {
     static func correction(
         userMessage: String,
         writtenPaths: Set<String>,
-        auditedPaths: Set<String>
+        auditCounts: [String: Int],
+        verificationPaths: Set<String>
     ) -> AgentArtifactTextQualityGate.Correction? {
         guard requestsSourceOnlyGrounding(in: userMessage) else { return nil }
-        let required = AgentDeliverableGate.requiredDeliverables(in: userMessage)
-        guard let path = writtenPaths.sorted().first(where: { written in
-            !auditedPaths.contains(written)
-                && required.contains(where: {
-                    AgentArtifactVerificationGate.pathsMatch($0, written)
-                })
-        }) else { return nil }
+        let required = AgentDeliverableGate.requiredDeliverables(in: userMessage).sorted()
+        guard let path = required.first(where: { requiredPath in
+            let path = AgentArtifactVerificationGate.normalizedPath(requiredPath)
+            guard writtenPaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch(path, $0)
+            }) else { return false }
+            let count = auditCounts[path, default: 0]
+            let needsInitialAudit = count == 0
+            let needsRewriteVerification = count == 1 && verificationPaths.contains(path)
+            return (needsInitialAudit || needsRewriteVerification)
+        }).map(AgentArtifactVerificationGate.normalizedPath) else { return nil }
+
+        let isRewriteVerification = auditCounts[path, default: 0] == 1
+        let opening = isRewriteVerification
+            ? "This is the verification pass after the prior source-grounding rewrite."
+            : "The request explicitly limits facts to supplied sources."
 
         return .init(
             path: path,
             prompt: """
-            The request explicitly limits facts to supplied sources. Audit the current ./\(path) \
-            against the user request and every source read in this run before completing. Remove \
-            or label unknown every unsupported factual assertion, recommendation framed as a \
-            requirement, or commitment. Check especially for invented payment or compensation, \
-            meeting duration, sales intent, confidentiality, deadlines, delivery timing, and \
-            follow-up rules. Preserve exact source quantities, qualifiers, and attribution.
+            \(opening) Audit every line of the current ./\(path), including headings, subject \
+            lines, templates, checklists, and example messages, against the user request and every \
+            source read in this run before completing. Remove or label unknown every unsupported \
+            factual assertion, recommendation framed as a requirement, or commitment. Check \
+            especially for invented payment or compensation, meeting duration, sales intent, \
+            confidentiality, deadlines, date ranges, delivery timing, scheduling promises, and \
+            follow-up rules. Do not leave an unsupported claim in reusable copy merely because \
+            the same topic is labeled unknown elsewhere. Preserve exact source quantities, \
+            qualifiers, and attribution.
 
             Return exactly one tool action now: if any correction is needed, rewrite ./\(path); \
             otherwise read ./\(path) back. Do not return a final answer yet.
