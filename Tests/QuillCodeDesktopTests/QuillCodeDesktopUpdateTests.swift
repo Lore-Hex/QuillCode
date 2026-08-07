@@ -131,6 +131,151 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         )
     }
 
+    func testRecoveryRemovesOnlyOwnedStagingApplicationDirectories() throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let applicationURL = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
+        try makeFakeApplication(
+            at: applicationURL,
+            version: "0.1.0",
+            build: "42",
+            executableScript: "#!/bin/sh\nexit 0\n"
+        )
+        let validIdentifier = UUID().uuidString.lowercased()
+        let stagingURL = root.appendingPathComponent(
+            ".Quill Cowork.update-\(validIdentifier).app",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: stagingURL, withIntermediateDirectories: false)
+        let malformedURL = root.appendingPathComponent(
+            ".Quill Cowork.update-not-a-uuid.app",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: malformedURL, withIntermediateDirectories: false)
+        let otherApplicationURL = root.appendingPathComponent(
+            ".Other App.update-\(UUID().uuidString.lowercased()).app",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: otherApplicationURL,
+            withIntermediateDirectories: false
+        )
+        let symlinkTargetURL = root.appendingPathComponent("symlink-target", isDirectory: true)
+        try FileManager.default.createDirectory(at: symlinkTargetURL, withIntermediateDirectories: false)
+        let symlinkURL = root.appendingPathComponent(
+            ".Quill Cowork.update-\(UUID().uuidString.lowercased()).app",
+            isDirectory: true
+        )
+        try FileManager.default.createSymbolicLink(at: symlinkURL, withDestinationURL: symlinkTargetURL)
+
+        let removed = try QuillCodeDesktopUpdateRecovery.removeOrphanedStagingApplications(
+            beside: applicationURL,
+            bundleIdentifier: "co.lorehex.QuillCowork"
+        )
+
+        XCTAssertEqual(removed.map(\.lastPathComponent), [stagingURL.lastPathComponent])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: stagingURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: malformedURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: otherApplicationURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: symlinkURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: symlinkTargetURL.path))
+    }
+
+    func testRecoveryRefusesToCleanBesideUnexpectedApplicationIdentity() throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let applicationURL = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
+        try makeFakeApplication(
+            at: applicationURL,
+            version: "0.1.0",
+            build: "42",
+            executableScript: "#!/bin/sh\nexit 0\n"
+        )
+        let stagingURL = root.appendingPathComponent(
+            ".Quill Cowork.update-\(UUID().uuidString.lowercased()).app",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: stagingURL, withIntermediateDirectories: false)
+
+        let removed = try QuillCodeDesktopUpdateRecovery.removeOrphanedStagingApplications(
+            beside: applicationURL,
+            bundleIdentifier: "com.example.NotQuillCowork"
+        )
+
+        XCTAssertEqual(removed, [])
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stagingURL.path))
+    }
+
+    func testRecoveryCancellationDuringGracePeriodLeavesStagingUntouched() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let applicationURL = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
+        try makeFakeApplication(
+            at: applicationURL,
+            version: "0.1.0",
+            build: "42",
+            executableScript: "#!/bin/sh\nexit 0\n"
+        )
+        let stagingURL = root.appendingPathComponent(
+            ".Quill Cowork.update-\(UUID().uuidString.lowercased()).app",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: stagingURL, withIntermediateDirectories: false)
+        var configuration = makeConfiguration()
+        configuration.applicationURL = applicationURL
+        let recovery = QuillCodeDesktopUpdateRecovery(gracePeriod: 60)
+        let task = Task {
+            await recovery.recoverInterruptedUpdate(configuration: configuration)
+        }
+
+        task.cancel()
+        await task.value
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: stagingURL.path))
+    }
+
+    func testPreparerRemovesWorkspaceAfterDownloadFailure() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let preparer = QuillCodeDesktopUpdatePreparer(
+            downloader: FailingUpdateDownloader(error: .invalidResponse),
+            cacheRoot: root
+        )
+
+        do {
+            _ = try await preparer.prepare(
+                release: makeRelease(build: "618"),
+                configuration: makeConfiguration()
+            )
+            XCTFail("Expected updater preparation to fail")
+        } catch {
+            XCTAssertEqual(error as? QuillCodeDesktopUpdateError, .invalidResponse)
+        }
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), [])
+    }
+
+    func testPreparerRemovesWorkspaceAfterCancellation() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let preparer = QuillCodeDesktopUpdatePreparer(
+            downloader: CancellingUpdateDownloader(),
+            cacheRoot: root
+        )
+
+        do {
+            _ = try await preparer.prepare(
+                release: makeRelease(build: "619"),
+                configuration: makeConfiguration()
+            )
+            XCTFail("Expected updater preparation to be cancelled")
+        } catch is CancellationError {
+            // Expected.
+        }
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), [])
+    }
+
     func testHelperArgumentsRoundTripWithoutInterpretingPathsAsShell() throws {
         let root = URL(fileURLWithPath: "/tmp/Quill Cowork update; untouched")
         let request = QuillCodeDesktopUpdateHelperRequest(
@@ -413,6 +558,20 @@ private struct UpdateManifestLoaderStub: QuillCodeDesktopUpdateManifestLoading {
     func loadManifest(from url: URL, byteLimit: Int) async throws -> Data {
         guard data.count <= byteLimit else { throw QuillCodeDesktopUpdateError.manifestTooLarge }
         return data
+    }
+}
+
+private struct FailingUpdateDownloader: QuillCodeDesktopUpdateDownloading {
+    var error: QuillCodeDesktopUpdateError
+
+    func download(from url: URL, to destinationURL: URL, maximumBytes: Int64) async throws {
+        throw error
+    }
+}
+
+private struct CancellingUpdateDownloader: QuillCodeDesktopUpdateDownloading {
+    func download(from url: URL, to destinationURL: URL, maximumBytes: Int64) async throws {
+        throw CancellationError()
     }
 }
 

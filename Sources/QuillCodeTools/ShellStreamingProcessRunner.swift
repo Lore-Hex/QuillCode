@@ -90,13 +90,14 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
             return
         }
 
+        let environment = request.environment ?? ProcessInfo.processInfo.environment
         let launch: ShellProcessLaunch
         do {
             launch = try ShellProcessSandbox.launch(
                 executable: request.shellExecutableURL,
                 arguments: ["-lc", trimmed],
                 cwd: request.cwd,
-                environment: request.environment ?? ProcessInfo.processInfo.environment,
+                environment: environment,
                 policy: sandboxPolicy
             )
         } catch {
@@ -115,7 +116,7 @@ final class ShellStreamingProcessRunner: @unchecked Sendable {
         process.executableURL = launch.executable
         process.arguments = launch.arguments
         process.currentDirectoryURL = request.cwd
-        process.environment = request.environment
+        process.environment = environment
 
         let standardOutput = Pipe()
         let standardError = Pipe()

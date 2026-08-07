@@ -35,54 +35,59 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
         configuration: QuillCodeDesktopUpdateConfiguration
     ) async throws -> QuillCodeDesktopPreparedUpdate {
         let workspaceURL = try await makeCleanWorkspace(for: release)
-        let archiveURL = workspaceURL.appendingPathComponent(release.asset.name, isDirectory: false)
-        try await downloader.download(
-            from: release.asset.url,
-            to: archiveURL,
-            maximumBytes: release.asset.sizeBytes
-        )
-        try Task.checkCancellation()
-
-        try await Task.detached(priority: .utility) {
-            try Self.verifyArchive(
-                at: archiveURL,
-                expectedSize: release.asset.sizeBytes,
-                expectedSHA256: release.asset.sha256
+        do {
+            let archiveURL = workspaceURL.appendingPathComponent(release.asset.name, isDirectory: false)
+            try await downloader.download(
+                from: release.asset.url,
+                to: archiveURL,
+                maximumBytes: release.asset.sizeBytes
             )
-        }.value
+            try Task.checkCancellation()
 
-        let extractedURL = workspaceURL.appendingPathComponent("Extracted", isDirectory: true)
-        try await Task.detached(priority: .utility) {
-            try FileManager.default.createDirectory(
-                at: extractedURL,
-                withIntermediateDirectories: false,
-                attributes: [.posixPermissions: 0o700]
-            )
-            let result = try QuillCodeDesktopUpdateProcessRunner.run(
-                executableURL: URL(fileURLWithPath: "/usr/bin/ditto"),
-                arguments: ["-x", "-k", archiveURL.path, extractedURL.path]
-            )
-            guard result.exitCode == 0 else {
-                throw QuillCodeDesktopUpdateError.invalidApplication(result.failureSummary)
-            }
-        }.value
+            try await Task.detached(priority: .utility) {
+                try Self.verifyArchive(
+                    at: archiveURL,
+                    expectedSize: release.asset.sizeBytes,
+                    expectedSHA256: release.asset.sha256
+                )
+            }.value
 
-        let applicationURL = try await Task.detached(priority: .utility) {
-            let appURL = try Self.singleApplication(in: extractedURL)
-            try Self.validateContainedLinks(in: extractedURL)
-            try QuillCodeDesktopDownloadedApplicationValidator.validate(
-                appURL,
+            let extractedURL = workspaceURL.appendingPathComponent("Extracted", isDirectory: true)
+            try await Task.detached(priority: .utility) {
+                try FileManager.default.createDirectory(
+                    at: extractedURL,
+                    withIntermediateDirectories: false,
+                    attributes: [.posixPermissions: 0o700]
+                )
+                let result = try QuillCodeDesktopUpdateProcessRunner.run(
+                    executableURL: URL(fileURLWithPath: "/usr/bin/ditto"),
+                    arguments: ["-x", "-k", archiveURL.path, extractedURL.path]
+                )
+                guard result.exitCode == 0 else {
+                    throw QuillCodeDesktopUpdateError.invalidApplication(result.failureSummary)
+                }
+            }.value
+
+            let applicationURL = try await Task.detached(priority: .utility) {
+                let appURL = try Self.singleApplication(in: extractedURL)
+                try Self.validateContainedLinks(in: extractedURL)
+                try QuillCodeDesktopDownloadedApplicationValidator.validate(
+                    appURL,
+                    release: release,
+                    configuration: configuration
+                )
+                return appURL
+            }.value
+
+            return QuillCodeDesktopPreparedUpdate(
                 release: release,
-                configuration: configuration
+                applicationURL: applicationURL,
+                workspaceURL: workspaceURL
             )
-            return appURL
-        }.value
-
-        return QuillCodeDesktopPreparedUpdate(
-            release: release,
-            applicationURL: applicationURL,
-            workspaceURL: workspaceURL
-        )
+        } catch {
+            await Self.removeFailedWorkspace(at: workspaceURL)
+            throw error
+        }
     }
 
     func makeCleanWorkspace(for release: QuillCodeDesktopUpdateRelease) async throws -> URL {
@@ -146,6 +151,12 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
         guard digest == expectedSHA256 else {
             throw QuillCodeDesktopUpdateError.checksumMismatch
         }
+    }
+
+    private static func removeFailedWorkspace(at workspaceURL: URL) async {
+        await Task.detached(priority: .utility) {
+            try? FileManager.default.removeItem(at: workspaceURL)
+        }.value
     }
 
     private static func singleApplication(in extractedURL: URL) throws -> URL {

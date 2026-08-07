@@ -55,6 +55,27 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         XCTAssertFalse(controller.isPresented)
     }
 
+    func testAutomaticStartupRunsInterruptedUpdateRecoveryOnlyOnce() async throws {
+        let recovery = UpdateRecoverySpy()
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            checker: UpdateCheckerSpy(
+                result: .upToDate(latestVersion: "0.1.0", latestBuild: "42")
+            ),
+            recovery: recovery,
+            defaults: makeDefaults(),
+            automaticSchedule: makeAutomaticSchedule(initialDelay: 60),
+            installResultURL: temporaryInstallResultURL()
+        )
+
+        controller.startAutomaticChecks()
+        controller.startAutomaticChecks()
+
+        try await waitUntil { await recovery.callCount == 1 }
+        let recoveryCallCount = await recovery.callCount
+        XCTAssertEqual(recoveryCallCount, 1)
+    }
+
     func testBackgroundFailureStaysQuietButManualFailureIsVisible() async throws {
         let checker = UpdateCheckerSpy(error: .invalidResponse)
         let controller = QuillCodeDesktopUpdateController(
@@ -391,5 +412,13 @@ private actor UpdateInstallerSpy: QuillCodeDesktopUpdateInstalling {
         if let delay {
             try await Task.sleep(for: delay)
         }
+    }
+}
+
+private actor UpdateRecoverySpy: QuillCodeDesktopUpdateRecovering {
+    private(set) var callCount = 0
+
+    func recoverInterruptedUpdate(configuration: QuillCodeDesktopUpdateConfiguration) async {
+        callCount += 1
     }
 }

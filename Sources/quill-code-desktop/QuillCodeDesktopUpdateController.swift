@@ -42,6 +42,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     private let checker: any QuillCodeDesktopUpdateChecking
     private let preparer: any QuillCodeDesktopUpdatePreparing
     private let installer: any QuillCodeDesktopUpdateInstalling
+    private let recovery: any QuillCodeDesktopUpdateRecovering
     private let defaults: UserDefaults
     private let now: () -> Date
     private let automaticSchedule: QuillCodeDesktopUpdateSchedule
@@ -49,6 +50,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     private let terminateApplication: @MainActor () -> Void
     private var operationTask: Task<Void, Never>?
     private var automaticTask: Task<Void, Never>?
+    private var recoveryTask: Task<Void, Never>?
     private var generation = UUID()
     private var didStartAutomaticChecks = false
 
@@ -64,6 +66,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         checker: any QuillCodeDesktopUpdateChecking = QuillCodeDesktopUpdateChecker(),
         preparer: any QuillCodeDesktopUpdatePreparing = QuillCodeDesktopUpdatePreparer(),
         installer: any QuillCodeDesktopUpdateInstalling = QuillCodeDesktopUpdateInstaller(),
+        recovery: any QuillCodeDesktopUpdateRecovering = QuillCodeDesktopUpdateRecovery(),
         defaults: UserDefaults = .standard,
         now: @escaping () -> Date = Date.init,
         automaticSchedule: QuillCodeDesktopUpdateSchedule = .production,
@@ -75,6 +78,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         self.checker = checker
         self.preparer = preparer
         self.installer = installer
+        self.recovery = recovery
         self.defaults = defaults
         self.now = now
         self.automaticSchedule = automaticSchedule
@@ -85,6 +89,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     deinit {
         operationTask?.cancel()
         automaticTask?.cancel()
+        recoveryTask?.cancel()
     }
 
     func startAutomaticChecks() {
@@ -92,6 +97,11 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         didStartAutomaticChecks = true
         consumePreviousInstallResult()
         guard let configuration else { return }
+
+        let recovery = recovery
+        recoveryTask = Task {
+            await recovery.recoverInterruptedUpdate(configuration: configuration)
+        }
 
         let schedule = automaticSchedule
         let firstDelay = schedule.firstDelay(
