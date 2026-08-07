@@ -50,6 +50,31 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertEqual(AgentRunner.defaultWorkspaceStateSignature(directory), "no-git")
     }
 
+    func testWriteNeedsLaterSuccessfulReadAndRewriteRearmsVerification() {
+        var state = AgentRunLoopState()
+        let write = ToolCall(
+            name: "host.file.write",
+            argumentsJSON: ToolArguments.json(["path": "./outputs/report.md", "content": "draft"])
+        )
+        let read = fileReadCall("outputs/report.md")
+        state.baselineWorkspaceStateIfNeeded(workspaceRoot: root) { _ in "before" }
+
+        _ = state.recordCompletedStep(completed(call: write, stdout: "wrote"), workspaceRoot: root) { _ in "write" }
+        XCTAssertEqual(state.unverifiedWrittenWorkspacePaths, ["outputs/report.md"])
+
+        _ = state.recordCompletedStep(
+            completed(call: read, stdout: "missing", ok: false),
+            workspaceRoot: root
+        ) { _ in "write" }
+        XCTAssertEqual(state.unverifiedWrittenWorkspacePaths, ["outputs/report.md"])
+
+        _ = state.recordCompletedStep(completed(call: read, stdout: "draft"), workspaceRoot: root) { _ in "write" }
+        XCTAssertTrue(state.unverifiedWrittenWorkspacePaths.isEmpty)
+
+        _ = state.recordCompletedStep(completed(call: write, stdout: "rewrote"), workspaceRoot: root) { _ in "rewrite" }
+        XCTAssertEqual(state.unverifiedWrittenWorkspacePaths, ["outputs/report.md"])
+    }
+
     private func recordNoProgress(
         _ call: ToolCall,
         in state: inout AgentRunLoopState
@@ -74,8 +99,8 @@ final class AgentRunLoopStateTests: XCTestCase {
         )
     }
 
-    private func completed(call: ToolCall, stdout: String) -> AgentToolStepCompletion {
-        let result = ToolResult(ok: true, stdout: stdout)
+    private func completed(call: ToolCall, stdout: String, ok: Bool = true) -> AgentToolStepCompletion {
+        let result = ToolResult(ok: ok, stdout: stdout)
         return AgentToolStepCompletion(
             call: call,
             result: result,

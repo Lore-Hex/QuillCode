@@ -16,6 +16,9 @@ struct AgentRunLoopState: Sendable {
     private(set) var groundedURLs: Set<String> = []
     private(set) var didFetchSuccessfully = false
     private(set) var writtenWorkspacePaths: Set<String> = []
+    /// A successful write remains here until a LATER successful read of the same path. Rewrites
+    /// re-arm verification, preventing an early read from blessing a subsequently changed file.
+    private(set) var unverifiedWrittenWorkspacePaths: Set<String> = []
 
     /// Call signatures that have already received the repeat SOFT WARNING (Cline learning #2).
     /// One nudge per distinct call; a further repeat of the same call finalizes as before, so the
@@ -57,6 +60,7 @@ struct AgentRunLoopState: Sendable {
         toolResults.append(contentsOf: completion.toolResults)
         lastExecutedCall = completion.call
         lastCompletion = completion
+        recordArtifactVerification(completion)
         recordCitationProvenance(completion)
 
         let workspaceState = stateSignature(workspaceRoot)
@@ -73,6 +77,23 @@ struct AgentRunLoopState: Sendable {
                 completion.result.error ?? "",
             ].joined(separator: "\n"))
         ))
+    }
+
+    private mutating func recordArtifactVerification(_ completion: AgentToolStepCompletion) {
+        guard completion.result.ok,
+              let path = AgentArtifactVerificationGate.pathArgument(from: completion.call)
+        else { return }
+        let normalized = AgentArtifactVerificationGate.normalizedPath(path)
+        switch completion.call.name {
+        case ToolDefinition.fileWrite.name:
+            unverifiedWrittenWorkspacePaths.insert(normalized)
+        case ToolDefinition.fileRead.name:
+            unverifiedWrittenWorkspacePaths = Set(unverifiedWrittenWorkspacePaths.filter {
+                !AgentArtifactVerificationGate.pathsMatch($0, normalized)
+            })
+        default:
+            break
+        }
     }
 
     /// Seeds the grounded set from context that predates this run's tool steps: the user's
@@ -135,17 +156,10 @@ struct AgentRunLoopState: Sendable {
               let arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let path = arguments["path"] as? String
         else { return false }
-        let read = normalizedPath(path)
+        let read = AgentArtifactVerificationGate.normalizedPath(path)
         return writtenWorkspacePaths.contains { written in
-            let candidate = normalizedPath(written)
-            return candidate == read
-                || candidate.hasSuffix("/" + read)
-                || read.hasSuffix("/" + candidate)
+            AgentArtifactVerificationGate.pathsMatch(written, read)
         }
-    }
-
-    private func normalizedPath(_ path: String) -> String {
-        path.hasPrefix("./") ? String(path.dropFirst(2)) : path
     }
 
     /// True the FIRST time a given call repeats: the caller should nudge the model instead of

@@ -196,6 +196,9 @@ public struct AgentRunner: Sendable {
             var hasCompletedWorkspaceMutation = false
             /// One-shot corrective for the next sample only (Cline learning #2 repeat nudge).
             var pendingRepeatNudge: String?
+            /// A premature read of a task-named output is redirected once per path. A repeated
+            /// attempt is allowed to execute normally so this guard can never create a loop.
+            var preWriteVerificationNudgedPaths = Set<String>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -277,6 +280,12 @@ public struct AgentRunner: Sendable {
                         userMessage: userMessage,
                         tools: tools,
                         workspaceRoot: workspaceRoot
+                    )
+                    resolvedAction = AgentArtifactVerificationGate.actionByRequiringReadback(
+                        resolvedAction,
+                        userMessage: userMessage,
+                        tools: tools,
+                        unverifiedPaths: runLoop.unverifiedWrittenWorkspacePaths
                     )
                 }
                 try Task.checkCancellation()
@@ -369,6 +378,12 @@ public struct AgentRunner: Sendable {
                                 tools: tools,
                                 workspaceRoot: workspaceRoot
                             )
+                            finalized = AgentArtifactVerificationGate.actionByRequiringReadback(
+                                finalized,
+                                userMessage: userMessage,
+                                tools: tools,
+                                unverifiedPaths: runLoop.unverifiedWrittenWorkspacePaths
+                            )
                         }
                         switch finalized {
                         case .say(let text):
@@ -378,6 +393,22 @@ public struct AgentRunner: Sendable {
                         case .tool(let recoveredCall):
                             activeCall = recoveredCall
                         }
+                    }
+
+                    if let correction = AgentArtifactVerificationGate.preWriteCorrection(
+                        for: activeCall,
+                        userMessage: userMessage,
+                        workspaceRoot: workspaceRoot
+                    ), preWriteVerificationNudgedPaths.insert(correction.path).inserted {
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: attempted to verify ./\(correction.path) before "
+                                + "creating it; asked the agent to write it first."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
                     }
 
                     // Baseline the workspace state before the first tool step, so that step's own
