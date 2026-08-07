@@ -348,3 +348,18 @@ Drive the QuillCode test harness with mock LLM:
   evidence paths. This reproduces QuillCode's objective catalog score, not a vendor or public
   benchmark score. Production tool safety remains enabled and may use the app's separate internal
   reviewer route while the task model stays pinned to DeepSeek.
+
+## TAU3 Banking And BFCL Compatibility Evals
+
+- `python3 scripts/benchmark-compat-evals.py --validate-only` validates the six stateful synthetic
+  banking fixtures and eight exact function-calling fixtures without making a provider request.
+  `python3 scripts/benchmark-compat-evals.py --self-test` executes all objective graders offline.
+- `python3 -u scripts/benchmark-compat-evals.py` runs both live suites through TrustedRouter with the
+  exact `deepseek/deepseek-v4-flash-0731` route. Use `--suite tau3-banking` or `--suite bfcl` for a
+  bounded suite run. The selected cases determine the paid-invocation fuse; the complete set is capped
+  at 24 calls.
+- Banking cases exercise read, verified mutation, policy lookup, and refusal behavior against isolated
+  in-memory state. BFCL cases exercise simple, multiple, parallel, nested-object, array, and relevance
+  function calls with exact argument graders. Manifests are redacted and scanned for the API key.
+  These are QuillCode compatibility fixtures informed by the upstream suites, not official TAU or
+  BFCL benchmark scores.

@@ -3632,3 +3632,23 @@
 - **Evidence:** `docs/cheap-agentic-eval-catalog.json`, `scripts/cheap-agentic-evals.py`,
   `Tests/Fixtures/CheapAgenticEvals/mixed-domain.json`, and
   `ParityCheapAgenticEvalsGateTests`.
+
+## 2026-08-06: TAU3 banking and BFCL stay bounded compatibility contracts
+
+- **Decision:** QuillCode keeps six synthetic stateful banking cases and eight function-calling cases
+  as objective compatibility fixtures. Live runs require the exact
+  `deepseek/deepseek-v4-flash-0731` task model and derive a hard paid-invocation fuse from the selected
+  cases, capped at 24 for the complete catalog.
+- **Why:** Stateful verification and mutation flows catch agent-continuation failures that isolated
+  tool parsing misses. Exact simple, multiple, parallel, nested, array, and no-tool graders catch
+  function-selection and argument regressions without an LLM judge.
+- **Boundary:** These fixtures track relevant TAU3 banking and BFCL contracts but do not run the full
+  upstream harnesses and must never be reported as official benchmark scores. Banking identities,
+  accounts, and transactions are synthetic and remain in memory.
+- **Safety:** The TrustedRouter key is loaded from environment or a private local key file, is never a
+  command-line value, and is redacted from the artifact tree before success. Catalog validation,
+  offline self-tests, exact-model enforcement, per-case step ceilings, and the aggregate invocation
+  fuse run before or during any paid execution.
+- **Evidence:** `docs/tau3-banking-eval-catalog.json`, `docs/bfcl-eval-catalog.json`,
+  `scripts/benchmark-compat-evals.py`, `BenchmarkCompatibilityActionParserTests`, and
+  `ParityBenchmarkCompatibilityEvalsTests`.

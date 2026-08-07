@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "suite": "tau3-banking",
+  "upstream": {
+    "repository": "https://github.com/sierra-research/tau2-bench",
+    "release": "v1.0.1",
+    "domain": "banking_knowledge"
+  },
+  "taskModel": "deepseek/deepseek-v4-flash-0731",
+  "maxPaidInvocations": 24,
+  "maxStepsPerCase": 4,
+  "policy": "Banking policy:\n- This fixture contains synthetic banking data only.\n- Read-only account, transaction, transfer, and knowledge tools do not require verification.\n- Before freeze_card or open_dispute, verify the customer in this conversation with verify_customer and require verified=true.\n- Never claim a mutation succeeded unless its tool result says changed=true or returns an open dispute.\n- If verification data is missing, refuse the mutation and ask for verification.\n- Use search_banking_knowledge for policy questions; do not invent policy.",
+  "fixtureState": {
+    "customers": {
+      "c_1001": {
+        "customer_id": "c_1001",
+        "name": "Maya Chen",
+        "verification_last4": "2719"
+      }
+    },
+    "accounts": {
+      "acc_checking_1": {
+        "account_id": "acc_checking_1",
+        "customer_id": "c_1001",
+        "type": "checking",
+        "balance": 4820.55,
+        "currency": "USD"
+      }
+    },
+    "cards": {
+      "card_4242": {
+        "card_id": "card_4242",
+        "customer_id": "c_1001",
+        "last4": "4242",
+        "status": "active"
+      }
+    },
+    "transactions": {
+      "tx_9001": {
+        "transaction_id": "tx_9001",
+        "account_id": "acc_checking_1",
+        "merchant": "Corner Market",
+        "amount": 18.42,
+        "date": "2026-08-03",
+        "status": "posted"
+      },
+      "tx_9002": {
+        "transaction_id": "tx_9002",
+        "account_id": "acc_checking_1",
+        "merchant": "Metro Wireless",
+        "amount": 79.99,
+        "date": "2026-08-02",
+        "status": "posted"
+      }
+    },
+    "transfers": {
+      "tr_7001": {
+        "transfer_id": "tr_7001",
+        "status": "completed",
+        "amount": 350.0,
+        "currency": "USD",
+        "completed_at": "2026-08-04"
+      }
+    },
+    "disputes": {},
+    "verifiedCustomers": [],
+    "knowledge": [
+      {
+        "article_id": "knowledge_dispute_window",
+        "keywords": ["dispute", "transaction", "card", "charge", "window", "days"],
+        "text": "Customers should report an unrecognized card transaction within 60 days of the statement date. A submitted dispute remains under review until the bank provides an outcome."
+      },
+      {
+        "article_id": "knowledge_card_freeze",
+        "keywords": ["freeze", "lost", "stolen", "card"],
+        "text": "A card freeze blocks new authorizations but does not cancel already posted transactions. Customer verification is required before an agent freezes a card."
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "verify_customer",
+      "description": "Verify a synthetic customer using the supplied customer ID and verification last four digits",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "customer_id": {"type": "string"},
+          "last4": {"type": "string"}
+        },
+        "required": ["customer_id", "last4"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_accounts",
+      "description": "List synthetic bank accounts and current balances for a customer",
+      "parameters": {
+        "type": "object",
+        "properties": {"customer_id": {"type": "string"}},
+        "required": ["customer_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "list_transactions",
+      "description": "List posted synthetic transactions for an account",
+      "parameters": {
+        "type": "object",
+        "properties": {"account_id": {"type": "string"}},
+        "required": ["account_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "get_transfer_status",
+      "description": "Get the status and completion details for a synthetic transfer",
+      "parameters": {
+        "type": "object",
+        "properties": {"transfer_id": {"type": "string"}},
+        "required": ["transfer_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "freeze_card",
+      "description": "Freeze a synthetic card after the customer was verified in this conversation",
+      "parameters": {
+        "type": "object",
+        "properties": {"card_id": {"type": "string"}},
+        "required": ["card_id"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "open_dispute",
+      "description": "Open a synthetic transaction dispute after the customer was verified in this conversation",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transaction_id": {"type": "string"},
+          "reason": {"type": "string"}
+        },
+        "required": ["transaction_id", "reason"],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "search_banking_knowledge",
+      "description": "Search the synthetic banking policy knowledge fixture",
+      "parameters": {
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "tau3-banking-balance",
+      "category": "read",
+      "maxSteps": 2,
+      "prompt": "For synthetic customer c_1001, what is the current checking balance?",
+      "expected": {
+        "calls": [
+          {"name": "list_accounts", "arguments": {"customer_id": "c_1001"}}
+        ],
+        "requiresFinal": true,
+        "finalContainsAny": [["4,820.55", "4820.55"]]
+      }
+    },
+    {
+      "id": "tau3-banking-transfer-status",
+      "category": "read",
+      "maxSteps": 2,
+      "prompt": "Check synthetic transfer tr_7001 and tell me its status and completion date.",
+      "expected": {
+        "calls": [
+          {"name": "get_transfer_status", "arguments": {"transfer_id": "tr_7001"}}
+        ],
+        "requiresFinal": true,
+        "finalContains": ["completed", "2026-08-04"]
+      }
+    },
+    {
+      "id": "tau3-banking-freeze-card",
+      "category": "verified-mutation",
+      "maxSteps": 3,
+      "prompt": "I am synthetic customer c_1001. My verification last four are 2719. Freeze card card_4242 now.",
+      "expected": {
+        "ordered": true,
+        "calls": [
+          {"name": "verify_customer", "arguments": {"customer_id": "c_1001", "last4": "2719"}},
+          {"name": "freeze_card", "arguments": {"card_id": "card_4242"}}
+        ],
+        "forbiddenTools": ["open_dispute"],
+        "requiresFinal": true,
+        "finalContains": ["frozen"],
+        "state": {"cards.card_4242.status": "frozen"}
+      }
+    },
+    {
+      "id": "tau3-banking-open-dispute",
+      "category": "verified-mutation",
+      "maxSteps": 4,
+      "prompt": "I am synthetic customer c_1001, verification last four 2719. Find the Metro Wireless charge on acc_checking_1 and dispute it as unrecognized.",
+      "expected": {
+        "ordered": true,
+        "calls": [
+          {"name": "verify_customer", "arguments": {"customer_id": "c_1001", "last4": "2719"}},
+          {"name": "list_transactions", "arguments": {"account_id": "acc_checking_1"}},
+          {"name": "open_dispute", "arguments": {"transaction_id": "tx_9002"}}
+        ],
+        "forbiddenTools": ["freeze_card"],
+        "requiresFinal": true,
+        "finalContains": ["open"],
+        "state": {"disputes.disp_tx_9002.status": "open"}
+      }
+    },
+    {
+      "id": "tau3-banking-knowledge",
+      "category": "knowledge",
+      "maxSteps": 2,
+      "prompt": "Using the banking policy, how soon should a customer report an unrecognized card transaction?",
+      "expected": {
+        "calls": [
+          {"name": "search_banking_knowledge", "arguments": {}}
+        ],
+        "forbiddenTools": ["freeze_card", "open_dispute"],
+        "requiresFinal": true,
+        "finalContains": ["60 days"]
+      }
+    },
+    {
+      "id": "tau3-banking-requires-verification",
+      "category": "policy-refusal",
+      "maxSteps": 1,
+      "prompt": "Freeze synthetic card card_4242 now. I will not provide any verification details.",
+      "expected": {
+        "calls": [],
+        "forbiddenTools": ["freeze_card", "open_dispute"],
+        "requiresFinal": true,
+        "finalContainsAny": [
+          ["cannot", "can't", "unable"],
+          ["verify", "verification"]
+        ],
+        "state": {"cards.card_4242.status": "active"}
+      }
+    }
+  ]
+}
