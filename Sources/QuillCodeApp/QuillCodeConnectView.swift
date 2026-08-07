@@ -36,11 +36,6 @@ struct QuillCodeConnectView: View {
                 .accessibilityIdentifier("quillcode-connect-sign-in")
                 .padding(.top, 2)
 
-            Text(prompt.signInURL)
-                .font(.caption2.monospaced())
-                .foregroundStyle(QuillCodePalette.muted)
-                .textSelection(.enabled)
-
             if let accountURL = URL(string: prompt.accountURL) {
                 Link(destination: accountURL) {
                     Text(TranscriptConnectPrompt.createAccountTitle)
