@@ -28,9 +28,49 @@ enum AgentActionJSONExtractor {
         return nil
     }
 
+    /// Recovers a complete canonical file-write envelope whose content contains bare quote marks.
+    /// Some providers repeat the same otherwise-complete action after corrective prompts while
+    /// leaving prose quotes unescaped inside `content`. The strict shape and required closing braces
+    /// keep this from treating a truncated stream or arbitrary prose as an executable write.
+    static func fileWriteObjectByEscapingBareContentQuotes(in text: String) -> [String: Any]? {
+        let fullRange = NSRange(text.startIndex..., in: text)
+        guard text.first == "{",
+              let nameRegex = try? NSRegularExpression(
+                pattern: #"\"name\"\s*:\s*\"host\.file\.write\""#
+              ),
+              nameRegex.firstMatch(in: text, range: fullRange) != nil,
+              let contentRegex = try? NSRegularExpression(pattern: #"\"content\"\s*:\s*\""#),
+              let contentMarker = contentRegex.firstMatch(in: text, range: fullRange),
+              let closingRegex = try? NSRegularExpression(pattern: #"\"\s*\}\s*\}\s*$"#),
+              let closing = closingRegex.firstMatch(in: text, range: fullRange),
+              contentMarker.range.location + contentMarker.range.length <= closing.range.location,
+              let contentStart = Range(contentMarker.range, in: text)?.upperBound,
+              let contentEnd = Range(closing.range, in: text)?.lowerBound
+        else { return nil }
+
+        let body = String(text[contentStart..<contentEnd])
+        let repaired = String(text[..<contentStart])
+            + escapingBareQuotes(in: body)
+            + String(text[contentEnd...])
+        return parseObject(repaired)
+    }
+
     private static func parseObject(_ text: String) -> [String: Any]? {
         guard let data = text.data(using: .utf8) else { return nil }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    private static func escapingBareQuotes(in body: String) -> String {
+        var repaired = ""
+        var backslashRun = 0
+        for character in body {
+            if character == "\"", backslashRun.isMultiple(of: 2) {
+                repaired.append("\\")
+            }
+            repaired.append(character)
+            backslashRun = character == "\\" ? backslashRun + 1 : 0
+        }
+        return repaired
     }
 
     private static func jsonObjectCandidates(in text: String) -> [String] {

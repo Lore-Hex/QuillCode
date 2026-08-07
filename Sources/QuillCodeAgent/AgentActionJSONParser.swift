@@ -5,7 +5,10 @@ public enum AgentActionJSONParser {
         let trimmed = AgentActionJSONExtractor.strippedFences(
             from: text.trimmingCharacters(in: .whitespacesAndNewlines)
         )
-        guard let envelope = AgentActionJSONExtractor.actionObject(in: trimmed, looksLikeAction: looksLikeActionEnvelope),
+        guard let envelope = AgentActionJSONExtractor.actionObject(
+            in: trimmed,
+            looksLikeAction: looksLikeActionEnvelope
+        ) ?? AgentActionJSONExtractor.fileWriteObjectByEscapingBareContentQuotes(in: trimmed),
               let object = normalizedActionObject(from: envelope)
         else {
             if let recovered = AgentShellCommandRecovery.recoveredAction(from: trimmed) {
