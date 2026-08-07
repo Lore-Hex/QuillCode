@@ -56,14 +56,6 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             ".\(baseName).update-\(identifier).app",
             isDirectory: true
         )
-        let backupURL = destinationParent.appendingPathComponent(
-            ".\(baseName).backup-\(identifier).app",
-            isDirectory: true
-        )
-        let failedURL = destinationParent.appendingPathComponent(
-            ".\(baseName).failed-\(identifier).app",
-            isDirectory: true
-        )
         let handshakeURL = preparedUpdate.workspaceURL.appendingPathComponent(
             "launch-\(identifier).ack",
             isDirectory: false
@@ -78,10 +70,7 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
         )
         let resultURL = try QuillCodeDesktopUpdatePaths.installResultURL()
 
-        guard !fileManager.fileExists(atPath: incomingURL.path),
-              !fileManager.fileExists(atPath: backupURL.path),
-              !fileManager.fileExists(atPath: failedURL.path)
-        else {
+        guard !fileManager.fileExists(atPath: incomingURL.path) else {
             throw QuillCodeDesktopUpdateError.installationFailed("a staging path already exists")
         }
 
@@ -113,8 +102,6 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             helperURL: helperURL,
             incomingApplicationURL: incomingURL,
             destinationApplicationURL: destinationURL,
-            backupApplicationURL: backupURL,
-            failedApplicationURL: failedURL,
             handshakeURL: handshakeURL,
             resultURL: resultURL,
             logURL: logURL,
@@ -148,8 +135,6 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
     var helperURL: URL
     var incomingApplicationURL: URL
     var destinationApplicationURL: URL
-    var backupApplicationURL: URL
-    var failedApplicationURL: URL
     var handshakeURL: URL
     var resultURL: URL
     var logURL: URL
@@ -163,8 +148,6 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
             "--parent-pid", String(parentProcessID),
             "--incoming-app", incomingApplicationURL.path,
             "--destination-app", destinationApplicationURL.path,
-            "--backup-app", backupApplicationURL.path,
-            "--failed-app", failedApplicationURL.path,
             "--handshake", handshakeURL.path,
             "--result", resultURL.path,
             "--log", logURL.path,
@@ -192,8 +175,6 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
               parentProcessID > 1,
               let incoming = values["--incoming-app"],
               let destination = values["--destination-app"],
-              let backup = values["--backup-app"],
-              let failed = values["--failed-app"],
               let handshake = values["--handshake"],
               let result = values["--result"],
               let log = values["--log"],
@@ -208,8 +189,6 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
             helperURL: executableURL.standardizedFileURL,
             incomingApplicationURL: URL(fileURLWithPath: incoming).standardizedFileURL,
             destinationApplicationURL: URL(fileURLWithPath: destination).standardizedFileURL,
-            backupApplicationURL: URL(fileURLWithPath: backup).standardizedFileURL,
-            failedApplicationURL: URL(fileURLWithPath: failed).standardizedFileURL,
             handshakeURL: URL(fileURLWithPath: handshake).standardizedFileURL,
             resultURL: URL(fileURLWithPath: result).standardizedFileURL,
             logURL: URL(fileURLWithPath: log).standardizedFileURL,

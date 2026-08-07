@@ -44,7 +44,12 @@ enum QuillCodeDesktopUpdateHelper {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: request.destinationApplicationURL.path),
               fileManager.fileExists(atPath: request.incomingApplicationURL.path),
-              !fileManager.fileExists(atPath: request.backupApplicationURL.path)
+              bundleMatches(
+                request.incomingApplicationURL,
+                identifier: request.expectedBundleIdentifier,
+                version: request.expectedVersion,
+                build: request.expectedBuild
+              )
         else {
             return
         }
@@ -57,23 +62,12 @@ enum QuillCodeDesktopUpdateHelper {
     ) throws {
         let fileManager = FileManager.default
         let parent = request.destinationApplicationURL.deletingLastPathComponent().standardizedFileURL
-        let siblingURLs = [
-            request.incomingApplicationURL,
-            request.backupApplicationURL,
-            request.failedApplicationURL
-        ]
-        guard siblingURLs.allSatisfy({ $0.deletingLastPathComponent().standardizedFileURL == parent }),
+        guard request.incomingApplicationURL.deletingLastPathComponent().standardizedFileURL == parent,
               request.destinationApplicationURL.pathExtension == "app",
               request.incomingApplicationURL.pathExtension == "app",
-              request.backupApplicationURL.pathExtension == "app",
-              request.failedApplicationURL.pathExtension == "app",
               request.incomingApplicationURL.lastPathComponent.contains(".update-"),
-              request.backupApplicationURL.lastPathComponent.contains(".backup-"),
-              request.failedApplicationURL.lastPathComponent.contains(".failed-"),
               fileManager.fileExists(atPath: request.destinationApplicationURL.path),
               fileManager.fileExists(atPath: request.incomingApplicationURL.path),
-              !fileManager.fileExists(atPath: request.backupApplicationURL.path),
-              !fileManager.fileExists(atPath: request.failedApplicationURL.path),
               bundleMatches(
                 request.destinationApplicationURL,
                 identifier: request.expectedBundleIdentifier,
@@ -101,27 +95,24 @@ enum QuillCodeDesktopUpdateHelper {
         environment: QuillCodeDesktopUpdateHelperEnvironment
     ) throws {
         let fileManager = FileManager.default
-        try fileManager.moveItem(
-            at: request.destinationApplicationURL,
-            to: request.backupApplicationURL
+        try swapApplications(
+            request.destinationApplicationURL,
+            request.incomingApplicationURL
         )
+
+        let launchedProcessID: Int32
         do {
-            try fileManager.moveItem(
-                at: request.incomingApplicationURL,
-                to: request.destinationApplicationURL
+            launchedProcessID = try launch(
+                request.destinationApplicationURL,
+                handshakeURL: request.handshakeURL
             )
         } catch {
-            try? fileManager.moveItem(
-                at: request.backupApplicationURL,
-                to: request.destinationApplicationURL
+            try rollback(request)
+            throw QuillCodeDesktopUpdateError.installationFailed(
+                "the new build could not be launched; the previous build was restored"
             )
-            throw QuillCodeDesktopUpdateError.installationFailed("the staged app could not be activated")
         }
 
-        let launchedProcessID = try launch(
-            request.destinationApplicationURL,
-            handshakeURL: request.handshakeURL
-        )
         guard waitForFile(
             request.handshakeURL,
             timeout: environment.launchHandshakeTimeout
@@ -133,7 +124,7 @@ enum QuillCodeDesktopUpdateHelper {
             )
         }
 
-        try? fileManager.removeItem(at: request.backupApplicationURL)
+        try? fileManager.removeItem(at: request.incomingApplicationURL)
         try? fileManager.removeItem(at: request.handshakeURL)
         writeResult(
             .success(version: request.expectedVersion, build: request.expectedBuild),
@@ -162,29 +153,38 @@ enum QuillCodeDesktopUpdateHelper {
     private static func rollback(_ request: QuillCodeDesktopUpdateHelperRequest) throws {
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: request.destinationApplicationURL.path),
-              fileManager.fileExists(atPath: request.backupApplicationURL.path)
+              fileManager.fileExists(atPath: request.incomingApplicationURL.path)
         else {
             throw QuillCodeDesktopUpdateError.installationFailed("the previous app backup is missing")
         }
-        try fileManager.moveItem(
-            at: request.destinationApplicationURL,
-            to: request.failedApplicationURL
+        try swapApplications(
+            request.destinationApplicationURL,
+            request.incomingApplicationURL
         )
-        do {
-            try fileManager.moveItem(
-                at: request.backupApplicationURL,
-                to: request.destinationApplicationURL
-            )
-        } catch {
-            try? fileManager.moveItem(
-                at: request.failedApplicationURL,
-                to: request.destinationApplicationURL
-            )
-            throw QuillCodeDesktopUpdateError.installationFailed("the previous app could not be restored")
-        }
         _ = try launch(request.destinationApplicationURL, handshakeURL: nil)
-        try? fileManager.removeItem(at: request.failedApplicationURL)
+        try? fileManager.removeItem(at: request.incomingApplicationURL)
         try? fileManager.removeItem(at: request.handshakeURL)
+    }
+
+    private static func swapApplications(_ firstURL: URL, _ secondURL: URL) throws {
+        // Keep the destination bundle present if the helper or machine stops during activation.
+        let result = firstURL.withUnsafeFileSystemRepresentation { firstPath in
+            secondURL.withUnsafeFileSystemRepresentation { secondPath in
+                guard let firstPath, let secondPath else { return Int32(-1) }
+                return renameatx_np(
+                    AT_FDCWD,
+                    firstPath,
+                    AT_FDCWD,
+                    secondPath,
+                    UInt32(RENAME_SWAP)
+                )
+            }
+        }
+        guard result == 0 else {
+            throw QuillCodeDesktopUpdateError.installationFailed(
+                "the app bundles could not be swapped atomically"
+            )
+        }
     }
 
     private static func launch(
