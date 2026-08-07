@@ -19,8 +19,9 @@ if [[ "$EVENT_NAME" == "schedule" && "$REF_TYPE" == "branch" ]]; then
     --repo "$REPOSITORY" \
     --pattern latest-tester-build.json \
     --dir "$download_directory" >/dev/null 2>&1; then
-    if published_commit="$(python3 - "$manifest_path" <<'PY'
+    if published_metadata="$(python3 - "$manifest_path" "$REPOSITORY" <<'PY'
 import json
+import re
 import sys
 
 try:
@@ -29,15 +30,52 @@ try:
 except (OSError, ValueError):
     raise SystemExit(1)
 
+repository = sys.argv[2]
 commit = manifest.get("commit")
-if not isinstance(commit, str) or not commit:
+workflow_run_url = manifest.get("workflowRunURL")
+expected_manifest_url = (
+    f"https://github.com/{repository}/releases/download/"
+    "tester-latest/latest-tester-build.json"
+)
+updater = manifest.get("updater")
+if (
+    manifest.get("schemaVersion") != 1
+    or manifest.get("product") != "Quill Cowork"
+    or manifest.get("channel") != "tester"
+    or manifest.get("tag") != "tester-latest"
+    or not isinstance(commit, str)
+    or re.fullmatch(r"[0-9a-f]{40}", commit) is None
+    or not isinstance(workflow_run_url, str)
+    or re.fullmatch(
+        rf"https://github\.com/{re.escape(repository)}/actions/runs/([0-9]+)",
+        workflow_run_url,
+    ) is None
+    or not isinstance(updater, dict)
+    or updater.get("channel") != "tester"
+    or updater.get("manifestURL") != expected_manifest_url
+):
     raise SystemExit(1)
-print(commit)
+run_id = workflow_run_url.rsplit("/", 1)[1]
+print(f"{commit}\t{run_id}\t{workflow_run_url}")
 PY
     )"; then
+      IFS=$'\t' read -r published_commit published_run_id published_run_url <<< "$published_metadata"
       if [[ "$published_commit" == "$COMMIT" ]]; then
-        build_required=false
-        reason="tester manifest already publishes commit $COMMIT"
+        published_run="$(gh run view "$published_run_id" \
+          --repo "$REPOSITORY" \
+          --json status,conclusion,headSha,url,name \
+          --jq '[.status, .conclusion, .headSha, .url, .name] | @tsv' 2>/dev/null || true)"
+        IFS=$'\t' read -r run_status run_conclusion run_commit run_url run_name <<< "$published_run"
+        if [[ "$run_status" == "completed" &&
+              "$run_conclusion" == "success" &&
+              "$run_commit" == "$COMMIT" &&
+              "$run_url" == "$published_run_url" &&
+              "$run_name" == "Download Builds" ]]; then
+          build_required=false
+          reason="tester manifest already publishes verified commit $COMMIT"
+        else
+          reason="tester manifest run is unavailable, incomplete, failed, or mismatched; rebuilding"
+        fi
       else
         reason="tester manifest publishes $published_commit instead of $COMMIT"
       fi

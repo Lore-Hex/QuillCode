@@ -24,7 +24,12 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--tag", required=True, help="Release tag used in download URLs.")
     parser.add_argument("--commit", required=True, help="Git commit SHA for this build.")
     parser.add_argument("--workflow-run-url", required=True, help="GitHub Actions run URL.")
-    parser.add_argument("--channel", default="tester", help="Release channel label.")
+    parser.add_argument(
+        "--channel",
+        choices=("stable", "tester"),
+        default="tester",
+        help="Release channel label.",
+    )
     parser.add_argument("--generated-at", help="UTC ISO timestamp override for tests.")
     parser.add_argument("--output", required=True, help="Manifest JSON output path.")
     return parser.parse_args()
@@ -84,9 +89,7 @@ def latest_release_download_url(repo: str, asset_name: str) -> str:
 def build_updater_metadata(
     *,
     repo: str,
-    tag: str,
     channel: str,
-    output_path: Path,
     build_info: dict[str, str],
     assets: list[dict[str, object]],
 ) -> dict[str, object]:
@@ -97,13 +100,32 @@ def build_updater_metadata(
     signing_team = build_info.get("signingTeamIdentifier")
     if not signing_team or signing_team == "none":
         signing_team = None
+    stable_manifest_url = latest_release_download_url(repo, "latest-stable-build.json")
+    tester_manifest_url = release_download_url(
+        repo,
+        "tester-latest",
+        "latest-tester-build.json",
+    )
+    manifest_url = stable_manifest_url if channel == "stable" else tester_manifest_url
+    expected_build_info = {
+        "updateChannel": channel,
+        "updateManifestURL": manifest_url,
+        "stableUpdateManifestURL": stable_manifest_url,
+        "testerUpdateManifestURL": tester_manifest_url,
+    }
+    for key, expected in expected_build_info.items():
+        actual = build_info.get(key)
+        if actual != expected:
+            raise SystemExit(
+                f"BUILD_INFO {key} must be {expected!r}, found {actual!r}"
+            )
     return {
         "schemaVersion": 1,
         "format": "github-release-manifest",
         "channel": channel,
-        "manifestURL": release_download_url(repo, tag, output_path.name),
-        "stableManifestURL": latest_release_download_url(repo, "latest-stable-build.json"),
-        "testerManifestURL": release_download_url(repo, "tester-latest", "latest-tester-build.json"),
+        "manifestURL": manifest_url,
+        "stableManifestURL": stable_manifest_url,
+        "testerManifestURL": tester_manifest_url,
         "bundleIdentifier": build_info.get("bundleIdentifier", "co.lorehex.QuillCowork"),
         "minimumSystemVersion": build_info.get("minimumSystemVersion", "14.0"),
         "codesign": build_info.get("codesign", "unknown"),
@@ -146,9 +168,7 @@ def build_manifest(arguments: argparse.Namespace) -> dict[str, object]:
 
     updater = build_updater_metadata(
         repo=arguments.repo,
-        tag=arguments.tag,
         channel=arguments.channel,
-        output_path=output_path,
         build_info=build_info,
         assets=assets,
     )

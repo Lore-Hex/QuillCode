@@ -22,8 +22,9 @@ final class ParityDownloadBuildPlanGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         XCTAssertEqual(result.buildRequired, "false")
-        XCTAssertTrue(result.output.contains("already publishes commit \(commit)"))
+        XCTAssertTrue(result.output.contains("already publishes verified commit \(commit)"))
         XCTAssertTrue(result.ghLog.contains("release download tester-latest"))
+        XCTAssertTrue(result.ghLog.contains("run view 12345"))
     }
 
     func testScheduledRunBuildsWhenPublishedCommitIsStale() throws {
@@ -46,6 +47,23 @@ final class ParityDownloadBuildPlanGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(malformed.output.contains("manifest is malformed"))
     }
 
+    func testScheduledRunRebuildsWhenPublishingRunIsNotSuccessfulAndExact() throws {
+        let cases = [
+            try runPlanner(runStatus: "in_progress", runConclusion: ""),
+            try runPlanner(runConclusion: "failure"),
+            try runPlanner(runCommit: String(repeating: "b", count: 40)),
+            try runPlanner(runURL: "https://github.com/Lore-Hex/QuillCode/actions/runs/999"),
+            try runPlanner(runName: "CI"),
+            try runPlanner(runAvailable: false)
+        ]
+
+        for result in cases {
+            XCTAssertEqual(result.exitCode, 0, result.output)
+            XCTAssertEqual(result.buildRequired, "true")
+            XCTAssertTrue(result.output.contains("run is unavailable, incomplete, failed, or mismatched"))
+        }
+    }
+
     private struct PlannerResult {
         var exitCode: Int32
         var output: String
@@ -59,7 +77,13 @@ final class ParityDownloadBuildPlanGateTests: QuillCodeParityTestCase {
         commit: String = String(repeating: "a", count: 40),
         publishedCommit: String = String(repeating: "a", count: 40),
         manifestAvailable: Bool = true,
-        manifestMalformed: Bool = false
+        manifestMalformed: Bool = false,
+        runAvailable: Bool = true,
+        runStatus: String = "completed",
+        runConclusion: String = "success",
+        runCommit: String = String(repeating: "a", count: 40),
+        runURL: String = "https://github.com/Lore-Hex/QuillCode/actions/runs/12345",
+        runName: String = "Download Builds"
     ) throws -> PlannerResult {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-download-plan-tests")
@@ -96,6 +120,12 @@ final class ParityDownloadBuildPlanGateTests: QuillCodeParityTestCase {
         environment["DOWNLOAD_PLAN_MANIFEST_AVAILABLE"] = manifestAvailable ? "true" : "false"
         environment["DOWNLOAD_PLAN_MANIFEST_MALFORMED"] = manifestMalformed ? "true" : "false"
         environment["DOWNLOAD_PLAN_PUBLISHED_COMMIT"] = publishedCommit
+        environment["DOWNLOAD_PLAN_RUN_AVAILABLE"] = runAvailable ? "true" : "false"
+        environment["DOWNLOAD_PLAN_RUN_STATUS"] = runStatus
+        environment["DOWNLOAD_PLAN_RUN_CONCLUSION"] = runConclusion
+        environment["DOWNLOAD_PLAN_RUN_COMMIT"] = runCommit
+        environment["DOWNLOAD_PLAN_RUN_URL"] = runURL
+        environment["DOWNLOAD_PLAN_RUN_NAME"] = runName
         environment["DOWNLOAD_PLAN_GH_LOG"] = ghLogURL.path
         process.environment = environment
 
@@ -131,9 +161,25 @@ final class ParityDownloadBuildPlanGateTests: QuillCodeParityTestCase {
           if [[ "${DOWNLOAD_PLAN_MANIFEST_MALFORMED:?}" == "true" ]]; then
             printf '%s\n' '{not-json' > "$output_directory/latest-tester-build.json"
           else
-            printf '{"commit":"%s"}\n' "${DOWNLOAD_PLAN_PUBLISHED_COMMIT:?}" \
-              > "$output_directory/latest-tester-build.json"
+            {
+              printf '%s' '{"schemaVersion":1,"product":"Quill Cowork","channel":"tester",'
+              printf '%s' '"tag":"tester-latest","commit":"'
+              printf '%s' "${DOWNLOAD_PLAN_PUBLISHED_COMMIT:?}"
+              printf '%s' '","workflowRunURL":"https://github.com/Lore-Hex/QuillCode/actions/runs/12345",'
+              printf '%s' '"updater":{"channel":"tester","manifestURL":"https://github.com/'
+              printf '%s\n' 'Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json"}}'
+            } > "$output_directory/latest-tester-build.json"
           fi
+          exit 0
+        fi
+        if [[ "$1" == "run" && "$2" == "view" ]]; then
+          [[ "${DOWNLOAD_PLAN_RUN_AVAILABLE:?}" == "true" ]] || exit 1
+          printf '%s\t%s\t%s\t%s\t%s\n' \
+            "${DOWNLOAD_PLAN_RUN_STATUS-}" \
+            "${DOWNLOAD_PLAN_RUN_CONCLUSION-}" \
+            "${DOWNLOAD_PLAN_RUN_COMMIT:?}" \
+            "${DOWNLOAD_PLAN_RUN_URL:?}" \
+            "${DOWNLOAD_PLAN_RUN_NAME:?}"
           exit 0
         fi
         echo "unexpected gh invocation: $*" >&2
