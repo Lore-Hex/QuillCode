@@ -173,4 +173,72 @@ final class AgentCorrectionEscalationTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("stopped at a promise")
         })
     }
+
+    func testExhaustedPromisesAdvanceEachExplicitUnreadSourceBeforeModelContinuation() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("promised-source-recovery-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("inputs"),
+            withIntermediateDirectories: true
+        )
+        try "buyer: Morgan\n".write(
+            to: root.appendingPathComponent("inputs/context.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "milestone,date\nsecurity review,2026-08-12\n".write(
+            to: root.appendingPathComponent("inputs/data.csv"),
+            atomically: true,
+            encoding: .utf8
+        )
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+
+        let promise = AgentAction.say("I need to read the source files. Reading them now.")
+        let state = ThrowingState([
+            .success(.tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "inputs/browser.html"])
+            ))),
+            .success(promise),
+            .success(promise),
+            .success(promise),
+            .success(promise),
+            .success(promise),
+            .success(promise),
+            .success(.tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "outputs/plan.md",
+                    "content": "# Mutual action plan\n\nMorgan owns security review on 2026-08-12.\n",
+                ])
+            ))),
+            .success(.say("Created outputs/plan.md.")),
+        ])
+        try "demo notes\n".write(
+            to: root.appendingPathComponent("inputs/browser.html"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let runner = AgentRunner(llm: ThrowingClient(state: state), maxToolSteps: 8)
+
+        let result = try await runner.send(
+            """
+            Inspect the browser notes. Use the file read tool separately on `inputs/context.md` and \
+            `inputs/data.csv`. Write the deliverable to `outputs/plan.md`. After writing, read it back.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true, true, true, true])
+        XCTAssertEqual(
+            result.thread.events.filter {
+                $0.kind == .notice && $0.summary.contains("advanced an explicit requested source read")
+            }.count,
+            2
+        )
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: root.appendingPathComponent("outputs/plan.md").path
+        ))
+    }
 }

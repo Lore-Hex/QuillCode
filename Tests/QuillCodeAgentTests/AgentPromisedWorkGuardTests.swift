@@ -257,6 +257,28 @@ extension AgentPromisedWorkGuardTests {
         }
     }
 
+    func testDetectsTerminalPresentProgressWorkNarration() {
+        let stalls = [
+            "I need to read the two source files before writing. Reading inputs/context.md and inputs/data.csv now.",
+            "I'm running the tests now.",
+            "I am writing the requested report right now.",
+        ]
+        for text in stalls {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.fileRead, .fileWrite]),
+                .promisedWork,
+                "present-progress narration should re-drive: \(text)"
+            )
+        }
+    }
+
+    func testPresentProgressObservationIsNotAPromise() {
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "Reading the report now shows three conversion gaps.",
+            tools: [.fileRead]
+        ))
+    }
+
     func testCompletedResultReadyIsNotAReadinessStall() {
         // "X is ready" (a finished artifact) must NOT fire — only "ready to <proceed/begin/...>".
         let closers = [

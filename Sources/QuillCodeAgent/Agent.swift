@@ -366,22 +366,39 @@ public struct AgentRunner: Sendable {
                 } catch AgentError.promisedWorkWithoutToolAction {
                     try Task.checkCancellation()
                     guard let completion = runLoop.latestCompletion,
-                          completion.result.ok,
-                          !recoveredExhaustedPromisedWorkAfterTool
+                          completion.result.ok
                     else { throw AgentError.promisedWorkWithoutToolAction }
-                    recoveredExhaustedPromisedWorkAfterTool = true
-                    pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
-                        after: completion.call,
-                        failure: "a passive promise instead of a tool action"
-                    )
-                    next.events.append(.init(
-                        kind: .notice,
-                        summary: "Self-healing: the model stopped at a promise after successful "
-                            + "tool work; requested the next concrete step once."
-                    ))
-                    next.updatedAt = Date()
-                    await onProgress?(next)
-                    continue actionLoop
+                    if let recoveredRead = AgentExplicitSourceReadRecovery.nextAction(
+                        userMessage: userMessage,
+                        workspaceRoot: workspaceRoot,
+                        tools: tools,
+                        successfullyReadPaths: runLoop.successfullyReadWorkspacePaths
+                    ) {
+                        resolvedAction = recoveredRead
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: advanced an explicit requested source read "
+                                + "after repeated passive model responses."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    } else {
+                        guard !recoveredExhaustedPromisedWorkAfterTool
+                        else { throw AgentError.promisedWorkWithoutToolAction }
+                        recoveredExhaustedPromisedWorkAfterTool = true
+                        pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
+                            after: completion.call,
+                            failure: "a passive promise instead of a tool action"
+                        )
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: the model stopped at a promise after successful "
+                                + "tool work; requested the next concrete step once."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
                 }
                 if case .say = resolvedAction,
                    let correction = AgentArtifactTextQualityGate.correction(

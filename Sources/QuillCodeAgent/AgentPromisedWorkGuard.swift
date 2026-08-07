@@ -135,6 +135,7 @@ enum AgentPromisedWorkGuard {
 
         return containsFutureWorkPhrase(in: normalized)
             || declaresReadinessToProceed(in: normalized)
+            || declaresImmediateWorkInProgress(in: normalized)
     }
 
     /// A say that ENDS the turn by announcing the model is ABOUT to work rather than working — the
@@ -167,6 +168,35 @@ enum AgentPromisedWorkGuard {
         "will now execute",
         "proceeding to run",
         "proceeding to execute"
+    ]
+
+    /// A terminal present-progress narration is the same stall as a future-tense promise when it
+    /// says the work is happening "now" but emits no tool action. Keep this deliberately narrow:
+    /// the clause must start with a concrete work gerund and end on the token "now", so completed
+    /// observations such as "Reading the report now shows three gaps" remain valid final answers.
+    private static func declaresImmediateWorkInProgress(in normalizedText: String) -> Bool {
+        let terminalClause = normalizedText
+            .replacingOccurrences(
+                of: #"[.!?]\s+"#,
+                with: "\n",
+                options: .regularExpression
+            )
+            .split(whereSeparator: \.isNewline)
+            .last?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let words = terminalClause.split(whereSeparator: { !$0.isLetter && $0 != "'" })
+        guard words.last.map(String.init) == "now" else { return false }
+        return immediateWorkGerunds.contains { gerund in
+            terminalClause.hasPrefix("\(gerund) ")
+                || terminalClause.hasPrefix("i'm \(gerund) ")
+                || terminalClause.hasPrefix("i am \(gerund) ")
+        }
+    }
+
+    private static let immediateWorkGerunds = [
+        "reading", "writing", "creating", "opening", "inspecting", "checking", "reviewing",
+        "running", "fetching", "searching", "updating", "editing", "building", "testing",
+        "starting", "continuing",
     ]
 
     // MARK: - Trailing-off narration (structural, no first-person phrase required)
