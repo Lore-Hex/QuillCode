@@ -25,7 +25,7 @@ jobs:
       QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash' }}
       QUILLCODE_LIVE_KEEP_ARTIFACTS: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check live smoke secret
         run: |
           if [[ -z "${QUILLCODE_API_KEY:-}" ]]; then
@@ -37,7 +37,7 @@ jobs:
         run: ./scripts/live-tr-smoke.sh
       - name: Upload live smoke artifacts
         if: always() && env.QUILLCODE_API_KEY != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: live-trustedrouter-smoke
           path: /tmp/quillcode-live-smoke.*

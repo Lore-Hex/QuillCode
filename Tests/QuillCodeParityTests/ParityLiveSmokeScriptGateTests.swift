@@ -129,7 +129,7 @@ final class ParityLiveSmokeScriptGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(workflow.contains("QUILLCODE_REQUIRE_LIVE_SMOKE: ${{ inputs.require_live && '1' || '0' }}"))
         XCTAssertTrue(workflow.contains("QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR:"))
         XCTAssertTrue(workflow.contains("./scripts/real-world-smoke.sh"))
-        XCTAssertTrue(workflow.contains("actions/upload-artifact@v4"))
+        XCTAssertTrue(workflow.contains("actions/upload-artifact@v7"))
         XCTAssertTrue(workflow.contains("retention-days: 30"))
         XCTAssertFalse(
             workflow.contains("live-tr-smoke.sh"),
