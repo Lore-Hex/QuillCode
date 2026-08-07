@@ -167,6 +167,7 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
             "--failed-app", failedApplicationURL.path,
             "--handshake", handshakeURL.path,
             "--result", resultURL.path,
+            "--log", logURL.path,
             "--bundle-id", expectedBundleIdentifier,
             "--version", expectedVersion,
             "--build", expectedBuild
@@ -195,6 +196,7 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
               let failed = values["--failed-app"],
               let handshake = values["--handshake"],
               let result = values["--result"],
+              let log = values["--log"],
               let bundleIdentifier = values["--bundle-id"],
               let version = values["--version"],
               let build = values["--build"]
@@ -210,7 +212,7 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
             failedApplicationURL: URL(fileURLWithPath: failed).standardizedFileURL,
             handshakeURL: URL(fileURLWithPath: handshake).standardizedFileURL,
             resultURL: URL(fileURLWithPath: result).standardizedFileURL,
-            logURL: URL(fileURLWithPath: "/dev/null"),
+            logURL: URL(fileURLWithPath: log).standardizedFileURL,
             expectedBundleIdentifier: bundleIdentifier,
             expectedVersion: version,
             expectedBuild: build
