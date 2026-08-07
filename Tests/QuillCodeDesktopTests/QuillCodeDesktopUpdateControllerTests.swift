@@ -246,6 +246,52 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         try await waitUntil { terminationCount == 1 }
     }
 
+    func testPreparationProgressAdvancesAndClearsBeforeActivation() async throws {
+        let release = makeRelease(version: "0.2.0", build: "7")
+        let progressUpdates: [QuillCodeDesktopUpdatePreparationProgress] = [
+            .downloading(receivedBytes: 5_000, totalBytes: 10_000),
+            .verifying,
+            .extracting,
+            .validatingApplication,
+        ]
+        let preparer = UpdatePreparerSpy(
+            release: release,
+            progressUpdates: progressUpdates,
+            progressDelay: .milliseconds(30)
+        )
+        let installer = UpdateInstallerSpy(delay: .milliseconds(100))
+        var terminationCount = 0
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            checker: UpdateCheckerSpy(result: .updateAvailable(release)),
+            preparer: preparer,
+            installer: installer,
+            defaults: makeDefaults(),
+            automaticSchedule: makeAutomaticSchedule(),
+            installResultURL: temporaryInstallResultURL(),
+            terminateApplication: { terminationCount += 1 }
+        )
+
+        controller.checkForUpdates()
+        try await waitUntil { controller.state == .updateAvailable(release) }
+        controller.updateAndRelaunch()
+
+        try await waitUntil {
+            controller.preparationProgress == .downloading(
+                receivedBytes: 5_000,
+                totalBytes: 10_000
+            )
+        }
+        XCTAssertEqual(controller.preparationProgress?.downloadFraction, 0.5)
+        try await waitUntil { controller.preparationProgress == .validatingApplication }
+        try await waitUntil {
+            if case .installing = controller.state { return true }
+            return false
+        }
+        XCTAssertNil(controller.preparationProgress)
+        try await waitUntil { terminationCount == 1 }
+    }
+
     func testVisibleInstallFailureDefersAutomaticNetworkWork() async throws {
         let resultURL = temporaryInstallResultURL()
         try FileManager.default.createDirectory(
@@ -373,18 +419,34 @@ private actor UpdateCheckerSpy: QuillCodeDesktopUpdateChecking {
 private actor UpdatePreparerSpy: QuillCodeDesktopUpdatePreparing {
     private let release: QuillCodeDesktopUpdateRelease
     private let delay: Duration?
+    private let progressUpdates: [QuillCodeDesktopUpdatePreparationProgress]
+    private let progressDelay: Duration?
     private(set) var callCount = 0
 
-    init(release: QuillCodeDesktopUpdateRelease, delay: Duration? = nil) {
+    init(
+        release: QuillCodeDesktopUpdateRelease,
+        delay: Duration? = nil,
+        progressUpdates: [QuillCodeDesktopUpdatePreparationProgress] = [],
+        progressDelay: Duration? = nil
+    ) {
         self.release = release
         self.delay = delay
+        self.progressUpdates = progressUpdates
+        self.progressDelay = progressDelay
     }
 
     func prepare(
         release: QuillCodeDesktopUpdateRelease,
-        configuration: QuillCodeDesktopUpdateConfiguration
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        progress: @escaping @Sendable (QuillCodeDesktopUpdatePreparationProgress) -> Void
     ) async throws -> QuillCodeDesktopPreparedUpdate {
         callCount += 1
+        for update in progressUpdates {
+            progress(update)
+            if let progressDelay {
+                try await Task.sleep(for: progressDelay)
+            }
+        }
         if let delay {
             try await Task.sleep(for: delay)
         }

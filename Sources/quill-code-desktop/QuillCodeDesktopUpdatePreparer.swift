@@ -10,12 +10,18 @@ struct QuillCodeDesktopPreparedUpdate: Equatable, Sendable {
 protocol QuillCodeDesktopUpdatePreparing: Sendable {
     func prepare(
         release: QuillCodeDesktopUpdateRelease,
-        configuration: QuillCodeDesktopUpdateConfiguration
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        progress: @escaping @Sendable (QuillCodeDesktopUpdatePreparationProgress) -> Void
     ) async throws -> QuillCodeDesktopPreparedUpdate
 }
 
-protocol QuillCodeDesktopUpdateDownloading: Sendable {
-    func download(from url: URL, to destinationURL: URL, maximumBytes: Int64) async throws
+extension QuillCodeDesktopUpdatePreparing {
+    func prepare(
+        release: QuillCodeDesktopUpdateRelease,
+        configuration: QuillCodeDesktopUpdateConfiguration
+    ) async throws -> QuillCodeDesktopPreparedUpdate {
+        try await prepare(release: release, configuration: configuration, progress: { _ in })
+    }
 }
 
 struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable {
@@ -32,18 +38,27 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
 
     func prepare(
         release: QuillCodeDesktopUpdateRelease,
-        configuration: QuillCodeDesktopUpdateConfiguration
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        progress: @escaping @Sendable (QuillCodeDesktopUpdatePreparationProgress) -> Void
     ) async throws -> QuillCodeDesktopPreparedUpdate {
         let workspaceURL = try await makeCleanWorkspace(for: release)
         do {
             let archiveURL = workspaceURL.appendingPathComponent(release.asset.name, isDirectory: false)
+            progress(.downloading(receivedBytes: 0, totalBytes: release.asset.sizeBytes))
             try await downloader.download(
                 from: release.asset.url,
                 to: archiveURL,
-                maximumBytes: release.asset.sizeBytes
+                maximumBytes: release.asset.sizeBytes,
+                progress: { receivedBytes in
+                    progress(.downloading(
+                        receivedBytes: receivedBytes,
+                        totalBytes: release.asset.sizeBytes
+                    ))
+                }
             )
             try Task.checkCancellation()
 
+            progress(.verifying)
             try await Task.detached(priority: .utility) {
                 try Self.verifyArchive(
                     at: archiveURL,
@@ -53,6 +68,7 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
             }.value
 
             let extractedURL = workspaceURL.appendingPathComponent("Extracted", isDirectory: true)
+            progress(.extracting)
             try await Task.detached(priority: .utility) {
                 try FileManager.default.createDirectory(
                     at: extractedURL,
@@ -68,6 +84,7 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
                 }
             }.value
 
+            progress(.validatingApplication)
             let applicationURL = try await Task.detached(priority: .utility) {
                 let appURL = try Self.singleApplication(in: extractedURL)
                 try Self.validateContainedLinks(in: extractedURL)
@@ -198,58 +215,5 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
                 )
             }
         }
-    }
-}
-
-struct QuillCodeDesktopUpdateDownloader: QuillCodeDesktopUpdateDownloading, @unchecked Sendable {
-    private let session: URLSession
-
-    init(session: URLSession? = nil) {
-        self.session = session ?? Self.makeSession()
-    }
-
-    func download(from url: URL, to destinationURL: URL, maximumBytes: Int64) async throws {
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 30
-        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        request.setValue("application/zip", forHTTPHeaderField: "Accept")
-        request.setValue("Quill-Cowork-Updater/1", forHTTPHeaderField: "User-Agent")
-
-        let temporaryURL: URL
-        let response: URLResponse
-        do {
-            (temporaryURL, response) = try await session.download(for: request)
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch {
-            throw QuillCodeDesktopUpdateError.invalidResponse
-        }
-        guard let response = response as? HTTPURLResponse,
-              response.statusCode == 200,
-              response.expectedContentLength <= 0 || response.expectedContentLength <= maximumBytes
-        else {
-            throw QuillCodeDesktopUpdateError.invalidResponse
-        }
-        let values = try temporaryURL.resourceValues(forKeys: [.fileSizeKey])
-        guard Int64(values.fileSize ?? -1) <= maximumBytes else {
-            throw QuillCodeDesktopUpdateError.downloadSizeMismatch
-        }
-        do {
-            try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
-        } catch {
-            throw QuillCodeDesktopUpdateError.installationFailed("the download could not be staged")
-        }
-    }
-
-    private static func makeSession() -> URLSession {
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 30
-        configuration.timeoutIntervalForResource = 30 * 60
-        configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        configuration.urlCache = nil
-        configuration.httpShouldSetCookies = false
-        configuration.httpCookieAcceptPolicy = .never
-        configuration.waitsForConnectivity = true
-        return URLSession(configuration: configuration)
     }
 }

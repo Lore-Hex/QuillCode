@@ -70,12 +70,7 @@ struct QuillCodeDesktopUpdateView: View {
         case .updateAvailable(let release):
             updateContent(release)
         case .downloading(let release):
-            statusContent(
-                icon: "arrow.down.circle",
-                title: "Downloading \(release.displayVersion)",
-                detail: ByteCountFormatter.string(fromByteCount: release.asset.sizeBytes, countStyle: .file),
-                showsProgress: true
-            )
+            preparationStatusContent(release)
         case .installing(let release):
             statusContent(
                 icon: "shippingbox",
@@ -97,6 +92,48 @@ struct QuillCodeDesktopUpdateView: View {
                 detail: message,
                 showsProgress: false,
                 scrollsDetail: true
+            )
+        }
+    }
+
+    private func preparationStatusContent(_ release: QuillCodeDesktopUpdateRelease) -> some View {
+        let progress = controller.preparationProgress
+        switch progress {
+        case .downloading(let receivedBytes, let totalBytes):
+            return statusContent(
+                icon: "arrow.down.circle",
+                title: "Downloading \(release.displayVersion)",
+                detail: "\(fileSize(receivedBytes)) of \(fileSize(totalBytes))",
+                showsProgress: true,
+                progressValue: progress?.downloadFraction
+            )
+        case .verifying:
+            return statusContent(
+                icon: "checkmark.shield",
+                title: "Verifying update",
+                detail: "Checking the download size and SHA-256 digest.",
+                showsProgress: true
+            )
+        case .extracting:
+            return statusContent(
+                icon: "shippingbox",
+                title: "Unpacking update",
+                detail: "Preparing the verified app bundle.",
+                showsProgress: true
+            )
+        case .validatingApplication:
+            return statusContent(
+                icon: "checkmark.seal",
+                title: "Validating app",
+                detail: "Checking its identity, version, architecture, and code signature.",
+                showsProgress: true
+            )
+        case nil:
+            return statusContent(
+                icon: "arrow.down.circle",
+                title: "Downloading \(release.displayVersion)",
+                detail: fileSize(release.asset.sizeBytes),
+                showsProgress: true
             )
         }
     }
@@ -140,6 +177,7 @@ struct QuillCodeDesktopUpdateView: View {
         title: String,
         detail: String,
         showsProgress: Bool,
+        progressValue: Double? = nil,
         scrollsDetail: Bool = false
     ) -> some View {
         VStack(spacing: 14) {
@@ -167,9 +205,16 @@ struct QuillCodeDesktopUpdateView: View {
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
             if showsProgress {
-                ProgressView()
-                    .controlSize(.small)
-                    .accessibilityLabel(title)
+                if let progressValue {
+                    ProgressView(value: progressValue)
+                        .frame(width: 220)
+                        .accessibilityLabel(title)
+                        .accessibilityValue(Text("\(Int(progressValue * 100)) percent"))
+                } else {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel(title)
+                }
             }
         }
         .frame(maxWidth: 380)
@@ -233,5 +278,9 @@ struct QuillCodeDesktopUpdateView: View {
                     .quillCodeFormActionTarget()
             }
         }
+    }
+
+    private func fileSize(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: max(bytes, 0), countStyle: .file)
     }
 }

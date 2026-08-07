@@ -148,6 +148,22 @@ enum QuillCodeDesktopUpdateCheckResult: Equatable, Sendable {
     case upToDate(latestVersion: String, latestBuild: String)
 }
 
+enum QuillCodeDesktopUpdatePreparationProgress: Equatable, Sendable {
+    case downloading(receivedBytes: Int64, totalBytes: Int64)
+    case verifying
+    case extracting
+    case validatingApplication
+
+    var downloadFraction: Double? {
+        guard case .downloading(let receivedBytes, let totalBytes) = self,
+              totalBytes > 0
+        else {
+            return nil
+        }
+        return min(max(Double(receivedBytes) / Double(totalBytes), 0), 1)
+    }
+}
+
 enum QuillCodeDesktopUpdateError: LocalizedError, Equatable, Sendable {
     case updatesUnavailable
     case invalidResponse
