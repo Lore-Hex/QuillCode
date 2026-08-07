@@ -64,11 +64,14 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertEqual(WAVE5.required_concept_matches(10), 4)
 
     def test_concept_aliases_accept_equivalent_founder_language(self):
-        output = WAVE5.normalize("Account prioritization by trigger, with Var vs Plan reporting.")
+        output = WAVE5.normalize(
+            "Account prioritization by trigger, with Var vs Plan reporting and headline, subhead, CTA copy."
+        )
 
         self.assertTrue(WAVE5.concept_matches("target account", output))
         self.assertTrue(WAVE5.concept_matches("event", output))
         self.assertTrue(WAVE5.concept_matches("variance", output))
+        self.assertTrue(WAVE5.concept_matches("landing page", output))
         self.assertFalse(WAVE5.concept_matches("runway", output))
 
     def test_normalize_ignores_numeric_thousands_separators(self):

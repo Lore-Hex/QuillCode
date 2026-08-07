@@ -257,6 +257,7 @@ CONCEPTS = (
 
 CONCEPT_ALIASES = {
     "event": ("event", "trigger"),
+    "landing page": ("landing page", "headline", "subhead", "call to action", "cta"),
     "target account": ("target account", "account prioritization", "priority account", "ranked account"),
     "variance": ("variance", "var vs", "vs plan"),
 }
