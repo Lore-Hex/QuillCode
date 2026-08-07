@@ -87,13 +87,13 @@ struct QuillCodeDesktopCoworkEvalReport: Encodable {
     var tools: [Tool]
 
     static func unrecoveredFailureCount(in tools: [Tool]) -> Int {
-        var laterSuccessfulToolNames = Set<String>()
+        var hasLaterSuccess = false
         var count = 0
 
         for tool in tools.reversed() {
             if tool.status == "done" {
-                laterSuccessfulToolNames.insert(tool.name)
-            } else if tool.status == "failed", !laterSuccessfulToolNames.contains(tool.name) {
+                hasLaterSuccess = true
+            } else if tool.status == "failed", !hasLaterSuccess {
                 count += 1
             }
         }

@@ -402,13 +402,12 @@ def tool_succeeded(tool):
 
 
 def unrecovered_tool_failures(tools):
-    later_successful_tool_names = set()
+    has_later_success = False
     failures = []
     for tool in reversed(tools):
-        name = tool.get("name")
         if tool_succeeded(tool):
-            later_successful_tool_names.add(name)
-        elif name not in later_successful_tool_names:
+            has_later_success = True
+        elif not has_later_success:
             failures.append(tool)
     return list(reversed(failures))
 

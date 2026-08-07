@@ -97,12 +97,12 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         )))
         self.assertFalse(WAVE5.tool_succeeded(tool("host.file.read", status="failed")))
 
-    def test_tool_failure_recovery_requires_a_later_success_for_the_same_tool(self):
+    def test_tool_failure_recovery_accepts_a_later_changed_strategy(self):
         recovered = [
             tool("host.shell.run", status="failed"),
             tool("host.shell.run", output_payload={"ok": True}),
         ]
-        wrong_tool = [
+        changed_strategy = [
             tool("host.file.write", status="failed"),
             tool("host.shell.run", output_payload={"ok": True}),
         ]
@@ -112,7 +112,7 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         ]
 
         self.assertEqual(WAVE5.unrecovered_tool_failures(recovered), [])
-        self.assertEqual(WAVE5.unrecovered_tool_failures(wrong_tool), [wrong_tool[0]])
+        self.assertEqual(WAVE5.unrecovered_tool_failures(changed_strategy), [])
         self.assertEqual(WAVE5.unrecovered_tool_failures(final_failure), [final_failure[1]])
 
     def test_product_grounding_accepts_customer_commitment_source_facts(self):

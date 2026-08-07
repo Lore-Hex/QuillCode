@@ -126,13 +126,13 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 outputJSON: nil
             ),
             QuillCodeDesktopCoworkEvalReport.Tool(
-                name: "host.shell.run",
+                name: "host.file.write",
                 status: "done",
                 inputJSON: nil,
                 outputJSON: nil
             ),
             QuillCodeDesktopCoworkEvalReport.Tool(
-                name: "host.file.write",
+                name: "host.file.read",
                 status: "failed",
                 inputJSON: nil,
                 outputJSON: nil
