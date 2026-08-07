@@ -207,6 +207,9 @@ public struct AgentRunner: Sendable {
             /// its own bounded retries, so provider instability cannot create an unbounded loop.
             var recoveredExhaustedEmptyAfterTool = false
             var recoveredExhaustedPromisedWorkAfterTool = false
+            /// Listing a not-yet-created output directory is predictably unsuccessful. Correct each
+            /// exact proposal once, then allow a repeat through so this preflight stays bounded.
+            var preflightCorrectedMissingListCalls = Set<ToolCallFingerprint>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -494,6 +497,29 @@ public struct AgentRunner: Sendable {
                             kind: .notice,
                             summary: "Self-healing: attempted to verify ./\(correction.path) before "
                                 + "creating it; asked the agent to write it first."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
+                    let listFingerprint = ToolCallFingerprint.make(
+                        name: activeCall.name,
+                        argumentsJSON: activeCall.argumentsJSON
+                    )
+                    if let missingPath = AgentMissingDirectoryListPreflight.missingPath(
+                        in: activeCall,
+                        workspaceRoot: workspaceRoot
+                    ), preflightCorrectedMissingListCalls.insert(listFingerprint).inserted {
+                        pendingRepeatNudge = """
+                        The directory ./\(missingPath) does not exist yet, so listing it will fail. \
+                        If it is an output directory, write the requested file directly; \
+                        host.file.write creates parent directories. Otherwise list an existing \
+                        source directory. Do not retry the same missing-directory list.
+                        """
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: avoided listing a missing workspace directory."
                         ))
                         next.updatedAt = Date()
                         await onProgress?(next)
