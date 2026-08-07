@@ -89,12 +89,24 @@ The app is still a tester build, so ask testers to include:
 
 ## Versioned Releases
 
-Push a tag such as `v0.1.0` to create a versioned release with the same assets:
+Stable releases are immutable and must use a canonical `vMAJOR.MINOR.PATCH` tag
+pointing to a commit on `main` with a successful **CI** run. Start from a clean,
+current `main`, verify that all Apple distribution secrets below are configured,
+then push the tag:
 
 ```bash
+git switch main
+git pull --ff-only origin main
+gh run list --workflow ci.yml --commit "$(git rev-parse HEAD)" --status success --limit 1
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+The workflow rejects tags that are malformed, off `main`, missing successful CI,
+or already published. It creates the stable release as a draft, uploads every
+asset, and only then publishes it as the latest release. If a stable publish
+fails after creating its draft, inspect and delete that draft before retrying;
+an existing stable release is never edited or clobbered automatically.
 
 Use versioned releases for public announcements. Use `tester-latest` for quick
 iteration with early testers.
