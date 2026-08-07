@@ -19,6 +19,13 @@ final class AgentQuantitativeSpecGateTests: XCTestCase {
         XCTAssertNil(AgentQuantitativeSpecGate.wordBudget(in: "no numbers here"))
     }
 
+    func testPerItemAndMaximumOnlyBudgetsDoNotArmGlobalGate() {
+        XCTAssertNil(AgentQuantitativeSpecGate.wordBudget(in: "Keep each note under 120 words."))
+        XCTAssertNil(AgentQuantitativeSpecGate.wordBudget(in: "Each email must be 100 words or less."))
+        XCTAssertNil(AgentQuantitativeSpecGate.wordBudget(in: "Write 10 blurbs, max 80 words per blurb."))
+        XCTAssertNil(AgentQuantitativeSpecGate.wordBudget(in: "Keep the memo under 500 words."))
+    }
+
     func testToleranceBandIsTwentyFivePercent() {
         let budget = try! XCTUnwrap(AgentQuantitativeSpecGate.wordBudget(in: "300-word memo"))
         XCTAssertEqual(budget.minimum, 225)
@@ -60,6 +67,25 @@ final class AgentQuantitativeSpecGateTests: XCTestCase {
             userMessage: "build a 300-word summary into report.csv, save report.csv",
             workspaceRoot: root
         ).isEmpty)
+    }
+
+    func testPerItemBudgetDoesNotMeasureTheWholeArtifact() throws {
+        let root = try makeWorkspace()
+        let notes = (1...15).map { index in
+            "## Fund \(index)\n" + Array(repeating: "specific", count: 80).joined(separator: " ")
+        }.joined(separator: "\n\n")
+        try notes.write(
+            to: root.appendingPathComponent("investor-outreach.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let violations = AgentQuantitativeSpecGate.violations(
+            userMessage: "Draft 15 notes in investor-outreach.md. Keep each note under 120 words.",
+            workspaceRoot: root
+        )
+
+        XCTAssertTrue(violations.isEmpty)
     }
 
     // MARK: - End-to-end recovery
