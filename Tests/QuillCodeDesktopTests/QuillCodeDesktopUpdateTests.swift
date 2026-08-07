@@ -110,6 +110,27 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         }
     }
 
+    func testPreparerPrunesPreviousUpdateWorkspaces() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let staleWorkspace = root.appendingPathComponent("old-build", isDirectory: true)
+        let staleFile = root.appendingPathComponent("partial-download.zip")
+        try FileManager.default.createDirectory(at: staleWorkspace, withIntermediateDirectories: false)
+        try Data("partial".utf8).write(to: staleFile)
+        let preparer = QuillCodeDesktopUpdatePreparer(cacheRoot: root)
+        let release = makeRelease(build: "617")
+
+        let workspace = try await preparer.makeCleanWorkspace(for: release)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: workspace.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staleWorkspace.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staleFile.path))
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(atPath: root.path),
+            [workspace.lastPathComponent]
+        )
+    }
+
     func testHelperArgumentsRoundTripWithoutInterpretingPathsAsShell() throws {
         let root = URL(fileURLWithPath: "/tmp/Quill Cowork update; untouched")
         let request = QuillCodeDesktopUpdateHelperRequest(
@@ -148,6 +169,9 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let cacheRoot = root.appendingPathComponent("cache", isDirectory: true)
         try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        let workspace = cacheRoot.appendingPathComponent("success-workspace", isDirectory: true)
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: false)
+        try Data("staged".utf8).write(to: workspace.appendingPathComponent("archive.zip"))
         let destination = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
         let incoming = root.appendingPathComponent(".Quill Cowork.update-success.app", isDirectory: true)
         try makeFakeApplication(
@@ -177,7 +201,8 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             resultURL: resultURL,
             expectedVersion: "0.2.0",
             expectedBuild: "2",
-            suffix: "success"
+            suffix: "success",
+            workspace: workspace
         )
         let environment = QuillCodeDesktopUpdateHelperEnvironment(
             cacheRootURL: cacheRoot,
@@ -197,6 +222,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         XCTAssertEqual(result.status, .success)
         XCTAssertEqual(result.version, "0.2.0")
         XCTAssertEqual(result.build, "2")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: workspace.path))
     }
 
     func testHelperTerminatesFailedChildAndRollsBack() throws {
@@ -204,6 +230,8 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let cacheRoot = root.appendingPathComponent("cache", isDirectory: true)
         try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        let workspace = cacheRoot.appendingPathComponent("rollback-workspace", isDirectory: true)
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: false)
         let destination = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
         let incoming = root.appendingPathComponent(".Quill Cowork.update-rollback.app", isDirectory: true)
         let childPIDURL = root.appendingPathComponent("failed-child.pid")
@@ -229,7 +257,8 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             resultURL: resultURL,
             expectedVersion: "0.2.0",
             expectedBuild: "2",
-            suffix: "rollback"
+            suffix: "rollback",
+            workspace: workspace
         )
         let environment = QuillCodeDesktopUpdateHelperEnvironment(
             cacheRootURL: cacheRoot,
@@ -257,6 +286,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             usleep(10_000)
         }
         XCTAssertTrue(FileManager.default.fileExists(atPath: rollbackLaunchedURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: workspace.path))
     }
 
     func testBundledConfigurationReadsEveryReleaseFeedKey() throws {
@@ -286,18 +316,20 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         resultURL: URL,
         expectedVersion: String,
         expectedBuild: String,
-        suffix: String
+        suffix: String,
+        workspace: URL? = nil
     ) -> QuillCodeDesktopUpdateHelperRequest {
-        QuillCodeDesktopUpdateHelperRequest(
+        let workspace = workspace ?? cacheRoot
+        return QuillCodeDesktopUpdateHelperRequest(
             parentProcessID: Int32.max,
-            helperURL: root.appendingPathComponent("helper"),
+            helperURL: workspace.appendingPathComponent("helper"),
             incomingApplicationURL: incoming,
             destinationApplicationURL: destination,
             backupApplicationURL: root.appendingPathComponent(".Quill Cowork.backup-\(suffix).app"),
             failedApplicationURL: root.appendingPathComponent(".Quill Cowork.failed-\(suffix).app"),
-            handshakeURL: cacheRoot.appendingPathComponent("launch-\(suffix).ack"),
+            handshakeURL: workspace.appendingPathComponent("launch-\(suffix).ack"),
             resultURL: resultURL,
-            logURL: root.appendingPathComponent("install.log"),
+            logURL: workspace.appendingPathComponent("install.log"),
             expectedBundleIdentifier: "co.lorehex.QuillCowork",
             expectedVersion: expectedVersion,
             expectedBuild: expectedBuild

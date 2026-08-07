@@ -85,7 +85,7 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
         )
     }
 
-    private func makeCleanWorkspace(for release: QuillCodeDesktopUpdateRelease) async throws -> URL {
+    func makeCleanWorkspace(for release: QuillCodeDesktopUpdateRelease) async throws -> URL {
         let configuredCacheRoot = cacheRoot
         return try await Task.detached(priority: .utility) {
             let root = try configuredCacheRoot ?? Self.defaultCacheRoot()
@@ -98,6 +98,14 @@ struct QuillCodeDesktopUpdatePreparer: QuillCodeDesktopUpdatePreparing, Sendable
                 "\(release.commit.prefix(12))-\(release.build)",
                 isDirectory: true
             )
+            let staleEntries = try FileManager.default.contentsOfDirectory(
+                at: root,
+                includingPropertiesForKeys: nil,
+                options: []
+            )
+            for entry in staleEntries where entry.standardizedFileURL != workspace.standardizedFileURL {
+                try? FileManager.default.removeItem(at: entry)
+            }
             if FileManager.default.fileExists(atPath: workspace.path) {
                 try FileManager.default.removeItem(at: workspace)
             }

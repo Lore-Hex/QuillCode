@@ -140,6 +140,23 @@ enum QuillCodeDesktopUpdateHelper {
             to: request.resultURL,
             allowedResultURL: environment.resultURL
         )
+        removeCompletedWorkspaceIfSafe(request, cacheRoot: environment.cacheRootURL)
+    }
+
+    private static func removeCompletedWorkspaceIfSafe(
+        _ request: QuillCodeDesktopUpdateHelperRequest,
+        cacheRoot: URL
+    ) {
+        let root = cacheRoot.standardizedFileURL
+        let workspace = request.handshakeURL.deletingLastPathComponent().standardizedFileURL
+        guard workspace != root,
+              workspace.deletingLastPathComponent().standardizedFileURL == root,
+              request.helperURL.deletingLastPathComponent().standardizedFileURL == workspace,
+              request.logURL.deletingLastPathComponent().standardizedFileURL == workspace
+        else {
+            return
+        }
+        try? FileManager.default.removeItem(at: workspace)
     }
 
     private static func rollback(_ request: QuillCodeDesktopUpdateHelperRequest) throws {
