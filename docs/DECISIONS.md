@@ -1,5 +1,37 @@
 # QuillCode Decisions
 
+## 2026-08-07: shell subprocesses receive the environment used to plan their launch
+
+- **Decision:** Synchronous and streaming shell execution resolve one effective environment and pass
+  that same value to sandbox planning and `Process`. An omitted command-local environment inherits
+  the Quill Cowork process environment explicitly; an explicit environment remains authoritative.
+- **Why:** The launch paths previously computed the inherited environment for sandbox setup but
+  assigned the original optional override to `Process`. Under SwiftPM and some GUI launch contexts,
+  login shells could start without `HOME`, source the user's profile with broken absolute paths, and
+  contaminate command and SSH diagnostics. The mismatch also made full-suite results depend on the
+  developer machine's profile.
+- **Evidence:** `ShellToolExecutorTests` cover inherited `HOME` in synchronous and streaming paths.
+  `AppServerUserShellTests` uses an isolated temporary home, and `SSHRemoteProjectProbeTests` proves
+  that the intended remote failure remains the surfaced diagnostic.
+
+## 2026-08-07: interrupted updates clean up only updater-owned staging
+
+- **Decision:** Failed or cancelled preparation removes the workspace it created. On app startup,
+  `QuillCodeDesktopUpdateRecovery` waits two minutes and then removes only immediate hidden sibling
+  directories named `.Quill Cowork.update-<lowercase UUID>.app` beside a valid configured Quill
+  Cowork bundle.
+- **Safety boundary:** Recovery refuses symlinks, malformed identifiers, other app names, and an
+  unexpected destination bundle identity. The grace period exceeds the helper's parent-exit and
+  launch-handshake budgets so a second app instance cannot delete a legitimate in-flight staging
+  bundle. The successful preparation workspace remains intact for the detached helper.
+- **Why:** A process or machine stop can happen before activation, after the atomic swap, or during
+  rollback cleanup. Every window keeps a runnable destination bundle, but without reconciliation a
+  hidden full app copy could remain indefinitely. The bounded ownership contract recovers disk space
+  without broad deletion beside the user's installed application.
+- **Evidence:** `QuillCodeDesktopUpdateRecovery`, `QuillCodeDesktopUpdatePreparer`,
+  `QuillCodeDesktopUpdateControllerTests`, and `QuillCodeDesktopUpdateTests` cover exact ownership,
+  symlink/lookalike refusal, startup idempotence, cancellation, failure, swap, and rollback paths.
+
 ## 2026-08-06: macOS updates use a verified staged swap with rollback
 
 - **Decision:** Quill Cowork consumes its embedded GitHub release manifest directly. It checks on a

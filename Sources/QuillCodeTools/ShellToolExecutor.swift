@@ -220,7 +220,7 @@ public struct ShellToolExecutor: Sendable {
         process.executableURL = launch.executable
         process.arguments = launch.arguments
         process.currentDirectoryURL = request.cwd
-        process.environment = request.environment
+        process.environment = environment
 
         let stdout = Pipe()
         let stderr = Pipe()

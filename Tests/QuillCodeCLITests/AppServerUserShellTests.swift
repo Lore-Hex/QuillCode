@@ -451,7 +451,7 @@ final class AppServerUserShellTests: XCTestCase {
         let output = UserShellOutputCollector()
         let session = try AppServerSession(
             request: CLIAppServerRequest(live: false, home: home),
-            environment: ["SHELL": "/bin/sh"],
+            environment: ["HOME": home.path, "SHELL": "/bin/sh"],
             currentDirectory: workspace,
             runnerFactory: { configuration in
                 AgentRunner(

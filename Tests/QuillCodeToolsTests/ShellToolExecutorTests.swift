@@ -33,6 +33,18 @@ final class ShellToolExecutorTests: XCTestCase {
         XCTAssertEqual(result.stdout, "from-shell-request")
     }
 
+    func testShellWithoutExplicitEnvironmentInheritsHome() throws {
+        let expectedHome = try XCTUnwrap(ProcessInfo.processInfo.environment["HOME"])
+
+        let result = ShellToolExecutor().run(.init(
+            command: "printf '%s' \"$HOME\"",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory())
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, expectedHome)
+    }
+
     func testShellUsesSelectedExecutable() throws {
         let root = try makeTempDirectory()
         let argumentsFile = root.appendingPathComponent("shell-arguments.txt")
@@ -147,6 +159,23 @@ final class ShellToolExecutorTests: XCTestCase {
                 .map(String.init),
             ["-lc", "printf selected-stream-shell"]
         )
+    }
+
+    func testStreamingShellWithoutExplicitEnvironmentInheritsHome() async throws {
+        let expectedHome = try XCTUnwrap(ProcessInfo.processInfo.environment["HOME"])
+        let stream = ShellToolExecutor().runStreaming(.init(
+            command: "printf '%s' \"$HOME\"",
+            cwd: URL(fileURLWithPath: NSTemporaryDirectory())
+        ))
+        var finishedResult: ToolResult?
+
+        for await event in stream {
+            if case .finished(let result) = event { finishedResult = result }
+        }
+
+        let result = try XCTUnwrap(finishedResult)
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(result.stdout, expectedHome)
     }
 
     func testStreamingSessionSendsInputToRunningProcess() async throws {

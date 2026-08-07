@@ -100,6 +100,11 @@ previous bundle. Background check failures stay quiet; user-initiated failures
 remain visible and retain direct retry and browser-download actions. Repeated
 menu checks cannot cancel an active download or the non-cancellable activation
 phase, and a background result never replaces update UI that is already visible.
+Failed or cancelled preparation removes its cache workspace immediately. After a
+two-minute active-helper grace period on launch, the app also removes only its
+exact hidden `.Quill Cowork.update-<lowercase UUID>.app` sibling directories left
+by an interrupted install; symlinks, lookalikes, and unexpected app identities are
+never treated as updater-owned staging.
 
 ## Tester Install Notes
 
