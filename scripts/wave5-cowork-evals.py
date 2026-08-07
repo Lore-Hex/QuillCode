@@ -274,6 +274,7 @@ CONCEPTS = (
 )
 
 CONCEPT_ALIASES = {
+    "cold email": ("cold email", "cold outreach", "outbound email"),
     "customer commitment": (
         "customer commitment", "customer promise", "sales commitment", "customer-facing commitment",
     ),

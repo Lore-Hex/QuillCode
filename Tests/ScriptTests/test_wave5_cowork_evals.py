@@ -136,6 +136,9 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         )
         self.assertTrue(WAVE5.concept_matches("customer commitment", commitments_output))
 
+        outreach_output = WAVE5.normalize("Five personalized cold outreach drafts with follow-ups.")
+        self.assertTrue(WAVE5.concept_matches("cold email", outreach_output))
+
     def test_normalize_ignores_numeric_thousands_separators(self):
         self.assertIn("820000", WAVE5.normalize("Cash: $820,000"))
         self.assertIn("98000", WAVE5.normalize("Burn: 98_000"))
