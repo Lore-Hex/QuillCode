@@ -199,6 +199,9 @@ public struct AgentRunner: Sendable {
             /// A premature read of a task-named output is redirected once per path. A repeated
             /// attempt is allowed to execute normally so this guard can never create a loop.
             var preWriteVerificationNudgedPaths = Set<String>()
+            /// Unsafe shell paths get one preflight correction per exact call. A repeated proposal
+            /// still reaches the approval gate, preserving its authority and bounded termination.
+            var preflightCorrectedShellCalls = Set<ToolCallFingerprint>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -426,6 +429,34 @@ public struct AgentRunner: Sendable {
                             kind: .notice,
                             summary: "Self-healing: attempted to verify ./\(correction.path) before "
                                 + "creating it; asked the agent to write it first."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
+                    let shellFingerprint = ToolCallFingerprint.make(
+                        name: activeCall.name,
+                        argumentsJSON: activeCall.argumentsJSON
+                    )
+                    let outsideWorkspacePaths = OutsideWorkspaceShellCommandPreflight.offendingPaths(
+                        in: activeCall,
+                        userMessage: userMessage,
+                        workspaceRoot: workspaceRoot
+                    )
+                    if !outsideWorkspacePaths.isEmpty,
+                       preflightCorrectedShellCalls.insert(shellFingerprint).inserted {
+                        let paths = outsideWorkspacePaths.prefix(4).joined(separator: ", ")
+                        pendingRepeatNudge = """
+                        That shell call references path(s) outside the selected workspace: \(paths). \
+                        Keep temporary scripts and generated files inside the workspace using \
+                        relative paths, then retry the step. Do not request or assume approval for \
+                        an outside-workspace path the user did not name.
+                        """
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: redirected an outside-workspace shell path "
+                                + "before approval review."
                         ))
                         next.updatedAt = Date()
                         await onProgress?(next)
