@@ -225,6 +225,38 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertEqual(calls.count, 3)
     }
 
+    func testExhaustedEmptyFinalResponseAfterSuccessfulWriteFinishesFromToolResult() async throws {
+        let write = ToolCall(
+            name: "host.file.write",
+            argumentsJSON: ToolArguments.json([
+                "path": "report.md",
+                "content": "# Result\n\nThe completed analysis.\n",
+            ])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(write)),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+        ])
+        let runner = AgentRunner(llm: client)
+        let root = try makeTempDirectory()
+
+        let result = try await runner.send(
+            "Analyze the repository and write report.md with the result.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.appendingPathComponent("report.md").path))
+        XCTAssertFalse(result.thread.messages.last?.content.isEmpty ?? true)
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("no final action after completing workspace work")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 4)
+    }
+
     func testUserStopAtBudgetExhaustionSurfacesAsCancellationNotFailure() async throws {
         // Both recovery attempts burned, then the user stops during the third call whose garbage
         // arrives after the cancel: the resolver must honor the stop (CancellationError), never

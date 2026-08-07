@@ -216,15 +216,36 @@ public struct AgentRunner: Sendable {
                 } else {
                     .synthesis
                 }
-                let action = try await nextActionCompactingOnOverflow(
-                    thread: &next,
-                    userMessage: userMessage,
-                    tools: tools,
-                    workspaceRoot: workspaceRoot,
-                    onProgress: onProgress,
-                    injectedCorrection: repeatNudge,
-                    reasoningBudgetPhase: reasoningBudgetPhase
-                )
+                let action: AgentAction
+                do {
+                    action = try await nextActionCompactingOnOverflow(
+                        thread: &next,
+                        userMessage: userMessage,
+                        tools: tools,
+                        workspaceRoot: workspaceRoot,
+                        onProgress: onProgress,
+                        injectedCorrection: repeatNudge,
+                        reasoningBudgetPhase: reasoningBudgetPhase
+                    )
+                } catch AgentError.emptyStreamingResponse {
+                    try Task.checkCancellation()
+                    guard hasCompletedWorkspaceMutation,
+                          let completion = runLoop.latestCompletion,
+                          completion.result.ok
+                    else { throw AgentError.emptyStreamingResponse }
+                    action = .say(Self.finalAnswer(
+                        for: completion.call,
+                        result: completion.result,
+                        followUpReviewResult: completion.followUpReviewResult
+                    ))
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: the model returned no final action after completing "
+                            + "workspace work; finalized from the latest successful tool result."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                }
                 hasEmittedModelAction = true
                 if let paused = await pauseIfSpendFuseRequiresApproval(
                     thread: &next,
