@@ -189,6 +189,16 @@ class Wave5CoworkEvalTests(unittest.TestCase):
 
         self.assertGreaterEqual(len(matched), 2)
 
+    def test_grounding_uses_case_specific_required_source_facts(self):
+        row = {"ID": 230, "Category": "Founder Sales"}
+        anchors = WAVE5.grounding_anchors(row)
+        output = WAVE5.normalize("Win-loss review covers D01 through D12 and the observed SSO losses.")
+        matched = [anchor for anchor in anchors if WAVE5.normalize(anchor) in output]
+
+        self.assertIn("D01", matched)
+        self.assertIn("D12", matched)
+        self.assertGreaterEqual(len(matched), 2)
+
     def test_artifact_readback_must_follow_last_successful_write(self):
         output = "outputs/wave5-211.md"
         write = tool("host.file.write", {"path": output}, {"ok": True})

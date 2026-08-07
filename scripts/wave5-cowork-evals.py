@@ -441,6 +441,11 @@ def required_output_term_matches(case_id, text):
     return required, matched
 
 
+def grounding_anchors(row):
+    fixture_terms = CASE_FIXTURES.get(row["ID"], {}).get("requiredOutputTerms", ())
+    return tuple(CATEGORY_FIXTURES[row["Category"]]["anchors"]) + tuple(fixture_terms)
+
+
 def tool_payload(tool, field):
     raw = tool.get(field)
     if not isinstance(raw, str) or not raw.strip():
@@ -638,7 +643,7 @@ def grade(row, workspace, report, source_hashes):
     ))
     add("no placeholders", not placeholder, "placeholder found" if placeholder else "clean")
     normalized_output = normalize(text)
-    anchors = CATEGORY_FIXTURES[row["Category"]]["anchors"]
+    anchors = grounding_anchors(row)
     matched_anchors = [anchor for anchor in anchors if normalize(anchor) in normalized_output]
     add("source grounding", len(matched_anchors) >= 2, repr(matched_anchors))
     concepts = task_concepts(row["Task (what the person types)"])
