@@ -10,7 +10,6 @@ import Foundation
 /// without rendering a view. `make` returns nil once a credential is stored, so a returning/connected
 /// user never sees the gate.
 public struct TranscriptConnectPrompt: Equatable, Sendable {
-    public var signInURL: String
     public var accountURL: String
 
     public static let title = "Connect TrustedRouter to start"
@@ -24,14 +23,13 @@ public struct TranscriptConnectPrompt: Equatable, Sendable {
     /// The three-beat "what happens next" reassurance under the button.
     public static let steps = ["Sign in", "Pick a model", "Start coding"]
 
-    public init(signInURL: String, accountURL: String = TranscriptConnectPrompt.defaultAccountURL) {
-        self.signInURL = signInURL
+    public init(accountURL: String = TranscriptConnectPrompt.defaultAccountURL) {
         self.accountURL = accountURL
     }
 
     /// The gate to show, or nil when a credential is already stored (connected users skip onboarding).
-    public static func make(hasStoredAPIKey: Bool, signInURL: String) -> TranscriptConnectPrompt? {
+    public static func make(hasStoredAPIKey: Bool) -> TranscriptConnectPrompt? {
         guard !hasStoredAPIKey else { return nil }
-        return TranscriptConnectPrompt(signInURL: signInURL)
+        return TranscriptConnectPrompt()
     }
 }

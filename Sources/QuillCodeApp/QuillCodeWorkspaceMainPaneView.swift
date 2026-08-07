@@ -94,8 +94,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         onUseMessageAsDraft: useMessageAsDraft,
                         onSubmitStarterAction: submitStarterAction,
                         connectPrompt: TranscriptConnectPrompt.make(
-                            hasStoredAPIKey: surface.settings.hasStoredAPIKey,
-                            signInURL: surface.settings.signInURL
+                            hasStoredAPIKey: surface.settings.hasStoredAPIKey
                         ),
                         onStartTrustedRouterSignIn: onStartTrustedRouterSignIn
                     )

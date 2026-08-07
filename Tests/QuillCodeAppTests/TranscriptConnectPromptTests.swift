@@ -6,20 +6,13 @@ import XCTest
 /// show/hide decision.
 final class TranscriptConnectPromptTests: XCTestCase {
     func testShownWhenNoCredentialStored() {
-        let prompt = TranscriptConnectPrompt.make(
-            hasStoredAPIKey: false,
-            signInURL: "http://127.0.0.1:8787/callback"
-        )
+        let prompt = TranscriptConnectPrompt.make(hasStoredAPIKey: false)
         XCTAssertNotNil(prompt, "a keyless user must see the connect gate")
-        XCTAssertEqual(prompt?.signInURL, "http://127.0.0.1:8787/callback")
         XCTAssertEqual(prompt?.accountURL, TranscriptConnectPrompt.defaultAccountURL)
     }
 
     func testHiddenWhenCredentialStored() {
-        let prompt = TranscriptConnectPrompt.make(
-            hasStoredAPIKey: true,
-            signInURL: "http://127.0.0.1:8787/callback"
-        )
+        let prompt = TranscriptConnectPrompt.make(hasStoredAPIKey: true)
         XCTAssertNil(prompt, "a connected user must never see onboarding")
     }
 
