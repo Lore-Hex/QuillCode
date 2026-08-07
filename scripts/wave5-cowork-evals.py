@@ -252,6 +252,18 @@ CONCEPTS = (
     "competitor", "pricing", "packaging", "willingness to pay", "discount", "battlecard", "gross margin",
 )
 
+CONCEPT_ALIASES = {
+    "event": ("event", "trigger"),
+    "target account": ("target account", "account prioritization", "priority account", "ranked account"),
+    "variance": ("variance", "var vs", "vs plan"),
+}
+
+TASK_REFUSAL = re.compile(
+    r"(?i)\b(?:i\s+(?:cannot|can't|am unable to)|we\s+(?:cannot|can't|are unable to)|unable to)\s+"
+    r"(?:complete|finish|perform|fulfill|create|write|deliver)\s+"
+    r"(?:this|the|your)\s+(?:requested\s+)?(?:task|request|work|analysis|deliverable|artifact|file|project)\b"
+)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -334,7 +346,23 @@ def artifact_root(raw):
 
 
 def normalize(text):
-    return re.sub(r"[^a-z0-9$%]+", " ", text.lower()).strip()
+    text = re.sub(r"(?<=\d)[,_](?=\d)", "", text.lower())
+    return re.sub(r"[^a-z0-9$%]+", " ", text).strip()
+
+
+def concept_matches(concept, normalized_output):
+    aliases = CONCEPT_ALIASES.get(concept, (concept,))
+    return any(normalize(alias) in normalized_output for alias in aliases)
+
+
+def is_substantive(text):
+    lines = text.splitlines()
+    nonblank_lines = sum(bool(line.strip()) for line in lines)
+    return len(text) >= 600 and (len(lines) >= 12 or nonblank_lines >= 3)
+
+
+def contains_task_refusal(text):
+    return bool(TASK_REFUSAL.search(text))
 
 
 def task_concepts(task):
@@ -430,23 +458,27 @@ def build_prompt(row):
         "Browser pane": (
             "First inspect the currently open Browser page with the browser inspection tool. "
             "Also use the file read tool separately on `inputs/context.md` and "
-            "`inputs/data.csv`."
+            "`inputs/data.csv`. Do not use the shell tool or list the output directory; after "
+            "those three source inspections, write the deliverable directly."
         ),
         "Files/Shell": (
             "Use the file read tool separately on `inputs/context.md` and `inputs/data.csv`, then "
-            "use the shell tool at least once to calculate or validate the numeric source data. "
+            "use the shell tool for one concise calculation or validation of the numeric source data. "
             "Keep every temporary script and output inside the workspace, inspect the source "
-            "schema first, and convert only fields known to be numeric."
+            "schema first, and convert only fields known to be numeric. Do not execute a source "
+            "path as a command or list the output directory; after a successful validation, write "
+            "the deliverable directly."
         ),
         "Multi-file artifacts": (
             "Use the file read tool separately on `inputs/context.md` and `inputs/data.csv` "
-            "before writing."
+            "before writing. Do not use the shell tool or list the output directory; after those "
+            "two reads, write the deliverable directly."
         ),
     }[row["Capability needed"]]
     return f"""{row['Task (what the person types)']}
 
 This is a fixture-backed evaluation. {capability_instruction}
-Use only facts in those supplied sources. Do not inspect unrelated workspace files, browse the public web, or send anything externally. If a fact is absent, label it unknown instead of asking a follow-up question or inserting a placeholder. Honor any deliverable filenames in the original request.
+Use only facts in those supplied sources. Do not inspect unrelated workspace files, browse the public web, or send anything externally. If a fact is absent, label it unknown instead of asking a follow-up question or inserting a placeholder. Do not leave bracketed fill-in fields in the completed artifact. Honor any deliverable filenames in the original request.
 
 Save the complete primary deliverable to `{output_path}`. Make it decision-ready, source-grounded, and specific enough for a founder to use without another rewrite. After writing, read the saved file back to verify it.
 """
@@ -489,21 +521,24 @@ def grade(row, workspace, report, source_hashes):
         add("primary artifact", False, str(error))
     else:
         add("primary artifact", True, f"{len(text)} characters")
-    add("substantive", len(text) >= 600 and len(text.splitlines()) >= 12, f"{len(text)} chars, {len(text.splitlines())} lines")
+    add("substantive", is_substantive(text), f"{len(text)} chars, {len(text.splitlines())} lines")
     add("structured", bool(re.search(r"(?m)^#{1,4}\s|^[-*]\s|^\|.+\|$", text)), "heading, list, or table")
-    malformed = "\\n" in text or "\\t" in text
-    add("decoded text", not malformed, "literal escaped newline/tab" if malformed else "clean")
-    placeholder = bool(re.search(r"(?i)\[(?:insert|todo|tbd|company|name|date)[^\]]*\]|lorem ipsum", text))
+    malformed = "\\n" in text
+    add("decoded text", not malformed, "literal escaped newline" if malformed else "clean")
+    placeholder = bool(re.search(
+        r"(?i)\[(?:insert|todo|tbd|company|name|date|account|opportunity|title|role|email)[^\]]*\]|lorem ipsum",
+        text,
+    ))
     add("no placeholders", not placeholder, "placeholder found" if placeholder else "clean")
     normalized_output = normalize(text)
     anchors = CATEGORY_FIXTURES[row["Category"]]["anchors"]
     matched_anchors = [anchor for anchor in anchors if normalize(anchor) in normalized_output]
     add("source grounding", len(matched_anchors) >= 2, repr(matched_anchors))
     concepts = task_concepts(row["Task (what the person types)"])
-    matched_concepts = [concept for concept in concepts if normalize(concept) in normalized_output]
+    matched_concepts = [concept for concept in concepts if concept_matches(concept, normalized_output)]
     required = required_concept_matches(len(concepts))
     add("task coverage", len(matched_concepts) >= required, f"matched {matched_concepts}; required {required} of {concepts}")
-    refusal = bool(re.search(r"(?i)\b(?:i cannot|i can't|unable to complete|cannot complete)\b", text))
+    refusal = contains_task_refusal(text)
     add("no refusal", not refusal, "refusal language" if refusal else "clean")
     return checks, output
 

@@ -32,6 +32,19 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("temporary script and output inside the workspace", prompt)
         self.assertIn("inspect the source schema first", prompt)
         self.assertIn("only fields known to be numeric", prompt)
+        self.assertIn("Do not execute a source path as a command", prompt)
+        self.assertIn("do not leave bracketed fill-in fields", prompt.lower())
+
+    def test_non_shell_prompts_prohibit_unnecessary_shell_and_directory_listing(self):
+        for capability in ("Browser pane", "Multi-file artifacts"):
+            with self.subTest(capability=capability):
+                prompt = WAVE5.build_prompt({
+                    "ID": 211,
+                    "Task (what the person types)": "Synthesize the sources.",
+                    "Capability needed": capability,
+                })
+                self.assertIn("Do not use the shell tool", prompt)
+                self.assertIn("list the output directory", prompt)
 
     def test_every_capability_requires_dedicated_source_reads(self):
         for capability in ("Browser pane", "Files/Shell", "Multi-file artifacts"):
@@ -49,6 +62,31 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertEqual(WAVE5.required_concept_matches(2), 2)
         self.assertEqual(WAVE5.required_concept_matches(3), 2)
         self.assertEqual(WAVE5.required_concept_matches(10), 4)
+
+    def test_concept_aliases_accept_equivalent_founder_language(self):
+        output = WAVE5.normalize("Account prioritization by trigger, with Var vs Plan reporting.")
+
+        self.assertTrue(WAVE5.concept_matches("target account", output))
+        self.assertTrue(WAVE5.concept_matches("event", output))
+        self.assertTrue(WAVE5.concept_matches("variance", output))
+        self.assertFalse(WAVE5.concept_matches("runway", output))
+
+    def test_normalize_ignores_numeric_thousands_separators(self):
+        self.assertIn("820000", WAVE5.normalize("Cash: $820,000"))
+        self.assertIn("98000", WAVE5.normalize("Burn: 98_000"))
+
+    def test_substantive_accepts_compact_structured_prose(self):
+        compact = "# Plan\n\n" + ("Specific source-grounded recommendation. " * 12) + "\n\n" + (
+            "Decision, owner, timing, and evidence. " * 8
+        )
+        self.assertTrue(WAVE5.is_substantive(compact))
+        self.assertFalse(WAVE5.is_substantive("# Thin\n\nNot enough detail."))
+
+    def test_refusal_detection_requires_task_level_first_person_refusal(self):
+        self.assertTrue(WAVE5.contains_task_refusal("I cannot complete this task with the supplied data."))
+        self.assertTrue(WAVE5.contains_task_refusal("Unable to deliver the requested artifact."))
+        self.assertFalse(WAVE5.contains_task_refusal("I cannot support a recovery date from this evidence."))
+        self.assertFalse(WAVE5.contains_task_refusal("The vendor cannot complete the review by Friday."))
 
     def test_tool_success_rejects_semantic_failures_and_denials(self):
         self.assertTrue(WAVE5.tool_succeeded(tool("host.file.read", output_payload={"ok": True})))
