@@ -8,7 +8,9 @@ final class ParityTrustedRouterChatParametersGateTests: QuillCodeParityTestCase 
 
         XCTAssertTrue(parameters.contains("public enum TrustedRouterChatParameters"))
         XCTAssertTrue(parameters.contains("\"response_format\""))
-        XCTAssertTrue(client.contains("TrustedRouterChatParameters.jsonObjectResponse"))
+        XCTAssertTrue(parameters.contains("agentActionResponse(model:"))
+        XCTAssertTrue(parameters.contains("\"reasoning_effort\""))
+        XCTAssertTrue(client.contains("TrustedRouterChatParameters.agentActionResponse(model: model)"))
         XCTAssertTrue(safetyClient.contains("TrustedRouterChatParameters.jsonObjectResponse"))
 
         XCTAssertFalse(client.contains("\"response_format\""))

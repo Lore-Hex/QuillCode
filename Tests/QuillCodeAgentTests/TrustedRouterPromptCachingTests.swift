@@ -268,6 +268,26 @@ final class TrustedRouterPromptCachingTests: XCTestCase {
 
     // MARK: - Request envelope regression
 
+    func testDeepSeekV4Flash0731DisablesReasoningForAgentActions() throws {
+        let body = try serializedBody(
+            model: TrustedRouterChatParameters.deepSeekV4Flash0731Model,
+            messages: [message("system", "s"), message("user", "u")]
+        )
+
+        XCTAssertEqual(body["reasoning_effort"] as? String, "none")
+        XCTAssertEqual(body["response_format"] as? [String: String], ["type": "json_object"])
+    }
+
+    func testOtherModelsRetainNativeReasoningDefaults() throws {
+        for model in [anthropicModel, "deepseek/deepseek-v4-flash", "openai/gpt-5.2"] {
+            let body = try serializedBody(
+                model: model,
+                messages: [message("system", "s"), message("user", "u")]
+            )
+            XCTAssertNil(body["reasoning_effort"], model)
+        }
+    }
+
     func testAnnotationLeavesTheRestOfTheRequestEnvelopeUntouched() throws {
         let body = try serializedBody(
             model: anthropicModel,
