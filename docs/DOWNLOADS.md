@@ -93,6 +93,13 @@ identifier, architecture, and signing identity, downloads on demand, and verifie
 the exact size, SHA-256 digest, app identity, version, architecture, and macOS code
 signature before installation.
 
+Archive bytes stream directly to an updater-owned partial file instead of being
+buffered in memory. A declared oversized response is rejected immediately; a
+chunked response is cancelled at the first chunk that would exceed the manifest
+size. Cancellation and failure remove the partial file. The update sheet reports
+bounded determinate byte progress, then identifies the verification, unpacking,
+and app-validation phases separately.
+
 Installation stages the verified app beside the running bundle, then uses a
 detached helper for the final rename and relaunch. The new app must complete a
 launch handshake within 45 seconds. Otherwise the helper restores and reopens the

@@ -36,6 +36,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     }
 
     @Published private(set) var state: State = .idle
+    @Published private(set) var preparationProgress: QuillCodeDesktopUpdatePreparationProgress?
     @Published var isPresented = false
 
     let configuration: QuillCodeDesktopUpdateConfiguration?
@@ -161,16 +162,19 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         }
         let generation = beginNewOperation()
         state = .downloading(release)
+        preparationProgress = .downloading(receivedBytes: 0, totalBytes: release.asset.sizeBytes)
         operationTask = Task { [weak self] in
             guard let self else { return }
             defer { self.finishOperation(generation: generation) }
             do {
-                let prepared = try await preparer.prepare(
+                let prepared = try await self.prepareUpdate(
                     release: release,
-                    configuration: configuration
+                    configuration: configuration,
+                    generation: generation
                 )
                 try Task.checkCancellation()
                 guard self.generation == generation else { return }
+                self.preparationProgress = nil
                 self.state = .installing(release)
                 try await installer.stageAndLaunch(
                     preparedUpdate: prepared,
@@ -181,9 +185,11 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
                 self.terminateApplication()
             } catch is CancellationError {
                 guard self.generation == generation else { return }
+                self.preparationProgress = nil
                 self.state = .updateAvailable(release)
             } catch {
                 guard self.generation == generation else { return }
+                self.preparationProgress = nil
                 self.state = .failed(message: error.localizedDescription, release: release)
             }
         }
@@ -279,8 +285,40 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     private func beginNewOperation() -> UUID {
         operationTask?.cancel()
         operationTask = nil
+        preparationProgress = nil
         generation = UUID()
         return generation
+    }
+
+    private func prepareUpdate(
+        release: QuillCodeDesktopUpdateRelease,
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        generation: UUID
+    ) async throws -> QuillCodeDesktopPreparedUpdate {
+        let (progressStream, progressContinuation) = AsyncStream.makeStream(
+            of: QuillCodeDesktopUpdatePreparationProgress.self,
+            bufferingPolicy: .bufferingNewest(1)
+        )
+        let progressTask = Task { @MainActor [weak self] in
+            for await progress in progressStream {
+                guard let self,
+                      self.generation == generation,
+                      case .downloading = self.state
+                else {
+                    return
+                }
+                self.preparationProgress = progress
+            }
+        }
+        defer {
+            progressContinuation.finish()
+            progressTask.cancel()
+        }
+        return try await preparer.prepare(
+            release: release,
+            configuration: configuration,
+            progress: { progressContinuation.yield($0) }
+        )
     }
 
     private func finishOperation(generation: UUID) {

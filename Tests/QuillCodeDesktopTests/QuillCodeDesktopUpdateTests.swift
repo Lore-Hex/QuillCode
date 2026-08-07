@@ -86,6 +86,162 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         XCTAssertEqual(result, .updateAvailable(makeRelease(version: "0.2.0", build: "1")))
     }
 
+    func testPreparationDownloadFractionClampsAndOnlyAppliesToDownloads() {
+        XCTAssertEqual(
+            QuillCodeDesktopUpdatePreparationProgress.downloading(
+                receivedBytes: -1,
+                totalBytes: 10
+            ).downloadFraction,
+            0
+        )
+        XCTAssertEqual(
+            QuillCodeDesktopUpdatePreparationProgress.downloading(
+                receivedBytes: 11,
+                totalBytes: 10
+            ).downloadFraction,
+            1
+        )
+        XCTAssertNil(QuillCodeDesktopUpdatePreparationProgress.verifying.downloadFraction)
+    }
+
+    func testDownloaderStreamsIncreasingBoundedProgressAndStagesExactPayload() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let payload = Data(repeating: 0x5a, count: 512 * 1_024)
+        UpdateDownloadURLProtocol.state.configure(payload: payload, chunkBytes: 16 * 1_024)
+        let session = UpdateDownloadURLProtocol.session()
+        defer {
+            session.invalidateAndCancel()
+            UpdateDownloadURLProtocol.state.reset()
+        }
+        let destination = root.appendingPathComponent("Quill-Cowork.zip")
+        let progress = UpdateDownloadProgressRecorder()
+        let downloader = QuillCodeDesktopUpdateDownloader(session: session)
+
+        try await downloader.download(
+            from: try XCTUnwrap(URL(string: "https://github.com/Lore-Hex/QuillCode/update.zip")),
+            to: destination,
+            maximumBytes: Int64(payload.count),
+            progress: { progress.append($0) }
+        )
+
+        XCTAssertEqual(try Data(contentsOf: destination), payload)
+        let values = progress.values
+        XCTAssertEqual(values.last, Int64(payload.count))
+        XCTAssertEqual(values, values.sorted())
+        XCTAssertEqual(Set(values).count, values.count)
+        XCTAssertLessThanOrEqual(values.count, 100)
+    }
+
+    func testDownloaderCancelsChunkedTransferAsSoonAsItExceedsByteLimit() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let payload = Data(repeating: 0x41, count: 2 * 1_024 * 1_024)
+        let maximumBytes: Int64 = 128 * 1_024
+        UpdateDownloadURLProtocol.state.configure(payload: payload, chunkBytes: 16 * 1_024)
+        let session = UpdateDownloadURLProtocol.session()
+        defer {
+            session.invalidateAndCancel()
+            UpdateDownloadURLProtocol.state.reset()
+        }
+        let destination = root.appendingPathComponent("oversized.zip")
+        let downloader = QuillCodeDesktopUpdateDownloader(session: session)
+
+        do {
+            try await downloader.download(
+                from: try XCTUnwrap(URL(string: "https://github.com/Lore-Hex/QuillCode/oversized.zip")),
+                to: destination,
+                maximumBytes: maximumBytes,
+                progress: { _ in }
+            )
+            XCTFail("Expected oversized update transfer to be cancelled")
+        } catch let error as QuillCodeDesktopUpdateError {
+            XCTAssertEqual(error, .downloadSizeMismatch)
+        }
+
+        for _ in 0..<100 where !UpdateDownloadURLProtocol.state.wasStopped {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertTrue(UpdateDownloadURLProtocol.state.wasStopped)
+        XCTAssertLessThan(UpdateDownloadURLProtocol.state.deliveredBytes, payload.count)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+    }
+
+    func testDownloaderRejectsDeclaredOversizeBeforeStaging() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let maximumBytes: Int64 = 128 * 1_024
+        UpdateDownloadURLProtocol.state.configure(
+            payload: Data(repeating: 0x41, count: 16 * 1_024),
+            chunkBytes: 16 * 1_024,
+            declaredContentLength: Int(maximumBytes + 1)
+        )
+        let session = UpdateDownloadURLProtocol.session()
+        defer {
+            session.invalidateAndCancel()
+            UpdateDownloadURLProtocol.state.reset()
+        }
+        let destination = root.appendingPathComponent("declared-oversized.zip")
+        let downloader = QuillCodeDesktopUpdateDownloader(session: session)
+
+        do {
+            try await downloader.download(
+                from: try XCTUnwrap(URL(
+                    string: "https://github.com/Lore-Hex/QuillCode/declared-oversized.zip"
+                )),
+                to: destination,
+                maximumBytes: maximumBytes,
+                progress: { _ in }
+            )
+            XCTFail("Expected declared oversized update transfer to be rejected")
+        } catch let error as QuillCodeDesktopUpdateError {
+            XCTAssertEqual(error, .downloadSizeMismatch)
+        }
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+    }
+
+    func testDownloaderCancellationStopsTransportAndRemovesPartialFile() async throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let payload = Data(repeating: 0x42, count: 2 * 1_024 * 1_024)
+        UpdateDownloadURLProtocol.state.configure(payload: payload, chunkBytes: 16 * 1_024)
+        let session = UpdateDownloadURLProtocol.session()
+        defer {
+            session.invalidateAndCancel()
+            UpdateDownloadURLProtocol.state.reset()
+        }
+        let destination = root.appendingPathComponent("cancelled.zip")
+        let downloader = QuillCodeDesktopUpdateDownloader(session: session)
+        let task = Task {
+            try await downloader.download(
+                from: try XCTUnwrap(URL(string: "https://github.com/Lore-Hex/QuillCode/cancelled.zip")),
+                to: destination,
+                maximumBytes: Int64(payload.count),
+                progress: { _ in }
+            )
+        }
+
+        for _ in 0..<100 where UpdateDownloadURLProtocol.state.deliveredBytes == 0 {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        task.cancel()
+        do {
+            try await task.value
+            XCTFail("Expected update transfer cancellation")
+        } catch is CancellationError {
+            // Expected.
+        }
+        for _ in 0..<100 where !UpdateDownloadURLProtocol.state.wasStopped {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+
+        XCTAssertTrue(UpdateDownloadURLProtocol.state.wasStopped)
+        XCTAssertLessThan(UpdateDownloadURLProtocol.state.deliveredBytes, payload.count)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.path))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), [])
+    }
+
     func testArchiveVerificationRejectsTampering() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -564,14 +720,175 @@ private struct UpdateManifestLoaderStub: QuillCodeDesktopUpdateManifestLoading {
 private struct FailingUpdateDownloader: QuillCodeDesktopUpdateDownloading {
     var error: QuillCodeDesktopUpdateError
 
-    func download(from url: URL, to destinationURL: URL, maximumBytes: Int64) async throws {
+    func download(
+        from url: URL,
+        to destinationURL: URL,
+        maximumBytes: Int64,
+        progress: @escaping @Sendable (Int64) -> Void
+    ) async throws {
         throw error
     }
 }
 
 private struct CancellingUpdateDownloader: QuillCodeDesktopUpdateDownloading {
-    func download(from url: URL, to destinationURL: URL, maximumBytes: Int64) async throws {
+    func download(
+        from url: URL,
+        to destinationURL: URL,
+        maximumBytes: Int64,
+        progress: @escaping @Sendable (Int64) -> Void
+    ) async throws {
         throw CancellationError()
+    }
+}
+
+private final class UpdateDownloadProgressRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [Int64] = []
+
+    var values: [Int64] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+
+    func append(_ value: Int64) {
+        lock.lock()
+        storage.append(value)
+        lock.unlock()
+    }
+}
+
+private final class UpdateDownloadURLProtocolState: @unchecked Sendable {
+    struct Configuration: Sendable {
+        var payload: Data
+        var chunkBytes: Int
+        var declaredContentLength: Int?
+    }
+
+    private let lock = NSLock()
+    private var configuration: Configuration?
+    private var stopped = false
+    private var delivered = 0
+
+    var wasStopped: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return stopped
+    }
+
+    var deliveredBytes: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return delivered
+    }
+
+    func configure(
+        payload: Data,
+        chunkBytes: Int,
+        declaredContentLength: Int? = nil
+    ) {
+        lock.lock()
+        configuration = Configuration(
+            payload: payload,
+            chunkBytes: chunkBytes,
+            declaredContentLength: declaredContentLength
+        )
+        stopped = false
+        delivered = 0
+        lock.unlock()
+    }
+
+    func snapshot() -> Configuration? {
+        lock.lock()
+        defer { lock.unlock() }
+        return configuration
+    }
+
+    func recordDelivery(_ byteCount: Int) {
+        lock.lock()
+        delivered += byteCount
+        lock.unlock()
+    }
+
+    func recordStop() {
+        lock.lock()
+        stopped = true
+        lock.unlock()
+    }
+
+    func reset() {
+        lock.lock()
+        configuration = nil
+        stopped = false
+        delivered = 0
+        lock.unlock()
+    }
+}
+
+private final class UpdateDownloadURLProtocol: URLProtocol, @unchecked Sendable {
+    static let state = UpdateDownloadURLProtocolState()
+
+    private let lock = NSLock()
+    private var isStopped = false
+
+    static func session() -> URLSession {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [UpdateDownloadURLProtocol.self]
+        return URLSession(configuration: configuration)
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let configuration = Self.state.snapshot(),
+              let url = request.url
+        else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        var headers = ["Content-Type": "application/zip"]
+        if let declaredContentLength = configuration.declaredContentLength {
+            headers["Content-Length"] = String(declaredContentLength)
+        }
+        guard let response = HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: headers
+              )
+        else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        deliver(configuration, offset: 0)
+    }
+
+    override func stopLoading() {
+        lock.lock()
+        isStopped = true
+        lock.unlock()
+        Self.state.recordStop()
+    }
+
+    private func deliver(_ configuration: UpdateDownloadURLProtocolState.Configuration, offset: Int) {
+        lock.lock()
+        let stopped = isStopped
+        lock.unlock()
+        guard !stopped else { return }
+        guard offset < configuration.payload.count else {
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
+
+        let end = min(offset + configuration.chunkBytes, configuration.payload.count)
+        let chunk = configuration.payload.subdata(in: offset..<end)
+        Self.state.recordDelivery(chunk.count)
+        client?.urlProtocol(self, didLoad: chunk)
+        DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + .milliseconds(2)) { [weak self] in
+            self?.deliver(configuration, offset: end)
+        }
     }
 }
 

@@ -9,6 +9,46 @@ import QuillCodeTools
 
 @MainActor
 final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
+    func testRenderedUpdaterShowsDeterminateDownloadProgressInsideSheet() async throws {
+        let release = makeRelease(version: "0.2.0", build: "7")
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            checker: RenderedUpdateChecker(release: release),
+            preparer: RenderedProgressUpdatePreparer(),
+            defaults: UserDefaults(suiteName: "RenderedUpdaterProgress.\(UUID().uuidString)") ?? .standard,
+            automaticSchedule: .production,
+            installResultURL: nil
+        )
+        controller.checkForUpdates()
+        try await waitForUpdaterState(controller) { $0 == .updateAvailable(release) }
+        controller.updateAndRelaunch()
+        for _ in 0..<200 {
+            if controller.preparationProgress == .downloading(
+                receivedBytes: 5_000,
+                totalBytes: 10_000
+            ) {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(controller.preparationProgress?.downloadFraction, 0.5)
+        defer { controller.cancelCurrentOperation() }
+
+        let image = try renderHostedView(
+            QuillCodeDesktopUpdateView(controller: controller),
+            width: 470,
+            height: 340,
+            debugPathEnvironmentKey: "QUILLCODE_RENDER_UPDATE_PROGRESS_IMAGE_PATH"
+        )
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 470)
+        XCTAssertEqual(stats.height, 340)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
+    }
+
     func testRenderedUpdaterFailureKeepsRecoveryActionsInsideSheet() async throws {
         let release = makeRelease(version: "0.2.0", build: "7")
         let controller = QuillCodeDesktopUpdateController(
@@ -362,13 +402,26 @@ private struct RenderedUpdateChecker: QuillCodeDesktopUpdateChecking {
 private struct RenderedFailingUpdatePreparer: QuillCodeDesktopUpdatePreparing {
     func prepare(
         release: QuillCodeDesktopUpdateRelease,
-        configuration: QuillCodeDesktopUpdateConfiguration
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        progress: @escaping @Sendable (QuillCodeDesktopUpdatePreparationProgress) -> Void
     ) async throws -> QuillCodeDesktopPreparedUpdate {
         let detail = String(
             repeating: "The downloaded bundle contains a component that could not be validated. ",
             count: 8
         )
         throw QuillCodeDesktopUpdateError.invalidApplication(detail)
+    }
+}
+
+private struct RenderedProgressUpdatePreparer: QuillCodeDesktopUpdatePreparing {
+    func prepare(
+        release: QuillCodeDesktopUpdateRelease,
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        progress: @escaping @Sendable (QuillCodeDesktopUpdatePreparationProgress) -> Void
+    ) async throws -> QuillCodeDesktopPreparedUpdate {
+        progress(.downloading(receivedBytes: 5_000, totalBytes: 10_000))
+        try await Task.sleep(for: .seconds(10))
+        throw CancellationError()
     }
 }
 

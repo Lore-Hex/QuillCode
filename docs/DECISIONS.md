@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-08-07: update downloads are bounded while bytes are in flight
+
+- **Decision:** The desktop updater streams each response directly into an updater-owned hidden
+  partial file. It rejects a declared oversized response before accepting it, cancels at the first
+  chunk that would exceed the manifest size, and requires the completed transfer to match that size
+  exactly before moving it into the preparation workspace.
+- **Resource boundary:** Response bytes do not accumulate in memory. Progress reporting is throttled,
+  the controller keeps only the newest pending update, and every failure or cancellation closes and
+  removes the partial file before returning.
+- **User experience:** The update sheet shows determinate bytes and percentage while downloading,
+  followed by distinct verifying, unpacking, and app-validation phases. Operation generations prevent
+  late progress from a cancelled or replaced transfer from changing visible state.
+- **Evidence:** `QuillCodeDesktopUpdateTests` exercise exact streaming, declared and runtime oversize
+  rejection, cancellation, and partial-file cleanup. `QuillCodeDesktopUpdateControllerTests` covers
+  progress lifetime, and `QuillCodeDesktopRenderedSmokeTests` verifies the fixed-size sheet at 50%.
+
 ## 2026-08-07: transcript projection stays linear in long-session history
 
 - **Decision:** Message events use an on-demand content index that consumes duplicate text in
