@@ -107,9 +107,9 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
         XCTAssertTrue(coverage.contains(#""provenTaskCount": 1"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 209"#), coverage)
-        XCTAssertTrue(coverage.contains(#""last": 210"#), coverage)
-        XCTAssertTrue(coverage.contains(#""total": 210"#), coverage)
+        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 309"#), coverage)
+        XCTAssertTrue(coverage.contains(#""last": 310"#), coverage)
+        XCTAssertTrue(coverage.contains(#""total": 310"#), coverage)
         XCTAssertTrue(coverage.contains(#""42": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceType": "scheduled-notification-observation""#), coverage)
         XCTAssertTrue(coverage.contains(#""serviceName": "Quill Cowork Notifications""#), coverage)
@@ -155,12 +155,12 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
         let templateURL = temporaryDirectory.appendingPathComponent("invalid-template.json")
         let result = try Self.runPython(
             Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
-            arguments: ["scheduled-notification-observation-template", "211", "--output", templateURL.path]
+            arguments: ["scheduled-notification-observation-template", "311", "--output", templateURL.path]
         )
 
         XCTAssertNotEqual(result.exitCode, 0)
         XCTAssertTrue(
-            result.output.contains("catalogTaskIDs[0] must match a catalog row ID between 1 and 210"),
+            result.output.contains("catalogTaskIDs[0] must match a catalog row ID between 1 and 310"),
             result.output
         )
         XCTAssertFalse(FileManager.default.fileExists(atPath: templateURL.path))

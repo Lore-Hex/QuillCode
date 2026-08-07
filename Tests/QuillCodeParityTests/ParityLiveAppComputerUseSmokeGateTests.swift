@@ -78,7 +78,7 @@ final class ParityLiveAppComputerUseSmokeGateTests: QuillCodeParityTestCase {
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
         XCTAssertTrue(coverage.contains(#""provenTaskCount": 1"#), coverage)
         XCTAssertTrue(coverage.contains(#""analogueTaskCount": 0"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 209"#), coverage)
+        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 309"#), coverage)
         XCTAssertTrue(coverage.contains(#""196": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceType": "live-app-computer-use""#), coverage)
         XCTAssertTrue(coverage.contains(#""serviceName": "Numbers""#), coverage)

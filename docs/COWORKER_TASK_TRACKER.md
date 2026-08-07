@@ -6,9 +6,15 @@ https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu
 The sheet is the product-facing catalog for office coworker tasks QuillCode should handle. Keep it
 grounded in verified QuillCode evidence, not intention.
 
-## 2026-08-05 Full Catalog Audit
+## 2026-08-06 Founder Workflow Expansion
 
-The Firefox Google Sheets export contains 210 task rows, including CRM rows #207 through #210.
+The canonical sheet now contains 310 task rows. Rows #211 through #310 add 100 YC-style founder
+workflows spanning customer discovery, founder sales, product and roadmap, launch and growth,
+fundraising, finance and runway, hiring and team, investor and board updates, operations and
+compliance, and pricing and competitive intelligence. The additions are reproducible from
+`scripts/founder-task-catalog.py`; `--check` validates the exact IDs, required columns, unique task
+prompts, and ten-task category balance before the rows are written to the sheet.
+
 `docs/coworker-task-catalog.json` is the normalized, checked-in snapshot used by the evidence
 validators. Regenerate it from a fresh CSV export with:
 
@@ -17,10 +23,17 @@ python3 scripts/sync-coworker-catalog.py <sheet.csv> docs/coworker-task-catalog.
   --review-date YYYY-MM-DD
 ```
 
+The new rows remain `Proposed - not yet driven`: adding a realistic task to the catalog is not proof
+that QuillCode completed it. The fail-closed row-linked evidence gates continue to decide coverage.
+
+## 2026-08-05 Full Catalog Audit
+
+The audit began with 210 task rows, including CRM rows #207 through #210.
+
 The catalog rollup is fail-closed. Source-sheet statuses such as `Verified end-to-end`, and
 QuillCode labels based on capability analogues, are context only. A task is proven only when a
 row-linked packaged, live SaaS, live app Computer Use, or notification-observation manifest passes
-its validator. The Markdown audit now lists all 210 rows, including the exact next gap for every
+its validator. The Markdown audit lists every current row, including the exact next gap for every
 pending row, rather than rendering only the rows that already passed.
 
 ### Five Whys: Catalog Count Drift
@@ -52,7 +65,7 @@ accept rows #207 through #210, and reject the next unknown row (#211).
    notification tasks require signed-in accounts, supplied fixtures, or visible OS evidence that a
    deterministic mock cannot honestly provide.
 
-Root fixes: emit a 210-row audit with `proven` or `pending` per task; keep source status separate from
+Root fixes: emit a full-catalog audit with `proven` or `pending` per task; keep source status separate from
 QuillCode evidence; show the row's exact next gate; and continue rejecting credentialed or
 consequential claims without before/after evidence. Packaged row-linked evidence currently proves
 rows #15 through #73. Remaining rows are explicit work, not implied coverage.
@@ -633,7 +646,7 @@ scripts/native-click-probe-contracts.py coworker-catalog \
 ```
 
 The coverage summary records `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID` for the full
-snapshot-defined catalog range (currently 1-210). The optional Markdown report lists every row,
+snapshot-defined catalog range (currently 1-310). The optional Markdown report lists every row,
 its proven/pending result, evidence or exact next gap, category, and canonical task,
 and source manifest, so spreadsheet updates can be reviewed from row-linked evidence rather than
 manual memory.
