@@ -57,8 +57,7 @@ extension AgentRunner {
                         tools: tools,
                         thread: &thread,
                         onProgress: onProgress,
-                        via: activeLLM,
-                        reasoningBudgetPhase: reasoningBudgetPhase
+                        via: activeLLM
                     )
                 }
                 return try await dispatchNextAction(
@@ -237,8 +236,7 @@ extension AgentRunner {
         tools: [ToolDefinition],
         thread: inout ChatThread,
         onProgress: AgentRunProgressHandler?,
-        via llm: LLMClient,
-        reasoningBudgetPhase: AgentReasoningBudgetPhase
+        via llm: LLMClient
     ) async throws -> AgentAction {
         var correctiveRun = correctiveThread
         let priorEventCount = correctiveRun.events.count
@@ -248,7 +246,7 @@ extension AgentRunner {
             tools: tools,
             onProgress: nil,
             via: llm,
-            reasoningBudgetPhase: reasoningBudgetPhase
+            reasoningBudgetPhase: .correction
         )
         if correctiveRun.events.count > priorEventCount {
             thread.events.append(contentsOf: correctiveRun.events[priorEventCount...])

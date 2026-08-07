@@ -113,6 +113,10 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
                 .text(#"{"type":"say","text":"too late"}"#),
             ],
             [
+                .reasoning(String(repeating: "still planning ", count: 200)),
+                .text(#"{"type":"say","text":"still too late"}"#),
+            ],
+            [
                 .text(#"{"type":"say","text":"Verified output.txt."}"#),
             ],
         ])
@@ -130,7 +134,7 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
             $0.summary.contains("pre-action reasoning budget")
         })
         let requestCount = await state.requestCount()
-        XCTAssertEqual(requestCount, 3)
+        XCTAssertEqual(requestCount, 4)
     }
 
     func testRunnerDefaultsToReasoningBudgetAndCanDisableIt() {

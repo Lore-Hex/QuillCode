@@ -24,6 +24,10 @@ extension AgentRunner {
             preActionReasoningCharacterLimit
         case .synthesis:
             interActionReasoningCharacterLimit
+        case .correction:
+            preActionReasoningCharacterLimit.map {
+                min($0, Self.correctiveActionReasoningCharacterLimit)
+            }
         }
         if let reasoningLimit {
             stream = AgentPreActionReasoningBudget.enforcing(

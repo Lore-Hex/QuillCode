@@ -22,7 +22,10 @@ public struct AgentRunner: Sendable {
     /// Wider per-turn budget while the model is synthesizing from tool results but has not yet
     /// produced a workspace mutation. Large grounded deliverables need more room than startup
     /// routing; the bound still prevents an inter-action reasoner spiral.
-    public static let defaultInterActionReasoningCharacterLimit = 48_000
+    public static let defaultInterActionReasoningCharacterLimit = 16_000
+    /// Corrective samples must converge faster than the sample they replace; otherwise recovery
+    /// can consume the remaining turn deadline by repeating the same reasoning spiral.
+    public static let correctiveActionReasoningCharacterLimit = 2_000
     static let promisedWorkCorrectionLimit = 2
     /// Bounded recovery for a malformed model action (garbage/mojibake tokens) or a mid-stream
     /// transport reset: re-prompt/re-request up to this many times before the failure is terminal.

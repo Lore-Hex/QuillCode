@@ -4,6 +4,7 @@ enum AgentReasoningBudgetPhase: Sendable {
     case startup
     case synthesis
     case checkpoint
+    case correction
 }
 
 /// A model exhausted the bounded reasoning budget before emitting the run's first action JSON.
