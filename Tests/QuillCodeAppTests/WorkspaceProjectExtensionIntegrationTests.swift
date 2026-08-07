@@ -15,7 +15,7 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         let extensions = setup.model.surface().extensions
         XCTAssertTrue(extensions.isVisible)
         XCTAssertEqual(extensions.pluginCount, 1)
-        XCTAssertEqual(extensions.skillCount, 4)
+        XCTAssertEqual(extensions.skillCount, 5)
         XCTAssertEqual(extensions.mcpServerCount, 0)
         XCTAssertEqual(extensions.items.first?.name, "GitHub")
         XCTAssertEqual(extensions.items.first?.relativePath, ".quillcode/plugins/github.json")
@@ -23,26 +23,28 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
             "LLM Advisor",
             "Browser Use",
             "OpenClaw Video Toolkit",
-            "BurstyRouter"
+            "BurstyRouter",
+            "Marketing Skills"
         ])
-        XCTAssertEqual(extensions.items.last?.name, "BurstyRouter")
+        XCTAssertEqual(extensions.items.last?.name, "Marketing Skills")
         XCTAssertEqual(extensions.items.last?.statusLabel, "Available")
-        XCTAssertEqual(extensions.items.last?.installCommandID, "extension-install:skill:burstyrouter")
+        XCTAssertEqual(extensions.items.last?.installCommandID, "extension-install:skill:marketing-skills")
 
         XCTAssertTrue(setup.model.runWorkspaceCommand("show-skills", workspaceRoot: setup.root))
         let skills = setup.model.surface().extensions
         XCTAssertTrue(skills.isVisible)
         XCTAssertEqual(skills.focusedKind, .skill)
         XCTAssertEqual(skills.title, "Skills")
-        XCTAssertEqual(skills.subtitle, "4 skills · 4 available skills")
+        XCTAssertEqual(skills.subtitle, "5 skills · 5 available skills")
         XCTAssertEqual(skills.items.map(\.name), [
             "LLM Advisor",
             "Browser Use",
             "OpenClaw Video Toolkit",
-            "BurstyRouter"
+            "BurstyRouter",
+            "Marketing Skills"
         ])
         XCTAssertEqual(skills.pluginCount, 1)
-        XCTAssertEqual(skills.skillCount, 4)
+        XCTAssertEqual(skills.skillCount, 5)
 
         let commands = setup.model.surface().commands
         XCTAssertTrue(try command("extension-install:skill:llm-advisor", in: commands).keywords.contains {
@@ -56,6 +58,9 @@ final class WorkspaceProjectExtensionIntegrationTests: XCTestCase {
         })
         XCTAssertTrue(try command("extension-install:skill:burstyrouter", in: commands).keywords.contains {
             $0.localizedCaseInsensitiveContains("local-first")
+        })
+        XCTAssertTrue(try command("extension-install:skill:marketing-skills", in: commands).keywords.contains {
+            $0.localizedCaseInsensitiveContains("marketing playbooks")
         })
     }
 

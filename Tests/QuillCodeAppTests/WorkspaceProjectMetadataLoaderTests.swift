@@ -45,7 +45,8 @@ final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
             "skill:llm-advisor",
             "skill:browser-use",
             "skill:openclaw-video-toolkit",
-            "skill:burstyrouter"
+            "skill:burstyrouter",
+            "skill:marketing-skills"
         ])
         XCTAssertEqual(metadata.memories.map(\.relativePath), [".quillcode/memories/team-note.md"])
     }
@@ -91,7 +92,8 @@ final class WorkspaceProjectMetadataLoaderTests: XCTestCase {
             "LLM Advisor",
             "Browser Use",
             "OpenClaw Video Toolkit",
-            "BurstyRouter"
+            "BurstyRouter",
+            "Marketing Skills"
         ])
         for skill in bundledSkills {
             XCTAssertEqual(skill.kind, .skill)
