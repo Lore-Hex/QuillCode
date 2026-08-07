@@ -44,23 +44,38 @@ public struct ModelTokenUsage: Codable, Sendable, Hashable {
 public struct ModelTokenUsageRecord: Codable, Sendable, Hashable {
     public var usage: ModelTokenUsage
     public var modelID: String?
+    /// Number of provider calls represented by this record. Ordinary usage events represent one
+    /// call; compact period ledgers can merge equivalent receipts without falsifying call counts.
+    public var callCount: Int
 
-    public init(usage: ModelTokenUsage, modelID: String? = nil) {
+    public init(usage: ModelTokenUsage, modelID: String? = nil, callCount: Int = 1) {
         self.usage = usage
         self.modelID = Self.normalizedModelID(modelID)
+        self.callCount = max(1, callCount)
     }
 
     private enum CodingKeys: String, CodingKey {
         case usage
         case modelID
+        case callCount
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             usage: try container.decode(ModelTokenUsage.self, forKey: .usage),
-            modelID: try container.decodeIfPresent(String.self, forKey: .modelID)
+            modelID: try container.decodeIfPresent(String.self, forKey: .modelID),
+            callCount: try container.decodeIfPresent(Int.self, forKey: .callCount) ?? 1
         )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(usage, forKey: .usage)
+        try container.encodeIfPresent(modelID, forKey: .modelID)
+        if callCount > 1 {
+            try container.encode(callCount, forKey: .callCount)
+        }
     }
 
     private static func normalizedModelID(_ value: String?) -> String? {
@@ -72,11 +87,19 @@ public struct ModelTokenUsageRecord: Codable, Sendable, Hashable {
 public enum ModelTokenUsageEvent {
     public static let summary = "Model token usage"
 
-    public static func event(usage: ModelTokenUsage, modelID: String? = nil) -> ThreadEvent {
+    public static func event(
+        usage: ModelTokenUsage,
+        modelID: String? = nil,
+        callCount: Int = 1
+    ) -> ThreadEvent {
         ThreadEvent(
             kind: .notice,
             summary: summary,
-            payloadJSON: try? JSONHelpers.encodePretty(ModelTokenUsageRecord(usage: usage, modelID: modelID))
+            payloadJSON: try? JSONHelpers.encodePretty(ModelTokenUsageRecord(
+                usage: usage,
+                modelID: modelID,
+                callCount: callCount
+            ))
         )
     }
 

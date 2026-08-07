@@ -47,12 +47,10 @@ public final class QuillCodeWorkspaceModel {
     /// only — without this hook the provider/tool work would keep executing after the UI promised
     /// the session was destroyed. nil in tests / the CLI.
     public var onEphemeralThreadDiscarded: (@MainActor (UUID) -> Void)?
-    /// Content-free spend receipts distilled from destroyed confidential threads (usage events only —
-    /// token counts, model id, timestamps; no messages). The run-spend period ledger is built from
-    /// `root.threads`, so without these a destroyed confidential session's spend would vanish from the
-    /// daily/weekly/monthly accounting and repeated confidential use could exceed configured limits.
-    /// Session-only by design: it must never be persisted with the rest of the workspace.
-    var discardedEphemeralSpendThreads: [ChatThread] = []
+    /// Content-free spend accounting distilled from destroyed confidential threads. It aggregates
+    /// usage by day/model, prunes once receipts leave every active period, and is session-only so
+    /// private content never enters persistence while daily/weekly/monthly limits remain accurate.
+    var discardedEphemeralSpendLedger = WorkspaceEphemeralSpendLedger()
     /// Optional platform hook for browser tools that need a live native browser surface. Desktop installs
     /// this for visible WebKit sessions; nil keeps the pure app-core snapshot executor behavior.
     public var visibleBrowserToolOverride: AgentToolExecutionOverride?

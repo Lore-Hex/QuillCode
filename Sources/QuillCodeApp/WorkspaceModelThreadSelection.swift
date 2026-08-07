@@ -22,24 +22,7 @@ extension QuillCodeWorkspaceModel {
     /// destroyed (discard-on-exit, but also typed /clear and /delete which bypass the exit helper) —
     /// so cycling confidential sessions can never launder spend past the configured period limits.
     func retainEphemeralSpendReceipt(for thread: ChatThread) {
-        guard thread.runtimeContext.isEphemeral,
-              let receipt = Self.spendReceiptStub(from: thread)
-        else { return }
-        discardedEphemeralSpendThreads.append(receipt)
-    }
-
-    /// Distills a destroyed ephemeral thread's provider-usage events (token counts, model id,
-    /// timestamps — never message content) into a stub the spend-period ledger can keep counting.
-    private static func spendReceiptStub(from thread: ChatThread) -> ChatThread? {
-        let usageEvents = thread.events.filter { ModelTokenUsageEvent.usage(from: $0) != nil }
-        guard !usageEvents.isEmpty else { return nil }
-        return ChatThread(
-            title: "Confidential spend receipt",
-            model: thread.model,
-            events: usageEvents,
-            createdAt: thread.createdAt,
-            updatedAt: thread.updatedAt
-        )
+        discardedEphemeralSpendLedger.retain(thread)
     }
 
     @discardableResult

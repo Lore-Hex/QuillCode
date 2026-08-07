@@ -449,7 +449,7 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
 
         _ = model.newChat()
 
-        let receipt = try XCTUnwrap(model.discardedEphemeralSpendThreads.first)
+        let receipt = try XCTUnwrap(model.discardedEphemeralSpendLedger.periodThreads().first)
         XCTAssertTrue(receipt.messages.isEmpty, "receipts carry usage only — never conversation content")
         XCTAssertEqual(receipt.events.count, 1)
         XCTAssertEqual(
@@ -465,7 +465,7 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
 
         _ = model.newChat()
 
-        XCTAssertTrue(model.discardedEphemeralSpendThreads.isEmpty)
+        XCTAssertTrue(model.discardedEphemeralSpendLedger.isEmpty)
     }
 
     func testArchivingAConfidentialThreadIsRefused() throws {
@@ -714,7 +714,10 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
                 _ = model.deleteThread(confidentialID)
             }
 
-            let receipt = try XCTUnwrap(model.discardedEphemeralSpendThreads.first, "\(destroy) must retain spend")
+            let receipt = try XCTUnwrap(
+                model.discardedEphemeralSpendLedger.periodThreads().first,
+                "\(destroy) must retain spend"
+            )
             XCTAssertTrue(receipt.messages.isEmpty)
             XCTAssertEqual(
                 ModelTokenUsageEvent.usage(from: try XCTUnwrap(receipt.events.first))?.contextTokens,
@@ -854,7 +857,7 @@ final class WorkspaceConfidentialModeTests: XCTestCase {
         XCTAssertTrue(model.returnFromSideConversation())
 
         let receipt = try XCTUnwrap(
-            model.discardedEphemeralSpendThreads.first,
+            model.discardedEphemeralSpendLedger.periodThreads().first,
             "a destroyed side conversation's spend must still count against period limits"
         )
         XCTAssertTrue(receipt.messages.isEmpty, "receipts carry usage only — never conversation content")

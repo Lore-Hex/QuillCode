@@ -28,8 +28,8 @@ public struct RunSpendPeriodLedger: Sendable, Hashable {
             ).summary
             return RunSpendFuseSummary(
                 totalUSD: total.totalUSD + summary.totalUSD,
-                pricedCallCount: total.pricedCallCount + summary.pricedCallCount,
-                unpricedCallCount: total.unpricedCallCount + summary.unpricedCallCount
+                pricedCallCount: Self.saturatingAdd(total.pricedCallCount, summary.pricedCallCount),
+                unpricedCallCount: Self.saturatingAdd(total.unpricedCallCount, summary.unpricedCallCount)
             )
         }
     }
@@ -62,5 +62,10 @@ public struct RunSpendPeriodLedger: Sendable, Hashable {
             composerAttachments: thread.composerAttachments,
             followUpQueue: thread.followUpQueue
         )
+    }
+
+    private static func saturatingAdd(_ lhs: Int, _ rhs: Int) -> Int {
+        let (sum, overflow) = lhs.addingReportingOverflow(rhs)
+        return overflow ? Int.max : sum
     }
 }

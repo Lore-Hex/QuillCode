@@ -39,6 +39,7 @@ struct WorkspaceRunReceiptSurfaceBuilder: Sendable, Hashable {
     private static func receiptDetail(_ receipt: RunSpendReceipt) -> String {
         [
             receipt.modelID,
+            receipt.callCount > 1 ? "\(receipt.callCount) model calls" : nil,
             WorkspaceTokenUsageLabelBuilder.label(for: receipt.usage),
             receipt.price?.detailLabel
         ]
