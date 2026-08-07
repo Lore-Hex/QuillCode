@@ -21,6 +21,11 @@ from .packaged_window import (
     write_accessibility_readiness_manifest,
     write_comparison_manifest,
 )
+from .performance import (
+    DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
+    DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
+    write_performance_manifest,
+)
 from .probe_contracts import validate_report
 from .scheduled_coworker import write_scheduled_coworker_manifest
 from .scheduled_notification_observation import write_scheduled_notification_observation_manifest
@@ -89,6 +94,23 @@ def main() -> None:
     frames_parser.add_argument("screenshot", type=Path)
     frames_parser.add_argument("--click-probe-manifest", type=Path)
     frames_parser.add_argument("--manifest", required=True, type=Path)
+
+    performance_parser = subparsers.add_parser(
+        "performance",
+        help="validate packaged native launch and resident-memory evidence",
+    )
+    performance_parser.add_argument("report", type=Path)
+    performance_parser.add_argument("--manifest", required=True, type=Path)
+    performance_parser.add_argument(
+        "--max-launch-ready-milliseconds",
+        type=float,
+        default=DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
+    )
+    performance_parser.add_argument(
+        "--max-resident-memory-bytes",
+        type=int,
+        default=DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
+    )
 
     computer_use_parser = subparsers.add_parser(
         "computer-use",
@@ -218,6 +240,13 @@ def main() -> None:
             args.screenshot,
             args.click_probe_manifest,
             args.manifest,
+        )
+    elif args.command == "performance":
+        write_performance_manifest(
+            args.report,
+            args.manifest,
+            max_launch_ready_milliseconds=args.max_launch_ready_milliseconds,
+            max_resident_memory_bytes=args.max_resident_memory_bytes,
         )
     elif args.command == "computer-use":
         write_computer_use_manifest(

@@ -63,6 +63,9 @@ def classify_asset(name: str) -> dict[str, str]:
     if name.startswith("quill-code-linux-") and name.endswith(".tar.gz"):
         arch = name.removeprefix("quill-code-linux-").removesuffix(".tar.gz")
         return {"kind": "cli", "platform": "Linux", "arch": arch, "install": "tarball"}
+    if name.startswith("Quill-Cowork-macOS-") and name.endswith("-PERFORMANCE.json"):
+        arch = name.removeprefix("Quill-Cowork-macOS-").removesuffix("-PERFORMANCE.json")
+        return {"kind": "performance", "platform": "macOS", "arch": arch, "install": "json"}
     if name == "BUILD_INFO.txt":
         return {"kind": "metadata", "platform": "macOS", "arch": "any", "install": "text"}
     if name.startswith("BUILD_INFO-linux-") and name.endswith(".txt"):

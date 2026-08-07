@@ -9,6 +9,7 @@ struct QuillCodeDesktopApp: App {
     @StateObject private var controller: QuillCodeDesktopController
 
     init() {
+        _ = QuillCodeDesktopLaunchClock.appEntryUptime
         if let updateRequest = QuillCodeDesktopUpdateHelperRequest.parse(arguments: CommandLine.arguments) {
             Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
         }

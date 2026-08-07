@@ -204,6 +204,7 @@ jobs:
 
           Downloads:
           - \`Quill-Cowork-macOS-*.zip\`: macOS app bundle for testers.
+          - \`Quill-Cowork-macOS-*-PERFORMANCE.json\`: measured launch and resident-memory release evidence.
           - \`quill-code-macOS-*.tar.gz\`: macOS CLI.
           - \`quill-code-linux-*.tar.gz\`: Linux CLI.
           - \`SHASUMS256.txt\`: checksums for package and build-info assets.

@@ -504,6 +504,7 @@ struct QuillCodeDesktopWindowSmokeReport {
     var stateRootPath: String
     var appStatePath: String
     var workspacePath: String
+    var performance: QuillCodeDesktopPerformanceSnapshot
     var image: QuillCodeDesktopSmokePixelReport
     var nativeHitTargets: QuillCodeNativeHitTargetAuditReport
     var accessibilityFrameSamples: QuillCodeDesktopAccessibilityFrameSampleReport
@@ -531,6 +532,7 @@ struct QuillCodeDesktopWindowSmokeReport {
                 "stateRootPath": stateRootPath,
                 "appStatePath": appStatePath,
                 "workspacePath": workspacePath,
+                "performance": performance.dictionary,
                 "image": image.dictionary,
                 "nativeHitTargets": nativeHitTargets.dictionary,
                 "accessibilityFrameSamples": accessibilityFrameSamples.dictionary,
@@ -687,6 +689,7 @@ enum QuillCodeDesktopSmokeFailure: Error {
     case computerUseActionMismatch(String)
     case multiFileArtifactMismatch(String)
     case oneTurnCoworkerMismatch(String)
+    case performanceSnapshotUnavailable
     case nativeAccessibilityActivationFailed([String])
     case nativeAccessibilityFrameSamplingFailed([String])
     case nativeHitTargetAuditFailed([String])
