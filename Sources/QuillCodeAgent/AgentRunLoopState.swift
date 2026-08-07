@@ -19,6 +19,9 @@ struct AgentRunLoopState: Sendable {
     /// A successful write remains here until a LATER successful read of the same path. Rewrites
     /// re-arm verification, preventing an early read from blessing a subsequently changed file.
     private(set) var unverifiedWrittenWorkspacePaths: Set<String> = []
+    /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
+    /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
+    private(set) var malformedWrittenTextPaths: Set<String> = []
 
     /// Call signatures that have already received the repeat SOFT WARNING (Cline learning #2).
     /// One nudge per distinct call; a further repeat of the same call finalizes as before, so the
@@ -87,6 +90,16 @@ struct AgentRunLoopState: Sendable {
         switch completion.call.name {
         case ToolDefinition.fileWrite.name:
             unverifiedWrittenWorkspacePaths.insert(normalized)
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               AgentArtifactTextQualityGate.containsMalformedLiteralEscape(
+                content: content,
+                path: normalized
+               ) {
+                malformedWrittenTextPaths.insert(normalized)
+            } else {
+                malformedWrittenTextPaths.remove(normalized)
+            }
         case ToolDefinition.fileRead.name:
             unverifiedWrittenWorkspacePaths = Set(unverifiedWrittenWorkspacePaths.filter {
                 !AgentArtifactVerificationGate.pathsMatch($0, normalized)

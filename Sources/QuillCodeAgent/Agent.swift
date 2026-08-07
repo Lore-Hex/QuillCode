@@ -213,6 +213,8 @@ public struct AgentRunner: Sendable {
             /// Source paths and data labels are not commands. Redirect each exact model proposal
             /// once after tool work has begun; a repeated proposal still reaches the shell.
             var preflightCorrectedInvalidShellCalls = Set<ToolCallFingerprint>()
+            /// A malformed named prose artifact receives one corrective rewrite request per path.
+            var artifactTextQualityNudgedPaths = Set<String>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -338,6 +340,21 @@ public struct AgentRunner: Sendable {
                     await onProgress?(next)
                     continue actionLoop
                 }
+                if case .say = resolvedAction,
+                   let correction = AgentArtifactTextQualityGate.correction(
+                    userMessage: userMessage,
+                    malformedPaths: runLoop.malformedWrittenTextPaths
+                   ), artifactTextQualityNudgedPaths.insert(correction.path).inserted {
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: requested clean text formatting for "
+                            + "./\(correction.path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
                 // the tool arm below and the loop continues; the gate re-checks at the next say.
@@ -440,6 +457,20 @@ public struct AgentRunner: Sendable {
                             result: lastCompletion.result,
                             followUpReviewResult: lastCompletion.followUpReviewResult
                         ))
+                        if let correction = AgentArtifactTextQualityGate.correction(
+                            userMessage: userMessage,
+                            malformedPaths: runLoop.malformedWrittenTextPaths
+                        ), artifactTextQualityNudgedPaths.insert(correction.path).inserted {
+                            pendingRepeatNudge = correction.prompt
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: requested clean text formatting for "
+                                    + "./\(correction.path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
+                        }
                         if !runLoop.hadDeniedStep {
                             finalized = try await actionByRequiringNamedDeliverables(
                                 finalized,
