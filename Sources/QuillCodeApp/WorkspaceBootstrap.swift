@@ -37,8 +37,9 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         let projects = try projectStore.load()
         let childStore = SubagentThreadStore(directory: paths.subagentThreadsDirectory)
         let payloadStore = SubagentApprovalPayloadStore(directory: paths.subagentApprovalPayloadsDirectory)
+        let threadListing = threadStore.listing()
         let reconciliation = WorkspaceSubagentRelaunchReconciler.reconcile(
-            try threadStore.list(),
+            threadListing.threads,
             childStore: childStore,
             payloadStore: payloadStore
         )
@@ -81,6 +82,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             runner: runtime.runner,
             contextSummaryGenerator: runtime.contextSummaryGenerator,
             threadStore: threadStore,
+            threadLoadIssue: WorkspaceThreadLoadIssue(listing: threadListing),
             projectStore: projectStore,
             automationStore: automationStore,
             sidebarSavedSearchStore: sidebarSavedSearchStore,

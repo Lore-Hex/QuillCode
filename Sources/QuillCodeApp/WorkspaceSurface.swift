@@ -296,7 +296,10 @@ public extension QuillCodeWorkspaceModel {
     }
 
     private func runtimeIssueSurface() -> RuntimeIssueSurface? {
-        WorkspaceRuntimeIssueBuilder(
+        if let threadLoadIssue {
+            return threadLoadIssue.runtimeIssue
+        }
+        return WorkspaceRuntimeIssueBuilder(
             config: root.config,
             hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,
             modelID: root.topBar.model,

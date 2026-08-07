@@ -9,6 +9,34 @@ import QuillCodeTools
 
 @MainActor
 final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
+    func testRenderedEmptyWorkspaceShowsSavedChatRecoveryIssue() throws {
+        let invalidID = UUID()
+        let listing = ThreadListing(
+            threads: [],
+            issues: [
+                ThreadFileIssue(
+                    fileURL: URL(fileURLWithPath: "/ignored/\(invalidID.uuidString).json"),
+                    reason: .unreadable
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            threadLoadIssue: try XCTUnwrap(WorkspaceThreadLoadIssue(listing: listing))
+        )
+        let surface = model.surface()
+        XCTAssertEqual(surface.runtimeIssue?.title, "A saved chat could not be loaded")
+        XCTAssertTrue(surface.transcript.timelineItems.isEmpty)
+
+        let image = try renderWorkspace(surface)
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 1280)
+        XCTAssertEqual(stats.height, 900)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.brightPixelRatio, 0.0008)
+    }
+
     func testRenderedUpdaterShowsDeterminateDownloadProgressInsideSheet() async throws {
         let release = makeRelease(version: "0.2.0", build: "7")
         let controller = QuillCodeDesktopUpdateController(
@@ -238,7 +266,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         )
         .frame(width: 1280, height: 900)
 
-        return try render(
+        return try renderHostedView(
             view,
             width: 1280,
             height: 900,

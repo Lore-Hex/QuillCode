@@ -1,10 +1,48 @@
 import XCTest
 import QuillCodeAgent
 import QuillCodeCore
+import QuillCodePersistence
 @testable import QuillCodeApp
 
 @MainActor
 final class WorkspaceRuntimeIssueIntegrationTests: XCTestCase {
+    func testSavedChatLoadIssueTakesPriorityAndRoutesToSettings() throws {
+        let privateFilename = "customer-acquisition-plan.json"
+        let listing = ThreadListing(
+            threads: [ChatThread(title: "Healthy")],
+            issues: [
+                ThreadFileIssue(
+                    fileURL: URL(fileURLWithPath: "/ignored/\(privateFilename)"),
+                    reason: .exceedsSizeLimit
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                topBar: TopBarState(agentStatus: QuillCodeRuntimeStatusLabel.signInWithTrustedRouter)
+            ),
+            threadLoadIssue: try XCTUnwrap(WorkspaceThreadLoadIssue(listing: listing))
+        )
+
+        let surface = model.surface()
+
+        XCTAssertEqual(surface.runtimeIssue?.title, "A saved chat could not be loaded")
+        XCTAssertEqual(surface.runtimeIssue?.recovery?.reason, .savedChatsUnreadable)
+        XCTAssertEqual(surface.topBar.runtimeIssueLabel, "A saved chat could not be loaded")
+        XCTAssertEqual(
+            surface.runtimeIssue?.diagnostics.first { $0.label == "Oversized files" }?.value,
+            "1"
+        )
+        XCTAssertFalse(
+            surface.runtimeIssue?.diagnostics.contains { $0.value.contains(privateFilename) } == true
+        )
+        let settings = try XCTUnwrap(surface.commands.first { $0.id == "settings" })
+        XCTAssertEqual(
+            RuntimeIssueRecoveryPlanner(commands: [settings]).action(for: surface.runtimeIssue),
+            .command(settings)
+        )
+    }
+
     func testApplyRuntimeRefreshesAgentStatus() {
         let model = QuillCodeWorkspaceModel()
 

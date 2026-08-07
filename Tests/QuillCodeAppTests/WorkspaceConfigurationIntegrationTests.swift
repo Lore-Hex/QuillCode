@@ -175,13 +175,28 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
         let store = JSONThreadStore(directory: paths.threadsDirectory)
         try store.save(ChatThread(title: "Survivor A", updatedAt: Date(timeIntervalSince1970: 1)))
         try store.save(ChatThread(title: "Survivor B", updatedAt: Date(timeIntervalSince1970: 2)))
-        try Data("{ truncated mid-write".utf8)
-            .write(to: paths.threadsDirectory.appendingPathComponent("\(UUID().uuidString).json"))
+        let corruptID = UUID()
+        let corruptURL = paths.threadsDirectory.appendingPathComponent("\(corruptID.uuidString).json")
+        try Data("{ truncated mid-write".utf8).write(to: corruptURL)
 
         let model = try QuillCodeWorkspaceBootstrap(paths: paths).makeModel()
 
         XCTAssertEqual(model.root.threads.map(\.title), ["Survivor B", "Survivor A"])
         XCTAssertEqual(model.root.selectedThreadID, model.root.threads.first?.id)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: corruptURL.path))
+        let issue = try XCTUnwrap(model.surface().runtimeIssue)
+        XCTAssertEqual(issue.severity, .warning)
+        XCTAssertEqual(issue.title, "A saved chat could not be loaded")
+        XCTAssertTrue(issue.message.contains("other 2 chats are still available"))
+        XCTAssertTrue(issue.message.contains("left unchanged"))
+        XCTAssertEqual(issue.actionLabel, "Review diagnostics")
+        XCTAssertEqual(issue.recovery?.route, .settings)
+        XCTAssertEqual(issue.recovery?.reason, .savedChatsUnreadable)
+        let diagnostics = Dictionary(uniqueKeysWithValues: issue.diagnostics.map { ($0.label, $0.value) })
+        XCTAssertEqual(diagnostics["Loaded chats"], "2")
+        XCTAssertEqual(diagnostics["Affected files"], "1")
+        XCTAssertEqual(diagnostics["Chat IDs"], corruptID.uuidString.lowercased())
+        XCTAssertEqual(model.surface().settings.runtimeIssue, issue)
     }
 
     func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {

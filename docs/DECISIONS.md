@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-07: damaged saved chats stay bounded, visible, and recoverable
+
+- **Decision:** Persisted chat files are inspected as regular non-symlink files before decoding,
+  rejected above 128 MiB, and loaded with mapped data. Startup continues with every healthy chat
+  when another file is truncated, schema-incompatible, oversized, or an unexpected filesystem type.
+- **Recovery boundary:** Rejected files remain unchanged. Bootstrap carries only bounded reason
+  counts and validated UUID chat IDs into a persistent warning; the transcript and Settings expose
+  recovery diagnostics without reading file contents, displaying absolute paths, or leaking decoder
+  errors. The warning takes priority over provider status until the storage problem is resolved.
+- **Why:** The persistence layer already skipped damaged files, but bootstrap discarded that evidence,
+  making chats disappear silently. Unbounded reads also let one malformed file create an avoidable
+  startup memory spike.
+- **Evidence:** `JSONThreadStoreTests` cover healthy preservation, strict direct loads, sparse
+  oversized files, and symlink refusal. `WorkspaceConfigurationIntegrationTests` covers bootstrap
+  diagnostics and source-file preservation, while `QuillCodeDesktopRenderedSmokeTests` verifies the
+  warning in an otherwise empty workspace.
+
 ## 2026-08-07: update downloads are bounded while bytes are in flight
 
 - **Decision:** The desktop updater streams each response directly into an updater-owned hidden
