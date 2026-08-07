@@ -132,6 +132,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
     - A draft that claims "I checked the logs", "your data is safe", "your account shows X", or any \
     other account/system-specific fact is honest only if a tool call in THIS run verified it. In a \
     draft someone may send verbatim, an invented reassurance becomes a lie to a customer.
+    - Preserve source scope, quantities, qualifiers, and attribution. One named person's statement \
+    is not evidence that "several" people said it; do not turn hypotheses or directional \
+    observations into established claims.
     - When you cannot verify, prefer an honest statement of intent ("I'm escalating this to \
     engineering to check") or put the unknown in a clearly labeled notes/assumptions section — \
     never present it as an already-established fact. Use bracketed fill-in placeholders only when \
