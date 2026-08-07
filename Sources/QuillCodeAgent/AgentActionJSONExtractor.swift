@@ -75,23 +75,12 @@ enum AgentActionJSONExtractor {
 
     private static func jsonObjectCandidates(in text: String) -> [String] {
         var candidates: [String] = []
-        var startIndex: String.Index?
-        var depth = 0
+        var startIndices: [String.Index] = []
         var isInsideString = false
         var isEscaping = false
 
         for index in text.indices {
             let character = text[index]
-            guard let start = startIndex else {
-                if character == "{" {
-                    startIndex = index
-                    depth = 1
-                    isInsideString = false
-                    isEscaping = false
-                }
-                continue
-            }
-
             if isInsideString {
                 if isEscaping {
                     isEscaping = false
@@ -106,22 +95,18 @@ enum AgentActionJSONExtractor {
             if character == "\"" {
                 isInsideString = true
             } else if character == "{" {
-                depth += 1
-            } else if character == "}" {
-                depth -= 1
-                if depth == 0 {
-                    candidates.append(String(text[start...index]))
-                    startIndex = nil
-                }
+                startIndices.append(index)
+            } else if character == "}", let start = startIndices.popLast() {
+                candidates.append(String(text[start...index]))
             }
         }
 
         // Some providers occasionally finish a complete tool payload but omit one or more
         // trailing object braces at EOF. Repair only that structural case: every JSON string
         // must already be closed, and JSONSerialization still validates the repaired object.
-        if let start = startIndex, !isInsideString, depth > 0 {
+        if let start = startIndices.first, !isInsideString, !startIndices.isEmpty {
             candidates.append(
-                String(text[start...]) + String(repeating: "}", count: depth)
+                String(text[start...]) + String(repeating: "}", count: startIndices.count)
             )
         }
 

@@ -216,6 +216,27 @@ final class TrustedRouterActionParserTests: XCTestCase {
         XCTAssertTrue(call.argumentsJSON.contains(#""cmd":"whoami""#))
     }
 
+    func testActionParserResynchronizesAfterMalformedToolResultPrefix() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {
+          "result": {
+            "artifacts": [],
+            "ok": true
+          ],
+          "toolCall": {"argumentsHash":"abc"}
+        <end_of_thinking>
+        {"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"# Ranked accounts\\nBody"}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "outputs/report.md")
+        XCTAssertEqual(try arguments.requiredString("content"), "# Ranked accounts\nBody")
+    }
+
     func testActionParserRepairsMissingClosingObjectAtEOF() throws {
         let action = try AgentActionJSONParser.parse(##"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"# Complete\nBody"}"##)
 
