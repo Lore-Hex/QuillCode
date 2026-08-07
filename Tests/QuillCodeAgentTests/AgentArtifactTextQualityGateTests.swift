@@ -109,6 +109,46 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         ))
     }
 
+    func testDetectsContradictoryEnumeratedCountsButIgnoresExamplesAndProseLists() {
+        XCTAssertTrue(AgentArtifactTextQualityGate.containsContradictoryEnumeratedCount(
+            content: "Series A Controllers: 6 records (I-01, I-03, I-05, I-07, I-09, I-11, I-13, I-15, I-17)",
+            path: "outputs/report.md"
+        ))
+        XCTAssertFalse(AgentArtifactTextQualityGate.containsContradictoryEnumeratedCount(
+            content: "Nine records (I-01, I-03, I-05) are examples, including Maya, Lee, and Jo.",
+            path: "outputs/report.md"
+        ))
+        XCTAssertFalse(AgentArtifactTextQualityGate.containsContradictoryEnumeratedCount(
+            content: "Use `6 records (I-01, I-03, I-05)` as a malformed example.\n```text\n6 records (I-01, I-03)\n```",
+            path: "outputs/report.md"
+        ))
+    }
+
+    func testDeterministicEnumeratedCountRepairChangesOnlyVisibleContradictoryNumeral() throws {
+        let content = """
+        Series A Controllers: 6 records (I-01, I-03, I-05, I-07, I-09, I-11, I-13, I-15, I-17)
+        Keep `6 records (I-01, I-03, I-05)` as an example.
+        ```text
+        4 records (A-01, A-02)
+        ```
+        """
+
+        let repaired = try XCTUnwrap(
+            AgentArtifactTextQualityGate.replacingContradictoryEnumeratedCounts(
+                content: content,
+                path: "outputs/report.md"
+            )
+        )
+
+        XCTAssertTrue(repaired.contains("9 records (I-01, I-03, I-05, I-07, I-09, I-11, I-13, I-15, I-17)"))
+        XCTAssertTrue(repaired.contains("`6 records (I-01, I-03, I-05)`"))
+        XCTAssertTrue(repaired.contains("```text\n4 records (A-01, A-02)\n```"))
+        XCTAssertFalse(AgentArtifactTextQualityGate.containsContradictoryEnumeratedCount(
+            content: repaired,
+            path: "outputs/report.md"
+        ))
+    }
+
     func testMalformedNamedArtifactIsRewrittenBeforeReadbackAndCompletion() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
@@ -230,6 +270,69 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         })
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("fill-in fields with blanks")
+        })
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),
+            corrected
+        )
+    }
+
+    func testContradictoryEnumeratedCountIsRewrittenBeforeCompletion() async throws {
+        let root = try makeTempDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let contradictory = "# Report\n\n6 records (I-01, I-03, I-05, I-07, I-09, I-11, I-13, I-15, I-17)\n"
+        let corrected = "# Report\n\n9 records (I-01, I-03, I-05, I-07, I-09, I-11, I-13, I-15, I-17)\n"
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .tool(writeCall(content: contradictory)),
+            .say("Created and verified outputs/report.md."),
+            .tool(writeCall(content: corrected)),
+            .say("Created outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+        ]))
+
+        let result = try await runner.send(
+            "Create outputs/report.md. After writing, read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 3, "two writes and the forced final readback")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("consistent enumerated counts")
+        })
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),
+            corrected
+        )
+    }
+
+    func testContradictoryEnumeratedCountIsDeterministicallyRepairedAfterIgnoredRewrite() async throws {
+        let root = try makeTempDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let contradictory = "# Report\n\n2 records (I-01, I-03, I-05)\n"
+        let corrected = "# Report\n\n3 records (I-01, I-03, I-05)\n"
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .tool(writeCall(content: contradictory)),
+            .tool(readCall()),
+            .say("Created and verified outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+            .say("Created outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+        ]), maxToolSteps: 8)
+
+        let result = try await runner.send(
+            "Create outputs/report.md. After writing, read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 4, "two writes and two readbacks")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("consistent enumerated counts")
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("reconciled an enumerated record count")
         })
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),

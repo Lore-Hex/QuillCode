@@ -34,6 +34,11 @@ struct AgentRunLoopState: Sendable {
     /// Latest invalid content by normalized path. Retained across readback so the runner can make
     /// a deterministic blank-field repair if the model ignores its one natural-rewrite request.
     private(set) var placeholderWrittenTextContents: [String: String] = [:]
+    /// Named prose artifacts whose latest write declares a count that conflicts with an adjacent
+    /// list of source record IDs.
+    private(set) var contradictoryCountWrittenTextPaths: Set<String> = []
+    /// Latest contradictory content by normalized path, retained for a bounded deterministic fix.
+    private(set) var contradictoryCountWrittenTextContents: [String: String] = [:]
 
     /// Call signatures that have already received the repeat SOFT WARNING (Cline learning #2).
     /// One nudge per distinct call; a further repeat of the same call finalizes as before, so the
@@ -125,6 +130,18 @@ struct AgentRunLoopState: Sendable {
             } else {
                 placeholderWrittenTextPaths.remove(normalized)
                 placeholderWrittenTextContents.removeValue(forKey: normalized)
+            }
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               AgentArtifactTextQualityGate.containsContradictoryEnumeratedCount(
+                content: content,
+                path: normalized
+               ) {
+                contradictoryCountWrittenTextPaths.insert(normalized)
+                contradictoryCountWrittenTextContents[normalized] = content
+            } else {
+                contradictoryCountWrittenTextPaths.remove(normalized)
+                contradictoryCountWrittenTextContents.removeValue(forKey: normalized)
             }
         case ToolDefinition.fileRead.name:
             successfullyReadWorkspacePaths.insert(normalized)

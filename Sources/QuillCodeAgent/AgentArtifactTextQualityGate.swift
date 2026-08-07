@@ -52,6 +52,26 @@ enum AgentArtifactTextQualityGate {
         )
     }
 
+    static func enumeratedCountCorrection(
+        userMessage: String,
+        contradictoryPaths: Set<String>
+    ) -> Correction? {
+        let required = AgentDeliverableGate.requiredDeliverables(in: userMessage)
+        guard let path = contradictoryPaths.sorted().first(where: { candidate in
+            required.contains(where: { AgentArtifactVerificationGate.pathsMatch($0, candidate) })
+        }) else { return nil }
+
+        return Correction(
+            path: path,
+            prompt: """
+            The named text deliverable ./\(path) contains a stated item count that conflicts with \
+            the source record IDs enumerated beside it. Reconcile every derived count against the \
+            listed records, correct or remove unsupported analysis, then read the corrected file \
+            back before finishing.
+            """
+        )
+    }
+
     static func containsMalformedLiteralEscape(content: String, path: String) -> Bool {
         guard let prose = visibleProse(content: content, path: path) else { return false }
         let range = NSRange(prose.startIndex..., in: prose)
@@ -64,6 +84,13 @@ enum AgentArtifactTextQualityGate {
         return bracketedFieldRegex.matches(in: prose, range: range).contains { match in
             guard let fieldRange = Range(match.range(at: 1), in: prose) else { return false }
             return isPlaceholderField(String(prose[fieldRange]))
+        }
+    }
+
+    static func containsContradictoryEnumeratedCount(content: String, path: String) -> Bool {
+        guard let prose = visibleProse(content: content, path: path) else { return false }
+        return prose.components(separatedBy: .newlines).contains {
+            !enumeratedCountReplacements(in: $0).isEmpty
         }
     }
 
@@ -146,6 +173,38 @@ enum AgentArtifactTextQualityGate {
         return replacedAny ? lines.joined(separator: "\n") : nil
     }
 
+    static func replacingContradictoryEnumeratedCounts(content: String, path: String) -> String? {
+        guard textExtensions.contains(
+            URL(fileURLWithPath: path).pathExtension.lowercased()
+        ) else { return nil }
+
+        var inFence = false
+        var replacedAny = false
+        let lines = content.components(separatedBy: "\n").map { line -> String in
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                inFence.toggle()
+                return line
+            }
+            guard !inFence else { return line }
+
+            let mutable = NSMutableString(string: line)
+            let fullRange = NSRange(location: 0, length: mutable.length)
+            let inlineCodeRanges = inlineCodeRegex.matches(in: line, range: fullRange).map(\.range)
+            let replacements = enumeratedCountReplacements(in: line).filter { replacement in
+                !inlineCodeRanges.contains(where: {
+                    NSIntersectionRange($0, replacement.matchRange).length > 0
+                })
+            }
+            for replacement in replacements.reversed() {
+                mutable.replaceCharacters(in: replacement.countRange, with: replacement.value)
+                replacedAny = true
+            }
+            return mutable as String
+        }
+        return replacedAny ? lines.joined(separator: "\n") : nil
+    }
+
     private static func requestsPlaceholderFreeArtifact(in userMessage: String) -> Bool {
         let range = NSRange(userMessage.startIndex..., in: userMessage)
         return placeholderFreeRequestRegexes.contains {
@@ -192,6 +251,32 @@ enum AgentArtifactTextQualityGate {
         return true
     }
 
+    private static func enumeratedCountReplacements(
+        in line: String
+    ) -> [(matchRange: NSRange, countRange: NSRange, value: String)] {
+        let range = NSRange(line.startIndex..., in: line)
+        return enumeratedCountRegex.matches(in: line, range: range).compactMap { match in
+            guard let declaredRange = Range(match.range(at: 1), in: line),
+                  let declaredCount = Int(line[declaredRange]),
+                  let identifiersRange = Range(match.range(at: 2), in: line)
+            else { return nil }
+            let identifiers = line[identifiersRange].split(separator: ",").map {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            guard identifiers.count >= 2,
+                  identifiers.allSatisfy({ identifier in
+                    let identifierRange = NSRange(identifier.startIndex..., in: identifier)
+                    return recordIdentifierRegex.firstMatch(
+                        in: identifier,
+                        range: identifierRange
+                    )?.range == identifierRange
+                  }),
+                  declaredCount != identifiers.count
+            else { return nil }
+            return (match.range, match.range(at: 1), String(identifiers.count))
+        }
+    }
+
     private static let textExtensions: Set<String> = ["md", "markdown", "txt"]
     private static let inlineCodeRegex = try! NSRegularExpression(pattern: #"`[^`]*`"#)
     private static let malformedEscapeRegex = try! NSRegularExpression(
@@ -202,6 +287,12 @@ enum AgentArtifactTextQualityGate {
     )
     private static let bracketedFieldRegex = try! NSRegularExpression(
         pattern: #"\[([^\]\n]{0,120})\](?!\()"#
+    )
+    private static let enumeratedCountRegex = try! NSRegularExpression(
+        pattern: #"(?i)\b(\d+)\s+(?:records?|items?|accounts?|entries?|rows?|cases?)\s*\(([^()\n]+)\)"#
+    )
+    private static let recordIdentifierRegex = try! NSRegularExpression(
+        pattern: #"(?i)^[a-z][a-z0-9_-]*\d+[a-z0-9_-]*$"#
     )
     private static let placeholderFreeRequestRegexes = [
         try! NSRegularExpression(pattern: #"(?i)\bplaceholder[- ]free\b"#),

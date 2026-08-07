@@ -223,6 +223,10 @@ public struct AgentRunner: Sendable {
             /// If the model ignores that rewrite request, one deterministic blank-field repair is
             /// allowed per path. The resulting write re-arms the normal readback gate.
             var artifactPlaceholderRepairedPaths = Set<String>()
+            /// A named text artifact with a contradictory enumerated count receives one semantic
+            /// rewrite request, followed by at most one deterministic numeral correction.
+            var artifactCountConsistencyNudgedPaths = Set<String>()
+            var artifactCountConsistencyRepairedPaths = Set<String>()
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
@@ -424,6 +428,37 @@ public struct AgentRunner: Sendable {
                         await onProgress?(next)
                     }
                 }
+                if case .say = resolvedAction,
+                   let correction = AgentArtifactTextQualityGate.enumeratedCountCorrection(
+                    userMessage: userMessage,
+                    contradictoryPaths: runLoop.contradictoryCountWrittenTextPaths
+                   ) {
+                    if artifactCountConsistencyNudgedPaths.insert(correction.path).inserted {
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: requested consistent enumerated counts for "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    if artifactCountConsistencyRepairedPaths.insert(correction.path).inserted,
+                       let repairCall = Self.enumeratedCountRepairCall(
+                        path: correction.path,
+                        contentsByPath: runLoop.contradictoryCountWrittenTextContents
+                       ) {
+                        resolvedAction = .tool(repairCall)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: reconciled an enumerated record count in "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    }
+                }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
                 // the tool arm below and the loop continues; the gate re-checks at the next say.
@@ -581,6 +616,36 @@ public struct AgentRunner: Sendable {
                                     kind: .notice,
                                     summary: "Self-healing: replaced bracketed fill-in fields with "
                                         + "blanks in ./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
+                        }
+                        if let correction = AgentArtifactTextQualityGate.enumeratedCountCorrection(
+                            userMessage: userMessage,
+                            contradictoryPaths: runLoop.contradictoryCountWrittenTextPaths
+                        ) {
+                            if artifactCountConsistencyNudgedPaths.insert(correction.path).inserted {
+                                pendingRepeatNudge = correction.prompt
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: requested consistent enumerated counts for "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                continue actionLoop
+                            }
+                            if artifactCountConsistencyRepairedPaths.insert(correction.path).inserted,
+                               let repairCall = Self.enumeratedCountRepairCall(
+                                path: correction.path,
+                                contentsByPath: runLoop.contradictoryCountWrittenTextContents
+                               ) {
+                                finalized = .tool(repairCall)
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: reconciled an enumerated record count in "
+                                        + "./\(correction.path) before completion."
                                 ))
                                 next.updatedAt = Date()
                                 await onProgress?(next)
@@ -976,6 +1041,25 @@ public struct AgentRunner: Sendable {
     ) -> ToolCall? {
         guard let content = contentsByPath[path],
               let repaired = AgentArtifactTextQualityGate.replacingMalformedLiteralEscapes(
+                content: content,
+                path: path
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
+    }
+
+    private static func enumeratedCountRepairCall(
+        path: String,
+        contentsByPath: [String: String]
+    ) -> ToolCall? {
+        guard let content = contentsByPath[path],
+              let repaired = AgentArtifactTextQualityGate.replacingContradictoryEnumeratedCounts(
                 content: content,
                 path: path
               )
