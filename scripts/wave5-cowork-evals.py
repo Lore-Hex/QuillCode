@@ -353,6 +353,11 @@ def validate_case_fixtures():
         required = fixture.get("requiredOutputTerms", [])
         if not isinstance(required, list) or not all(isinstance(term, str) and term for term in required):
             raise EvalError(f"Case fixture {case_id} has invalid requiredOutputTerms")
+        grounding = fixture.get("groundingAnchors", [])
+        if not isinstance(grounding, list) or not all(isinstance(term, str) and term for term in grounding):
+            raise EvalError(f"Case fixture {case_id} has invalid groundingAnchors")
+        if len(grounding or required) < 2:
+            raise EvalError(f"Case fixture {case_id} needs at least two case-specific grounding anchors")
         for artifact in fixture.get("additionalArtifacts", []):
             path = artifact.get("path") if isinstance(artifact, dict) else None
             minimum_lines = artifact.get("minimumLines") if isinstance(artifact, dict) else None
@@ -457,8 +462,12 @@ def required_output_term_matches(case_id, text):
 
 
 def grounding_anchors(row):
-    fixture_terms = CASE_FIXTURES.get(row["ID"], {}).get("requiredOutputTerms", ())
-    return tuple(CATEGORY_FIXTURES[row["Category"]]["anchors"]) + tuple(fixture_terms)
+    fixture = CASE_FIXTURES.get(row["ID"])
+    if fixture:
+        case_anchors = fixture.get("groundingAnchors") or fixture.get("requiredOutputTerms")
+        if case_anchors:
+            return tuple(case_anchors)
+    return tuple(CATEGORY_FIXTURES[row["Category"]]["anchors"])
 
 
 def tool_payload(tool, field):

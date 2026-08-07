@@ -278,6 +278,23 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("D12", matched)
         self.assertGreaterEqual(len(matched), 2)
 
+    def test_grounding_uses_explicit_case_anchors_without_required_output_terms(self):
+        row = {"ID": 280, "Category": "Hiring & Team"}
+        anchors = WAVE5.grounding_anchors(row)
+        output = WAVE5.normalize(
+            "Convert Devon Lee and Kim Wu, while retaining Sam Ortiz as a contractor."
+        )
+        matched = [anchor for anchor in anchors if WAVE5.normalize(anchor) in output]
+
+        self.assertNotIn("LedgerLoop", anchors)
+        self.assertEqual(matched, ["Devon Lee", "Sam Ortiz", "Kim Wu"])
+
+    def test_every_case_fixture_has_case_specific_grounding(self):
+        for case_id, fixture in WAVE5.CASE_FIXTURES.items():
+            with self.subTest(case_id=case_id):
+                anchors = fixture.get("groundingAnchors") or fixture.get("requiredOutputTerms", [])
+                self.assertGreaterEqual(len(anchors), 2)
+
     def test_artifact_readback_must_follow_last_successful_write(self):
         output = "outputs/wave5-211.md"
         write = tool("host.file.write", {"path": output}, {"ok": True})
