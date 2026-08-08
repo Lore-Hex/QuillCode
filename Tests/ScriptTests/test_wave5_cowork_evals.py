@@ -144,6 +144,17 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("not equal to `payroll + non_payroll`", context)
         self.assertIn("validate the explicitly defined ending-cash identity", prompt)
 
+    def test_discount_analysis_requires_auditable_deal_coverage(self):
+        prompt = WAVE5.build_prompt({
+            "ID": 305,
+            "Task (what the person types)": "Analyze discounting across closed deals.",
+            "Capability needed": "Browser pane",
+        })
+
+        self.assertIn("item-level evidence register", prompt)
+        self.assertIn("every DL01 through DL12 source row", prompt)
+        self.assertIn("rollups and exceptions are auditable", prompt)
+
     def test_rescue_plan_requires_each_stale_open_account(self):
         complete = "\n".join(
             f"## Account {index:02d}\n\nHello finance team,"
