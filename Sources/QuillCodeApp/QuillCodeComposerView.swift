@@ -120,7 +120,9 @@ struct QuillCodeComposerView: View {
                 )
             }
 
-            HStack(alignment: .bottom, spacing: QuillCodeMetrics.controlClusterSpacing) {
+            // Leave one point for SwiftUI's half-point Accessibility frame rounding so the
+            // measured input-to-action clearance still satisfies the eight-point contract.
+            HStack(alignment: .bottom, spacing: QuillCodeMetrics.minimumTargetClearance + 1) {
                 QuillCodeComposerTextField(
                     placeholder: isWorkspaceAvailable ? composer.placeholder : "Open a project to start",
                     draft: $draft,
