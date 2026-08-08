@@ -1,0 +1,276 @@
+{
+  "version": 1,
+  "suite": "bfcl",
+  "upstream": {
+    "repository": "https://github.com/ShishirPatil/gorilla/tree/main/berkeley-function-call-leaderboard",
+    "evaluatorPackage": "bfcl-eval==2025.12.17",
+    "generation": "BFCL V4"
+  },
+  "taskModel": "deepseek/deepseek-v4-flash-0731",
+  "maxPaidInvocations": 24,
+  "maxStepsPerCase": 3,
+  "cases": [
+    {
+      "id": "bfcl-simple-weather",
+      "category": "simple",
+      "maxSteps": 1,
+      "prompt": "What is the weather in Berkeley, CA in celsius?",
+      "tools": [
+        {
+          "name": "get_weather",
+          "description": "Get current weather for a location",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {"type": "string"},
+              "unit": {"type": "string"}
+            },
+            "required": ["location", "unit"],
+            "additionalProperties": false
+          },
+          "stubResult": {"temperature": 18, "unit": "celsius"}
+        }
+      ],
+      "expected": {
+        "exactCalls": true,
+        "calls": [
+          {"name": "get_weather", "arguments": {"location": "Berkeley, CA", "unit": "celsius"}}
+        ]
+      }
+    },
+    {
+      "id": "bfcl-simple-currency",
+      "category": "simple",
+      "maxSteps": 1,
+      "prompt": "Convert 1250 USD to EUR using the currency tool.",
+      "tools": [
+        {
+          "name": "convert_currency",
+          "description": "Convert a monetary amount between currencies",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "amount": {"type": "number"},
+              "from_currency": {"type": "string"},
+              "to_currency": {"type": "string"}
+            },
+            "required": ["amount", "from_currency", "to_currency"],
+            "additionalProperties": false
+          },
+          "stubResult": {"amount": 1142.5, "currency": "EUR"}
+        }
+      ],
+      "expected": {
+        "exactCalls": true,
+        "calls": [
+          {"name": "convert_currency", "arguments": {"amount": 1250, "from_currency": "USD", "to_currency": "EUR"}}
+        ]
+      }
+    },
+    {
+      "id": "bfcl-tool-selection-calendar",
+      "category": "multiple-selection",
+      "maxSteps": 1,
+      "prompt": "Schedule a 30-minute Roadmap Review on 2026-08-12 at 14:30 America/Los_Angeles.",
+      "tools": [
+        {
+          "name": "create_calendar_event",
+          "description": "Create a calendar event",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "title": {"type": "string"},
+              "start": {"type": "string"},
+              "duration_minutes": {"type": "integer"},
+              "timezone": {"type": "string"}
+            },
+            "required": ["title", "start", "duration_minutes", "timezone"],
+            "additionalProperties": false
+          },
+          "stubResult": {"event_id": "evt_1"}
+        },
+        {
+          "name": "send_email",
+          "description": "Send an email message",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "to": {"type": "string"},
+              "subject": {"type": "string"},
+              "body": {"type": "string"}
+            },
+            "required": ["to", "subject", "body"],
+            "additionalProperties": false
+          },
+          "stubResult": {"sent": true}
+        }
+      ],
+      "expected": {
+        "exactCalls": true,
+        "calls": [
+          {"name": "create_calendar_event", "arguments": {"title": "Roadmap Review", "start": "2026-08-12T14:30:00", "duration_minutes": 30, "timezone": "America/Los_Angeles"}}
+        ]
+      }
+    },
+    {
+      "id": "bfcl-parallel-stock-quotes",
+      "category": "parallel",
+      "maxSteps": 2,
+      "prompt": "Get current stock quotes for AAPL and MSFT. Call get_stock_quote once for each symbol.",
+      "tools": [
+        {
+          "name": "get_stock_quote",
+          "description": "Get a current stock quote for one ticker symbol",
+          "parameters": {
+            "type": "object",
+            "properties": {"symbol": {"type": "string"}},
+            "required": ["symbol"],
+            "additionalProperties": false
+          },
+          "stubResult": {"price": 100.0, "currency": "USD"}
+        }
+      ],
+      "expected": {
+        "exactCalls": true,
+        "ordered": false,
+        "calls": [
+          {"name": "get_stock_quote", "arguments": {"symbol": "AAPL"}},
+          {"name": "get_stock_quote", "arguments": {"symbol": "MSFT"}}
+        ]
+      }
+    },
+    {
+      "id": "bfcl-multiple-project-membership",
+      "category": "multiple",
+      "maxSteps": 2,
+      "prompt": "Create project Atlas, then invite member dev@example.com to Atlas with role editor.",
+      "tools": [
+        {
+          "name": "create_project",
+          "description": "Create a project",
+          "parameters": {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+            "additionalProperties": false
+          },
+          "stubResult": {"project_id": "Atlas"}
+        },
+        {
+          "name": "invite_project_member",
+          "description": "Invite a member to an existing project",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "project_id": {"type": "string"},
+              "email": {"type": "string"},
+              "role": {"type": "string"}
+            },
+            "required": ["project_id", "email", "role"],
+            "additionalProperties": false
+          },
+          "stubResult": {"invited": true}
+        }
+      ],
+      "expected": {
+        "exactCalls": true,
+        "ordered": true,
+        "calls": [
+          {"name": "create_project", "arguments": {"name": "Atlas"}},
+          {"name": "invite_project_member", "arguments": {"project_id": "Atlas", "email": "dev@example.com", "role": "editor"}}
+        ]
+      }
+    },
+    {
+      "id": "bfcl-nested-shipping-address",
+      "category": "nested",
+      "maxSteps": 1,
+      "prompt": "Create a shipping label for order ORD-77 to Ada Lovelace, 12 St James Square, London SW1Y 4LB, GB.",
+      "tools": [
+        {
+          "name": "create_shipping_label",
+          "description": "Create a shipping label for an order and nested destination address",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "order_id": {"type": "string"},
+              "address": {
+                "type": "object",
+                "properties": {
+                  "name": {"type": "string"},
+                  "street": {"type": "string"},
+                  "city": {"type": "string"},
+                  "postal_code": {"type": "string"},
+                  "country": {"type": "string"}
+                },
+                "required": ["name", "street", "city", "postal_code", "country"]
+              }
+            },
+            "required": ["order_id", "address"],
+            "additionalProperties": false
+          },
+          "stubResult": {"label_id": "label_77"}
+        }
+      ],
+      "expected": {
+        "exactCalls": true,
+        "calls": [
+          {"name": "create_shipping_label", "arguments": {"order_id": "ORD-77", "address": {"name": "Ada Lovelace", "street": "12 St James Square", "city": "London", "postal_code": "SW1Y 4LB", "country": "GB"}}}
+        ]
+      }
+    },
+    {
+      "id": "bfcl-array-inventory",
+      "category": "structured-arguments",
+      "maxSteps": 1,
+      "prompt": "Check inventory for SKUs QL-10, QL-11, and QL-15 in warehouse west-2.",
+      "tools": [
+        {
+          "name": "get_batch_inventory",
+          "description": "Get inventory for a list of SKUs at one warehouse",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "skus": {"type": "array", "items": {"type": "string"}},
+              "warehouse": {"type": "string"}
+            },
+            "required": ["skus", "warehouse"],
+            "additionalProperties": false
+          },
+          "stubResult": {"available": []}
+        }
+      ],
+      "expected": {
+        "exactCalls": true,
+        "calls": [
+          {"name": "get_batch_inventory", "arguments": {"skus": ["QL-10", "QL-11", "QL-15"], "warehouse": "west-2"}}
+        ]
+      }
+    },
+    {
+      "id": "bfcl-relevance-no-tool",
+      "category": "relevance",
+      "maxSteps": 1,
+      "prompt": "Write a two-line poem about databases. Do not look anything up.",
+      "tools": [
+        {
+          "name": "query_database",
+          "description": "Run a read-only SQL query against an application database",
+          "parameters": {
+            "type": "object",
+            "properties": {"sql": {"type": "string"}},
+            "required": ["sql"],
+            "additionalProperties": false
+          },
+          "stubResult": {"rows": []}
+        }
+      ],
+      "expected": {
+        "exactCalls": true,
+        "calls": [],
+        "forbiddenTools": ["query_database"],
+        "requiresFinal": true
+      }
+    }
+  ]
+}

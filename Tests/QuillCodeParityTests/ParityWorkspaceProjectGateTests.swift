@@ -5,6 +5,7 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         let modelText = try Self.appSourceText(named: "WorkspaceModel.swift")
         let projectExtensionText = try Self.appSourceText(named: "WorkspaceModelProjects.swift")
         let loaderText = try Self.appSourceText(named: "WorkspaceProjectMetadataLoader.swift")
+        let bootstrapText = try Self.appSourceText(named: "WorkspaceBootstrap.swift")
 
         Self.assertSource(loaderText, contains: "enum WorkspaceProjectMetadataLoader")
         Self.assertSource(loaderText, contains: "WorkspaceProjectConfigurationLoader.load")
@@ -14,6 +15,9 @@ final class ParityWorkspaceProjectGateTests: QuillCodeParityTestCase {
         Self.assertSource(loaderText, contains: "MemoryNoteLoader.loadProject")
         Self.assertSource(loaderText, contains: "SSHRemoteProjectContextLoader.load")
         Self.assertSource(projectExtensionText, contains: "WorkspaceProjectMetadataLoader.loadLocal")
+        Self.assertSource(projectExtensionText, contains: "Task.detached(priority: .utility)")
+        Self.assertSource(projectExtensionText, contains: "public func scheduleSelectedProjectContextRefresh")
+        Self.assertSource(bootstrapText, excludes: "model.refreshSelectedProjectInstructions()")
         Self.assertSource(modelText, contains: "WorkspaceProjectContextRefresher.refreshRemoteProjectContext")
         Self.assertSource(modelText, excludes: "ProjectInstructionLoader.load")
         Self.assertSource(modelText, excludes: "LocalEnvironmentActionLoader.load")

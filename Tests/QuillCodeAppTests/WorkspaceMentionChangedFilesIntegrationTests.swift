@@ -31,11 +31,12 @@ final class WorkspaceMentionChangedFilesIntegrationTests: XCTestCase {
         return root
     }
 
-    func testGitStatusRunBoostsAndFlagsChangedFilesInMentions() throws {
+    func testGitStatusRunBoostsAndFlagsChangedFilesInMentions() async throws {
         let root = try makeRepoWithModifiedAdmin()
         let model = QuillCodeWorkspaceModel()
         _ = model.addProject(path: root, name: "Demo")
         _ = model.newChat()
+        await model.waitForFileMentionIndexRefresh()
 
         // Before any git status: text ranking puts the shorter App.swift first, nothing flagged.
         XCTAssertTrue(model.changedFilePaths.isEmpty)
@@ -46,6 +47,7 @@ final class WorkspaceMentionChangedFilesIntegrationTests: XCTestCase {
 
         // One git status run captures BOTH the branch chip and the changed-file set.
         let result = model.runToolCall(gitStatusCall(), workspaceRoot: root)
+        await model.waitForFileMentionIndexRefresh()
         XCTAssertTrue(result.ok, result.error ?? "")
         XCTAssertNotNil(model.surface().topBar.branchStatusLabel)
         XCTAssertTrue(model.changedFilePaths.contains("Sources/Admin.swift"))
@@ -58,11 +60,12 @@ final class WorkspaceMentionChangedFilesIntegrationTests: XCTestCase {
         XCTAssertEqual(after.first(where: { $0.path == "Sources/App.swift" })?.isChanged, false)
     }
 
-    func testChangedSetDoesNotBleedIntoAnotherProjectsMentions() throws {
+    func testChangedSetDoesNotBleedIntoAnotherProjectsMentions() async throws {
         let root = try makeRepoWithModifiedAdmin()
         let model = QuillCodeWorkspaceModel()
         _ = model.addProject(path: root, name: "Demo")
         _ = model.runToolCall(gitStatusCall(), workspaceRoot: root)
+        await model.waitForFileMentionIndexRefresh()
         XCTAssertTrue(model.changedFilePaths.contains("Sources/Admin.swift"))
 
         // Switch to another project that ALSO has Sources/Admin.swift (unchanged there),
@@ -70,6 +73,7 @@ final class WorkspaceMentionChangedFilesIntegrationTests: XCTestCase {
         let other = try makeLocalProject(files: ["Sources/Admin.swift"])
         _ = model.addProject(path: other, name: "Other")
         _ = model.newChat()
+        await model.waitForFileMentionIndexRefresh()
 
         model.setDraft("open @admin")
         let suggestions = model.surface().composer.fileMentionSuggestions
@@ -78,13 +82,15 @@ final class WorkspaceMentionChangedFilesIntegrationTests: XCTestCase {
         XCTAssertFalse(suggestions.contains(where: \.isChanged))
     }
 
-    func testChangedBadgeDoesNotSurviveACommitAndLaterToolRun() throws {
+    func testChangedBadgeDoesNotSurviveACommitAndLaterToolRun() async throws {
         let root = try makeRepoWithModifiedAdmin()
         let model = QuillCodeWorkspaceModel()
         _ = model.addProject(path: root, name: "Demo")
         _ = model.newChat()
+        await model.waitForFileMentionIndexRefresh()
 
         _ = model.runToolCall(gitStatusCall(), workspaceRoot: root)
+        await model.waitForFileMentionIndexRefresh()
         XCTAssertTrue(model.changedFilePaths.contains("Sources/Admin.swift"))
 
         // Commit the change so the working tree is clean, then run any other tool. The
@@ -96,10 +102,13 @@ final class WorkspaceMentionChangedFilesIntegrationTests: XCTestCase {
             ToolCall(name: ToolDefinition.fileList.name, argumentsJSON: ToolArguments.json([:])),
             workspaceRoot: root
         )
+        await model.waitForFileMentionIndexRefresh()
 
         XCTAssertTrue(model.changedFilePaths.isEmpty)
         model.setDraft("open @admin")
-        XCTAssertFalse(model.surface().composer.fileMentionSuggestions.contains(where: \.isChanged))
+        let suggestions = model.surface().composer.fileMentionSuggestions
+        XCTAssertEqual(suggestions.first?.path, "Sources/Admin.swift")
+        XCTAssertFalse(suggestions.contains(where: \.isChanged))
     }
 
     func testSelectingRemoteProjectClearsChangedFileSet() throws {

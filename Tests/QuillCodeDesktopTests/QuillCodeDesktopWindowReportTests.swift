@@ -102,6 +102,107 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
     }
 
+    func testCoworkEvalRequestParsesLongRunOverridesAndIsolatedPaths() throws {
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-home", "/tmp/quill-eval-home",
+            "--cowork-eval-workspace", "/tmp/quill-eval-workspace",
+            "--cowork-eval-prompt-file", "/tmp/quill-eval-prompt.txt",
+            "--cowork-eval-report", "/tmp/quill-eval-report.json",
+            "--cowork-eval-browser-path", "inputs/browser.html",
+            "--cowork-eval-timeout-seconds", "3600",
+            "--cowork-eval-model", "z-ai/glm-5.2",
+            "--cowork-eval-max-tool-steps", "512",
+            "--cowork-eval-run-spend-fuse-usd", "none"
+        ]))
+
+        XCTAssertEqual(request.homePath, "/tmp/quill-eval-home")
+        XCTAssertEqual(request.workspacePath, "/tmp/quill-eval-workspace")
+        XCTAssertEqual(request.promptPath, "/tmp/quill-eval-prompt.txt")
+        XCTAssertEqual(request.reportPath, "/tmp/quill-eval-report.json")
+        XCTAssertEqual(request.browserPath, "inputs/browser.html")
+        XCTAssertEqual(request.modelID, "z-ai/glm-5.2")
+        XCTAssertEqual(request.timeoutSeconds, 3_600)
+        XCTAssertEqual(request.maxToolSteps, 512)
+        XCTAssertNil(request.runSpendFuseUSD)
+        XCTAssertNil(QuillCodeDesktopCoworkEvalRequest(arguments: ["QuillCode"]))
+    }
+
+    func testCoworkEvalRequestDefaultsToDeepSeekAndClampsLongRunBounds() throws {
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-timeout-seconds", "999999",
+            "--cowork-eval-max-tool-steps", "999999"
+        ]))
+
+        XCTAssertEqual(request.modelID, "deepseek/deepseek-v4-flash-0731")
+        XCTAssertEqual(request.timeoutSeconds, QuillCodeDesktopCoworkEvalRequest.maximumTimeoutSeconds)
+        XCTAssertEqual(request.maxToolSteps, QuillCodeDesktopCoworkEvalRequest.maximumToolSteps)
+        XCTAssertEqual(request.runSpendFuseUSD, 1.0)
+    }
+
+    func testCoworkEvalControllerUsesExplicitStateAndWorkspace() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-cowork-eval-root-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-home", root.appendingPathComponent("home").path,
+            "--cowork-eval-workspace", root.appendingPathComponent("workspace").path,
+            "--cowork-eval-prompt-file", root.appendingPathComponent("prompt.txt").path
+        ]))
+        let controller = request.makeController(environment: ["QUILLCODE_USE_MOCK_LLM": "1"])
+
+        XCTAssertEqual(controller.bootstrap.paths.home.path, request.homePath)
+        XCTAssertEqual(controller.workspaceRoot.path, request.workspacePath)
+        XCTAssertTrue(controller.model.root.projects.allSatisfy { $0.path == request.workspacePath })
+        XCTAssertTrue(controller.automationNotifier is QuillCodeDesktopCoworkEvalNotifier)
+        let config = try ConfigStore(fileURL: controller.bootstrap.paths.configFile).load()
+        XCTAssertEqual(config.defaultModel, request.modelID)
+        XCTAssertEqual(config.maxToolSteps, request.maxToolSteps)
+        XCTAssertEqual(config.runSpendFuseUSD, request.runSpendFuseUSD)
+    }
+
+    func testCoworkEvalReportDistinguishesRecoveredToolFailures() {
+        let tools = [
+            QuillCodeDesktopCoworkEvalReport.Tool(
+                name: "host.shell.run",
+                status: "failed",
+                inputJSON: nil,
+                outputJSON: nil
+            ),
+            QuillCodeDesktopCoworkEvalReport.Tool(
+                name: "host.file.write",
+                status: "done",
+                inputJSON: nil,
+                outputJSON: nil
+            ),
+            QuillCodeDesktopCoworkEvalReport.Tool(
+                name: "host.file.read",
+                status: "failed",
+                inputJSON: nil,
+                outputJSON: nil
+            ),
+        ]
+
+        XCTAssertEqual(QuillCodeDesktopCoworkEvalReport.unrecoveredFailureCount(in: tools), 1)
+    }
+
+    func testCoworkEvalReportNamesIncompleteTerminalReasons() {
+        XCTAssertEqual(
+            QuillCodeDesktopCoworkEvalReport.stopReasonFields(.finished).name,
+            "finished"
+        )
+        let ceiling = QuillCodeDesktopCoworkEvalReport.stopReasonFields(
+            .toolStepCeilingExhausted(limit: 64)
+        )
+        XCTAssertEqual(ceiling.name, "tool-step-ceiling-exhausted")
+        XCTAssertTrue(ceiling.detail?.contains("64-step") == true)
+    }
+
     func testDesktopSmokePixelValidationAcceptsConfiguredMinimumColorBuckets() throws {
         let stats = QuillCodeDesktopSmokePixelStats(
             report: QuillCodeDesktopSmokePixelReport(
@@ -109,7 +210,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 height: 900,
                 opaquePixelRatio: 1,
                 brightPixelRatio: 0.01,
-                blueAccentPixelRatio: 0,
+                accentPixelRatio: 0,
                 distinctColorBuckets: 14
             )
         )
@@ -120,7 +221,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 expectedHeight: 900,
                 minDistinctColorBuckets: 14,
                 minBrightPixelRatio: 0.0005,
-                minBlueAccentPixelRatio: 0
+                minAccentPixelRatio: 0
             )
         )
 
@@ -130,7 +231,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 height: 900,
                 opaquePixelRatio: 1,
                 brightPixelRatio: 0.01,
-                blueAccentPixelRatio: 0,
+                accentPixelRatio: 0,
                 distinctColorBuckets: 13
             )
         )
@@ -140,7 +241,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 expectedHeight: 900,
                 minDistinctColorBuckets: 14,
                 minBrightPixelRatio: 0.0005,
-                minBlueAccentPixelRatio: 0
+                minAccentPixelRatio: 0
             )
         )
     }
@@ -193,6 +294,58 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(controller.surface.review.isVisible)
         controller.runCommand(commandID: reviewCommand.id)
         XCTAssertFalse(controller.surface.review.isVisible)
+    }
+
+    func testDesktopRenderSmokeLaunchControllerUsesExplicitIsolatedWorkspace() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-render-smoke-root-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        let request = try XCTUnwrap(QuillCodeDesktopSmokeRequest(arguments: [
+            "QuillCode",
+            "--native-render-smoke",
+            "--smoke-workspace",
+            temporaryDirectory.path
+        ]))
+        let root = try QuillCodeDesktopSmokeWorkspaceRoot(request: request)
+        let controller = root.makeLaunchController()
+
+        XCTAssertEqual(root.home.path, temporaryDirectory.appendingPathComponent("home").path)
+        XCTAssertEqual(root.workspace.path, temporaryDirectory.appendingPathComponent("workspace").path)
+        XCTAssertEqual(controller.bootstrap.paths.home, root.home)
+        XCTAssertEqual(controller.workspaceRoot, root.workspace)
+        XCTAssertNotEqual(controller.bootstrap.paths.home, QuillCodePaths().home)
+        XCTAssertTrue(controller.model.root.projects.allSatisfy { $0.path == root.workspace.path })
+    }
+
+    func testDesktopWorkspaceRootResolverRejectsLaunchServicesRootAndHome() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-workspace-root-test-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        let home = temporaryDirectory.appendingPathComponent("home", isDirectory: true)
+        let project = temporaryDirectory.appendingPathComponent("project", isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: project, withIntermediateDirectories: true)
+
+        let rootFallback = QuillCodeDesktopWorkspaceRootResolver.resolve(
+            currentDirectory: URL(fileURLWithPath: "/", isDirectory: true),
+            userHome: home
+        )
+        let homeFallback = QuillCodeDesktopWorkspaceRootResolver.resolve(
+            currentDirectory: home,
+            userHome: home
+        )
+        let explicitProject = QuillCodeDesktopWorkspaceRootResolver.resolve(
+            currentDirectory: project,
+            userHome: home
+        )
+        let expectedFallback = home
+            .appendingPathComponent("Documents", isDirectory: true)
+            .appendingPathComponent(QuillCodeDesktopWorkspaceRootResolver.fallbackDirectoryName, isDirectory: true)
+
+        XCTAssertEqual(rootFallback, expectedFallback)
+        XCTAssertEqual(homeFallback, expectedFallback)
+        XCTAssertEqual(explicitProject, project.standardizedFileURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: expectedFallback.path))
     }
 
     func testDesktopBrowserSmokeReportDocumentsAgentInspection() {
@@ -321,7 +474,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 height: 1800,
                 opaquePixelRatio: 1,
                 brightPixelRatio: 0.01,
-                blueAccentPixelRatio: 0.01,
+                accentPixelRatio: 0.01,
                 distinctColorBuckets: 48
             ),
             nativeHitTargets: nativeHitTargets,

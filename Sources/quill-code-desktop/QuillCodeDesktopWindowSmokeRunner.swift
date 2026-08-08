@@ -235,7 +235,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
             // background glow that used to paint accent pixels everywhere, and the initial/empty
             // window shows no accent element. Accent rendering is still asserted by the executable and
             // packaged render smokes, which capture richer states.
-            minBlueAccentPixelRatio: 0
+            minAccentPixelRatio: 0
         )
     }
 

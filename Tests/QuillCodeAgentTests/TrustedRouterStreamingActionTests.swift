@@ -70,6 +70,28 @@ final class TrustedRouterStreamingActionTests: XCTestCase {
         XCTAssertEqual(call.name, ToolDefinition.shellRun.name)
     }
 
+    func testReasoningAccumulatorPreservesTokenWhitespaceAndBoundsPresentation() {
+        var accumulator = AgentReasoningStreamAccumulator()
+
+        XCTAssertEqual(accumulator.append("Reason"), "Reason")
+        XCTAssertEqual(accumulator.append("ing"), "Reasoning")
+        XCTAssertNil(accumulator.append(" "))
+        XCTAssertEqual(accumulator.append("works"), "Reasoning works")
+        XCTAssertEqual(accumulator.append("."), "Reasoning works.")
+
+        let oversized = String(repeating: "x", count: AgentReasoningStreamAccumulator.maximumCharacters + 40)
+        XCTAssertEqual(accumulator.append(oversized)?.count, AgentReasoningStreamAccumulator.maximumCharacters)
+        XCTAssertEqual(accumulator.text.count, AgentReasoningStreamAccumulator.maximumCharacters)
+    }
+
+    func testReasoningAccumulatorRecognizesGrowingSnapshots() {
+        var accumulator = AgentReasoningStreamAccumulator()
+
+        XCTAssertEqual(accumulator.append("First"), "First")
+        XCTAssertEqual(accumulator.append("First second"), "First second")
+        XCTAssertEqual(accumulator.text, "First second")
+    }
+
     func testStreamingPreviewExposesOnlySayText() {
         XCTAssertEqual(
             AgentActionStreamPreview.visibleAssistantText(from: #"{"type":"say","text":"hello\nwor"#),

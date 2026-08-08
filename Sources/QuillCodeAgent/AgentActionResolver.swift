@@ -1,6 +1,29 @@
 import Foundation
 import QuillCodeCore
 
+enum AgentEmptyResponseRetryPolicy {
+    case standard
+    case afterSuccessfulTool
+
+    var retryLimit: Int {
+        switch self {
+        case .standard:
+            AgentRunner.emptyResponseRetryLimit
+        case .afterSuccessfulTool:
+            1
+        }
+    }
+
+    func backoffSeconds(forAttempt attempt: Int) -> Int {
+        switch self {
+        case .standard:
+            min(2 * (1 << (attempt - 1)), 12)
+        case .afterSuccessfulTool:
+            0
+        }
+    }
+}
+
 extension AgentRunner {
     /// `injectedCorrection` seeds the resolver's existing corrective seam for ONE sample: the
     /// prompt is delivered on the value-copy corrective thread (never the durable transcript) and
@@ -14,7 +37,9 @@ extension AgentRunner {
         tools: [ToolDefinition],
         workspaceRoot: URL,
         onProgress: AgentRunProgressHandler?,
-        injectedCorrection: String? = nil
+        injectedCorrection: String? = nil,
+        reasoningBudgetPhase: AgentReasoningBudgetPhase = .startup,
+        emptyResponseRetryPolicy: AgentEmptyResponseRetryPolicy = .standard
     ) async throws -> AgentAction {
         if injectedCorrection == nil,
            enablesImmediateActionPreflight,
@@ -42,6 +67,7 @@ extension AgentRunner {
             correctiveThread.updatedAt = Date()
         }
         var attempt = 0
+        var emptyResponseAttempt = 0
         // F22: which client resolves this action. Flips to `fallbackLLM` (at most once) when the
         // primary exhausts the empty-response budget — a route-quality death an alternate model
         // reliably survives. Scoped per-action: the next action starts back on the primary.
@@ -64,7 +90,8 @@ extension AgentRunner {
                     userMessage: userMessage,
                     tools: tools,
                     onProgress: onProgress,
-                    via: activeLLM
+                    via: activeLLM,
+                    reasoningBudgetPhase: reasoningBudgetPhase
                 )
             } catch TrustedRouterAgentError.emptyToolArguments(let toolName) {
                 if let action = AgentImmediateActionPlanner.action(for: userMessage, tools: tools) {
@@ -75,7 +102,38 @@ extension AgentRunner {
                     )
                     return action
                 }
-                throw TrustedRouterAgentError.emptyToolArguments(toolName)
+                try Task.checkCancellation()
+                guard attempt < Self.malformedActionCorrectionLimit else {
+                    throw TrustedRouterAgentError.emptyToolArguments(toolName)
+                }
+                attempt += 1
+                let correctionPrompt = AgentCorrectionEscalation.escalated(
+                    AgentMalformedActionGuard.emptyToolArgumentsCorrectionPrompt(
+                        toolName: toolName,
+                        userMessage: userMessage
+                    ),
+                    attempt: attempt - 1,
+                    limit: Self.malformedActionCorrectionLimit,
+                    alternatives: [
+                        "emit the intended tool action with every required argument populated",
+                        "if the intended action is impossible, return a say action that names the blocker",
+                    ]
+                )
+                correctiveThread.messages.append(.init(
+                    role: .assistant,
+                    content: "{\"type\":\"tool\",\"name\":\"\(toolName)\",\"arguments\":{}}"
+                ))
+                correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
+                correctiveThread.updatedAt = Date()
+                pendingCorrectionPrompt = correctionPrompt
+                thread.events.append(.init(
+                    kind: .notice,
+                    summary: "Self-healing: the model omitted arguments for \(toolName); asked it "
+                        + "to re-emit the action (attempt \(attempt) of "
+                        + "\(Self.malformedActionCorrectionLimit))."
+                ))
+                thread.updatedAt = Date()
+                await onProgress?(thread)
             } catch TrustedRouterAgentError.invalidActionJSON(let text) {
                 // A consumer-side cancellation can surface as garbage/partial text — honor the stop
                 // FIRST (even at budget exhaustion), so a user Stop is never recorded as a malformed-
@@ -100,6 +158,7 @@ extension AgentRunner {
                 guard attempt < Self.malformedActionCorrectionLimit else {
                     throw TrustedRouterAgentError.invalidActionJSON(text)
                 }
+                let isTruncatedFileWrite = AgentMalformedActionGuard.isTruncatedFileWriteAction(text)
                 attempt += 1
                 let correctionPrompt = AgentCorrectionEscalation.escalated(
                     AgentMalformedActionGuard.correctionPrompt(
@@ -115,15 +174,19 @@ extension AgentRunner {
                 )
                 correctiveThread.messages.append(.init(
                     role: .assistant,
-                    content: String(text.prefix(AgentMalformedActionGuard.malformedTextEchoLimit))
+                    content: AgentMalformedActionGuard.correctiveAssistantEcho(for: text)
                 ))
                 correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
                 correctiveThread.updatedAt = Date()
                 pendingCorrectionPrompt = correctionPrompt
                 thread.events.append(.init(
                     kind: .notice,
-                    summary: "Self-healing: the model returned a malformed action; asked it to re-emit "
-                        + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
+                    summary: isTruncatedFileWrite
+                        ? "Self-healing: the model truncated a file write; asked it to re-emit a "
+                            + "complete concise action (attempt \(attempt) of "
+                            + "\(Self.malformedActionCorrectionLimit))."
+                        : "Self-healing: the model returned a malformed action; asked it to re-emit "
+                            + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
                 ))
                 thread.updatedAt = Date()
                 await onProgress?(thread)
@@ -144,6 +207,42 @@ extension AgentRunner {
                 thread.events.append(.init(
                     kind: .notice,
                     summary: "Self-healing: the model reasoned past the turn deadline without acting; "
+                        + "asked it to emit the next action "
+                        + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
+                ))
+                thread.updatedAt = Date()
+                await onProgress?(thread)
+            } catch let overrun as AgentPreActionReasoningBudgetExceededError {
+                try Task.checkCancellation()
+                guard attempt < Self.malformedActionCorrectionLimit else {
+                    throw overrun
+                }
+                attempt += 1
+                let correctionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
+                correctiveThread.updatedAt = Date()
+                pendingCorrectionPrompt = correctionPrompt
+                thread.events.append(.init(
+                    kind: .notice,
+                    summary: "Self-healing: the model exhausted its pre-action reasoning budget; "
+                        + "asked it to emit the next action "
+                        + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
+                ))
+                thread.updatedAt = Date()
+                await onProgress?(thread)
+            } catch let reasoningOnly as AgentReasoningOnlyResponseError {
+                try Task.checkCancellation()
+                guard attempt < Self.malformedActionCorrectionLimit else {
+                    throw reasoningOnly
+                }
+                attempt += 1
+                let correctionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
+                correctiveThread.updatedAt = Date()
+                pendingCorrectionPrompt = correctionPrompt
+                thread.events.append(.init(
+                    kind: .notice,
+                    summary: "Self-healing: the model finished reasoning without an action; "
                         + "asked it to emit the next action "
                         + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
                 ))
@@ -172,13 +271,14 @@ extension AgentRunner {
                 // immediate [DONE]) — the streaming twin of TrustedRouterAgentError.emptyResponse,
                 // which the transport classifier already deems "worth one more try".
                 try Task.checkCancellation()
-                guard attempt < Self.malformedActionCorrectionLimit else {
+                guard emptyResponseAttempt < emptyResponseRetryPolicy.retryLimit else {
                     // F22: the primary cannot produce this step at all. Try the fallback model —
                     // once — with a fresh correction budget before declaring the run dead.
                     if let fallback = fallbackLLM, !usedFallback {
                         usedFallback = true
                         activeLLM = fallback
                         attempt = 0
+                        emptyResponseAttempt = 0
                         pendingCorrectionPrompt = nil
                         thread.events.append(.init(
                             kind: .notice,
@@ -191,15 +291,27 @@ extension AgentRunner {
                     }
                     throw AgentError.emptyStreamingResponse
                 }
-                attempt += 1
+                emptyResponseAttempt += 1
+                let backoffSeconds = emptyResponseRetryPolicy.backoffSeconds(
+                    forAttempt: emptyResponseAttempt
+                )
                 pendingCorrectionPrompt = nil
                 thread.events.append(.init(
                     kind: .notice,
-                    summary: "Self-healing: the model returned an empty response; retrying "
-                        + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
+                    summary: backoffSeconds > 0
+                        ? "Self-healing: the model returned an empty response; retrying after "
+                            + "a \(backoffSeconds)-second backoff "
+                            + "(attempt \(emptyResponseAttempt) of "
+                            + "\(emptyResponseRetryPolicy.retryLimit))."
+                        : "Self-healing: the model returned an empty response after a successful "
+                            + "tool; retrying immediately once."
                 ))
                 thread.updatedAt = Date()
                 await onProgress?(thread)
+                if backoffSeconds > 0 {
+                    try await emptyResponseRetrySleeper.sleep(.seconds(backoffSeconds))
+                }
+                try Task.checkCancellation()
             }
         }
     }
@@ -225,7 +337,8 @@ extension AgentRunner {
             userMessage: correctionPrompt,
             tools: tools,
             onProgress: nil,
-            via: llm
+            via: llm,
+            reasoningBudgetPhase: .correction
         )
         if correctiveRun.events.count > priorEventCount {
             thread.events.append(contentsOf: correctiveRun.events[priorEventCount...])
@@ -241,7 +354,8 @@ extension AgentRunner {
         userMessage: String,
         tools: [ToolDefinition],
         onProgress: AgentRunProgressHandler?,
-        via llm: LLMClient
+        via llm: LLMClient,
+        reasoningBudgetPhase: AgentReasoningBudgetPhase
     ) async throws -> AgentAction {
         if let usageStreamingLLM = llm as? any UsageStreamingLLMClient {
             return try await nextUsageStreamingAction(
@@ -249,7 +363,8 @@ extension AgentRunner {
                 thread: &thread,
                 userMessage: userMessage,
                 tools: tools,
-                onProgress: onProgress
+                onProgress: onProgress,
+                reasoningBudgetPhase: reasoningBudgetPhase
             )
         }
 

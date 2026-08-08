@@ -35,6 +35,10 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var sidebarSavedSearches: [SidebarSavedSearch]
     public internal(set) var sidebarSelection: SidebarSelectionState
     public internal(set) var agentRuns: WorkspaceAgentRunRegistry
+    /// Session-only terminal outcomes keyed by chat. Keeping these separate from the active-run
+    /// registry lets diagnostics distinguish a genuine finish from a budget or safety stop after
+    /// the running entry has been removed.
+    var completedAgentRunStopReasons: [UUID: AgentRunStopReason] = [:]
     public private(set) var lastError: String?
     let startupLoadIssue: WorkspaceStartupLoadIssue?
 
@@ -52,6 +56,15 @@ public final class QuillCodeWorkspaceModel {
     /// usage by day/model, prunes once receipts leave every active period, and is session-only so
     /// private content never enters persistence while daily/weekly/monthly limits remain accurate.
     var discardedEphemeralSpendLedger = WorkspaceEphemeralSpendLedger()
+
+    /// Desktop installs this to refresh the published surface after a background file-mention
+    /// scan completes. Keeping indexing off the main actor prevents slow or unavailable filesystem
+    /// mounts from delaying the first window or freezing project switches.
+    public var onFileMentionIndexChanged: (@MainActor @Sendable () -> Void)?
+    /// Desktop installs this to publish freshly loaded project instructions, hooks, extensions,
+    /// and memories after the first window is available. Automatic freshness scans never belong
+    /// on the main actor because workspace roots may be large, remote, or temporarily unavailable.
+    public var onProjectContextChanged: (@MainActor @Sendable () -> Void)?
     /// Optional platform hook for browser tools that need a live native browser surface. Desktop installs
     /// this for visible WebKit sessions; nil keeps the pure app-core snapshot executor behavior.
     public var visibleBrowserToolOverride: AgentToolExecutionOverride?
@@ -114,6 +127,15 @@ public final class QuillCodeWorkspaceModel {
     /// when a different project becomes the active context (mirrors the branch chip), so a
     /// stale changed-set never boosts the wrong project's mentions across a switch.
     public internal(set) var changedFilePathsProjectID: UUID?
+    private var fileMentionIndexRefreshTask: Task<Void, Never>?
+    private var fileMentionIndexRefreshGeneration = 0
+    private var fileMentionIndexRefreshRoot: URL?
+    private let fileMentionIndexBuilder: @Sendable (URL) -> WorkspaceFileIndex
+    var projectContextRefreshTask: Task<Void, Never>?
+    var projectContextRefreshGeneration = 0
+    var projectContextRefreshInFlight: WorkspaceProjectContextRefreshRequest?
+    var projectContextRefreshPending: WorkspaceProjectContextRefreshRequest?
+    var projectMetadataLoader: @Sendable (URL, ProjectHookTrustFileStore?) -> WorkspaceProjectMetadata
     /// In-memory front buffer for per-thread composer drafts during rapid thread switches.
     /// `ChatThread.composerDraft` is the cross-launch source of truth.
     public internal(set) var threadDrafts: [UUID: String] = [:]
@@ -174,7 +196,8 @@ public final class QuillCodeWorkspaceModel {
         computerUseBackend: (any ComputerUseBackend)? = nil,
         sshRemoteShellExecutor: SSHRemoteShellExecutor = SSHRemoteShellExecutor(),
         sshRemoteAppServer: any SSHRemoteAppServerExecuting = SSHRemoteAppServerPool(),
-        mcpSecretStore: (any MCPSecretStore)? = nil
+        mcpSecretStore: (any MCPSecretStore)? = nil,
+        fileMentionIndexBuilder: (@Sendable (URL) -> WorkspaceFileIndex)? = nil
     ) {
         self.root = root
         self.chrome = chrome
@@ -225,6 +248,15 @@ public final class QuillCodeWorkspaceModel {
         self.computerUseBackend = computerUseBackend
         self.sshRemoteShellExecutor = sshRemoteShellExecutor
         self.sshRemoteAppServer = sshRemoteAppServer
+        self.fileMentionIndexBuilder = fileMentionIndexBuilder ?? { root in
+            WorkspaceFileIndexer(workspaceRoot: root).index()
+        }
+        self.projectMetadataLoader = { root, hookTrustStore in
+            WorkspaceProjectMetadataLoader.loadLocal(
+                from: root,
+                hookTrustStore: hookTrustStore
+            )
+        }
         self.sessionStartHookCoordinator = WorkspaceSessionStartHookCoordinator(
             resumedThreadIDs: Set(root.threads.map(\.id))
         )
@@ -233,6 +265,9 @@ public final class QuillCodeWorkspaceModel {
         )
         if let computerUseBackend {
             self.root.topBar.computerUseStatus = computerUseBackend.status
+        }
+        if globalMemoryDirectory != nil {
+            refreshGlobalMemories()
         }
         restorePersistedSelectedComposerDraftIfNeeded()
         syncTerminalSessionToSelectedProject()
@@ -243,6 +278,8 @@ public final class QuillCodeWorkspaceModel {
     deinit {
         activeTerminalSession?.cancel()
         pullRequestReconciliationTask?.cancel()
+        fileMentionIndexRefreshTask?.cancel()
+        projectContextRefreshTask?.cancel()
         mcpRuntime.terminateAllRunningProcesses()
         let sshRemoteAppServer = sshRemoteAppServer
         Task { await sshRemoteAppServer.disconnectAll() }
@@ -333,7 +370,7 @@ public final class QuillCodeWorkspaceModel {
         refreshFileMentionIndex()
     }
 
-    private func instructionDiagnosticResolutions(for projectID: UUID?) -> [ProjectInstructionDiagnosticResolution] {
+    func instructionDiagnosticResolutions(for projectID: UUID?) -> [ProjectInstructionDiagnosticResolution] {
         projectID
             .flatMap { id in root.projects.first { $0.id == id } }
             .map(\.instructionDiagnosticResolutions) ?? []
@@ -341,7 +378,7 @@ public final class QuillCodeWorkspaceModel {
 
     /// Recomputes the cached composer file-mention index from the selected local
     /// project. Remote or unselected projects clear the index so mentions stay empty.
-    func refreshFileMentionIndex() {
+    public func refreshFileMentionIndex() {
         // The changed-file set is captured from a git status; any index rebuild (which
         // happens on every tool run via refreshProjectMetadata) invalidates it so a
         // file that was committed/cleaned is never left badged. The git-status run
@@ -349,10 +386,53 @@ public final class QuillCodeWorkspaceModel {
         changedFilePaths = []
         changedFilePathsProjectID = nil
         guard let activeWorkspaceRoot else {
+            fileMentionIndexRefreshGeneration &+= 1
+            fileMentionIndexRefreshTask?.cancel()
+            fileMentionIndexRefreshTask = nil
+            fileMentionIndexRefreshRoot = nil
             fileMentionIndex = WorkspaceFileIndex()
             return
         }
-        fileMentionIndex = WorkspaceFileIndexer(workspaceRoot: activeWorkspaceRoot).index()
+        let workspaceRoot = activeWorkspaceRoot.standardizedFileURL
+        // Foundation directory reads cannot be interrupted once inside a filesystem syscall.
+        // Coalesce repeated startup/surface refreshes for the same root instead of creating
+        // multiple detached scans that all contend on the same unavailable directory.
+        if fileMentionIndexRefreshTask != nil,
+           fileMentionIndexRefreshRoot == workspaceRoot {
+            return
+        }
+
+        fileMentionIndexRefreshGeneration &+= 1
+        let generation = fileMentionIndexRefreshGeneration
+        fileMentionIndexRefreshTask?.cancel()
+        fileMentionIndexRefreshRoot = workspaceRoot
+        fileMentionIndex = WorkspaceFileIndex()
+        let indexBuilder = fileMentionIndexBuilder
+        fileMentionIndexRefreshTask = Task(priority: .utility) { [weak self] in
+            let indexingTask = Task.detached(priority: .utility) {
+                indexBuilder(workspaceRoot)
+            }
+            let index = await withTaskCancellationHandler {
+                await indexingTask.value
+            } onCancel: {
+                indexingTask.cancel()
+            }
+            guard !Task.isCancelled,
+                  let self,
+                  self.fileMentionIndexRefreshGeneration == generation,
+                  self.activeWorkspaceRoot?.standardizedFileURL == workspaceRoot
+            else { return }
+            self.fileMentionIndex = index
+            self.fileMentionIndexRefreshTask = nil
+            self.fileMentionIndexRefreshRoot = nil
+            self.onFileMentionIndexChanged?()
+        }
+    }
+
+    func waitForFileMentionIndexRefresh() async {
+        while let task = fileMentionIndexRefreshTask {
+            await task.value
+        }
     }
 
     func workspaceThreadContext(_ projectID: UUID?) -> WorkspaceThreadContextSnapshot {

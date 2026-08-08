@@ -42,8 +42,34 @@ CATALOG_SPREADSHEET_URL = (
     "https://docs.google.com/spreadsheets/d/"
     "1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0"
 )
-CATALOG_TASK_ID_MIN = 1
-CATALOG_TASK_ID_MAX = 206
+CATALOG_SNAPSHOT_PATH = Path(__file__).resolve().parents[2] / "docs/coworker-task-catalog.json"
+
+
+def _load_catalog_snapshot() -> dict[str, Any]:
+    try:
+        snapshot = json.loads(CATALOG_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise RuntimeError(f"unable to load coworker catalog snapshot: {CATALOG_SNAPSHOT_PATH}") from error
+    if snapshot.get("catalogSpreadsheetURL") != CATALOG_SPREADSHEET_URL:
+        raise RuntimeError("coworker catalog snapshot does not reference the canonical spreadsheet")
+    task_ids = snapshot.get("taskIDs")
+    if not isinstance(task_ids, list) or not task_ids:
+        raise RuntimeError("coworker catalog snapshot taskIDs must be a non-empty list")
+    if task_ids != list(range(1, len(task_ids) + 1)):
+        raise RuntimeError("coworker catalog snapshot taskIDs must be ordered and contiguous from 1")
+    if snapshot.get("rowCount") != len(task_ids):
+        raise RuntimeError("coworker catalog snapshot rowCount must match taskIDs")
+    rows = snapshot.get("rows")
+    if not isinstance(rows, list) or [row.get("id") for row in rows if isinstance(row, dict)] != task_ids:
+        raise RuntimeError("coworker catalog snapshot rows must match taskIDs")
+    return snapshot
+
+
+CATALOG_SNAPSHOT = _load_catalog_snapshot()
+CATALOG_TASK_IDS = tuple(CATALOG_SNAPSHOT["taskIDs"])
+CATALOG_TASK_ID_SET = frozenset(CATALOG_TASK_IDS)
+CATALOG_TASK_ID_MIN = CATALOG_TASK_IDS[0]
+CATALOG_TASK_ID_MAX = CATALOG_TASK_IDS[-1]
 
 
 def _require_string(value: Any, label: str, *, min_length: int = 1) -> str:
@@ -66,8 +92,9 @@ def require_catalog_task_ids(value: Any) -> list[int]:
     for index, item in enumerate(value):
         require(isinstance(item, int) and not isinstance(item, bool), f"catalogTaskIDs[{index}] must be an integer")
         require(
-            CATALOG_TASK_ID_MIN <= item <= CATALOG_TASK_ID_MAX,
-            f"catalogTaskIDs[{index}] must be between {CATALOG_TASK_ID_MIN} and {CATALOG_TASK_ID_MAX}",
+            item in CATALOG_TASK_ID_SET,
+            f"catalogTaskIDs[{index}] must match a catalog row ID between "
+            f"{CATALOG_TASK_ID_MIN} and {CATALOG_TASK_ID_MAX}",
         )
         task_ids.append(item)
     require(task_ids, "catalogTaskIDs must be a non-empty list")

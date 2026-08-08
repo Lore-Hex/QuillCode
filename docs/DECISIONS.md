@@ -300,7 +300,7 @@
 
 - **Decision:** Treat the office coworker task spreadsheet as the canonical QuillCode coverage
   tracker for business-user workflows, not just a brainstorming list.
-- **Rationale:** The 206-row catalog spans file cleanup, document packets, multi-file summaries,
+- **Rationale:** The 310-row catalog spans file cleanup, document packets, multi-file summaries,
   spreadsheets, browser/SaaS tasks, and Computer Use. A durable tracker makes it clear which rows are
   covered by current code/tests and which still need focused smoke evidence.
 - **Implementation:** Columns K:N in the sheet now derive QuillCode coverage, evidence, next gap, and
@@ -3771,3 +3771,79 @@
   `release_verification_files.py`, `QuillCodeDesktopDownloadedApplicationValidator`,
   `QuillCodeDesktopUpdateHelper`, `QuillCodeDesktopIssueReporter`, and their focused parity and unit
   tests.
+## 2026-08-05: file-mention indexing never blocks desktop startup or project switching
+
+- **Decision:** `QuillCodeWorkspaceModel` builds file-mention indexes in a cancellable detached
+  utility task. Each refresh carries a generation and standardized active-root check, and only the
+  latest matching result may update the model. Cancellation is forwarded to the detached scan, and
+  the indexer checks it during enumeration. The desktop controller refreshes its rendered surface
+  when that asynchronous result arrives.
+- **Why:** A normally signed-in app stalled before its first window while the main actor enumerated
+  the persisted selected project. Directory enumeration is filesystem I/O; fast local-repository
+  timings do not make synchronous startup scans safe.
+- **Boundary:** Mention suggestions can be briefly empty after launch or a project switch. Agent work,
+  project selection, and the rest of the desktop UI remain immediately available while indexing runs.
+- **Evidence:** `WorkspaceFileMentionIntegrationTests/testSlowFileMentionIndexingDoesNotBlockTheMainActor`,
+  `WorkspaceFileIndexerTests/testIndexingThePackageWorkspaceCompletesPromptly`, and the packaged plus
+  normally launched app UI smokes.
+
+## 2026-08-05: automatic project-context freshness runs after first-window initialization
+
+- **Decision:** Workspace bootstrap restores persisted project metadata but does not rescan the
+  selected project before returning its model. The desktop controller schedules fresh local project
+  metadata in a cancellable detached utility task after publishing initial state. Only the latest
+  generation for the still-selected project and standardized root may apply its result, persist it,
+  synchronize non-confidential thread context, and refresh the rendered surface.
+- **Why:** Sampling the signed-in process after file-mention indexing moved off the main actor exposed
+  a second startup traversal in `ProjectInstructionLoader`. Bounded directory counts do not bound
+  filesystem latency, so automatic freshness cannot be a prerequisite for creating the first window.
+- **Boundary:** Restored context may remain visible briefly while freshness loads. Explicit Refresh
+  Project Context keeps its synchronous completion contract, and remote SSH refresh behavior is
+  unchanged. The automatic loader observes cancellation; a blocking operating-system filesystem call
+  may still return only when the OS releases it, but its stale result cannot mutate current state.
+- **Evidence:**
+  `WorkspaceProjectIntegrationTests/testScheduledProjectContextRefreshDoesNotBlockTheMainActor`,
+  `WorkspaceProjectIntegrationTests/testScheduledProjectContextRefreshDropsAStaleSelectionResult`,
+  `ParityWorkspaceProjectGateTests/testWorkspaceModelDelegatesProjectMetadataLoading`, process stack
+  sampling of the original stall, and the normally launched signed-in desktop UI smoke.
+
+## 2026-08-06: cheap cross-domain live evals use bounded objective evidence
+
+- **Decision:** QuillCode keeps a versioned 12-case synthetic eval catalog and runner for
+  cybersecurity, biology, AI, evaluator robustness, and short multi-file agent tasks. Live runs pin
+  the task model to `deepseek/deepseek-v4-flash-0731`, default to two trials, and refuse more than 24
+  paid invocations.
+- **Why:** A small pass/fail smoke proves transport but does not measure reliable task completion.
+  Reproducible exact-file, exact-JSON, protected-input, and executable-test graders provide a useful
+  score without paying for a large benchmark or relying on an LLM judge.
+- **Boundary:** Results are QuillCode catalog scores, not reproduced vendor benchmark claims.
+  Cybersecurity data is inert and defensive; biology data is synthetic and non-clinical. Production
+  tool-safety review stays enabled and is separate from the pinned task-model route.
+- **Safety:** Each case uses an isolated workspace and ephemeral home. The API key is supplied only
+  through the child environment, never command arguments or manifests. Stored output is redacted and
+  the entire artifact tree is scanned before the run can pass.
+- **Evidence:** `docs/cheap-agentic-eval-catalog.json`, `scripts/cheap-agentic-evals.py`,
+  `Tests/Fixtures/CheapAgenticEvals/mixed-domain.json`, and
+  `ParityCheapAgenticEvalsGateTests`.
+
+## 2026-08-06: TAU3 banking and BFCL stay bounded compatibility contracts
+
+- **Decision:** QuillCode keeps six synthetic stateful banking cases and eight function-calling cases
+  as objective compatibility fixtures. Live runs require the exact
+  `deepseek/deepseek-v4-flash-0731` task model and derive a hard paid-invocation fuse from the selected
+  cases, capped at 24 for the complete catalog.
+- **Why:** Stateful verification and mutation flows catch agent-continuation failures that isolated
+  tool parsing misses. Exact simple, multiple, parallel, nested, array, and no-tool graders catch
+  function-selection and argument regressions without an LLM judge.
+- **Boundary:** These fixtures track relevant TAU3 banking and BFCL contracts but do not run the full
+  upstream harnesses and must never be reported as official benchmark scores. Banking identities,
+  accounts, and transactions are synthetic and remain in memory.
+- **Safety:** The TrustedRouter key is loaded from environment or a private local key file, is never a
+  command-line value, and is redacted from the artifact tree before success. Catalog validation,
+  offline self-tests, exact-model enforcement, per-case step ceilings, and the aggregate invocation
+  fuse run before or during any paid execution.
+- **Evidence:** `docs/tau3-banking-eval-catalog.json`, `docs/bfcl-eval-catalog.json`,
+  `scripts/benchmark-compat-evals.py`, `BenchmarkCompatibilityActionParserTests`, and
+  `ParityBenchmarkCompatibilityEvalsTests`. The 2026-08-07 exact-model live run passed TAU3 banking
+  6/6 and BFCL 8/8 with all 24 bounded paid invocations successful; the redacted local manifest is
+  `.build/quillcode-validation/benchmark-compat/live-r1/manifest.json`.

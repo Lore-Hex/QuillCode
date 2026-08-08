@@ -106,6 +106,18 @@ final class AgentImmediateFileActionTests: XCTestCase {
         XCTAssertEqual(write.content, "buy milk\n")
     }
 
+    func testNamedMarkdownWriteDecodesExplicitFormattingEscapesBeforeExecution() throws {
+        let request = try XCTUnwrap(AgentFileWriteRequestParser.request(from: """
+        Create a file named `delay-notice.md` that says `Subject: Delivery delay notice\\n\\nYour order is delayed until Friday.\\n`
+        """))
+
+        XCTAssertEqual(request.path, "delay-notice.md")
+        XCTAssertEqual(
+            request.content,
+            "Subject: Delivery delay notice\n\nYour order is delayed until Friday.\n"
+        )
+    }
+
     func testBacktickFileReadExecutesImmediatelyWithoutProviderRoundTrip() async throws {
         let root = try makeTempDirectory()
         try "hello world\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)

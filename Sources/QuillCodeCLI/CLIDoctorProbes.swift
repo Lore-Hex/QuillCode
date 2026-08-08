@@ -108,7 +108,9 @@ struct LiveCLIDoctorNetworkProbe: CLIDoctorNetworkProbing {
     func probe(apiBaseURL: String, apiKey: String?) async -> CLIDoctorNetworkResult {
         let reportedBaseURL = CLIDoctorSanitizer.safeURL(apiBaseURL)
         guard reportedBaseURL != "invalid URL",
-              var endpoint = URL(string: apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines))
+              var components = URLComponents(
+                string: apiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+              )
         else {
             return CLIDoctorNetworkResult(
                 endpoint: reportedBaseURL,
@@ -116,16 +118,22 @@ struct LiveCLIDoctorNetworkProbe: CLIDoctorNetworkProbing {
                 error: "The configured TrustedRouter base URL is invalid."
             )
         }
-        if endpoint.lastPathComponent != "models" {
-            endpoint.appendPathComponent("models")
+        components.path = "/attestation"
+        components.query = nil
+        components.fragment = nil
+        components.user = nil
+        components.password = nil
+        guard let endpoint = components.url else {
+            return CLIDoctorNetworkResult(
+                endpoint: reportedBaseURL,
+                statusCode: nil,
+                error: "The configured TrustedRouter base URL is invalid."
+            )
         }
 
         var request = URLRequest(url: endpoint, timeoutInterval: Self.requestTimeout)
         request.httpMethod = "GET"
         request.setValue("QuillCode/\(QuillCodeCommandRunner.version) doctor", forHTTPHeaderField: "User-Agent")
-        if let apiKey {
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        }
 
         do {
             let (_, response) = try await session.data(for: request)

@@ -1213,7 +1213,7 @@ if native_targets.get("minimumHitTarget") != 40:
 press_scale = native_targets.get("pressScale")
 has_expected_press_scale = (
     isinstance(press_scale, (int, float))
-    and math.isclose(press_scale, 0.96, rel_tol=0.0, abs_tol=1e-9)
+    and math.isclose(press_scale, 1.0, rel_tol=0.0, abs_tol=1e-9)
 )
 if not has_expected_press_scale:
     fail("reported unexpected native press scale")

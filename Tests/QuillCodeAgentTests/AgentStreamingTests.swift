@@ -268,7 +268,7 @@ final class AgentStreamingTests: XCTestCase {
         let recorder = ProgressRecorder()
         let runner = AgentRunner(llm: UsageStreamingActionLLMClient(events: [
             .reasoning("Inspecting the request."),
-            .reasoning("Choosing the shell tool."),
+            .reasoning(" Choosing the shell tool."),
             .text(#"{"type":"tool","name":"host.shell.run","arguments":{"cmd":"whoami"}}"#)
         ]))
 
@@ -284,10 +284,14 @@ final class AgentStreamingTests: XCTestCase {
         XCTAssertEqual(result.toolResults.count, 1)
         XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
         XCTAssertTrue(result.thread.events.contains {
-            $0.kind == .notice && $0.summary == "Thinking: Inspecting the request."
+            $0.kind == .notice &&
+                $0.summary == "Thinking: Inspecting the request. Choosing the shell tool."
         })
-        XCTAssertTrue(result.thread.events.contains {
-            $0.kind == .notice && $0.summary == "Thinking: Choosing the shell tool."
+        let thinkingEvents = result.thread.events.filter { $0.summary.hasPrefix("Thinking:") }
+        let modelSteps = result.thread.events.filter { $0.summary == AgentRunner.streamingNotice }
+        XCTAssertEqual(thinkingEvents.count, modelSteps.count)
+        XCTAssertTrue(thinkingEvents.allSatisfy {
+            $0.summary == "Thinking: Inspecting the request. Choosing the shell tool."
         })
 
         let snapshots = await recorder.eventSnapshots()
@@ -297,7 +301,7 @@ final class AgentStreamingTests: XCTestCase {
         })
         XCTAssertTrue(snapshots.contains { events in
             events.last?.kind == .notice &&
-                events.last?.summary == "Thinking: Choosing the shell tool."
+                events.last?.summary == "Thinking: Inspecting the request. Choosing the shell tool."
         })
     }
 

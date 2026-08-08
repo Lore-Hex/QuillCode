@@ -1,4 +1,5 @@
 import XCTest
+import QuillCodeAgent
 import QuillCodePersistence
 import QuillCodeCore
 @testable import QuillCodeApp
@@ -108,7 +109,7 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
         XCTAssertEqual(model.root.selectedProjectID, alpha)
     }
 
-    func testProjectInstructionsLoadIntoNewThreadsAndRefreshBeforeRun() async throws {
+    func testProjectInstructionsLoadIntoNewThreadsAndRefreshAfterRunStarts() async throws {
         let root = try makeQuillCodeTestDirectory()
         try "Prefer Swift tests before final answers.\n".write(
             to: root.appendingPathComponent("AGENTS.md"),
@@ -141,8 +142,159 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
         )
         model.setDraft("run whoami")
         await model.submitComposer(workspaceRoot: root)
+        await model.waitForScheduledProjectContextRefresh()
 
         XCTAssertTrue(model.selectedThread?.instructions.first?.content.contains("targeted unit tests") == true)
+    }
+
+    func testAgentSendCompletesWhileProjectContextLoaderIsStalled() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let projectID = UUID()
+        let threadID = UUID()
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [ProjectRef(id: projectID, name: "Slow Project", path: root.path)],
+            selectedProjectID: projectID,
+            threads: [ChatThread(id: threadID, projectID: projectID)],
+            selectedThreadID: threadID
+        ), runner: AgentRunner(llm: ImmediateProjectTestLLMClient()))
+        let loaderGate = DispatchSemaphore(value: 0)
+        model.projectMetadataLoader = { _, _ in
+            loaderGate.wait()
+            return WorkspaceProjectMetadata(
+                instructions: [ProjectInstruction(
+                    path: "AGENTS.md",
+                    title: "Project AGENTS.md",
+                    content: "Fresh agent context.",
+                    byteCount: 20
+                )],
+                localActions: [],
+                runHooks: [],
+                extensionManifests: [],
+                memories: []
+            )
+        }
+        model.setDraft("inspect this project")
+
+        let sendTask = Task { await model.submitComposer(workspaceRoot: root) }
+        let deadline = ContinuousClock.now.advanced(by: .milliseconds(500))
+        while ContinuousClock.now < deadline,
+              model.selectedThread?.messages.contains(where: { $0.content == "agent reached" }) != true {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(model.selectedThread?.messages.first?.content, "inspect this project")
+        let completedWhileLoaderWasStalled = model.selectedThread?.messages.contains {
+            $0.role == .assistant && $0.content == "agent reached"
+        } == true
+        loaderGate.signal()
+        await sendTask.value
+        await model.waitForScheduledProjectContextRefresh()
+
+        XCTAssertTrue(completedWhileLoaderWasStalled)
+        XCTAssertEqual(model.selectedThread?.instructions.first?.content, "Fresh agent context.")
+    }
+
+    func testScheduledProjectContextRefreshDoesNotBlockTheMainActor() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let projectID = UUID()
+        let threadID = UUID()
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [ProjectRef(name: "Slow Project", path: root.path)],
+            selectedProjectID: projectID,
+            threads: [ChatThread(id: threadID, projectID: projectID)],
+            selectedThreadID: threadID
+        ))
+        model.root.projects[0].id = projectID
+        model.projectMetadataLoader = { _, _ in
+            Thread.sleep(forTimeInterval: 0.25)
+            return WorkspaceProjectMetadata(
+                instructions: [ProjectInstruction(
+                    path: "AGENTS.md",
+                    title: "Project AGENTS.md",
+                    content: "Loaded away from the main actor.",
+                    byteCount: 32
+                )],
+                localActions: [],
+                runHooks: [],
+                extensionManifests: [],
+                memories: []
+            )
+        }
+        var didPublish = false
+        model.onProjectContextChanged = { didPublish = true }
+        let startedAt = ContinuousClock.now
+
+        model.scheduleSelectedProjectContextRefresh()
+
+        XCTAssertLessThan(startedAt.duration(to: .now), .milliseconds(100))
+        await model.waitForScheduledProjectContextRefresh()
+        XCTAssertEqual(model.selectedProject?.instructions.first?.content, "Loaded away from the main actor.")
+        XCTAssertEqual(model.selectedThread?.instructions.first?.content, "Loaded away from the main actor.")
+        XCTAssertTrue(didPublish)
+    }
+
+    func testRepeatedScheduledProjectContextRefreshCoalescesAnInFlightScan() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let projectID = UUID()
+        let probe = BlockingProjectMetadataLoader()
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [ProjectRef(id: projectID, name: "Slow Project", path: root.path)],
+            selectedProjectID: projectID
+        ))
+        model.projectMetadataLoader = { _, _ in probe.load() }
+
+        model.scheduleSelectedProjectContextRefresh()
+        model.scheduleSelectedProjectContextRefresh()
+        let deadline = ContinuousClock.now.advanced(by: .seconds(1))
+        while ContinuousClock.now < deadline, probe.callCount == 0 {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        model.scheduleSelectedProjectContextRefresh()
+
+        XCTAssertEqual(probe.callCount, 1)
+        probe.release.signal()
+        await model.waitForScheduledProjectContextRefresh()
+        XCTAssertEqual(probe.callCount, 1)
+    }
+
+    func testScheduledProjectContextRefreshDropsAStaleSelectionResult() async throws {
+        let firstRoot = try makeQuillCodeTestDirectory()
+        let secondRoot = try makeQuillCodeTestDirectory()
+        let firstID = UUID()
+        let secondID = UUID()
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            projects: [
+                ProjectRef(id: firstID, name: "First", path: firstRoot.path),
+                ProjectRef(id: secondID, name: "Second", path: secondRoot.path)
+            ],
+            selectedProjectID: firstID
+        ))
+        model.projectMetadataLoader = { root, _ in
+            let isFirst = root == firstRoot.standardizedFileURL
+            Thread.sleep(forTimeInterval: isFirst ? 0.25 : 0.01)
+            let content = isFirst ? "Stale first context" : "Current second context"
+            return WorkspaceProjectMetadata(
+                instructions: [ProjectInstruction(
+                    path: "AGENTS.md",
+                    title: "Project AGENTS.md",
+                    content: content,
+                    byteCount: content.utf8.count
+                )],
+                localActions: [],
+                runHooks: [],
+                extensionManifests: [],
+                memories: []
+            )
+        }
+
+        model.scheduleSelectedProjectContextRefresh()
+        model.root.selectedProjectID = secondID
+        model.scheduleSelectedProjectContextRefresh()
+
+        await model.waitForScheduledProjectContextRefresh()
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertTrue(model.root.projects[0].instructions.isEmpty)
+        XCTAssertEqual(model.root.projects[1].instructions.first?.content, "Current second context")
     }
 
     private func projectNames(in model: QuillCodeWorkspaceModel) -> [String] {
@@ -185,5 +337,37 @@ final class WorkspaceProjectIntegrationTests: XCTestCase {
         let loaded = try XCTUnwrap(projectStore.load().first)
         XCTAssertEqual(loaded.resolvedInstructionDiagnosticIDs, [diagnosticID])
         XCTAssertEqual(loaded.dismissedInstructionDiagnosticIDs, [])
+    }
+}
+
+private struct ImmediateProjectTestLLMClient: LLMClient {
+    func nextAction(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AgentAction {
+        .say("agent reached")
+    }
+}
+
+private final class BlockingProjectMetadataLoader: @unchecked Sendable {
+    let release = DispatchSemaphore(value: 0)
+    private let lock = NSLock()
+    private var calls = 0
+
+    var callCount: Int {
+        lock.withLock { calls }
+    }
+
+    func load() -> WorkspaceProjectMetadata {
+        lock.withLock { calls += 1 }
+        release.wait()
+        return WorkspaceProjectMetadata(
+            instructions: [],
+            localActions: [],
+            runHooks: [],
+            extensionManifests: [],
+            memories: []
+        )
     }
 }

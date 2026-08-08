@@ -12,16 +12,18 @@ import Foundation
 public struct TranscriptConnectPrompt: Equatable, Sendable {
     public var accountURL: String
 
-    public static let title = "Connect TrustedRouter to start"
+    public static let title = "Connect TrustedRouter"
     public static let subtitle =
-        "\(QuillCodeProduct.displayName) runs on TrustedRouter — private, attested inference. Sign in to pick a model and "
-        + "start coding. Your keys never touch the page."
+        "\(QuillCodeProduct.displayName) uses TrustedRouter for private model access. "
+        + "Sign in to work with files, research, and office tools. "
+        + "Your credentials stay on this Mac."
     public static let signInButtonTitle = "Sign in with TrustedRouter"
-    public static let createAccountTitle = "Create an account"
+    public static let browserSignInCaption = "Secure sign-in opens in your browser"
+    public static let createAccountTitle = "Create a TrustedRouter account"
     public static let developerKeyTitle = "Use a developer key"
     public static let defaultAccountURL = "https://trustedrouter.com"
     /// The three-beat "what happens next" reassurance under the button.
-    public static let steps = ["Sign in", "Pick a model", "Start coding"]
+    public static let steps = ["Sign in", "Choose a model", "Start a task"]
 
     public init(accountURL: String = TranscriptConnectPrompt.defaultAccountURL) {
         self.accountURL = accountURL

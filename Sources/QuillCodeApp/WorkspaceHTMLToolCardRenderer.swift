@@ -174,7 +174,7 @@ enum WorkspaceHTMLToolCardRenderer {
     }
 
     private static func renderTextPreviews(_ artifacts: [ToolArtifactState]) -> String {
-        let textArtifacts = artifacts.filter(\.hasTextPreview)
+        let textArtifacts = artifacts.filter { $0.canLoadLocalPreview && $0.hasTextPreview }
         guard !textArtifacts.isEmpty else { return "" }
         let previews = textArtifacts.map { artifact in
             let metadata = artifact.sourceTextPreview?.metadataLines.map {
@@ -201,7 +201,9 @@ enum WorkspaceHTMLToolCardRenderer {
         let documentArtifacts = artifacts.filter(\.isDocumentPreview)
         guard !documentArtifacts.isEmpty else { return "" }
         let previews = documentArtifacts.compactMap { artifact -> String? in
-            guard let preview = artifact.documentPreview else { return nil }
+            guard artifact.canLoadLocalPreview,
+                  let preview = artifact.documentPreview
+            else { return nil }
             let openLink = artifact.href.map {
                 #"<a\#(WorkspaceHTMLPrimitives.hitTargetAttributes(kind: .link)) data-testid="tool-card-document-preview-open" href="\#(escape($0))">Open</a>"#
             } ?? ""
@@ -512,7 +514,7 @@ enum WorkspaceHTMLToolCardRenderer {
     }
 
     private static func renderImagePreviews(_ artifacts: [ToolArtifactState]) -> String {
-        let imageArtifacts = artifacts.filter(\.isImagePreview)
+        let imageArtifacts = artifacts.filter { $0.canLoadLocalPreview && $0.isImagePreview }
         guard !imageArtifacts.isEmpty else { return "" }
         let previews = imageArtifacts.enumerated().compactMap { index, artifact -> String? in
             guard let src = artifact.previewURL,

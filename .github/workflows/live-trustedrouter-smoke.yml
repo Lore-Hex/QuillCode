@@ -6,7 +6,7 @@ on:
       model:
         description: "TrustedRouter model to use for the live smoke"
         required: false
-        default: "deepseekv4flash"
+        default: "deepseekv4flash0731"
   schedule:
     - cron: "17 10 * * 1"
 
@@ -22,7 +22,7 @@ jobs:
     runs-on: macos-15
     env:
       QUILLCODE_API_KEY: ${{ secrets.QUILLCODE_LIVE_API_KEY }}
-      QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash' }}
+      QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash0731' }}
       QUILLCODE_LIVE_KEEP_ARTIFACTS: "1"
     steps:
       - uses: actions/checkout@v7

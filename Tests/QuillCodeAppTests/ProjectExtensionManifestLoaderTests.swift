@@ -1,5 +1,6 @@
 import XCTest
 import QuillCodeCore
+import QuillCodeTools
 @testable import QuillCodeApp
 
 final class ProjectExtensionManifestLoaderTests: XCTestCase {
@@ -166,9 +167,10 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         XCTAssertEqual(manifests.map(\.relativePath), [".quillcode/marketplace/review.json"])
     }
 
-    func testBundledMarketplaceIncludesBurstyRouterAndFiltersClaimedID() {
+    func testBundledMarketplaceIncludesSkillPacksAndFiltersClaimedID() {
         let manifests = BundledExtensionMarketplace.availableManifests(excluding: [])
         let burstyRouter = manifests.first { $0.id == "skill:burstyrouter" }
+        let marketingSkills = manifests.first { $0.id == "skill:marketing-skills" }
 
         XCTAssertEqual(burstyRouter?.kind, .skill)
         XCTAssertEqual(burstyRouter?.name, "BurstyRouter")
@@ -178,6 +180,14 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         )
         XCTAssertEqual(burstyRouter?.sourceURL, "https://github.com/Lore-Hex/BurstyRouter")
         XCTAssertEqual(burstyRouter?.relativePath, ".quillcode/marketplace/burstyrouter.json")
+        XCTAssertEqual(marketingSkills?.kind, .skill)
+        XCTAssertEqual(marketingSkills?.name, "Marketing Skills")
+        XCTAssertEqual(marketingSkills?.sourceURL, "https://github.com/Lore-Hex/marketing-skills")
+        XCTAssertEqual(marketingSkills?.relativePath, ".quillcode/marketplace/marketing-skills.json")
+        XCTAssertTrue(marketingSkills?.installCommand?.contains("skills/*.md") == true)
+        XCTAssertTrue(marketingSkills?.installCommand?.contains("prompts/*.md") == true)
+        XCTAssertTrue(marketingSkills?.installCommand?.contains("catalog/\"$skill_name\"/SKILL.md") == true)
+        XCTAssertTrue(marketingSkills?.installCommand?.contains("references/prompts") == true)
 
         let installed = ProjectExtensionManifest(
             id: "skill:burstyrouter",
@@ -198,6 +208,84 @@ final class ProjectExtensionManifestLoaderTests: XCTestCase {
         XCTAssertFalse(BundledExtensionMarketplace.availableManifests(excluding: [projectMarketplace]).contains {
             $0.id == "skill:burstyrouter"
         })
+    }
+
+    func testMarketingSkillPackCopyCommandIsBoundedToItsPackDirectory() {
+        let command = BundledExtensionMarketplace.marketingSkillPackCopyCommand(
+            repoDirectory: ".quillcode/skill-repos/marketing-skills",
+            skillDirectory: ".quillcode/skills/marketing-skills"
+        )
+
+        XCTAssertTrue(command.contains("rm -rf .quillcode/skills/marketing-skills"))
+        XCTAssertFalse(command.contains("rm -rf .quillcode/skills &&"))
+        XCTAssertTrue(command.contains(".quillcode/skills/marketing-skills/catalog"))
+        XCTAssertTrue(command.contains("name: marketing-skills"))
+        XCTAssertTrue(command.contains("Never invent customer proof"))
+    }
+
+    func testMarketingSkillPackCopyCommandProducesDiscoverableSkillsAndPromptReferences() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let repository = root.appendingPathComponent(".quillcode/skill-repos/marketing-skills")
+        let sourceSkills = repository.appendingPathComponent("skills")
+        let sourcePrompts = repository.appendingPathComponent("prompts")
+        try FileManager.default.createDirectory(at: sourceSkills, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: sourcePrompts, withIntermediateDirectories: true)
+        try """
+        ---
+        name: landing-page-copy
+        description: Build a source-grounded landing page.
+        ---
+        # Landing Page Copy
+        """.write(
+            to: sourceSkills.appendingPathComponent("landing-page-copy.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try """
+        ---
+        name: market-research
+        description: Turn supplied market evidence into decisions.
+        ---
+        # Market Research
+        """.write(
+            to: sourceSkills.appendingPathComponent("market-research.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "# Market Research Prompts\n".write(
+            to: sourcePrompts.appendingPathComponent("market-research.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = [
+            "-c",
+            BundledExtensionMarketplace.marketingSkillPackCopyCommand(
+                repoDirectory: ".quillcode/skill-repos/marketing-skills",
+                skillDirectory: ".quillcode/skills/marketing-skills"
+            )
+        ]
+        process.currentDirectoryURL = root
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
+
+        let snapshot = SkillCatalog(roots: [
+            SkillRoot(kind: .repo, url: root.appendingPathComponent(".quillcode/skills"))
+        ]).load()
+        XCTAssertTrue(snapshot.errors.isEmpty, "\(snapshot.errors)")
+        XCTAssertEqual(Set(snapshot.skills.map(\.name)), [
+            "landing-page-copy",
+            "market-research",
+            "marketing-skills"
+        ])
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: root
+                .appendingPathComponent(".quillcode/skills/marketing-skills/references/prompts/market-research.md")
+                .path
+        ))
     }
 
     func testLoadsRemoteHTTPMCPServerWithURLAndHeaders() throws {

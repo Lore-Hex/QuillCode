@@ -45,20 +45,38 @@ enum CLIDoctorLocalChecks {
     ) -> CLIDoctorCheck {
         let matches = CLIDoctorExecutableLocator.matches(named: "quill-code", environment: environment)
         let executableExists = FileManager.default.isExecutableFile(atPath: runtime.executablePath)
-        let status: CLIDoctorStatus = executableExists ? (matches.isEmpty ? .warning : .ok) : .fail
+        let currentExecutable = URL(fileURLWithPath: runtime.executablePath)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
+        let matchingCurrentExecutable = matches.contains { match in
+            URL(fileURLWithPath: match)
+                .standardizedFileURL
+                .resolvingSymlinksInPath()
+                .path == currentExecutable
+        }
+        let status: CLIDoctorStatus
         let summary: String
         if !executableExists {
+            status = .fail
             summary = "the running Quill Cowork executable is unavailable"
         } else if matches.isEmpty {
-            summary = "Quill Cowork is running but quill-code is not on PATH"
-        } else if matches.count == 1 {
+            status = .ok
+            summary = "Quill Cowork is running directly; quill-code is not on PATH"
+        } else if matches.count == 1, matchingCurrentExecutable {
+            status = .ok
             summary = "installation looks consistent"
-        } else {
+        } else if matchingCurrentExecutable {
+            status = .warning
             summary = "multiple quill-code executables are on PATH"
+        } else {
+            status = .warning
+            summary = "the running Quill Cowork executable differs from quill-code on PATH"
         }
         var details: [String: CLIDoctorDetail] = [
             "current executable": .text(CLIDoctorSanitizer.singleLine(runtime.executablePath)),
-            "PATH quill-code entries": .text(String(matches.count))
+            "PATH quill-code entries": .text(String(matches.count)),
+            "PATH contains current executable": .text(String(matchingCurrentExecutable))
         ]
         if !matches.isEmpty { details["PATH matches"] = .list(matches) }
         return CLIDoctorCheck(
@@ -67,7 +85,9 @@ enum CLIDoctorLocalChecks {
             status: status,
             summary: summary,
             details: details,
-            remediation: status == .ok ? nil : "Put the intended quill-code executable first on PATH."
+            remediation: status == .ok
+                ? nil
+                : "Put the intended quill-code executable first on PATH and remove stale copies."
         )
     }
 
@@ -116,7 +136,6 @@ enum CLIDoctorLocalChecks {
     ) -> CLIDoctorCheck {
         let term = normalized(environment["TERM"]) ?? "not set"
         let unusableTerm = term == "not set" || term.caseInsensitiveCompare("dumb") == .orderedSame
-        let attached = runtime.inputIsTerminal || runtime.outputIsTerminal || runtime.errorIsTerminal
         var issues: [CLIDoctorIssue] = []
         if unusableTerm {
             issues.append(CLIDoctorIssue(
@@ -128,19 +147,15 @@ enum CLIDoctorLocalChecks {
                 fields: ["TERM"]
             ))
         }
-        if !attached {
-            issues.append(CLIDoctorIssue(
-                severity: .warning,
-                cause: "standard streams are not attached to a terminal",
-                expected: "at least one terminal-attached standard stream"
-            ))
-        }
         let status = issues.map(\.severity).max { $0.rank < $1.rank } ?? .ok
+        let attached = runtime.inputIsTerminal || runtime.outputIsTerminal || runtime.errorIsTerminal
         return CLIDoctorCheck(
             id: "terminal.env",
             category: "terminal",
             status: status,
-            summary: unusableTerm ? "TERM=\(term) disables colors and cursor control" : "terminal environment is usable",
+            summary: unusableTerm
+                ? "TERM=\(term) disables colors and cursor control"
+                : attached ? "terminal environment is usable" : "noninteractive terminal environment is usable",
             details: .doctorDetails([
                 "TERM": term,
                 "COLORTERM": presence(environment["COLORTERM"]),

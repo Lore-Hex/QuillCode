@@ -207,13 +207,14 @@ struct QuillCodeHitTargetSpec {
 
     static func fullRow(
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        maxWidth: CGFloat? = .infinity,
         alignment: Alignment = .leading,
         radius: CGFloat = QuillCodeMetrics.compactControlRadius
     ) -> Self {
         Self(
             kind: .fullRow,
             minWidth: nil,
-            maxWidth: .infinity,
+            maxWidth: maxWidth,
             width: nil,
             minHeight: minHeight,
             height: nil,

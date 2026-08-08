@@ -50,6 +50,9 @@ struct QuillCodeTranscriptView: View {
     @StateObject private var newTurnsStore = QuillCodeTranscriptNewTurnsStore()
     /// Which anchor jump is currently pending, so the scroll handler can target it once.
     @State private var pendingJumpAnchorID: String?
+    /// Raw geometry changes many times per trackpad gesture. Keep it outside SwiftUI's publishing
+    /// state graph so only an actual pinned/unpinned transition invalidates the transcript rows.
+    @StateObject private var scrollMetrics = TranscriptScrollMetrics()
     /// Streaming autoscroll only pins to the bottom when the reader is already there; otherwise a
     /// "Jump to latest" chip floats rather than yanking them down. Whether the reader is AT the bottom
     /// comes from the gap between a 1pt bottom sentinel and the viewport bottom; whether a WIDENING gap
@@ -60,16 +63,6 @@ struct QuillCodeTranscriptView: View {
     /// macOS 14 floor rules out `.onScrollGeometryChange`, and swift-tools 6.0's @Sendable rule rules
     /// out `.onPreferenceChange`).
     @State private var isPinnedToBottom = true
-    @State private var viewportHeight: CGFloat = 0
-    @State private var bottomSentinelMaxY: CGFloat = 0
-    /// Last sampled content-top offset; nil re-baselines the next sample (first appear + thread switch)
-    /// so a fresh transcript's opening offset is never mistaken for a scroll gesture.
-    @State private var lastContentTopMinY: CGFloat?
-    /// Total transcript content height. It grows on ANY content growth — a streamed chunk OR a
-    /// layout-only reflow (window narrows, text rewraps taller) that changes no content signature — but
-    /// is invariant to scrolling. Watching it lets a pinned reader stay caught up through reflows the
-    /// signature-driven follow would miss, without the feedback loop a scroll-position trigger risks.
-    @State private var contentHeight: CGFloat = 0
     private let bottomPinThreshold: CGFloat = 60
     private static let transcriptScrollSpace = "quillcode.transcript.scroll"
     private static let bottomSentinelID = "quillcode.transcript.bottom-sentinel"
@@ -241,11 +234,28 @@ struct QuillCodeTranscriptView: View {
                         GeometryReader { geometry in
                             Color.clear
                                 .onChange(of: geometry.size.height, initial: true) { _, height in
-                                    viewportHeight = height
+                                    guard TranscriptScrollFollow.shouldCommitGeometrySample(
+                                        height,
+                                        current: scrollMetrics.viewportHeight
+                                    ) else { return }
+                                    scrollMetrics.viewportHeight = height
                                     // A resize is never a scroll gesture: re-pin if the shorter/taller
                                     // viewport put the end back within reach, but never strand an
                                     // at-bottom reader.
                                     applyPinned(unpinBeyondThreshold: false)
+                                }
+                                .onChange(of: geometry.size.width, initial: true) { oldWidth, width in
+                                    guard TranscriptScrollFollow.shouldCommitGeometrySample(
+                                        width,
+                                        current: scrollMetrics.viewportWidth
+                                    ) else { return }
+                                    scrollMetrics.viewportWidth = width
+                                    // Width is the layout-only input that can rewrap transcript text.
+                                    // Follow it directly instead of observing content height, which
+                                    // creates a scroll -> layout -> height feedback path while streaming.
+                                    if oldWidth > 0 {
+                                        scrollToTranscriptEnd(proxy, id: scrollAnchorID)
+                                    }
                                 }
                         }
                     )
@@ -266,18 +276,10 @@ struct QuillCodeTranscriptView: View {
                         // the content-offset baseline too, so the new transcript's opening offset is
                         // re-baselined instead of read as a giant scroll-up.
                         isPinnedToBottom = true
-                        lastContentTopMinY = nil
+                        scrollMetrics.resetContentOffsetBaseline()
                         scrollForReviewVisibility(review.isVisible, proxy: proxy)
                     }
                     .onChange(of: scrollContentSignature) { _, _ in
-                        scrollToTranscriptEnd(proxy, id: scrollAnchorID)
-                    }
-                    .onChange(of: contentHeight) { _, _ in
-                        // Layout-only growth (e.g. text reflow when the window narrows) changes no
-                        // content signature, so the signature-driven follow above won't fire. Keep a
-                        // pinned reader caught up to the bottom here too. scrollToTranscriptEnd no-ops
-                        // when un-pinned or suppressed, and contentHeight is scroll-invariant, so this
-                        // can't feedback-loop off the follow-scroll's own motion.
                         scrollToTranscriptEnd(proxy, id: scrollAnchorID)
                     }
                     .onChange(of: activeFindIndex) { _, _ in
@@ -306,57 +308,21 @@ struct QuillCodeTranscriptView: View {
 
     private var timelineItems: some View {
         ForEach(transcript.timelineItems) { item in
-            timelineItem(item)
+            QuillCodeTranscriptTimelineRow(
+                item: item,
+                isActiveFindItem: activeFindMatch?.timelineItemID == item.id
+                    && !findQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                isCopied: copiedTranscriptItemID == item.id,
+                retryCommand: item.message?.id == latestAssistantMessageID ? retryLastTurnCommand : nil,
+                onContextCommand: onContextCommand,
+                onToolCardAction: onToolCardAction,
+                onCopyTranscriptItem: onCopyTranscriptItem,
+                onRevertTurn: onRevertTurn,
+                onUseMessageAsDraft: onUseMessageAsDraft
+            )
+            .equatable()
+            .id(item.id)
         }
-    }
-
-    @ViewBuilder
-    private func timelineItem(_ item: TranscriptTimelineItemSurface) -> some View {
-        let isActiveFindItem = activeFindMatch?.timelineItemID == item.id
-            && !findQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        Group {
-            switch item.kind {
-            case .message:
-                if let message = item.message {
-                    QuillCodeMessageBubble(
-                        message: message,
-                        timelineItemID: item.id,
-                        isCopied: copiedTranscriptItemID == item.id,
-                        onCopy: {
-                            onCopyTranscriptItem(item.id, message.text)
-                        },
-                        onUseAsDraft: {
-                            onUseMessageAsDraft(message.text)
-                        },
-                        canRetry: message.id == latestAssistantMessageID && retryLastTurnCommand != nil,
-                        onRetry: {
-                            if let retryLastTurnCommand {
-                                onContextCommand(retryLastTurnCommand)
-                            }
-                        },
-                        onRevertTurn: onRevertTurn
-                    )
-                }
-            case .toolCard:
-                if let card = item.toolCard {
-                    QuillCodeToolCardView(
-                        card: card,
-                        isCopied: copiedTranscriptItemID == item.id,
-                        onCopy: {
-                            onCopyTranscriptItem(item.id, copyText(for: card))
-                        },
-                        onAction: { action in
-                            onToolCardAction(action)
-                        }
-                    )
-                }
-            }
-        }
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(isActiveFindItem ? QuillCodePalette.blue.opacity(0.75) : Color.clear, lineWidth: 2)
-        )
-        .id(item.id)
     }
 
     @ViewBuilder
@@ -542,8 +508,18 @@ struct QuillCodeTranscriptView: View {
         // appear and on every scroll-anchor change, including on return to a grown thread) would
         // advance the watermark before the pill could ever evaluate — the exact bug that made the
         // pill unreachable. The watermark advances only on leaving the thread or a pill tap.
-        DispatchQueue.main.async {
-            quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
+        if force {
+            DispatchQueue.main.async {
+                quillCodeWithAnimation(.easeOut(duration: 0.18), reduceMotion: reduceMotion) {
+                    proxy.scrollTo(id, anchor: .bottom)
+                }
+            }
+        } else {
+            // Stream chunks can arrive faster than an animation completes. Starting a fresh animation
+            // for every published chunk grows an unbounded transaction queue on long chats.
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
                 proxy.scrollTo(id, anchor: .bottom)
             }
         }
@@ -577,7 +553,11 @@ struct QuillCodeTranscriptView: View {
                             of: geometry.frame(in: .named(Self.transcriptScrollSpace)).maxY,
                             initial: true
                         ) { _, maxY in
-                            bottomSentinelMaxY = maxY
+                            guard TranscriptScrollFollow.shouldCommitGeometrySample(
+                                maxY,
+                                current: scrollMetrics.bottomSentinelMaxY
+                            ) else { return }
+                            scrollMetrics.bottomSentinelMaxY = maxY
                             // The end-of-content moved (a chunk grew, or the follow-scroll ran). While
                             // follow-scroll is live this may only RE-pin (end back within reach), never
                             // un-pin an at-bottom reader mid-chunk (the content-offset signal owns
@@ -604,9 +584,6 @@ struct QuillCodeTranscriptView: View {
                 ) { _, minY in
                     applyContentTopOffsetSample(minY)
                 }
-                .onChange(of: geometry.size.height, initial: true) { _, height in
-                    contentHeight = height
-                }
         }
     }
 
@@ -625,8 +602,8 @@ struct QuillCodeTranscriptView: View {
     private func applyPinned(unpinBeyondThreshold: Bool) {
         let pinned = TranscriptScrollFollow.resolvePinned(
             current: isPinnedToBottom,
-            bottomSentinelMaxY: bottomSentinelMaxY,
-            viewportHeight: viewportHeight,
+            bottomSentinelMaxY: scrollMetrics.bottomSentinelMaxY,
+            viewportHeight: scrollMetrics.viewportHeight,
             threshold: bottomPinThreshold,
             unpinBeyondThreshold: unpinBeyondThreshold
         )
@@ -642,19 +619,19 @@ struct QuillCodeTranscriptView: View {
     /// samples still accumulates to a scroll-up. A nil baseline (first appear / thread switch)
     /// baselines without classifying.
     private func applyContentTopOffsetSample(_ minY: CGFloat) {
-        guard let previous = lastContentTopMinY else {
-            lastContentTopMinY = minY
+        guard let previous = scrollMetrics.lastContentTopMinY else {
+            scrollMetrics.lastContentTopMinY = minY
             return
         }
         let outcome = TranscriptScrollFollow.pinnedAfterScrollSample(
             current: isPinnedToBottom,
-            bottomSentinelMaxY: bottomSentinelMaxY,
-            viewportHeight: viewportHeight,
+            bottomSentinelMaxY: scrollMetrics.bottomSentinelMaxY,
+            viewportHeight: scrollMetrics.viewportHeight,
             threshold: bottomPinThreshold,
             contentTopMinY: minY,
             previousBaseline: previous
         )
-        lastContentTopMinY = outcome.baseline
+        scrollMetrics.lastContentTopMinY = outcome.baseline
         guard outcome.pinned != isPinnedToBottom else { return }
         quillCodeWithAnimation(.easeInOut(duration: 0.15), reduceMotion: reduceMotion) {
             isPinnedToBottom = outcome.pinned
@@ -680,6 +657,66 @@ struct QuillCodeTranscriptView: View {
                 spacing: QuillCodeMetrics.controlClusterSpacing
             )
         ]
+    }
+}
+
+/// A stable, equatable boundary around one expensive transcript row. Scroll pin/geometry changes can
+/// rebuild the parent view without reparsing Markdown or rebuilding unchanged tool-card previews.
+private struct QuillCodeTranscriptTimelineRow: View, Equatable {
+    var item: TranscriptTimelineItemSurface
+    var isActiveFindItem: Bool
+    var isCopied: Bool
+    var retryCommand: WorkspaceCommandSurface?
+    var onContextCommand: (WorkspaceCommandSurface) -> Void
+    var onToolCardAction: (ToolCardActionSurface) -> Void
+    var onCopyTranscriptItem: (String, String) -> Void
+    var onRevertTurn: (UUID) -> Void
+    var onUseMessageAsDraft: (String) -> Void
+
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.item == rhs.item
+            && lhs.isActiveFindItem == rhs.isActiveFindItem
+            && lhs.isCopied == rhs.isCopied
+            && lhs.retryCommand == rhs.retryCommand
+    }
+
+    var body: some View {
+        Group {
+            switch item.kind {
+            case .message:
+                if let message = item.message {
+                    QuillCodeMessageBubble(
+                        message: message,
+                        timelineItemID: item.id,
+                        isCopied: isCopied,
+                        onCopy: { onCopyTranscriptItem(item.id, message.text) },
+                        onUseAsDraft: { onUseMessageAsDraft(message.text) },
+                        canRetry: retryCommand != nil,
+                        onRetry: {
+                            if let retryCommand {
+                                onContextCommand(retryCommand)
+                            }
+                        },
+                        onRevertTurn: onRevertTurn
+                    )
+                }
+            case .toolCard:
+                if let card = item.toolCard {
+                    QuillCodeToolCardView(
+                        card: card,
+                        isCopied: isCopied,
+                        onCopy: {
+                            onCopyTranscriptItem(item.id, TranscriptItemTextFormatter.text(for: card))
+                        },
+                        onAction: onToolCardAction
+                    )
+                }
+            }
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(isActiveFindItem ? QuillCodePalette.blue.opacity(0.75) : Color.clear, lineWidth: 2)
+        )
     }
 }
 

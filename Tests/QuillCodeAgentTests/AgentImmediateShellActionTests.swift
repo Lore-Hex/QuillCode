@@ -49,7 +49,14 @@ final class AgentImmediateShellActionTests: XCTestCase {
 
     func testOpenClawDiscoveryDoesNotDependOnProviderKnowledge() async throws {
         let root = try makeTempDirectory()
-        let runner = preflightFailingAgentRunner()
+        let runner = AgentRunner(
+            llm: FailingLLMClient(),
+            toolExecutionOverride: { @Sendable call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                return ToolResult(ok: true, stdout: "not found\n", exitCode: 0)
+            },
+            enablesImmediateActionPreflight: true
+        )
         let result = try await runner.send("Do you have openclaw?", in: ChatThread(mode: .auto), workspaceRoot: root)
 
         try assertSingleSuccessfulToolResult(in: result)

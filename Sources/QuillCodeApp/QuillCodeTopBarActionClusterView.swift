@@ -25,7 +25,7 @@ struct QuillCodeTopBarActionClusterView: View {
             }
             if let activeStopCommand {
                 stopButton(activeStopCommand)
-                    .transition(reduceMotion ? .identity : .opacity.combined(with: .scale(scale: 0.96)))
+                    .transition(reduceMotion ? .identity : .opacity)
             }
             commandMenu
         }
@@ -90,12 +90,12 @@ struct QuillCodeTopBarActionClusterView: View {
                 Text("Restore worktree")
                     .font(.caption.weight(.semibold))
             }
-            .foregroundStyle(QuillCodePalette.text)
+            .foregroundStyle(QuillCodePalette.body)
             .padding(.horizontal, 12)
-            .quillCodeTextButtonTarget(minWidth: 128, radius: QuillCodeMetrics.minimumHitTarget / 2)
-            .background(QuillCodePalette.selection.opacity(0.72))
-            .overlay { Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1) }
-            .clipShape(Capsule())
+            .quillCodeTextButtonTarget(minWidth: 128)
+            .background(QuillCodePalette.panel2)
+            .overlay { topBarControlBorder(QuillCodePalette.lineStrong) }
+            .clipShape(topBarControlShape)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help(command.title)
@@ -114,12 +114,12 @@ struct QuillCodeTopBarActionClusterView: View {
                 Text("Create branch here")
                     .font(.caption.weight(.semibold))
             }
-            .foregroundStyle(QuillCodePalette.text)
+            .foregroundStyle(QuillCodePalette.body)
             .padding(.horizontal, 12)
-            .quillCodeTextButtonTarget(minWidth: 132, radius: QuillCodeMetrics.minimumHitTarget / 2)
-            .background(QuillCodePalette.selection.opacity(0.72))
-            .overlay { Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1) }
-            .clipShape(Capsule())
+            .quillCodeTextButtonTarget(minWidth: 132)
+            .background(QuillCodePalette.panel2)
+            .overlay { topBarControlBorder(QuillCodePalette.lineStrong) }
+            .clipShape(topBarControlShape)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help(command.title)
@@ -138,12 +138,12 @@ struct QuillCodeTopBarActionClusterView: View {
                 Text("Publish")
                     .font(.caption.weight(.semibold))
             }
-            .foregroundStyle(QuillCodePalette.text)
+            .foregroundStyle(QuillCodePalette.background)
             .padding(.horizontal, 12)
-            .quillCodeTextButtonTarget(minWidth: 88, radius: QuillCodeMetrics.minimumHitTarget / 2)
-            .background(QuillCodePalette.selection.opacity(0.72))
-            .overlay { Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1) }
-            .clipShape(Capsule())
+            .quillCodeTextButtonTarget(minWidth: 88)
+            .background(QuillCodePalette.text)
+            .overlay { topBarControlBorder(QuillCodePalette.text) }
+            .clipShape(topBarControlShape)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help(command.title)
@@ -164,10 +164,10 @@ struct QuillCodeTopBarActionClusterView: View {
             }
             .foregroundStyle(pullRequestColor)
             .padding(.horizontal, 12)
-            .quillCodeTextButtonTarget(minWidth: 96, radius: QuillCodeMetrics.minimumHitTarget / 2)
-            .background(pullRequestColor.opacity(0.12))
-            .overlay { Capsule().stroke(pullRequestColor.opacity(0.28), lineWidth: 1) }
-            .clipShape(Capsule())
+            .quillCodeTextButtonTarget(minWidth: 96)
+            .background(pullRequestColor.opacity(0.08))
+            .overlay { topBarControlBorder(pullRequestColor.opacity(0.45)) }
+            .clipShape(topBarControlShape)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help(command.title)
@@ -243,14 +243,12 @@ struct QuillCodeTopBarActionClusterView: View {
                 Text("Stop")
                     .font(.caption.weight(.semibold))
             }
-            .foregroundStyle(Color.white)
+            .foregroundStyle(QuillCodePalette.red)
             .padding(.horizontal, 12)
-            .quillCodeTextButtonTarget(minWidth: 64, radius: QuillCodeMetrics.minimumHitTarget / 2)
-            .background(QuillCodePalette.red.opacity(0.90))
-            .overlay {
-                Capsule().stroke(Color.white.opacity(0.16), lineWidth: 1)
-            }
-            .clipShape(Capsule())
+            .quillCodeTextButtonTarget(minWidth: 64)
+            .background(QuillCodePalette.red.opacity(0.10))
+            .overlay { topBarControlBorder(QuillCodePalette.red.opacity(0.55)) }
+            .clipShape(topBarControlShape)
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Stop active work")
@@ -304,4 +302,12 @@ struct QuillCodeTopBarActionClusterView: View {
 
     private static let menuItemTargetReason =
         "AppKit owns top-bar overflow menu row geometry; the overflow trigger carries the custom hit-target contract."
+
+    private var topBarControlShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+    }
+
+    private func topBarControlBorder(_ color: Color) -> some View {
+        topBarControlShape.stroke(color, lineWidth: 1)
+    }
 }

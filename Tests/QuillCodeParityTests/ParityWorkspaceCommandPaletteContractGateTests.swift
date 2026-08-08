@@ -56,7 +56,7 @@ final class ParityWorkspaceCommandPaletteContractGateTests: QuillCodeParityTestC
         Self.assertSource(designText, containsAll: [
             "static let commandPaletteRowHorizontalPadding: CGFloat = 10",
             "static let commandPaletteRowVerticalPadding: CGFloat = 7",
-            "static let commandPaletteRowRadius: CGFloat = 9"
+            "static let commandPaletteRowRadius: CGFloat = 4"
         ])
         Self.assertSource(dialogText, containsAll: [
             ".padding(.horizontal, QuillCodeMetrics.commandPaletteRowHorizontalPadding)",

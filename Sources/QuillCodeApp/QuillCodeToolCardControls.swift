@@ -23,18 +23,15 @@ struct QuillCodeToolCardActionRow: View {
                     .padding(.horizontal, 12)
                     .quillCodeTextButtonTarget(
                         minWidth: action.style == .primary ? 118 : 72,
-                        radius: QuillCodeMetrics.minimumHitTarget / 2
-                    )
-                    .frame(
-                        maxWidth: action.style == .primary ? .infinity : 92
+                        radius: QuillCodeMetrics.compactControlRadius
                     )
                     .foregroundStyle(foregroundColor(for: action.style))
                     .background(backgroundColor(for: action.style))
                     .overlay(
-                        Capsule()
+                        RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
                             .stroke(strokeColor(for: action.style), lineWidth: 1)
                     )
-                    .clipShape(Capsule())
+                    .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous))
                 }
                 .buttonStyle(QuillCodePressableButtonStyle())
                 .help(action.title)
@@ -49,7 +46,7 @@ struct QuillCodeToolCardActionRow: View {
     private func foregroundColor(for style: ToolCardActionStyle) -> Color {
         switch style {
         case .primary:
-            return Color.white
+            return QuillCodePalette.background
         case .secondary:
             return QuillCodePalette.text
         case .destructive:
@@ -60,9 +57,9 @@ struct QuillCodeToolCardActionRow: View {
     private func backgroundColor(for style: ToolCardActionStyle) -> Color {
         switch style {
         case .primary:
-            return QuillCodePalette.blue
+            return QuillCodePalette.text
         case .secondary:
-            return QuillCodePalette.selection.opacity(0.55)
+            return QuillCodePalette.panel3
         case .destructive:
             return QuillCodePalette.red.opacity(0.14)
         }
@@ -71,9 +68,9 @@ struct QuillCodeToolCardActionRow: View {
     private func strokeColor(for style: ToolCardActionStyle) -> Color {
         switch style {
         case .primary:
-            return Color.white.opacity(0.14)
+            return QuillCodePalette.text
         case .secondary:
-            return Color.white.opacity(0.10)
+            return QuillCodePalette.lineStrong
         case .destructive:
             return QuillCodePalette.red.opacity(0.26)
         }
@@ -88,17 +85,17 @@ struct QuillCodeToolStatusBadge: View {
 
     var body: some View {
         Label(label, systemImage: iconName)
-            .font(.caption.monospacedDigit().weight(.semibold))
+            .font(.system(size: 10, weight: .semibold, design: .monospaced))
             .lineLimit(1)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 4)
             .foregroundStyle(tint)
             .background(tint.opacity(0.15))
             .overlay(
-                Capsule()
-                    .stroke(tint.opacity(0.22), lineWidth: 1)
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                    .stroke(tint.opacity(0.38), lineWidth: 1)
             )
-            .clipShape(Capsule())
+            .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous))
             .help(label)
             .accessibilityLabel("Tool status \(accessibilityLabel)")
     }
@@ -120,10 +117,10 @@ struct QuillCodeExecutionContextChip: View {
         .padding(.vertical, 4)
         .background(background)
         .overlay(
-            Capsule()
+            RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
                 .stroke(tint.opacity(context.kind == .sshRemote ? 0.38 : 0.24), lineWidth: 1)
         )
-        .clipShape(Capsule())
+        .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous))
         .accessibilityLabel("\(context.label) \(context.detail)")
     }
 

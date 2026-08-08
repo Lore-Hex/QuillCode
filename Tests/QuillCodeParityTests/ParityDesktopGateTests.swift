@@ -14,6 +14,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         let menuIconText = try Self.desktopSourceText(named: "QuillCodeMenuBarIcon.swift")
         Self.assertSource(menuIconText, contains: "QuillCodeMenuBarTemplate")
         Self.assertSource(menuIconText, contains: "isTemplate = true")
+        Self.assertSource(menuIconText, contains: "static let image")
 
         for label in [
             "New Chat",

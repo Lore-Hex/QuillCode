@@ -11,13 +11,14 @@ struct QuillCodeDesktopInstallationLocationView: View {
                 .padding(.top, 18)
                 .padding(.bottom, 14)
 
-            Divider().opacity(0.55)
+            Divider()
+                .overlay(QuillCodeCharterTheme.line)
 
             VStack(spacing: 18) {
                 Image(systemName: "arrow.down.app.fill")
                     .font(.system(size: 42, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(QuillCodeCharterTheme.sage)
 
                 VStack(spacing: 7) {
                     Text("Move Quill Cowork to Applications")
@@ -25,7 +26,7 @@ struct QuillCodeDesktopInstallationLocationView: View {
                         .multilineTextAlignment(.center)
                     Text("Install the app in Applications for reliable updates and relaunches.")
                         .font(.callout)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QuillCodeCharterTheme.body)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -33,7 +34,8 @@ struct QuillCodeDesktopInstallationLocationView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.horizontal, 28)
 
-            Divider().opacity(0.55)
+            Divider()
+                .overlay(QuillCodeCharterTheme.line)
 
             HStack(spacing: 12) {
                 Button("Not Now", action: controller.dismiss)
@@ -52,7 +54,9 @@ struct QuillCodeDesktopInstallationLocationView: View {
             .padding(.vertical, 12)
         }
         .frame(width: 470, height: 320)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(QuillCodeCharterTheme.page)
+        .foregroundStyle(QuillCodeCharterTheme.ivory)
+        .tint(QuillCodeCharterTheme.sage)
     }
 
     private var header: some View {
@@ -60,15 +64,30 @@ struct QuillCodeDesktopInstallationLocationView: View {
             Image(systemName: "app.badge.checkmark")
                 .font(.system(size: 28, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(QuillCodeCharterTheme.sage)
             Text("Finish Installing Quill Cowork")
-                .font(.title3.weight(.semibold))
+                .font(.custom("Iowan Old Style", size: 20).weight(.semibold))
                 .accessibilityIdentifier("quillcode-install-location-title")
             Spacer()
             Button(action: controller.dismiss) {
                 Image(systemName: "xmark")
                     .font(.caption.weight(.bold))
-                    .quillCodeIconButtonTarget(size: 36, radius: 9)
+                    .foregroundStyle(QuillCodeCharterTheme.muted)
+                    .quillCodeIconButtonTarget(size: 36, radius: QuillCodeMetrics.iconControlRadius)
+                    .background(QuillCodeCharterTheme.raised)
+                    .overlay(
+                        RoundedRectangle(
+                            cornerRadius: QuillCodeMetrics.iconControlRadius,
+                            style: .continuous
+                        )
+                        .stroke(QuillCodeCharterTheme.line, lineWidth: 1)
+                    )
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: QuillCodeMetrics.iconControlRadius,
+                            style: .continuous
+                        )
+                    )
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .help("Close")

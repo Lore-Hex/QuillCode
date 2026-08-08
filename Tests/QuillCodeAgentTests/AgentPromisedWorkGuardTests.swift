@@ -45,6 +45,29 @@ final class AgentPromisedWorkGuardTests: XCTestCase {
         ))
     }
 
+    func testNegativeClauseDoesNotHideLaterPositiveWorkPromise() {
+        let liveTask311Stall = """
+        Understood. Continuing task 311 from the existing outputs. I will not retry the blocked
+        browser and will not claim LinkedIn verification is complete. I will complete all independent
+        public-web research and every deliverable, then read back each artifact to verify it.
+        """
+
+        XCTAssertEqual(
+            AgentPromisedWorkGuard.correctionNeeded(
+                for: liveTask311Stall,
+                tools: [.fileRead, .fileWrite, .webSearch]
+            ),
+            .promisedWork
+        )
+    }
+
+    func testNegativePromiseStillDoesNotRequestCorrection() {
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "I will not retry the blocked browser or claim the unavailable verification.",
+            tools: [.webSearch]
+        ))
+    }
+
     func testDoesNotRequestCorrectionWithoutTools() {
         XCTAssertFalse(AgentPromisedWorkGuard.shouldRequestCorrection(
             for: "I'll run the command now.",
@@ -255,6 +278,28 @@ extension AgentPromisedWorkGuardTests {
                 "readiness declaration should re-drive: \(text)"
             )
         }
+    }
+
+    func testDetectsTerminalPresentProgressWorkNarration() {
+        let stalls = [
+            "I need to read the two source files before writing. Reading inputs/context.md and inputs/data.csv now.",
+            "I'm running the tests now.",
+            "I am writing the requested report right now.",
+        ]
+        for text in stalls {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.fileRead, .fileWrite]),
+                .promisedWork,
+                "present-progress narration should re-drive: \(text)"
+            )
+        }
+    }
+
+    func testPresentProgressObservationIsNotAPromise() {
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "Reading the report now shows three conversion gaps.",
+            tools: [.fileRead]
+        ))
     }
 
     func testCompletedResultReadyIsNotAReadinessStall() {

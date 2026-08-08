@@ -135,6 +135,7 @@ enum AgentPromisedWorkGuard {
 
         return containsFutureWorkPhrase(in: normalized)
             || declaresReadinessToProceed(in: normalized)
+            || declaresImmediateWorkInProgress(in: normalized)
     }
 
     /// A say that ENDS the turn by announcing the model is ABOUT to work rather than working — the
@@ -167,6 +168,35 @@ enum AgentPromisedWorkGuard {
         "will now execute",
         "proceeding to run",
         "proceeding to execute"
+    ]
+
+    /// A terminal present-progress narration is the same stall as a future-tense promise when it
+    /// says the work is happening "now" but emits no tool action. Keep this deliberately narrow:
+    /// the clause must start with a concrete work gerund and end on the token "now", so completed
+    /// observations such as "Reading the report now shows three gaps" remain valid final answers.
+    private static func declaresImmediateWorkInProgress(in normalizedText: String) -> Bool {
+        let terminalClause = normalizedText
+            .replacingOccurrences(
+                of: #"[.!?]\s+"#,
+                with: "\n",
+                options: .regularExpression
+            )
+            .split(whereSeparator: \.isNewline)
+            .last?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let words = terminalClause.split(whereSeparator: { !$0.isLetter && $0 != "'" })
+        guard words.last.map(String.init) == "now" else { return false }
+        return immediateWorkGerunds.contains { gerund in
+            terminalClause.hasPrefix("\(gerund) ")
+                || terminalClause.hasPrefix("i'm \(gerund) ")
+                || terminalClause.hasPrefix("i am \(gerund) ")
+        }
+    }
+
+    private static let immediateWorkGerunds = [
+        "reading", "writing", "creating", "opening", "inspecting", "checking", "reviewing",
+        "running", "fetching", "searching", "updating", "editing", "building", "testing",
+        "starting", "continuing",
     ]
 
     // MARK: - Trailing-off narration (structural, no first-person phrase required)
@@ -231,7 +261,7 @@ enum AgentPromisedWorkGuard {
     }
 
     private static func canContainActionablePromise(_ text: String) -> Bool {
-        !asksForPermission(text) && !containsNegativePromise(text)
+        !asksForPermission(text)
     }
 
     private static func asksForPermission(_ text: String) -> Bool {
@@ -241,17 +271,6 @@ enum AgentPromisedWorkGuard {
             "should i ",
             "can i ",
             "may i "
-        ])
-    }
-
-    private static func containsNegativePromise(_ text: String) -> Bool {
-        containsAnyPhrase(in: text, phrases: [
-            "i will not",
-            "i won't",
-            "i cannot",
-            "i can't",
-            "i do not",
-            "i don't"
         ])
     }
 
@@ -276,7 +295,19 @@ enum AgentPromisedWorkGuard {
             ranges(of: starter, in: text)
         }.filter { range in
             !isLetMeKnowCourtesy(text, after: range)
+                && !isNegativePromise(text, after: range)
         }
+    }
+
+    /// Negation belongs to one promise clause, not the whole response. A status update can
+    /// legitimately say "I will not retry the blocked browser" and then stall on "I will complete
+    /// the research". Filtering the first starter locally preserves the refusal while allowing the
+    /// later executable promise to be re-driven.
+    private static func isNegativePromise(_ text: String, after range: Range<String.Index>) -> Bool {
+        let remainder = trimmedText(after: range, in: text)
+        return remainder == "not"
+            || remainder.hasPrefix("not ")
+            || remainder.hasPrefix("not\n")
     }
 
     private static func isLetMeKnowCourtesy(_ text: String, after range: Range<String.Index>) -> Bool {
@@ -319,11 +350,11 @@ enum AgentPromisedWorkGuard {
 
     private static let workVerbs: Set<String> = [
         "add", "analyze", "apply", "archive", "build", "chart", "check", "clean",
-        "commit", "condense", "convert", "create", "dedupe", "delete", "download",
-        "draft", "edit", "execute", "extract", "fetch", "fix", "flag", "highlight",
-        "inspect", "install", "inventory", "list", "maintain", "mark", "merge",
-        "normalize", "open", "pull", "push", "read", "review", "run", "save",
-        "search", "standardize", "summarize", "sync", "test", "triage", "update",
-        "write"
+        "commit", "complete", "condense", "conduct", "convert", "create", "dedupe",
+        "delete", "document", "download", "draft", "edit", "execute", "extract", "fetch",
+        "finish", "fix", "flag", "highlight", "inspect", "install", "inventory",
+        "investigate", "list", "maintain", "mark", "merge", "normalize", "open", "pull",
+        "push", "read", "research", "review", "run", "save", "search", "standardize",
+        "summarize", "sync", "test", "triage", "update", "validate", "verify", "write"
     ]
 }

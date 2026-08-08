@@ -17,10 +17,11 @@ final class ParityWorkspaceComposerSurfaceGateTests: QuillCodeParityTestCase {
             "QuillCodeModePickerButton",
             "composerSurface",
             "composerAccessoryBar",
-            "composerSurfaceStroke"
+            "composerSurfaceStroke",
+            "spacing: QuillCodeMetrics.minimumTargetClearance + 1"
         ].forEach { Self.assertSource(composerViewText, contains: $0) }
 
-        Self.assertSource(designText, contains: "composerSurfaceRadius: CGFloat = 12")
+        Self.assertSource(designText, contains: "composerSurfaceRadius: CGFloat = 4")
 
         [
             "Choose Auto safety mode",

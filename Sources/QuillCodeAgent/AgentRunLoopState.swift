@@ -16,6 +16,48 @@ struct AgentRunLoopState: Sendable {
     private(set) var groundedURLs: Set<String> = []
     private(set) var didFetchSuccessfully = false
     private(set) var writtenWorkspacePaths: Set<String> = []
+    /// A successful write remains here until a LATER successful read of the same path. Rewrites
+    /// re-arm verification, preventing an early read from blessing a subsequently changed file.
+    private(set) var unverifiedWrittenWorkspacePaths: Set<String> = []
+    /// Workspace files successfully read this run. Empty-response recovery uses this to advance
+    /// only the finite set of source reads the user explicitly requested and has not completed.
+    private(set) var successfullyReadWorkspacePaths: Set<String> = []
+    /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
+    /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
+    private(set) var malformedWrittenTextPaths: Set<String> = []
+    /// Latest malformed content by normalized path. Retained across readback so the runner can
+    /// deterministically decode visible formatting escapes after one ignored rewrite request.
+    private(set) var malformedWrittenTextContents: [String: String] = [:]
+    /// Named prose artifacts whose latest successful write contains bracketed fill-in tokens.
+    /// Enforcement is armed only when the user explicitly requests a placeholder-free artifact.
+    private(set) var placeholderWrittenTextPaths: Set<String> = []
+    /// Latest invalid content by normalized path. Retained across readback so the runner can make
+    /// a deterministic blank-field repair if the model ignores its one natural-rewrite request.
+    private(set) var placeholderWrittenTextContents: [String: String] = [:]
+    /// Named prose artifacts whose latest write declares a count that conflicts with an adjacent
+    /// list of source record IDs.
+    private(set) var contradictoryCountWrittenTextPaths: Set<String> = []
+    /// Latest contradictory content by normalized path, retained for a bounded deterministic fix.
+    private(set) var contradictoryCountWrittenTextContents: [String: String] = [:]
+    /// Markdown artifacts whose latest write leaves a heading without substantive section content.
+    private(set) var incompleteMarkdownWrittenTextPaths: Set<String> = []
+    /// Latest incomplete Markdown by normalized path, retained for a bounded heading removal.
+    private(set) var incompleteMarkdownWrittenTextContents: [String: String] = [:]
+    /// Latest successful text write by normalized path. Source-audit verification compares the
+    /// audited rewrite with this snapshot so formatting-only writes do not trigger another model
+    /// pass.
+    private(set) var latestWrittenTextContents: [String: String] = [:]
+    /// Explicitly source-only runs retain the user's request plus successful reads of source files.
+    /// Latest writes are checked only for a narrow set of high-risk assertions that can be safely
+    /// compared mechanically with that corpus.
+    private var enforcesSourceOnlyGrounding = false
+    private(set) var sourceGroundingText = ""
+    /// Successful tabular source reads retain their path so aggregate artifact rows can be checked
+    /// against the exact records rather than flattened prose context.
+    private(set) var sourceReadsByPath: [String: String] = [:]
+    private(set) var tabularSourceIssuesByPath: [String: [String]] = [:]
+    private(set) var unsupportedSourceClaimWrittenTextPaths: Set<String> = []
+    private(set) var unsupportedSourceClaimWrittenTextContents: [String: String] = [:]
 
     /// Call signatures that have already received the repeat SOFT WARNING (Cline learning #2).
     /// One nudge per distinct call; a further repeat of the same call finalizes as before, so the
@@ -57,6 +99,7 @@ struct AgentRunLoopState: Sendable {
         toolResults.append(contentsOf: completion.toolResults)
         lastExecutedCall = completion.call
         lastCompletion = completion
+        recordArtifactVerification(completion)
         recordCitationProvenance(completion)
 
         let workspaceState = stateSignature(workspaceRoot)
@@ -75,6 +118,131 @@ struct AgentRunLoopState: Sendable {
         ))
     }
 
+    private mutating func recordArtifactVerification(_ completion: AgentToolStepCompletion) {
+        guard completion.result.ok,
+              let path = AgentArtifactVerificationGate.pathArgument(from: completion.call)
+        else { return }
+        let normalized = AgentArtifactVerificationGate.normalizedPath(path)
+        switch completion.call.name {
+        case ToolDefinition.fileWrite.name:
+            unverifiedWrittenWorkspacePaths.insert(normalized)
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content") {
+                latestWrittenTextContents[normalized] = content
+            }
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               AgentArtifactTextQualityGate.containsMalformedLiteralEscape(
+                content: content,
+                path: normalized
+               ) {
+                malformedWrittenTextPaths.insert(normalized)
+                malformedWrittenTextContents[normalized] = content
+            } else {
+                malformedWrittenTextPaths.remove(normalized)
+                malformedWrittenTextContents.removeValue(forKey: normalized)
+            }
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               AgentArtifactTextQualityGate.containsBracketedPlaceholder(
+                content: content,
+                path: normalized
+               ) {
+                placeholderWrittenTextPaths.insert(normalized)
+                placeholderWrittenTextContents[normalized] = content
+            } else {
+                placeholderWrittenTextPaths.remove(normalized)
+                placeholderWrittenTextContents.removeValue(forKey: normalized)
+            }
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               AgentArtifactTextQualityGate.containsContradictoryEnumeratedCount(
+                content: content,
+                path: normalized
+               ) {
+                contradictoryCountWrittenTextPaths.insert(normalized)
+                contradictoryCountWrittenTextContents[normalized] = content
+            } else {
+                contradictoryCountWrittenTextPaths.remove(normalized)
+                contradictoryCountWrittenTextContents.removeValue(forKey: normalized)
+            }
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               !AgentArtifactTextQualityGate.emptyMarkdownSectionTitles(
+                content: content,
+                path: normalized
+               ).isEmpty {
+                incompleteMarkdownWrittenTextPaths.insert(normalized)
+                incompleteMarkdownWrittenTextContents[normalized] = content
+            } else {
+                incompleteMarkdownWrittenTextPaths.remove(normalized)
+                incompleteMarkdownWrittenTextContents.removeValue(forKey: normalized)
+            }
+            if enforcesSourceOnlyGrounding,
+               let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               AgentSourceGroundingGate.containsUnsupportedSensitiveClaim(
+                content: content,
+                path: normalized,
+                sourceText: sourceGroundingText
+               ) {
+                unsupportedSourceClaimWrittenTextPaths.insert(normalized)
+                unsupportedSourceClaimWrittenTextContents[normalized] = content
+            } else {
+                unsupportedSourceClaimWrittenTextPaths.remove(normalized)
+                unsupportedSourceClaimWrittenTextContents.removeValue(forKey: normalized)
+            }
+            if enforcesSourceOnlyGrounding,
+               let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content") {
+                let issues = AgentTabularSourceGroundingGate.issues(
+                    content: content,
+                    path: normalized,
+                    sourceReadsByPath: sourceReadsByPath
+                )
+                if issues.isEmpty {
+                    tabularSourceIssuesByPath.removeValue(forKey: normalized)
+                } else {
+                    tabularSourceIssuesByPath[normalized] = issues
+                }
+            } else {
+                tabularSourceIssuesByPath.removeValue(forKey: normalized)
+            }
+        case ToolDefinition.fileRead.name:
+            successfullyReadWorkspacePaths.insert(normalized)
+            unverifiedWrittenWorkspacePaths = Set(unverifiedWrittenWorkspacePaths.filter {
+                !AgentArtifactVerificationGate.pathsMatch($0, normalized)
+            })
+            if enforcesSourceOnlyGrounding,
+               !writtenWorkspacePaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, normalized)
+               }) {
+                sourceGroundingText += "\n" + completion.result.stdout
+                sourceReadsByPath[normalized] = completion.result.stdout
+                for (writtenPath, content) in latestWrittenTextContents {
+                    let issues = AgentTabularSourceGroundingGate.issues(
+                        content: content,
+                        path: writtenPath,
+                        sourceReadsByPath: sourceReadsByPath
+                    )
+                    if issues.isEmpty {
+                        tabularSourceIssuesByPath.removeValue(forKey: writtenPath)
+                    } else {
+                        tabularSourceIssuesByPath[writtenPath] = issues
+                    }
+                }
+            }
+        default:
+            break
+        }
+    }
+
+    func latestWrittenTextContent(for path: String) -> String? {
+        latestWrittenTextContents.first(where: {
+            AgentArtifactVerificationGate.pathsMatch($0.key, path)
+        })?.value
+    }
+
     /// Seeds the grounded set from context that predates this run's tool steps: the user's
     /// request and the thread's prior messages. Called once by the runner before the loop.
     mutating func seedCitationProvenance(userMessage: String, thread: ChatThread) {
@@ -86,6 +254,15 @@ struct AgentRunLoopState: Sendable {
                 groundedURLs.insert(AgentCitationIntegrityGate.normalize(url))
             }
         }
+    }
+
+    mutating func seedSourceGrounding(userMessage: String) {
+        enforcesSourceOnlyGrounding = AgentSourceGroundingGate.requestsSourceOnlyGrounding(
+            in: userMessage
+        )
+        sourceGroundingText = enforcesSourceOnlyGrounding ? userMessage : ""
+        sourceReadsByPath = [:]
+        tabularSourceIssuesByPath = [:]
     }
 
     private mutating func recordCitationProvenance(_ completion: AgentToolStepCompletion) {
@@ -135,17 +312,10 @@ struct AgentRunLoopState: Sendable {
               let arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let path = arguments["path"] as? String
         else { return false }
-        let read = normalizedPath(path)
+        let read = AgentArtifactVerificationGate.normalizedPath(path)
         return writtenWorkspacePaths.contains { written in
-            let candidate = normalizedPath(written)
-            return candidate == read
-                || candidate.hasSuffix("/" + read)
-                || read.hasSuffix("/" + candidate)
+            AgentArtifactVerificationGate.pathsMatch(written, read)
         }
-    }
-
-    private func normalizedPath(_ path: String) -> String {
-        path.hasPrefix("./") ? String(path.dropFirst(2)) : path
     }
 
     /// True the FIRST time a given call repeats: the caller should nudge the model instead of

@@ -91,6 +91,23 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(thinking?.subtitle, "Streaming model response")
     }
 
+    func testThinkingSurfaceBoundsLongReasoningSubtitleToLatestLine() {
+        let trailingLine = String(repeating: "reasoning ", count: 30) + "complete"
+        let thread = ChatThread(events: [
+            ThreadEvent(kind: .notice, summary: "Thinking: earlier context\n\(trailingLine)")
+        ])
+
+        let thinking = WorkspaceTranscriptThinkingSurfaceBuilder(
+            thread: thread,
+            composer: ComposerState(isSending: true),
+            agentStatus: TopBarAgentStatusLabel.running
+        ).surface()
+
+        XCTAssertEqual(thinking?.subtitle.count, 180)
+        XCTAssertTrue(thinking?.subtitle.hasPrefix("...") == true)
+        XCTAssertTrue(thinking?.subtitle.hasSuffix("complete") == true)
+    }
+
     func testMessageSurfacesHideInternalMessagesAndIgnoreObsoleteFeedbackEvents() throws {
         let user = ChatMessage(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
@@ -591,6 +608,24 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
                 inputJSON: ToolArguments.json(["cmd": "whoami"])
             ),
             "Completed"
+        )
+    }
+
+    func testToolCardSubtitleBuilderSeparatesVisibleDetailFromLifecycleState() {
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.visibleDetail(from: "Completed · hello.txt"),
+            "hello.txt"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.visibleDetail(
+                from: "Blocked · rm -rf / · Auto mode blocks high-risk commands."
+            ),
+            "rm -rf / · Auto mode blocks high-risk commands."
+        )
+        XCTAssertNil(WorkspaceToolCardSubtitleBuilder.visibleDetail(from: "Running"))
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.visibleDetail(from: "Installing dependencies"),
+            "Installing dependencies"
         )
     }
 }

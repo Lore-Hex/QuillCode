@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .json_io import load_report, require
+from .live_saas import CATALOG_SPREADSHEET_URL
 
 BROWSER_WORKFLOW_EXPECTATIONS = {
     "browserWorkflowSmoke": {
@@ -126,6 +127,27 @@ def write_browser_workflow_manifest(
 
     manifest: dict[str, Any] = {
         "ok": True,
+        "saasAnalogueValidated": True,
+        "catalogSpreadsheetURL": CATALOG_SPREADSHEET_URL,
+        "catalogTaskIDs": [199, 200],
+        "usesSyntheticData": True,
+        "externalSaaSValidated": False,
+        "analogueScenarios": [
+            {
+                "taskID": 199,
+                "scenario": "CRM stale-opportunity stage and follow-up update",
+                "workflowKey": "browserWorkflowSmoke",
+            },
+            {
+                "taskID": 200,
+                "scenario": "Shared pipeline-sheet cleanup and date update",
+                "workflowKey": "browserSpreadsheetWorkflowSmoke",
+            },
+        ],
+        "limitations": [
+            "Uses synthetic local records instead of a third-party account.",
+            "Does not validate external authentication, permissions, rate limits, or vendor API drift.",
+        ],
         "directReport": "direct-executable/report.json",
         "launchServicesReport": "launch-services/report.json",
         "launchServicesMatchesDirect": True,

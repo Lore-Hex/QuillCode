@@ -2,18 +2,21 @@ import QuillCodeCore
 
 enum WorkspaceActivityEventSurfaceBuilder {
     static func recentSteps(for thread: ChatThread) -> [ActivityItemSurface] {
-        thread.events
-            .filter { $0.kind != .messageFeedback }
-            .suffix(8)
-            .map { event in
-                ActivityItemSurface(
-                    id: event.id.uuidString,
-                    title: eventKindLabel(event.kind),
-                    detail: WorkspaceActivityText.boundedLine(event.summary, limit: 140),
-                    kind: event.kind.rawValue,
-                    statusLabel: eventStatusLabel(event.kind)
-                )
-            }
+        var recentEvents: [ThreadEvent] = []
+        recentEvents.reserveCapacity(8)
+        for event in thread.events.reversed() where event.kind != .messageFeedback {
+            recentEvents.append(event)
+            if recentEvents.count == 8 { break }
+        }
+        return recentEvents.reversed().map { event in
+            ActivityItemSurface(
+                id: event.id.uuidString,
+                title: eventKindLabel(event.kind),
+                detail: WorkspaceActivityText.boundedLine(event.summary, limit: 140),
+                kind: event.kind.rawValue,
+                statusLabel: eventStatusLabel(event.kind)
+            )
+        }
     }
 
     private static func eventKindLabel(_ kind: ThreadEventKind) -> String {

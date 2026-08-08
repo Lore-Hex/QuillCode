@@ -15,11 +15,26 @@ public struct AgentRunner: Sendable {
     /// spiral streamed thinking for 25 minutes without ever acting. Overrun → bounded corrective
     /// re-prompt, not a dead run.
     public static let defaultTurnDeadlineSeconds: TimeInterval = 300
+    /// Character budget for streamed reasoning before the model starts an action. This catches a
+    /// steady reasoner spiral much earlier than the wall-clock deadline while preserving normal
+    /// reasoning and every stream that has begun producing action JSON.
+    public static let defaultPreActionReasoningCharacterLimit = 12_000
+    /// Wider per-turn budget while the model is synthesizing from tool results but has not yet
+    /// produced a workspace mutation. Large grounded deliverables need more room than startup
+    /// routing; the bound still prevents an inter-action reasoner spiral.
+    public static let defaultInterActionReasoningCharacterLimit = 16_000
+    /// Corrective samples must converge faster than the sample they replace; otherwise recovery
+    /// can consume the remaining turn deadline by repeating the same reasoning spiral.
+    public static let correctiveActionReasoningCharacterLimit = 2_000
     static let promisedWorkCorrectionLimit = 2
     /// Bounded recovery for a malformed model action (garbage/mojibake tokens) or a mid-stream
     /// transport reset: re-prompt/re-request up to this many times before the failure is terminal.
     /// One bad sample must not kill an unattended run ([F5/F6] coworker-program findings).
     static let malformedActionCorrectionLimit = 2
+    /// Empty streams are transport failures, not malformed model actions. Give the selected route
+    /// a separate bounded recovery budget so transient zero-token responses cannot consume the
+    /// semantic correction budget or kill an unattended turn during a brief route outage.
+    static let emptyResponseRetryLimit = 6
 
     public var llm: LLMClient
     public var safety: SafetyReviewer
@@ -84,6 +99,13 @@ public struct AgentRunner: Sendable {
     /// action" correction (F20: a reasoner can stream thinking tokens indefinitely without ever
     /// acting; no terminal say means the phrase guards never see it). nil disables the deadline.
     public var turnDeadlineSeconds: TimeInterval?
+    /// Maximum streamed reasoning characters at run startup and after a successful workspace
+    /// mutation, when the next action should be a bounded verification or final answer. nil
+    /// disables the tight-phase guard.
+    public var preActionReasoningCharacterLimit: Int?
+    /// Maximum streamed reasoning characters between source-gathering actions and the run's first
+    /// successful workspace mutation. nil disables the synthesis-phase guard.
+    public var interActionReasoningCharacterLimit: Int?
     /// Last-resort model for a step the primary cannot produce at all (F22): when the primary
     /// exhausts the empty-response correction budget — a route-quality failure observed at ~1-in-6
     /// runs on one provider while an alternate model completed the same step first try — the
@@ -91,6 +113,10 @@ public struct AgentRunner: Sendable {
     /// tool work is preserved (same thread); the switch is recorded as a Self-healing notice.
     /// nil (the default) keeps today's behavior: exhaustion is terminal.
     public var fallbackLLM: LLMClient?
+    /// Pauses between clean-but-empty model streams. Immediate resampling can hit the same brief
+    /// provider outage three times in a few seconds; the production default uses cancellation-aware
+    /// system sleep, while tests can inject a deterministic sleeper.
+    public var emptyResponseRetrySleeper: any RetrySleeper
 
     public init(
         llm: LLMClient = MockLLMClient(),
@@ -117,7 +143,10 @@ public struct AgentRunner: Sendable {
         lsp: LSPCoordinator? = nil,
         runSpendFusePolicy: RunSpendFusePolicy? = nil,
         turnDeadlineSeconds: TimeInterval? = AgentRunner.defaultTurnDeadlineSeconds,
-        fallbackLLM: LLMClient? = nil
+        preActionReasoningCharacterLimit: Int? = AgentRunner.defaultPreActionReasoningCharacterLimit,
+        interActionReasoningCharacterLimit: Int? = AgentRunner.defaultInterActionReasoningCharacterLimit,
+        fallbackLLM: LLMClient? = nil,
+        emptyResponseRetrySleeper: any RetrySleeper = SystemRetrySleeper()
     ) {
         self.llm = llm
         self.safety = safety
@@ -143,7 +172,10 @@ public struct AgentRunner: Sendable {
         self.lsp = lsp
         self.runSpendFusePolicy = runSpendFusePolicy
         self.turnDeadlineSeconds = turnDeadlineSeconds
+        self.preActionReasoningCharacterLimit = preActionReasoningCharacterLimit
+        self.interActionReasoningCharacterLimit = interActionReasoningCharacterLimit
         self.fallbackLLM = fallbackLLM
+        self.emptyResponseRetrySleeper = emptyResponseRetrySleeper
     }
 
     public func send(
@@ -170,26 +202,192 @@ public struct AgentRunner: Sendable {
                 Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
             )
             var runLoop = AgentRunLoopState()
+            var hasEmittedModelAction = false
+            var hasCompletedWorkspaceMutation = false
             /// One-shot corrective for the next sample only (Cline learning #2 repeat nudge).
             var pendingRepeatNudge: String?
+            /// A premature read of a task-named output is redirected once per path. A repeated
+            /// attempt is allowed to execute normally so this guard can never create a loop.
+            var preWriteVerificationNudgedPaths = Set<String>()
+            /// Unsafe shell paths get one preflight correction per exact call. A repeated proposal
+            /// still reaches the approval gate, preserving its authority and bounded termination.
+            var preflightCorrectedShellCalls = Set<ToolCallFingerprint>()
+            /// A successful read/fetch may be followed by an exhausted empty or passive model turn.
+            /// Give each failure class one run-level continuation; the action resolver still owns
+            /// its own bounded retries, so provider instability cannot create an unbounded loop.
+            var recoveredExhaustedEmptyAfterTool = false
+            var recoveredExhaustedPromisedWorkAfterTool = false
+            /// Listing a not-yet-created output directory is predictably unsuccessful. Correct each
+            /// exact proposal once, then allow a repeat through so this preflight stays bounded.
+            var preflightCorrectedMissingListCalls = Set<ToolCallFingerprint>()
+            /// Source paths and data labels are not commands. Redirect each exact model proposal
+            /// once after tool work has begun; a repeated proposal still reaches the shell.
+            var preflightCorrectedInvalidShellCalls = Set<ToolCallFingerprint>()
+            /// Codex-envelope patches are not reversible by the git-diff patch engine. Redirect
+            /// each exact proposal once before it becomes a failed tool event.
+            var preflightCorrectedInvalidPatchCalls = Set<ToolCallFingerprint>()
+            /// A malformed named prose artifact receives one corrective rewrite request per path.
+            var artifactTextQualityNudgedPaths = Set<String>()
+            /// If the model ignores that request, one deterministic escape-decoding repair is
+            /// allowed per path. The resulting write re-arms the normal readback gate.
+            var artifactTextQualityRepairedPaths = Set<String>()
+            /// An explicitly placeholder-free named artifact receives one corrective rewrite per path.
+            var artifactPlaceholderNudgedPaths = Set<String>()
+            /// If the model ignores that rewrite request, one deterministic blank-field repair is
+            /// allowed per path. The resulting write re-arms the normal readback gate.
+            var artifactPlaceholderRepairedPaths = Set<String>()
+            /// A named text artifact with a contradictory enumerated count receives one semantic
+            /// rewrite request, followed by at most one deterministic numeral correction.
+            var artifactCountConsistencyNudgedPaths = Set<String>()
+            var artifactCountConsistencyRepairedPaths = Set<String>()
+            /// Markdown sections receive one semantic completion pass, followed by at most one
+            /// deterministic removal of headings that remain empty.
+            var artifactCompletenessNudgedPaths = Set<String>()
+            var artifactCompletenessRepairedPaths = Set<String>()
+            /// Aggregate rows with explicit source IDs receive at most two exact reconciliation
+            /// passes before the broader semantic source audit takes over.
+            var tabularSourceAuditCounts: [String: Int] = [:]
+            /// Explicitly source-only named artifacts receive one post-draft semantic audit. After
+            /// that bounded model pass, deterministic gates own repair, readback, and finalization.
+            var sourceGroundingAuditCounts: [String: Int] = [:]
+            var pendingSourceGroundingAuditPath: String?
+            var sourceGroundingRepairedPaths = Set<String>()
+            /// A completed semantic audit or deterministic source repair owns finalization. Keeping
+            /// this action across the forced readback prevents a fresh model turn from restoring or
+            /// contradicting the grounded artifact.
+            var controlledSourceGroundingFinalization: AgentAction?
+            var pendingSourceGroundingRepairPath: String?
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)
+            runLoop.seedSourceGrounding(userMessage: userMessage)
             var autoReviewCircuit = AutoReviewCircuitBreaker()
             let limit = max(1, maxToolSteps)
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
 
-            for _ in 0..<limit {
+            actionLoop: for _ in 0..<limit {
                 let repeatNudge = pendingRepeatNudge
                 pendingRepeatNudge = nil
-                let action = try await nextActionCompactingOnOverflow(
-                    thread: &next,
-                    userMessage: userMessage,
-                    tools: tools,
-                    workspaceRoot: workspaceRoot,
-                    onProgress: onProgress,
-                    injectedCorrection: repeatNudge
-                )
+                let reasoningBudgetPhase: AgentReasoningBudgetPhase = if !hasEmittedModelAction {
+                    .startup
+                } else if hasCompletedWorkspaceMutation {
+                    .checkpoint
+                } else {
+                    .synthesis
+                }
+                let action: AgentAction
+                if let controlledSourceGroundingFinalization {
+                    action = controlledSourceGroundingFinalization
+                } else {
+                    do {
+                        action = try await nextActionCompactingOnOverflow(
+                            thread: &next,
+                            userMessage: userMessage,
+                            tools: tools,
+                            workspaceRoot: workspaceRoot,
+                            onProgress: onProgress,
+                            injectedCorrection: repeatNudge,
+                            reasoningBudgetPhase: reasoningBudgetPhase,
+                            emptyResponseRetryPolicy: runLoop.latestCompletion?.result.ok == true
+                                ? .afterSuccessfulTool
+                                : .standard
+                        )
+                    } catch AgentError.emptyStreamingResponse {
+                        try Task.checkCancellation()
+                        guard let completion = runLoop.latestCompletion,
+                              completion.result.ok
+                        else { throw AgentError.emptyStreamingResponse }
+                        if let recoveredRead = AgentExplicitSourceReadRecovery.nextAction(
+                            userMessage: userMessage,
+                            workspaceRoot: workspaceRoot,
+                            tools: tools,
+                            successfullyReadPaths: runLoop.successfullyReadWorkspacePaths
+                        ) {
+                            action = recoveredRead
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: advanced an explicit requested source read "
+                                    + "after repeated empty model responses."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        } else if hasCompletedWorkspaceMutation {
+                            action = .say(Self.finalAnswer(
+                                for: completion.call,
+                                result: completion.result,
+                                followUpReviewResult: completion.followUpReviewResult
+                            ))
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: the model returned no final action after "
+                                    + "completing workspace work; finalized from the latest "
+                                    + "successful tool result."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        } else if !recoveredExhaustedEmptyAfterTool {
+                            recoveredExhaustedEmptyAfterTool = true
+                            pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
+                                after: completion.call,
+                                failure: "an empty response"
+                            )
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: the model returned no action after successful "
+                                    + "source work; requested the next concrete step once."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
+                        } else {
+                            throw AgentError.emptyStreamingResponse
+                        }
+                    } catch TrustedRouterAgentError.invalidActionJSON(let malformedText) {
+                        try Task.checkCancellation()
+                        guard hasCompletedWorkspaceMutation,
+                              let completion = runLoop.latestCompletion,
+                              completion.result.ok
+                        else { throw TrustedRouterAgentError.invalidActionJSON(malformedText) }
+                        // Treat malformed terminal text after a successful mutation like the existing
+                        // empty-final-action recovery. The synthesized say still passes every named
+                        // deliverable, citation, word-budget, and artifact-readback gate below.
+                        action = .say(Self.finalAnswer(
+                            for: completion.call,
+                            result: completion.result,
+                            followUpReviewResult: completion.followUpReviewResult
+                        ))
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: the model returned malformed terminal output after "
+                                + "workspace work; continued through completion verification."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    } catch TrustedRouterAgentError.emptyToolArguments(let toolName) {
+                        try Task.checkCancellation()
+                        guard toolName == ToolDefinition.fileRead.name,
+                              hasCompletedWorkspaceMutation,
+                              let completion = runLoop.latestCompletion,
+                              completion.result.ok
+                        else { throw TrustedRouterAgentError.emptyToolArguments(toolName) }
+                        // The resolver already exhausted bounded schema corrections. Converting only
+                        // an empty read after a successful mutation into a candidate final answer lets
+                        // the artifact-verification gate below supply the exact required readback path.
+                        action = .say(Self.finalAnswer(
+                            for: completion.call,
+                            result: completion.result,
+                            followUpReviewResult: completion.followUpReviewResult
+                        ))
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: completed a required artifact readback after the "
+                                + "model repeatedly omitted the file path."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    }
+                }
+                hasEmittedModelAction = true
                 if let paused = await pauseIfSpendFuseRequiresApproval(
                     thread: &next,
                     onProgress: onProgress
@@ -201,12 +399,237 @@ public struct AgentRunner: Sendable {
                         pendingApproval: paused.pendingApproval
                     )
                 }
-                var resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
-                    action,
-                    thread: next,
+                var resolvedAction: AgentAction
+                do {
+                    resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
+                        action,
+                        thread: next,
+                        userMessage: userMessage,
+                        tools: tools
+                    )
+                } catch AgentError.promisedWorkWithoutToolAction {
+                    try Task.checkCancellation()
+                    guard let completion = runLoop.latestCompletion,
+                          completion.result.ok
+                    else { throw AgentError.promisedWorkWithoutToolAction }
+                    if let recoveredRead = AgentExplicitSourceReadRecovery.nextAction(
+                        userMessage: userMessage,
+                        workspaceRoot: workspaceRoot,
+                        tools: tools,
+                        successfullyReadPaths: runLoop.successfullyReadWorkspacePaths
+                    ) {
+                        resolvedAction = recoveredRead
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: advanced an explicit requested source read "
+                                + "after repeated passive model responses."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    } else {
+                        guard !recoveredExhaustedPromisedWorkAfterTool
+                        else { throw AgentError.promisedWorkWithoutToolAction }
+                        recoveredExhaustedPromisedWorkAfterTool = true
+                        pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
+                            after: completion.call,
+                            failure: "a passive promise instead of a tool action"
+                        )
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: the model stopped at a promise after successful "
+                                + "tool work; requested the next concrete step once."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                }
+                if case .say = resolvedAction,
+                   let correction = AgentArtifactTextQualityGate.correction(
                     userMessage: userMessage,
-                    tools: tools
-                )
+                    malformedPaths: runLoop.malformedWrittenTextPaths
+                   ) {
+                    if artifactTextQualityNudgedPaths.insert(correction.path).inserted {
+                        controlledSourceGroundingFinalization = nil
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: requested clean text formatting for "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    if artifactTextQualityRepairedPaths.insert(correction.path).inserted,
+                       let repairCall = Self.malformedTextRepairCall(
+                        path: correction.path,
+                        contentsByPath: runLoop.malformedWrittenTextContents
+                       ) {
+                        resolvedAction = .tool(repairCall)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: decoded literal formatting escapes in "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    }
+                }
+                if case .say = resolvedAction,
+                   let correction = AgentArtifactTextQualityGate.placeholderCorrection(
+                    userMessage: userMessage,
+                    placeholderPaths: runLoop.placeholderWrittenTextPaths
+                   ) {
+                    if artifactPlaceholderNudgedPaths.insert(correction.path).inserted {
+                        controlledSourceGroundingFinalization = nil
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: requested placeholder-free text for "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    if artifactPlaceholderRepairedPaths.insert(correction.path).inserted,
+                       let repairCall = Self.placeholderRepairCall(
+                        path: correction.path,
+                        contentsByPath: runLoop.placeholderWrittenTextContents
+                       ) {
+                        resolvedAction = .tool(repairCall)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: replaced bracketed fill-in fields with blanks in "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    }
+                }
+                if case .say = resolvedAction,
+                   let correction = AgentArtifactTextQualityGate.enumeratedCountCorrection(
+                    userMessage: userMessage,
+                    contradictoryPaths: runLoop.contradictoryCountWrittenTextPaths
+                   ) {
+                    if artifactCountConsistencyNudgedPaths.insert(correction.path).inserted {
+                        controlledSourceGroundingFinalization = nil
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: requested consistent enumerated counts for "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    if artifactCountConsistencyRepairedPaths.insert(correction.path).inserted,
+                       let repairCall = Self.enumeratedCountRepairCall(
+                        path: correction.path,
+                        contentsByPath: runLoop.contradictoryCountWrittenTextContents
+                       ) {
+                        resolvedAction = .tool(repairCall)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: reconciled an enumerated record count in "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    }
+                }
+                if case .say = resolvedAction,
+                   let correction = AgentArtifactTextQualityGate.markdownCompletenessCorrection(
+                    userMessage: userMessage,
+                    incompletePaths: runLoop.incompleteMarkdownWrittenTextPaths
+                   ) {
+                    if artifactCompletenessNudgedPaths.insert(correction.path).inserted {
+                        controlledSourceGroundingFinalization = nil
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: requested complete Markdown sections for "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    if artifactCompletenessRepairedPaths.insert(correction.path).inserted,
+                       let repairCall = Self.incompleteMarkdownRepairCall(
+                        path: correction.path,
+                        contentsByPath: runLoop.incompleteMarkdownWrittenTextContents
+                       ) {
+                        resolvedAction = .tool(repairCall)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: removed empty Markdown headings from "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    }
+                }
+                if case .say = resolvedAction,
+                   let correction = AgentTabularSourceGroundingGate.correction(
+                    userMessage: userMessage,
+                    issuesByPath: runLoop.tabularSourceIssuesByPath,
+                    auditCounts: tabularSourceAuditCounts
+                   ) {
+                    controlledSourceGroundingFinalization = nil
+                    tabularSourceAuditCounts[correction.path, default: 0] += 1
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: requested tabular source reconciliation for "
+                            + "./\(correction.path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
+                if case .say = resolvedAction,
+                   let correction = AgentSourceGroundingGate.correction(
+                    userMessage: userMessage,
+                    writtenPaths: runLoop.writtenWorkspacePaths,
+                    auditCounts: sourceGroundingAuditCounts
+                   ) {
+                    controlledSourceGroundingFinalization = nil
+                    sourceGroundingAuditCounts[correction.path, default: 0] += 1
+                    pendingSourceGroundingAuditPath = correction.path
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: requested a source-grounding audit for "
+                            + "./\(correction.path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
+                if case .say = resolvedAction,
+                   let path = AgentSourceGroundingGate.unsupportedSensitiveClaimPath(
+                    userMessage: userMessage,
+                    unsupportedPaths: runLoop.unsupportedSourceClaimWrittenTextPaths
+                   ),
+                   sourceGroundingRepairedPaths.insert(path).inserted,
+                   let repairCall = Self.unsupportedSourceClaimRepairCall(
+                    path: path,
+                    contentsByPath: runLoop.unsupportedSourceClaimWrittenTextContents,
+                    sourceText: runLoop.sourceGroundingText
+                   ) {
+                    resolvedAction = .tool(repairCall)
+                    pendingSourceGroundingRepairPath = path
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: removed unsupported sensitive claims from "
+                            + "./\(path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
                 // the tool arm below and the loop continues; the gate re-checks at the next say.
@@ -244,6 +667,12 @@ public struct AgentRunner: Sendable {
                         userMessage: userMessage,
                         tools: tools,
                         workspaceRoot: workspaceRoot
+                    )
+                    resolvedAction = AgentArtifactVerificationGate.actionByRequiringReadback(
+                        resolvedAction,
+                        userMessage: userMessage,
+                        tools: tools,
+                        unverifiedPaths: runLoop.unverifiedWrittenWorkspacePaths
                     )
                 }
                 try Task.checkCancellation()
@@ -303,6 +732,179 @@ public struct AgentRunner: Sendable {
                             result: lastCompletion.result,
                             followUpReviewResult: lastCompletion.followUpReviewResult
                         ))
+                        if let correction = AgentArtifactTextQualityGate.correction(
+                            userMessage: userMessage,
+                            malformedPaths: runLoop.malformedWrittenTextPaths
+                        ) {
+                            if artifactTextQualityNudgedPaths.insert(correction.path).inserted {
+                                pendingRepeatNudge = correction.prompt
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: requested clean text formatting for "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                continue actionLoop
+                            }
+                            if artifactTextQualityRepairedPaths.insert(correction.path).inserted,
+                               let repairCall = Self.malformedTextRepairCall(
+                                path: correction.path,
+                                contentsByPath: runLoop.malformedWrittenTextContents
+                               ) {
+                                finalized = .tool(repairCall)
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: decoded literal formatting escapes in "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
+                        }
+                        if let correction = AgentArtifactTextQualityGate.placeholderCorrection(
+                            userMessage: userMessage,
+                            placeholderPaths: runLoop.placeholderWrittenTextPaths
+                        ) {
+                            if artifactPlaceholderNudgedPaths.insert(correction.path).inserted {
+                                pendingRepeatNudge = correction.prompt
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: requested placeholder-free text for "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                continue actionLoop
+                            }
+                            if artifactPlaceholderRepairedPaths.insert(correction.path).inserted,
+                               let repairCall = Self.placeholderRepairCall(
+                                path: correction.path,
+                                contentsByPath: runLoop.placeholderWrittenTextContents
+                               ) {
+                                finalized = .tool(repairCall)
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: replaced bracketed fill-in fields with "
+                                        + "blanks in ./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
+                        }
+                        if let correction = AgentArtifactTextQualityGate.enumeratedCountCorrection(
+                            userMessage: userMessage,
+                            contradictoryPaths: runLoop.contradictoryCountWrittenTextPaths
+                        ) {
+                            if artifactCountConsistencyNudgedPaths.insert(correction.path).inserted {
+                                pendingRepeatNudge = correction.prompt
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: requested consistent enumerated counts for "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                continue actionLoop
+                            }
+                            if artifactCountConsistencyRepairedPaths.insert(correction.path).inserted,
+                               let repairCall = Self.enumeratedCountRepairCall(
+                                path: correction.path,
+                                contentsByPath: runLoop.contradictoryCountWrittenTextContents
+                               ) {
+                                finalized = .tool(repairCall)
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: reconciled an enumerated record count in "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
+                        }
+                        if case .say = finalized,
+                           let correction = AgentArtifactTextQualityGate.markdownCompletenessCorrection(
+                            userMessage: userMessage,
+                            incompletePaths: runLoop.incompleteMarkdownWrittenTextPaths
+                           ) {
+                            if artifactCompletenessNudgedPaths.insert(correction.path).inserted {
+                                pendingRepeatNudge = correction.prompt
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: requested complete Markdown sections for "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                continue actionLoop
+                            }
+                            if artifactCompletenessRepairedPaths.insert(correction.path).inserted,
+                               let repairCall = Self.incompleteMarkdownRepairCall(
+                                path: correction.path,
+                                contentsByPath: runLoop.incompleteMarkdownWrittenTextContents
+                               ) {
+                                finalized = .tool(repairCall)
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: removed empty Markdown headings from "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
+                        }
+                        if let correction = AgentTabularSourceGroundingGate.correction(
+                            userMessage: userMessage,
+                            issuesByPath: runLoop.tabularSourceIssuesByPath,
+                            auditCounts: tabularSourceAuditCounts
+                        ) {
+                            tabularSourceAuditCounts[correction.path, default: 0] += 1
+                            pendingRepeatNudge = correction.prompt
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: requested tabular source reconciliation for "
+                                    + "./\(correction.path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
+                        }
+                        if let correction = AgentSourceGroundingGate.correction(
+                            userMessage: userMessage,
+                            writtenPaths: runLoop.writtenWorkspacePaths,
+                            auditCounts: sourceGroundingAuditCounts
+                        ) {
+                            sourceGroundingAuditCounts[correction.path, default: 0] += 1
+                            pendingSourceGroundingAuditPath = correction.path
+                            pendingRepeatNudge = correction.prompt
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: requested a source-grounding audit for "
+                                    + "./\(correction.path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
+                        }
+                        if let path = AgentSourceGroundingGate.unsupportedSensitiveClaimPath(
+                            userMessage: userMessage,
+                            unsupportedPaths: runLoop.unsupportedSourceClaimWrittenTextPaths
+                        ), sourceGroundingRepairedPaths.insert(path).inserted,
+                           let repairCall = Self.unsupportedSourceClaimRepairCall(
+                            path: path,
+                            contentsByPath: runLoop.unsupportedSourceClaimWrittenTextContents,
+                            sourceText: runLoop.sourceGroundingText
+                           ) {
+                            finalized = .tool(repairCall)
+                            pendingSourceGroundingRepairPath = path
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: removed unsupported sensitive claims from "
+                                    + "./\(path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        }
                         if !runLoop.hadDeniedStep {
                             finalized = try await actionByRequiringNamedDeliverables(
                                 finalized,
@@ -336,6 +938,12 @@ public struct AgentRunner: Sendable {
                                 tools: tools,
                                 workspaceRoot: workspaceRoot
                             )
+                            finalized = AgentArtifactVerificationGate.actionByRequiringReadback(
+                                finalized,
+                                userMessage: userMessage,
+                                tools: tools,
+                                unverifiedPaths: runLoop.unverifiedWrittenWorkspacePaths
+                            )
                         }
                         switch finalized {
                         case .say(let text):
@@ -345,6 +953,97 @@ public struct AgentRunner: Sendable {
                         case .tool(let recoveredCall):
                             activeCall = recoveredCall
                         }
+                    }
+
+                    if let correction = AgentArtifactVerificationGate.preWriteCorrection(
+                        for: activeCall,
+                        userMessage: userMessage,
+                        workspaceRoot: workspaceRoot
+                    ), preWriteVerificationNudgedPaths.insert(correction.path).inserted {
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: attempted to verify ./\(correction.path) before "
+                                + "creating it; asked the agent to write it first."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
+                    let patchFingerprint = ToolCallFingerprint.make(
+                        name: activeCall.name,
+                        argumentsJSON: activeCall.argumentsJSON
+                    )
+                    if let correction = AgentInvalidPatchProposalPreflight.correction(for: activeCall),
+                       preflightCorrectedInvalidPatchCalls.insert(patchFingerprint).inserted {
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(kind: .notice, summary: correction.summary))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
+                    let listFingerprint = ToolCallFingerprint.make(
+                        name: activeCall.name,
+                        argumentsJSON: activeCall.argumentsJSON
+                    )
+                    if let missingPath = AgentMissingDirectoryListPreflight.missingPath(
+                        in: activeCall,
+                        workspaceRoot: workspaceRoot
+                    ), preflightCorrectedMissingListCalls.insert(listFingerprint).inserted {
+                        pendingRepeatNudge = """
+                        The directory ./\(missingPath) does not exist yet, so listing it will fail. \
+                        If it is an output directory, write the requested file directly; \
+                        host.file.write creates parent directories. Otherwise list an existing \
+                        source directory. Do not retry the same missing-directory list.
+                        """
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: avoided listing a missing workspace directory."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
+                    let shellFingerprint = ToolCallFingerprint.make(
+                        name: activeCall.name,
+                        argumentsJSON: activeCall.argumentsJSON
+                    )
+                    if runLoop.latestCompletion != nil,
+                       let correction = AgentInvalidShellProposalPreflight.correction(
+                        for: activeCall,
+                        workspaceRoot: workspaceRoot
+                       ), preflightCorrectedInvalidShellCalls.insert(shellFingerprint).inserted {
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(kind: .notice, summary: correction.summary))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+                    let outsideWorkspacePaths = OutsideWorkspaceShellCommandPreflight.offendingPaths(
+                        in: activeCall,
+                        userMessage: userMessage,
+                        workspaceRoot: workspaceRoot
+                    )
+                    if !outsideWorkspacePaths.isEmpty,
+                       preflightCorrectedShellCalls.insert(shellFingerprint).inserted {
+                        let paths = outsideWorkspacePaths.prefix(4).joined(separator: ", ")
+                        pendingRepeatNudge = """
+                        That shell call references path(s) outside the selected workspace: \(paths). \
+                        Keep temporary scripts and generated files inside the workspace using \
+                        relative paths, then retry the step. Do not request or assume approval for \
+                        an outside-workspace path the user did not name.
+                        """
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: redirected an outside-workspace shell path "
+                                + "before approval review."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
                     }
 
                     // Baseline the workspace state before the first tool step, so that step's own
@@ -370,6 +1069,12 @@ public struct AgentRunner: Sendable {
                             pendingApproval: pendingApproval
                         )
                     case .denied(let completion):
+                        if let repairPath = pendingSourceGroundingRepairPath,
+                           let deniedPath = AgentArtifactVerificationGate.pathArgument(
+                            from: completion.call
+                           ), AgentArtifactVerificationGate.pathsMatch(repairPath, deniedPath) {
+                            pendingSourceGroundingRepairPath = nil
+                        }
                         appendToolFeedback(completion, to: &next)
                         runLoop.recordDeniedStep(completion)
                         if let reason = autoReviewCircuit.record(.denied) {
@@ -389,6 +1094,41 @@ public struct AgentRunner: Sendable {
                             )
                         }
                     case .completed(let completion, let reviewOutcome):
+                        if let auditPath = pendingSourceGroundingAuditPath {
+                            if completion.result.ok,
+                               (completion.call.name == ToolDefinition.fileWrite.name
+                                || completion.call.name == ToolDefinition.fileRead.name),
+                               let completedPath = AgentArtifactVerificationGate.pathArgument(
+                                from: completion.call
+                               ),
+                               AgentArtifactVerificationGate.pathsMatch(auditPath, completedPath) {
+                                controlledSourceGroundingFinalization = .say(
+                                    "Completed and verified `\(auditPath)`."
+                                )
+                            }
+                            pendingSourceGroundingAuditPath = nil
+                        }
+                        if let repairPath = pendingSourceGroundingRepairPath {
+                            if completion.result.ok,
+                               completion.call.name == ToolDefinition.fileWrite.name,
+                               let writtenPath = AgentArtifactVerificationGate.pathArgument(
+                                from: completion.call
+                               ), AgentArtifactVerificationGate.pathsMatch(repairPath, writtenPath) {
+                                controlledSourceGroundingFinalization =
+                                    controlledSourceGroundingFinalization
+                                    ?? .say(Self.finalAnswer(
+                                        for: completion.call,
+                                        result: completion.result,
+                                        followUpReviewResult: completion.followUpReviewResult
+                                    ))
+                            }
+                            pendingSourceGroundingRepairPath = nil
+                        }
+                        if completion.result.ok,
+                           (completion.call.name == ToolDefinition.fileWrite.name
+                            || completion.call.name == ToolDefinition.applyPatch.name) {
+                            hasCompletedWorkspaceMutation = true
+                        }
                         if let reviewOutcome {
                             _ = autoReviewCircuit.record(reviewOutcome)
                         }
@@ -567,6 +1307,115 @@ public struct AgentRunner: Sendable {
         "[QuillCode self-check] \(reason.message) Stop and reassess: state in one or two sentences why "
             + "the previous attempts did not work, then either take a clearly different approach or give "
             + "your best final answer now."
+    }
+
+    static func exhaustedActionContinuationPrompt(after call: ToolCall, failure: String) -> String {
+        """
+        [QuillCode continuation] The successful \(call.name) result is already in the conversation, \
+        but your next turn ended with \(failure). Continue the original request now. Return exactly \
+        one concrete next tool action; do not repeat the completed call, describe future work, ask \
+        for confirmation, or return an empty response. If every requested deliverable already exists, \
+        return the concise final answer instead.
+        """
+    }
+
+    private static func placeholderRepairCall(
+        path: String,
+        contentsByPath: [String: String]
+    ) -> ToolCall? {
+        guard let content = contentsByPath[path],
+              let repaired = AgentArtifactTextQualityGate.replacingBracketedPlaceholders(
+                content: content,
+                path: path
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
+    }
+
+    private static func malformedTextRepairCall(
+        path: String,
+        contentsByPath: [String: String]
+    ) -> ToolCall? {
+        guard let content = contentsByPath[path],
+              let repaired = AgentArtifactTextQualityGate.replacingMalformedLiteralEscapes(
+                content: content,
+                path: path
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
+    }
+
+    private static func enumeratedCountRepairCall(
+        path: String,
+        contentsByPath: [String: String]
+    ) -> ToolCall? {
+        guard let content = contentsByPath[path],
+              let repaired = AgentArtifactTextQualityGate.replacingContradictoryEnumeratedCounts(
+                content: content,
+                path: path
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
+    }
+
+    private static func incompleteMarkdownRepairCall(
+        path: String,
+        contentsByPath: [String: String]
+    ) -> ToolCall? {
+        guard let content = contentsByPath[path],
+              let repaired = AgentArtifactTextQualityGate.removingEmptyMarkdownSections(
+                content: content,
+                path: path
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
+    }
+
+    private static func unsupportedSourceClaimRepairCall(
+        path: String,
+        contentsByPath: [String: String],
+        sourceText: String
+    ) -> ToolCall? {
+        guard let content = contentsByPath.first(where: {
+            AgentArtifactVerificationGate.pathsMatch($0.key, path)
+        })?.value,
+              let repaired = AgentSourceGroundingGate.removingUnsupportedSensitiveClaims(
+                content: content,
+                path: path,
+                sourceText: sourceText
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
     }
 
     static func finalAnswer(

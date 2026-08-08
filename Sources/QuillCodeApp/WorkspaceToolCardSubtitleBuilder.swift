@@ -5,12 +5,40 @@ import QuillComputerUseKit
 
 enum WorkspaceToolCardSubtitleBuilder {
     private static let detailLimit = 72
+    private static let lifecycleLabels: Set<String> = [
+        "Queued",
+        "Running",
+        "Completed",
+        "Failed",
+        "Ready to run",
+        "Blocked",
+        "Updated",
+        "Approved",
+        "Denied",
+        "Needs detail",
+        "Timed out",
+        "Aborted"
+    ]
 
     static func subtitle(stateLabel: String, toolName: String, inputJSON: String?) -> String {
         guard let detail = detail(toolName: toolName, inputJSON: inputJSON) else {
             return stateLabel
         }
         return "\(stateLabel) · \(detail)"
+    }
+
+    static func visibleDetail(from subtitle: String) -> String? {
+        guard !lifecycleLabels.contains(subtitle) else {
+            return nil
+        }
+        guard let separator = subtitle.range(of: " · ") else {
+            return subtitle
+        }
+        let stateLabel = String(subtitle[..<separator.lowerBound])
+        guard lifecycleLabels.contains(stateLabel) else {
+            return subtitle
+        }
+        return String(subtitle[separator.upperBound...])
     }
 
     private static func detail(toolName: String, inputJSON: String?) -> String? {

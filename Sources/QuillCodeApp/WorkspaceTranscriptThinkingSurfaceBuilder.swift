@@ -2,6 +2,8 @@ import Foundation
 import QuillCodeCore
 
 struct WorkspaceTranscriptThinkingSurfaceBuilder: Sendable, Hashable {
+    private static let maximumSubtitleCharacters = 180
+
     var thread: ChatThread?
     var composer: ComposerState
     var agentStatus: String
@@ -33,11 +35,21 @@ struct WorkspaceTranscriptThinkingSurfaceBuilder: Sendable, Hashable {
     }
 
     private func subtitle(traceLines: [String]) -> String {
-        traceLines.last ?? "Preparing the next step"
+        guard let latest = traceLines.last else { return "Preparing the next step" }
+        let latestLine = latest.split(whereSeparator: \Character.isNewline).last.map(String.init) ?? latest
+        guard latestLine.count > Self.maximumSubtitleCharacters else { return latestLine }
+        return "..." + latestLine.suffix(Self.maximumSubtitleCharacters - 3)
     }
 
     private static func traceLines(from events: [ThreadEvent]) -> [String] {
-        events.compactMap(traceLine).suffix(6).map { $0 }
+        var recentLines: [String] = []
+        recentLines.reserveCapacity(6)
+        for event in events.reversed() {
+            guard let line = traceLine(for: event) else { continue }
+            recentLines.append(line)
+            if recentLines.count == 6 { break }
+        }
+        return recentLines.reversed()
     }
 
     private static func traceLine(for event: ThreadEvent) -> String? {

@@ -8,6 +8,39 @@ import QuillComputerUseKit
 
 @MainActor
 final class WorkspaceComposerIntegrationTests: XCTestCase {
+    func testComposerPublishesGenuineAgentStopReason() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: WorkspaceFixedSayLLMClient(message: "Finished."))
+        )
+        let threadID = model.newChat()
+
+        model.setDraft("finish this")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(model.lastAgentRunStopReason(for: threadID), .finished)
+    }
+
+    func testComposerPreservesToolStepCeilingAsIncompleteStopReason() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(
+                llm: WorkspaceVaryingToolLLMClient(),
+                toolExecutionOverride: { _, _ in ToolResult(ok: false, error: "missing") },
+                maxToolSteps: 2
+            )
+        )
+        let threadID = model.newChat()
+
+        model.setDraft("keep investigating")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(
+            model.lastAgentRunStopReason(for: threadID),
+            .toolStepCeilingExhausted(limit: 2)
+        )
+    }
+
     func testSubmitComposerRunsToolAndBuildsToolCard() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
@@ -368,6 +401,31 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertTrue(thread.events.contains { $0.kind == .notice && $0.summary == "Stopped by user" })
     }
 
+    func testLateProgressAfterStopCannotResurrectRunOrOverwriteThread() throws {
+        let model = QuillCodeWorkspaceModel()
+        let threadID = model.newChat()
+        model.mutateThread(threadID) { thread in
+            thread.title = "Live stopped thread"
+        }
+        model.beginAgentRun(
+            threadID: threadID,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
+        )
+        XCTAssertTrue(model.composer.isSending)
+
+        model.cancelActiveWork()
+        var staleProgress = try XCTUnwrap(model.selectedThread)
+        staleProgress.title = "Stale running snapshot"
+        staleProgress.events.append(ThreadEvent(kind: .toolRunning, summary: "Still running"))
+        model.applyAgentProgress(staleProgress, expectedThreadID: threadID)
+
+        XCTAssertFalse(model.isAgentRunActive(for: threadID))
+        XCTAssertFalse(model.composer.isSending)
+        XCTAssertEqual(model.root.topBar.agentStatus, TopBarAgentStatusLabel.stopped)
+        XCTAssertEqual(model.selectedThread?.title, "Live stopped thread")
+        XCTAssertFalse(model.selectedThread?.events.contains { $0.summary == "Still running" } == true)
+    }
+
     func testCancelledComposerRunRecordsNoticeOnOriginalThread() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel(runner: AgentRunner(llm: SlowLLMClient()))
@@ -691,6 +749,36 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
             .replacingOccurrences(of: "\\/", with: "/")
             .replacingOccurrences(of: "\n", with: "")
             .replacingOccurrences(of: " ", with: "")
+    }
+}
+
+private struct WorkspaceFixedSayLLMClient: LLMClient {
+    var message: String
+
+    func nextAction(
+        thread _: ChatThread,
+        userMessage _: String,
+        tools _: [ToolDefinition]
+    ) async throws -> AgentAction {
+        .say(message)
+    }
+}
+
+/// Uses a different missing path on every turn so the repeated-call finalizer cannot convert a
+/// ceiling run into a normal finish.
+private final class WorkspaceVaryingToolLLMClient: LLMClient, @unchecked Sendable {
+    private var counter = 0
+
+    func nextAction(
+        thread _: ChatThread,
+        userMessage _: String,
+        tools _: [ToolDefinition]
+    ) async throws -> AgentAction {
+        counter += 1
+        return .tool(ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "missing-\(counter).txt"])
+        ))
     }
 }
 

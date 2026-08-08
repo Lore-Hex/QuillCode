@@ -110,9 +110,8 @@
   captured-secret rejection; arbitrary desktop-app coworker rows remain gated until a row-specific
   local-app manifest exists. `scripts/native-click-probe-contracts.py coworker-catalog` rolls
   validated live SaaS, live app Computer Use, scheduled-notification, and packaged one-turn coworker
-  manifests into `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID` across the full 1-206
-  catalog, with an optional Markdown row report for reviewing spreadsheet updates from durable
-  evidence.
+  manifests into `provenTaskIDs`, `pendingTaskIDs`, `evidenceByTaskID`, and a fail-closed per-row
+  audit across the checked-in catalog snapshot (currently rows 1-310).
 - Artifact previews now include bounded local YAML/YML metadata using the existing Yams parser:
   root kind, top-level keys, sequence/mapping/value counts, file size, and capped key previews.
 - Artifact previews now include bounded local Apple property-list metadata using Foundation parsing:

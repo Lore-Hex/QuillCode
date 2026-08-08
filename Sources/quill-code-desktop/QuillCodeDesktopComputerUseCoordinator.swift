@@ -56,6 +56,14 @@ final class QuillCodeDesktopComputerUseCoordinator {
         _ destination: MacSystemSettingsOpener.Destination,
         model: QuillCodeWorkspaceModel
     ) -> Bool {
+        if let permissionRequester = backend as? any ComputerUsePermissionRequesting {
+            switch destination {
+            case .screenRecording:
+                permissionRequester.requestScreenRecordingAccess()
+            case .accessibility:
+                permissionRequester.requestAccessibilityAccess()
+            }
+        }
         let didOpen = systemSettingsOpener.open(destination)
         refreshStatus(on: model)
         return didOpen

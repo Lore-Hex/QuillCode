@@ -94,7 +94,7 @@ extension QuillCodeBrowserPaneView {
     private var browserAddressControls: some View {
         HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             TextField("localhost:3000, docs/page.html, or https://example.com", text: $addressDraft)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(QuillCodeTextFieldStyle())
                 .onSubmit(onOpen)
                 .quillCodeTextEntryTarget()
                 .frame(maxWidth: .infinity)

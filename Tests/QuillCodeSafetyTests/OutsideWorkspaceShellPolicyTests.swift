@@ -129,6 +129,36 @@ final class OutsideWorkspaceShellPolicyTests: SafetyPolicyTestCase {
         }
     }
 
+    func testExecutableLanguageHeredocDivisionIsNotRootAccess() {
+        let command = """
+        python3 - <<'PY'
+        end_cash = 820000
+        net_burn = 98000
+        runway_months = end_cash / net_burn
+        print(runway_months)
+        PY
+        """
+        XCTAssertNil(
+            violation(command: command, userMessage: "calculate runway from the workspace files")
+        )
+    }
+
+    func testRootPathOutsideExecutableLanguageHeredocRemainsGated() {
+        XCTAssertEqual(
+            violation(command: "ls /", userMessage: "list files")?.offendingPaths,
+            ["/"]
+        )
+        let shellHeredoc = """
+        sh <<'SH'
+        ls /
+        SH
+        """
+        XCTAssertEqual(
+            violation(command: shellHeredoc, userMessage: "run the shell script")?.offendingPaths,
+            ["/"]
+        )
+    }
+
     func testHomePathResolvingInsideWorkspaceIsNotAViolation() {
         XCTAssertNil(violation(command: "cat ~/workspace/README.md", userMessage: "read the readme"))
         XCTAssertNil(violation(command: "cat $HOME/workspace/README.md", userMessage: "read it"))

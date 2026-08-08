@@ -295,7 +295,7 @@ extension AgentRunner {
         } else if let overrideResult = await toolExecutionOverride?(call, workspaceRoot) {
             executedResult = overrideResult
         } else {
-            executedResult = router.execute(call)
+            executedResult = await router.executeCancellable(call)
         }
         try Task.checkCancellation()
         let result = try await finishToolCall(

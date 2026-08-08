@@ -7,7 +7,8 @@ extension AgentRunner {
         thread: inout ChatThread,
         userMessage: String,
         tools: [ToolDefinition],
-        onProgress: AgentRunProgressHandler?
+        onProgress: AgentRunProgressHandler?,
+        reasoningBudgetPhase: AgentReasoningBudgetPhase
     ) async throws -> AgentAction {
         await publishStreamingNotice(in: &thread, onProgress: onProgress)
         var stream = try await streamingLLM.actionEventStream(
@@ -17,6 +18,28 @@ extension AgentRunner {
         )
         if let deadline = turnDeadlineSeconds {
             stream = AgentTurnDeadline.enforcing(seconds: deadline, on: stream)
+        }
+        let reasoningLimit = switch reasoningBudgetPhase {
+        case .startup, .checkpoint:
+            preActionReasoningCharacterLimit
+        case .synthesis:
+            interActionReasoningCharacterLimit
+        case .correction:
+            preActionReasoningCharacterLimit.map {
+                min($0, Self.correctiveActionReasoningCharacterLimit)
+            }
+        }
+        if let reasoningLimit {
+            stream = AgentPreActionReasoningBudget.enforcing(
+                maximumCharacters: max(
+                    1,
+                    AgentPreActionReasoningBudget.effectiveMaximumCharacters(
+                        configured: reasoningLimit,
+                        modelID: thread.model
+                    )
+                ),
+                on: stream
+            )
         }
         do {
             return try await Self.collectStreamingAction(

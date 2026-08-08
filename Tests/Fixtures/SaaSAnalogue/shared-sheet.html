@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shared Sheet Analogue</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #202124;
+      background: #f5f7f8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 720px; }
+    button { font: inherit; cursor: pointer; }
+    header { display: flex; justify-content: space-between; align-items: center; min-height: 58px; padding: 0 24px; border-bottom: 1px solid #dadddf; background: #fff; }
+    h1 { margin: 0; font-size: 18px; letter-spacing: 0; }
+    .synthetic { padding: 5px 8px; border: 1px solid #e0b86a; border-radius: 5px; color: #725212; background: #fff8e5; font-size: 11px; font-weight: 750; }
+    main { padding: 24px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .caption { color: #687078; font-size: 13px; }
+    button[data-action="mark-done"] { min-height: 34px; padding: 0 13px; border: 1px solid #1769aa; border-radius: 5px; color: #fff; background: #1769aa; font-weight: 750; }
+    button[data-action="mark-done"]:hover { background: #11598f; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; background: #fff; }
+    th, td { height: 44px; padding: 9px 12px; border: 1px solid #dadddf; text-align: left; }
+    th { height: 36px; color: #5f666c; background: #edf1f3; font-size: 11px; text-transform: uppercase; }
+    td { font-size: 13px; }
+    td[contenteditable="true"] { background: #fffde8; outline: none; }
+    td[contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px #1769aa; }
+    [data-testid="sheet-state"] { margin: 14px 0 0; color: #5d6661; font-size: 12px; }
+    [data-testid="sheet-state"][data-done="true"] { color: #18723f; font-weight: 750; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Launch readiness tracker</h1>
+    <span class="synthetic">LOCAL SYNTHETIC DATA</span>
+  </header>
+  <main>
+    <div class="toolbar">
+      <span class="caption">Shared operations sheet</span>
+      <button data-action="mark-done" type="button">Mark complete</button>
+    </div>
+    <table aria-label="Launch checklist">
+      <thead><tr><th>Workstream</th><th>Owner</th><th>Launch date</th><th>State</th></tr></thead>
+      <tbody>
+        <tr><td>Launch checklist</td><td>Jordan Lee</td><td data-cell="launch-date" contenteditable="true">2026-09-01</td><td data-cell="state">In progress</td></tr>
+        <tr><td>Support handoff</td><td>Sam Rivera</td><td>2026-09-08</td><td>Ready</td></tr>
+      </tbody>
+    </table>
+    <p data-testid="sheet-state" data-done="false" role="status">Launch checklist: 2026-09-01; done=false</p>
+  </main>
+  <script>
+    document.querySelector("button[data-action='mark-done']").addEventListener("click", () => {
+      const date = document.querySelector("[data-cell='launch-date']").textContent.trim();
+      document.querySelector("[data-cell='state']").textContent = "Done";
+      const result = document.querySelector("[data-testid='sheet-state']");
+      result.textContent = `Launch checklist: ${date}; done=true`;
+      result.dataset.done = "true";
+    });
+  </script>
+</body>
+</html>

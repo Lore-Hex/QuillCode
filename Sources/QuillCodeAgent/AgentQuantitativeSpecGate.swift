@@ -8,9 +8,10 @@ import Foundation
 /// nothing (F29 silent). Same enforcement lesson as the other gates: an explicit number in the
 /// task needs a mechanical check, not prompt hope.
 ///
-/// Scope is deliberately tight: only an explicit `N-word` / `N word(s)` phrase arms the gate,
-/// only task-named `.md` deliverables are measured, and compliance is a generous ±25% band —
-/// the gate exists to catch "asked for 300, delivered 185", not to nitpick 290.
+/// Scope is deliberately tight: only an explicit whole-deliverable `N-word` / `N word(s)` phrase
+/// arms the gate, only task-named `.md` deliverables are measured, and compliance is a generous
+/// ±25% band. Per-item and maximum-only constraints are excluded because this gate measures the
+/// complete artifact and cannot safely infer item boundaries.
 enum AgentQuantitativeSpecGate {
     struct WordBudget: Equatable {
         var words: Int
@@ -18,7 +19,7 @@ enum AgentQuantitativeSpecGate {
         var maximum: Int { Int((Double(words) * 1.25).rounded(.up)) }
     }
 
-    /// An explicit word-count phrase in the request ("300-word", "300 word", "300 words").
+    /// An explicit whole-deliverable word-count phrase in the request ("300-word", "300 words").
     /// Bounded to 50–20000 so figures like "3 words" in prose or huge IDs never arm the gate.
     static func wordBudget(in userMessage: String) -> WordBudget? {
         let pattern = #"\b(\d{2,5})[-\s]words?\b"#
@@ -31,7 +32,39 @@ enum AgentQuantitativeSpecGate {
               let words = Int(userMessage[range]),
               (50...20_000).contains(words)
         else { return nil }
+
+        // "Each note under 120 words" is not a 120-word artifact. Applying the global ±25% gate
+        // there destroys valid repeated-item output. Maximum-only budgets also cannot use this
+        // symmetric target without inventing a minimum that the user never requested.
+        let sentenceRange = sentenceRange(containing: match.range, in: userMessage)
+        let sentence = String(userMessage[sentenceRange]).lowercased()
+        let localOrMaximumPatterns = [
+            #"\b(?:each|every)\b[^.!?\n]{0,100}\b\d{2,5}[-\s]words?\b"#,
+            #"\b\d{2,5}[-\s]words?\b[^.!?\n]{0,60}\bper\b"#,
+            #"\b(?:under|at\s+most|no\s+more\s+than|not\s+more\s+than|max(?:imum)?|up\s+to|less\s+than)\b[^.!?\n]{0,60}\b\d{2,5}[-\s]words?\b"#,
+            #"\b\d{2,5}[-\s]words?\b[^.!?\n]{0,30}\b(?:or\s+less|maximum|max)\b"#,
+        ]
+        if localOrMaximumPatterns.contains(where: { matches($0, in: sentence) }) {
+            return nil
+        }
         return WordBudget(words: words)
+    }
+
+    private static func sentenceRange(containing range: NSRange, in text: String) -> Range<String.Index> {
+        let fullRange = Range(range, in: text) ?? text.startIndex..<text.endIndex
+        let boundaries: Set<Character> = [".", "!", "?", "\n"]
+        let start = text[..<fullRange.lowerBound].lastIndex(where: { boundaries.contains($0) })
+            .map { text.index(after: $0) } ?? text.startIndex
+        let end = text[fullRange.upperBound...].firstIndex(where: { boundaries.contains($0) })
+            ?? text.endIndex
+        return start..<end
+    }
+
+    private static func matches(_ pattern: String, in text: String) -> Bool {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return false
+        }
+        return regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
     }
 
     static func wordCount(of text: String) -> Int {

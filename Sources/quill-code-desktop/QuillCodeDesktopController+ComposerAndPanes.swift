@@ -3,30 +3,6 @@ import QuillCodeApp
 
 @MainActor
 extension QuillCodeDesktopController {
-    func refresh() {
-        progressRefreshScheduler.flush { [weak self] in
-            self?.refreshNow()
-        }
-    }
-
-    func scheduleProgressRefresh() {
-        progressRefreshScheduler.schedule { [weak self] in
-            self?.refreshNow()
-        }
-    }
-
-    private func refreshNow() {
-        computerUseCoordinator.refreshStatus(on: model)
-        modelStateCoordinator.refreshState(
-            from: model,
-            surface: &surface,
-            draft: &draft,
-            terminalDraft: &terminalDraft,
-            browserAddressDraft: &browserAddressDraft,
-            isComposerTaskRunning: tasks.isSendRunning(threadID: model.selectedThread?.id)
-        )
-    }
-
     func send() {
         if composerCoordinator.openBrowserSessionFromSlashIfNeeded(
             draft: &draft,

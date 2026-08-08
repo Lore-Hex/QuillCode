@@ -36,6 +36,10 @@ struct QuillCodeConnectView: View {
                 .accessibilityIdentifier("quillcode-connect-sign-in")
                 .padding(.top, 2)
 
+            Label(TranscriptConnectPrompt.browserSignInCaption, systemImage: "lock.shield.fill")
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+
             if let accountURL = URL(string: prompt.accountURL) {
                 Link(destination: accountURL) {
                     Text(TranscriptConnectPrompt.createAccountTitle)
@@ -70,6 +74,6 @@ struct QuillCodeConnectView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Steps: sign in, pick a model, start coding")
+        .accessibilityLabel("Steps: sign in, choose a model, start a task")
     }
 }

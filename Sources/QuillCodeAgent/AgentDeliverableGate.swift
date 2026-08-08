@@ -54,11 +54,23 @@ enum AgentDeliverableGate {
             }
             var name = String(userMessage[fileRange])
             if name.hasPrefix("./") { name.removeFirst(2) }
-            if seen.insert(name).inserted, results.count < 6 {
+            if seen.insert(name).inserted {
                 results.append(name)
             }
         }
-        return results
+
+        // A later directory-qualified mention commonly refines an earlier bare filename, as in
+        // "produce report.csv" followed by "save it to outputs/report.csv". Treating both as
+        // separate deliverables forces an unwanted duplicate at the workspace root. Preserve two
+        // qualified paths with the same basename because those are explicit distinct locations.
+        let qualifiedBasenames = Set(
+            results
+                .filter { $0.contains("/") }
+                .map { ($0 as NSString).lastPathComponent }
+        )
+        return Array(results.filter { name in
+            name.contains("/") || !qualifiedBasenames.contains((name as NSString).lastPathComponent)
+        }.prefix(6))
     }
 
     /// The subset of required deliverables that do not exist under `workspaceRoot`.

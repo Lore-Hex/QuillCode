@@ -40,6 +40,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let composerCoordinator: QuillCodeDesktopComposerCoordinator
     let copyCoordinator: QuillCodeDesktopCopyCoordinator
     let projectImportCoordinator: QuillCodeDesktopProjectImportCoordinator
+    let projectAccessCoordinator: QuillCodeDesktopProjectAccessCoordinator
     let modelStateCoordinator: QuillCodeDesktopModelStateCoordinator
     let paneCoordinator: QuillCodeDesktopPaneCoordinator
     let workspaceActionCoordinator: QuillCodeDesktopWorkspaceActionCoordinator
@@ -90,6 +91,7 @@ final class QuillCodeDesktopController: ObservableObject {
         self.composerCoordinator = QuillCodeDesktopComposerCoordinator()
         self.copyCoordinator = QuillCodeDesktopCopyCoordinator()
         self.projectImportCoordinator = QuillCodeDesktopProjectImportCoordinator()
+        self.projectAccessCoordinator = QuillCodeDesktopProjectAccessCoordinator()
         self.modelStateCoordinator = QuillCodeDesktopModelStateCoordinator()
         self.paneCoordinator = QuillCodeDesktopPaneCoordinator()
         self.workspaceActionCoordinator = QuillCodeDesktopWorkspaceActionCoordinator()
@@ -145,11 +147,28 @@ final class QuillCodeDesktopController: ObservableObject {
             // and read tools must stop with the session too.
             tasks.cancel(.codeReview(threadID))
         }
+        projectAccessCoordinator.restoreAccess(for: workspaceModel.root.projects)
+        ToolArtifactLocalPreviewAccess.configure(
+            projectRoots: workspaceModel.root.projects
+                .filter { !$0.isRemote }
+                .map { URL(fileURLWithPath: $0.path) },
+            readableProjectRoots: projectAccessCoordinator.activeProjectURLs
+        )
         let initialState = modelStateCoordinator.initialState(from: model)
         self.surface = initialState.surface
         self.draft = initialState.draft
         self.terminalDraft = initialState.terminalDraft
         self.browserAddressDraft = initialState.browserAddressDraft
+        workspaceModel.onFileMentionIndexChanged = { [weak self] in
+            self?.refresh()
+        }
+        workspaceModel.onProjectContextChanged = { [weak self] in
+            self?.refresh()
+        }
+        workspaceModel.scheduleSelectedProjectContextRefresh()
+        // Bootstrap may finish a very small scan before the callback above is installed. Starting
+        // one final generation here guarantees the published surface receives the completed index.
+        workspaceModel.refreshFileMentionIndex()
         browserCoordinator.installSessionUpdateHandler(
             model: model,
             refresh: { [weak self] in self?.refresh() }
@@ -214,26 +233,6 @@ final class QuillCodeDesktopController: ObservableObject {
             requestID: requestID,
             style: approve ? .primary : .secondary
         ))
-    }
-
-    private func scheduleModelCatalogRefreshIfNeeded() {
-        tasks.startIfIdle(.modelCatalogRefresh) { [weak self] in
-            guard let self else { return }
-            await modelCatalogRefreshCoordinator.refreshIfNeeded(
-                on: model,
-                refresh: { [weak self] in self?.refresh() }
-            )
-        }
-    }
-
-    private func scheduleTrustedRouterCreditsRefreshIfNeeded() {
-        tasks.startIfIdle(.trustedRouterCreditsRefresh) { [weak self] in
-            guard let self else { return }
-            await trustedRouterCreditsCoordinator.refresh(
-                on: model,
-                refreshSurface: { [weak self] in self?.refresh() }
-            )
-        }
     }
 
 }

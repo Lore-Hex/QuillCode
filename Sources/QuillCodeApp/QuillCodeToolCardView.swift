@@ -23,8 +23,8 @@ struct QuillCodeToolCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            toolHeader
+        VStack(alignment: .leading, spacing: usesCompactActivityLayout ? 0 : 10) {
+            toolHeaderControl
             if let progress = card.progress, card.status == .running {
                 progressView(progress)
             }
@@ -34,16 +34,11 @@ struct QuillCodeToolCardView: View {
             if showsTopLevelCopyAction {
                 copyActionButton
             }
-            if !card.artifacts.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Artifacts")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(QuillCodePalette.muted)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-                            ForEach(Array(card.artifacts.enumerated()), id: \.offset) { _, artifact in
-                                QuillCodeArtifactChip(artifact: artifact)
-                            }
+            if !displayedArtifacts.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
+                        ForEach(Array(displayedArtifacts.enumerated()), id: \.offset) { _, artifact in
+                            QuillCodeArtifactChip(artifact: artifact)
                         }
                     }
                 }
@@ -88,36 +83,19 @@ struct QuillCodeToolCardView: View {
                 }
             }
 
-            if card.inputJSON != nil || card.outputJSON != nil {
-                Button {
-                    isDetailsOpen.toggle()
-                } label: {
-                    detailsToggleRow
-                }
-                .buttonStyle(QuillCodePressableButtonStyle())
-                .quillCodeFullRowButtonTarget(minHeight: QuillCodeMetrics.minimumHitTarget)
-                .accessibilityIdentifier("quillcode-tool-card-details")
-                .accessibilityLabel(detailsToggleLabel)
-                .onChange(of: card.status) { _, status in
-                    let density = ToolCardState.defaultDensity(
-                        status: status,
-                        isExpanded: card.isExpanded
-                    )
-                    isDetailsOpen = density == .expanded
-                }
-                .onChange(of: card.density) { _, density in
-                    isDetailsOpen = density == .expanded
-                }
-
-                if isDetailsOpen {
-                    detailsContent
-                        .padding(.top, 2)
-                        .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
-                }
+            if hasDetails, isDetailsOpen {
+                detailsContent
+                    .padding(.top, 2)
+                    .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(14)
-        .frame(maxWidth: 760, minHeight: minimumHeight, alignment: .topLeading)
+        .padding(.horizontal, usesCompactActivityLayout ? 8 : 14)
+        .padding(.vertical, usesCompactActivityLayout ? 2 : 14)
+        .frame(
+            maxWidth: usesCompactActivityLayout ? nil : 760,
+            minHeight: minimumHeight,
+            alignment: .topLeading
+        )
         // Flat, not floating: a dozen stacked tool cards with per-card drop shadows read as lumpy,
         // heavy chrome. The panel2 fill + hairline stroke already separate cards from the transcript.
         .quillCodeSurface(
@@ -127,11 +105,21 @@ struct QuillCodeToolCardView: View {
             shadow: false
         )
         .overlay(alignment: .leading) {
-            if let executionContext = card.executionContext {
+            if let executionContext = card.executionContext, showsExecutionRail {
                 QuillCodeExecutionRail(context: executionContext)
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isDetailsOpen)
+        .onChange(of: card.status) { _, status in
+            let density = ToolCardState.defaultDensity(
+                status: status,
+                isExpanded: card.isExpanded
+            )
+            isDetailsOpen = density == .expanded
+        }
+        .onChange(of: card.density) { _, density in
+            isDetailsOpen = density == .expanded
+        }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
@@ -187,47 +175,88 @@ struct QuillCodeToolCardView: View {
         return "Image \(index + 1) of \(count)"
     }
 
-    private var toolHeader: some View {
-        HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
-            // Glyph = tool TYPE (terminal/read/edit/…); the circle's tint = run STATUS. So color still
-            // carries status while shape carries identity, and the trailing badge keeps the status word.
-            Image(systemName: toolGlyph)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(statusColor)
-                .quillCodeDecorativeIconFrame()
-                .background(statusColor.opacity(0.14))
-                .clipShape(Circle())
+    @ViewBuilder
+    private var toolHeaderControl: some View {
+        if hasDetails {
+            Button {
+                isDetailsOpen.toggle()
+            } label: {
+                toolHeader
+            }
+            .quillCodeFullRowButtonTarget(
+                minHeight: headerHeight,
+                maxWidth: usesCompactActivityLayout ? nil : .infinity,
+                alignment: .leading,
+                radius: QuillCodeMetrics.toolCardRadius
+            )
+            .buttonStyle(QuillCodePressableButtonStyle())
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("quillcode-tool-card-details")
+            .accessibilityLabel(detailsToggleLabel)
+            .help(detailsToggleLabel)
+        } else {
+            toolHeader
+        }
+    }
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
-                    Text(displayTitle)
-                        .font(.headline)
-                        .lineLimit(1)
-                    if let executionContext = card.executionContext {
-                        QuillCodeExecutionContextChip(context: executionContext)
-                    }
-                }
-                // The path/command is the most scannable value on a card: render it monospaced at
-                // near-primary brightness, one line, middle-truncated so a long path keeps its
-                // meaningful tail (the filename) instead of wrapping or hiding it.
-                Text(card.subtitle)
+    private var toolHeader: some View {
+        HStack(
+            alignment: .center,
+            spacing: usesCompactActivityLayout ? 6 : QuillCodeMetrics.controlClusterSpacing
+        ) {
+            if hasDetails {
+                Image(systemName: isDetailsOpen ? "chevron.down" : "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(QuillCodePalette.blue)
+                    .frame(width: 12)
+                    .accessibilityHidden(true)
+            }
+
+            Image(systemName: toolGlyph)
+                .font(.system(size: usesCompactActivityLayout ? 13 : 15, weight: .semibold))
+                .foregroundStyle(statusColor)
+                .quillCodeDecorativeIconFrame(size: usesCompactActivityLayout ? 24 : 30)
+
+            Text(displayTitle)
+                .font(usesCompactActivityLayout ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
+                .lineLimit(1)
+                .layoutPriority(1)
+
+            if let visibleSubtitle {
+                Text(visibleSubtitle)
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(QuillCodePalette.text.opacity(0.85))
+                    .foregroundStyle(QuillCodePalette.body)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .frame(minWidth: 0, alignment: .leading)
 
-            Spacer(minLength: 10)
+            if let executionContext = card.executionContext, showsExecutionContextChip {
+                QuillCodeExecutionContextChip(context: executionContext)
+            }
 
-            QuillCodeToolStatusBadge(
-                label: card.statusDisplayLabel,
-                accessibilityLabel: card.statusAccessibilityLabel,
-                tint: statusColor,
-                iconName: statusBadgeIconName
-            )
+            if usesCompactActivityLayout {
+                compactDoneStatus
+            } else {
+                Spacer(minLength: 10)
+
+                QuillCodeToolStatusBadge(
+                    label: card.statusDisplayLabel,
+                    accessibilityLabel: card.statusAccessibilityLabel,
+                    tint: statusColor,
+                    iconName: statusBadgeIconName
+                )
+            }
         }
-        .frame(minHeight: QuillCodeMetrics.toolCardHeaderHeight, alignment: .top)
+        .frame(minHeight: headerHeight, alignment: .center)
+    }
+
+    private var compactDoneStatus: some View {
+        Image(systemName: "checkmark.circle.fill")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(QuillCodePalette.green)
+            .frame(width: 20, height: 20)
+            .help(card.statusDisplayLabel)
+            .accessibilityLabel("Tool status \(card.statusAccessibilityLabel)")
     }
 
     private var copyActionButton: some View {
@@ -240,28 +269,6 @@ struct QuillCodeToolCardView: View {
             )
             Spacer()
         }
-    }
-
-    private var detailsToggleRow: some View {
-        HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-            Image(systemName: isDetailsOpen ? "chevron.down" : "chevron.right")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(QuillCodePalette.blue)
-                .frame(width: 12)
-                .accessibilityHidden(true)
-            Text(detailsToggleLabel)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(QuillCodePalette.blue)
-            if !isDetailsOpen, card.status == .done {
-                Text("Raw tool data")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.muted)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 12)
-        .background(QuillCodePalette.blue.opacity(isDetailsOpen ? 0.16 : 0.11))
-        .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
     }
 
     private var detailsContent: some View {
@@ -279,9 +286,35 @@ struct QuillCodeToolCardView: View {
     }
 
     private var minimumHeight: CGFloat {
-        card.density == .collapsed
+        usesCompactActivityLayout
             ? QuillCodeMetrics.compactToolCardMinimumHeight
             : QuillCodeMetrics.toolCardMinimumHeight
+    }
+
+    private var headerHeight: CGFloat {
+        usesCompactActivityLayout
+            ? QuillCodeMetrics.compactToolCardMinimumHeight
+            : QuillCodeMetrics.toolCardHeaderHeight
+    }
+
+    private var usesCompactActivityLayout: Bool {
+        card.status == .done
+            && !isDetailsOpen
+            && card.actions.isEmpty
+            && card.progress == nil
+            && displayedArtifacts.isEmpty
+            && card.textPreviewArtifacts.isEmpty
+            && card.documentPreviewArtifacts.isEmpty
+            && card.imagePreviewArtifacts.isEmpty
+    }
+
+    private var showsExecutionContextChip: Bool {
+        guard let executionContext = card.executionContext else { return false }
+        return !usesCompactActivityLayout || executionContext.kind == .sshRemote
+    }
+
+    private var showsExecutionRail: Bool {
+        showsExecutionContextChip
     }
 
     private var statusColor: Color {
@@ -360,7 +393,18 @@ struct QuillCodeToolCardView: View {
     }
 
     private var showsDetailsCopyAction: Bool {
-        card.inputJSON != nil && card.outputJSON == nil
+        card.inputJSON != nil || card.outputJSON != nil
+    }
+
+    private var hasDetails: Bool {
+        card.inputJSON != nil || card.outputJSON != nil
+    }
+
+    private var displayedArtifacts: [ToolArtifactState] {
+        guard let visibleSubtitle else { return card.artifacts }
+        return card.artifacts.filter {
+            $0.label.localizedCaseInsensitiveCompare(visibleSubtitle) != .orderedSame
+        }
     }
 
     private var accessibilityLabel: String {
@@ -372,5 +416,9 @@ struct QuillCodeToolCardView: View {
 
     private var displayTitle: String {
         WorkspaceToolDisplayNameBuilder.cardTitle(for: card.title)
+    }
+
+    private var visibleSubtitle: String? {
+        WorkspaceToolCardSubtitleBuilder.visibleDetail(from: card.subtitle)
     }
 }

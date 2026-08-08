@@ -5282,36 +5282,44 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
     public var detail: String { ToolArtifactValueClassifier.detail(for: value, kind: kind) }
     public var href: String? { ToolArtifactValueClassifier.href(for: value, kind: kind) }
     public var isImagePreview: Bool { ToolArtifactImagePreviewBuilder.isImagePreview(for: value, kind: kind) }
-    public var previewURL: String? { ToolArtifactImagePreviewBuilder.previewURL(for: value, kind: kind) }
+    public var canLoadLocalPreview: Bool {
+        ToolArtifactLocalPreviewAccess.permitsPreview(for: value, kind: kind)
+    }
+    private var readablePreviewKind: ToolArtifactKind {
+        canLoadLocalPreview ? kind : .path
+    }
+    public var previewURL: String? {
+        ToolArtifactImagePreviewBuilder.previewURL(for: value, kind: readablePreviewKind)
+    }
     public var imagePreview: ToolArtifactImagePreview? {
-        ToolArtifactImagePreviewBuilder.imagePreview(for: value, kind: kind)
+        ToolArtifactImagePreviewBuilder.imagePreview(for: value, kind: readablePreviewKind)
     }
     public var documentPreview: ToolArtifactDocumentPreview? {
         ToolArtifactDocumentPreviewBuilder.documentPreview(for: value, kind: kind)
     }
     public var appshotPreview: ToolArtifactAppshotPreview? {
-        ToolArtifactAppshotPreviewBuilder.appshotPreview(for: value, kind: kind)
+        ToolArtifactAppshotPreviewBuilder.appshotPreview(for: value, kind: readablePreviewKind)
     }
     public var pdfPreview: ToolArtifactPDFPreview? {
-        ToolArtifactPDFPreviewBuilder.pdfPreview(for: value, kind: kind)
+        ToolArtifactPDFPreviewBuilder.pdfPreview(for: value, kind: readablePreviewKind)
     }
     public var markdownPreview: ToolArtifactMarkdownPreview? {
-        ToolArtifactMarkdownPreviewBuilder.markdownPreview(for: value, kind: kind)
+        ToolArtifactMarkdownPreviewBuilder.markdownPreview(for: value, kind: readablePreviewKind)
     }
     public var officePreview: ToolArtifactOfficePreview? {
-        ToolArtifactOfficePreviewBuilder.officePreview(for: value, kind: kind)
+        ToolArtifactOfficePreviewBuilder.officePreview(for: value, kind: readablePreviewKind)
     }
     public var rtfPreview: ToolArtifactRTFPreview? {
-        ToolArtifactRTFPreviewBuilder.rtfPreview(for: value, kind: kind)
+        ToolArtifactRTFPreviewBuilder.rtfPreview(for: value, kind: readablePreviewKind)
     }
     public var htmlPreview: ToolArtifactHTMLPreview? {
-        ToolArtifactHTMLPreviewBuilder.htmlPreview(for: value, kind: kind)
+        ToolArtifactHTMLPreviewBuilder.htmlPreview(for: value, kind: readablePreviewKind)
     }
     public var diffPreview: ToolArtifactDiffPreview? {
-        ToolArtifactDiffPreviewBuilder.diffPreview(for: value, kind: kind)
+        ToolArtifactDiffPreviewBuilder.diffPreview(for: value, kind: readablePreviewKind)
     }
     public var tablePreview: ToolArtifactTablePreview? {
-        ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: kind)
+        ToolArtifactTablePreviewBuilder.tablePreview(for: value, kind: readablePreviewKind)
     }
     public var jsonPreview: ToolArtifactJSONPreview? {
         guard allureJSONPreview == nil,
@@ -5339,223 +5347,223 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               cargoAuditJSONPreview == nil,
               pipAuditJSONPreview == nil
         else { return nil }
-        return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: kind)
+        return ToolArtifactJSONPreviewBuilder.jsonPreview(for: value, kind: readablePreviewKind)
     }
     public var npmLockfilePreview: ToolArtifactNPMLockfilePreview? {
-        ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: kind)
+        ToolArtifactNPMLockfilePreviewBuilder.npmLockfilePreview(for: value, kind: readablePreviewKind)
     }
     public var denoLockPreview: ToolArtifactDenoLockPreview? {
-        ToolArtifactDenoLockPreviewBuilder.denoLockPreview(for: value, kind: kind)
+        ToolArtifactDenoLockPreviewBuilder.denoLockPreview(for: value, kind: readablePreviewKind)
     }
     public var bunLockfilePreview: ToolArtifactBunLockfilePreview? {
-        ToolArtifactBunLockfilePreviewBuilder.bunLockfilePreview(for: value, kind: kind)
+        ToolArtifactBunLockfilePreviewBuilder.bunLockfilePreview(for: value, kind: readablePreviewKind)
     }
     public var composerLockfilePreview: ToolArtifactComposerLockfilePreview? {
-        ToolArtifactComposerLockfilePreviewBuilder.composerLockfilePreview(for: value, kind: kind)
+        ToolArtifactComposerLockfilePreviewBuilder.composerLockfilePreview(for: value, kind: readablePreviewKind)
     }
     public var goSumPreview: ToolArtifactGoSumPreview? {
-        ToolArtifactGoSumPreviewBuilder.goSumPreview(for: value, kind: kind)
+        ToolArtifactGoSumPreviewBuilder.goSumPreview(for: value, kind: readablePreviewKind)
     }
     public var pythonRequirementsPreview: ToolArtifactPythonRequirementsPreview? {
-        ToolArtifactPythonRequirementsPreviewBuilder.requirementsPreview(for: value, kind: kind)
+        ToolArtifactPythonRequirementsPreviewBuilder.requirementsPreview(for: value, kind: readablePreviewKind)
     }
     public var poetryLockPreview: ToolArtifactPoetryLockPreview? {
-        ToolArtifactPoetryLockPreviewBuilder.poetryLockPreview(for: value, kind: kind)
+        ToolArtifactPoetryLockPreviewBuilder.poetryLockPreview(for: value, kind: readablePreviewKind)
     }
     public var pipfileLockPreview: ToolArtifactPipfileLockPreview? {
-        ToolArtifactPipfileLockPreviewBuilder.pipfileLockPreview(for: value, kind: kind)
+        ToolArtifactPipfileLockPreviewBuilder.pipfileLockPreview(for: value, kind: readablePreviewKind)
     }
     public var uvLockPreview: ToolArtifactUVLockPreview? {
-        ToolArtifactUVLockPreviewBuilder.uvLockPreview(for: value, kind: kind)
+        ToolArtifactUVLockPreviewBuilder.uvLockPreview(for: value, kind: readablePreviewKind)
     }
     public var gemfileLockPreview: ToolArtifactGemfileLockPreview? {
-        ToolArtifactGemfileLockPreviewBuilder.gemfileLockPreview(for: value, kind: kind)
+        ToolArtifactGemfileLockPreviewBuilder.gemfileLockPreview(for: value, kind: readablePreviewKind)
     }
     public var podfileLockPreview: ToolArtifactPodfileLockPreview? {
-        ToolArtifactPodfileLockPreviewBuilder.podfileLockPreview(for: value, kind: kind)
+        ToolArtifactPodfileLockPreviewBuilder.podfileLockPreview(for: value, kind: readablePreviewKind)
     }
     public var pnpmLockfilePreview: ToolArtifactPNPMLockfilePreview? {
-        ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: kind)
+        ToolArtifactPNPMLockfilePreviewBuilder.pnpmLockfilePreview(for: value, kind: readablePreviewKind)
     }
     public var swiftPMPackageResolvedPreview: ToolArtifactSwiftPMPackageResolvedPreview? {
-        ToolArtifactSwiftPMPackageResolvedPreviewBuilder.packageResolvedPreview(for: value, kind: kind)
+        ToolArtifactSwiftPMPackageResolvedPreviewBuilder.packageResolvedPreview(for: value, kind: readablePreviewKind)
     }
     public var yarnLockfilePreview: ToolArtifactYarnLockfilePreview? {
-        ToolArtifactYarnLockfilePreviewBuilder.yarnLockfilePreview(for: value, kind: kind)
+        ToolArtifactYarnLockfilePreviewBuilder.yarnLockfilePreview(for: value, kind: readablePreviewKind)
     }
     public var cargoLockPreview: ToolArtifactCargoLockPreview? {
-        ToolArtifactCargoLockPreviewBuilder.cargoLockPreview(for: value, kind: kind)
+        ToolArtifactCargoLockPreviewBuilder.cargoLockPreview(for: value, kind: readablePreviewKind)
     }
     public var cycloneDXPreview: ToolArtifactCycloneDXPreview? {
-        ToolArtifactCycloneDXPreviewBuilder.cycloneDXPreview(for: value, kind: kind)
+        ToolArtifactCycloneDXPreviewBuilder.cycloneDXPreview(for: value, kind: readablePreviewKind)
     }
     public var spdxPreview: ToolArtifactSPDXPreview? {
-        ToolArtifactSPDXPreviewBuilder.spdxPreview(for: value, kind: kind)
+        ToolArtifactSPDXPreviewBuilder.spdxPreview(for: value, kind: readablePreviewKind)
     }
     public var istanbulPreview: ToolArtifactIstanbulPreview? {
-        ToolArtifactIstanbulPreviewBuilder.istanbulPreview(for: value, kind: kind)
+        ToolArtifactIstanbulPreviewBuilder.istanbulPreview(for: value, kind: readablePreviewKind)
     }
     public var coveragePyPreview: ToolArtifactCoveragePyPreview? {
-        ToolArtifactCoveragePyPreviewBuilder.coveragePyPreview(for: value, kind: kind)
+        ToolArtifactCoveragePyPreviewBuilder.coveragePyPreview(for: value, kind: readablePreviewKind)
     }
     public var pytestJSONPreview: ToolArtifactPytestJSONPreview? {
-        ToolArtifactPytestJSONPreviewBuilder.pytestJSONPreview(for: value, kind: kind)
+        ToolArtifactPytestJSONPreviewBuilder.pytestJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var allureJSONPreview: ToolArtifactAllureJSONPreview? {
-        ToolArtifactAllureJSONPreviewBuilder.allureJSONPreview(for: value, kind: kind)
+        ToolArtifactAllureJSONPreviewBuilder.allureJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var jestJSONPreview: ToolArtifactJestJSONPreview? {
-        ToolArtifactJestJSONPreviewBuilder.jestJSONPreview(for: value, kind: kind)
+        ToolArtifactJestJSONPreviewBuilder.jestJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var playwrightJSONPreview: ToolArtifactPlaywrightJSONPreview? {
-        ToolArtifactPlaywrightJSONPreviewBuilder.playwrightJSONPreview(for: value, kind: kind)
+        ToolArtifactPlaywrightJSONPreviewBuilder.playwrightJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var cucumberJSONPreview: ToolArtifactCucumberJSONPreview? {
-        ToolArtifactCucumberJSONPreviewBuilder.cucumberJSONPreview(for: value, kind: kind)
+        ToolArtifactCucumberJSONPreviewBuilder.cucumberJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var rspecJSONPreview: ToolArtifactRSpecJSONPreview? {
-        ToolArtifactRSpecJSONPreviewBuilder.rspecJSONPreview(for: value, kind: kind)
+        ToolArtifactRSpecJSONPreviewBuilder.rspecJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var mochaJSONPreview: ToolArtifactMochaJSONPreview? {
-        ToolArtifactMochaJSONPreviewBuilder.mochaJSONPreview(for: value, kind: kind)
+        ToolArtifactMochaJSONPreviewBuilder.mochaJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var benchmarkDotNetJSONPreview: ToolArtifactBenchmarkDotNetJSONPreview? {
-        ToolArtifactBenchmarkDotNetJSONPreviewBuilder.benchmarkDotNetJSONPreview(for: value, kind: kind)
+        ToolArtifactBenchmarkDotNetJSONPreviewBuilder.benchmarkDotNetJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var hyperfineJSONPreview: ToolArtifactHyperfineJSONPreview? {
-        ToolArtifactHyperfineJSONPreviewBuilder.hyperfineJSONPreview(for: value, kind: kind)
+        ToolArtifactHyperfineJSONPreviewBuilder.hyperfineJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var npmAuditJSONPreview: ToolArtifactNPMAuditJSONPreview? {
-        ToolArtifactNPMAuditJSONPreviewBuilder.npmAuditJSONPreview(for: value, kind: kind)
+        ToolArtifactNPMAuditJSONPreviewBuilder.npmAuditJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var cargoAuditJSONPreview: ToolArtifactCargoAuditJSONPreview? {
-        ToolArtifactCargoAuditJSONPreviewBuilder.cargoAuditJSONPreview(for: value, kind: kind)
+        ToolArtifactCargoAuditJSONPreviewBuilder.cargoAuditJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var pipAuditJSONPreview: ToolArtifactPipAuditJSONPreview? {
-        ToolArtifactPipAuditJSONPreviewBuilder.pipAuditJSONPreview(for: value, kind: kind)
+        ToolArtifactPipAuditJSONPreviewBuilder.pipAuditJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var eslintJSONPreview: ToolArtifactESLintJSONPreview? {
-        ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: kind)
+        ToolArtifactESLintJSONPreviewBuilder.eslintJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var stylelintJSONPreview: ToolArtifactStylelintJSONPreview? {
-        ToolArtifactStylelintJSONPreviewBuilder.stylelintJSONPreview(for: value, kind: kind)
+        ToolArtifactStylelintJSONPreviewBuilder.stylelintJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var swiftLintJSONPreview: ToolArtifactSwiftLintJSONPreview? {
-        ToolArtifactSwiftLintJSONPreviewBuilder.swiftLintJSONPreview(for: value, kind: kind)
+        ToolArtifactSwiftLintJSONPreviewBuilder.swiftLintJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var rubocopJSONPreview: ToolArtifactRuboCopJSONPreview? {
-        ToolArtifactRuboCopJSONPreviewBuilder.rubocopJSONPreview(for: value, kind: kind)
+        ToolArtifactRuboCopJSONPreviewBuilder.rubocopJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var golangCILintJSONPreview: ToolArtifactGolangCILintJSONPreview? {
-        ToolArtifactGolangCILintJSONPreviewBuilder.golangCILintJSONPreview(for: value, kind: kind)
+        ToolArtifactGolangCILintJSONPreviewBuilder.golangCILintJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var ruffJSONPreview: ToolArtifactRuffJSONPreview? {
-        ToolArtifactRuffJSONPreviewBuilder.ruffJSONPreview(for: value, kind: kind)
+        ToolArtifactRuffJSONPreviewBuilder.ruffJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var pylintJSONPreview: ToolArtifactPylintJSONPreview? {
-        ToolArtifactPylintJSONPreviewBuilder.pylintJSONPreview(for: value, kind: kind)
+        ToolArtifactPylintJSONPreviewBuilder.pylintJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var mypyJSONPreview: ToolArtifactMypyJSONPreview? {
-        ToolArtifactMypyJSONPreviewBuilder.mypyJSONPreview(for: value, kind: kind)
+        ToolArtifactMypyJSONPreviewBuilder.mypyJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var pyrightJSONPreview: ToolArtifactPyrightJSONPreview? {
-        ToolArtifactPyrightJSONPreviewBuilder.pyrightJSONPreview(for: value, kind: kind)
+        ToolArtifactPyrightJSONPreviewBuilder.pyrightJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var phpstanJSONPreview: ToolArtifactPHPStanJSONPreview? {
-        ToolArtifactPHPStanJSONPreviewBuilder.phpstanJSONPreview(for: value, kind: kind)
+        ToolArtifactPHPStanJSONPreviewBuilder.phpstanJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var psalmJSONPreview: ToolArtifactPsalmJSONPreview? {
-        ToolArtifactPsalmJSONPreviewBuilder.psalmJSONPreview(for: value, kind: kind)
+        ToolArtifactPsalmJSONPreviewBuilder.psalmJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var banditJSONPreview: ToolArtifactBanditJSONPreview? {
-        ToolArtifactBanditJSONPreviewBuilder.banditJSONPreview(for: value, kind: kind)
+        ToolArtifactBanditJSONPreviewBuilder.banditJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var semgrepJSONPreview: ToolArtifactSemgrepJSONPreview? {
-        ToolArtifactSemgrepJSONPreviewBuilder.semgrepJSONPreview(for: value, kind: kind)
+        ToolArtifactSemgrepJSONPreviewBuilder.semgrepJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var codeClimateJSONPreview: ToolArtifactCodeClimateJSONPreview? {
-        ToolArtifactCodeClimateJSONPreviewBuilder.codeClimateJSONPreview(for: value, kind: kind)
+        ToolArtifactCodeClimateJSONPreviewBuilder.codeClimateJSONPreview(for: value, kind: readablePreviewKind)
     }
     public var tapPreview: ToolArtifactTAPPreview? {
-        ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: kind)
+        ToolArtifactTAPPreviewBuilder.tapPreview(for: value, kind: readablePreviewKind)
     }
     public var harPreview: ToolArtifactHARPreview? {
-        ToolArtifactHARPreviewBuilder.harPreview(for: value, kind: kind)
+        ToolArtifactHARPreviewBuilder.harPreview(for: value, kind: readablePreviewKind)
     }
     public var lcovPreview: ToolArtifactLCOVPreview? {
-        ToolArtifactLCOVPreviewBuilder.lcovPreview(for: value, kind: kind)
+        ToolArtifactLCOVPreviewBuilder.lcovPreview(for: value, kind: readablePreviewKind)
     }
     public var goCoveragePreview: ToolArtifactGoCoveragePreview? {
-        ToolArtifactGoCoveragePreviewBuilder.goCoveragePreview(for: value, kind: kind)
+        ToolArtifactGoCoveragePreviewBuilder.goCoveragePreview(for: value, kind: readablePreviewKind)
     }
     public var sarifPreview: ToolArtifactSARIFPreview? {
-        ToolArtifactSARIFPreviewBuilder.sarifPreview(for: value, kind: kind)
+        ToolArtifactSARIFPreviewBuilder.sarifPreview(for: value, kind: readablePreviewKind)
     }
     public var notebookPreview: ToolArtifactNotebookPreview? {
-        ToolArtifactNotebookPreviewBuilder.notebookPreview(for: value, kind: kind)
+        ToolArtifactNotebookPreviewBuilder.notebookPreview(for: value, kind: readablePreviewKind)
     }
     public var jsonLinesPreview: ToolArtifactJSONLinesPreview? {
         guard cargoCompilerJSONLinesPreview == nil,
               goTestJSONLinesPreview == nil
         else { return nil }
-        return ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: kind)
+        return ToolArtifactJSONLinesPreviewBuilder.jsonLinesPreview(for: value, kind: readablePreviewKind)
     }
     public var cargoCompilerJSONLinesPreview: ToolArtifactCargoCompilerJSONLinesPreview? {
-        ToolArtifactCargoCompilerJSONLinesPreviewBuilder.cargoCompilerJSONLinesPreview(for: value, kind: kind)
+        ToolArtifactCargoCompilerJSONLinesPreviewBuilder.cargoCompilerJSONLinesPreview(for: value, kind: readablePreviewKind)
     }
     public var goTestJSONLinesPreview: ToolArtifactGoTestJSONLinesPreview? {
-        ToolArtifactGoTestJSONLinesPreviewBuilder.goTestJSONLinesPreview(for: value, kind: kind)
+        ToolArtifactGoTestJSONLinesPreviewBuilder.goTestJSONLinesPreview(for: value, kind: readablePreviewKind)
     }
     public var tomlPreview: ToolArtifactTOMLPreview? {
-        ToolArtifactTOMLPreviewBuilder.tomlPreview(for: value, kind: kind)
+        ToolArtifactTOMLPreviewBuilder.tomlPreview(for: value, kind: readablePreviewKind)
     }
     public var iniPreview: ToolArtifactINIPreview? {
-        ToolArtifactINIPreviewBuilder.iniPreview(for: value, kind: kind)
+        ToolArtifactINIPreviewBuilder.iniPreview(for: value, kind: readablePreviewKind)
     }
     public var dotenvPreview: ToolArtifactDotenvPreview? {
-        ToolArtifactDotenvPreviewBuilder.dotenvPreview(for: value, kind: kind)
+        ToolArtifactDotenvPreviewBuilder.dotenvPreview(for: value, kind: readablePreviewKind)
     }
     public var yamlPreview: ToolArtifactYAMLPreview? {
-        ToolArtifactYAMLPreviewBuilder.yamlPreview(for: value, kind: kind)
+        ToolArtifactYAMLPreviewBuilder.yamlPreview(for: value, kind: readablePreviewKind)
     }
     public var junitPreview: ToolArtifactJUnitPreview? {
-        ToolArtifactJUnitPreviewBuilder.junitPreview(for: value, kind: kind)
+        ToolArtifactJUnitPreviewBuilder.junitPreview(for: value, kind: readablePreviewKind)
     }
     public var ctestPreview: ToolArtifactCTestPreview? {
-        ToolArtifactCTestPreviewBuilder.ctestPreview(for: value, kind: kind)
+        ToolArtifactCTestPreviewBuilder.ctestPreview(for: value, kind: readablePreviewKind)
     }
     public var checkstylePreview: ToolArtifactCheckstylePreview? {
-        ToolArtifactCheckstylePreviewBuilder.checkstylePreview(for: value, kind: kind)
+        ToolArtifactCheckstylePreviewBuilder.checkstylePreview(for: value, kind: readablePreviewKind)
     }
     public var pmdPreview: ToolArtifactPMDPreview? {
-        ToolArtifactPMDPreviewBuilder.pmdPreview(for: value, kind: kind)
+        ToolArtifactPMDPreviewBuilder.pmdPreview(for: value, kind: readablePreviewKind)
     }
     public var spotBugsPreview: ToolArtifactSpotBugsPreview? {
-        ToolArtifactSpotBugsPreviewBuilder.spotBugsPreview(for: value, kind: kind)
+        ToolArtifactSpotBugsPreviewBuilder.spotBugsPreview(for: value, kind: readablePreviewKind)
     }
     public var trxPreview: ToolArtifactTRXPreview? {
-        ToolArtifactTRXPreviewBuilder.trxPreview(for: value, kind: kind)
+        ToolArtifactTRXPreviewBuilder.trxPreview(for: value, kind: readablePreviewKind)
     }
     public var xunitPreview: ToolArtifactXUnitPreview? {
-        ToolArtifactXUnitPreviewBuilder.xunitPreview(for: value, kind: kind)
+        ToolArtifactXUnitPreviewBuilder.xunitPreview(for: value, kind: readablePreviewKind)
     }
     public var nunitPreview: ToolArtifactNUnitPreview? {
-        ToolArtifactNUnitPreviewBuilder.nunitPreview(for: value, kind: kind)
+        ToolArtifactNUnitPreviewBuilder.nunitPreview(for: value, kind: readablePreviewKind)
     }
     public var testNGPreview: ToolArtifactTestNGPreview? {
-        ToolArtifactTestNGPreviewBuilder.testNGPreview(for: value, kind: kind)
+        ToolArtifactTestNGPreviewBuilder.testNGPreview(for: value, kind: readablePreviewKind)
     }
     public var robotXMLPreview: ToolArtifactRobotXMLPreview? {
-        ToolArtifactRobotXMLPreviewBuilder.robotXMLPreview(for: value, kind: kind)
+        ToolArtifactRobotXMLPreviewBuilder.robotXMLPreview(for: value, kind: readablePreviewKind)
     }
     public var coberturaPreview: ToolArtifactCoberturaPreview? {
-        ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: kind)
+        ToolArtifactCoberturaPreviewBuilder.coberturaPreview(for: value, kind: readablePreviewKind)
     }
     public var cloverPreview: ToolArtifactCloverPreview? {
-        ToolArtifactCloverPreviewBuilder.cloverPreview(for: value, kind: kind)
+        ToolArtifactCloverPreviewBuilder.cloverPreview(for: value, kind: readablePreviewKind)
     }
     public var jaCoCoPreview: ToolArtifactJaCoCoPreview? {
-        ToolArtifactJaCoCoPreviewBuilder.jaCoCoPreview(for: value, kind: kind)
+        ToolArtifactJaCoCoPreviewBuilder.jaCoCoPreview(for: value, kind: readablePreviewKind)
     }
     public var xmlPreview: ToolArtifactXMLPreview? {
         guard ctestPreview == nil,
@@ -5565,32 +5573,32 @@ public struct ToolArtifactState: Codable, Sendable, Hashable, Identifiable {
               testNGPreview == nil,
               robotXMLPreview == nil
         else { return nil }
-        return ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: kind)
+        return ToolArtifactXMLPreviewBuilder.xmlPreview(for: value, kind: readablePreviewKind)
     }
     public var propertyListPreview: ToolArtifactPropertyListPreview? {
-        ToolArtifactPropertyListPreviewBuilder.propertyListPreview(for: value, kind: kind)
+        ToolArtifactPropertyListPreviewBuilder.propertyListPreview(for: value, kind: readablePreviewKind)
     }
     public var sqlitePreview: ToolArtifactSQLitePreview? {
-        ToolArtifactSQLitePreviewBuilder.sqlitePreview(for: value, kind: kind)
+        ToolArtifactSQLitePreviewBuilder.sqlitePreview(for: value, kind: readablePreviewKind)
     }
     public var webAssemblyPreview: ToolArtifactWebAssemblyPreview? {
-        ToolArtifactWebAssemblyPreviewBuilder.webAssemblyPreview(for: value, kind: kind)
+        ToolArtifactWebAssemblyPreviewBuilder.webAssemblyPreview(for: value, kind: readablePreviewKind)
     }
     public var fontPreview: ToolArtifactFontPreview? {
-        ToolArtifactFontPreviewBuilder.fontPreview(for: value, kind: kind)
+        ToolArtifactFontPreviewBuilder.fontPreview(for: value, kind: readablePreviewKind)
     }
     public var executablePreview: ToolArtifactExecutablePreview? {
-        ToolArtifactExecutablePreviewBuilder.executablePreview(for: value, kind: kind)
+        ToolArtifactExecutablePreviewBuilder.executablePreview(for: value, kind: readablePreviewKind)
     }
     public var archivePreview: ToolArtifactArchivePreview? {
-        ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: kind)
+        ToolArtifactArchivePreviewBuilder.archivePreview(for: value, kind: readablePreviewKind)
     }
     public var mediaPreview: ToolArtifactMediaPreview? {
-        ToolArtifactMediaPreviewBuilder.mediaPreview(for: value, kind: kind)
+        ToolArtifactMediaPreviewBuilder.mediaPreview(for: value, kind: readablePreviewKind)
     }
     public var sourceTextPreview: ToolArtifactSourceTextPreview? {
         guard hasTextPreview else { return nil }
-        return ToolArtifactTextPreviewBuilder.sourceTextPreview(for: value, kind: kind)
+        return ToolArtifactTextPreviewBuilder.sourceTextPreview(for: value, kind: readablePreviewKind)
     }
     public var isDocumentPreview: Bool { documentPreview != nil }
     public var hasTextPreview: Bool {

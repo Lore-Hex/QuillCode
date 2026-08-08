@@ -21,12 +21,13 @@ enum AgentImmediateActionPlanner {
         return nil
     }
 
-    /// Whether the message reads as a multi-step task rather than a terse command. Four signals,
+    /// Whether the message reads as a multi-step task rather than a terse command. Five signals,
     /// each learned from a live hijack:
     /// - two or more enumerated step markers (`(1) …`, `1. …`, `1) …`);
     /// - two or more " then " connectors ("clone X, then list Y, then read Z");
     /// - an " and <action verb>" continuation ("Read notes.md AND TURN it into a PRD…" — the
     ///   preflight answered the read and ended the run with the task untouched);
+    /// - a later sentence beginning with an action verb ("Fix safe_join.py. Run the tests.");
     /// - sheer length: nobody types a 200-character message to run one terse command, and every
     ///   hijacked prompt was long. The cap ends the class the marker heuristics can't enumerate.
     /// A single "(1)" citation, "run tests then commit", or "list files and folders" never matches.
@@ -35,6 +36,7 @@ enum AgentImmediateActionPlanner {
         if enumeratedStepMarkerCount(in: request) >= 2 { return true }
         let lower = request.lowercased()
         if thenConnectorCount(in: lower) >= 2 { return true }
+        if containsActionSentenceContinuation(in: lower) { return true }
         return containsAndActionContinuation(in: lower)
     }
 
@@ -52,6 +54,20 @@ enum AgentImmediateActionPlanner {
                 .first
                 .map(String.init) ?? ""
             if Self.continuationActionVerbs.contains(nextWord) { return true }
+        }
+        return false
+    }
+
+    private static func containsActionSentenceContinuation(in lower: String) -> Bool {
+        let pattern = #"(?:[.!?]\s+|\n\s*)(?:please\s+)?([a-z]+)\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
+        let range = NSRange(lower.startIndex..<lower.endIndex, in: lower)
+        for match in regex.matches(in: lower, range: range) {
+            guard match.numberOfRanges > 1,
+                  let verbRange = Range(match.range(at: 1), in: lower) else {
+                continue
+            }
+            if continuationActionVerbs.contains(String(lower[verbRange])) { return true }
         }
         return false
     }

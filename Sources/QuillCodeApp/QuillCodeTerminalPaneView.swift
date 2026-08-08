@@ -98,7 +98,7 @@ struct QuillCodeTerminalPaneView: View {
                 .font(.body.monospaced())
                 .foregroundStyle(QuillCodePalette.muted)
             TextField(terminal.commandPlaceholder, text: $draft)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(QuillCodeTextFieldStyle())
                 .onSubmit(onRun)
                 .onKeyPress(.upArrow) {
                     guard !terminal.isRunning else { return .ignored }

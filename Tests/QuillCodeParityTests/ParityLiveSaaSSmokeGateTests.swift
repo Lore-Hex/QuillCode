@@ -1,6 +1,28 @@
 import XCTest
 
 final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
+    func testSaaSAnalogueFixturesExposeInteractiveContracts() throws {
+        let fixtureRoot = Self.packageRoot()
+            .appendingPathComponent("Tests/Fixtures/SaaSAnalogue")
+        let crm = try String(
+            contentsOf: fixtureRoot.appendingPathComponent("crm.html"),
+            encoding: .utf8
+        )
+        let sheet = try String(
+            contentsOf: fixtureRoot.appendingPathComponent("shared-sheet.html"),
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(crm.contains(#"input name="status""#))
+        XCTAssertTrue(crm.contains(#"button class="save" data-action="save""#))
+        XCTAssertTrue(crm.contains(#"data-testid="status" data-saved="false""#))
+        XCTAssertTrue(crm.contains(#"result.dataset.saved = "true""#))
+        XCTAssertTrue(sheet.contains(#"data-cell="launch-date" contenteditable="true""#))
+        XCTAssertTrue(sheet.contains(#"button data-action="mark-done""#))
+        XCTAssertTrue(sheet.contains(#"data-testid="sheet-state" data-done="false""#))
+        XCTAssertTrue(sheet.contains(#"result.dataset.done = "true""#))
+    }
+
     func testLiveSaaSSmokeValidatorAcceptsSignedInBrowserAndComputerUseEvidence() throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-live-saas-smoke-tests")
@@ -90,8 +112,15 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        let catalog = try Self.coworkerCatalogSnapshot()
+        let lastTask = try XCTUnwrap(catalog.lastTask)
         XCTAssertTrue(coverage.contains(#""provenTaskCount": 3"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 203"#), coverage)
+        XCTAssertTrue(
+            coverage.contains(#""pendingTaskCount": \#(catalog.rowCount - 3)"#),
+            coverage
+        )
+        XCTAssertTrue(coverage.contains(#""last": \#(lastTask.id)"#), coverage)
+        XCTAssertTrue(coverage.contains(#""total": \#(catalog.rowCount)"#), coverage)
         XCTAssertTrue(coverage.contains(#""provenTaskIDs": ["#), coverage)
         XCTAssertTrue(coverage.contains(#"196"#), coverage)
         XCTAssertTrue(coverage.contains(#"199"#), coverage)
@@ -99,9 +128,15 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(coverage.contains(#""evidenceByTaskID": {"#), coverage)
         let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
         XCTAssertTrue(markdown.contains("# Quill Cowork Coworker Coverage"), markdown)
-        XCTAssertTrue(markdown.contains("| Row | Evidence | Service | Task | Source |"), markdown)
-        XCTAssertTrue(markdown.contains("| 199 | live-saas | Salesforce | Update CRM status |"), markdown)
-        XCTAssertTrue(markdown.contains("Rows not listed here remain unproven"), markdown)
+        XCTAssertTrue(markdown.contains("| Row | Result | Category | Task | Evidence or next gap |"), markdown)
+        XCTAssertTrue(markdown.contains("| 199 | proven | Sales | In HubSpot"), markdown)
+        XCTAssertTrue(markdown.contains("live-saas"), markdown)
+        XCTAssertTrue(markdown.contains("| 210 | pending | CRM Nudges |"), markdown)
+        XCTAssertTrue(
+            markdown.contains("| \(lastTask.id) | pending | \(lastTask.category) |"),
+            markdown
+        )
+        XCTAssertTrue(markdown.contains("All catalog rows are listed"), markdown)
     }
 
     func testCoworkerCatalogCoverageAcceptsPackagedOneTurnRows() throws {
@@ -253,8 +288,12 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        let catalog = try Self.coworkerCatalogSnapshot()
         XCTAssertTrue(coverage.contains(#""provenTaskCount": 59"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 147"#), coverage)
+        XCTAssertTrue(
+            coverage.contains(#""pendingTaskCount": \#(catalog.rowCount - 59)"#),
+            coverage
+        )
         XCTAssertTrue(coverage.contains(#""evidenceType": "packaged-multi-file-artifact""#), coverage)
         XCTAssertTrue(coverage.contains(#""69": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""70": ["#), coverage)
@@ -292,6 +331,66 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertNotEqual(result.exitCode, 0)
         XCTAssertTrue(result.output.contains("canonical coworker catalog spreadsheet"), result.output)
         XCTAssertFalse(FileManager.default.fileExists(atPath: coverageURL.path))
+    }
+
+    func testCoworkerCatalogCoverageSeparatesSaaSAnaloguesFromLiveProof() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-coworker-saas-analogue-tests")
+            .appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+
+        let manifestURL = temporaryDirectory.appendingPathComponent("packaged-saas-analogue.json")
+        let coverageURL = temporaryDirectory.appendingPathComponent("coworker-coverage.json")
+        let markdownURL = temporaryDirectory.appendingPathComponent("coworker-coverage.md")
+        try """
+        {
+          "ok": true,
+          "saasAnalogueValidated": true,
+          "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
+          "catalogTaskIDs": [199, 200],
+          "usesSyntheticData": true,
+          "externalSaaSValidated": false,
+          "browserWorkflowMatchesDirect": true,
+          "launchServicesMatchesDirect": true,
+          "analogueScenarios": [
+            {"taskID": 199, "scenario": "CRM update", "workflowKey": "browserWorkflowSmoke"},
+            {"taskID": 200, "scenario": "Sheet cleanup", "workflowKey": "browserSpreadsheetWorkflowSmoke"}
+          ],
+          "limitations": [
+            "Uses synthetic local records.",
+            "Does not validate external authentication or vendor behavior."
+          ]
+        }
+        """.write(to: manifestURL, atomically: true, encoding: .utf8)
+
+        let result = try Self.runPython(
+            Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
+            arguments: [
+                "coworker-catalog",
+                manifestURL.path,
+                "--output",
+                coverageURL.path,
+                "--markdown-output",
+                markdownURL.path,
+            ]
+        )
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        let catalog = try Self.coworkerCatalogSnapshot()
+        XCTAssertTrue(coverage.contains(#""provenTaskCount": 0"#), coverage)
+        XCTAssertTrue(coverage.contains(#""analogueTaskCount": 2"#), coverage)
+        XCTAssertTrue(
+            coverage.contains(#""pendingTaskCount": \#(catalog.rowCount - 2)"#),
+            coverage
+        )
+        XCTAssertTrue(coverage.contains(#""result": "analogue""#), coverage)
+        XCTAssertTrue(coverage.contains(#""evidenceClass": "analogue""#), coverage)
+        let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
+        XCTAssertTrue(markdown.contains("| 199 | analogue | Sales | In HubSpot"), markdown)
+        XCTAssertTrue(markdown.contains("| 200 | analogue | Shared Sheet Cleanup |"), markdown)
+        XCTAssertTrue(markdown.contains("it does not validate external authentication or vendor behavior"), markdown)
     }
 
     func testLiveSaaSTemplateWritesRowLinkedEvidenceSkeleton() throws {
@@ -333,22 +432,39 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(template.contains("Replace every TODO before running scripts/live-saas-smoke.sh"), template)
     }
 
-    func testLiveSaaSTemplateRejectsInvalidCatalogRows() throws {
+    func testLiveSaaSTemplateAcceptsNewCRMCatalogRowsAndRejectsTheNextUnknownRow() throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-live-saas-template-rejection-tests")
             .appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
-        let templateURL = temporaryDirectory.appendingPathComponent("invalid-template.json")
-        let result = try Self.runPython(
-            Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
-            arguments: ["live-saas-template", "207", "--output", templateURL.path]
-        )
+        let catalog = try Self.coworkerCatalogSnapshot()
+        let invalidTaskID = try XCTUnwrap(catalog.lastTask?.id).advanced(by: 1)
 
-        XCTAssertNotEqual(result.exitCode, 0)
-        XCTAssertTrue(result.output.contains("catalogTaskIDs[0] must be between 1 and 206"), result.output)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: templateURL.path))
+        let templateURL = temporaryDirectory.appendingPathComponent("crm-template.json")
+        let accepted = try Self.runPython(
+            Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
+            arguments: ["live-saas-template", "207", "210", "--output", templateURL.path]
+        )
+        XCTAssertEqual(accepted.exitCode, 0, accepted.output)
+        let template = try String(contentsOf: templateURL, encoding: .utf8)
+        XCTAssertTrue(template.contains("207"), template)
+        XCTAssertTrue(template.contains("210"), template)
+
+        let invalidTemplateURL = temporaryDirectory.appendingPathComponent("invalid-template.json")
+        let rejected = try Self.runPython(
+            Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
+            arguments: ["live-saas-template", String(invalidTaskID), "--output", invalidTemplateURL.path]
+        )
+        XCTAssertNotEqual(rejected.exitCode, 0)
+        XCTAssertTrue(
+            rejected.output.contains(
+                "catalogTaskIDs[0] must match a catalog row ID between 1 and \(invalidTaskID - 1)"
+            ),
+            rejected.output
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: invalidTemplateURL.path))
     }
 
     func testLiveSaaSSmokeScriptDocumentsOptionalManualContract() throws {

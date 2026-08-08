@@ -7,7 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from .json_io import load_report, relative_manifest_path, require
-from .live_saas import CATALOG_SPREADSHEET_URL, CATALOG_TASK_ID_MAX, CATALOG_TASK_ID_MIN
+from .live_saas import (
+    CATALOG_SNAPSHOT,
+    CATALOG_SPREADSHEET_URL,
+    CATALOG_TASK_IDS,
+    CATALOG_TASK_ID_MAX,
+    CATALOG_TASK_ID_MIN,
+    CATALOG_TASK_ID_SET,
+)
 from .one_turn_coworker import EXPECTED_CASES
 
 
@@ -17,8 +24,9 @@ def _require_catalog_task_ids(value: Any, label: str) -> list[int]:
     for index, item in enumerate(value):
         require(isinstance(item, int) and not isinstance(item, bool), f"{label}[{index}] must be an integer")
         require(
-            CATALOG_TASK_ID_MIN <= item <= CATALOG_TASK_ID_MAX,
-            f"{label}[{index}] must be between {CATALOG_TASK_ID_MIN} and {CATALOG_TASK_ID_MAX}",
+            item in CATALOG_TASK_ID_SET,
+            f"{label}[{index}] must match a catalog row ID between "
+            f"{CATALOG_TASK_ID_MIN} and {CATALOG_TASK_ID_MAX}",
         )
         task_ids.append(item)
     require(len(set(task_ids)) == len(task_ids), f"{label} must not contain duplicates")
@@ -214,6 +222,52 @@ def _validated_packaged_multi_file_manifest(
     }
 
 
+def _validated_saas_analogue_manifest(
+    manifest: dict[str, Any],
+    path: Path,
+    base_directory: Path,
+) -> dict[str, Any]:
+    require(manifest.get("saasAnalogueValidated") is True, f"{path} must be a SaaS analogue manifest")
+    base = _manifest_base(manifest, path, base_directory)
+    require(
+        base["catalogTaskIDs"] == [199, 200],
+        f"{path}.catalogTaskIDs must be [199, 200] for the packaged CRM and sheet analogues",
+    )
+    require(manifest.get("usesSyntheticData") is True, f"{path} must declare synthetic data")
+    require(
+        manifest.get("externalSaaSValidated") is False,
+        f"{path} must not claim external SaaS validation",
+    )
+    require(
+        manifest.get("browserWorkflowMatchesDirect") is True
+        and manifest.get("launchServicesMatchesDirect") is True,
+        f"{path} must prove direct executable and Launch Services browser workflows match",
+    )
+    scenarios = manifest.get("analogueScenarios")
+    scenario_ids = sorted(
+        scenario.get("taskID")
+        for scenario in scenarios
+        if isinstance(scenario, dict)
+    ) if isinstance(scenarios, list) else []
+    require(scenario_ids == [199, 200], f"{path} must map analogue scenarios to rows 199 and 200")
+    limitations = manifest.get("limitations")
+    require(
+        isinstance(limitations, list)
+        and len(limitations) >= 2
+        and all(isinstance(item, str) and item for item in limitations),
+        f"{path}.limitations must disclose at least two non-empty limitations",
+    )
+
+    return {
+        **base,
+        "evidenceType": "packaged-saas-analogue",
+        "evidenceClass": "analogue",
+        "serviceName": "Quill Cowork Local SaaS Lab",
+        "taskName": "CRM and shared-sheet browser workflow analogues",
+        "urlHost": "local-synthetic-browser",
+    }
+
+
 def _validated_manifest(manifest: dict[str, Any], path: Path, base_directory: Path) -> dict[str, Any]:
     if manifest.get("liveSaaSValidated") is True:
         return _validated_live_saas_manifest(manifest, path, base_directory)
@@ -225,10 +279,12 @@ def _validated_manifest(manifest: dict[str, Any], path: Path, base_directory: Pa
         return _validated_packaged_one_turn_manifest(manifest, path, base_directory)
     if manifest.get("packagedMultiFileArtifactValidated") is True:
         return _validated_packaged_multi_file_manifest(manifest, path, base_directory)
+    if manifest.get("saasAnalogueValidated") is True:
+        return _validated_saas_analogue_manifest(manifest, path, base_directory)
     raise SystemExit(
         f"{path} must be a supported coworker evidence manifest "
         "(live SaaS, live app Computer Use, scheduled notification observation, "
-        "packaged one-turn coworker, or packaged multi-file artifact)"
+        "packaged one-turn coworker, packaged multi-file artifact, or packaged SaaS analogue)"
     )
 
 
@@ -246,33 +302,73 @@ def build_coworker_catalog_coverage(manifest_paths: list[Path], base_directory: 
                 {
                     "manifestPath": entry["manifestPath"],
                     "evidenceType": entry["evidenceType"],
+                    "evidenceClass": entry.get("evidenceClass", "proof"),
                     "serviceName": entry["serviceName"],
                     "taskName": entry["taskName"],
                     "urlHost": entry["urlHost"],
                 }
             )
 
-    proven_task_ids = sorted(evidence_by_task_id)
-    all_task_ids = set(range(CATALOG_TASK_ID_MIN, CATALOG_TASK_ID_MAX + 1))
-    pending_task_ids = sorted(all_task_ids.difference(proven_task_ids))
+    proven_task_ids = sorted(
+        task_id
+        for task_id, task_evidence in evidence_by_task_id.items()
+        if any(item["evidenceClass"] == "proof" for item in task_evidence)
+    )
+    analogue_task_ids = sorted(
+        task_id
+        for task_id, task_evidence in evidence_by_task_id.items()
+        if task_id not in proven_task_ids
+        and any(item["evidenceClass"] == "analogue" for item in task_evidence)
+    )
+    all_task_ids = set(CATALOG_TASK_IDS)
+    pending_task_ids = sorted(all_task_ids.difference(proven_task_ids, analogue_task_ids))
+    task_audit = []
+    for row in CATALOG_SNAPSHOT["rows"]:
+        task_id = row["id"]
+        row_evidence = evidence_by_task_id.get(task_id, [])
+        if task_id in proven_task_ids:
+            result = "proven"
+        elif task_id in analogue_task_ids:
+            result = "analogue"
+        else:
+            result = "pending"
+        task_audit.append(
+            {
+                "taskID": task_id,
+                "result": result,
+                "category": row["category"],
+                "task": row["task"],
+                "sourceStatus": row["sourceStatus"],
+                "quillCodeCoverage": row["quillCodeCoverage"],
+                "nextQuillCodeGap": row["nextQuillCodeGap"],
+                "evidence": row_evidence,
+            }
+        )
 
     return {
         "ok": True,
         "catalogSpreadsheetURL": CATALOG_SPREADSHEET_URL,
+        "catalogSnapshot": {
+            "reviewDate": CATALOG_SNAPSHOT["reviewDate"],
+            "sourceSHA256": CATALOG_SNAPSHOT["sourceSHA256"],
+        },
         "catalogTaskRange": {
             "first": CATALOG_TASK_ID_MIN,
             "last": CATALOG_TASK_ID_MAX,
-            "total": CATALOG_TASK_ID_MAX - CATALOG_TASK_ID_MIN + 1,
+            "total": len(CATALOG_TASK_IDS),
         },
         "evidenceManifestCount": len(evidence),
         "provenTaskCount": len(proven_task_ids),
+        "analogueTaskCount": len(analogue_task_ids),
         "pendingTaskCount": len(pending_task_ids),
         "provenTaskIDs": proven_task_ids,
+        "analogueTaskIDs": analogue_task_ids,
         "pendingTaskIDs": pending_task_ids,
         "evidenceByTaskID": {
             str(task_id): evidence_by_task_id[task_id]
             for task_id in proven_task_ids
         },
+        "taskAudit": task_audit,
     }
 
 
@@ -283,34 +379,40 @@ def coworker_catalog_markdown(summary: dict[str, Any]) -> str:
         f"- Catalog: {summary['catalogSpreadsheetURL']}",
         f"- Evidence manifests: {summary['evidenceManifestCount']}",
         f"- Proven rows: {summary['provenTaskCount']}",
+        f"- Analogue rows: {summary['analogueTaskCount']}",
         f"- Pending rows: {summary['pendingTaskCount']}",
+        f"- Catalog snapshot reviewed: {summary['catalogSnapshot']['reviewDate']}",
         "",
-        "| Row | Evidence | Service | Task | Source |",
+        "This report is fail-closed: a source-sheet status or capability analogue is not proof.",
+        "Analogue means equivalent mechanics passed against synthetic local data; it does not validate external authentication or vendor behavior.",
+        "Every catalog row remains pending or analogue until a row-linked proof manifest passes its evidence gate.",
+        "",
+        "| Row | Result | Category | Task | Evidence or next gap |",
         "| --- | --- | --- | --- | --- |",
     ]
 
-    evidence_by_task_id = summary["evidenceByTaskID"]
-    for task_id in summary["provenTaskIDs"]:
-        row_entries = evidence_by_task_id[str(task_id)]
-        first_entry = row_entries[0]
-        extra_count = len(row_entries) - 1
-        evidence_label = first_entry["evidenceType"]
-        if extra_count:
-            evidence_label = f"{evidence_label} (+{extra_count})"
+    for row in summary["taskAudit"]:
+        if row["evidence"]:
+            evidence_label = "; ".join(
+                f"{entry['evidenceType']} [{entry['evidenceClass']}] (`{entry['manifestPath']}`)"
+                for entry in row["evidence"]
+            )
+        else:
+            evidence_label = row["nextQuillCodeGap"] or row["quillCodeCoverage"] or "Row-linked evidence required"
         lines.append(
-            "| {row} | {evidence} | {service} | {task} | `{source}` |".format(
-                row=task_id,
+            "| {row} | {result} | {category} | {task} | {evidence} |".format(
+                row=row["taskID"],
+                result=row["result"],
+                category=_markdown_table_cell(row["category"]),
+                task=_markdown_table_cell(row["task"]),
                 evidence=_markdown_table_cell(evidence_label),
-                service=_markdown_table_cell(first_entry["serviceName"]),
-                task=_markdown_table_cell(first_entry["taskName"]),
-                source=str(first_entry["manifestPath"]).replace("`", "\\`"),
             )
         )
 
     lines.extend(
         [
             "",
-            "Rows not listed here remain unproven until a row-linked manifest is validated.",
+            "All catalog rows are listed. Pending means no row-linked evidence was supplied; analogue is synthetic and is not live SaaS proof.",
             "",
         ]
     )

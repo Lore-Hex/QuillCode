@@ -14,7 +14,7 @@ struct QuillCodeLabeledTextField: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
             TextField(placeholder, text: $text)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(QuillCodeTextFieldStyle())
                 .quillCodeTextEntryTarget()
                 .accessibilityIdentifier(fieldIdentifier)
                 .onSubmit {
@@ -51,7 +51,7 @@ struct QuillCodeDialogHeader: View {
         HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.title2.weight(.semibold))
+                    .font(.custom("Iowan Old Style", size: 24).weight(.semibold))
                 Text(subtitle)
                     .font(.callout)
                     .foregroundStyle(QuillCodePalette.muted)

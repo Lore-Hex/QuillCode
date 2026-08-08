@@ -7,6 +7,10 @@ import QuillCodeCore
 /// the same step first try), the resolver retries that step once on the fallback client instead of
 /// killing the run — preserving all prior tool work in the same thread.
 final class AgentFallbackLLMTests: XCTestCase {
+    private struct ImmediateEmptyResponseRetrySleeper: RetrySleeper {
+        func sleep(_ duration: Duration) async throws {}
+    }
+
     private actor ScriptedState {
         var steps: [Result<AgentAction, Error>]
         private(set) var callCount = 0
@@ -30,6 +34,10 @@ final class AgentFallbackLLMTests: XCTestCase {
         .failure(AgentError.emptyStreamingResponse),
         .failure(AgentError.emptyStreamingResponse),
         .failure(AgentError.emptyStreamingResponse),
+        .failure(AgentError.emptyStreamingResponse),
+        .failure(AgentError.emptyStreamingResponse),
+        .failure(AgentError.emptyStreamingResponse),
+        .failure(AgentError.emptyStreamingResponse),
     ]
 
     func testExhaustedEmptyResponsesSwitchToFallbackAndRunSucceeds() async throws {
@@ -37,7 +45,8 @@ final class AgentFallbackLLMTests: XCTestCase {
         let fallback = ScriptedState([.success(.say("fallback finished the step"))])
         let runner = AgentRunner(
             llm: ScriptedClient(state: primary),
-            fallbackLLM: ScriptedClient(state: fallback)
+            fallbackLLM: ScriptedClient(state: fallback),
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
         )
 
         let result = try await runner.send(
@@ -50,7 +59,7 @@ final class AgentFallbackLLMTests: XCTestCase {
         XCTAssertTrue(result.thread.events.contains { $0.summary.contains("switching to the fallback model") })
         let primaryCalls = await primary.calls()
         let fallbackCalls = await fallback.calls()
-        XCTAssertEqual(primaryCalls, 3, "primary gets its full budget first")
+        XCTAssertEqual(primaryCalls, 7, "primary gets its full budget first")
         XCTAssertEqual(fallbackCalls, 1)
     }
 
@@ -59,7 +68,8 @@ final class AgentFallbackLLMTests: XCTestCase {
         let fallback = ScriptedState(Self.alwaysEmpty + Self.alwaysEmpty)
         let runner = AgentRunner(
             llm: ScriptedClient(state: primary),
-            fallbackLLM: ScriptedClient(state: fallback)
+            fallbackLLM: ScriptedClient(state: fallback),
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
         )
         do {
             _ = try await runner.send(
@@ -74,12 +84,15 @@ final class AgentFallbackLLMTests: XCTestCase {
             XCTFail("wrong error: \(error)")
         }
         let fallbackCalls = await fallback.calls()
-        XCTAssertEqual(fallbackCalls, 3, "fallback gets ONE fresh budget, never loops")
+        XCTAssertEqual(fallbackCalls, 7, "fallback gets ONE fresh budget, never loops")
     }
 
     func testNoFallbackConfiguredKeepsTodaysFatalBehavior() async {
         let primary = ScriptedState(Self.alwaysEmpty)
-        let runner = AgentRunner(llm: ScriptedClient(state: primary))
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: primary),
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
         do {
             _ = try await runner.send(
                 "summarize the current state of the repository",

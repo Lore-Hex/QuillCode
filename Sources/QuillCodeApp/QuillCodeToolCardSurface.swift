@@ -281,11 +281,11 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
     }
 
     public var imagePreviewArtifacts: [ToolArtifactState] {
-        artifacts.filter(\.isImagePreview)
+        artifacts.filter { $0.canLoadLocalPreview && $0.isImagePreview }
     }
 
     public var textPreviewArtifacts: [ToolArtifactState] {
-        artifacts.filter(\.hasTextPreview)
+        artifacts.filter { $0.canLoadLocalPreview && $0.hasTextPreview }
     }
 
     public var documentPreviewArtifacts: [ToolArtifactState] {

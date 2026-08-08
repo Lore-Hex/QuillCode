@@ -6,6 +6,207 @@ https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu
 The sheet is the product-facing catalog for office coworker tasks QuillCode should handle. Keep it
 grounded in verified QuillCode evidence, not intention.
 
+## 2026-08-08 Long-Horizon Founder Expansion
+
+The canonical sheet now contains 320 task rows. Rows #311 through #320 add ten deliberately long,
+multi-step YC founder workflows, one in each existing founder category. Every prompt requires broad
+web research, authenticated but read-only LinkedIn research, source-level evidence, contradiction
+handling, resumable `progress.md` checkpoints, explicit minimum record counts, multiple saved
+artifacts, and a final quality pass. External side effects are prohibited: the agent may draft
+outreach, but it may not message, connect, post, submit forms, purchase, or alter an account.
+
+These rows are `Proposed - not yet driven`, not covered. The intended evaluation model is
+`deepseek/deepseek-v4-flash-0731`; a row can move to verified only after a native Cowork run proves
+authenticated browser use, checkpoint/resume behavior, source traceability, every requested artifact,
+and artifact readback. The original rows #211 through #310 retain their Wave 5 `100/100` evidence.
+
+## 2026-08-06 Founder Workflow Expansion
+
+The canonical sheet now contains 310 task rows. Rows #211 through #310 add 100 YC-style founder
+workflows spanning customer discovery, founder sales, product and roadmap, launch and growth,
+fundraising, finance and runway, hiring and team, investor and board updates, operations and
+compliance, and pricing and competitive intelligence. The additions are reproducible from
+`scripts/founder-task-catalog.py`; `--check` validates the exact IDs, required columns, unique task
+prompts, and ten-task category balance before the rows are written to the sheet.
+
+`docs/coworker-task-catalog.json` is the normalized, checked-in snapshot used by the evidence
+validators. Regenerate it from a fresh CSV export with:
+
+```sh
+python3 scripts/sync-coworker-catalog.py <sheet.csv> docs/coworker-task-catalog.json \
+  --review-date YYYY-MM-DD
+```
+
+On 2026-08-07, all 100 rows passed one uninterrupted native Cowork re-drive with
+`deepseek/deepseek-v4-flash-0731`. The run exercised fixture-backed source use, task lifecycle,
+artifact writes, and readback validation; its summary is at
+`.build/quillcode-validation/wave5-cowork/full-r74/summary.md`. Rows #211 through #310 are now
+`Verified end-to-end` in the canonical sheet and checked-in snapshot. The fail-closed evidence
+gates still apply: future task additions remain pending until a row-linked run proves them.
+
+## 2026-08-05 Full Catalog Audit
+
+The audit began with 210 task rows, including CRM rows #207 through #210.
+
+The catalog rollup is fail-closed. Source-sheet statuses such as `Verified end-to-end`, and
+QuillCode labels based on capability analogues, are context only. A task is proven only when a
+row-linked packaged, live SaaS, live app Computer Use, or notification-observation manifest passes
+its validator. The Markdown audit lists every current row, including the exact next gap for every
+pending row, rather than rendering only the rows that already passed.
+
+### Five Whys: Catalog Count Drift
+
+1. Why did rows #207 through #210 fail validation? The validators rejected every ID above 206.
+2. Why did they reject valid sheet rows? The maximum catalog ID was a Python constant.
+3. Why was the constant stale? The sheet was the only task source of truth and had no checked-in,
+   machine-readable counterpart.
+4. Why did tests not catch the drift? A regression test explicitly asserted that row #207 was
+   invalid, so the stale behavior looked correct.
+5. Why could documentation and code disagree? The release gate had no catalog-sync boundary or
+   content hash.
+
+Root fixes: normalize the live export into `docs/coworker-task-catalog.json`, derive bounds and row
+metadata from that snapshot, validate contiguous IDs and row count, preserve the source SHA-256,
+accept rows #207 through #210, and reject the next unknown row (#211).
+
+### Five Whys: Analogue Coverage Looked Like Task Proof
+
+1. Why did many sheet rows look covered without executable evidence? Coverage labels included core
+   tool analogues.
+2. Why were analogues easy to mistake for task completion? The rollup output only listed proven
+   rows and did not show the untested catalog rows beside them.
+3. Why did row-specific UI evidence stop at #73? New examples were hand-coded in the desktop mock
+   runner and each required a matching mock-model branch.
+4. Why did that not scale to the whole catalog? The catalog was not data-driven and external-account
+   prerequisites were not represented in one audit.
+5. Why is it unsafe to auto-green the remaining rows? Browser/SaaS, confidential-data, and native
+   notification tasks require signed-in accounts, supplied fixtures, or visible OS evidence that a
+   deterministic mock cannot honestly provide.
+
+Root fixes: emit a full-catalog audit with `proven` or `pending` per task; keep source status separate from
+QuillCode evidence; show the row's exact next gate; and continue rejecting credentialed or
+consequential claims without before/after evidence. Packaged row-linked evidence currently proves
+rows #15 through #73. Remaining rows are explicit work, not implied coverage.
+
+### Five Whys: First-Run UI Exposed an Internal Callback
+
+1. Why did onboarding show `http://localhost:3000/callback`? The view rendered the OAuth callback
+   value stored for sign-in plumbing.
+2. Why was plumbing treated as user copy? The prompt model did not distinguish action state from
+   presentation.
+3. Why was office-coworker positioning unclear? The copy still said `start coding`.
+4. Why did UI smoke pass anyway? Pixel and accessibility checks proved a usable, nonblank window,
+   not product-language quality.
+5. Why could the issue reach the packaged app? There was no copy guard against coding language or
+   localhost details on the first-run surface.
+
+Root fixes: retain the callback only as action state, remove it from the rendered view, add a secure
+browser-sign-in caption, describe files/research/office tools, update the three-step onboarding flow,
+and test that first-run copy contains neither `coding` nor `localhost`.
+
+### Five Whys: Doctor Reported a False Provider Failure
+
+1. Why did `quill-code doctor` report HTTP 404 while the native UI could complete a live request?
+   The reachability probe called the inference base URL's `/models` route.
+2. Why did that route return 404? The inference plane intentionally does not expose the model
+   catalog at that path.
+3. Why did the catalog UI still work? Model discovery uses a separate public control-plane catalog
+   and fallback data, while `doctor` evolved independently.
+4. Why did tests not catch the wrong request? They stubbed status classifications without asserting
+   the live probe's URL and authorization header.
+5. Why could two provider contracts drift? Reachability was described as model discovery instead of
+   the gateway availability check it actually needed to perform.
+
+Root fixes: probe the gateway's credential-free `/attestation` contract, add an exact request-shape
+regression test proving no authorization header or URL secret is sent, and keep gateway reachability,
+configured-credential presence, and paid inference validation as separate facts. The corrected key
+was verified through the packaged native UI with an exact-reply live model turn; `doctor` stays
+non-billable and no longer claims to validate credentials through an unsupported endpoint.
+
+### Five Whys: Search Opened Without Owning Keyboard Focus
+
+1. Why did packaged native smoke see Search but no focused search input? A preceding focus-owning
+   surface could finish its AppKit dismissal after Search made its initial focus request.
+2. Why could the earlier surface win after Search was visible? Internal Search routes changed the
+   presentation binding before synchronously revoking the underlying composer's `FocusState`.
+3. Why did Search's 50 ms retry not settle the race? The overlay transition and AppKit popover
+   dismissal can outlive that fixed delay under a loaded packaged run.
+4. Why did the issue reproduce only in the full interaction sequence? Opening Search manually from a
+   settled window omitted the prior popover/modal teardown that the complete activation suite creates.
+5. Why did source tests miss it? They checked for a focus request and eventual composer release, but
+   not pre-presentation focus ownership or a cancellable request spanning transition completion.
+
+Root fixes: internal routes now revoke composer focus before presenting Search; external
+menu/controller bindings retain the presentation-change safety release; model-driven composer-focus
+tokens remain suppressed while Search is open; and Search owns a bounded, cancellable focus task that
+reasserts focus after the overlay/popover transition window. The source gate covers both ownership
+rules, while packaged native smoke proves the field is focused, accepts a reversible AXValue edit, and
+clears it before continuing through the remaining workflows.
+
+### Five Whys: Launch Services Stalled Before Render Smoke
+
+1. Why did the packaged Launch Services smoke produce no report? App initialization blocked before
+   the smoke runner task was scheduled.
+2. Why did initialization block? It constructed the normal desktop controller and synchronously
+   refreshed the selected project's file-mention index.
+3. Why was that index scanning a huge filesystem tree? The controller used the process working
+   directory as its default project, and Launch Services can start GUI apps at `/`.
+4. Why was a normal controller constructed for an isolated render smoke? Render-smoke arguments
+   were parsed only after `QuillCodeDesktopController()` had completed, unlike window smoke.
+5. Why did existing tests not catch the startup ordering defect? They tested request parsing and the
+   smoke runner independently, but never asserted the controller root chosen before runner startup.
+
+Root fixes: parse render-smoke arguments before constructing any normal controller, initialize its
+placeholder UI from the smoke request's isolated state and workspace roots, and resolve normal GUI
+startup away from `/` or the user's entire home into a dedicated `Documents/QuillCode Workspace`
+directory. Regression tests now prove both smoke isolation and safe Launch Services root resolution.
+
+### Five Whys: Signed-In App Stalled Before Its First Window
+
+1. Why did Computer Use time out while inspecting the normally launched app? The first window never
+   completed initialization.
+2. Why did window initialization not complete? The main actor was synchronously scanning the
+   persisted selected project to build file-mention suggestions.
+3. Why is that unsafe even though the current package root normally indexes in under 100 ms?
+   Directory enumeration is filesystem I/O with unbounded per-entry latency; a slow volume, provider,
+   permission check, or unavailable path can block the UI regardless of the usual repository timing.
+4. Why did packaged Launch Services smoke pass after the isolated-smoke fix? That smoke uses isolated
+   app state and a controlled workspace, so it does not exercise the user's persisted selected project.
+5. Why did existing file-index tests not catch the responsiveness defect? They asserted traversal,
+   exclusions, ordering, and caps, but not main-actor responsiveness, cancellation, or stale-result
+   handling when a project changes during a scan.
+
+Root fixes: file-mention indexing now runs in a cancellable utility-priority task, superseded scans are
+cancelled, and generation plus active-root guards prevent stale results from replacing the current
+project's index. Completion notifies the desktop controller to refresh the UI. Regression coverage
+injects a deliberately slow 250 ms index builder and requires project selection to return in under
+100 ms, then verifies the eventual result; a package-root timing check separately guards pathological
+traversal regressions without treating normal filesystem speed as a UI-thread guarantee.
+
+### Five Whys: Project Context Still Stalled Startup After File Indexing Moved
+
+1. Why did the signed-in app still fail to expose a window after file-mention indexing became
+   asynchronous? A second filesystem scan began later in the same main-actor initialization path.
+2. Why was there a second scan? `QuillCodeWorkspaceBootstrap.makeModel()` synchronously refreshed
+   the persisted project's instructions, local actions, hooks, plugins, extensions, and memories.
+3. Why could that refresh block indefinitely? Instruction discovery recursively enumerates as many
+   as 400 directories, and any filesystem entry can wait on a slow or unavailable volume even though
+   the scan has count and byte bounds.
+4. Why did the file-indexing fix not solve this scan too? File mentions and project context have
+   separate loaders and lifecycle ownership; removing one synchronous traversal merely exposed the
+   next blocked frame in the sampled startup stack.
+5. Why did tests and packaged smoke miss the layered defect? Tests used small temporary projects and
+   asserted metadata correctness, while packaged smoke used isolated state; neither injected slow
+   project metadata nor required normal persisted-state bootstrap to return promptly.
+
+Root fixes: bootstrap no longer performs project-context freshness work before returning the model.
+The desktop schedules a cancellable detached utility task after initial state is publishable, and
+generation, selected-project, remote/local, and standardized-root guards reject stale results.
+Instruction and metadata loaders observe cancellation between bounded operations. A deliberately slow
+250 ms loader must return control to the main actor in under 100 ms and eventually publish its result;
+a second regression switches projects mid-scan and proves the late old result is discarded. Explicit
+user-requested context refresh remains synchronous so its completion semantics do not silently change.
+
 ## Sheet Tracking Columns
 
 On 2026-07-27 the sheet gained formula-backed QuillCode tracking columns:
@@ -463,7 +664,8 @@ scripts/native-click-probe-contracts.py coworker-catalog \
 ```
 
 The coverage summary records `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID` for the full
-1-206 catalog range. The optional Markdown report lists proven rows, evidence type, service, task,
+snapshot-defined catalog range (currently 1-310). The optional Markdown report lists every row,
+its proven/pending result, evidence or exact next gap, category, and canonical task,
 and source manifest, so spreadsheet updates can be reviewed from row-linked evidence rather than
 manual memory.
 

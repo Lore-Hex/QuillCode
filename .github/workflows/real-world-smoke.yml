@@ -6,7 +6,7 @@ on:
       model:
         description: "TrustedRouter model to use for the live smoke"
         required: false
-        default: "deepseekv4flash"
+        default: "deepseekv4flash0731"
       require_live:
         description: "Fail if QUILLCODE_LIVE_API_KEY is unavailable"
         required: false
@@ -27,7 +27,7 @@ jobs:
     runs-on: macos-15
     env:
       QUILLCODE_API_KEY: ${{ secrets.QUILLCODE_LIVE_API_KEY }}
-      QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash' }}
+      QUILLCODE_LIVE_MODEL: ${{ inputs.model || 'deepseekv4flash0731' }}
       QUILLCODE_REQUIRE_LIVE_SMOKE: ${{ inputs.require_live && '1' || '0' }}
       QUILLCODE_REAL_WORLD_SMOKE_ARTIFACT_DIR: ${{ github.workspace }}/.quillcode-real-world-smoke
     steps:

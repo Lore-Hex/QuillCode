@@ -142,7 +142,7 @@ struct QuillCodeComputerUseApprovalSettingsCard: View {
                 .foregroundStyle(QuillCodePalette.muted)
             TextField(placeholder, text: text, axis: .vertical)
                 .lineLimit(2...5)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(QuillCodeTextFieldStyle())
                 .font(.body.monospaced())
                 .quillCodeTextEntryTarget(minHeight: 88, alignment: .topLeading)
                 .accessibilityIdentifier(accessibilityID)

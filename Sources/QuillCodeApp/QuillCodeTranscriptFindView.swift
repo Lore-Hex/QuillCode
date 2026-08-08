@@ -88,7 +88,7 @@ struct QuillCodeTranscriptFindBar: View {
 
     private var queryField: some View {
         TextField("Find in chat", text: $query)
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(QuillCodeTextFieldStyle())
             .focused($isFocused)
             .quillCodeTextEntryTarget()
             .accessibilityIdentifier("quillcode-transcript-find-input")

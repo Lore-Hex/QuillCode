@@ -216,6 +216,96 @@ final class TrustedRouterActionParserTests: XCTestCase {
         XCTAssertTrue(call.argumentsJSON.contains(#""cmd":"whoami""#))
     }
 
+    func testActionParserResynchronizesAfterMalformedToolResultPrefix() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {
+          "result": {
+            "artifacts": [],
+            "ok": true
+          ],
+          "toolCall": {"argumentsHash":"abc"}
+        <end_of_thinking>
+        {"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"# Ranked accounts\\nBody"}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "outputs/report.md")
+        XCTAssertEqual(try arguments.requiredString("content"), "# Ranked accounts\nBody")
+    }
+
+    func testActionParserRepairsMissingClosingObjectAtEOF() throws {
+        let action = try AgentActionJSONParser.parse(##"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"# Complete\nBody"}"##)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected repaired file-write action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "report.md")
+        XCTAssertEqual(try arguments.requiredString("content"), "# Complete\nBody")
+    }
+
+    func testActionParserRepairsBareQuotesInCompleteFileWriteContent() throws {
+        let action = try AgentActionJSONParser.parse(
+            ##"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"# Report\nPositioning stayed "close automation" for this period.\n"}}"##
+        )
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected repaired file-write action")
+        }
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "report.md")
+        XCTAssertEqual(
+            try arguments.requiredString("content"),
+            "# Report\nPositioning stayed \"close automation\" for this period.\n"
+        )
+    }
+
+    func testActionParserRepairsBareQuotesAndMissingOuterBraceInFileWrite() throws {
+        let action = try AgentActionJSONParser.parse(
+            ##"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"# Report\nPositioning stayed "close automation" for this period.\n"}"##
+        )
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected repaired file-write action")
+        }
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "report.md")
+        XCTAssertEqual(
+            try arguments.requiredString("content"),
+            "# Report\nPositioning stayed \"close automation\" for this period.\n"
+        )
+    }
+
+    func testActionParserRejectsFileWriteWithoutPathBeforeExecution() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse(
+            ##"{"type":"tool","name":"host.file.write","arguments":{"content":"# Revised report\n"}}"##
+        )) { error in
+            guard case TrustedRouterAgentError.emptyToolArguments(let toolName) = error else {
+                return XCTFail("Expected emptyToolArguments, got \(error)")
+            }
+            XCTAssertEqual(toolName, ToolDefinition.fileWrite.name)
+        }
+    }
+
+    func testActionParserDoesNotRepairBareQuotesInTruncatedFileWriteContent() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse(
+            #"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"Positioning stayed "close automation""#
+        )) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
+        }
+    }
+
+    func testActionParserDoesNotRepairUnterminatedContentString() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse(#"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"truncated"#)) { error in
+            XCTAssertTrue(String(describing: error).contains("valid QuillCode action JSON object"))
+        }
+    }
+
     func testActionParserRecoversExplicitBacktickedShellCommandFromProse() throws {
         let action = try AgentActionJSONParser.parse("I'll run `whoami` on the device.")
 

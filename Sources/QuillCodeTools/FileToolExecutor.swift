@@ -5,9 +5,10 @@ public struct FileToolExecutor: Sendable {
     public var workspaceRoot: URL
     public let accessScope: HostToolAccessScope
     /// When set, `write` refuses to overwrite an existing file the session never read, rejects
-    /// no-op writes, and serializes concurrent writes to the same file; `read` records the file
-    /// in the session's read-set. When nil (the default), reads and writes are unguarded —
-    /// direct programmatic use such as test fixtures. `ToolRouter` always injects a guard.
+    /// no-op edits to files the session only read, and serializes concurrent writes to the same
+    /// file. Replaying content this session already wrote is an idempotent success. When nil (the
+    /// default), reads and writes are unguarded — direct programmatic use such as test fixtures.
+    /// `ToolRouter` always injects a guard.
     public var editGuard: FileEditSessionGuard?
 
     private var pathResolver: FileWorkspacePathResolver {
@@ -46,7 +47,7 @@ public struct FileToolExecutor: Sendable {
                         + "Use host.file.list to see its contents."
                 )
             }
-            let data = try Data(contentsOf: url)
+            let data = try FileSystemIO.readFile(at: url)
             // Refuse binary/image content gracefully instead of erroring or dumping garbage into
             // context. The refusal must NOT count as a read: the session was never shown the
             // content, so it earns no write/patch rights over it.
@@ -100,11 +101,18 @@ public struct FileToolExecutor: Sendable {
                     throw FileEditGuardError.writeWithoutRead(path)
                 }
                 if let existing, existing == encodedData(for: content, existing: existing) {
+                    if editGuard.hasWritten(url) {
+                        return ToolResult(
+                            ok: true,
+                            stdout: "Already up to date \(url.path)\n",
+                            artifacts: [url.path]
+                        )
+                    }
                     throw FileEditGuardError.noOpWrite(path)
                 }
                 let result = try performWrite(content, to: url, existing: existing)
                 // The session wrote this exact content, so it now knows the file.
-                editGuard.markRead(url)
+                editGuard.markWritten(url)
                 return result
             }
         } catch {

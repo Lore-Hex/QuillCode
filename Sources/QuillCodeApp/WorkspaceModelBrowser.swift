@@ -15,14 +15,19 @@ extension QuillCodeWorkspaceModel {
     }
 
     @discardableResult
-    public func openBrowserPreview(_ input: String? = nil, workspaceRoot: URL? = nil) -> Bool {
+    public func openBrowserPreview(
+        _ input: String? = nil,
+        workspaceRoot: URL? = nil,
+        inspectLocalFileContents: Bool = true
+    ) -> Bool {
         let opened = mutateBrowserState { browser, lastError in
             WorkspaceBrowserWorkflow.openPreview(
                 input,
                 workspaceRoot: workspaceRoot,
                 browser: &browser,
                 lastError: &lastError,
-                domainPolicy: root.config.browserDomainPolicy
+                domainPolicy: root.config.browserDomainPolicy,
+                inspectLocalFileContents: inspectLocalFileContents
             )
         }
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)

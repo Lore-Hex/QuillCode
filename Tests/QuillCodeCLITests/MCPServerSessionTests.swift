@@ -233,7 +233,7 @@ final class MCPServerSessionTests: XCTestCase {
             id: .string("on-failure-approved"),
             name: "codex",
             arguments: .object([
-                "prompt": .string("Run the supplied command."),
+                "prompt": .string("Run this exact command: \(command)"),
                 "cwd": .string(fixture.workspace.path),
                 "approval-policy": .string("on-failure"),
                 "sandbox": .string("workspace-write")
@@ -292,7 +292,7 @@ final class MCPServerSessionTests: XCTestCase {
             id: .string("on-failure-denied"),
             name: "codex",
             arguments: .object([
-                "prompt": .string("Run the supplied command."),
+                "prompt": .string("Run this exact command: \(command)"),
                 "cwd": .string(fixture.workspace.path),
                 "approval-policy": .string("on-failure"),
                 "sandbox": .string("workspace-write")

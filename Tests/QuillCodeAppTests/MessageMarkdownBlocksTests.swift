@@ -137,4 +137,23 @@ final class MessageMarkdownBlocksTests: XCTestCase {
             [.list(ordered: false, items: ["fix `add(a, b)`", "run **tests**"])]
         )
     }
+
+    func testMarkdownDocumentRefreshesOnlyWhenSourceTextChanges() {
+        let document = QuillCodeMessageMarkdownDocument(text: "**First**")
+        let initialBlocks = document.blocks(for: "**First**")
+
+        XCTAssertEqual(initialBlocks, [.paragraph("**First**")])
+        XCTAssertEqual(document.blocks(for: "**First**"), initialBlocks)
+        XCTAssertEqual(document.blocks(for: "## Second"), [.heading(level: 2, text: "Second")])
+    }
+
+    func testMarkdownDocumentCachesInlineAndPlainFastPaths() throws {
+        let document = QuillCodeMessageMarkdownDocument(text: "unused")
+
+        let first = try XCTUnwrap(document.inlineAttributed(for: "Use `swift test`"))
+        let second = try XCTUnwrap(document.inlineAttributed(for: "Use `swift test`"))
+        XCTAssertEqual(first, second)
+        XCTAssertNil(document.inlineAttributed(for: "Plain text"))
+        XCTAssertNil(document.inlineAttributed(for: "Plain text"))
+    }
 }

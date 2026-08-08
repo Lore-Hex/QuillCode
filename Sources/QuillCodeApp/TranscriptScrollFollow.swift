@@ -1,4 +1,21 @@
 import CoreGraphics
+import Combine
+
+/// Mutable geometry sampled while a transcript scroll gesture is in flight.
+///
+/// None of these values are presentation state, so they deliberately do not publish object changes.
+/// Publishing the content offset on every trackpad sample invalidates the full transcript view and
+/// makes long conversations hitch even though only the bottom-pinned transition affects rendering.
+final class TranscriptScrollMetrics: ObservableObject {
+    var viewportHeight: CGFloat = 0
+    var viewportWidth: CGFloat = 0
+    var bottomSentinelMaxY: CGFloat = 0
+    var lastContentTopMinY: CGFloat?
+
+    func resetContentOffsetBaseline() {
+        lastContentTopMinY = nil
+    }
+}
 
 /// Pure helpers for the transcript's conditional bottom-pinning (used by ``QuillCodeTranscriptView``).
 /// Kept out of the view so the follow logic is unit-testable without a running SwiftUI hierarchy.
@@ -59,6 +76,16 @@ enum TranscriptScrollFollow {
 
     /// Sub-pixel below which a content-offset change is layout jitter, not a scroll.
     static let scrollEpsilon: CGFloat = 0.5
+
+    /// GeometryReader can report tiny floating-point oscillations while a scroll settles. Committing
+    /// each one to `@State` invalidates the same layout that produced it and can keep the graph alive.
+    static func shouldCommitGeometrySample(
+        _ sample: CGFloat,
+        current: CGFloat,
+        epsilon: CGFloat = TranscriptScrollFollow.scrollEpsilon
+    ) -> Bool {
+        sample.isFinite && abs(sample - current) > epsilon
+    }
 
     /// The result of classifying one content-offset sample: the resolved pin, and the baseline the
     /// caller should carry into the next sample.

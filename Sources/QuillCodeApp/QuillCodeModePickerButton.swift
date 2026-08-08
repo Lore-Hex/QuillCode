@@ -23,7 +23,6 @@ struct QuillCodeModePickerButton: View {
         } label: {
             modePickerLabel
         }
-        .quillCodeCapsuleButtonTarget()
         .buttonStyle(QuillCodePressableButtonStyle())
         .help("Choose Auto safety mode")
         .accessibilityLabel("Auto safety mode, \(modeLabel)")
@@ -67,12 +66,13 @@ struct QuillCodeModePickerButton: View {
         }
         .foregroundStyle(QuillCodePalette.text)
         .padding(.horizontal, 10)
-        .quillCodeCapsuleButtonTarget()
-        .background(QuillCodePalette.selection.opacity(0.62))
+        .quillCodeTextButtonTarget(minWidth: 84)
+        .background(QuillCodePalette.panel3)
         .overlay {
-            Capsule().stroke(Color.white.opacity(0.10), lineWidth: 1)
+            RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                .stroke(QuillCodePalette.lineStrong, lineWidth: 1)
         }
-        .clipShape(Capsule())
+        .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Auto safety mode, \(modeLabel)")
         .accessibilityIdentifier("quillcode-mode-picker-button")

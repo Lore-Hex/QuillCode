@@ -67,6 +67,44 @@ final class AgentDeliverableGateTests: XCTestCase {
         )
     }
 
+    func testQualifiedDeliverableCanonicalizesEarlierBareFilename() throws {
+        let prompt = """
+        Produce lost-demo-patterns.csv and a one-page summary.
+        Save the complete primary deliverable to `outputs/wave5-213.md`.
+        Also create the required supporting artifact: `outputs/lost-demo-patterns.csv`.
+        """
+
+        XCTAssertEqual(
+            AgentDeliverableGate.requiredDeliverables(in: prompt),
+            ["outputs/wave5-213.md", "outputs/lost-demo-patterns.csv"]
+        )
+
+        let root = try makeWorkspace()
+        let outputs = root.appendingPathComponent("outputs", isDirectory: true)
+        try FileManager.default.createDirectory(at: outputs, withIntermediateDirectories: true)
+        try "summary".write(
+            to: outputs.appendingPathComponent("wave5-213.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "patterns".write(
+            to: outputs.appendingPathComponent("lost-demo-patterns.csv"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(AgentDeliverableGate.missingDeliverables(in: prompt, workspaceRoot: root).isEmpty)
+    }
+
+    func testDistinctQualifiedPathsWithSameFilenameRemainRequired() {
+        XCTAssertEqual(
+            AgentDeliverableGate.requiredDeliverables(
+                in: "Write current/report.md and create archive/report.md for comparison."
+            ),
+            ["current/report.md", "archive/report.md"]
+        )
+    }
+
     // MARK: - Existence gate
 
     private func makeWorkspace() throws -> URL {

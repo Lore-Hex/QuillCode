@@ -19,13 +19,18 @@ enum AgentFileWriteRequestParser {
         let lower = trimmed.lowercased()
         guard containsFileWriteIntent(lower) else { return nil }
 
-        guard let content = extractContent(from: trimmed, lowercasedRequest: lower) else {
+        guard let extractedContent = extractContent(from: trimmed, lowercasedRequest: lower) else {
             return nil
         }
+        let path = extractPath(from: trimmed, lowercasedRequest: lower)
+            ?? defaultPath(for: extractedContent, lowercasedRequest: lower)
+        let content = AgentArtifactTextQualityGate.replacingMalformedLiteralEscapes(
+            content: extractedContent,
+            path: path
+        ) ?? extractedContent
 
         return AgentFileWriteRequest(
-            path: extractPath(from: trimmed, lowercasedRequest: lower)
-                ?? defaultPath(for: content, lowercasedRequest: lower),
+            path: path,
             content: content.hasSuffix("\n") ? content : "\(content)\n"
         )
     }

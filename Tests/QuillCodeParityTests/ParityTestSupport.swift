@@ -1,6 +1,21 @@
 import XCTest
 
 class QuillCodeParityTestCase: XCTestCase {
+    struct CoworkerCatalogSnapshot: Decodable {
+        struct Task: Decodable {
+            let id: Int
+            let category: String
+        }
+
+        let rowCount: Int
+        let taskIDs: [Int]
+        let rows: [Task]
+
+        var lastTask: Task? {
+            rows.max { $0.id < $1.id }
+        }
+    }
+
     static func packageRoot() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
@@ -216,6 +231,16 @@ class QuillCodeParityTestCase: XCTestCase {
             .appendingPathComponent("docs")
             .appendingPathComponent(fileName)
         return try String(contentsOf: file, encoding: .utf8)
+    }
+
+    static func coworkerCatalogSnapshot() throws -> CoworkerCatalogSnapshot {
+        let file = packageRoot()
+            .appendingPathComponent("docs")
+            .appendingPathComponent("coworker-task-catalog.json")
+        return try JSONDecoder().decode(
+            CoworkerCatalogSnapshot.self,
+            from: Data(contentsOf: file)
+        )
     }
 
     static func nativeClickProbeValidatorText() throws -> String {

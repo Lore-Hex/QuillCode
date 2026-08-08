@@ -85,6 +85,7 @@ public struct WorkspaceFileIndexer: Sendable {
     ///     inside dot-directories are skipped.
     ///   - maxFiles: Optional override for the file cap. Bounded to a safe range.
     public func index(includeHidden: Bool = false, maxFiles: Int? = nil) -> WorkspaceFileIndex {
+        guard !Task.isCancelled else { return WorkspaceFileIndex() }
         let limit = boundedMaxFiles(maxFiles)
         let dirLimit = Self.defaultMaxDirectories
 
@@ -95,66 +96,71 @@ public struct WorkspaceFileIndexer: Sendable {
             return WorkspaceFileIndex()
         }
 
-        guard let enumerator = FileManager.default.enumerator(
-            at: workspaceRoot,
-            includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
-            options: [.skipsPackageDescendants]
-        ) else {
-            return WorkspaceFileIndex()
-        }
-
         var entries: [WorkspaceFileIndexEntry] = []
         var directories: [WorkspaceFileIndexEntry] = []
+        var pendingDirectories = [workspaceRoot]
+        var pendingIndex = 0
+        var scannedDirectories = 0
         var truncated = false
         var directoriesTruncated = false
 
-        for case let candidate as URL in enumerator {
-            let name = candidate.lastPathComponent
-
-            if shouldSkipDirectory(candidate, name: name, includeHidden: includeHidden) {
-                enumerator.skipDescendants()
-                continue
-            }
-
-            if !includeHidden, name.hasPrefix(".") {
-                continue
-            }
-
-            let values = try? candidate.resourceValues(forKeys: [.isDirectoryKey, .isRegularFileKey])
-
-            if values?.isDirectory == true {
-                // Directories ride their OWN cap so they never consume the file budget, and
-                // we never skipDescendants here so file discovery (the file cap) is untouched.
-                if directories.count < dirLimit, let relative = relativePath(for: candidate) {
-                    directories.append(WorkspaceFileIndexEntry(
-                        path: relative,
-                        name: name,
-                        directory: parentDirectory(of: relative),
-                        kind: .directory
-                    ))
-                } else if directories.count >= dirLimit {
-                    directoriesTruncated = true
-                }
-                continue
-            }
-
-            guard values?.isRegularFile == true else { continue }
-
-            guard let relative = relativePath(for: candidate) else { continue }
-            entries.append(WorkspaceFileIndexEntry(
-                path: relative,
-                name: name,
-                directory: parentDirectory(of: relative)
-            ))
-
-            if entries.count >= limit {
-                truncated = true
-                // The enumerator is depth-first and interleaves directories with files, so
-                // aborting here leaves any directories deeper in the walk unvisited. Flag the
-                // directory set as incomplete too rather than reporting a partial set as whole.
+        while pendingIndex < pendingDirectories.count {
+            guard !Task.isCancelled else { return WorkspaceFileIndex() }
+            guard scannedDirectories < dirLimit else {
                 directoriesTruncated = true
                 break
             }
+            let parent = pendingDirectories[pendingIndex]
+            pendingIndex += 1
+            scannedDirectories += 1
+            guard let candidates = try? FileManager.default.contentsOfDirectory(
+                at: parent,
+                includingPropertiesForKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey],
+                options: [.skipsPackageDescendants]
+            ) else { continue }
+
+            for candidate in candidates.sorted(by: { $0.path < $1.path }) {
+                guard !Task.isCancelled else { return WorkspaceFileIndex() }
+                let name = candidate.lastPathComponent
+                if !includeHidden, name.hasPrefix(".") { continue }
+                let values = try? candidate.resourceValues(
+                    forKeys: [.isDirectoryKey, .isRegularFileKey, .isSymbolicLinkKey]
+                )
+                guard values?.isSymbolicLink != true else { continue }
+
+                if values?.isDirectory == true {
+                    guard !shouldSkipDirectory(named: name, includeHidden: includeHidden) else { continue }
+                    guard directories.count < dirLimit else {
+                        directoriesTruncated = true
+                        continue
+                    }
+                    if let relative = relativePath(for: candidate) {
+                        directories.append(WorkspaceFileIndexEntry(
+                            path: relative,
+                            name: name,
+                            directory: parentDirectory(of: relative),
+                            kind: .directory
+                        ))
+                    }
+                    pendingDirectories.append(candidate)
+                    continue
+                }
+
+                guard values?.isRegularFile == true,
+                      let relative = relativePath(for: candidate)
+                else { continue }
+                entries.append(WorkspaceFileIndexEntry(
+                    path: relative,
+                    name: name,
+                    directory: parentDirectory(of: relative)
+                ))
+                if entries.count >= limit {
+                    truncated = true
+                    directoriesTruncated = true
+                    break
+                }
+            }
+            if truncated { break }
         }
 
         var merged = entries
@@ -163,9 +169,7 @@ public struct WorkspaceFileIndexer: Sendable {
         return WorkspaceFileIndex(entries: merged, truncated: truncated, directoriesTruncated: directoriesTruncated)
     }
 
-    private func shouldSkipDirectory(_ url: URL, name: String, includeHidden: Bool) -> Bool {
-        let values = try? url.resourceValues(forKeys: [.isDirectoryKey])
-        guard values?.isDirectory == true else { return false }
+    private func shouldSkipDirectory(named name: String, includeHidden: Bool) -> Bool {
         if Self.excludedDirectoryNames.contains(name) { return true }
         if !includeHidden, name.hasPrefix(".") { return true }
         return false

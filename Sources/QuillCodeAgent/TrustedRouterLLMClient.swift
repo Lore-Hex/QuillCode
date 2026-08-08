@@ -163,7 +163,7 @@ public struct TrustedRouterLLMClient: UsageStreamingLLMClient {
         promptCachingPolicy: TrustedRouterPromptCachingPolicy = .automatic,
         historyPrefixStable: Bool = false
     ) throws -> Data {
-        var body = TrustedRouterChatParameters.jsonObjectResponse
+        var body = TrustedRouterChatParameters.agentActionResponse(model: model)
         body["model"] = model
         body["messages"] = TrustedRouterPromptCaching.annotatedMessages(
             messages,

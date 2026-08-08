@@ -153,6 +153,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         let withBrowser = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .browserOpen, .browserInspect])
         XCTAssertTrue(withBrowser.contains("use host.browser.open immediately"))
         XCTAssertFalse(withBrowser.contains("NOT available in this run"))
+        XCTAssertTrue(withBrowser.contains("This in-app browser is a separate session"))
+        XCTAssertTrue(withBrowser.contains("those requests require Computer Use first"))
 
         let headless = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .webFetch])
         XCTAssertFalse(headless.contains("use host.browser.open immediately"))
@@ -169,6 +171,10 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Inspect that image before choosing coordinates"))
         XCTAssertTrue(prompt.contains("capture a fresh screenshot"))
         XCTAssertTrue(prompt.contains("untrusted page content"))
+        XCTAssertTrue(prompt.contains("a signed-in session"))
+        XCTAssertTrue(prompt.contains("start with a screenshot"))
+        XCTAssertTrue(prompt.contains("Never substitute host.browser.* or a guest/logged-out page"))
+        XCTAssertTrue(prompt.contains("report the exact blocker"))
         XCTAssertFalse(TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun])
             .contains("Computer Use screenshot results"))
     }
@@ -266,12 +272,14 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Treat requests to inventory, clean up, summarize"))
         XCTAssertTrue(prompt.contains("Use available file, shell, browser, Computer Use, and artifact tools immediately"))
         XCTAssertTrue(prompt.contains("ask a concise question only for a missing folder"))
+        XCTAssertTrue(prompt.contains("do not inventory or search the workspace speculatively"))
+        XCTAssertTrue(prompt.contains("assumption-labeled template with placeholders"))
         XCTAssertTrue(prompt.contains("For named SaaS workflows without a URL"))
         XCTAssertTrue(prompt.contains("do not stop after saying you will do it or after only opening the page"))
         XCTAssertTrue(prompt.contains("Save requested CSV, PDF, Markdown, spreadsheet, or document deliverables"))
         XCTAssertLessThan(
             TrustedRouterPromptBuilder.officeCoworkerPrompt.count,
-            800,
+            1_100,
             "Office coworker behavior belongs in compact routing guidance plus skills/tests, not a giant base prompt."
         )
     }
@@ -289,6 +297,15 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("never report totals you did not reconcile"))
     }
 
+    func testPromptRequiresDeterministicTabularAggregation() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
+
+        XCTAssertTrue(prompt.contains("counts, rates, sums, averages, medians"))
+        XCTAssertTrue(prompt.contains("use the shell to compute and validate"))
+        XCTAssertTrue(prompt.contains("Reconcile the computed population to the source row IDs"))
+        XCTAssertTrue(prompt.contains("Do not perform multi-row arithmetic from memory"))
+    }
+
     func testPromptForbidsInventedFactsInDraftedCommunications() {
         // Live UC-24 finding: an angry-customer draft asserted "I've checked the recent logs …
         // the project still exists" with zero tool calls behind it — an invented reassurance a
@@ -298,8 +315,15 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Drafted communications"))
         XCTAssertTrue(prompt.contains("never assert facts you did not verify"))
         XCTAssertTrue(prompt.contains("an invented reassurance becomes a lie to a customer"))
-        XCTAssertTrue(prompt.contains("bracketed placeholder"))
-        XCTAssertTrue(prompt.contains("never as an already-established fact"))
+        XCTAssertTrue(prompt.contains("Preserve source scope, quantities, qualifiers, and attribution"))
+        XCTAssertTrue(prompt.contains("One named person's statement"))
+        XCTAssertTrue(prompt.contains("do not turn hypotheses or directional observations into established claims"))
+        XCTAssertTrue(prompt.contains("Do not add assurances or commitments about confidentiality"))
+        XCTAssertTrue(prompt.contains("Omit unsupported assurances instead of inventing them"))
+        XCTAssertTrue(prompt.contains("Use bracketed fill-in placeholders only when"))
+        XCTAssertTrue(prompt.contains("placeholder-free artifact"))
+        XCTAssertTrue(prompt.contains("never leave `[Name]`, `[Date]`, `[Company]`"))
+        XCTAssertTrue(prompt.contains("never present it as an already-established fact"))
     }
 
     func testPromptPrefersStructuredGitBranchToolsOverShell() {

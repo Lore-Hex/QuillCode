@@ -28,7 +28,7 @@ struct QuillCodeBrowserPaneView: View {
     private var commentInput: some View {
         HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             TextField("Add browser comment", text: $commentDraft)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(QuillCodeTextFieldStyle())
                 .disabled(browser.currentURL == nil)
                 .onSubmit(addComment)
                 .quillCodeTextEntryTarget()

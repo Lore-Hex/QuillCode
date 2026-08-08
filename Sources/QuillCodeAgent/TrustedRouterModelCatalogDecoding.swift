@@ -79,7 +79,7 @@ struct TrustedRouterCatalogModel: Decodable {
     /// chat's picker never saw a tier-3 (Confidential) model and locked itself to the aggregate
     /// E2E route even though the catalog advertises ~100 eligible models.
     private static func privacyTier(in container: KeyedDecodingContainer<FlexibleCodingKey>) -> Int? {
-        if let direct = try? container.firstInt(for: ["privacy_tier", "privacyTier"]), direct != nil {
+        if let direct = try? container.firstInt(for: ["privacy_tier", "privacyTier"]) {
             return direct
         }
         guard let nested = try? container.nestedContainer(

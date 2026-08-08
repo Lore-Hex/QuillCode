@@ -6,20 +6,13 @@ struct QuillCodeTopBarIdentityView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 9) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(topBar.primaryTitle)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(QuillCodePalette.text)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Text(topBar.subtitle)
-                    .font(.system(size: 12.5, weight: .medium))
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            .layoutPriority(2)
+            Text(topBar.primaryTitle)
+                .font(.custom("Iowan Old Style", size: 16).weight(.semibold))
+                .foregroundStyle(QuillCodePalette.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .truncationMode(.tail)
+                .layoutPriority(2)
 
             if let branchStatusLabel = topBar.branchStatusLabel {
                 statusChip(branchStatusLabel)
@@ -97,16 +90,20 @@ struct QuillCodeTopBarIdentityView: View {
 
     private func statusChip(_ label: String, tint: Color = QuillCodePalette.muted) -> some View {
         Text(label)
-            .font(.system(size: 13, weight: .medium).monospacedDigit())
+            .font(.system(size: 11, weight: .semibold, design: .monospaced))
             .foregroundStyle(tint)
             .lineLimit(1)
             .truncationMode(.middle)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
             .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
                     .fill(tint.opacity(0.08))
             )
+            .overlay {
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                    .stroke(tint.opacity(0.32), lineWidth: 1)
+            }
     }
 
     private func keyUsagePopover(_ balance: ProviderAccountBalanceSurface) -> some View {
@@ -138,10 +135,10 @@ struct QuillCodeTopBarIdentityView: View {
     private func tokenBudgetView(_ budget: TokenBudgetSurface) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 7) {
             Text("Context")
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(QuillCodePalette.muted)
             Text(budget.primaryLabel)
-                .font(.system(size: 14, weight: .semibold).monospacedDigit())
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 .foregroundStyle(QuillCodePalette.text)
                 .lineLimit(1)
                 .fixedSize()
@@ -155,10 +152,10 @@ struct QuillCodeTopBarIdentityView: View {
         .padding(.vertical, QuillCodeMetrics.topBarTokenBudgetVerticalPadding)
         .fixedSize()
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
                 .fill(tokenBudgetTint(for: budget).opacity(0.055))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
                         .stroke(QuillCodePalette.line, lineWidth: 1)
                 )
         )
@@ -183,9 +180,9 @@ struct QuillCodeTopBarIdentityView: View {
     private func tokenBudgetProgressBar(_ budget: TokenBudgetSurface) -> some View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
-                Capsule()
+                Rectangle()
                     .fill(QuillCodePalette.panel.opacity(0.86))
-                Capsule()
+                Rectangle()
                     .fill(tokenBudgetTint(for: budget).opacity(0.86))
                     .frame(width: proxy.size.width * CGFloat(budget.progressPercent) / 100)
             }

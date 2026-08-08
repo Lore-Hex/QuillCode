@@ -183,17 +183,61 @@ enum MessageMarkdownBlocks {
     }
 }
 
+/// Per-message parsed Markdown retained by SwiftUI for the lifetime of a lazy transcript row.
+/// Long assistant replies should be parsed when their text changes, not whenever scrolling asks the
+/// row for its body again.
+final class QuillCodeMessageMarkdownDocument: ObservableObject {
+    private var sourceText: String
+    private var inlineCache: [String: AttributedString] = [:]
+    private var plainInlineText: Set<String> = []
+    private(set) var blocks: [MessageMarkdownBlocks.Block]
+
+    init(text: String) {
+        let displayText = MessageMarkdownBlocks.strippingReplacementCharacters(text)
+        sourceText = text
+        blocks = MessageMarkdownBlocks.parse(displayText)
+    }
+
+    func blocks(for text: String) -> [MessageMarkdownBlocks.Block] {
+        guard text != sourceText else { return blocks }
+        sourceText = text
+        let displayText = MessageMarkdownBlocks.strippingReplacementCharacters(text)
+        blocks = MessageMarkdownBlocks.parse(displayText)
+        inlineCache.removeAll(keepingCapacity: true)
+        plainInlineText.removeAll(keepingCapacity: true)
+        return blocks
+    }
+
+    func inlineAttributed(for text: String) -> AttributedString? {
+        if let attributed = inlineCache[text] {
+            return attributed
+        }
+        guard !plainInlineText.contains(text) else { return nil }
+        guard let attributed = MessageMarkdownBlocks.inlineAttributed(text) else {
+            plainInlineText.insert(text)
+            return nil
+        }
+        inlineCache[text] = attributed
+        return attributed
+    }
+}
+
 /// Renders an assistant message's markdown: fenced code blocks as language-labelled monospaced panels,
 /// headings as a real type hierarchy, bulleted/numbered lists with hanging indents, and prose with
 /// inline styling (bold / italics / `code` / links). User messages stay verbatim — what you typed is
 /// what you see. Mirrors the block treatment in E2E/harness/index.html.
 struct QuillCodeMessageMarkdownView: View {
     var text: String
+    @StateObject private var document: QuillCodeMessageMarkdownDocument
+
+    init(text: String) {
+        self.text = text
+        _document = StateObject(wrappedValue: QuillCodeMessageMarkdownDocument(text: text))
+    }
 
     var body: some View {
-        let displayText = MessageMarkdownBlocks.strippingReplacementCharacters(text)
         VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(MessageMarkdownBlocks.parse(displayText).enumerated()), id: \.offset) { _, block in
+            ForEach(Array(document.blocks(for: text).enumerated()), id: \.offset) { _, block in
                 blockView(block)
             }
         }
@@ -230,7 +274,7 @@ struct QuillCodeMessageMarkdownView: View {
 
     @ViewBuilder
     private func proseText(_ prose: String) -> some View {
-        if let attributed = MessageMarkdownBlocks.inlineAttributed(prose) {
+        if let attributed = document.inlineAttributed(for: prose) {
             Text(attributed)
                 .font(.body)
                 .lineSpacing(6)

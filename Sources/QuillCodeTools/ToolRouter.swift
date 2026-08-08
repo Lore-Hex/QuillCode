@@ -133,11 +133,14 @@ public struct ToolRouter: Sendable {
         }
     }
 
-    /// Executes shell calls without blocking the caller's cooperative executor and terminates the
-    /// child process when the task is cancelled. Other tools remain synchronous and use the normal
-    /// router path.
+    /// Executes host tools without blocking the caller's cooperative executor. Shell calls retain
+    /// task-aware cancellation; synchronous tools run on a detached worker.
     public func executeCancellable(_ call: ToolCall) async -> ToolResult {
-        guard ShellToolCallDispatcher.handles(call.name) else { return execute(call) }
+        guard ShellToolCallDispatcher.handles(call.name) else {
+            return await Task.detached(priority: .userInitiated) {
+                execute(call)
+            }.value
+        }
         do {
             let arguments = try ToolArguments(call.argumentsJSON)
             return try await ShellToolCallDispatcher(

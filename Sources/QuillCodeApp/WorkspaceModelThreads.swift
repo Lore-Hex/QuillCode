@@ -8,7 +8,7 @@ extension QuillCodeWorkspaceModel {
         _ = returnFromSideConversation()
         _ = discardConfidentialThreadOnExit()
         let effectiveProjectID = knownProjectID(projectID ?? root.selectedProjectID)
-        refreshProjectMetadata(effectiveProjectID)
+        requestProjectContextRefreshForNewChat(effectiveProjectID)
         let context = WorkspaceProjectContextRefresher.threadCreationContext(
             projectID: effectiveProjectID,
             mode: root.config.mode,

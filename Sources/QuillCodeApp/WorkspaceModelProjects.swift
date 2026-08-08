@@ -2,6 +2,12 @@ import Foundation
 import QuillCodeCore
 import QuillCodeTools
 
+struct WorkspaceProjectContextRefreshRequest: Sendable, Equatable {
+    var projectID: UUID
+    var projectRoot: URL
+    var generation: Int
+}
+
 @MainActor
 extension QuillCodeWorkspaceModel {
     @discardableResult
@@ -70,9 +76,9 @@ extension QuillCodeWorkspaceModel {
         let previousLocation = currentNavigationLocation
         root.selectedProjectID = selection.projectID
         syncTerminalSessionToSelectedProject()
-        refreshProjectMetadata(selection.projectID)
         touchProject(selection.projectID)
         root.selectedThreadID = selection.threadID
+        requestProjectContextRefresh(selection.projectID)
         saveProjects()
         refreshTopBar(agentStatus: TopBarAgentStatusLabel.idle)
         if recordsNavigation {
@@ -84,7 +90,126 @@ extension QuillCodeWorkspaceModel {
         refreshSelectedProjectContext()
     }
 
+    /// Refreshes the selected local project's persisted context without delaying the calling UI.
+    /// Repeated requests for one root are coalesced because a blocking filesystem syscall cannot
+    /// be interrupted by Swift task cancellation. A changed selection queues one follow-up scan.
+    public func scheduleSelectedProjectContextRefresh() {
+        let projectID = selectedThread?.projectID ?? root.selectedProjectID
+        requestProjectContextRefresh(projectID)
+    }
+
+    /// Starts a best-effort freshness scan for a run but never puts that scan on the send path.
+    /// The run uses the last persisted context; a completed refresh is available to later turns.
+    func scheduleProjectContextRefreshForAgentSend(_ projectID: UUID?) {
+        requestProjectContextRefresh(projectID, queueAfterInFlight: true)
+    }
+
+    func requestProjectContextRefreshForNewChat(_ projectID: UUID?) {
+        requestProjectContextRefresh(projectID)
+    }
+
+    private func requestProjectContextRefresh(
+        _ projectID: UUID?,
+        queueAfterInFlight: Bool = false
+    ) {
+        guard let projectID,
+              let project = root.projects.first(where: { $0.id == projectID }),
+              !project.isRemote
+        else {
+            projectContextRefreshGeneration &+= 1
+            projectContextRefreshPending = nil
+            return
+        }
+
+        let projectRoot = URL(fileURLWithPath: project.path).standardizedFileURL
+        if let inFlight = projectContextRefreshInFlight,
+           inFlight.projectID == projectID,
+           inFlight.projectRoot == projectRoot {
+            guard queueAfterInFlight else { return }
+            if let pending = projectContextRefreshPending,
+               pending.projectID == projectID,
+               pending.projectRoot == projectRoot {
+                return
+            }
+        }
+
+        projectContextRefreshGeneration &+= 1
+        let request = WorkspaceProjectContextRefreshRequest(
+            projectID: projectID,
+            projectRoot: projectRoot,
+            generation: projectContextRefreshGeneration
+        )
+        guard projectContextRefreshTask == nil else {
+            projectContextRefreshPending = request
+            return
+        }
+        startProjectContextRefresh(request)
+    }
+
+    private func startProjectContextRefresh(_ request: WorkspaceProjectContextRefreshRequest) {
+        let metadataLoader = projectMetadataLoader
+        let hookTrustStore = projectHookTrustStore
+        projectContextRefreshInFlight = request
+        projectContextRefreshTask = Task(priority: .utility) { [weak self] in
+            let loadingTask = Task.detached(priority: .utility) {
+                metadataLoader(request.projectRoot, hookTrustStore)
+            }
+            let metadata = await loadingTask.value
+
+            guard let self else { return }
+            self.finishProjectContextRefresh(request, metadata: metadata)
+        }
+    }
+
+    private func finishProjectContextRefresh(
+        _ request: WorkspaceProjectContextRefreshRequest,
+        metadata: WorkspaceProjectMetadata
+    ) {
+        let shouldApply = !Task.isCancelled
+            && projectContextRefreshGeneration == request.generation
+            && root.projects.contains { project in
+                project.id == request.projectID
+                    && !project.isRemote
+                    && URL(fileURLWithPath: project.path).standardizedFileURL == request.projectRoot
+            }
+
+        if shouldApply,
+           WorkspaceProjectEngine.applyMetadata(
+                metadata,
+                to: request.projectID,
+                projects: &root.projects,
+                includeLocalExtensions: true
+           ) {
+            if selectedThread?.projectID == request.projectID {
+                let refreshedContext = workspaceThreadContext(request.projectID)
+                mutateSelectedThread { thread in
+                    guard !thread.runtimeContext.isConfidential else { return }
+                    thread.instructions = refreshedContext.instructions
+                    thread.memories = refreshedContext.memories
+                }
+            }
+            saveProjects()
+            refreshTopBar(agentStatus: root.topBar.agentStatus)
+            onProjectContextChanged?()
+        }
+
+        projectContextRefreshTask = nil
+        projectContextRefreshInFlight = nil
+        if let pending = projectContextRefreshPending {
+            projectContextRefreshPending = nil
+            startProjectContextRefresh(pending)
+        }
+    }
+
+    func waitForScheduledProjectContextRefresh() async {
+        while let task = projectContextRefreshTask {
+            await task.value
+        }
+    }
+
     public func refreshSelectedProjectContext() {
+        projectContextRefreshGeneration &+= 1
+        projectContextRefreshPending = nil
         let projectID = selectedThread?.projectID ?? root.selectedProjectID
         refreshProjectMetadata(projectID)
         let refreshedContext = workspaceThreadContext(projectID)

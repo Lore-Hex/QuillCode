@@ -13,7 +13,7 @@ LIVE_STATUS="not-run"
 LIVE_DETAIL="not-started"
 FINAL_DETAIL="interrupted"
 LIVE_KEY_SOURCE="missing"
-LIVE_MODEL="${QUILLCODE_LIVE_MODEL:-deepseekv4flash}"
+LIVE_MODEL="${QUILLCODE_LIVE_MODEL:-deepseekv4flash0731}"
 LIVE_BASE_URL="${QUILLCODE_LIVE_BASE_URL:-https://api.trustedrouter.com/v1}"
 
 cd "$ROOT_DIR"

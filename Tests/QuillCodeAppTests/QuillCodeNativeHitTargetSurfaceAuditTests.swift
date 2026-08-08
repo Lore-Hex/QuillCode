@@ -103,7 +103,7 @@ private extension QuillCodeNativeHitTargetSurfaceAuditTests {
     func assertGlobalReportMetrics(_ report: QuillCodeNativeHitTargetAuditReport) {
         XCTAssertEqual(report.minimumHitTarget, 40)
         XCTAssertEqual(report.minimumTargetClearance, 8)
-        XCTAssertEqual(report.pressScale, 0.96)
+        XCTAssertEqual(report.pressScale, 1)
         XCTAssertEqual(Set(report.designSystemContracts.map(\.kind)), Set(QuillCodeNativeHitTargetKind.allCases))
     }
 

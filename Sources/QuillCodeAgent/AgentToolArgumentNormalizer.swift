@@ -191,6 +191,10 @@ enum AgentToolArgumentNormalizer {
 
     private static func requiredStringArgumentKeys(for toolName: String) -> [String]? {
         switch toolName {
+        case ToolDefinition.fileRead.name:
+            return ["path"]
+        case ToolDefinition.fileWrite.name:
+            return ["path", "content"]
         case ToolDefinition.shellRun.name:
             return ["cmd"]
         case ToolDefinition.browserOpen.name:

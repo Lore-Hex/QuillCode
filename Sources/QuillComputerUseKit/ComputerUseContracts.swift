@@ -142,6 +142,14 @@ public protocol ComputerUseBackend: Sendable {
     func pressKey(_ key: String) async throws
 }
 
+public protocol ComputerUsePermissionRequesting {
+    @discardableResult
+    func requestScreenRecordingAccess() -> Bool
+
+    @discardableResult
+    func requestAccessibilityAccess() -> Bool
+}
+
 public protocol ComputerUseForegroundApplicationProviding: Sendable {
     func foregroundApplication() async -> ComputerUseApplication?
 }

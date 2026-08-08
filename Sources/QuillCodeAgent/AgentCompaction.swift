@@ -94,7 +94,9 @@ extension AgentRunner {
         tools: [ToolDefinition],
         workspaceRoot: URL,
         onProgress: AgentRunProgressHandler?,
-        injectedCorrection: String? = nil
+        injectedCorrection: String? = nil,
+        reasoningBudgetPhase: AgentReasoningBudgetPhase = .startup,
+        emptyResponseRetryPolicy: AgentEmptyResponseRetryPolicy = .standard
     ) async throws -> AgentAction {
         guard let compaction else {
             return try await nextAction(
@@ -103,7 +105,9 @@ extension AgentRunner {
                 tools: tools,
                 workspaceRoot: workspaceRoot,
                 onProgress: onProgress,
-                injectedCorrection: injectedCorrection
+                injectedCorrection: injectedCorrection,
+                reasoningBudgetPhase: reasoningBudgetPhase,
+                emptyResponseRetryPolicy: emptyResponseRetryPolicy
             )
         }
 
@@ -123,7 +127,9 @@ extension AgentRunner {
                     tools: tools,
                     workspaceRoot: workspaceRoot,
                     onProgress: onProgress,
-                    injectedCorrection: injectedCorrection
+                    injectedCorrection: injectedCorrection,
+                    reasoningBudgetPhase: reasoningBudgetPhase,
+                    emptyResponseRetryPolicy: emptyResponseRetryPolicy
                 )
             } catch {
                 // Only a recognized context overflow is compactable; everything else propagates
