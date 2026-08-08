@@ -12,7 +12,7 @@ final class QuillCodeProjectListSurfaceTests: XCTestCase {
         let multiple = ProjectListSurface(items: [first, second], selectedProjectID: nil)
 
         XCTAssertEqual(empty.countLabel, "No projects")
-        XCTAssertEqual(empty.compactCountLabel, "No projects")
+        XCTAssertEqual(empty.compactCountLabel, "0")
         XCTAssertEqual(empty.connectionSummaryLabel, "No project connections")
         XCTAssertEqual(empty.accessibilitySummary, "Projects, no projects")
         XCTAssertEqual(single.countLabel, "1 project")

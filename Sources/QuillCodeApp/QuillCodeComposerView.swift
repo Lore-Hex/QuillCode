@@ -19,6 +19,7 @@ struct QuillCodeComposerView: View {
     var onRemoveImage: (UUID) -> Void = { _ in }
     var onStop: () -> Void
     var onDeleteFollowUp: (UUID) -> Void = { _ in }
+    var isWorkspaceAvailable = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.quillCodeConfidentialAppearance) private var isConfidentialAppearance
@@ -121,9 +122,10 @@ struct QuillCodeComposerView: View {
 
             HStack(alignment: .bottom, spacing: QuillCodeMetrics.controlClusterSpacing) {
                 QuillCodeComposerTextField(
-                    placeholder: composer.placeholder,
+                    placeholder: isWorkspaceAvailable ? composer.placeholder : "Open a project to start",
                     draft: $draft,
                     isFocused: isFocused,
+                    isEnabled: isWorkspaceAvailable,
                     onDownArrow: handleDownArrow,
                     onUpArrow: handleUpArrow,
                     onTab: handleTab,
@@ -207,7 +209,8 @@ struct QuillCodeComposerView: View {
     }
 
     private var canSendDraft: Bool {
-        (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        isWorkspaceAvailable
+            && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !composer.attachments.isEmpty)
             && !composer.isSending
             && modelCommandEmptyCopy == nil
@@ -228,6 +231,7 @@ struct QuillCodeComposerView: View {
             .help("Attach images")
             .accessibilityLabel("Attach images")
             .accessibilityIdentifier("quillcode-attach-images-button")
+            .disabled(!isWorkspaceAvailable)
 
             QuillCodeModelPickerView(
                 topBar: topBar,

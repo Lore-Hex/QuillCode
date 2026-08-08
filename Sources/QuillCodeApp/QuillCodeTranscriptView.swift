@@ -38,6 +38,8 @@ struct QuillCodeTranscriptView: View {
     /// silently fail. See ``TranscriptConnectPrompt``.
     var connectPrompt: TranscriptConnectPrompt? = nil
     var onStartTrustedRouterSignIn: () -> Void = {}
+    var requiresProjectSelection = false
+    var onOpenProject: () -> Void = {}
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.quillCodeConfidentialAppearance) private var isConfidentialAppearance
@@ -102,7 +104,27 @@ struct QuillCodeTranscriptView: View {
     }
 
     private var isEmptyStateVisible: Bool {
-        transcript.timelineItems.isEmpty && !review.isVisible && contextBanner == nil && runtimeIssue == nil
+        guard transcript.timelineItems.isEmpty,
+              !review.isVisible,
+              contextBanner == nil
+        else {
+            return false
+        }
+        guard requiresProjectSelection || connectPrompt != nil else {
+            return runtimeIssue == nil
+        }
+        return runtimeIssue == nil || runtimeIssueIsSetupRelated
+    }
+
+    private var runtimeIssueIsSetupRelated: Bool {
+        switch runtimeIssue?.recovery?.reason {
+        case .trustedRouterSignInRequired, .developerKeyMissing:
+            return true
+        case .trustedRouterKeyRejected, .rateLimited, .providerUnavailable,
+             .networkUnreachable, .emptyResponse, .malformedModelAction,
+             .runFailed, .savedChatsUnreadable, nil:
+            return false
+        }
     }
 
     private var scrollAnchorID: String? {
@@ -339,7 +361,9 @@ struct QuillCodeTranscriptView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if let connectPrompt {
+        if requiresProjectSelection {
+            QuillCodeProjectSetupView(onOpenProject: onOpenProject)
+        } else if let connectPrompt {
             // Not connected yet: the sign-in gate takes precedence over the starter cards (and even
             // confidential mode) — there is nothing to start until an account is connected.
             QuillCodeConnectView(prompt: connectPrompt, onSignIn: onStartTrustedRouterSignIn)

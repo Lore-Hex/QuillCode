@@ -52,6 +52,9 @@ public struct ProjectListSurface: Codable, Sendable, Hashable {
     }
 
     public var compactCountLabel: String {
+        guard !items.isEmpty else {
+            return "0"
+        }
         guard remoteProjectCount > 0 else {
             return countLabel
         }
