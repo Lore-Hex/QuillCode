@@ -42,6 +42,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     private let checker: any QuillCodeDesktopUpdateChecking
     private let preparer: any QuillCodeDesktopUpdatePreparing
     private let installer: any QuillCodeDesktopUpdateInstalling
+    private let installationInspector: any QuillCodeDesktopUpdateInstallationInspecting
     private let recovery: any QuillCodeDesktopUpdateRecovering
     private let defaults: UserDefaults
     private let now: () -> Date
@@ -66,6 +67,8 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         checker: any QuillCodeDesktopUpdateChecking = QuillCodeDesktopUpdateChecker(),
         preparer: any QuillCodeDesktopUpdatePreparing = QuillCodeDesktopUpdatePreparer(),
         installer: any QuillCodeDesktopUpdateInstalling = QuillCodeDesktopUpdateInstaller(),
+        installationInspector: any QuillCodeDesktopUpdateInstallationInspecting =
+            QuillCodeDesktopUpdateInstallationInspector(),
         recovery: any QuillCodeDesktopUpdateRecovering = QuillCodeDesktopUpdateRecovery(),
         defaults: UserDefaults = .standard,
         now: @escaping () -> Date = Date.init,
@@ -78,6 +81,7 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         self.checker = checker
         self.preparer = preparer
         self.installer = installer
+        self.installationInspector = installationInspector
         self.recovery = recovery
         self.defaults = defaults
         self.now = now
@@ -159,6 +163,14 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
             )
             return
         }
+        guard installationInspector.availability(for: configuration) == .available else {
+            state = .failed(
+                message: QuillCodeDesktopUpdateError.installationUnavailable.localizedDescription,
+                release: release
+            )
+            isPresented = true
+            return
+        }
         let generation = beginNewOperation()
         state = .downloading(release)
         preparationProgress = .downloading(receivedBytes: 0, totalBytes: release.asset.sizeBytes)
@@ -210,9 +222,18 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
         NSWorkspace.shared.open(release.releaseURL)
     }
 
-    func openDownloadInBrowser() {
+    func openManualInstaller() {
         guard let release = state.release else { return }
-        NSWorkspace.shared.open(release.asset.url)
+        NSWorkspace.shared.open(release.manualInstallationURL)
+    }
+
+    var updateRequiresManualInstallation: Bool {
+        guard state.release != nil,
+              let configuration
+        else {
+            return false
+        }
+        return installationInspector.availability(for: configuration) == .requiresRelocation
     }
 
     private func performUserCheck(generation: UUID) async {

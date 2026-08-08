@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-08-08 Read-Only Update Recovery
+
+Overall grade after this slice: **A+ preflight, A+ recovery UX, A+ race safety**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| UX | A+ | A non-replaceable copy offers the human DMG before any download; ordinary users are no longer sent to the updater ZIP after avoidable work. |
+| Performance | A+ | Constant-space filesystem checks replace a full download, digest, extraction, signature validation, and staging attempt on a path that cannot be updated. |
+| Security | A+ | The manual DMG must match architecture, kind, install mode, size, digest, safe-name, tag, and repository scope before its URL reaches the UI. |
+| Resilience | A+ | Controller preflight improves feedback while installer-time destination checks remain authoritative against permission and location races. |
+| Architecture | A+ | A small injected inspector owns environment capability; manifest validation owns external URLs; controller owns state; SwiftUI only projects the result. |
+
+Validation:
+
+- Focused updater, signing, controller, updater-smoke, and rendered suite (61 tests, 0 failures)
+- Full `swift test --skip-build` (5,455 tests, 5 skipped, 0 failures)
+- Exact release-source build 653 passed direct-executable, Launch Services, live-window,
+  accessibility, scheduled-coworker, multi-file, one-turn, browser, and Computer Use contracts
+- Release package: 3 of 3 fresh launches within budget; 282.05 ms median launch-ready,
+  88.45 MiB resident memory, and 7 threads
+- A signed build-651 fixture launched from a read-only mounted DMG, discovered public build 652,
+  and presented the Applications relocation message and `Download Installer` action
+- The packaged public updater smoke completed download, validation, swap, cleanup, and relaunch from
+  build 651 to build 652 (`b45c786ebc752116b828ea492564ded9cf3f145c`)
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
 ## 2026-08-08 Update Signing Trust Chain
 
 Overall grade after this slice: **A+ signing policy, A+ migration safety, A+ payload verification**.

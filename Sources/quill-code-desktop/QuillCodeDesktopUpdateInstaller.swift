@@ -1,5 +1,47 @@
 import Foundation
 
+enum QuillCodeDesktopUpdateInstallationAvailability: Equatable, Sendable {
+    case available
+    case requiresRelocation
+}
+
+protocol QuillCodeDesktopUpdateInstallationInspecting: Sendable {
+    func availability(
+        for configuration: QuillCodeDesktopUpdateConfiguration
+    ) -> QuillCodeDesktopUpdateInstallationAvailability
+}
+
+struct QuillCodeDesktopUpdateInstallationInspector: QuillCodeDesktopUpdateInstallationInspecting, Sendable {
+    private let runningExecutableURL: URL?
+
+    init(runningExecutableURL: URL? = Bundle.main.executableURL) {
+        self.runningExecutableURL = runningExecutableURL
+    }
+
+    func availability(
+        for configuration: QuillCodeDesktopUpdateConfiguration
+    ) -> QuillCodeDesktopUpdateInstallationAvailability {
+        let applicationURL = configuration.applicationURL.standardizedFileURL
+        let parentURL = applicationURL.deletingLastPathComponent()
+        let executableURL = runningExecutableURL?.standardizedFileURL
+        var isApplicationDirectory: ObjCBool = false
+        guard applicationURL.pathExtension == "app",
+              FileManager.default.fileExists(
+                atPath: applicationURL.path,
+                isDirectory: &isApplicationDirectory
+              ),
+              isApplicationDirectory.boolValue,
+              FileManager.default.isWritableFile(atPath: parentURL.path),
+              let executableURL,
+              executableURL.path.hasPrefix(applicationURL.path + "/"),
+              FileManager.default.isExecutableFile(atPath: executableURL.path)
+        else {
+            return .requiresRelocation
+        }
+        return .available
+    }
+}
+
 protocol QuillCodeDesktopUpdateInstalling: Sendable {
     func stageAndLaunch(
         preparedUpdate: QuillCodeDesktopPreparedUpdate,

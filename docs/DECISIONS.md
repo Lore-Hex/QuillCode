@@ -1,5 +1,27 @@
 # QuillCode Decisions
 
+## 2026-08-08: updater preflights read-only installation locations
+
+- **Decision:** The desktop updater inspects the running app bundle, executable, and parent-directory
+  writability before downloading an available update. A copy launched from a read-only disk image,
+  App Translocation, or another non-replaceable location presents a manual installer action instead
+  of starting preparation that cannot finish.
+- **Recovery contract:** The release model carries the architecture-matching DMG only after its kind,
+  install mode, bounded size, digest, safe `.dmg` name, exact URL filename, tag, and repository URL
+  pass manifest validation. Query and fragment suffixes are rejected. Manual recovery opens that
+  installer, falling back to the scoped release page for older manifests that do not declare one.
+  It never sends an ordinary user to the machine-oriented updater ZIP.
+- **Race boundary:** Preflight is a UX optimization, not the authority for mutation. The installer
+  rechecks the app identity, executable, destination existence, and parent writability immediately
+  before staging beside the running bundle.
+- **Why:** The DMG is intentionally read-only and is also the first place many users launch a newly
+  downloaded app. Previously Quill Cowork could download and validate the entire update before
+  reporting that it could not replace itself, then offer the ZIP as its browser fallback.
+- **Evidence:** Filesystem tests cover writable and read-only parents, non-directory app paths, and
+  executables outside the bundle; controller tests prove no preparation or installation starts when
+  relocation is required; manifest tests reject hostile and malformed installer URLs; fixed-size
+  rendering and a real mounted-DMG launch cover the dedicated installer state.
+
 ## 2026-08-08: updater signing policy survives the Developer ID cutover
 
 - **Decision:** Manifest validation derives one typed payload requirement. Tester updates are either
