@@ -9,13 +9,12 @@ import urllib.parse
 class Handler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         path = urllib.parse.urlparse(self.path).path
-        if path != "/v1/models":
+        if path != "/attestation":
             self.send_error(404)
             return
 
-        expected = os.environ.get("QUILLCODE_DOCTOR_EXPECTED_TOKEN", "")
-        if self.headers.get("Authorization") != f"Bearer {expected}":
-            self.send_error(401)
+        if self.headers.get("Authorization") is not None:
+            self.send_error(400)
             return
         user_agent = self.headers.get("User-Agent", "")
         if not user_agent.startswith("QuillCode/") or not user_agent.endswith(" doctor"):

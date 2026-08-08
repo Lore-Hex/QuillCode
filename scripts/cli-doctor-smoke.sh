@@ -33,8 +33,7 @@ CLI="$ROOT_DIR/.build/debug/quill-code"
 API_KEY="doctor-process-private-key"
 QUERY_SECRET="doctor-query-private-value"
 PROXY_SECRET="doctor-proxy-private-value"
-QUILLCODE_DOCTOR_EXPECTED_TOKEN="$API_KEY" \
-  python3 "$ROOT_DIR/scripts/fixtures/doctor-http-server.py" "$PORT_FILE" \
+python3 "$ROOT_DIR/scripts/fixtures/doctor-http-server.py" "$PORT_FILE" \
   >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 for _ in {1..300}; do
@@ -81,7 +80,7 @@ assert report["checks"]["auth.credentials"]["status"] == "ok", report
 reachability = report["checks"]["network.provider_reachability"]
 assert reachability["status"] == "ok", reachability
 assert reachability["details"]["HTTP status"] == "200", reachability
-assert reachability["details"]["endpoint"].endswith("/v1/models"), reachability
+assert reachability["details"]["endpoint"].endswith("/attestation"), reachability
 for secret in (
     os.environ["API_KEY"],
     os.environ["QUERY_SECRET"],
