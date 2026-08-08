@@ -5,18 +5,11 @@ enum QuillCodeDesktopLaunchClock {
     static let appEntryUptime = ProcessInfo.processInfo.systemUptime
 }
 
-struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
-    static let schemaVersion = 1
-    static let measurement = "initial-live-window"
-
-    var launchReadyMilliseconds: Double
+struct QuillCodeDesktopProcessResourceSnapshot: Equatable, Sendable {
     var residentMemoryBytes: Int64
     var threadCount: Int
 
-    static func capture(
-        launchStartedAtUptime: TimeInterval,
-        nowUptime: TimeInterval = ProcessInfo.processInfo.systemUptime
-    ) throws -> Self {
+    static func capture() throws -> Self {
         var taskInfo = proc_taskinfo()
         let expectedSize = Int32(MemoryLayout<proc_taskinfo>.stride)
         let capturedSize = withUnsafeMutablePointer(to: &taskInfo) { pointer in
@@ -34,7 +27,23 @@ struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
         else {
             throw QuillCodeDesktopSmokeFailure.performanceSnapshotUnavailable
         }
+        return Self(
+            residentMemoryBytes: Int64(min(taskInfo.pti_resident_size, UInt64(Int64.max))),
+            threadCount: Int(taskInfo.pti_threadnum)
+        )
+    }
+}
 
+struct QuillCodeDesktopInitialPerformanceSnapshot: Equatable, Sendable {
+    static let measurement = "initial-live-window"
+
+    var launchReadyMilliseconds: Double
+    var resources: QuillCodeDesktopProcessResourceSnapshot
+
+    static func capture(
+        launchStartedAtUptime: TimeInterval,
+        nowUptime: TimeInterval = ProcessInfo.processInfo.systemUptime
+    ) throws -> Self {
         let elapsed = nowUptime - launchStartedAtUptime
         guard elapsed.isFinite, elapsed >= 0 else {
             throw QuillCodeDesktopSmokeFailure.performanceSnapshotUnavailable
@@ -43,9 +52,35 @@ struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
 
         return Self(
             launchReadyMilliseconds: milliseconds,
-            residentMemoryBytes: clampedInt64(taskInfo.pti_resident_size),
-            threadCount: Int(taskInfo.pti_threadnum)
+            resources: try QuillCodeDesktopProcessResourceSnapshot.capture()
         )
+    }
+
+    func completingInteractionSweep() throws -> QuillCodeDesktopPerformanceSnapshot {
+        QuillCodeDesktopPerformanceSnapshot(
+            launchReadyMilliseconds: launchReadyMilliseconds,
+            initialResources: resources,
+            postInteractionResources: try QuillCodeDesktopProcessResourceSnapshot.capture()
+        )
+    }
+}
+
+struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
+    static let schemaVersion = 2
+    static let measurement = QuillCodeDesktopInitialPerformanceSnapshot.measurement
+    static let postInteractionMeasurement = "settled-after-native-interaction-sweep"
+
+    var launchReadyMilliseconds: Double
+    var initialResources: QuillCodeDesktopProcessResourceSnapshot
+    var postInteractionResources: QuillCodeDesktopProcessResourceSnapshot
+
+    var residentMemoryBytes: Int64 { initialResources.residentMemoryBytes }
+    var threadCount: Int { initialResources.threadCount }
+    var residentMemoryGrowthBytes: Int64 {
+        postInteractionResources.residentMemoryBytes - initialResources.residentMemoryBytes
+    }
+    var threadGrowth: Int {
+        postInteractionResources.threadCount - initialResources.threadCount
     }
 
     var dictionary: [String: Any] {
@@ -54,11 +89,12 @@ struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
             "measurement": Self.measurement,
             "launchReadyMilliseconds": launchReadyMilliseconds,
             "residentMemoryBytes": residentMemoryBytes,
-            "threadCount": threadCount
+            "threadCount": threadCount,
+            "postInteractionMeasurement": Self.postInteractionMeasurement,
+            "postInteractionResidentMemoryBytes": postInteractionResources.residentMemoryBytes,
+            "postInteractionThreadCount": postInteractionResources.threadCount,
+            "residentMemoryGrowthBytes": residentMemoryGrowthBytes,
+            "threadGrowth": threadGrowth
         ]
-    }
-
-    private static func clampedInt64(_ value: UInt64) -> Int64 {
-        Int64(min(value, UInt64(Int64.max)))
     }
 }

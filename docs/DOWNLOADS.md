@@ -84,6 +84,14 @@ boundary. Release packaging measures three fresh processes with isolated state,
 requires at least two launches to meet the time budget, and requires every memory
 sample to meet its budget. The median-launch attempt, every attempt, thread
 counts, and enforced budgets ship as the architecture-specific `PERFORMANCE.json` asset.
+
+Each process then completes the packaged native interaction sweep, including
+reversible navigation, sheet, search, model-picker, and text-entry checks. After a
+one-second settling interval, the release gate samples the same process again. The
+post-interaction snapshot must remain below 256 MiB, retain no more than 80 MiB
+above its initial-window sample, and keep both samples at or below 64 threads.
+The public performance asset records both snapshots and their signed growth so a
+release cannot hide resource regressions behind a fast first frame.
 These intentionally conservative first budgets catch major regressions without
 turning one loaded-runner outlier into the product metric.
 

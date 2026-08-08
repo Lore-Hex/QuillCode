@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-08-08: release performance includes settled interaction resources
+
+- **Decision:** Every packaged performance attempt captures process resources at the initial live
+  window and again after the existing reversible native interaction sweep has restored the UI and
+  settled for one second. Launch timing remains anchored to the first snapshot.
+- **Budgets:** Initial and post-interaction resident memory must each remain at or below 256 MiB,
+  retained growth must remain at or below 80 MiB, and both thread counts must remain at or below 64.
+  Every fresh process must pass the resource budgets; launch timing retains its two-of-three policy
+  to tolerate a loaded hosted runner.
+- **Evidence contract:** The version-2 performance report and public asset carry both snapshots,
+  signed memory/thread growth, per-attempt budget results, and the selected median-launch attempt.
+  The validator recomputes growth from the snapshots instead of trusting reported deltas.
+- **Why:** The release smoke already exercised real sheets, panes, search, text entry, and model
+  selection, but sampled resources only before that work. A build could therefore launch lightly
+  and retain expensive UI or worker state without failing publication.
+
 ## 2026-08-08: first launch explains relocation before updates are needed
 
 - **Decision:** A packaged app launched from a read-only disk image, App Translocation, or another

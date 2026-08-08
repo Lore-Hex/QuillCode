@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-08-08 Post-Interaction Release Resource Gate
+
+Overall grade after this slice: **A+ measurement architecture, A+ resource bounds, A+ release evidence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Performance | A+ | Launch timing remains captured at the first live window; a second sample follows the restored native interaction sweep and a one-second settling interval. |
+| Memory | A+ | Every fresh process must keep initial and post-interaction resident memory below 256 MiB and retained growth below 80 MiB. |
+| Thread lifecycle | A+ | Initial and post-interaction thread counts must each remain at or below 64; signed growth remains visible even when threads shrink. |
+| Evidence integrity | A+ | Schema-versioned reports carry both raw snapshots, while the validator recomputes memory and thread deltas before publishing per-attempt results. |
+| Architecture | A+ | Process resource capture, launch timing, smoke orchestration, validation, CLI configuration, and public manifest projection retain focused ownership. |
+
+Validation:
+
+- Focused desktop and release-contract suite (22 tests, 0 failures)
+- Full `swift test` (5,464 tests, 5 skipped, 0 failures)
+- Three fresh release-mode launches: 346.23 ms median launch-ready, 98.20 MiB initial,
+  164.73 MiB post-interaction, 66.53 MiB retained growth, and 7 post-interaction threads
+- Full release-mode packaged smoke passed direct-executable, Launch Services, live-window,
+  Accessibility, scheduled-coworker, multi-file, one-turn, browser, and Computer Use contracts
+- Packaged live-window evidence: 358.02 ms launch-ready, 97.72 MiB initial,
+  164.33 MiB post-interaction, 66.61 MiB retained growth, and 8 post-interaction threads
+- Changed production, script, and test files all grade A+
+- `git diff --check`
+
 ## 2026-08-08 First-Launch Installation Guidance
 
 Overall grade after this slice: **A+ first-run UX, A+ presentation ownership, A+ bounded state**.
