@@ -227,6 +227,31 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         )
     }
 
+    func testTabularGateRejectsEmptyNamedSourceDimensionSection() {
+        let source = """
+        1\tid,segment,outcome
+        2\tD01,Series A,won
+        3\tD02,Growth,lost
+        """
+        let artifact = """
+        ## Patterns by segment
+
+        ## Recommendation
+
+        Compare the two records before changing the segment strategy.
+        """
+
+        let issues = AgentTabularSourceGroundingGate.issues(
+            content: artifact,
+            path: "outputs/review.md",
+            sourceReadsByPath: ["inputs/data.csv": source]
+        )
+
+        XCTAssertTrue(issues.contains {
+            $0.contains("Patterns by segment") && $0.contains("source column segment")
+        })
+    }
+
     func testRunnerReconcilesTabularSourceRowsBeforeCompletion() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }

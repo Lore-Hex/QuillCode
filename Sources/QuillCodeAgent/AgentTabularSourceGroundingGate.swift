@@ -39,8 +39,8 @@ enum AgentTabularSourceGroundingGate {
 
             Recompute the affected slices from the source file, preferably with the shell for \
             arithmetic. Correct every affected table row or aggregate bullet and every prose \
-            conclusion derived from those claims. Preserve the source record IDs so the result \
-            remains auditable.
+            conclusion derived from those claims. Fill any named source-dimension section that is \
+            empty. Preserve the source record IDs so the result remains auditable.
 
             Return exactly one tool action now: rewrite ./\(entry.key) with the corrected complete \
             content. Do not return a final answer yet.
@@ -67,6 +67,7 @@ enum AgentTabularSourceGroundingGate {
                 found.append(contentsOf: issues(in: markdownTable, source: source))
             }
             found.append(contentsOf: proseIssues(in: content, source: source))
+            found.append(contentsOf: emptyDimensionSectionIssues(in: content, source: source))
         }
         var seen = Set<String>()
         return found.filter { seen.insert($0).inserted }
@@ -115,7 +116,7 @@ enum AgentTabularSourceGroundingGate {
 
         for rawLine in content.components(separatedBy: .newlines) {
             if let heading = firstCapture(headingRegex, in: rawLine) {
-                activeField = sourceHeader(for: canonicalHeader(heading), in: source.headers)
+                activeField = sourceHeader(forSectionHeading: heading, in: source.headers)
                 continue
             }
             guard let field = activeField,
@@ -159,6 +160,28 @@ enum AgentTabularSourceGroundingGate {
                 ids: ids,
                 source: source
             ))
+        }
+        return found
+    }
+
+    private static func emptyDimensionSectionIssues(
+        in content: String,
+        source: SourceTable
+    ) -> [String] {
+        let lines = content.components(separatedBy: .newlines)
+        var found: [String] = []
+        for (index, line) in lines.enumerated() {
+            guard let heading = firstCapture(headingRegex, in: line),
+                  let field = sourceHeader(forSectionHeading: heading, in: source.headers)
+            else { continue }
+            let body = lines.dropFirst(index + 1).prefix { candidate in
+                firstCapture(headingRegex, in: candidate) == nil
+            }
+            if body.allSatisfy({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                found.append(
+                    "Section '\(cleanMarkdown(heading))' is empty despite source column \(field)."
+                )
+            }
         }
         return found
     }
@@ -378,6 +401,21 @@ enum AgentTabularSourceGroundingGate {
         ]
         if let alias = aliases[markdownHeader], sourceHeaders.contains(alias) { return alias }
         return nil
+    }
+
+    private static func sourceHeader(
+        forSectionHeading heading: String,
+        in sourceHeaders: [String]
+    ) -> String? {
+        let canonical = canonicalHeader(heading)
+        if let direct = sourceHeader(for: canonical, in: sourceHeaders) { return direct }
+        return sourceHeaders.filter { header in
+            !isIDHeader(header) && header.count >= 4
+        }.sorted { $0.count > $1.count }.first { header in
+            canonical.hasPrefix(header + "pattern")
+                || canonical.hasSuffix("by" + header)
+                || canonical.hasSuffix(header + "analysis")
+        }
     }
 
     private static func extractedIDs(
