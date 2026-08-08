@@ -1,10 +1,11 @@
 #if canImport(AppKit) && canImport(ApplicationServices) && canImport(CoreGraphics)
 import AppKit
-import ApplicationServices
+@preconcurrency import ApplicationServices
 import CoreGraphics
 import Foundation
 
 public struct MacComputerUseBackend: ComputerUseBackend,
+    ComputerUsePermissionRequesting,
     ComputerUseForegroundApplicationProviding,
     ComputerUseAccessibilitySnapshotProviding,
     WorkflowRecordingBackend
@@ -23,6 +24,16 @@ public struct MacComputerUseBackend: ComputerUseBackend,
             screenRecordingGranted: CGPreflightScreenCaptureAccess(),
             accessibilityGranted: AXIsProcessTrusted()
         )
+    }
+
+    public func requestScreenRecordingAccess() -> Bool {
+        CGRequestScreenCaptureAccess()
+    }
+
+    public func requestAccessibilityAccess() -> Bool {
+        let promptKey = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
+        let options = [promptKey: true] as CFDictionary
+        return AXIsProcessTrustedWithOptions(options)
     }
 
     public func screenshot() async throws -> ComputerScreenshot {
