@@ -450,6 +450,29 @@ def concept_matches(concept, normalized_output):
     return any(normalize(alias) in normalized_output for alias in aliases)
 
 
+def grounding_tokens(text):
+    stop_words = {"a", "an", "and", "for", "in", "inside", "of", "on", "or", "the", "their", "to", "with"}
+    tokens = []
+    for token in normalize(text).split():
+        if token in stop_words:
+            continue
+        if len(token) > 3 and token.endswith("s") and not token.endswith(("ss", "is", "us")):
+            token = token[:-1]
+        tokens.append(token)
+    return set(tokens)
+
+
+def grounding_anchor_matches(anchor, normalized_output):
+    normalized_anchor = normalize(anchor)
+    if normalized_anchor in normalized_output:
+        return True
+    anchor_tokens = grounding_tokens(anchor)
+    if len(anchor_tokens) < 2:
+        return False
+    overlap = anchor_tokens & grounding_tokens(normalized_output)
+    return len(overlap) >= max(2, (len(anchor_tokens) + 1) // 2)
+
+
 def is_substantive(text):
     lines = text.splitlines()
     nonblank_lines = sum(bool(line.strip()) for line in lines)
@@ -1069,7 +1092,7 @@ def grade(row, workspace, report, source_hashes):
     add("no placeholders", not placeholder, "placeholder found" if placeholder else "clean")
     normalized_output = normalize(text)
     anchors = grounding_anchors(row)
-    matched_anchors = [anchor for anchor in anchors if normalize(anchor) in normalized_output]
+    matched_anchors = [anchor for anchor in anchors if grounding_anchor_matches(anchor, normalized_output)]
     add("source grounding", len(matched_anchors) >= 2, repr(matched_anchors))
     concepts = task_concepts(row["Task (what the person types)"])
     matched_concepts = [concept for concept in concepts if concept_matches(concept, normalized_output)]

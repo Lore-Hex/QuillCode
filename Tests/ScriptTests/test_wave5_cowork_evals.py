@@ -310,13 +310,25 @@ class Wave5CoworkEvalTests(unittest.TestCase):
             "retain their prior timezone until edited, and daylight-saving transitions can delay "
             "one reminder by up to five minutes."
         )
-        matched = [anchor for anchor in anchors if WAVE5.normalize(anchor) in output]
+        matched = [anchor for anchor in anchors if WAVE5.grounding_anchor_matches(anchor, output)]
 
         self.assertGreaterEqual(len(matched), 2)
         self.assertNotIn("PR-441", anchors)
         self.assertNotIn("Issue-190", anchors)
         internal_only = WAVE5.normalize("PR-441 and PR-447 resolve Issue-190.")
-        self.assertFalse(any(WAVE5.normalize(anchor) in internal_only for anchor in anchors))
+        self.assertFalse(any(WAVE5.grounding_anchor_matches(anchor, internal_only) for anchor in anchors))
+
+    def test_release_note_grounding_accepts_customer_visible_paraphrases(self):
+        anchors = WAVE5.grounding_anchors({"ID": 237, "Category": "Product & Roadmap"})
+        output = WAVE5.normalize(
+            "Files that contain quoted commas now import correctly. Existing reminders keep the "
+            "timezone they were set up with until edited. A daylight-saving transition can delay "
+            "one reminder by five minutes."
+        )
+        matched = [anchor for anchor in anchors if WAVE5.grounding_anchor_matches(anchor, output)]
+
+        self.assertGreaterEqual(len(matched), 4)
+        self.assertFalse(WAVE5.grounding_anchor_matches("timezone selection", "timezone metrics"))
 
     def test_grounding_uses_case_specific_required_source_facts(self):
         row = {"ID": 230, "Category": "Founder Sales"}
