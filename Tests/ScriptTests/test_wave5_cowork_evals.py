@@ -40,6 +40,27 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("Do not execute a source path as a command", prompt)
         self.assertIn("do not leave bracketed fill-in fields", prompt.lower())
 
+    def test_cash_control_fixture_defines_explicit_finance_identities(self):
+        rows = WAVE5.validate_catalog(WAVE5.read_json(WAVE5.SOURCE_CATALOG))
+        row = next(row for row in rows if row["ID"] == 270)
+        prompt = WAVE5.build_prompt(row)
+        appendix = WAVE5.CASE_FIXTURES[270]["appendix"]
+
+        self.assertIn("ending_cash = beginning_cash + cash_in - payroll - non_payroll", appendix)
+        self.assertIn("payroll + non_payroll - cash_in = 98000", appendix)
+        self.assertIn("do not subtract ending cash again", appendix.lower())
+        self.assertIn("11 unused seats * 120 = 1320", appendix)
+        self.assertIn("Do not treat the ending cash balance", prompt)
+
+    def test_collections_fixture_uses_invoice_specific_grounding(self):
+        rows = WAVE5.validate_catalog(WAVE5.read_json(WAVE5.SOURCE_CATALOG))
+        row = next(row for row in rows if row["ID"] == 268)
+
+        self.assertEqual(
+            WAVE5.grounding_anchors(row),
+            ("Northstar", "INV-104", "Acme", "INV-109"),
+        )
+
     def test_non_shell_prompts_prohibit_unnecessary_shell_and_directory_listing(self):
         for capability in ("Browser pane", "Multi-file artifacts"):
             with self.subTest(capability=capability):
