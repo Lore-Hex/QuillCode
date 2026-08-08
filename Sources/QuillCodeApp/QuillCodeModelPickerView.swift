@@ -1,4 +1,5 @@
 import SwiftUI
+import QuillCodePlatformUI
 
 struct QuillCodeModelPickerView: View {
     var topBar: TopBarSurface
@@ -10,7 +11,7 @@ struct QuillCodeModelPickerView: View {
     @State private var searchText = ""
     @State private var expandedModelID: String?
     @State private var selection = ModelPickerSelection()
-    @FocusState private var isSearchFocused: Bool
+    @State private var focusRequest = 0
 
     private var filteredCategories: [ModelCategorySurface] {
         topBar.filteredModelCategories(matching: searchText)
@@ -70,7 +71,6 @@ struct QuillCodeModelPickerView: View {
                 searchText = ""
                 expandedModelID = nil
                 selection.reconcile(with: [])
-                isSearchFocused = false
             }
         }
     }
@@ -127,16 +127,19 @@ struct QuillCodeModelPickerView: View {
     }
 
     private var searchField: some View {
-        TextField("Search models", text: $searchText)
-            .textFieldStyle(.roundedBorder)
-            .focused($isSearchFocused)
+        QuillCodeAutofocusTextField(
+            placeholder: "Search models",
+            text: $searchText,
+            accessibilityIdentifier: "quillcode-model-picker-search",
+            isActive: isPresented,
+            focusRequest: focusRequest,
+            onSubmit: selectHighlightedModel,
+            onMove: { selection.move(by: $0, in: filteredModels) },
+            onCancel: { isPresented = false }
+        )
             .quillCodeTextEntryTarget()
             .accessibilityLabel("Search models")
             .accessibilityIdentifier("quillcode-model-picker-search")
-            .task {
-                await focusSearchFieldAfterPresentation()
-            }
-            .onSubmit(selectHighlightedModel)
     }
 
     @ViewBuilder
@@ -250,13 +253,7 @@ struct QuillCodeModelPickerView: View {
 
     private func focusSearchField() {
         guard isPresented else { return }
-        isSearchFocused = true
-    }
-
-    private func focusSearchFieldAfterPresentation() async {
-        try? await Task.sleep(for: .milliseconds(200))
-        guard !Task.isCancelled else { return }
-        focusSearchField()
+        focusRequest &+= 1
     }
 
     private func ensureHighlightedModel(preferredID: String?) {

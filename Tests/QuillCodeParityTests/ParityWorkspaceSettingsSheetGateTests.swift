@@ -49,7 +49,7 @@ final class ParityWorkspaceSettingsSheetGateTests: QuillCodeParityTestCase {
         Self.assertSource(commandPaletteText, contains: "QuillCodeCommandIconCatalog.systemImage")
         Self.assertSource(commandPaletteText, excludes: "enum QuillCodeCommandIcon")
         Self.assertSource(searchText, contains: "struct QuillCodeSearchView")
-        Self.assertSource(searchText, contains: "TextField(\"Search chats\", text: $localQuery)")
+        Self.assertSource(searchText, contains: "QuillCodeAutofocusTextField(")
         Self.assertSource(shortcutText, contains: "struct QuillCodeKeyboardShortcutsView")
         Self.assertSource(shortcutText, contains: "accessibilityIdentifier(\"quillcode-shortcuts-search-input\")")
         Self.assertSource(shortcutText, contains: "editor.groups(commands: commands, query: query, mode: searchMode)")

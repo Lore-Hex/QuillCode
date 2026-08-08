@@ -1,4 +1,5 @@
 import SwiftUI
+import QuillCodePlatformUI
 
 struct QuillCodeSearchView: View {
     var sidebar: SidebarSurface
@@ -8,8 +9,6 @@ struct QuillCodeSearchView: View {
 
     @State private var localQuery: String
     @State private var selection = WorkspaceSearchSelection()
-    @State private var isVisible = false
-    @FocusState private var isSearchFocused: Bool
 
     init(
         sidebar: SidebarSurface,
@@ -37,15 +36,16 @@ struct QuillCodeSearchView: View {
                 onClose: onClose
             )
 
-            TextField("Search chats", text: $localQuery)
-                .textFieldStyle(.roundedBorder)
-                .focused($isSearchFocused)
+            QuillCodeAutofocusTextField(
+                placeholder: "Search chats",
+                text: $localQuery,
+                accessibilityIdentifier: "quillcode-search-input",
+                onSubmit: selectHighlightedResult,
+                onMove: { selection.move(by: $0, in: results) },
+                onCancel: onClose
+            )
                 .accessibilityIdentifier("quillcode-search-input")
                 .quillCodeTextEntryTarget()
-                .task {
-                    await focusSearchField()
-                }
-                .onSubmit(selectHighlightedResult)
 
             if results.isEmpty {
                 QuillCodeDialogEmptyState(
@@ -71,7 +71,6 @@ struct QuillCodeSearchView: View {
         .frame(width: 560, height: 520)
         .background(QuillCodePalette.background)
         .onAppear {
-            isVisible = true
             selection.reconcile(with: results, preferredID: sidebar.selectedThreadID)
         }
         .onChange(of: localQuery) { _, newValue in
@@ -100,8 +99,6 @@ struct QuillCodeSearchView: View {
             return .handled
         }
         .onDisappear {
-            isVisible = false
-            isSearchFocused = false
             selection = WorkspaceSearchSelection()
         }
     }
@@ -115,12 +112,6 @@ struct QuillCodeSearchView: View {
         guard let item = results.first(where: { $0.id == id }) else { return }
         selection.select(item)
         onSelectThread(id)
-    }
-
-    private func focusSearchField() async {
-        try? await Task.sleep(for: .milliseconds(200))
-        guard !Task.isCancelled, isVisible else { return }
-        isSearchFocused = true
     }
 }
 
