@@ -210,7 +210,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 height: 900,
                 opaquePixelRatio: 1,
                 brightPixelRatio: 0.01,
-                blueAccentPixelRatio: 0,
+                accentPixelRatio: 0,
                 distinctColorBuckets: 14
             )
         )
@@ -221,7 +221,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 expectedHeight: 900,
                 minDistinctColorBuckets: 14,
                 minBrightPixelRatio: 0.0005,
-                minBlueAccentPixelRatio: 0
+                minAccentPixelRatio: 0
             )
         )
 
@@ -231,7 +231,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 height: 900,
                 opaquePixelRatio: 1,
                 brightPixelRatio: 0.01,
-                blueAccentPixelRatio: 0,
+                accentPixelRatio: 0,
                 distinctColorBuckets: 13
             )
         )
@@ -241,7 +241,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 expectedHeight: 900,
                 minDistinctColorBuckets: 14,
                 minBrightPixelRatio: 0.0005,
-                minBlueAccentPixelRatio: 0
+                minAccentPixelRatio: 0
             )
         )
     }
@@ -474,7 +474,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 height: 1800,
                 opaquePixelRatio: 1,
                 brightPixelRatio: 0.01,
-                blueAccentPixelRatio: 0.01,
+                accentPixelRatio: 0.01,
                 distinctColorBuckets: 48
             ),
             nativeHitTargets: nativeHitTargets,

@@ -378,10 +378,10 @@ enum AgentArtifactTextQualityGate {
     private static let textExtensions: Set<String> = ["md", "markdown", "txt"]
     private static let inlineCodeRegex = AgentRegexCompiler.compile(#"`[^`]*`"#)
     private static let malformedEscapeRegex = AgentRegexCompiler.compile(
-        pattern: #"\\[nrt](?=\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)]\s|[A-Za-z]))"#
+        pattern: #"\\[nrt](?=\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)]\s|[A-Za-z]|$))"#
     )
     private static let malformedEscapeRunRegex = AgentRegexCompiler.compile(
-        pattern: #"(?:\\[nrt])+(?=\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)]\s|[A-Za-z]))"#
+        pattern: #"(?:\\[nrt])+(?=\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)]\s|[A-Za-z]|$))"#
     )
     private static let bracketedFieldRegex = AgentRegexCompiler.compile(
         pattern: #"\[([^\]\n]{0,120})\](?!\()"#

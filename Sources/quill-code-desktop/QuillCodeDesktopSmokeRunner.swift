@@ -124,7 +124,7 @@ enum QuillCodeDesktopSmokeRunner {
             expectedHeight: 900,
             minDistinctColorBuckets: 28,
             minBrightPixelRatio: 0.0008,
-            minBlueAccentPixelRatio: 0.0001
+            minAccentPixelRatio: 0.0001
         )
 
         let resultRenderURL = root.resultRenderURL(request: request)
@@ -139,7 +139,7 @@ enum QuillCodeDesktopSmokeRunner {
             expectedHeight: 720,
             minDistinctColorBuckets: 28,
             minBrightPixelRatio: 0.004,
-            minBlueAccentPixelRatio: 0.0004
+            minAccentPixelRatio: 0.0004
         )
 
         let chromeRenderURL = root.chromeRenderURL(request: request)
@@ -150,7 +150,7 @@ enum QuillCodeDesktopSmokeRunner {
             expectedHeight: 760,
             minDistinctColorBuckets: 22,
             minBrightPixelRatio: 0.004,
-            minBlueAccentPixelRatio: 0.0005
+            minAccentPixelRatio: 0.0005
         )
 
         let htmlURL = root.htmlURL(request: request)
@@ -313,15 +313,11 @@ enum QuillCodeDesktopSmokeRunner {
         controller.openBrowserPreview()
         controller.addBrowserComment("Check the smoke hero")
 
-        let browser = controller.surface.browser
-        guard browser.currentURL?.hasSuffix("/browser-smoke.html") == true,
-              browser.title == "Browser Smoke",
-              browser.snapshot?.inspectionDepth == .staticHTMLSnapshot,
-              browser.snapshot?.outline.contains("H1: Browser Smoke") == true,
-              browser.snapshot?.textSnippet?.contains("Native browser smoke preview text.") == true
+        guard controller.surface.browser.currentURL?.hasSuffix("/browser-smoke.html") == true,
+              controller.surface.browser.snapshot?.inspectionDepth == .fileMetadata
         else {
             throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(
-                "browser preview did not expose the local HTML snapshot"
+                "browser preview did not expose deferred local HTML metadata"
             )
         }
 
@@ -340,6 +336,16 @@ enum QuillCodeDesktopSmokeRunner {
         let toolCard = surface.transcript.toolCards.last
         guard toolCard?.title == ToolDefinition.browserInspect.name,
               toolCard?.status == .done,
+              let outputJSON = toolCard?.outputJSON,
+              let toolResult = try? JSONHelpers.decode(ToolResult.self, from: outputJSON),
+              let inspection = try? JSONHelpers.decode(
+                  BrowserInspectionToolOutput.self,
+                  from: toolResult.stdout
+              ),
+              inspection.title == "Browser Smoke",
+              inspection.inspectionDepth == .staticHTMLSnapshot,
+              inspection.outline.contains("H1: Browser Smoke"),
+              inspection.textSnippet?.contains("Native browser smoke preview text.") == true,
               finalAnswer.contains("Inspected `Browser Smoke`"),
               finalAnswer.contains("H1: Browser Smoke"),
               finalAnswer.contains("Native browser smoke preview text."),
@@ -348,16 +354,15 @@ enum QuillCodeDesktopSmokeRunner {
             throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(finalAnswer)
         }
 
-        let snapshot = surface.browser.snapshot
         return QuillCodeDesktopBrowserSmokeReport(
             previewPath: previewFile.path,
-            url: surface.browser.currentURL ?? "",
-            title: surface.browser.title,
+            url: inspection.url,
+            title: inspection.title,
             status: surface.browser.statusLabel,
-            sourceLabel: snapshot?.sourceLabel ?? "",
-            inspectionDepth: snapshot?.inspectionDepth.label ?? "",
-            outline: snapshot?.outline ?? [],
-            textSnippet: snapshot?.textSnippet ?? "",
+            sourceLabel: inspection.sourceLabel,
+            inspectionDepth: inspection.inspectionDepth.label,
+            outline: inspection.outline,
+            textSnippet: inspection.textSnippet ?? "",
             commentCount: surface.browser.comments.count,
             toolName: toolCard?.title ?? "",
             finalAnswer: finalAnswer

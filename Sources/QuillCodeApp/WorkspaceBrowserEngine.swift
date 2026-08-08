@@ -54,7 +54,7 @@ struct WorkspaceBrowserEngine {
             for: url,
             inspectLocalFileContents: inspectLocalFileContents
         )
-        state.title = title(from: state.snapshot, fallbackURL: url)
+        state.title = BrowserInspector.title(for: state.snapshot, fallbackURL: url)
         state.status = "Preview ready"
         if updateHistory {
             appendHistory(url.absoluteString, state: &state)
@@ -103,7 +103,7 @@ struct WorkspaceBrowserEngine {
         state.addressDraft = fetchedPage.finalURL.absoluteString
         replaceCurrentHistory(with: fetchedPage.finalURL.absoluteString, state: &state)
         state.snapshot = BrowserInspector.snapshot(for: fetchedPage, originalURL: originalURL)
-        state.title = title(from: state.snapshot, fallbackURL: fetchedPage.finalURL)
+        state.title = BrowserInspector.title(for: state.snapshot, fallbackURL: fetchedPage.finalURL)
         state.status = "Preview ready"
         storeSelectedTab(in: &state)
     }
@@ -117,7 +117,7 @@ struct WorkspaceBrowserEngine {
         state.addressDraft = liveDOMSnapshot.finalURL.absoluteString
         replaceCurrentHistory(with: liveDOMSnapshot.finalURL.absoluteString, state: &state)
         state.snapshot = BrowserInspector.snapshot(for: liveDOMSnapshot, originalURL: originalURL)
-        state.title = title(from: state.snapshot, fallbackURL: liveDOMSnapshot.finalURL)
+        state.title = BrowserInspector.title(for: state.snapshot, fallbackURL: liveDOMSnapshot.finalURL)
         state.status = "Preview ready"
         storeSelectedTab(in: &state)
     }
@@ -218,7 +218,7 @@ struct WorkspaceBrowserEngine {
 
         let title: String
         if update.liveDOMSnapshot != nil, let snapshot = tab.snapshot {
-            title = Self.title(from: snapshot, fallbackURL: displayURL)
+            title = BrowserInspector.title(for: snapshot, fallbackURL: displayURL)
         } else {
             title = sessionTitle(update.title, fallbackURL: displayURL)
         }
@@ -311,13 +311,6 @@ struct WorkspaceBrowserEngine {
             return
         }
         state.history[historyIndex] = url
-    }
-
-    private static func title(from snapshot: BrowserSnapshotState?, fallbackURL url: URL) -> String {
-        snapshot?.details
-            .first { $0.hasPrefix("Title: ") }
-            .map { String($0.dropFirst("Title: ".count)) }
-            ?? BrowserInspector.title(for: url)
     }
 
     private static func sessionTitle(_ title: String, fallbackURL url: URL) -> String {
