@@ -63,6 +63,14 @@ the product identity, version, build, exact source commit, channel, feed URLs,
 minimum macOS version, and signing team to agree with the public manifest. A
 publication is not green until this consumer check passes.
 
+A separate macOS post-publication gate downloads that exact public app archive,
+re-signs an isolated copy with its build number set one revision behind, and
+launches the packaged updater against the live feed. The gate requires the app
+to stream, verify, unpack, validate, atomically replace, and relaunch itself; it
+then checks the activated version and source commit, code signature, launch
+handshake, and staging cleanup. This catches failures that manifest-only and
+unit-level updater checks cannot prove.
+
 The release-configured macOS app must also open a real native window within three
 seconds and remain below 256 MiB of resident memory at that initial-window
 boundary. Release packaging measures three fresh processes with isolated state,
