@@ -109,6 +109,10 @@ public struct AgentRunner: Sendable {
     /// tool work is preserved (same thread); the switch is recorded as a Self-healing notice.
     /// nil (the default) keeps today's behavior: exhaustion is terminal.
     public var fallbackLLM: LLMClient?
+    /// Pauses between clean-but-empty model streams. Immediate resampling can hit the same brief
+    /// provider outage three times in a few seconds; the production default uses cancellation-aware
+    /// system sleep, while tests can inject a deterministic sleeper.
+    public var emptyResponseRetrySleeper: any RetrySleeper
 
     public init(
         llm: LLMClient = MockLLMClient(),
@@ -137,7 +141,8 @@ public struct AgentRunner: Sendable {
         turnDeadlineSeconds: TimeInterval? = AgentRunner.defaultTurnDeadlineSeconds,
         preActionReasoningCharacterLimit: Int? = AgentRunner.defaultPreActionReasoningCharacterLimit,
         interActionReasoningCharacterLimit: Int? = AgentRunner.defaultInterActionReasoningCharacterLimit,
-        fallbackLLM: LLMClient? = nil
+        fallbackLLM: LLMClient? = nil,
+        emptyResponseRetrySleeper: any RetrySleeper = SystemRetrySleeper()
     ) {
         self.llm = llm
         self.safety = safety
@@ -166,6 +171,7 @@ public struct AgentRunner: Sendable {
         self.preActionReasoningCharacterLimit = preActionReasoningCharacterLimit
         self.interActionReasoningCharacterLimit = interActionReasoningCharacterLimit
         self.fallbackLLM = fallbackLLM
+        self.emptyResponseRetrySleeper = emptyResponseRetrySleeper
     }
 
     public func send(

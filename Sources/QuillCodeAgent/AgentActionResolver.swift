@@ -243,14 +243,18 @@ extension AgentRunner {
                     throw AgentError.emptyStreamingResponse
                 }
                 attempt += 1
+                let backoffSeconds = attempt == 1 ? 2 : 4
                 pendingCorrectionPrompt = nil
                 thread.events.append(.init(
                     kind: .notice,
-                    summary: "Self-healing: the model returned an empty response; retrying "
+                    summary: "Self-healing: the model returned an empty response; retrying after "
+                        + "a \(backoffSeconds)-second backoff "
                         + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
                 ))
                 thread.updatedAt = Date()
                 await onProgress?(thread)
+                try await emptyResponseRetrySleeper.sleep(.seconds(backoffSeconds))
+                try Task.checkCancellation()
             }
         }
     }

@@ -45,6 +45,20 @@ private struct ThrowingSequenceLLMClient: LLMClient {
     }
 }
 
+private struct ImmediateEmptyResponseRetrySleeper: RetrySleeper {
+    func sleep(_ duration: Duration) async throws {}
+}
+
+private actor RecordingEmptyResponseRetrySleeper: RetrySleeper {
+    private var durations: [Duration] = []
+
+    func sleep(_ duration: Duration) async throws {
+        durations.append(duration)
+    }
+
+    func recordedDurations() -> [Duration] { durations }
+}
+
 final class AgentMalformedActionRecoveryTests: XCTestCase {
     private static let garbage = "，������但我��随时？？ mojibake .UseFont���/or"
     // Not parseable by AgentImmediateActionPlanner, so the LLM path is always exercised.
@@ -235,7 +249,8 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .failure(AgentError.emptyStreamingResponse),
             .action(.say("Filled in on retry.")),
         ])
-        let runner = AgentRunner(llm: client)
+        let sleeper = RecordingEmptyResponseRetrySleeper()
+        let runner = AgentRunner(llm: client, emptyResponseRetrySleeper: sleeper)
 
         let result = try await runner.send(
             Self.prompt,
@@ -249,6 +264,8 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         })
         let calls = await client.state.recordedCalls()
         XCTAssertEqual(calls.count, 2)
+        let durations = await sleeper.recordedDurations()
+        XCTAssertEqual(durations, [.seconds(2)])
     }
 
     func testExhaustedEmptyStreamingResponsesStayFatal() async throws {
@@ -257,7 +274,8 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
         ])
-        let runner = AgentRunner(llm: client)
+        let sleeper = RecordingEmptyResponseRetrySleeper()
+        let runner = AgentRunner(llm: client, emptyResponseRetrySleeper: sleeper)
 
         do {
             _ = try await runner.send(
@@ -271,6 +289,8 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         }
         let calls = await client.state.recordedCalls()
         XCTAssertEqual(calls.count, 3)
+        let durations = await sleeper.recordedDurations()
+        XCTAssertEqual(durations, [.seconds(2), .seconds(4)])
     }
 
     func testExhaustedEmptyFinalResponseAfterSuccessfulWriteFinishesFromToolResult() async throws {
@@ -287,7 +307,10 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
         ])
-        let runner = AgentRunner(llm: client)
+        let runner = AgentRunner(
+            llm: client,
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
         let root = try makeTempDirectory()
 
         let result = try await runner.send(
@@ -332,7 +355,10 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .action(.say("Created and verified report.md.")),
             .action(.say("Created and verified report.md.")),
         ])
-        let runner = AgentRunner(llm: client)
+        let runner = AgentRunner(
+            llm: client,
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
 
         let result = try await runner.send(
             "Read source.txt, write report.md, then read the saved file back to verify it.",
@@ -387,7 +413,10 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .action(.say("Created and verified outputs/report.md.")),
             .action(.say("Created and verified outputs/report.md.")),
         ])
-        let runner = AgentRunner(llm: client)
+        let runner = AgentRunner(
+            llm: client,
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
 
         let result = try await runner.send(
             """

@@ -7,6 +7,10 @@ import QuillCodeCore
 /// the same step first try), the resolver retries that step once on the fallback client instead of
 /// killing the run — preserving all prior tool work in the same thread.
 final class AgentFallbackLLMTests: XCTestCase {
+    private struct ImmediateEmptyResponseRetrySleeper: RetrySleeper {
+        func sleep(_ duration: Duration) async throws {}
+    }
+
     private actor ScriptedState {
         var steps: [Result<AgentAction, Error>]
         private(set) var callCount = 0
@@ -37,7 +41,8 @@ final class AgentFallbackLLMTests: XCTestCase {
         let fallback = ScriptedState([.success(.say("fallback finished the step"))])
         let runner = AgentRunner(
             llm: ScriptedClient(state: primary),
-            fallbackLLM: ScriptedClient(state: fallback)
+            fallbackLLM: ScriptedClient(state: fallback),
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
         )
 
         let result = try await runner.send(
@@ -59,7 +64,8 @@ final class AgentFallbackLLMTests: XCTestCase {
         let fallback = ScriptedState(Self.alwaysEmpty + Self.alwaysEmpty)
         let runner = AgentRunner(
             llm: ScriptedClient(state: primary),
-            fallbackLLM: ScriptedClient(state: fallback)
+            fallbackLLM: ScriptedClient(state: fallback),
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
         )
         do {
             _ = try await runner.send(
@@ -79,7 +85,10 @@ final class AgentFallbackLLMTests: XCTestCase {
 
     func testNoFallbackConfiguredKeepsTodaysFatalBehavior() async {
         let primary = ScriptedState(Self.alwaysEmpty)
-        let runner = AgentRunner(llm: ScriptedClient(state: primary))
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: primary),
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
         do {
             _ = try await runner.send(
                 "summarize the current state of the repository",
