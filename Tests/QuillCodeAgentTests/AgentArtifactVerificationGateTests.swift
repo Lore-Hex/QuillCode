@@ -100,14 +100,14 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
             name: "host.file.write",
             argumentsJSON: ToolArguments.json([
                 "path": "outputs/report.md",
-                "content": "# Required output\n",
+                "content": "# Required output\n\nThe required report is complete.\n",
             ])
         )
         let rootWrite = ToolCall(
             name: "host.file.write",
             argumentsJSON: ToolArguments.json([
                 "path": "report.md",
-                "content": "# Wrong duplicate\n",
+                "content": "# Wrong duplicate\n\nThis is not the requested output path.\n",
             ])
         )
         let rootRead = ToolCall(
