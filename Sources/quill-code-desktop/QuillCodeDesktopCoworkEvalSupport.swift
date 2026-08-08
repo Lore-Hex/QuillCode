@@ -1,10 +1,13 @@
 import Foundation
+import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
 import QuillCodePersistence
 
 struct QuillCodeDesktopCoworkEvalRequest: Sendable {
-    static let exactModelID = "deepseek/deepseek-v4-flash-0731"
+    static let defaultModelID = "deepseek/deepseek-v4-flash-0731"
+    static let maximumTimeoutSeconds = 21_600
+    static let maximumToolSteps = 4_096
 
     var homePath: String
     var workspacePath: String
@@ -13,6 +16,8 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
     var browserPath: String?
     var modelID: String
     var timeoutSeconds: Int
+    var maxToolSteps: Int
+    var runSpendFuseUSD: Double?
 
     init?(arguments: [String]) {
         guard arguments.contains("--cowork-eval") else { return nil }
@@ -26,10 +31,23 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
         promptPath = Self.value(after: "--cowork-eval-prompt-file", in: arguments) ?? ""
         reportPath = Self.value(after: "--cowork-eval-report", in: arguments)
         browserPath = Self.value(after: "--cowork-eval-browser-path", in: arguments)
-        modelID = Self.value(after: "--cowork-eval-model", in: arguments) ?? Self.exactModelID
+        modelID = TrustedRouterDefaults.normalizedDefaultModelID(
+            Self.value(after: "--cowork-eval-model", in: arguments) ?? Self.defaultModelID
+        )
         timeoutSeconds = min(
-            900,
+            Self.maximumTimeoutSeconds,
             max(1, Int(Self.value(after: "--cowork-eval-timeout-seconds", in: arguments) ?? "240") ?? 240)
+        )
+        maxToolSteps = min(
+            Self.maximumToolSteps,
+            max(
+                1,
+                Int(Self.value(after: "--cowork-eval-max-tool-steps", in: arguments)
+                    ?? "\(AppConfig.defaultMaxToolSteps)") ?? AppConfig.defaultMaxToolSteps
+            )
+        )
+        runSpendFuseUSD = Self.spendFuse(
+            from: Self.value(after: "--cowork-eval-run-spend-fuse-usd", in: arguments)
         )
     }
 
@@ -40,6 +58,11 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
         try? FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
         let paths = QuillCodePaths(home: home)
+        var config = (try? ConfigStore(fileURL: paths.configFile).load()) ?? AppConfig()
+        config.defaultModel = modelID
+        config.maxToolSteps = maxToolSteps
+        config.runSpendFuseUSD = runSpendFuseUSD
+        try? ConfigStore(fileURL: paths.configFile).save(config)
         let runtimeFactory = QuillCodeRuntimeFactory(paths: paths, environment: environment)
         return QuillCodeDesktopController(
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
@@ -54,6 +77,15 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
         let valueIndex = arguments.index(after: index)
         guard valueIndex < arguments.endIndex else { return nil }
         return arguments[valueIndex]
+    }
+
+    private static func spendFuse(from rawValue: String?) -> Double? {
+        guard let rawValue else { return 1.0 }
+        if ["none", "off", "disabled"].contains(rawValue.lowercased()) {
+            return nil
+        }
+        guard let value = Double(rawValue), value.isFinite, value > 0 else { return 1.0 }
+        return value
     }
 }
 
@@ -71,6 +103,8 @@ struct QuillCodeDesktopCoworkEvalReport: Encodable {
 
     var ok: Bool
     var timedOut: Bool
+    var stopReason: String?
+    var stopReasonDetail: String?
     var requestedModelID: String
     var selectedModelID: String
     var prompt: String
@@ -85,6 +119,28 @@ struct QuillCodeDesktopCoworkEvalReport: Encodable {
     var failedToolCount: Int
     var unrecoveredToolFailureCount: Int
     var tools: [Tool]
+
+    static func stopReasonFields(_ reason: AgentRunStopReason?) -> (name: String?, detail: String?) {
+        switch reason {
+        case .finished:
+            return ("finished", nil)
+        case .toolStepCeilingExhausted(let limit):
+            return ("tool-step-ceiling-exhausted", "Reached the \(limit)-step tool ceiling.")
+        case .flailDetected(let reason):
+            return ("flail-detected", reason)
+        case .spendFuseApprovalRequired(let totalUSD, let fuseUSD):
+            return (
+                "spend-fuse-approval-required",
+                String(format: "Spent $%.4f against the $%.4f run fuse.", totalUSD, fuseUSD)
+            )
+        case .approvalRequired(let requestID):
+            return ("approval-required", "Approval request \(requestID) is pending.")
+        case .autoReviewCircuitBreaker(let reason):
+            return ("auto-review-circuit-breaker", reason)
+        case nil:
+            return (nil, nil)
+        }
+    }
 
     static func unrecoveredFailureCount(in tools: [Tool]) -> Int {
         var hasLaterSuccess = false

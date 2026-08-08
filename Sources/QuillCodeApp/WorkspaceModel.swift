@@ -35,6 +35,10 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var sidebarSavedSearches: [SidebarSavedSearch]
     public internal(set) var sidebarSelection: SidebarSelectionState
     public internal(set) var agentRuns: WorkspaceAgentRunRegistry
+    /// Session-only terminal outcomes keyed by chat. Keeping these separate from the active-run
+    /// registry lets diagnostics distinguish a genuine finish from a budget or safety stop after
+    /// the running entry has been removed.
+    var completedAgentRunStopReasons: [UUID: AgentRunStopReason] = [:]
     public private(set) var lastError: String?
     let startupLoadIssue: WorkspaceStartupLoadIssue?
 

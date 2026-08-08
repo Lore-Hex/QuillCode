@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import QuillCodeAgent
 import QuillCodeApp
 import QuillCodeCore
 
@@ -33,9 +34,6 @@ enum QuillCodeDesktopCoworkEvalRunner {
         _ request: QuillCodeDesktopCoworkEvalRequest,
         controller: QuillCodeDesktopController
     ) async throws -> QuillCodeDesktopCoworkEvalReport {
-        guard request.modelID == QuillCodeDesktopCoworkEvalRequest.exactModelID else {
-            throw QuillCodeDesktopCoworkEvalFailure.wrongModel(request.modelID)
-        }
         guard !request.promptPath.isEmpty else {
             throw QuillCodeDesktopCoworkEvalFailure.missingPromptPath
         }
@@ -62,9 +60,10 @@ enum QuillCodeDesktopCoworkEvalRunner {
         let started = ContinuousClock.now
         controller.draft = prompt
         controller.send()
+        let runThreadID = controller.model.selectedThread?.id
 
         var timedOut = false
-        while controller.tasks.isSendRunning(threadID: controller.model.selectedThread?.id)
+        while controller.tasks.isSendRunning(threadID: runThreadID)
             || controller.surface.composer.isSending
             || controller.surface.transcript.timelineItems.count <= previousTimelineCount {
             if started.duration(to: .now) >= .seconds(request.timeoutSeconds) {
@@ -97,7 +96,10 @@ enum QuillCodeDesktopCoworkEvalRunner {
             + Int(elapsed.attoseconds / 1_000_000_000_000_000)
         let failedToolCount = tools.count(where: { $0.status == "failed" })
         let unrecoveredToolFailureCount = QuillCodeDesktopCoworkEvalReport.unrecoveredFailureCount(in: tools)
+        let stopReason = controller.model.lastAgentRunStopReason(for: runThreadID)
+        let stopReasonFields = QuillCodeDesktopCoworkEvalReport.stopReasonFields(stopReason)
         let ok = !timedOut
+            && stopReason == .finished
             && selectedModelID == request.modelID
             && surface.lastError == nil
             && !finalAnswer.isEmpty
@@ -107,6 +109,8 @@ enum QuillCodeDesktopCoworkEvalRunner {
         return QuillCodeDesktopCoworkEvalReport(
             ok: ok,
             timedOut: timedOut,
+            stopReason: stopReasonFields.name,
+            stopReasonDetail: stopReasonFields.detail,
             requestedModelID: request.modelID,
             selectedModelID: selectedModelID,
             prompt: prompt,
@@ -129,5 +133,4 @@ enum QuillCodeDesktopCoworkEvalFailure: Error {
     case browserPreviewFailed(String)
     case emptyPrompt
     case missingPromptPath
-    case wrongModel(String)
 }

@@ -76,7 +76,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
     }
 
-    func testCoworkEvalRequestPinsExactModelAndParsesIsolatedPaths() throws {
+    func testCoworkEvalRequestParsesLongRunOverridesAndIsolatedPaths() throws {
         let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
             "QuillCode",
             "--cowork-eval",
@@ -85,7 +85,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             "--cowork-eval-prompt-file", "/tmp/quill-eval-prompt.txt",
             "--cowork-eval-report", "/tmp/quill-eval-report.json",
             "--cowork-eval-browser-path", "inputs/browser.html",
-            "--cowork-eval-timeout-seconds", "300"
+            "--cowork-eval-timeout-seconds", "3600",
+            "--cowork-eval-model", "z-ai/glm-5.2",
+            "--cowork-eval-max-tool-steps", "512",
+            "--cowork-eval-run-spend-fuse-usd", "none"
         ]))
 
         XCTAssertEqual(request.homePath, "/tmp/quill-eval-home")
@@ -93,9 +96,25 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(request.promptPath, "/tmp/quill-eval-prompt.txt")
         XCTAssertEqual(request.reportPath, "/tmp/quill-eval-report.json")
         XCTAssertEqual(request.browserPath, "inputs/browser.html")
-        XCTAssertEqual(request.modelID, "deepseek/deepseek-v4-flash-0731")
-        XCTAssertEqual(request.timeoutSeconds, 300)
+        XCTAssertEqual(request.modelID, "z-ai/glm-5.2")
+        XCTAssertEqual(request.timeoutSeconds, 3_600)
+        XCTAssertEqual(request.maxToolSteps, 512)
+        XCTAssertNil(request.runSpendFuseUSD)
         XCTAssertNil(QuillCodeDesktopCoworkEvalRequest(arguments: ["QuillCode"]))
+    }
+
+    func testCoworkEvalRequestDefaultsToDeepSeekAndClampsLongRunBounds() throws {
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-timeout-seconds", "999999",
+            "--cowork-eval-max-tool-steps", "999999"
+        ]))
+
+        XCTAssertEqual(request.modelID, "deepseek/deepseek-v4-flash-0731")
+        XCTAssertEqual(request.timeoutSeconds, QuillCodeDesktopCoworkEvalRequest.maximumTimeoutSeconds)
+        XCTAssertEqual(request.maxToolSteps, QuillCodeDesktopCoworkEvalRequest.maximumToolSteps)
+        XCTAssertEqual(request.runSpendFuseUSD, 1.0)
     }
 
     func testCoworkEvalControllerUsesExplicitStateAndWorkspace() throws {
@@ -115,6 +134,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(controller.workspaceRoot.path, request.workspacePath)
         XCTAssertTrue(controller.model.root.projects.allSatisfy { $0.path == request.workspacePath })
         XCTAssertTrue(controller.automationNotifier is QuillCodeDesktopCoworkEvalNotifier)
+        let config = try ConfigStore(fileURL: controller.bootstrap.paths.configFile).load()
+        XCTAssertEqual(config.defaultModel, request.modelID)
+        XCTAssertEqual(config.maxToolSteps, request.maxToolSteps)
+        XCTAssertEqual(config.runSpendFuseUSD, request.runSpendFuseUSD)
     }
 
     func testCoworkEvalReportDistinguishesRecoveredToolFailures() {
@@ -140,6 +163,18 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         ]
 
         XCTAssertEqual(QuillCodeDesktopCoworkEvalReport.unrecoveredFailureCount(in: tools), 1)
+    }
+
+    func testCoworkEvalReportNamesIncompleteTerminalReasons() {
+        XCTAssertEqual(
+            QuillCodeDesktopCoworkEvalReport.stopReasonFields(.finished).name,
+            "finished"
+        )
+        let ceiling = QuillCodeDesktopCoworkEvalReport.stopReasonFields(
+            .toolStepCeilingExhausted(limit: 64)
+        )
+        XCTAssertEqual(ceiling.name, "tool-step-ceiling-exhausted")
+        XCTAssertTrue(ceiling.detail?.contains("64-step") == true)
     }
 
     func testDesktopSmokePixelValidationAcceptsConfiguredMinimumColorBuckets() throws {

@@ -8,6 +8,39 @@ import QuillComputerUseKit
 
 @MainActor
 final class WorkspaceComposerIntegrationTests: XCTestCase {
+    func testComposerPublishesGenuineAgentStopReason() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: WorkspaceFixedSayLLMClient(message: "Finished."))
+        )
+        let threadID = model.newChat()
+
+        model.setDraft("finish this")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(model.lastAgentRunStopReason(for: threadID), .finished)
+    }
+
+    func testComposerPreservesToolStepCeilingAsIncompleteStopReason() async throws {
+        let root = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(
+                llm: WorkspaceVaryingToolLLMClient(),
+                toolExecutionOverride: { _, _ in ToolResult(ok: false, error: "missing") },
+                maxToolSteps: 2
+            )
+        )
+        let threadID = model.newChat()
+
+        model.setDraft("keep investigating")
+        await model.submitComposer(workspaceRoot: root)
+
+        XCTAssertEqual(
+            model.lastAgentRunStopReason(for: threadID),
+            .toolStepCeilingExhausted(limit: 2)
+        )
+    }
+
     func testSubmitComposerRunsToolAndBuildsToolCard() async throws {
         let root = try makeTempDirectory()
         let model = QuillCodeWorkspaceModel()
@@ -716,6 +749,36 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
             .replacingOccurrences(of: "\\/", with: "/")
             .replacingOccurrences(of: "\n", with: "")
             .replacingOccurrences(of: " ", with: "")
+    }
+}
+
+private struct WorkspaceFixedSayLLMClient: LLMClient {
+    var message: String
+
+    func nextAction(
+        thread _: ChatThread,
+        userMessage _: String,
+        tools _: [ToolDefinition]
+    ) async throws -> AgentAction {
+        .say(message)
+    }
+}
+
+/// Uses a different missing path on every turn so the repeated-call finalizer cannot convert a
+/// ceiling run into a normal finish.
+private final class WorkspaceVaryingToolLLMClient: LLMClient, @unchecked Sendable {
+    private var counter = 0
+
+    func nextAction(
+        thread _: ChatThread,
+        userMessage _: String,
+        tools _: [ToolDefinition]
+    ) async throws -> AgentAction {
+        counter += 1
+        return .tool(ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "missing-\(counter).txt"])
+        ))
     }
 }
 

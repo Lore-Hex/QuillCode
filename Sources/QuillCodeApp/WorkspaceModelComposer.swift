@@ -342,6 +342,7 @@ extension QuillCodeWorkspaceModel {
         if root.selectedThreadID == runThreadID {
             refreshFileMentionIndex()
         }
+        recordAgentRunStopReason(result.stopReason, threadID: runThreadID)
         finishAgentRun(threadID: runThreadID, lifecycle: completion.lifecycle)
     }
 
@@ -385,6 +386,7 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func finishCancelledSend(userPrompt: String, threadID: UUID, runThreadID: UUID) {
+        clearAgentRunStopReason(threadID: runThreadID)
         let terminal = WorkspaceAgentSendTerminalPlanner.cancelled(composer: composer)
         mutateThread(threadID) { thread in
             WorkspaceComposerCancellationPlanner.applyCancelledSend(userPrompt: userPrompt, to: &thread)
@@ -393,6 +395,7 @@ extension QuillCodeWorkspaceModel {
     }
 
     private func finishFailedSend(_ error: any Error, runThreadID: UUID) {
+        clearAgentRunStopReason(threadID: runThreadID)
         // A terminal run failure must leave a DURABLE trace on its own thread. A background run that
         // failed while the user was on another thread otherwise vanishes silently: finishAgentRun
         // drops the failure for a non-selected thread, and lastError is session-only. Record it as a

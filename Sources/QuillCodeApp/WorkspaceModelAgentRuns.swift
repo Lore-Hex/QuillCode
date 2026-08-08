@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeAgent
 
 @MainActor
 extension QuillCodeWorkspaceModel {
@@ -14,7 +15,13 @@ extension QuillCodeWorkspaceModel {
         agentRuns.isRunning(threadID)
     }
 
+    public func lastAgentRunStopReason(for threadID: UUID?) -> AgentRunStopReason? {
+        guard let threadID else { return nil }
+        return completedAgentRunStopReasons[threadID]
+    }
+
     func beginAgentRun(threadID: UUID, lifecycle: WorkspaceComposerSendLifecyclePlan) {
+        completedAgentRunStopReasons.removeValue(forKey: threadID)
         agentRuns.begin(threadID: threadID, status: lifecycle.agentStatus)
         guard root.selectedThreadID == threadID else {
             refreshSelectedAgentRunPresentation()
@@ -30,6 +37,14 @@ extension QuillCodeWorkspaceModel {
         composer.isSending = true
         setLastError(nil)
         refreshTopBar(agentStatus: status)
+    }
+
+    func recordAgentRunStopReason(_ stopReason: AgentRunStopReason, threadID: UUID) {
+        completedAgentRunStopReasons[threadID] = stopReason
+    }
+
+    func clearAgentRunStopReason(threadID: UUID) {
+        completedAgentRunStopReasons.removeValue(forKey: threadID)
     }
 
     func finishAgentRun(
