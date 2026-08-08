@@ -227,6 +227,28 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         )
     }
 
+    func testTabularGateScopesCategoryIDsToThePrimaryBulletClaim() {
+        let source = """
+        1\tid,founder_action,outcome
+        2\tD01,quantified chasing time,won
+        3\tD09,skipped workflow validation,lost
+        4\tD12,used Northstar proof,won
+        """
+        let artifact = """
+        ### Founder action
+        - Skipped workflow validation - D09 (lost). D01 and D12 used distinct actions.
+        """
+
+        XCTAssertEqual(
+            AgentTabularSourceGroundingGate.issues(
+                content: artifact,
+                path: "outputs/review.md",
+                sourceReadsByPath: ["inputs/data.csv": source]
+            ),
+            []
+        )
+    }
+
     func testTabularGateRejectsEmptyNamedSourceDimensionSection() {
         let source = """
         1\tid,segment,outcome

@@ -123,12 +123,17 @@ enum AgentTabularSourceGroundingGate {
                   let prose = firstCapture(bulletRegex, in: rawLine),
                   let rawLabel = prose.split(separator: ":", maxSplits: 1).first.map(String.init)
             else { continue }
+            let claim = prose.split(
+                separator: ".",
+                maxSplits: 1,
+                omittingEmptySubsequences: false
+            ).first.map(String.init) ?? prose
 
             let knownValues = Set(source.recordsByID.values.map {
                 canonicalValue($0[field] ?? "")
             })
             guard let value = categoryValue(in: rawLabel, knownValues: knownValues) else { continue }
-            let ids = extractedIDs(from: [prose], knownIDs: knownIDs)
+            let ids = extractedIDs(from: [claim], knownIDs: knownIDs)
             guard !ids.isEmpty else { continue }
 
             let mismatches = ids.filter { id in
@@ -155,7 +160,7 @@ enum AgentTabularSourceGroundingGate {
                 )
             }
             found.append(contentsOf: proseCountIssues(
-                prose: prose,
+                prose: claim,
                 label: cleanMarkdown(rawLabel),
                 ids: ids,
                 source: source
