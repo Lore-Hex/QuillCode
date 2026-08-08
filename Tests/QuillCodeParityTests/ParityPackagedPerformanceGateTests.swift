@@ -21,6 +21,10 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             #"static let measurement = "initial-live-window""#
         ])
         Self.assertSource(app, contains: "QuillCodeDesktopLaunchClock.appEntryUptime")
+        let smokeLaunchStart = try XCTUnwrap(
+            app.range(of: "private enum QuillCodeDesktopWindowSmokeLaunch")
+        ).lowerBound
+        Self.assertSource(String(app[smokeLaunchStart...]), excludes: "Task.sleep")
         Self.assertSource(runner, contains: "QuillCodeDesktopPerformanceSnapshot.capture(")
         let performanceIndex = try XCTUnwrap(runner.range(of: "let performance = try")).lowerBound
         let screenshotIndex = try XCTUnwrap(runner.range(of: "captureValidatedImageStats(")).lowerBound
