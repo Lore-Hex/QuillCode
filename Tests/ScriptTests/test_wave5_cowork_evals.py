@@ -308,6 +308,51 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("D12", matched)
         self.assertGreaterEqual(len(matched), 2)
 
+    def test_win_loss_review_uses_structured_source_and_shell_routing(self):
+        rows = WAVE5.validate_catalog(WAVE5.read_json(WAVE5.SOURCE_CATALOG))
+        row = next(row for row in rows if row["ID"] == 230)
+
+        self.assertEqual(row["Capability needed"], "Files/Shell")
+        prompt = WAVE5.build_prompt(row)
+        self.assertIn("use the shell tool for one concise calculation", prompt)
+        self.assertIn("Source reconciliation", prompt)
+        self.assertIn("Cycle reconciliation", prompt)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            WAVE5.write_fixture(row, workspace)
+            data = (workspace / "inputs" / "data.csv").read_text(encoding="utf-8")
+
+        self.assertTrue(data.startswith("id,segment,source,competitor"))
+        self.assertIn("D01,Series A,referral", data)
+        self.assertIn("D12,Series A,referral", data)
+        self.assertNotIn("Account 01", data)
+
+    def test_win_loss_review_requires_canonical_source_totals(self):
+        correct = """
+        | Slice | Total | Won | Lost | Win rate |
+        |---|---:|---:|---:|---:|
+        | Overall | 12 | 5 | 7 | 41.7% |
+        | Series A | 8 | 5 | 3 | 62.5% |
+        | Growth | 4 | 0 | 4 | 0.0% |
+
+        | Outcome | Records | Average days | Median days |
+        |---|---:|---:|---:|
+        | Won | 5 | 26.4 | 26.0 |
+        | Lost | 7 | 45.1 | 47.0 |
+        """
+        expected, matched = WAVE5.required_output_pattern_matches(230, correct)
+
+        self.assertEqual(len(expected), 5)
+        self.assertEqual(matched, [item["label"] for item in expected])
+
+        incorrect = correct.replace(
+            "| Overall | 12 | 5 | 7 | 41.7% |",
+            "| Overall | 12 | 6 | 6 | 50.0% |",
+        )
+        _, matched = WAVE5.required_output_pattern_matches(230, incorrect)
+        self.assertNotIn("overall outcomes", matched)
+
     def test_grounding_uses_explicit_case_anchors_without_required_output_terms(self):
         row = {"ID": 280, "Category": "Hiring & Team"}
         anchors = WAVE5.grounding_anchors(row)

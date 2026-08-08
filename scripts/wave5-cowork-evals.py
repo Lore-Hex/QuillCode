@@ -357,6 +357,29 @@ def validate_case_fixtures():
         grounding = fixture.get("groundingAnchors", [])
         if not isinstance(grounding, list) or not all(isinstance(term, str) and term for term in grounding):
             raise EvalError(f"Case fixture {case_id} has invalid groundingAnchors")
+        data_csv = fixture.get("dataCSV")
+        if data_csv is not None and (not isinstance(data_csv, str) or not data_csv.strip()):
+            raise EvalError(f"Case fixture {case_id} has invalid dataCSV")
+        output_requirements = fixture.get("outputRequirements")
+        if output_requirements is not None and (
+            not isinstance(output_requirements, str) or not output_requirements.strip()
+        ):
+            raise EvalError(f"Case fixture {case_id} has invalid outputRequirements")
+        for expected in fixture.get("requiredOutputPatterns", []):
+            if (
+                not isinstance(expected, dict)
+                or not isinstance(expected.get("label"), str)
+                or not expected["label"].strip()
+                or not isinstance(expected.get("pattern"), str)
+                or not expected["pattern"].strip()
+            ):
+                raise EvalError(f"Case fixture {case_id} has an invalid required output pattern")
+            try:
+                re.compile(expected["pattern"])
+            except re.error as error:
+                raise EvalError(
+                    f"Case fixture {case_id} has an invalid required output regex: {error}"
+                ) from error
         if len(grounding or required) < 2:
             raise EvalError(f"Case fixture {case_id} needs at least two case-specific grounding anchors")
         for artifact in fixture.get("additionalArtifacts", []):
@@ -460,6 +483,15 @@ def required_output_term_matches(case_id, text):
     normalized_output = normalize(text)
     matched = [term for term in required if normalize(term) in normalized_output]
     return required, matched
+
+
+def required_output_pattern_matches(case_id, text):
+    expected = CASE_FIXTURES.get(case_id, {}).get("requiredOutputPatterns", ())
+    matched = [
+        item["label"] for item in expected
+        if re.search(item["pattern"], text)
+    ]
+    return expected, matched
 
 
 def grounding_anchors(row):
@@ -573,13 +605,13 @@ def artifact_coverage_text(primary_text, workspace, artifacts):
 
 def write_fixture(row, workspace):
     fixture = CATEGORY_FIXTURES[row["Category"]]
+    case_fixture = CASE_FIXTURES.get(row["ID"], {})
     context = fixture_context(row)
     inputs = workspace / "inputs"
     inputs.mkdir(parents=True)
     (inputs / "context.md").write_text(context, encoding="utf-8")
-    (inputs / "data.csv").write_text(
-        fixture["header"] + "".join(fixture["rows"]), encoding="utf-8"
-    )
+    data_csv = case_fixture.get("dataCSV") or fixture["header"] + "".join(fixture["rows"])
+    (inputs / "data.csv").write_text(data_csv, encoding="utf-8")
     browser_path = None
     if row["Capability needed"] == "Browser pane":
         browser_path = "inputs/browser.html"
@@ -600,6 +632,9 @@ def build_prompt(row):
     if extra_paths:
         quoted = ", ".join(f"`{path}`" for path in extra_paths)
         extra_instruction = f" Also create the required supporting artifact(s): {quoted}."
+    output_requirements = CASE_FIXTURES.get(row["ID"], {}).get("outputRequirements")
+    if output_requirements:
+        extra_instruction += f" {output_requirements.strip()}"
     capability_instruction = {
         "Browser pane": (
             "First inspect the currently open Browser page with the browser inspection tool. "
@@ -689,6 +724,13 @@ def grade(row, workspace, report, source_hashes):
             "repeated item coverage",
             len(matched_terms) == len(required_terms),
             f"matched {len(matched_terms)} of {len(required_terms)} required items",
+        )
+    expected_patterns, matched_patterns = required_output_pattern_matches(row["ID"], coverage_text)
+    if expected_patterns:
+        add(
+            "quantitative source truth",
+            len(matched_patterns) == len(expected_patterns),
+            f"matched {matched_patterns}; required {[item['label'] for item in expected_patterns]}",
         )
     refusal = contains_task_refusal(text)
     add("no refusal", not refusal, "refusal language" if refusal else "clean")
