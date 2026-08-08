@@ -3533,3 +3533,17 @@
 - **Evidence:** `QuillCodeDesktopPerformanceSnapshot`, the window-smoke performance object,
   `scripts/native_click_probe_contracts/performance.py`, `scripts/packaged-macos-performance-smoke.sh`,
   packaged smoke artifacts, and the public architecture-specific `PERFORMANCE.json` release asset.
+
+## 2026-08-07: human installation uses a verified disk image
+
+- **Decision:** macOS releases publish a compressed read-only DMG containing the already signed
+  `Quill Cowork.app` and a standard `/Applications` shortcut. Packaging mounts the completed image,
+  validates both entries, and verifies the embedded app signature before upload.
+- **Updater boundary:** The DMG is the recommended human installation artifact. The ZIP remains the
+  updater's declared `macOSAppAsset`, preserving the existing bounded download, SHA-256, extraction,
+  staged-swap, launch-handshake, and rollback contract.
+- **Why:** A drag-to-Applications image gives testers the normal macOS install flow without coupling
+  installer presentation to the security-critical updater archive or weakening stable signing and
+  notarization requirements.
+- **Evidence:** `scripts/create-macos-disk-image.sh`, macOS download packaging, manifest
+  classification, public download docs, and `ParityDownloadBuildsGateTests`.

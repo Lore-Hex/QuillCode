@@ -12,10 +12,12 @@ final class ParityPublicDistributionGateTests: QuillCodeParityTestCase {
         Self.assertSource(
             readme,
             containsAll: [
+                "releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg",
                 "releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip",
                 "docs/images/quill-cowork-desktop.png",
                 "macOS 14 or later",
                 "Apple silicon Mac",
+                "drag **Quill Cowork.app** onto **Applications**",
                 "checks for updates automatically",
                 "activation is atomic",
                 "not Apple-notarized yet"

@@ -203,7 +203,8 @@ jobs:
           Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
 
           Downloads:
-          - \`Quill-Cowork-macOS-*.zip\`: macOS app bundle for testers.
+          - \`Quill-Cowork-macOS-*.dmg\`: recommended drag-to-Applications macOS installer.
+          - \`Quill-Cowork-macOS-*.zip\`: verified macOS auto-update archive and manual fallback.
           - \`Quill-Cowork-macOS-*-PERFORMANCE.json\`: measured launch and resident-memory release evidence.
           - \`quill-code-macOS-*.tar.gz\`: macOS CLI.
           - \`quill-code-linux-*.tar.gz\`: Linux CLI.

@@ -54,6 +54,9 @@ def parse_build_info(asset_directory: Path) -> dict[str, str]:
 
 
 def classify_asset(name: str) -> dict[str, str]:
+    if name.startswith("Quill-Cowork-macOS-") and name.endswith(".dmg"):
+        arch = name.removeprefix("Quill-Cowork-macOS-").removesuffix(".dmg")
+        return {"kind": "installer", "platform": "macOS", "arch": arch, "install": "dmg-app"}
     if name.startswith("Quill-Cowork-macOS-") and name.endswith(".zip"):
         arch = name.removeprefix("Quill-Cowork-macOS-").removesuffix(".zip")
         return {"kind": "app", "platform": "macOS", "arch": arch, "install": "zip-app"}
