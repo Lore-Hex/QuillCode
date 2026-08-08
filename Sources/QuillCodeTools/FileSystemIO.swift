@@ -6,6 +6,12 @@ import Darwin
 import Glibc
 #endif
 
+#if canImport(Darwin)
+private typealias DirectoryStreamPointer = UnsafeMutablePointer<DIR>
+#elseif canImport(Glibc)
+private typealias DirectoryStreamPointer = OpaquePointer
+#endif
+
 enum FileSystemIO {
     struct DirectoryEntry: Sendable, Hashable {
         var url: URL
@@ -78,7 +84,7 @@ enum FileSystemIO {
         }
     }
 
-    private static func openDirectory(_ path: String) throws -> UnsafeMutablePointer<DIR> {
+    private static func openDirectory(_ path: String) throws -> DirectoryStreamPointer {
         while true {
             if let directory = path.withCString({ opendir($0) }) {
                 return directory

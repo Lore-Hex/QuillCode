@@ -115,6 +115,14 @@ final class ParityShellFileToolGateTests: QuillCodeParityTestCase {
             "Resilient directory enumeration should live in FileSystemIO."
         )
         XCTAssertTrue(
+            fileSystemIOText.contains("private typealias DirectoryStreamPointer = OpaquePointer"),
+            "Linux directory streams should use Glibc's imported opaque-pointer type."
+        )
+        XCTAssertFalse(
+            fileSystemIOText.contains("throws -> UnsafeMutablePointer<DIR>"),
+            "Cross-platform helpers should not expose Darwin's DIR type in their signatures."
+        )
+        XCTAssertTrue(
             searchText.contains("enumerator("),
             "Recursive text scanning should live in FileSearchScanner."
         )
