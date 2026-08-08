@@ -391,7 +391,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         )
         XCTAssertEqual(
             result.thread.messages.last?.content,
-            "The corrected review is complete and verified."
+            "The review is corrected."
         )
     }
 
@@ -400,21 +400,18 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         XCTAssertNil(AgentSourceGroundingGate.correction(
             userMessage: "Create outputs/brief.md from the supplied sources.",
             writtenPaths: written,
-            auditCounts: [:],
-            verificationPaths: []
+            auditCounts: [:]
         ))
         XCTAssertNil(AgentSourceGroundingGate.correction(
             userMessage: "Use only facts in the supplied sources.",
             writtenPaths: written,
-            auditCounts: [:],
-            verificationPaths: []
+            auditCounts: [:]
         ))
 
         let correction = try XCTUnwrap(AgentSourceGroundingGate.correction(
             userMessage: "Create outputs/brief.md. Use only facts in those supplied sources.",
             writtenPaths: written,
-            auditCounts: [:],
-            verificationPaths: []
+            auditCounts: [:]
         ))
         XCTAssertEqual(correction.path, "outputs/brief.md")
         XCTAssertTrue(correction.prompt.contains("invented payment or compensation"))
@@ -423,23 +420,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         XCTAssertNil(AgentSourceGroundingGate.correction(
             userMessage: "Create outputs/brief.md. Use only facts in those supplied sources.",
             writtenPaths: written,
-            auditCounts: ["outputs/brief.md": 1],
-            verificationPaths: []
-        ))
-
-        let verification = try XCTUnwrap(AgentSourceGroundingGate.correction(
-            userMessage: "Create outputs/brief.md. Use only facts in those supplied sources.",
-            writtenPaths: written,
-            auditCounts: ["outputs/brief.md": 1],
-            verificationPaths: written
-        ))
-        XCTAssertTrue(verification.prompt.contains("verification pass"))
-        XCTAssertTrue(verification.prompt.contains("subject lines"))
-        XCTAssertNil(AgentSourceGroundingGate.correction(
-            userMessage: "Create outputs/brief.md. Use only facts in those supplied sources.",
-            writtenPaths: written,
-            auditCounts: ["outputs/brief.md": 2],
-            verificationPaths: written
+            auditCounts: ["outputs/brief.md": 1]
         ))
     }
 
@@ -448,16 +429,11 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
         let unsupported = "# Outreach\n\nThis is a paid 30-minute call and not a sales pitch.\n"
         let partiallyCorrected = "# Outreach\n\nJoin a 30-minute research conversation.\n"
-        let stillUnsupported = "# Outreach\n\nWe are not selling. Join a 30-minute call.\n"
         let runner = AgentRunner(
             llm: SequenceLLMClient(actions: [
                 .tool(writeCall(content: unsupported)),
                 .say("Created and verified outputs/brief.md."),
                 .tool(writeCall(content: partiallyCorrected)),
-                .say("Created outputs/brief.md."),
-                .tool(writeCall(content: stillUnsupported)),
-                .say("Created outputs/brief.md."),
-                .tool(writeCall(content: "# Outreach\n\nNo pitch. Join a 30-minute call.\n")),
             ]),
             maxToolSteps: 10
         )
@@ -469,11 +445,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
             workspaceRoot: root
         )
 
-        XCTAssertEqual(
-            result.toolResults.count,
-            5,
-            "three model writes, one deterministic repair, and the forced final readback"
-        )
+        XCTAssertEqual(result.toolResults.count, 4)
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("source-grounding audit")
@@ -485,6 +457,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md"), encoding: .utf8),
             "# Outreach\n\n"
         )
+        XCTAssertEqual(result.thread.messages.last?.content, "Created and verified outputs/brief.md.")
     }
 
     func testFormattingOnlyAuditSkipsVerificationAndFinalizesDeterministicRepair() async throws {
@@ -497,8 +470,6 @@ final class AgentSourceGroundingGateTests: XCTestCase {
                 .tool(writeCall(content: unsupported)),
                 .say("Created outputs/brief.md."),
                 .tool(writeCall(content: formattingOnlyRewrite)),
-                .say("Created outputs/brief.md."),
-                .tool(writeCall(content: "# Outreach\n\nNo pitch.\n")),
             ]),
             maxToolSteps: 8
         )
@@ -519,17 +490,6 @@ final class AgentSourceGroundingGateTests: XCTestCase {
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md"), encoding: .utf8),
             "# Outreach\n"
         )
-    }
-
-    func testAuditContentComparisonIgnoresOnlyOuterAndTrailingWhitespace() {
-        XCTAssertFalse(AgentSourceGroundingGate.isMateriallyDifferent(
-            "\n# Brief  \n\nBody\t\n",
-            "# Brief\n\nBody"
-        ))
-        XCTAssertTrue(AgentSourceGroundingGate.isMateriallyDifferent(
-            "# Brief\n\nBody",
-            "# Brief\n\nChanged body"
-        ))
     }
 
     func testSensitiveClaimBoundaryPreservesGroundedAndUnknownStatements() throws {

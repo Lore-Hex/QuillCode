@@ -230,15 +230,15 @@ public struct AgentRunner: Sendable {
             /// Aggregate rows with explicit source IDs receive at most two exact reconciliation
             /// passes before the broader semantic source audit takes over.
             var tabularSourceAuditCounts: [String: Int] = [:]
-            /// Explicitly source-only named artifacts receive one post-draft semantic audit. A
-            /// rewrite from that audit receives one verification pass; read-only audits stop at one.
+            /// Explicitly source-only named artifacts receive one post-draft semantic audit. After
+            /// that bounded model pass, deterministic gates own repair, readback, and finalization.
             var sourceGroundingAuditCounts: [String: Int] = [:]
-            var sourceGroundingVerificationPaths = Set<String>()
             var pendingSourceGroundingAuditPath: String?
-            var pendingSourceGroundingAuditBaseline: String?
+            var pendingSourceGroundingFinalization: AgentAction?
             var sourceGroundingRepairedPaths = Set<String>()
-            /// A deterministic source repair owns finalization. Keeping this action across the
-            /// forced readback prevents a fresh model turn from restoring the removed claims.
+            /// A completed semantic audit or deterministic source repair owns finalization. Keeping
+            /// this action across the forced readback prevents a fresh model turn from restoring or
+            /// contradicting the grounded artifact.
             var controlledSourceGroundingFinalization: AgentAction?
             var pendingSourceGroundingRepairPath: String?
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
@@ -431,6 +431,7 @@ public struct AgentRunner: Sendable {
                     malformedPaths: runLoop.malformedWrittenTextPaths
                    ) {
                     if artifactTextQualityNudgedPaths.insert(correction.path).inserted {
+                        controlledSourceGroundingFinalization = nil
                         pendingRepeatNudge = correction.prompt
                         next.events.append(.init(
                             kind: .notice,
@@ -462,6 +463,7 @@ public struct AgentRunner: Sendable {
                     placeholderPaths: runLoop.placeholderWrittenTextPaths
                    ) {
                     if artifactPlaceholderNudgedPaths.insert(correction.path).inserted {
+                        controlledSourceGroundingFinalization = nil
                         pendingRepeatNudge = correction.prompt
                         next.events.append(.init(
                             kind: .notice,
@@ -493,6 +495,7 @@ public struct AgentRunner: Sendable {
                     contradictoryPaths: runLoop.contradictoryCountWrittenTextPaths
                    ) {
                     if artifactCountConsistencyNudgedPaths.insert(correction.path).inserted {
+                        controlledSourceGroundingFinalization = nil
                         pendingRepeatNudge = correction.prompt
                         next.events.append(.init(
                             kind: .notice,
@@ -524,6 +527,7 @@ public struct AgentRunner: Sendable {
                     issuesByPath: runLoop.tabularSourceIssuesByPath,
                     auditCounts: tabularSourceAuditCounts
                    ) {
+                    controlledSourceGroundingFinalization = nil
                     tabularSourceAuditCounts[correction.path, default: 0] += 1
                     pendingRepeatNudge = correction.prompt
                     next.events.append(.init(
@@ -535,19 +539,16 @@ public struct AgentRunner: Sendable {
                     await onProgress?(next)
                     continue actionLoop
                 }
-                if case .say = resolvedAction,
+                if case .say(let candidateFinalAnswer) = resolvedAction,
                    let correction = AgentSourceGroundingGate.correction(
                     userMessage: userMessage,
                     writtenPaths: runLoop.writtenWorkspacePaths,
-                    auditCounts: sourceGroundingAuditCounts,
-                    verificationPaths: sourceGroundingVerificationPaths
+                    auditCounts: sourceGroundingAuditCounts
                    ) {
+                    controlledSourceGroundingFinalization = nil
                     sourceGroundingAuditCounts[correction.path, default: 0] += 1
-                    sourceGroundingVerificationPaths.remove(correction.path)
                     pendingSourceGroundingAuditPath = correction.path
-                    pendingSourceGroundingAuditBaseline = runLoop.latestWrittenTextContent(
-                        for: correction.path
-                    )
+                    pendingSourceGroundingFinalization = .say(candidateFinalAnswer)
                     pendingRepeatNudge = correction.prompt
                     next.events.append(.init(
                         kind: .notice,
@@ -787,18 +788,15 @@ public struct AgentRunner: Sendable {
                             await onProgress?(next)
                             continue actionLoop
                         }
-                        if let correction = AgentSourceGroundingGate.correction(
+                        if case .say(let candidateFinalAnswer) = finalized,
+                           let correction = AgentSourceGroundingGate.correction(
                             userMessage: userMessage,
                             writtenPaths: runLoop.writtenWorkspacePaths,
-                            auditCounts: sourceGroundingAuditCounts,
-                            verificationPaths: sourceGroundingVerificationPaths
+                            auditCounts: sourceGroundingAuditCounts
                         ) {
                             sourceGroundingAuditCounts[correction.path, default: 0] += 1
-                            sourceGroundingVerificationPaths.remove(correction.path)
                             pendingSourceGroundingAuditPath = correction.path
-                            pendingSourceGroundingAuditBaseline = runLoop.latestWrittenTextContent(
-                                for: correction.path
-                            )
+                            pendingSourceGroundingFinalization = .say(candidateFinalAnswer)
                             pendingRepeatNudge = correction.prompt
                             next.events.append(.init(
                                 kind: .notice,
@@ -1006,25 +1004,22 @@ public struct AgentRunner: Sendable {
                     case .completed(let completion, let reviewOutcome):
                         if let auditPath = pendingSourceGroundingAuditPath {
                             if completion.result.ok,
-                               completion.call.name == ToolDefinition.fileWrite.name,
-                               let writtenPath = AgentArtifactVerificationGate.pathArgument(
+                               (completion.call.name == ToolDefinition.fileWrite.name
+                                || completion.call.name == ToolDefinition.fileRead.name),
+                               let completedPath = AgentArtifactVerificationGate.pathArgument(
                                 from: completion.call
                                ),
-                               AgentArtifactVerificationGate.pathsMatch(auditPath, writtenPath),
-                               sourceGroundingAuditCounts[auditPath, default: 0] < 2,
-                               let auditedContent = try? ToolArguments(
-                                completion.call.argumentsJSON
-                               ).requiredString("content"),
-                               pendingSourceGroundingAuditBaseline.map({
-                                AgentSourceGroundingGate.isMateriallyDifferent(
-                                    $0,
-                                    auditedContent
-                                )
-                               }) ?? true {
-                                sourceGroundingVerificationPaths.insert(auditPath)
+                               AgentArtifactVerificationGate.pathsMatch(auditPath, completedPath) {
+                                controlledSourceGroundingFinalization =
+                                    pendingSourceGroundingFinalization
+                                    ?? .say(Self.finalAnswer(
+                                        for: completion.call,
+                                        result: completion.result,
+                                        followUpReviewResult: completion.followUpReviewResult
+                                    ))
                             }
                             pendingSourceGroundingAuditPath = nil
-                            pendingSourceGroundingAuditBaseline = nil
+                            pendingSourceGroundingFinalization = nil
                         }
                         if let repairPath = pendingSourceGroundingRepairPath {
                             if completion.result.ok,
@@ -1032,11 +1027,13 @@ public struct AgentRunner: Sendable {
                                let writtenPath = AgentArtifactVerificationGate.pathArgument(
                                 from: completion.call
                                ), AgentArtifactVerificationGate.pathsMatch(repairPath, writtenPath) {
-                                controlledSourceGroundingFinalization = .say(Self.finalAnswer(
-                                    for: completion.call,
-                                    result: completion.result,
-                                    followUpReviewResult: completion.followUpReviewResult
-                                ))
+                                controlledSourceGroundingFinalization =
+                                    controlledSourceGroundingFinalization
+                                    ?? .say(Self.finalAnswer(
+                                        for: completion.call,
+                                        result: completion.result,
+                                        followUpReviewResult: completion.followUpReviewResult
+                                    ))
                             }
                             pendingSourceGroundingRepairPath = nil
                         }

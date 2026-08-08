@@ -7,8 +7,7 @@ enum AgentSourceGroundingGate {
     static func correction(
         userMessage: String,
         writtenPaths: Set<String>,
-        auditCounts: [String: Int],
-        verificationPaths: Set<String>
+        auditCounts: [String: Int]
     ) -> AgentArtifactTextQualityGate.Correction? {
         guard requestsSourceOnlyGrounding(in: userMessage) else { return nil }
         let required = AgentDeliverableGate.requiredDeliverables(in: userMessage).sorted()
@@ -17,21 +16,14 @@ enum AgentSourceGroundingGate {
             guard writtenPaths.contains(where: {
                 AgentArtifactVerificationGate.pathsMatch(path, $0)
             }) else { return false }
-            let count = auditCounts[path, default: 0]
-            let needsInitialAudit = count == 0
-            let needsRewriteVerification = count == 1 && verificationPaths.contains(path)
-            return (needsInitialAudit || needsRewriteVerification)
+            return auditCounts[path, default: 0] == 0
         }).map(AgentArtifactVerificationGate.normalizedPath) else { return nil }
-
-        let isRewriteVerification = auditCounts[path, default: 0] == 1
-        let opening = isRewriteVerification
-            ? "This is the verification pass after the prior source-grounding rewrite."
-            : "The request explicitly limits facts to supplied sources."
 
         return .init(
             path: path,
             prompt: """
-            \(opening) Audit every line of the current ./\(path), including headings, subject \
+            The request explicitly limits facts to supplied sources. Audit every line of the \
+            current ./\(path), including headings, subject \
             lines, templates, checklists, and example messages, against the user request and every \
             source read in this run before completing. Remove or label unknown every unsupported \
             factual assertion, recommendation framed as a requirement, or commitment. Check \
@@ -87,19 +79,6 @@ enum AgentSourceGroundingGate {
         return sourceOnlyRequestRegexes.contains {
             $0.firstMatch(in: userMessage, range: range) != nil
         }
-    }
-
-    static func isMateriallyDifferent(_ lhs: String, _ rhs: String) -> Bool {
-        normalizedAuditContent(lhs) != normalizedAuditContent(rhs)
-    }
-
-    private static func normalizedAuditContent(_ content: String) -> String {
-        var lines = content.components(separatedBy: .newlines).map {
-            $0.replacingOccurrences(of: #"\s+$"#, with: "", options: .regularExpression)
-        }
-        while lines.first?.isEmpty == true { lines.removeFirst() }
-        while lines.last?.isEmpty == true { lines.removeLast() }
-        return lines.joined(separator: "\n")
     }
 
     private static func unsupportedLineIndexes(
