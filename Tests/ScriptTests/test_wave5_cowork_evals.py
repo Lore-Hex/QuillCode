@@ -317,6 +317,7 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("use the shell tool for one concise calculation", prompt)
         self.assertIn("Source reconciliation", prompt)
         self.assertIn("Cycle reconciliation", prompt)
+        self.assertIn("percentage with a trailing `%`", prompt)
 
         with tempfile.TemporaryDirectory() as temporary:
             workspace = Path(temporary)
