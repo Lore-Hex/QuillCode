@@ -486,14 +486,14 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         )
         self.assertTrue(any("expected" in issue for issue in WAVE5.ranked_score_issues(bad_math, source)))
 
-    def test_incident_tabletop_is_explicitly_defensive_planning(self):
+    def test_service_resilience_tabletop_uses_benign_continuity_language(self):
         rows = WAVE5.validate_catalog(WAVE5.read_json(WAVE5.SOURCE_CATALOG))
         row = next(row for row in rows if row["ID"] == 298)
         prompt = WAVE5.build_prompt(row)
 
-        self.assertIn("authorized, defensive", prompt)
-        self.assertIn("planning and documentation only", prompt)
-        self.assertIn("do not perform or describe offensive security actions", prompt)
+        self.assertIn("accidental service outage", prompt)
+        self.assertIn("business continuity, restoration, and communications planning", prompt)
+        self.assertNotIn("offensive security", prompt.lower())
 
     def test_win_loss_review_requires_canonical_source_totals(self):
         correct = """

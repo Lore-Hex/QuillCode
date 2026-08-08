@@ -1067,7 +1067,7 @@
       "Wave": "Wave 5 - YC founder workflows",
       "Status": "Proposed - not yet driven",
       "Category": "Operations & Compliance",
-      "Task (what the person types)": "Create an authorized, defensive 60-minute business-continuity tabletop for a seed-stage SaaS company responding to a service incident. Include scenario injects, roles, a decision log, stakeholder communications, recovery checks, and a debrief rubric. This is planning and documentation only; do not perform or describe offensive security actions.",
+      "Task (what the person types)": "Create a 60-minute service-resilience tabletop for a seed-stage SaaS company responding to an accidental service outage. Include timed discussion prompts, roles, a decision log, stakeholder communications, recovery checks, and a debrief rubric. Keep the exercise limited to business continuity, restoration, and communications planning.",
       "Role": "Founder Operations",
       "Capability needed": "Multi-file artifacts",
       "They must supply": "Policies, contracts, vendor files, system inventories, deadlines, and owner information",
