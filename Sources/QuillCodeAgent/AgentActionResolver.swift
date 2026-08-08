@@ -43,6 +43,7 @@ extension AgentRunner {
             correctiveThread.updatedAt = Date()
         }
         var attempt = 0
+        var emptyResponseAttempt = 0
         // F22: which client resolves this action. Flips to `fallbackLLM` (at most once) when the
         // primary exhausts the empty-response budget — a route-quality death an alternate model
         // reliably survives. Scoped per-action: the next action starts back on the primary.
@@ -223,13 +224,14 @@ extension AgentRunner {
                 // immediate [DONE]) — the streaming twin of TrustedRouterAgentError.emptyResponse,
                 // which the transport classifier already deems "worth one more try".
                 try Task.checkCancellation()
-                guard attempt < Self.malformedActionCorrectionLimit else {
+                guard emptyResponseAttempt < Self.emptyResponseRetryLimit else {
                     // F22: the primary cannot produce this step at all. Try the fallback model —
                     // once — with a fresh correction budget before declaring the run dead.
                     if let fallback = fallbackLLM, !usedFallback {
                         usedFallback = true
                         activeLLM = fallback
                         attempt = 0
+                        emptyResponseAttempt = 0
                         pendingCorrectionPrompt = nil
                         thread.events.append(.init(
                             kind: .notice,
@@ -242,14 +244,14 @@ extension AgentRunner {
                     }
                     throw AgentError.emptyStreamingResponse
                 }
-                attempt += 1
-                let backoffSeconds = attempt == 1 ? 2 : 4
+                emptyResponseAttempt += 1
+                let backoffSeconds = min(2 * (1 << (emptyResponseAttempt - 1)), 12)
                 pendingCorrectionPrompt = nil
                 thread.events.append(.init(
                     kind: .notice,
                     summary: "Self-healing: the model returned an empty response; retrying after "
                         + "a \(backoffSeconds)-second backoff "
-                        + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
+                        + "(attempt \(emptyResponseAttempt) of \(Self.emptyResponseRetryLimit))."
                 ))
                 thread.updatedAt = Date()
                 await onProgress?(thread)

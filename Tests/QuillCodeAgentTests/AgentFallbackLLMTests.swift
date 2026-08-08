@@ -34,6 +34,8 @@ final class AgentFallbackLLMTests: XCTestCase {
         .failure(AgentError.emptyStreamingResponse),
         .failure(AgentError.emptyStreamingResponse),
         .failure(AgentError.emptyStreamingResponse),
+        .failure(AgentError.emptyStreamingResponse),
+        .failure(AgentError.emptyStreamingResponse),
     ]
 
     func testExhaustedEmptyResponsesSwitchToFallbackAndRunSucceeds() async throws {
@@ -55,7 +57,7 @@ final class AgentFallbackLLMTests: XCTestCase {
         XCTAssertTrue(result.thread.events.contains { $0.summary.contains("switching to the fallback model") })
         let primaryCalls = await primary.calls()
         let fallbackCalls = await fallback.calls()
-        XCTAssertEqual(primaryCalls, 3, "primary gets its full budget first")
+        XCTAssertEqual(primaryCalls, 5, "primary gets its full budget first")
         XCTAssertEqual(fallbackCalls, 1)
     }
 
@@ -80,7 +82,7 @@ final class AgentFallbackLLMTests: XCTestCase {
             XCTFail("wrong error: \(error)")
         }
         let fallbackCalls = await fallback.calls()
-        XCTAssertEqual(fallbackCalls, 3, "fallback gets ONE fresh budget, never loops")
+        XCTAssertEqual(fallbackCalls, 5, "fallback gets ONE fresh budget, never loops")
     }
 
     func testNoFallbackConfiguredKeepsTodaysFatalBehavior() async {

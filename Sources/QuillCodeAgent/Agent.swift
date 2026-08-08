@@ -31,6 +31,10 @@ public struct AgentRunner: Sendable {
     /// transport reset: re-prompt/re-request up to this many times before the failure is terminal.
     /// One bad sample must not kill an unattended run ([F5/F6] coworker-program findings).
     static let malformedActionCorrectionLimit = 2
+    /// Empty streams are transport failures, not malformed model actions. Give the selected route
+    /// a separate bounded recovery budget so transient zero-token responses cannot consume the
+    /// semantic correction budget or kill an unattended initial turn after only three samples.
+    static let emptyResponseRetryLimit = 4
 
     public var llm: LLMClient
     public var safety: SafetyReviewer
