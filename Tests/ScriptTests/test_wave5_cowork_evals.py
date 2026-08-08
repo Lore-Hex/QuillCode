@@ -353,6 +353,45 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         _, matched = WAVE5.required_output_pattern_matches(230, incorrect)
         self.assertNotIn("overall outcomes", matched)
 
+        integer_medians = correct.replace("26.0", "26").replace("47.0", "47")
+        _, matched = WAVE5.required_output_pattern_matches(230, integer_medians)
+        self.assertIn("won cycle", matched)
+        self.assertIn("lost cycle", matched)
+
+    def test_win_loss_review_reconciles_id_backed_aggregate_rows(self):
+        source = WAVE5.CASE_FIXTURES[230]["dataCSV"]
+        correct = """
+        | Segment | Source | Won | Lost | Total | IDs |
+        |---|---|---:|---:|---:|---|
+        | Series A | outbound | 0 | 3 | 3 | D02, D04, D08 |
+
+        | Competitor | Lost | IDs |
+        |---|---:|---|
+        | CloseFlow | 2 | D02, D09 |
+        | none | 3 | D04, D06, D11 |
+
+        | Objection | Occurrences | Won | Lost | IDs |
+        |---|---:|---:|---:|---|
+        | none | 3 | 3 | 0 | D01, D07, D12 |
+        """
+        self.assertEqual(WAVE5.tabular_source_reconciliation_issues(correct, source), [])
+
+        incorrect = correct.replace(
+            "| Series A | outbound | 0 | 3 | 3 | D02, D04, D08 |",
+            "| Series A | outbound | 0 | 2 | 2 | D02, D08 |",
+        ).replace(
+            "| CloseFlow | 2 | D02, D09 |",
+            "| CloseFlow | 3 | D02, D09 |",
+        ).replace(
+            "| none | 3 | 3 | 0 | D01, D07, D12 |",
+            "| none | 4 | 4 | 0 | D01, D05, D07, D10 |",
+        )
+        issues = WAVE5.tabular_source_reconciliation_issues(incorrect, source)
+
+        self.assertTrue(any("D04" in issue and "outbound" in issue for issue in issues))
+        self.assertTrue(any("CloseFlow" in issue and "support 2" in issue for issue in issues))
+        self.assertTrue(any("D05=migration" in issue and "D10=migration" in issue for issue in issues))
+
     def test_grounding_uses_explicit_case_anchors_without_required_output_terms(self):
         row = {"ID": 280, "Category": "Hiring & Team"}
         anchors = WAVE5.grounding_anchors(row)

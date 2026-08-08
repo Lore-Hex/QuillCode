@@ -3,8 +3,10 @@
 
 import argparse
 import concurrent.futures
+import csv
 import hashlib
 import html
+import io
 import json
 import os
 import re
@@ -360,6 +362,11 @@ def validate_case_fixtures():
         data_csv = fixture.get("dataCSV")
         if data_csv is not None and (not isinstance(data_csv, str) or not data_csv.strip()):
             raise EvalError(f"Case fixture {case_id} has invalid dataCSV")
+        reconcile_tables = fixture.get("reconcileTabularEvidence", False)
+        if not isinstance(reconcile_tables, bool) or (reconcile_tables and data_csv is None):
+            raise EvalError(
+                f"Case fixture {case_id} tabular reconciliation requires boolean opt-in and dataCSV"
+            )
         output_requirements = fixture.get("outputRequirements")
         if output_requirements is not None and (
             not isinstance(output_requirements, str) or not output_requirements.strip()
@@ -492,6 +499,182 @@ def required_output_pattern_matches(case_id, text):
         if re.search(item["pattern"], text)
     ]
     return expected, matched
+
+
+def tabular_source_reconciliation_issues(text, source_csv):
+    records = list(csv.DictReader(io.StringIO(source_csv)))
+    if not records:
+        return ["source CSV has no records"]
+    headers = {canonical_header(header): header for header in records[0]}
+    id_header = next((raw for key, raw in headers.items() if key == "id" or key.endswith("id")), None)
+    if id_header is None:
+        return ["source CSV has no ID column"]
+    records_by_id = {
+        record[id_header].strip(): record
+        for record in records
+        if record.get(id_header, "").strip()
+    }
+    known_ids = {record_id.lower(): record_id for record_id in records_by_id}
+    issues = []
+
+    for table_headers, rows in markdown_tables(text):
+        canonical_headers = [canonical_header(value) for value in table_headers]
+        count_columns = [
+            (index, count_kind(header))
+            for index, header in enumerate(canonical_headers)
+            if count_kind(header) is not None
+        ]
+        if not count_columns:
+            continue
+        examples_only = any(
+            marker in header
+            for header in canonical_headers
+            for marker in ("example", "sample", "selected")
+        )
+        for row in rows:
+            ids = sorted({
+                known_ids[token.lower()]
+                for cell in row
+                for token in re.findall(r"[A-Za-z0-9_-]+", cell)
+                if token.lower() in known_ids
+            })
+            if not ids:
+                continue
+            label = clean_markdown(row[0])
+            constraints = {}
+            for index, header in enumerate(canonical_headers):
+                if (
+                    index >= len(row)
+                    or header not in headers
+                    or header == canonical_header(id_header)
+                ):
+                    continue
+                raw_header = headers[header]
+                value = canonical_value(row[index])
+                known_values = {
+                    canonical_value(record.get(raw_header, "")) for record in records
+                }
+                if value in known_values:
+                    constraints[raw_header] = value
+
+            for raw_header, expected_value in constraints.items():
+                mismatches = [
+                    f"{record_id}={records_by_id[record_id].get(raw_header, '')}"
+                    for record_id in ids
+                    if canonical_value(records_by_id[record_id].get(raw_header, ""))
+                    != expected_value
+                ]
+                if mismatches:
+                    issues.append(
+                        f"row {label!r} labels {raw_header}={expected_value}, but source says "
+                        + ", ".join(mismatches)
+                    )
+
+            for index, kind in count_columns:
+                if index >= len(row):
+                    continue
+                match = re.match(r"\s*(\d+)\b", clean_markdown(row[index]))
+                if not match:
+                    continue
+                declared = int(match.group(1))
+                if kind == "total":
+                    expected = len(ids)
+                else:
+                    expected = sum(
+                        canonical_value(records_by_id[record_id].get("outcome", "")) == kind
+                        for record_id in ids
+                    )
+                if declared != expected:
+                    issues.append(
+                        f"row {label!r} declares {table_headers[index]}={declared}, "
+                        f"but IDs {ids} support {expected}"
+                    )
+
+            if examples_only or not constraints:
+                continue
+            kinds = {kind for _, kind in count_columns}
+            outcome_filter = next(iter(kinds)) if kinds in ({"won"}, {"lost"}) else None
+            matching = sorted(
+                record_id
+                for record_id, record in records_by_id.items()
+                if all(
+                    canonical_value(record.get(header, "")) == value
+                    for header, value in constraints.items()
+                )
+                and (
+                    outcome_filter is None
+                    or canonical_value(record.get("outcome", "")) == outcome_filter
+                )
+            )
+            if matching != ids:
+                dimensions = ", ".join(
+                    f"{header}={value}" for header, value in sorted(constraints.items())
+                )
+                issues.append(
+                    f"row {label!r} lists {ids}, but source rows matching "
+                    f"{dimensions} are {matching}"
+                )
+    return list(dict.fromkeys(issues))
+
+
+def markdown_tables(text):
+    lines = text.splitlines()
+    tables = []
+    index = 0
+    while index + 1 < len(lines):
+        headers = markdown_cells(lines[index])
+        separator = markdown_cells(lines[index + 1])
+        if not headers or len(headers) != len(separator) or not all(
+            re.fullmatch(r":?-{3,}:?", cell.strip()) for cell in separator
+        ):
+            index += 1
+            continue
+        rows = []
+        index += 2
+        while index < len(lines):
+            cells = markdown_cells(lines[index])
+            if len(cells) != len(headers):
+                break
+            rows.append(cells)
+            index += 1
+        tables.append((headers, rows))
+    return tables
+
+
+def markdown_cells(line):
+    if "|" not in line:
+        return []
+    cells = line.split("|")
+    if cells and not cells[0].strip():
+        cells.pop(0)
+    if cells and not cells[-1].strip():
+        cells.pop()
+    return [cell.strip() for cell in cells]
+
+
+def clean_markdown(value):
+    return value.replace("**", "").replace("__", "").replace("`", "").strip()
+
+
+def canonical_header(value):
+    return re.sub(r"[^a-z0-9]", "", clean_markdown(value).lower())
+
+
+def canonical_value(value):
+    cleaned = clean_markdown(value).lower()
+    cleaned = re.sub(r"\s*\([^)]*\)\s*$", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return "none" if cleaned in {"", "-", "n/a", "na", "none", "no competitor"} else cleaned
+
+
+def count_kind(header):
+    if header in {"won", "win", "wins"} or header.endswith("wins"):
+        return "won"
+    if header in {"lost", "loss", "losses"} or header.endswith("losses"):
+        return "lost"
+    if header in {"total", "count", "records", "record", "occurrences", "opportunities"}:
+        return "total"
+    return None
 
 
 def grounding_anchors(row):
@@ -731,6 +914,19 @@ def grade(row, workspace, report, source_hashes):
             "quantitative source truth",
             len(matched_patterns) == len(expected_patterns),
             f"matched {matched_patterns}; required {[item['label'] for item in expected_patterns]}",
+        )
+    case_fixture = CASE_FIXTURES.get(row["ID"], {})
+    if case_fixture.get("reconcileTabularEvidence"):
+        reconciliation_issues = tabular_source_reconciliation_issues(
+            coverage_text,
+            case_fixture["dataCSV"],
+        )
+        add(
+            "tabular source reconciliation",
+            not reconciliation_issues,
+            repr(reconciliation_issues[:4])
+            if reconciliation_issues
+            else "all ID-backed rows reconcile",
         )
     refusal = contains_task_refusal(text)
     add("no refusal", not refusal, "refusal language" if refusal else "clean")
