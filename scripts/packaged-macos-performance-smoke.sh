@@ -7,9 +7,7 @@ MANIFEST_PATH=""
 MAX_LAUNCH_READY_MILLISECONDS="${QUILLCODE_MAX_LAUNCH_READY_MILLISECONDS:-3000}"
 MAX_RESIDENT_MEMORY_BYTES="${QUILLCODE_MAX_RESIDENT_MEMORY_BYTES:-268435456}"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-packaged-performance.XXXXXX")"
-REPORT_PATH="$SMOKE_ROOT/window-report.json"
-SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
-STATE_ROOT="$SMOKE_ROOT/window-state"
+PERFORMANCE_ATTEMPT_COUNT=3
 
 cleanup() {
   rm -rf "$SMOKE_ROOT"
@@ -51,29 +49,37 @@ if [[ ! -x "$APP_EXECUTABLE" ]]; then
 fi
 
 echo "==> Measuring packaged Quill Cowork launch and resident memory"
-"$APP_EXECUTABLE" \
-  --native-window-smoke \
-  --window-smoke-report "$REPORT_PATH" \
-  --window-smoke-screenshot "$SCREENSHOT_PATH" \
-  --window-smoke-state-root "$STATE_ROOT" \
-  >/dev/null &
-SMOKE_PID="$!"
+REPORT_PATHS=()
+for ((attempt = 1; attempt <= PERFORMANCE_ATTEMPT_COUNT; attempt += 1)); do
+  REPORT_PATH="$SMOKE_ROOT/window-report-$attempt.json"
+  SCREENSHOT_PATH="$SMOKE_ROOT/window-$attempt.png"
+  STATE_ROOT="$SMOKE_ROOT/window-state-$attempt"
+  echo "==> Packaged performance attempt $attempt/$PERFORMANCE_ATTEMPT_COUNT"
+  "$APP_EXECUTABLE" \
+    --native-window-smoke \
+    --window-smoke-report "$REPORT_PATH" \
+    --window-smoke-screenshot "$SCREENSHOT_PATH" \
+    --window-smoke-state-root "$STATE_ROOT" \
+    >/dev/null &
+  SMOKE_PID="$!"
 
-elapsed=0
-while kill -0 "$SMOKE_PID" 2>/dev/null; do
-  if [[ "$elapsed" -ge 60 ]]; then
-    echo "Packaged performance smoke timed out after 60s." >&2
-    kill "$SMOKE_PID" 2>/dev/null || true
-    wait "$SMOKE_PID" 2>/dev/null || true
-    exit 124
-  fi
-  sleep 1
-  elapsed=$((elapsed + 1))
+  elapsed=0
+  while kill -0 "$SMOKE_PID" 2>/dev/null; do
+    if [[ "$elapsed" -ge 60 ]]; then
+      echo "Packaged performance attempt $attempt timed out after 60s." >&2
+      kill "$SMOKE_PID" 2>/dev/null || true
+      wait "$SMOKE_PID" 2>/dev/null || true
+      exit 124
+    fi
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  wait "$SMOKE_PID"
+  REPORT_PATHS+=("$REPORT_PATH")
 done
-wait "$SMOKE_PID"
 
 "$ROOT_DIR/scripts/native-click-probe-contracts.py" performance \
-  "$REPORT_PATH" \
+  "${REPORT_PATHS[@]}" \
   --manifest "$MANIFEST_PATH" \
   --max-launch-ready-milliseconds "$MAX_LAUNCH_READY_MILLISECONDS" \
   --max-resident-memory-bytes "$MAX_RESIDENT_MEMORY_BYTES"

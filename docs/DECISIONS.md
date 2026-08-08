@@ -3547,3 +3547,16 @@
   notarization requirements.
 - **Evidence:** `scripts/create-macos-disk-image.sh`, macOS download packaging, manifest
   classification, public download docs, and `ParityDownloadBuildsGateTests`.
+
+## 2026-08-07: release performance uses a majority of fresh processes
+
+- **Decision:** macOS release packaging runs three independent live-window measurements with
+  isolated state roots. At least two launches must remain within the three-second budget, every
+  resident-memory sample must remain within 256 MiB, and the median attempt is the headline value.
+- **Why:** Builds 638 and 639 showed 3.1-3.3 second first samples immediately after 6-8 minutes of
+  compiler saturation while the same optimized app repeatedly measured 229-339 ms on physical
+  hardware. One hosted sample was not a stable product metric, but raising the budget would hide a
+  real regression. A majority gate keeps the limit and fails sustained regressions closed.
+- **Evidence:** The public performance manifest records every attempt, pass counts, aggregation,
+  the selected median-launch attempt, and budgets; `ParityPackagedPerformanceGateTests` covers
+  passing and failing majorities.
