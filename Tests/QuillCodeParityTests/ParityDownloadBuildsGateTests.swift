@@ -29,6 +29,9 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
                 encoding: .utf8
             )
         try Data("mac app".utf8).write(to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64.zip"))
+        try Data("mac installer".utf8).write(
+            to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64.dmg")
+        )
         try Data(#"{"withinBudget":true}"#.utf8).write(
             to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64-PERFORMANCE.json")
         )
@@ -94,7 +97,13 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(updaterAppAsset["name"] as? String, "Quill-Cowork-macOS-arm64.zip")
 
         let assets = try XCTUnwrap(manifest["assets"] as? [[String: Any]])
-        XCTAssertEqual(assets.count, 7)
+        XCTAssertEqual(assets.count, 8)
+
+        let installerAsset = try asset(named: "Quill-Cowork-macOS-arm64.dmg", in: assets)
+        XCTAssertEqual(installerAsset["kind"] as? String, "installer")
+        XCTAssertEqual(installerAsset["platform"] as? String, "macOS")
+        XCTAssertEqual(installerAsset["arch"] as? String, "arm64")
+        XCTAssertEqual(installerAsset["install"] as? String, "dmg-app")
 
         let appAsset = try asset(named: "Quill-Cowork-macOS-arm64.zip", in: assets)
         XCTAssertEqual(appAsset["kind"] as? String, "app")
@@ -221,6 +230,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "RELEASE_CHANNEL=\"tester\"",
             "RELEASE_CHANNEL=\"stable\"",
             "quillcode-macos-downloads/BUILD_INFO.txt",
+            "Quill-Cowork-macOS-*.dmg",
+            "recommended drag-to-Applications macOS installer",
             "\\`${MANIFEST_NAME}\\`: machine-readable build metadata",
             "updater feed metadata",
             "current-release-assets.txt",
@@ -293,6 +304,10 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             contentsOf: root.appendingPathComponent("scripts").appendingPathComponent("packaged-macos-smoke.sh"),
             encoding: .utf8
         )
+        let diskImageScript = try String(
+            contentsOf: root.appendingPathComponent("scripts").appendingPathComponent("create-macos-disk-image.sh"),
+            encoding: .utf8
+        )
 
         Self.assertSource(buildScript, containsAll: [
             "QUILLCODE_MACOS_UPDATE_CHANNEL",
@@ -312,10 +327,20 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "updateManifestURL=$UPDATE_MANIFEST_URL",
             "stableUpdateManifestURL=$STABLE_MANIFEST_URL",
             "testerUpdateManifestURL=$TESTER_MANIFEST_URL",
+            "installer=Quill-Cowork-macOS-$ARCH.dmg",
             "performance=Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",
             "scripts/packaged-macos-performance-smoke.sh",
+            "scripts/create-macos-disk-image.sh",
             "signingTeamIdentifier=${SIGNING_TEAM_IDENTIFIER:-none}",
             "notarized=$NOTARIZED"
+        ])
+        Self.assertSource(diskImageScript, containsAll: [
+            "ditto \"$APP_BUNDLE\" \"$STAGING_DIR/$APP_NAME\"",
+            "ln -s /Applications \"$STAGING_DIR/Applications\"",
+            "hdiutil create",
+            "hdiutil verify",
+            "hdiutil attach",
+            "codesign --verify --deep --strict"
         ])
         Self.assertSource(smokeScript, containsAll: [
             "assert_plist_value QuillCodeUpdateChannel tester",

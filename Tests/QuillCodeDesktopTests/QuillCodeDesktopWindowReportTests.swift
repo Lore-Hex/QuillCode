@@ -1,3 +1,4 @@
+import ApplicationServices
 import Foundation
 import XCTest
 import QuillCodeApp
@@ -7,6 +8,49 @@ import QuillComputerUseKit
 
 @MainActor
 final class QuillCodeDesktopWindowReportTests: XCTestCase {
+    func testAccessibilityHierarchySignatureIsOrderIndependentAndFrameSensitive() {
+        let application = AXUIElementCreateApplication(ProcessInfo.processInfo.processIdentifier)
+        let first = QuillCodeDesktopAccessibilityElementSnapshot(
+            element: application,
+            identifier: "first",
+            role: "AXButton",
+            title: "First",
+            accessibilityLabel: "",
+            help: "",
+            value: "",
+            isFocused: false,
+            frame: CGRect(x: 10, y: 20, width: 100, height: 40),
+            ancestorIdentifiers: []
+        )
+        var moved = first
+        moved.frame = CGRect(x: 11, y: 20, width: 100, height: 40)
+        let second = QuillCodeDesktopAccessibilityElementSnapshot(
+            element: application,
+            identifier: "second",
+            role: "AXTextField",
+            title: "",
+            accessibilityLabel: "Search",
+            help: "",
+            value: "",
+            isFocused: true,
+            frame: CGRect(x: 20, y: 80, width: 200, height: 30),
+            ancestorIdentifiers: []
+        )
+
+        let forward = QuillCodeDesktopAccessibilityHierarchySettler.signature(
+            for: [first, second]
+        )
+        let reversed = QuillCodeDesktopAccessibilityHierarchySettler.signature(
+            for: [second, first]
+        )
+        let changed = QuillCodeDesktopAccessibilityHierarchySettler.signature(
+            for: [moved, second]
+        )
+
+        XCTAssertEqual(forward, reversed)
+        XCTAssertNotEqual(forward, changed)
+    }
+
     func testDesktopPerformanceSnapshotCapturesBoundedProcessResources() throws {
         let now = ProcessInfo.processInfo.systemUptime
         let snapshot = try QuillCodeDesktopPerformanceSnapshot.capture(

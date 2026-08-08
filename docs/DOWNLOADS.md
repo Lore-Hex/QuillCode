@@ -10,7 +10,8 @@ Send testers this moving prerelease link:
 
 Direct asset links for the current tester channel:
 
-- [macOS app: `Quill-Cowork-macOS-arm64.zip`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip)
+- [macOS installer: `Quill-Cowork-macOS-arm64.dmg`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg)
+- [macOS updater archive: `Quill-Cowork-macOS-arm64.zip`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip)
 - [macOS performance evidence: `Quill-Cowork-macOS-arm64-PERFORMANCE.json`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64-PERFORMANCE.json)
 - [macOS CLI: `quill-code-macOS-arm64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-macOS-arm64.tar.gz)
 - [Linux CLI: `quill-code-linux-x86_64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-linux-x86_64.tar.gz)
@@ -22,7 +23,9 @@ The build manifest is the app updater, website, and support script contract. It
 records the build channel, tag, commit, workflow run URL, version, build number,
 per-asset download URL, size, platform, architecture, and SHA-256 digest. It also
 includes an `updater` object with the feed URL, bundle identifier, minimum macOS
-version, signing/notarization status, and current macOS app asset.
+version, signing/notarization status, and current macOS updater asset. The DMG
+is the recommended human installation path; the ZIP remains the machine-verified
+updater payload so installation ergonomics cannot change update semantics.
 
 ## Build Cadence
 

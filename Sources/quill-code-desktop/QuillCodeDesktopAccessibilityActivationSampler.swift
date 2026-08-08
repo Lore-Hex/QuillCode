@@ -275,9 +275,7 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             expected: baseline,
             controller: controller
         )
-        // State changes can replace SwiftUI's backing AX elements. Let the accessibility
-        // hierarchy settle before the next contract resolves a fresh element snapshot.
-        try? await Task.sleep(nanoseconds: 100_000_000)
+        await QuillCodeDesktopAccessibilityHierarchySettler.waitUntilStable(in: contentView)
         let resetIssue = didRestoreBaseline
             ? nil
             : "\(contract.contractID) could not restore its baseline state after AXPress"

@@ -73,6 +73,7 @@ APP_BUNDLE="$(
 )"
 
 APP_ZIP="$ASSET_DIR/Quill-Cowork-macOS-$ARCH.zip"
+APP_DMG="$ASSET_DIR/Quill-Cowork-macOS-$ARCH.dmg"
 PERFORMANCE_MANIFEST="$ASSET_DIR/Quill-Cowork-macOS-$ARCH-PERFORMANCE.json"
 NOTARIZED=false
 CODESIGN_KIND="ad-hoc"
@@ -101,6 +102,9 @@ fi
 "$ROOT_DIR/scripts/packaged-macos-performance-smoke.sh" \
   --app "$APP_BUNDLE" \
   --manifest "$PERFORMANCE_MANIFEST"
+"$ROOT_DIR/scripts/create-macos-disk-image.sh" \
+  --app "$APP_BUNDLE" \
+  --output "$APP_DMG"
 ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$APP_ZIP"
 
 echo "==> Packaging quill-code macOS CLI ($ARCH)"
@@ -147,6 +151,7 @@ updateChannel=$UPDATE_CHANNEL
 updateManifestURL=$UPDATE_MANIFEST_URL
 stableUpdateManifestURL=$STABLE_MANIFEST_URL
 testerUpdateManifestURL=$TESTER_MANIFEST_URL
+installer=Quill-Cowork-macOS-$ARCH.dmg
 app=Quill-Cowork-macOS-$ARCH.zip
 performance=Quill-Cowork-macOS-$ARCH-PERFORMANCE.json
 cli=quill-code-macOS-$ARCH.tar.gz
@@ -157,7 +162,8 @@ INFO
 
 (
   cd "$ASSET_DIR"
-  shasum -a 256 Quill-Cowork-macOS-"$ARCH".zip \
+  shasum -a 256 Quill-Cowork-macOS-"$ARCH".dmg \
+    Quill-Cowork-macOS-"$ARCH".zip \
     Quill-Cowork-macOS-"$ARCH"-PERFORMANCE.json \
     quill-code-macOS-"$ARCH".tar.gz BUILD_INFO.txt \
     > "Quill-Cowork-macOS-$ARCH-SHASUMS256.txt"
