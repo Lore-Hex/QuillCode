@@ -460,10 +460,28 @@ def contains_task_refusal(text):
     return bool(TASK_REFUSAL.search(text))
 
 
+def markdown_prose(text):
+    prose = []
+    fence = None
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        marker = re.match(r"(`{3,}|~{3,})", stripped)
+        if marker:
+            token = marker.group(1)
+            if fence and token[0] == fence[0] and len(token) >= len(fence):
+                fence = None
+            elif fence is None:
+                fence = token
+            continue
+        if fence is None:
+            prose.append(re.sub(r"`+[^`\n]*`+", "", line))
+    return "\n".join(prose)
+
+
 def contains_placeholder(text):
     if re.search(r"(?i)lorem ipsum", text):
         return True
-    for match in re.finditer(r"\[([^\]\n]{0,120})\](?!\()", text):
+    for match in re.finditer(r"\[([^\]\n]{0,120})\](?!\()", markdown_prose(text)):
         field = match.group(1).strip()
         if not field or field.lower() == "x":
             continue

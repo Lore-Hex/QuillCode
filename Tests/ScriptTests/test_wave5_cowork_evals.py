@@ -67,6 +67,8 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertFalse(WAVE5.contains_placeholder("[CONFIRM] Finance must verify the methodology."))
         self.assertFalse(WAVE5.contains_placeholder("See [source](https://example.test) and [1]."))
         self.assertFalse(WAVE5.contains_placeholder("See the note[^source-1]."))
+        self.assertFalse(WAVE5.contains_placeholder("Use `props['owner_id']` for ownership."))
+        self.assertFalse(WAVE5.contains_placeholder("```sql\nSELECT props['owner_id'] FROM events;\n```"))
 
     def test_empty_markdown_sections_ignore_fences_and_accept_nested_content(self):
         artifact = (
