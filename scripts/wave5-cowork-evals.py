@@ -473,6 +473,33 @@ def contains_placeholder(text):
     return False
 
 
+def empty_markdown_sections(text):
+    lines = text.splitlines()
+    headings = []
+    in_fence = False
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        match = re.match(r"^\s{0,3}(#{1,6})\s+(.+?)\s*$", line)
+        if match:
+            headings.append((index, len(match.group(1)), clean_markdown(match.group(2))))
+
+    empty = []
+    for position, (start, level, title) in enumerate(headings):
+        end = len(lines)
+        for next_start, next_level, _ in headings[position + 1:]:
+            if next_level <= level:
+                end = next_start
+                break
+        if not any(line.strip() for line in lines[start + 1:end]):
+            empty.append(title)
+    return empty
+
+
 def task_concepts(task):
     normalized = normalize(task)
     return sorted({concept for concept in CONCEPTS if normalize(concept) in normalized})
@@ -888,6 +915,12 @@ def grade(row, workspace, report, source_hashes):
         add("primary artifact", True, f"{len(text)} characters")
     add("substantive", is_substantive(text), f"{len(text)} chars, {len(text.splitlines())} lines")
     add("structured", bool(re.search(r"(?m)^#{1,4}\s|^[-*]\s|^\|.+\|$", text)), "heading, list, or table")
+    empty_sections = empty_markdown_sections(text)
+    add(
+        "complete sections",
+        not empty_sections,
+        repr(empty_sections) if empty_sections else "no empty markdown sections",
+    )
     malformed = "\\n" in text
     add("decoded text", not malformed, "literal escaped newline" if malformed else "clean")
     placeholder = contains_placeholder(text)

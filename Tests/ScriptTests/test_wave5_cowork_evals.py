@@ -66,6 +66,20 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertFalse(WAVE5.contains_placeholder("See [source](https://example.test) and [1]."))
         self.assertFalse(WAVE5.contains_placeholder("See the note[^source-1]."))
 
+    def test_empty_markdown_sections_ignore_fences_and_accept_nested_content(self):
+        artifact = (
+            "# Review\n\n"
+            "## Empty segment analysis\n\n"
+            "## Populated analysis\n\n"
+            "### Detail\n\n"
+            "Source-backed finding.\n\n"
+            "```markdown\n"
+            "## Example placeholder heading\n"
+            "```\n"
+        )
+
+        self.assertEqual(WAVE5.empty_markdown_sections(artifact), ["Empty segment analysis"])
+
     def test_every_capability_requires_dedicated_source_reads(self):
         for capability in ("Browser pane", "Files/Shell", "Multi-file artifacts"):
             with self.subTest(capability=capability):
