@@ -206,6 +206,24 @@ extension AgentRunner {
                 ))
                 thread.updatedAt = Date()
                 await onProgress?(thread)
+            } catch let reasoningOnly as AgentReasoningOnlyResponseError {
+                try Task.checkCancellation()
+                guard attempt < Self.malformedActionCorrectionLimit else {
+                    throw reasoningOnly
+                }
+                attempt += 1
+                let correctionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
+                correctiveThread.updatedAt = Date()
+                pendingCorrectionPrompt = correctionPrompt
+                thread.events.append(.init(
+                    kind: .notice,
+                    summary: "Self-healing: the model finished reasoning without an action; "
+                        + "asked it to emit the next action "
+                        + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
+                ))
+                thread.updatedAt = Date()
+                await onProgress?(thread)
             } catch let interrupted as AgentStreamInterruptedError {
                 // Honor a stop before the exhaustion guard — see the invalidActionJSON arm.
                 try Task.checkCancellation()

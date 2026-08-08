@@ -635,6 +635,39 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertFalse(result.thread.messages.contains { $0.content.contains("totally not json") })
     }
 
+    func testReasoningOnlyCompletionUsesActionCorrectionAndPreservesUsage() async throws {
+        let client = ScriptedUsageStreamingLLMClient(scripts: [
+            .init(
+                text: "",
+                reasoning: "I should keep planning instead of choosing a tool.",
+                usage: .init(promptTokens: 100, completionTokens: 40, totalTokens: 140)
+            ),
+            .init(
+                text: #"{"type":"say","text":"Recovered after reasoning."}"#,
+                usage: .init(promptTokens: 120, completionTokens: 8, totalTokens: 128)
+            ),
+        ])
+
+        let result = try await AgentRunner(llm: client).send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Recovered after reasoning.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("finished reasoning without an action")
+        })
+        let usages = result.thread.events.compactMap(ModelTokenUsageEvent.usage(from:))
+        XCTAssertEqual(usages, [
+            .init(promptTokens: 100, completionTokens: 40, totalTokens: 140),
+            .init(promptTokens: 120, completionTokens: 8, totalTokens: 128),
+        ])
+        let userMessages = await client.recordedUserMessages()
+        XCTAssertEqual(userMessages.count, 2)
+        XCTAssertTrue(userMessages[1].contains("Respond now with exactly one JSON action object"))
+    }
+
     func testCancelledRunDoesNotReprompt() async throws {
         let started = expectation(description: "first LLM call started")
         let client = BlockingThenThrowingLLMClient(blockOnCall: 1, onBlockedCall: { started.fulfill() })
@@ -719,13 +752,20 @@ private struct BlockingThenThrowingLLMClient: LLMClient {
 private struct ScriptedUsageStreamingLLMClient: UsageStreamingLLMClient {
     struct Script: Sendable {
         var text: String
+        var reasoning: String? = nil
         var usage: ModelTokenUsage
     }
 
     private actor Progress {
         private(set) var index = 0
-        func next() -> Int { defer { index += 1 }; return index }
+        private(set) var userMessages: [String] = []
+        func next(userMessage: String) -> Int {
+            userMessages.append(userMessage)
+            defer { index += 1 }
+            return index
+        }
         func count() -> Int { index }
+        func recordedUserMessages() -> [String] { userMessages }
     }
 
     private let scripts: [Script]
@@ -746,12 +786,21 @@ private struct ScriptedUsageStreamingLLMClient: UsageStreamingLLMClient {
     }
 
     func actionEventStream(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
-        let index = await progress.next()
+        let index = await progress.next(userMessage: userMessage)
         let script = scripts[min(index, scripts.count - 1)]
         return AsyncThrowingStream { continuation in
-            continuation.yield(.text(script.text))
+            if let reasoning = script.reasoning {
+                continuation.yield(.reasoning(reasoning))
+            }
+            if !script.text.isEmpty {
+                continuation.yield(.text(script.text))
+            }
             continuation.yield(.usage(script.usage))
             continuation.finish()
         }
+    }
+
+    func recordedUserMessages() async -> [String] {
+        await progress.recordedUserMessages()
     }
 }

@@ -16,7 +16,29 @@ struct AgentPreActionReasoningBudgetExceededError: Error, CustomStringConvertibl
     }
 }
 
+/// The provider completed a stream after emitting reasoning but never started action JSON.
+/// This is semantically different from a zero-token transport response: replaying the same turn
+/// invites the reasoner to consume its completion budget again, so the resolver must re-prompt it
+/// through the bounded action-only correction path.
+struct AgentReasoningOnlyResponseError: Error, CustomStringConvertible {
+    var description: String {
+        "The model finished reasoning without returning an action."
+    }
+}
+
 enum AgentPreActionReasoningBudget {
+    /// DeepSeek V4 Flash has returned reasoning-only completions at roughly 2,200 output tokens even
+    /// when the route receives `reasoning_effort: none`. Keep enough room for a grounded decision,
+    /// but interrupt before the provider ceiling can consume the entire action turn.
+    static let deepSeekV4Flash0731CharacterLimit = 6_000
+
+    static func effectiveMaximumCharacters(configured: Int, modelID: String) -> Int {
+        guard modelID == TrustedRouterChatParameters.deepSeekV4Flash0731Model else {
+            return configured
+        }
+        return min(configured, deepSeekV4Flash0731CharacterLimit)
+    }
+
     /// Stops a continuously reasoning startup stream before it consumes the whole provider
     /// completion budget. The runner applies this only until the run emits its first action; once
     /// action text starts, the normal parser and the run's other bounds own completion. Providers

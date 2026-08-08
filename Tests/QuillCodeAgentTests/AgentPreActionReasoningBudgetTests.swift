@@ -150,6 +150,31 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertNil(AgentRunner(interActionReasoningCharacterLimit: nil).interActionReasoningCharacterLimit)
     }
 
+    func testDeepSeekV4FlashUsesProviderSafeReasoningLimit() {
+        XCTAssertEqual(
+            AgentPreActionReasoningBudget.effectiveMaximumCharacters(
+                configured: AgentRunner.defaultInterActionReasoningCharacterLimit,
+                modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+            ),
+            AgentPreActionReasoningBudget.deepSeekV4Flash0731CharacterLimit
+        )
+        XCTAssertEqual(
+            AgentPreActionReasoningBudget.effectiveMaximumCharacters(
+                configured: 1_500,
+                modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+            ),
+            1_500,
+            "a caller's tighter limit must remain authoritative"
+        )
+        XCTAssertEqual(
+            AgentPreActionReasoningBudget.effectiveMaximumCharacters(
+                configured: 16_000,
+                modelID: "openai/gpt-5"
+            ),
+            16_000
+        )
+    }
+
     private func eventStream(
         _ events: [AgentTextStreamEvent]
     ) -> AsyncThrowingStream<AgentTextStreamEvent, Error> {

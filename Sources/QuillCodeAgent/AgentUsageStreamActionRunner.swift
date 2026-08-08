@@ -31,7 +31,13 @@ extension AgentRunner {
         }
         if let reasoningLimit {
             stream = AgentPreActionReasoningBudget.enforcing(
-                maximumCharacters: max(1, reasoningLimit),
+                maximumCharacters: max(
+                    1,
+                    AgentPreActionReasoningBudget.effectiveMaximumCharacters(
+                        configured: reasoningLimit,
+                        modelID: thread.model
+                    )
+                ),
                 on: stream
             )
         }
