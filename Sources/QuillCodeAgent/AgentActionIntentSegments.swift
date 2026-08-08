@@ -24,6 +24,7 @@ enum AgentActionIntentSegments {
         var output: [String] = []
         var start = request.startIndex
         var index = start
+        var quotedCloser: Character?
 
         func appendClause(endingAt end: String.Index) {
             output.append(String(request[start..<end]))
@@ -33,6 +34,23 @@ enum AgentActionIntentSegments {
         while index < request.endIndex {
             let character = request[index]
             let next = request.index(after: index)
+            if let closer = quotedCloser {
+                if character == closer,
+                   !(closer == "'" && isWordApostrophe(at: index, in: request)) {
+                    quotedCloser = nil
+                }
+                index = next
+                continue
+            }
+            if let closer = quoteCloser(
+                for: character,
+                at: index,
+                in: request
+            ) {
+                quotedCloser = closer
+                index = next
+                continue
+            }
             let isBoundary = character == ";"
                 || character == "?"
                 || character == "!"
@@ -48,6 +66,32 @@ enum AgentActionIntentSegments {
             output.append(String(request[start..<request.endIndex]))
         }
         return output
+    }
+
+    private static func quoteCloser(
+        for character: Character,
+        at index: String.Index,
+        in request: String
+    ) -> Character? {
+        switch character {
+        case "`", "\"":
+            return character
+        case "'":
+            return isWordApostrophe(at: index, in: request) ? nil : character
+        case "“":
+            return "”"
+        case "‘":
+            return "’"
+        default:
+            return nil
+        }
+    }
+
+    private static func isWordApostrophe(at index: String.Index, in request: String) -> Bool {
+        guard index > request.startIndex else { return false }
+        let next = request.index(after: index)
+        guard next < request.endIndex else { return false }
+        return request[request.index(before: index)].isLetter && request[next].isLetter
     }
 
     private static func containsNegatedActionIntent(_ segment: String) -> Bool {

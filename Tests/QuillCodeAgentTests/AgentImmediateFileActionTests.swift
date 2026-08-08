@@ -118,6 +118,27 @@ final class AgentImmediateFileActionTests: XCTestCase {
         )
     }
 
+    func testNamedFileWritePreservesMultilineQuotedContent() async throws {
+        let root = try makeTempDirectory()
+        let runner = preflightFailingAgentRunner()
+        let content = "Subject: Delay\n\nDelivery moves to Friday.\n"
+
+        let result = try await runner.send(
+            "Create a file named notice.md that says `\(content)`",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        try assertSingleSuccessfulToolResult(in: result)
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("notice.md"), encoding: .utf8),
+            content
+        )
+        let write = try queuedFileWrite(in: result)
+        XCTAssertEqual(write.path, "notice.md")
+        XCTAssertEqual(write.content, content)
+    }
+
     func testBacktickFileReadExecutesImmediatelyWithoutProviderRoundTrip() async throws {
         let root = try makeTempDirectory()
         try "hello world\n".write(to: root.appendingPathComponent("hello.txt"), atomically: true, encoding: .utf8)
