@@ -1,9 +1,24 @@
 # QuillCode Decisions
 
+## 2026-08-08: macOS distribution is native on Apple silicon and Intel
+
+- **Decision:** Every public macOS release contains exactly one native arm64 and one native x86_64
+  app ZIP, DMG, CLI archive, build-info file, and performance report. GitHub packages and measures
+  each set on a matching native runner instead of cross-publishing an unexecuted binary.
+- **Updater compatibility:** `updater.macOSAppAssets` is the canonical arm64/x86_64 inventory. The
+  legacy `updater.macOSAppAsset` remains the arm64 archive so existing Apple-silicon tester builds
+  can install the transition release; new clients select exactly one matching architecture and
+  reject missing or duplicate matches.
+- **Publication boundary:** The public verifier requires the complete architecture matrix, checks
+  both build-info contracts and performance reports, and reads each ZIP's thin Mach-O header. Native
+  post-publication updater jobs then prove download, validation, swap, and relaunch on both runners.
+- **Why:** A public desktop app should not exclude Intel users or label an unexecuted cross-build as
+  supported. Native packaging plus native daily-path updater validation makes support measurable.
+
 ## 2026-08-08: public performance evidence is verified semantically
 
-- **Decision:** The post-publication release verifier must require exactly one architecture-matched
-  macOS performance asset and validate its meaning after size, digest, and checksum verification.
+- **Decision:** The post-publication release verifier must require one performance asset for each
+  supported macOS architecture and validate its meaning after size, digest, and checksum verification.
 - **Contract:** Published evidence uses the canonical production schema, boundaries, two-sweep count,
   three fresh attempts, two-of-three launch policy, median selected headline, and exact production
   budgets. The verifier recomputes raw memory/thread deltas, MiB projections, every budget result,

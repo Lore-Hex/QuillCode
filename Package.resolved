@@ -1,5 +1,5 @@
 {
-  "originHash" : "6bcd2a35cc90ce5f3c5a8c65ba83285582a7184e878df5fea51a4075777f3cae",
+  "originHash" : "d585104da7a2fb269c3766dfd74328a26e5f7903a39b502a6d0d366e3fe84452",
   "pins" : [
     {
       "identity" : "swift-toml",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/Lore-Hex/trusted-router-swift.git",
       "state" : {
-        "revision" : "410cb034ce5a20b62f209d03d46a256cafe7b54f",
-        "version" : "0.4.1"
+        "revision" : "3655851b4fef87256b5203b62c5e5eef45ae0615",
+        "version" : "0.6.1"
       }
     },
     {

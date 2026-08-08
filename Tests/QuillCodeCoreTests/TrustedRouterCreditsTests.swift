@@ -2,25 +2,41 @@ import XCTest
 @testable import QuillCodeCore
 
 final class TrustedRouterCreditsTests: XCTestCase {
-    func testSnapshotNormalizesCurrencyAndRejectsNonFiniteBalances() throws {
-        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 12.5,
+    func testSnapshotNormalizesCurrencyAndExposesOrderedWindows() throws {
+        let snapshot = try makeSnapshot(
+            lifetimeUsage: 12.5,
+            dailyUsage: 1.25,
+            dailyLimit: 10,
             currency: " usd \n",
             fetchedAt: Date(timeIntervalSince1970: 100)
-        ))
+        )
 
-        XCTAssertEqual(snapshot.balance, 12.5)
+        XCTAssertEqual(snapshot.lifetime.usage, 12.5)
+        XCTAssertEqual(snapshot.daily.remaining, 8.75)
+        XCTAssertEqual(snapshot.daily.usedPercent, 13)
         XCTAssertEqual(snapshot.currency, "USD")
-        XCTAssertNil(TrustedRouterCreditsSnapshot(balance: .nan, currency: "USD"))
-        XCTAssertNil(TrustedRouterCreditsSnapshot(balance: .infinity, currency: "USD"))
+        XCTAssertEqual(snapshot.windows.map(\.window), [.daily, .weekly, .monthly, .lifetime])
+        XCTAssertEqual(snapshot.primaryWindow, snapshot.daily)
     }
 
-    func testRefreshAndFailureTransitionsRetainLastKnownBalance() throws {
-        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 4.25,
-            currency: "USD",
-            fetchedAt: Date(timeIntervalSince1970: 100)
+    func testWindowRejectsInvalidMoneyValuesAndSnapshotRejectsMismatchedWindows() throws {
+        XCTAssertNil(TrustedRouterCreditsWindowSnapshot(window: .daily, usage: .nan))
+        XCTAssertNil(TrustedRouterCreditsWindowSnapshot(window: .daily, usage: .infinity))
+        XCTAssertNil(TrustedRouterCreditsWindowSnapshot(window: .daily, usage: -1))
+        XCTAssertNil(TrustedRouterCreditsWindowSnapshot(window: .daily, usage: 1, limit: -1))
+
+        let daily = try XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .daily, usage: 1))
+        XCTAssertNil(TrustedRouterCreditsSnapshot(
+            lifetime: daily,
+            daily: daily,
+            weekly: try XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .weekly, usage: 0)),
+            monthly: try XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .monthly, usage: 0)),
+            currency: "USD"
         ))
+    }
+
+    func testRefreshAndFailureTransitionsRetainLastKnownUsage() throws {
+        let snapshot = try makeSnapshot(lifetimeUsage: 4.25, fetchedAt: Date(timeIntervalSince1970: 100))
         let current = TrustedRouterCreditsState.current(snapshot)
         let refreshing = TrustedRouterCreditsState.refreshing(
             previous: current,
@@ -43,11 +59,10 @@ final class TrustedRouterCreditsTests: XCTestCase {
 
     func testSuccessfulRefreshHistoryIsMostRecentFirstDeduplicatedAndBounded() throws {
         let snapshots = try (0..<30).map { index in
-            try XCTUnwrap(TrustedRouterCreditsSnapshot(
-                balance: Double(index),
-                currency: "USD",
+            try makeSnapshot(
+                lifetimeUsage: Double(index),
                 fetchedAt: Date(timeIntervalSince1970: Double(index))
-            ))
+            )
         }
 
         let state = snapshots.reduce(TrustedRouterCreditsState.unavailable) { previous, snapshot in
@@ -61,27 +76,20 @@ final class TrustedRouterCreditsTests: XCTestCase {
         XCTAssertEqual(repeated.history, state.history)
     }
 
-    func testDecodesOlderStateWithoutHistoryAndSeedsSnapshotAsHistory() throws {
-        let json = """
-        {
-          "phase": "current",
-          "snapshot": {
-            "balance": 4.25,
-            "currency": "USD",
-            "fetchedAt": 100
-          },
-          "lastAttemptAt": 100
-        }
-        """
+    func testDecodesStateWithoutHistoryAndSeedsSnapshotAsHistory() throws {
+        let snapshot = try makeSnapshot(lifetimeUsage: 4.25, fetchedAt: Date(timeIntervalSince1970: 100))
+        let encoded = try JSONEncoder().encode(TrustedRouterCreditsState.current(snapshot))
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        object.removeValue(forKey: "history")
 
         let state = try JSONDecoder().decode(
             TrustedRouterCreditsState.self,
-            from: Data(json.utf8)
+            from: JSONSerialization.data(withJSONObject: object)
         )
 
         XCTAssertEqual(state.phase, .current)
-        XCTAssertEqual(state.snapshot?.balance, 4.25)
-        XCTAssertEqual(state.history, [state.snapshot].compactMap { $0 })
+        XCTAssertEqual(state.snapshot?.lifetime.usage, 4.25)
+        XCTAssertEqual(state.history, [snapshot])
     }
 
     func testFailureWithoutSnapshotIsFailedAndBoundsDiagnosticText() {
@@ -93,5 +101,26 @@ final class TrustedRouterCreditsTests: XCTestCase {
         XCTAssertEqual(failure.phase, .failed)
         XCTAssertNil(failure.snapshot)
         XCTAssertEqual(failure.failureMessage?.count, 240)
+    }
+
+    private func makeSnapshot(
+        lifetimeUsage: Double,
+        dailyUsage: Double = 0,
+        dailyLimit: Double? = 40,
+        currency: String = "USD",
+        fetchedAt: Date = Date()
+    ) throws -> TrustedRouterCreditsSnapshot {
+        try XCTUnwrap(TrustedRouterCreditsSnapshot(
+            lifetime: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .lifetime, usage: lifetimeUsage)),
+            daily: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(
+                window: .daily,
+                usage: dailyUsage,
+                limit: dailyLimit
+            )),
+            weekly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .weekly, usage: 0, limit: 200)),
+            monthly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .monthly, usage: 0, limit: 800)),
+            currency: currency,
+            fetchedAt: fetchedAt
+        ))
     }
 }

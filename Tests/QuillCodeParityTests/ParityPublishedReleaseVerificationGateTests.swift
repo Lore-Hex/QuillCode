@@ -82,7 +82,9 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
 
         XCTAssertEqual(result.exitCode, 2, result.output)
         XCTAssertTrue(
-            result.output.contains("release must contain exactly one packaged performance asset"),
+            result.output.contains(
+                "release must contain exactly one macOS performance for each architecture"
+            ),
             result.output
         )
     }
@@ -210,6 +212,59 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         )
     }
 
+    func testVerifierRejectsMislabeledIntelExecutableAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture(intelExecutableArchitecture: "arm64")
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("x86_64 app executable is not a thin x86_64 Mach-O"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsIncompleteUpdaterArchitectureInventory() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try mutateManifest(fixture) { manifest in
+            var updater = try XCTUnwrap(manifest["updater"] as? [String: Any])
+            let legacyAsset = try XCTUnwrap(updater["macOSAppAsset"] as? [String: Any])
+            updater["macOSAppAssets"] = [legacyAsset]
+            manifest["updater"] = updater
+        }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("must exactly cover arm64 and x86_64"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsUnexpectedMacOSAppInstallMode() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try mutateManifest(fixture) { manifest in
+            var assets = try XCTUnwrap(manifest["assets"] as? [[String: Any]])
+            let index = try XCTUnwrap(assets.firstIndex {
+                $0["name"] as? String == "Quill-Cowork-macOS-x86_64.zip"
+            })
+            assets[index]["install"] = "download"
+            manifest["assets"] = assets
+        }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("macOS app assets must use zip-app installation"),
+            result.output
+        )
+    }
+
     private struct Fixture {
         var root: URL
         var assets: URL
@@ -221,6 +276,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         appCommit: String? = nil,
         appInfoIsSymlink: Bool = false,
         includePerformanceAsset: Bool = true,
+        intelExecutableArchitecture: String = "x86_64",
         performanceMutation: ((inout [String: Any]) throws -> Void)? = nil
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory
@@ -229,56 +285,77 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         let assetsURL = root.appendingPathComponent("assets", isDirectory: true)
         try FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true)
 
-        let appName = "Quill-Cowork-macOS-arm64.zip"
-        let cliName = "quill-code-macOS-arm64.tar.gz"
         let buildInfoName = "BUILD_INFO.txt"
-        let performanceName = "Quill-Cowork-macOS-arm64-PERFORMANCE.json"
         let checksumsName = "SHASUMS256.txt"
-        try writeAppArchive(
-            to: assetsURL.appendingPathComponent(appName),
-            commit: appCommit ?? commit,
-            root: root,
-            infoIsSymlink: appInfoIsSymlink
-        )
-        try Data("verified cli payload".utf8).write(to: assetsURL.appendingPathComponent(cliName))
-        if includePerformanceAsset {
-            var performanceEvidence = performanceEvidence()
-            try performanceMutation?(&performanceEvidence)
-            try writeJSON(
-                performanceEvidence,
-                to: assetsURL.appendingPathComponent(performanceName)
+        let architectures = ["arm64", "x86_64"]
+        for architecture in architectures {
+            let appName = "Quill-Cowork-macOS-\(architecture).zip"
+            let installerName = "Quill-Cowork-macOS-\(architecture).dmg"
+            let performanceName = "Quill-Cowork-macOS-\(architecture)-PERFORMANCE.json"
+            let cliName = "quill-code-macOS-\(architecture).tar.gz"
+            let executableArchitecture = architecture == "x86_64"
+                ? intelExecutableArchitecture
+                : architecture
+            try writeAppArchive(
+                to: assetsURL.appendingPathComponent(appName),
+                commit: appCommit ?? commit,
+                architecture: executableArchitecture,
+                root: root,
+                infoIsSymlink: appInfoIsSymlink
             )
+            try Data("verified installer \(architecture)".utf8).write(
+                to: assetsURL.appendingPathComponent(installerName)
+            )
+            try Data("verified cli \(architecture)".utf8).write(
+                to: assetsURL.appendingPathComponent(cliName)
+            )
+            if includePerformanceAsset {
+                var evidence = performanceEvidence()
+                if architecture == "arm64" {
+                    try performanceMutation?(&evidence)
+                }
+                try writeJSON(evidence, to: assetsURL.appendingPathComponent(performanceName))
+            }
+            let buildInfo = """
+            product=Quill Cowork
+            platform=macOS
+            arch=\(architecture)
+            version=0.2.0
+            build=123
+            commit=\(commit)
+            createdAt=2026-08-07T00:00:00Z
+            configuration=release
+            bundleIdentifier=co.lorehex.QuillCowork
+            minimumSystemVersion=14.0
+            updateChannel=tester
+            updateManifestURL=\(testerManifestURL)
+            stableUpdateManifestURL=\(stableManifestURL)
+            testerUpdateManifestURL=\(testerManifestURL)
+            installer=\(installerName)
+            app=\(appName)
+            performance=\(performanceName)
+            cli=\(cliName)
+            codesign=ad-hoc
+            signingTeamIdentifier=none
+            notarized=false
+            """
+            try buildInfo.write(
+                to: assetsURL.appendingPathComponent("BUILD_INFO-macOS-\(architecture).txt"),
+                atomically: true,
+                encoding: .utf8
+            )
+            if architecture == "arm64" {
+                try buildInfo.write(
+                    to: assetsURL.appendingPathComponent(buildInfoName),
+                    atomically: true,
+                    encoding: .utf8
+                )
+            }
         }
-        try """
-        product=Quill Cowork
-        platform=macOS
-        arch=arm64
-        version=0.2.0
-        build=123
-        commit=\(commit)
-        createdAt=2026-08-07T00:00:00Z
-        configuration=release
-        bundleIdentifier=co.lorehex.QuillCowork
-        minimumSystemVersion=14.0
-        updateChannel=tester
-        updateManifestURL=\(testerManifestURL)
-        stableUpdateManifestURL=\(stableManifestURL)
-        testerUpdateManifestURL=\(testerManifestURL)
-        app=\(appName)
-        cli=\(cliName)
-        codesign=ad-hoc
-        signingTeamIdentifier=none
-        notarized=false
-        """.write(
-            to: assetsURL.appendingPathComponent(buildInfoName),
-            atomically: true,
-            encoding: .utf8
-        )
 
-        var checksummedNames = [buildInfoName, appName, cliName]
-        if includePerformanceAsset {
-            checksummedNames.append(performanceName)
-        }
+        var checksummedNames = try FileManager.default.contentsOfDirectory(
+            atPath: assetsURL.path
+        )
         checksummedNames.sort()
         let checksumText = try checksummedNames.map { name in
             let digest = try sha256(at: assetsURL.appendingPathComponent(name))
@@ -290,14 +367,6 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             encoding: .utf8
         )
 
-        let appAsset = try manifestAsset(
-            named: appName,
-            kind: "app",
-            platform: "macOS",
-            arch: "arm64",
-            install: "zip-app",
-            assetsURL: assetsURL
-        )
         var manifestAssets = try [
             manifestAsset(
                 named: buildInfoName,
@@ -308,32 +377,60 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 assetsURL: assetsURL
             )
         ]
-        if includePerformanceAsset {
+        var appAssets: [[String: Any]] = []
+        for architecture in architectures {
             manifestAssets.append(try manifestAsset(
-                named: performanceName,
-                kind: "performance",
+                named: "BUILD_INFO-macOS-\(architecture).txt",
+                kind: "metadata",
                 platform: "macOS",
-                arch: "arm64",
-                install: "json",
+                arch: architecture,
+                install: "text",
+                assetsURL: assetsURL
+            ))
+            manifestAssets.append(try manifestAsset(
+                named: "Quill-Cowork-macOS-\(architecture).dmg",
+                kind: "installer",
+                platform: "macOS",
+                arch: architecture,
+                install: "dmg-app",
+                assetsURL: assetsURL
+            ))
+            let appAsset = try manifestAsset(
+                named: "Quill-Cowork-macOS-\(architecture).zip",
+                kind: "app",
+                platform: "macOS",
+                arch: architecture,
+                install: "zip-app",
+                assetsURL: assetsURL
+            )
+            appAssets.append(appAsset)
+            manifestAssets.append(appAsset)
+            if includePerformanceAsset {
+                manifestAssets.append(try manifestAsset(
+                    named: "Quill-Cowork-macOS-\(architecture)-PERFORMANCE.json",
+                    kind: "performance",
+                    platform: "macOS",
+                    arch: architecture,
+                    install: "json",
+                    assetsURL: assetsURL
+                ))
+            }
+            manifestAssets.append(try manifestAsset(
+                named: "quill-code-macOS-\(architecture).tar.gz",
+                kind: "cli",
+                platform: "macOS",
+                arch: architecture,
+                install: "tarball",
                 assetsURL: assetsURL
             ))
         }
         manifestAssets.append(contentsOf: try [
-            appAsset,
             manifestAsset(
                 named: checksumsName,
                 kind: "checksum",
                 platform: "any",
                 arch: "any",
                 install: "text",
-                assetsURL: assetsURL
-            ),
-            manifestAsset(
-                named: cliName,
-                kind: "cli",
-                platform: "macOS",
-                arch: "arm64",
-                install: "tarball",
                 assetsURL: assetsURL
             )
         ])
@@ -360,7 +457,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 "codesign": "ad-hoc",
                 "signingTeamIdentifier": NSNull(),
                 "notarized": false,
-                "macOSAppAsset": appAsset
+                "macOSAppAsset": appAssets[0],
+                "macOSAppAssets": appAssets
             ],
             "assets": manifestAssets
         ]
@@ -547,12 +645,14 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
     private func writeAppArchive(
         to archiveURL: URL,
         commit: String,
+        architecture: String,
         root: URL,
         infoIsSymlink: Bool
     ) throws {
         let scriptURL = root.appendingPathComponent("make-app-archive.py")
         try """
         import plistlib
+        import struct
         import sys
         import zipfile
 
@@ -578,13 +678,19 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 archive.writestr(entry, b"Info.plist")
             else:
                 archive.writestr(path, plistlib.dumps(values))
+            cpu_types = {"arm64": 0x0100000C, "x86_64": 0x01000007}
+            executable = struct.pack(
+                "<IIIIIIII", 0xFEEDFACF, cpu_types[sys.argv[6]], 0, 2, 0, 0, 0, 0
+            )
+            archive.writestr("Quill Cowork.app/Contents/MacOS/Quill Cowork", executable)
         """.write(to: scriptURL, atomically: true, encoding: .utf8)
         let result = try Self.runPython(scriptURL, arguments: [
             archiveURL.path,
             commit,
             testerManifestURL,
             stableManifestURL,
-            infoIsSymlink ? "symlink" : "regular"
+            infoIsSymlink ? "symlink" : "regular",
+            architecture
         ])
         try FileManager.default.removeItem(at: scriptURL)
         guard result.exitCode == 0 else {

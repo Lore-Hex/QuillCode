@@ -16,7 +16,11 @@ from performance_evidence_contract import (
     REPEATED_INTERACTION_MEASUREMENT,
     production_budgets,
 )
-from release_verification_contract import VerificationError, load_json_bytes
+from release_verification_contract import (
+    MACOS_ARCHITECTURES,
+    VerificationError,
+    load_json_bytes,
+)
 from release_verification_performance_attempt import (
     finite_number,
     integer,
@@ -161,36 +165,64 @@ def verify_performance_evidence_asset(
     assets: list[dict[str, Any]],
     manifest: dict[str, Any],
 ) -> None:
-    performance_assets = [asset for asset in assets if asset["kind"] == "performance"]
-    if len(performance_assets) != 1:
-        raise VerificationError(
-            "release must contain exactly one packaged performance asset"
-        )
-    performance_asset = performance_assets[0]
-    app_arch = manifest["updater"]["macOSAppAsset"]["arch"]
-    expected_name = f"Quill-Cowork-macOS-{app_arch}-PERFORMANCE.json"
-    expected_metadata = {
-        "name": expected_name,
-        "platform": "macOS",
-        "arch": app_arch,
-        "install": "json",
+    performance_assets = {
+        asset["arch"]: asset
+        for asset in assets
+        if asset["kind"] == "performance"
+        and asset["platform"] == "macOS"
+        and asset["install"] == "json"
     }
-    for field, expected in expected_metadata.items():
-        if performance_asset.get(field) != expected:
+    matching_count = sum(
+        asset["kind"] == "performance"
+        and asset["platform"] == "macOS"
+        and asset["install"] == "json"
+        for asset in assets
+    )
+    if (
+        matching_count != len(MACOS_ARCHITECTURES)
+        or set(performance_assets) != set(MACOS_ARCHITECTURES)
+    ):
+        raise VerificationError(
+            "release must contain one packaged performance asset per macOS architecture"
+        )
+
+    app_architectures = {
+        asset["arch"] for asset in manifest["updater"]["macOSAppAssets"]
+    }
+    if app_architectures != set(MACOS_ARCHITECTURES):
+        raise VerificationError("packaged performance assets disagree with the macOS apps")
+
+    for architecture in MACOS_ARCHITECTURES:
+        performance_asset = performance_assets[architecture]
+        expected_name = f"Quill-Cowork-macOS-{architecture}-PERFORMANCE.json"
+        expected_metadata = {
+            "name": expected_name,
+            "platform": "macOS",
+            "arch": architecture,
+            "install": "json",
+        }
+        for field, expected in expected_metadata.items():
+            if performance_asset.get(field) == expected:
+                continue
             raise VerificationError(
                 f"packaged performance asset {field} disagrees with the macOS app"
             )
 
-    path = asset_directory / expected_name
-    try:
-        if path.is_symlink() or not path.is_file():
-            raise VerificationError("packaged performance evidence must be a regular file")
-        if path.stat().st_size > PERFORMANCE_EVIDENCE_BYTE_LIMIT:
-            raise VerificationError("packaged performance evidence exceeds its size limit")
-        evidence_bytes = path.read_bytes()
-    except VerificationError:
-        raise
-    except OSError as error:
-        raise VerificationError("packaged performance evidence could not be read") from error
-    evidence = load_json_bytes(evidence_bytes, "packaged performance evidence")
-    validate_performance_evidence(evidence)
+        path = asset_directory / expected_name
+        try:
+            if path.is_symlink() or not path.is_file():
+                raise VerificationError("packaged performance evidence must be a regular file")
+            if path.stat().st_size > PERFORMANCE_EVIDENCE_BYTE_LIMIT:
+                raise VerificationError("packaged performance evidence exceeds its size limit")
+            evidence_bytes = path.read_bytes()
+        except VerificationError:
+            raise
+        except OSError as error:
+            raise VerificationError(
+                "packaged performance evidence could not be read"
+            ) from error
+        evidence = load_json_bytes(
+            evidence_bytes,
+            f"{architecture} packaged performance evidence",
+        )
+        validate_performance_evidence(evidence)

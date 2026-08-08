@@ -1,5 +1,35 @@
 # Code Quality Audit
 
+## 2026-08-08 Native Dual-Architecture macOS Distribution
+
+Overall grade after this slice: **A+ distribution architecture, A+ compatibility, A+ native verification**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Distribution | A+ | The release matrix builds thin arm64 and x86_64 apps, installers, CLIs, checksums, build metadata, and performance evidence on matching native GitHub runners. |
+| Compatibility | A+ | Existing arm64 clients keep consuming the legacy updater asset, while new clients select exactly one architecture-matching asset from the canonical inventory and reject missing or duplicate matches. |
+| Integrity | A+ | Publication verifies exact per-architecture inventories, shared release identity, hashes, Info.plists, and thin Mach-O CPU headers before accepting either architecture. |
+| Performance | A+ | Each native runner executes the optimized launch, memory, repeated-interaction, and thread budgets against its own packaged app. |
+| Resilience | A+ | Adversarial fixtures prove that a relabeled Mach-O binary and an incomplete updater inventory are rejected even after all hashes and release metadata have been regenerated consistently. |
+
+Validation:
+
+- Full `swift test --skip-build` (5,481 tests, 5 skipped, 0 failures)
+- Focused distribution workflow suite (6 tests, 0 failures), published-release verifier suite
+  (15 tests, 0 failures), updater compatibility suite (27 tests, 0 failures), and public download
+  surface suite (3 tests, 0 failures)
+- A release-mode arm64 build 658 package passed 3 of 3 launch and repeated-interaction attempts:
+  395.99 ms median launch-ready, 107.39 MiB initial memory, 161.14 MiB first-settled memory,
+  166.52 MiB repeated-settled memory, 5.38 MiB convergence growth, and 7 to 9 to 7 threads
+- The x86_64 desktop product cross-compiled successfully from the same source tree; native Intel
+  runtime, updater, and performance execution is delegated to `macos-15-intel` and must pass before
+  publication
+- Public verification requires native `macos-15` arm64 and `macos-15-intel` x86_64 updater smoke
+  jobs, plus architecture-specific semantic performance reports
+- `python3 scripts/grade-code-quality.py --root .` (all modules A+; changed distribution scripts
+  grade A+)
+- `git diff --check`
+
 ## 2026-08-08 Published Performance Semantics Gate
 
 Overall grade after this slice: **A+ public integrity, A+ semantic verification, A+ fail-closed policy**.

@@ -9,7 +9,7 @@ struct QuillCodeTrustedRouterCreditsSettingsCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("TrustedRouter account")
+                    Text("TrustedRouter key usage")
                         .font(.headline)
                     Text(balance.amountLabel ?? balance.statusLabel)
                         .font(.title2.weight(.semibold).monospacedDigit())
@@ -34,6 +34,10 @@ struct QuillCodeTrustedRouterCreditsSettingsCard: View {
                 .foregroundStyle(QuillCodePalette.muted)
                 .fixedSize(horizontal: false, vertical: true)
 
+            if !balance.visibleLimits.isEmpty {
+                QuillCodeTrustedRouterKeyLimitsView(limits: balance.visibleLimits)
+            }
+
             Button {
                 onCommand(refreshCommand)
             } label: {
@@ -41,9 +45,9 @@ struct QuillCodeTrustedRouterCreditsSettingsCard: View {
                     if balance.tone == .updating {
                         ProgressView()
                             .controlSize(.small)
-                        Text("Refreshing balance")
+                        Text("Refreshing key limits")
                     } else {
-                        Label("Refresh balance", systemImage: "arrow.clockwise")
+                        Label("Refresh key limits", systemImage: "arrow.clockwise")
                     }
                 }
             }

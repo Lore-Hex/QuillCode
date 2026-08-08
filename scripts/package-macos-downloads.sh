@@ -25,6 +25,15 @@ ASSET_DIR="$DIST_DIR/assets"
 APP_OUTPUT_DIR="$DIST_DIR/app"
 CLI_ROOT="$DIST_DIR/cli"
 CLI_DIR="$CLI_ROOT/quill-code-macOS-$ARCH"
+BUILD_INFO="$ASSET_DIR/BUILD_INFO-macOS-$ARCH.txt"
+
+case "$ARCH" in
+  arm64|x86_64) ;;
+  *)
+    echo "Unsupported macOS download architecture: $ARCH" >&2
+    exit 2
+    ;;
+esac
 
 if [[ "$UPDATE_CHANNEL" == "stable" ]]; then
   DEFAULT_UPDATE_MANIFEST_URL="$STABLE_MANIFEST_URL"
@@ -142,7 +151,7 @@ README
 CLI_TARBALL="$ASSET_DIR/quill-code-macOS-$ARCH.tar.gz"
 tar -C "$CLI_ROOT" -czf "$CLI_TARBALL" "$(basename "$CLI_DIR")"
 
-cat > "$ASSET_DIR/BUILD_INFO.txt" <<INFO
+cat > "$BUILD_INFO" <<INFO
 product=Quill Cowork
 platform=macOS
 arch=$ARCH
@@ -171,7 +180,7 @@ INFO
   shasum -a 256 Quill-Cowork-macOS-"$ARCH".dmg \
     Quill-Cowork-macOS-"$ARCH".zip \
     Quill-Cowork-macOS-"$ARCH"-PERFORMANCE.json \
-    quill-code-macOS-"$ARCH".tar.gz BUILD_INFO.txt \
+    quill-code-macOS-"$ARCH".tar.gz "$(basename "$BUILD_INFO")" \
     > "Quill-Cowork-macOS-$ARCH-SHASUMS256.txt"
 )
 

@@ -10,10 +10,14 @@ Send testers this moving prerelease link:
 
 Direct asset links for the current tester channel:
 
-- [macOS installer: `Quill-Cowork-macOS-arm64.dmg`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg)
-- [macOS updater archive: `Quill-Cowork-macOS-arm64.zip`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip)
-- [macOS performance evidence: `Quill-Cowork-macOS-arm64-PERFORMANCE.json`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64-PERFORMANCE.json)
-- [macOS CLI: `quill-code-macOS-arm64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-macOS-arm64.tar.gz)
+- [Apple silicon installer: `Quill-Cowork-macOS-arm64.dmg`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg)
+- [Intel installer: `Quill-Cowork-macOS-x86_64.dmg`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg)
+- [Apple silicon updater archive: `Quill-Cowork-macOS-arm64.zip`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip)
+- [Intel updater archive: `Quill-Cowork-macOS-x86_64.zip`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.zip)
+- [Apple silicon performance evidence: `Quill-Cowork-macOS-arm64-PERFORMANCE.json`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64-PERFORMANCE.json)
+- [Intel performance evidence: `Quill-Cowork-macOS-x86_64-PERFORMANCE.json`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64-PERFORMANCE.json)
+- [Apple silicon CLI: `quill-code-macOS-arm64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-macOS-arm64.tar.gz)
+- [Intel CLI: `quill-code-macOS-x86_64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-macOS-x86_64.tar.gz)
 - [Linux CLI: `quill-code-linux-x86_64.tar.gz`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/quill-code-linux-x86_64.tar.gz)
 - [Checksums: `SHASUMS256.txt`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/SHASUMS256.txt)
 - [Tester manifest: `latest-tester-build.json`](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json)
@@ -23,9 +27,10 @@ The build manifest is the app updater, website, and support script contract. It
 records the build channel, tag, commit, workflow run URL, version, build number,
 per-asset download URL, size, platform, architecture, and SHA-256 digest. It also
 includes an `updater` object with the feed URL, bundle identifier, minimum macOS
-version, signing/notarization status, and current macOS updater asset. The DMG
-is the recommended human installation path; the ZIP remains the machine-verified
-updater payload so installation ergonomics cannot change update semantics.
+version, signing/notarization status, and exact arm64 and x86_64 updater assets.
+The legacy arm64 field remains present so already-installed tester builds continue
+to update. The DMG is the recommended human installation path; the ZIP remains the
+machine-verified updater payload so installation ergonomics cannot change update semantics.
 
 When Quill Cowork is launched directly from the read-only DMG or another
 non-replaceable location outside `/Applications`, it immediately offers to open
@@ -64,15 +69,16 @@ After publishing, a separate read-only job consumes the release through the
 same public GitHub API and download URLs users receive. It resolves the release
 tag to the expected commit, checks the exact release inventory and updater feed
 contract, then downloads every declared asset with bounded streaming and
-verifies GitHub's digest, manifest size/SHA-256, `SHASUMS256.txt`, and
-`BUILD_INFO.txt`. It also reads the updater ZIP's bounded `Info.plist` and requires
-the product identity, version, build, exact source commit, channel, feed URLs,
-minimum macOS version, and signing team to agree with the public manifest. A
-publication is not green until this consumer check passes.
+verifies GitHub's digest, manifest size/SHA-256, `SHASUMS256.txt`, and both native
+build-info files. It reads each updater ZIP's bounded `Info.plist` and thin Mach-O
+header, then requires the product identity, architecture, version, build, exact
+source commit, channel, feed URLs, minimum macOS version, and signing team to agree
+with the public manifest. A publication is not green until this consumer check passes.
 
-A separate macOS post-publication gate downloads that exact public app archive,
-re-signs an isolated copy with its build number set one revision behind, and
-launches the packaged updater against the live feed. The gate requires the app
+A separate native post-publication gate runs on Apple silicon and Intel macOS
+runners. Each downloads its matching public app archive, re-signs an isolated copy
+with its build number set one revision behind, and launches the packaged updater
+against the live feed. The gate requires the app
 to stream, verify, unpack, validate, atomically replace, and relaunch itself; it
 then checks the activated version and source commit, code signature, launch
 handshake, and staging cleanup. This catches failures that manifest-only and
@@ -83,7 +89,7 @@ seconds and remain below 256 MiB of resident memory at that initial-window
 boundary. Release packaging measures three fresh processes with isolated state,
 requires at least two launches to meet the time budget, and requires every memory
 sample to meet its budget. The median-launch attempt, every attempt, thread
-counts, and enforced budgets ship as the architecture-specific `PERFORMANCE.json` asset.
+counts, and enforced budgets ship as both architecture-specific `PERFORMANCE.json` assets.
 
 Each process then completes the packaged native interaction sweep twice, including
 reversible navigation, sheet, search, model-picker, and text-entry checks. The gate
@@ -94,8 +100,8 @@ than another 16 MiB or 4 additional threads. All three samples must stay at or b
 64 threads. The public performance asset records every raw snapshot and signed delta
 so a release cannot hide resource regressions behind a fast first frame or one-time
 UI warming.
-The post-publication verifier downloads that exact performance asset after its
-checksum passes, requires the production schema and three-process aggregation,
+The post-publication verifier downloads both exact performance assets after their
+checksums pass, requires the production schema and three-process aggregation,
 recomputes every memory/thread delta and budget result, checks the median headline,
 and rejects missing evidence or weakened production limits. Publication therefore
 proves the public JSON's meaning as well as its bytes.
@@ -136,7 +142,8 @@ next automatic due time when it succeeds. Quiet background failures retry after
 30 minutes; visible update UI or an active foreground update defers background
 work for five minutes. The updater compares `CFBundleShortVersionString` plus
 `CFBundleVersion`, requires the configured repository, product, channel, bundle
-identifier, architecture, and signing identity, downloads on demand, and verifies
+identifier, one exact current-architecture updater asset, and signing identity,
+downloads on demand, and verifies
 the exact size, SHA-256 digest, app identity, version, embedded source commit,
 architecture, and macOS code signature before installation. The detached helper
 checks that same commit again immediately before the atomic swap.
@@ -294,3 +301,5 @@ scripts/package-linux-downloads.sh
 
 Both scripts write assets under `.build/downloads/.../assets` unless
 `QUILLCODE_DOWNLOAD_DIST_DIR` is set.
+The macOS script packages the current machine architecture; the GitHub release
+workflow runs it independently on native Apple silicon and Intel runners.
