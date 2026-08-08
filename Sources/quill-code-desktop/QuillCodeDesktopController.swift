@@ -63,8 +63,9 @@ final class QuillCodeDesktopController: ObservableObject {
         transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator =
             QuillCodeDesktopTranscriptExportCoordinator(),
         updateController: QuillCodeDesktopUpdateController? = nil,
-        workspaceRoot: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        workspaceRoot: URL? = nil
     ) {
+        let launchWorkspaceRoot = workspaceRoot?.standardizedFileURL
         self.bootstrap = bootstrap
         self.computerUseCoordinator = QuillCodeDesktopComputerUseCoordinator()
         self.activeWorkCoordinator = QuillCodeDesktopActiveWorkCoordinator()
@@ -99,8 +100,11 @@ final class QuillCodeDesktopController: ObservableObject {
         } catch {
             self.model = QuillCodeWorkspaceModel()
         }
-        self.workspaceRoot = workspaceRoot
-        modelStateCoordinator.ensureDefaultProject(on: model, workspaceRoot: workspaceRoot)
+        self.workspaceRoot = launchWorkspaceRoot
+            ?? FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        if let launchWorkspaceRoot {
+            modelStateCoordinator.ensureDefaultProject(on: model, workspaceRoot: launchWorkspaceRoot)
+        }
         self.computerUseCoordinator.install(on: model)
         // Opt-in (QUILLCODE_USE_CUA_DRIVER=1): asynchronously upgrade to the cua-driver backend so
         // computer use runs in the background without stealing focus/cursor. Native stays live until

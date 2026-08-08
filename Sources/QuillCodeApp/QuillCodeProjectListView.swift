@@ -59,9 +59,10 @@ struct QuillCodeProjectListView: View {
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .foregroundStyle(QuillCodePalette.muted)
+            .disabled(projects.selectedProjectID == nil)
             .accessibilityLabel("Clear project")
             .accessibilityIdentifier("quillcode-project-clear-button")
-            .help("Clear project")
+            .help(projects.selectedProjectID == nil ? "No project selected" : "Clear project")
         }
     }
 

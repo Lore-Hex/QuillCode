@@ -96,7 +96,9 @@ struct QuillCodeWorkspaceMainPaneView: View {
                         connectPrompt: TranscriptConnectPrompt.make(
                             hasStoredAPIKey: surface.settings.hasStoredAPIKey
                         ),
-                        onStartTrustedRouterSignIn: onStartTrustedRouterSignIn
+                        onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+                        requiresProjectSelection: surface.projects.items.isEmpty,
+                        onOpenProject: { runCommand(id: "add-project") }
                     )
                 } else {
                     Spacer(minLength: 0)
@@ -173,7 +175,8 @@ struct QuillCodeWorkspaceMainPaneView: View {
                     onAddImagesRequested: onAddImagesRequested,
                     onRemoveImage: onRemoveImage,
                     onStop: stopActiveRun,
-                    onDeleteFollowUp: onDeleteFollowUp
+                    onDeleteFollowUp: onDeleteFollowUp,
+                    isWorkspaceAvailable: !surface.projects.items.isEmpty
                 )
             }
             if surface.activity.isVisible {

@@ -34,7 +34,7 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
         let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
         let sidebarSavedSearchStore = JSONSidebarSavedSearchStore(fileURL: paths.sidebarSavedSearchesFile)
-        let projects = try projectStore.load()
+        let storedProjects = try projectStore.load()
         let childStore = SubagentThreadStore(directory: paths.subagentThreadsDirectory)
         let payloadStore = SubagentApprovalPayloadStore(directory: paths.subagentApprovalPayloadsDirectory)
         let threadListing = threadStore.listing()
@@ -44,6 +44,20 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             payloadStore: payloadStore
         )
         let threads = reconciliation.threads
+        let projects: [ProjectRef]
+        if WorkspaceBootstrapProjectMigration.isComplete(in: paths.home) {
+            projects = storedProjects
+        } else {
+            projects = WorkspaceBootstrapProjectMigration.removingUnusedLegacyRootProject(
+                from: storedProjects,
+                threads: threads,
+                hasThreadLoadIssues: !threadListing.issues.isEmpty
+            )
+            if projects != storedProjects {
+                try projectStore.save(projects)
+            }
+            try WorkspaceBootstrapProjectMigration.markComplete(in: paths.home)
+        }
         for thread in threads where reconciliation.changedThreadIDs.contains(thread.id) {
             try threadStore.save(thread)
         }

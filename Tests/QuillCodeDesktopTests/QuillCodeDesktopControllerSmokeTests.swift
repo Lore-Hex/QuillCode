@@ -10,6 +10,31 @@ import QuillComputerUseKit
 @MainActor
 final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
 
+    func testOrdinaryDesktopLaunchStartsWithoutRegisteringTheProcessDirectory() throws {
+        let stateRoot = try makeTempDirectory()
+        let paths = QuillCodePaths(home: stateRoot)
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+        )
+        let controller = QuillCodeDesktopController(
+            bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
+            browserLiveDOMCapturer: nil,
+            updateController: QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            ),
+            workspaceRoot: nil
+        )
+
+        XCTAssertTrue(controller.model.root.projects.isEmpty)
+        XCTAssertTrue(controller.surface.projects.items.isEmpty)
+        XCTAssertEqual(
+            controller.workspaceRoot,
+            FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        )
+    }
+
     func testDesktopRegistersOnlyAProbedSSHProjectAndUsesResolvedFolder() async throws {
         let root = try makeTempDirectory()
         let fakeSSH = root.appendingPathComponent("fake-ssh")
