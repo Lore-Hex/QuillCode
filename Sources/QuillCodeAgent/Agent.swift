@@ -33,8 +33,8 @@ public struct AgentRunner: Sendable {
     static let malformedActionCorrectionLimit = 2
     /// Empty streams are transport failures, not malformed model actions. Give the selected route
     /// a separate bounded recovery budget so transient zero-token responses cannot consume the
-    /// semantic correction budget or kill an unattended initial turn after only three samples.
-    static let emptyResponseRetryLimit = 4
+    /// semantic correction budget or kill an unattended turn during a brief route outage.
+    static let emptyResponseRetryLimit = 6
 
     public var llm: LLMClient
     public var safety: SafetyReviewer

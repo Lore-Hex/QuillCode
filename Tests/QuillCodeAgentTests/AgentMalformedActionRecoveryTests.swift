@@ -300,6 +300,8 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
         ])
         let sleeper = RecordingEmptyResponseRetrySleeper()
         let runner = AgentRunner(llm: client, emptyResponseRetrySleeper: sleeper)
@@ -315,9 +317,12 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             // Correct terminal error.
         }
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 5)
+        XCTAssertEqual(calls.count, 7)
         let durations = await sleeper.recordedDurations()
-        XCTAssertEqual(durations, [.seconds(2), .seconds(4), .seconds(8), .seconds(12)])
+        XCTAssertEqual(
+            durations,
+            [.seconds(2), .seconds(4), .seconds(8), .seconds(12), .seconds(12), .seconds(12)]
+        )
     }
 
     func testExhaustedEmptyFinalResponseAfterSuccessfulWriteFinishesFromToolResult() async throws {
@@ -330,6 +335,8 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         )
         let client = ThrowingSequenceLLMClient(steps: [
             .action(.tool(write)),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
@@ -354,7 +361,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("no final action after completing workspace work")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 6)
+        XCTAssertEqual(calls.count, 8)
     }
 
     func testExhaustedEmptyResponseAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {
@@ -382,6 +389,8 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
             .action(.tool(write)),
             .action(.say("Created and verified report.md.")),
             .action(.say("Created and verified report.md.")),
@@ -403,9 +412,9 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("no action after successful source work")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 9)
-        XCTAssertTrue(calls[6].userMessage.contains("QuillCode continuation"))
-        XCTAssertTrue(calls[6].userMessage.contains("host.file.read"))
+        XCTAssertEqual(calls.count, 11)
+        XCTAssertTrue(calls[8].userMessage.contains("QuillCode continuation"))
+        XCTAssertTrue(calls[8].userMessage.contains("host.file.read"))
     }
 
     func testExhaustedEmptyResponseAdvancesUnreadExplicitSourceBeforeModelContinuation() async throws {
@@ -442,6 +451,8 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
             .action(.tool(write)),
             .action(.say("Created and verified outputs/report.md.")),
             .action(.say("Created and verified outputs/report.md.")),
@@ -466,7 +477,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("advanced an explicit requested source read")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 9, "local source recovery must not consume another model call")
+        XCTAssertEqual(calls.count, 11, "local source recovery must not consume another model call")
         XCTAssertFalse(calls.contains { $0.userMessage.contains("QuillCode continuation") })
     }
 
