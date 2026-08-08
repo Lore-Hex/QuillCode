@@ -211,6 +211,14 @@ class Wave5CoworkEvalTests(unittest.TestCase):
 
         outreach_output = WAVE5.normalize("Five personalized cold outreach drafts with follow-ups.")
         self.assertTrue(WAVE5.concept_matches("cold email", outreach_output))
+        numbered_outreach_output = WAVE5.normalize(
+            "# LedgerLoop Outreach\n\n## Email 1 — Account 38\n\n### Follow-up 1"
+        )
+        self.assertTrue(WAVE5.concept_matches("cold email", numbered_outreach_output))
+        self.assertFalse(WAVE5.concept_matches(
+            "cold email",
+            WAVE5.normalize("Email preferences and notification settings."),
+        ))
 
         competitive_output = WAVE5.normalize("SEO map of customer questions and competitive pages.")
         self.assertTrue(WAVE5.concept_matches("competitor", competitive_output))
