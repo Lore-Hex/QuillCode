@@ -57,13 +57,18 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             launchStartedAtUptime: now - 1.25,
             nowUptime: now
         )
-        let snapshot = try initialSnapshot.completingInteractionSweep()
+        let firstSweepResources = try QuillCodeDesktopProcessResourceSnapshot.capture()
+        let snapshot = try initialSnapshot.completingRepeatedInteractionSweep(
+            firstSweepResources: firstSweepResources
+        )
 
         XCTAssertEqual(snapshot.launchReadyMilliseconds, 1_250, accuracy: 0.01)
         XCTAssertGreaterThan(snapshot.residentMemoryBytes, 0)
         XCTAssertGreaterThan(snapshot.threadCount, 0)
         XCTAssertGreaterThan(snapshot.postInteractionResources.residentMemoryBytes, 0)
         XCTAssertGreaterThan(snapshot.postInteractionResources.threadCount, 0)
+        XCTAssertGreaterThan(snapshot.repeatedInteractionResources.residentMemoryBytes, 0)
+        XCTAssertGreaterThan(snapshot.repeatedInteractionResources.threadCount, 0)
         XCTAssertEqual(
             snapshot.residentMemoryGrowthBytes,
             snapshot.postInteractionResources.residentMemoryBytes - snapshot.residentMemoryBytes
@@ -75,6 +80,16 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(
             snapshot.dictionary["postInteractionMeasurement"] as? String,
             "settled-after-native-interaction-sweep"
+        )
+        XCTAssertEqual(
+            snapshot.dictionary["repeatedInteractionMeasurement"] as? String,
+            "settled-after-repeated-native-interaction-sweep"
+        )
+        XCTAssertEqual(snapshot.dictionary["interactionSweepCount"] as? Int, 2)
+        XCTAssertEqual(
+            snapshot.repeatedInteractionResidentMemoryGrowthBytes,
+            snapshot.repeatedInteractionResources.residentMemoryBytes
+                - snapshot.postInteractionResources.residentMemoryBytes
         )
     }
 
@@ -295,6 +310,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 postInteractionResources: QuillCodeDesktopProcessResourceSnapshot(
                     residentMemoryBytes: 104 * 1_024 * 1_024,
                     threadCount: 20
+                ),
+                repeatedInteractionResources: QuillCodeDesktopProcessResourceSnapshot(
+                    residentMemoryBytes: 108 * 1_024 * 1_024,
+                    threadCount: 19
                 )
             ),
             image: QuillCodeDesktopSmokePixelReport(
@@ -334,6 +353,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertTrue(json.contains(#""composerCanSend" : false"#))
         XCTAssertTrue(json.contains(#""measurement" : "initial-live-window""#))
         XCTAssertTrue(json.contains(#""postInteractionMeasurement" : "settled-after-native-interaction-sweep""#))
+        XCTAssertTrue(json.contains(
+            #""repeatedInteractionMeasurement" : "settled-after-repeated-native-interaction-sweep""#
+        ))
+        XCTAssertTrue(json.contains(#""interactionSweepCount" : 2"#))
         XCTAssertEqual(jsonObject["stateRootPath"] as? String, "/tmp/quillcode-window-state")
         XCTAssertEqual(jsonObject["appStatePath"] as? String, "/tmp/quillcode-window-state/app-state")
         XCTAssertEqual(jsonObject["workspacePath"] as? String, "/tmp/quillcode-window-state/workspace")
@@ -348,6 +371,18 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(
             (jsonObject["performance"] as? [String: Any])?["residentMemoryGrowthBytes"] as? Int,
             8 * 1_024 * 1_024
+        )
+        XCTAssertEqual(
+            (jsonObject["performance"] as? [String: Any])?["repeatedInteractionResidentMemoryBytes"] as? Int,
+            108 * 1_024 * 1_024
+        )
+        XCTAssertEqual(
+            (jsonObject["performance"] as? [String: Any])?["repeatedInteractionResidentMemoryGrowthBytes"] as? Int,
+            4 * 1_024 * 1_024
+        )
+        XCTAssertEqual(
+            (jsonObject["performance"] as? [String: Any])?["repeatedInteractionThreadGrowth"] as? Int,
+            -1
         )
     }
 

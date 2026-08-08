@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-08: repeated native interactions must converge
+
+- **Decision:** Every packaged performance process runs the same reversible native Accessibility
+  interaction sweep twice. Process resources are captured at the initial live window and after a
+  one-second settling interval following each sweep; the second sweep must pass every interaction
+  contract again before its resources can become release evidence.
+- **Budgets:** All three resident-memory samples remain capped at 256 MiB and all thread samples at
+  64. The first sweep may retain at most 80 MiB over the initial window, while the repeated sweep may
+  add at most 16 MiB or four threads over the first settled snapshot. Launch timing remains a
+  two-of-three gate; every resource sample and convergence delta must pass in every fresh process.
+- **Evidence contract:** Version-3 performance evidence carries the three raw snapshots, two signed
+  memory/thread deltas, exact sweep count, per-attempt results, and all enforced budgets. Validation
+  recomputes both deltas and rejects a missing sweep, forged growth value, or repeated thread surge.
+- **Calibration:** Three optimized local processes added 8.27, 5.12, and 3.97 MiB on the repeated
+  pass, with repeated thread deltas of -1, 0, and 1. The 16 MiB ceiling leaves nearly twice the worst
+  observed allocator variation without allowing sustained UI-state accumulation to ship.
+- **Why:** A single post-interaction snapshot distinguishes a light first frame from one-time UI
+  warming, but cannot prove repeated open/type/dismiss cycles release transient state. Convergence is
+  the stronger daily-driving signal and protects Quill Cowork's native memory advantage.
+
 ## 2026-08-08: release performance includes settled interaction resources
 
 - **Decision:** Every packaged performance attempt captures process resources at the initial live

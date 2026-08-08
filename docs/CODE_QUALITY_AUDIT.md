@@ -1,5 +1,33 @@
 # Code Quality Audit
 
+## 2026-08-08 Repeated-Interaction Resource Convergence
+
+Overall grade after this slice: **A+ lifecycle evidence, A+ fail-closed budgets, A+ release parity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Memory | A+ | Every release process records initial, first-settled, and repeated-settled memory; a repeated UI pass may add at most 16 MiB. |
+| Thread lifecycle | A+ | Initial, first-pass, and repeated-pass counts stay below 64, and a repeated pass may add at most four threads. |
+| Evidence integrity | A+ | Schema 3 requires exactly two successful sweeps and recomputes both memory/thread deltas from raw snapshots. |
+| UX coverage | A+ | The second pass repeats real AXPress navigation, sheets, search, model selection, and reversible text entry rather than synthetic allocation. |
+| Architecture | A+ | Native sampling, interaction orchestration, validation, CLI policy, packaging, and public evidence remain separately owned. |
+
+Validation:
+
+- Focused desktop and release-contract suite (27 tests, 0 failures)
+- Full `swift test` (5,469 tests, 5 skipped, 0 failures)
+- Three optimized fresh processes: 263.00 ms median launch-ready, 88.58 MiB initial,
+  151.62 MiB first-pass, 156.75 MiB repeated-pass, and 5.12 MiB selected convergence growth
+- All repeated-pass deltas stayed between 3.97 and 8.27 MiB; thread deltas stayed between -1 and 1
+- Full release-mode packaged smoke passed direct-executable, Launch Services, live-window,
+  Accessibility, scheduled-coworker, multi-file, one-turn, browser, and Computer Use contracts
+- Three-process packaged live-window evidence: 246.85 ms median launch-ready, 88.59 MiB initial,
+  151.55 MiB first-pass, 156.38 MiB repeated-pass, 4.83 MiB convergence growth,
+  and 8 repeated-pass threads; all attempts passed the 4-thread convergence ceiling
+- Preserved 1280x900 screenshot inspected with no blank content, clipping, or overlap
+- `python3 scripts/grade-code-quality.py --root .` (all modules A+)
+- `git diff --check`
+
 ## 2026-08-08 Post-Interaction Release Resource Gate
 
 Overall grade after this slice: **A+ measurement architecture, A+ resource bounds, A+ release evidence**.

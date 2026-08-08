@@ -14,7 +14,9 @@ from .json_io import load_report, require
 DEFAULT_MAX_LAUNCH_READY_MILLISECONDS = 3_000.0
 DEFAULT_MAX_RESIDENT_MEMORY_BYTES = 256 * 1024 * 1024
 DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES = 80 * 1024 * 1024
+DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES = 16 * 1024 * 1024
 DEFAULT_MAX_THREAD_COUNT = 64
+DEFAULT_MAX_REPEATED_THREAD_GROWTH = 4
 
 
 @dataclass(frozen=True)
@@ -24,6 +26,8 @@ class PerformanceAttempt:
     thread_count: int
     post_interaction_resident_memory_bytes: int
     post_interaction_thread_count: int
+    repeated_interaction_resident_memory_bytes: int
+    repeated_interaction_thread_count: int
 
     @property
     def resident_memory_growth_bytes(self) -> int:
@@ -32,6 +36,17 @@ class PerformanceAttempt:
     @property
     def thread_growth(self) -> int:
         return self.post_interaction_thread_count - self.thread_count
+
+    @property
+    def repeated_interaction_resident_memory_growth_bytes(self) -> int:
+        return (
+            self.repeated_interaction_resident_memory_bytes
+            - self.post_interaction_resident_memory_bytes
+        )
+
+    @property
+    def repeated_interaction_thread_growth(self) -> int:
+        return self.repeated_interaction_thread_count - self.post_interaction_thread_count
 
 
 def _finite_number(value: Any, label: str) -> float:
@@ -66,7 +81,7 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
     require(report.get("appName") == "Quill Cowork", f"{report_path} has the wrong app identity")
     performance = report.get("performance")
     require(isinstance(performance, dict), f"{report_path} is missing performance evidence")
-    require(performance.get("schemaVersion") == 2, "unsupported performance evidence schema")
+    require(performance.get("schemaVersion") == 3, "unsupported performance evidence schema")
     require(
         performance.get("measurement") == "initial-live-window",
         "unexpected performance measurement boundary",
@@ -106,12 +121,47 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
         "performance.threadGrowth",
     )
     require(
+        performance.get("repeatedInteractionMeasurement")
+        == "settled-after-repeated-native-interaction-sweep",
+        "unexpected repeated-interaction performance measurement boundary",
+    )
+    require(
+        performance.get("interactionSweepCount") == 2,
+        "performance evidence must contain exactly two native interaction sweeps",
+    )
+    repeated_interaction_resident = _positive_integer(
+        performance.get("repeatedInteractionResidentMemoryBytes"),
+        "performance.repeatedInteractionResidentMemoryBytes",
+    )
+    repeated_interaction_thread_count = _positive_integer(
+        performance.get("repeatedInteractionThreadCount"),
+        "performance.repeatedInteractionThreadCount",
+    )
+    reported_repeated_memory_growth = _integer(
+        performance.get("repeatedInteractionResidentMemoryGrowthBytes"),
+        "performance.repeatedInteractionResidentMemoryGrowthBytes",
+    )
+    reported_repeated_thread_growth = _integer(
+        performance.get("repeatedInteractionThreadGrowth"),
+        "performance.repeatedInteractionThreadGrowth",
+    )
+    require(
         reported_memory_growth == post_interaction_resident - resident,
         "performance resident-memory growth does not match its snapshots",
     )
     require(
         reported_thread_growth == post_interaction_thread_count - thread_count,
         "performance thread growth does not match its snapshots",
+    )
+    require(
+        reported_repeated_memory_growth
+        == repeated_interaction_resident - post_interaction_resident,
+        "performance repeated resident-memory growth does not match its snapshots",
+    )
+    require(
+        reported_repeated_thread_growth
+        == repeated_interaction_thread_count - post_interaction_thread_count,
+        "performance repeated thread growth does not match its snapshots",
     )
     require(launch_ready >= 0, "performance.launchReadyMilliseconds cannot be negative")
     return PerformanceAttempt(
@@ -120,6 +170,8 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
         thread_count=thread_count,
         post_interaction_resident_memory_bytes=post_interaction_resident,
         post_interaction_thread_count=post_interaction_thread_count,
+        repeated_interaction_resident_memory_bytes=repeated_interaction_resident,
+        repeated_interaction_thread_count=repeated_interaction_thread_count,
     )
 
 
@@ -130,7 +182,11 @@ def write_performance_manifest(
     max_launch_ready_milliseconds: float = DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
     max_resident_memory_bytes: int = DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
     max_resident_memory_growth_bytes: int = DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
+    max_repeated_resident_memory_growth_bytes: int = (
+        DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES
+    ),
     max_thread_count: int = DEFAULT_MAX_THREAD_COUNT,
+    max_repeated_thread_growth: int = DEFAULT_MAX_REPEATED_THREAD_GROWTH,
 ) -> None:
     max_launch = _finite_number(
         max_launch_ready_milliseconds,
@@ -144,8 +200,20 @@ def write_performance_manifest(
         max_resident_memory_growth_bytes,
         "maximum resident-memory growth bytes",
     )
+    max_repeated_resident_growth = _positive_integer(
+        max_repeated_resident_memory_growth_bytes,
+        "maximum repeated resident-memory growth bytes",
+    )
     maximum_threads = _positive_integer(max_thread_count, "maximum thread count")
+    maximum_repeated_thread_growth = _integer(
+        max_repeated_thread_growth,
+        "maximum repeated thread growth",
+    )
     require(max_launch > 0, "maximum launch-ready milliseconds must be positive")
+    require(
+        maximum_repeated_thread_growth >= 0,
+        "maximum repeated thread growth cannot be negative",
+    )
     require(report_paths, "at least one packaged performance report is required")
 
     attempts = [_load_attempt(path) for path in report_paths]
@@ -183,10 +251,23 @@ def write_performance_manifest(
             f"{max_resident} byte budget",
         )
         require(
+            attempt.repeated_interaction_resident_memory_bytes <= max_resident,
+            "packaged repeated-interaction resident memory "
+            f"{attempt.repeated_interaction_resident_memory_bytes} bytes exceeds "
+            f"{max_resident} byte budget",
+        )
+        require(
             attempt.resident_memory_growth_bytes <= max_resident_growth,
             f"packaged retained resident-memory growth "
             f"{attempt.resident_memory_growth_bytes} bytes exceeds "
             f"{max_resident_growth} byte budget",
+        )
+        require(
+            attempt.repeated_interaction_resident_memory_growth_bytes
+            <= max_repeated_resident_growth,
+            "packaged repeated-interaction retained resident-memory growth "
+            f"{attempt.repeated_interaction_resident_memory_growth_bytes} bytes exceeds "
+            f"{max_repeated_resident_growth} byte budget",
         )
         require(
             attempt.thread_count <= maximum_threads,
@@ -199,6 +280,18 @@ def write_performance_manifest(
             f"{attempt.post_interaction_thread_count} exceeds "
             f"{maximum_threads} thread budget",
         )
+        require(
+            attempt.repeated_interaction_thread_count <= maximum_threads,
+            "packaged repeated-interaction thread count "
+            f"{attempt.repeated_interaction_thread_count} exceeds "
+            f"{maximum_threads} thread budget",
+        )
+        require(
+            attempt.repeated_interaction_thread_growth <= maximum_repeated_thread_growth,
+            "packaged repeated-interaction thread growth "
+            f"{attempt.repeated_interaction_thread_growth} exceeds "
+            f"{maximum_repeated_thread_growth} thread budget",
+        )
 
     selected_attempt = sorted(
         attempts,
@@ -210,11 +303,15 @@ def write_performance_manifest(
     thread_count = selected_attempt.thread_count
     post_interaction_resident = selected_attempt.post_interaction_resident_memory_bytes
     post_interaction_thread_count = selected_attempt.post_interaction_thread_count
+    repeated_interaction_resident = selected_attempt.repeated_interaction_resident_memory_bytes
+    repeated_interaction_thread_count = selected_attempt.repeated_interaction_thread_count
     resident_growth = selected_attempt.resident_memory_growth_bytes
     thread_growth = selected_attempt.thread_growth
+    repeated_resident_growth = selected_attempt.repeated_interaction_resident_memory_growth_bytes
+    repeated_thread_growth = selected_attempt.repeated_interaction_thread_growth
 
     manifest = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "ok": True,
         "product": "Quill Cowork",
         "measurement": "initial-live-window",
@@ -232,6 +329,20 @@ def write_performance_manifest(
         "residentMemoryGrowthBytes": resident_growth,
         "residentMemoryGrowthMiB": round(resident_growth / (1024 * 1024), 2),
         "threadGrowth": thread_growth,
+        "repeatedInteractionMeasurement": "settled-after-repeated-native-interaction-sweep",
+        "interactionSweepCount": 2,
+        "repeatedInteractionResidentMemoryBytes": repeated_interaction_resident,
+        "repeatedInteractionResidentMemoryMiB": round(
+            repeated_interaction_resident / (1024 * 1024),
+            2,
+        ),
+        "repeatedInteractionThreadCount": repeated_interaction_thread_count,
+        "repeatedInteractionResidentMemoryGrowthBytes": repeated_resident_growth,
+        "repeatedInteractionResidentMemoryGrowthMiB": round(
+            repeated_resident_growth / (1024 * 1024),
+            2,
+        ),
+        "repeatedInteractionThreadGrowth": repeated_thread_growth,
         "aggregation": "single-attempt" if len(attempts) == 1 else "median-of-fresh-processes",
         "attemptCount": len(attempts),
         "selectedAttempt": selected_attempt_number,
@@ -256,17 +367,43 @@ def write_performance_manifest(
                     2,
                 ),
                 "threadGrowth": attempt.thread_growth,
+                "repeatedInteractionResidentMemoryBytes": (
+                    attempt.repeated_interaction_resident_memory_bytes
+                ),
+                "repeatedInteractionResidentMemoryMiB": round(
+                    attempt.repeated_interaction_resident_memory_bytes / (1024 * 1024),
+                    2,
+                ),
+                "repeatedInteractionThreadCount": attempt.repeated_interaction_thread_count,
+                "repeatedInteractionResidentMemoryGrowthBytes": (
+                    attempt.repeated_interaction_resident_memory_growth_bytes
+                ),
+                "repeatedInteractionResidentMemoryGrowthMiB": round(
+                    attempt.repeated_interaction_resident_memory_growth_bytes / (1024 * 1024),
+                    2,
+                ),
+                "repeatedInteractionThreadGrowth": attempt.repeated_interaction_thread_growth,
                 "withinLaunchBudget": attempt.launch_ready_milliseconds <= max_launch,
                 "withinResidentMemoryBudget": (
                     attempt.resident_memory_bytes <= max_resident
                     and attempt.post_interaction_resident_memory_bytes <= max_resident
+                    and attempt.repeated_interaction_resident_memory_bytes <= max_resident
                 ),
                 "withinResidentMemoryGrowthBudget": (
                     attempt.resident_memory_growth_bytes <= max_resident_growth
                 ),
+                "withinRepeatedResidentMemoryGrowthBudget": (
+                    attempt.repeated_interaction_resident_memory_growth_bytes
+                    <= max_repeated_resident_growth
+                ),
                 "withinThreadCountBudget": (
                     attempt.thread_count <= maximum_threads
                     and attempt.post_interaction_thread_count <= maximum_threads
+                    and attempt.repeated_interaction_thread_count <= maximum_threads
+                ),
+                "withinRepeatedThreadGrowthBudget": (
+                    attempt.repeated_interaction_thread_growth
+                    <= maximum_repeated_thread_growth
                 ),
             }
             for index, attempt in enumerate(attempts, start=1)
@@ -275,7 +412,9 @@ def write_performance_manifest(
             "maximumLaunchReadyMilliseconds": max_launch,
             "maximumResidentMemoryBytes": max_resident,
             "maximumResidentMemoryGrowthBytes": max_resident_growth,
+            "maximumRepeatedResidentMemoryGrowthBytes": max_repeated_resident_growth,
             "maximumThreadCount": maximum_threads,
+            "maximumRepeatedThreadGrowth": maximum_repeated_thread_growth,
         },
         "withinBudget": True,
     }
@@ -289,5 +428,6 @@ def write_performance_manifest(
         f"{launch_ready:.2f}ms median launch-ready, "
         f"{manifest['residentMemoryMiB']:.2f} MiB initial and "
         f"{manifest['postInteractionResidentMemoryMiB']:.2f} MiB post-interaction "
+        f"and {manifest['repeatedInteractionResidentMemoryMiB']:.2f} MiB repeated "
         f"({passing_attempts}/{len(attempts)} launches within budget)."
     )

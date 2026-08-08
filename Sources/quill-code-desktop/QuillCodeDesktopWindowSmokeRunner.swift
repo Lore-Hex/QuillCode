@@ -80,9 +80,18 @@ enum QuillCodeDesktopWindowSmokeRunner {
             controller: smokeController,
             nativeHitTargets: nativeHitTargets
         )
+        try await Task.sleep(for: .seconds(1))
+        let firstSweepResources = try QuillCodeDesktopProcessResourceSnapshot.capture()
+        _ = try await QuillCodeDesktopAccessibilityActivationSampler.validatedReport(
+            contentView: contentView,
+            controller: smokeController,
+            nativeHitTargets: nativeHitTargets
+        )
         let surface = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: workspaceSurface)
         try await Task.sleep(for: .seconds(1))
-        let performance = try initialPerformance.completingInteractionSweep()
+        let performance = try initialPerformance.completingRepeatedInteractionSweep(
+            firstSweepResources: firstSweepResources
+        )
 
         return QuillCodeDesktopWindowSmokeReport(
             ok: true,
