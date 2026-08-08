@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-08-08 Published Performance Semantics Gate
+
+Overall grade after this slice: **A+ public integrity, A+ semantic verification, A+ fail-closed policy**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Evidence integrity | A+ | The verifier checks the exact public asset size, digest, and checksums before parsing a bounded regular JSON file. |
+| Semantics | A+ | Schema, product, measurement boundaries, two sweeps, three attempts, launch majority, median selection, and every headline field are independently checked. |
+| Resource policy | A+ | Canonical production limits are shared with the evidence producer; every memory/thread delta, MiB projection, pass flag, and budget result is recomputed. |
+| Resilience | A+ | Missing evidence, policy weakening, incomplete aggregation, forged values, non-finite numbers, resource misses, and summary drift fail publication closed. |
+| Architecture | A+ | Production policy, package generation, release-asset ownership, top-level aggregation, and per-attempt validation remain focused modules. |
+
+Validation:
+
+- Focused package and public-verifier suites (26 tests, 0 failures)
+- Full `swift test --skip-build` (5,476 tests, 5 skipped, 0 failures)
+- Strengthened verifier passed against exact public build 656 at
+  `c0f05fff192bfdd8f01630576797e6e5aa361899`
+- Adversarial fixtures regenerate asset digests, checksums, manifests, and release metadata before
+  proving schema drift, forged deltas, weakened budgets, missing evidence, incomplete attempts, and
+  headline drift are rejected semantically
+- Changed files and all repository modules grade A+
+- `git diff --check`
+
 ## 2026-08-08 Repeated-Interaction Resource Convergence
 
 Overall grade after this slice: **A+ lifecycle evidence, A+ fail-closed budgets, A+ release parity**.

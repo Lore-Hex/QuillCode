@@ -94,6 +94,11 @@ than another 16 MiB or 4 additional threads. All three samples must stay at or b
 64 threads. The public performance asset records every raw snapshot and signed delta
 so a release cannot hide resource regressions behind a fast first frame or one-time
 UI warming.
+The post-publication verifier downloads that exact performance asset after its
+checksum passes, requires the production schema and three-process aggregation,
+recomputes every memory/thread delta and budget result, checks the median headline,
+and rejects missing evidence or weakened production limits. Publication therefore
+proves the public JSON's meaning as well as its bytes.
 These intentionally conservative first budgets catch major regressions without
 turning one loaded-runner outlier into the product metric.
 

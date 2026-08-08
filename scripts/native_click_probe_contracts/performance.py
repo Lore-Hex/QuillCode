@@ -8,15 +8,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 
+from performance_evidence_contract import (
+    DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
+    DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES,
+    DEFAULT_MAX_REPEATED_THREAD_GROWTH,
+    DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
+    DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
+    DEFAULT_MAX_THREAD_COUNT,
+    INITIAL_MEASUREMENT,
+    INTERACTION_SWEEP_COUNT,
+    PERFORMANCE_PRODUCT,
+    PERFORMANCE_SCHEMA_VERSION,
+    POST_INTERACTION_MEASUREMENT,
+    REPEATED_INTERACTION_MEASUREMENT,
+)
+
 from .json_io import load_report, require
-
-
-DEFAULT_MAX_LAUNCH_READY_MILLISECONDS = 3_000.0
-DEFAULT_MAX_RESIDENT_MEMORY_BYTES = 256 * 1024 * 1024
-DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES = 80 * 1024 * 1024
-DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES = 16 * 1024 * 1024
-DEFAULT_MAX_THREAD_COUNT = 64
-DEFAULT_MAX_REPEATED_THREAD_GROWTH = 4
 
 
 @dataclass(frozen=True)
@@ -78,12 +85,15 @@ def _integer(value: Any, label: str) -> int:
 def _load_attempt(report_path: Path) -> PerformanceAttempt:
     report = load_report(report_path)
     require(report.get("ok") is True, f"{report_path} does not report ok=true")
-    require(report.get("appName") == "Quill Cowork", f"{report_path} has the wrong app identity")
+    require(report.get("appName") == PERFORMANCE_PRODUCT, f"{report_path} has the wrong app identity")
     performance = report.get("performance")
     require(isinstance(performance, dict), f"{report_path} is missing performance evidence")
-    require(performance.get("schemaVersion") == 3, "unsupported performance evidence schema")
     require(
-        performance.get("measurement") == "initial-live-window",
+        performance.get("schemaVersion") == PERFORMANCE_SCHEMA_VERSION,
+        "unsupported performance evidence schema",
+    )
+    require(
+        performance.get("measurement") == INITIAL_MEASUREMENT,
         "unexpected performance measurement boundary",
     )
 
@@ -101,7 +111,7 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
     )
     require(
         performance.get("postInteractionMeasurement")
-        == "settled-after-native-interaction-sweep",
+        == POST_INTERACTION_MEASUREMENT,
         "unexpected post-interaction performance measurement boundary",
     )
     post_interaction_resident = _positive_integer(
@@ -122,11 +132,11 @@ def _load_attempt(report_path: Path) -> PerformanceAttempt:
     )
     require(
         performance.get("repeatedInteractionMeasurement")
-        == "settled-after-repeated-native-interaction-sweep",
+        == REPEATED_INTERACTION_MEASUREMENT,
         "unexpected repeated-interaction performance measurement boundary",
     )
     require(
-        performance.get("interactionSweepCount") == 2,
+        performance.get("interactionSweepCount") == INTERACTION_SWEEP_COUNT,
         "performance evidence must contain exactly two native interaction sweeps",
     )
     repeated_interaction_resident = _positive_integer(
@@ -311,11 +321,11 @@ def write_performance_manifest(
     repeated_thread_growth = selected_attempt.repeated_interaction_thread_growth
 
     manifest = {
-        "schemaVersion": 3,
+        "schemaVersion": PERFORMANCE_SCHEMA_VERSION,
         "ok": True,
-        "product": "Quill Cowork",
-        "measurement": "initial-live-window",
-        "postInteractionMeasurement": "settled-after-native-interaction-sweep",
+        "product": PERFORMANCE_PRODUCT,
+        "measurement": INITIAL_MEASUREMENT,
+        "postInteractionMeasurement": POST_INTERACTION_MEASUREMENT,
         "launchReadyMilliseconds": launch_ready,
         "residentMemoryBytes": resident,
         "residentMemoryMiB": round(resident / (1024 * 1024), 2),
@@ -329,8 +339,8 @@ def write_performance_manifest(
         "residentMemoryGrowthBytes": resident_growth,
         "residentMemoryGrowthMiB": round(resident_growth / (1024 * 1024), 2),
         "threadGrowth": thread_growth,
-        "repeatedInteractionMeasurement": "settled-after-repeated-native-interaction-sweep",
-        "interactionSweepCount": 2,
+        "repeatedInteractionMeasurement": REPEATED_INTERACTION_MEASUREMENT,
+        "interactionSweepCount": INTERACTION_SWEEP_COUNT,
         "repeatedInteractionResidentMemoryBytes": repeated_interaction_resident,
         "repeatedInteractionResidentMemoryMiB": round(
             repeated_interaction_resident / (1024 * 1024),
