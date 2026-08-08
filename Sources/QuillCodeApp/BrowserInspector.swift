@@ -9,6 +9,13 @@ enum BrowserInspector {
         return url.host ?? url.absoluteString
     }
 
+    static func title(from snapshot: BrowserSnapshotState?, fallbackURL url: URL) -> String {
+        snapshot?.details
+            .first { $0.hasPrefix("Title: ") }
+            .map { String($0.dropFirst("Title: ".count)) }
+            ?? title(for: url)
+    }
+
     static func snapshot(
         for url: URL,
         inspectLocalFileContents: Bool = true
@@ -94,14 +101,17 @@ enum BrowserInspector {
         // live page. If no live DOM executor is attached, an explicit inspect tool call must still
         // return usable page content instead of repeating the deferred file metadata forever.
         let snapshot: BrowserSnapshotState
+        let title: String
         if let resolvedURL = URL(string: currentURL), resolvedURL.isFileURL {
             snapshot = fileSnapshot(for: resolvedURL, inspectContents: true)
+            title = BrowserInspector.title(from: snapshot, fallbackURL: resolvedURL)
         } else {
             snapshot = storedSnapshot
+            title = browser.title
         }
         let output = BrowserInspectionToolOutput(
             url: currentURL,
-            title: browser.title,
+            title: title,
             status: browser.status,
             sourceLabel: snapshot.sourceLabel,
             inspectionDepth: snapshot.inspectionDepth,

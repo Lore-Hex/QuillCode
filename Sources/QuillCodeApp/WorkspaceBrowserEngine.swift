@@ -314,10 +314,7 @@ struct WorkspaceBrowserEngine {
     }
 
     private static func title(from snapshot: BrowserSnapshotState?, fallbackURL url: URL) -> String {
-        snapshot?.details
-            .first { $0.hasPrefix("Title: ") }
-            .map { String($0.dropFirst("Title: ".count)) }
-            ?? BrowserInspector.title(for: url)
+        BrowserInspector.title(from: snapshot, fallbackURL: url)
     }
 
     private static func sessionTitle(_ title: String, fallbackURL url: URL) -> String {

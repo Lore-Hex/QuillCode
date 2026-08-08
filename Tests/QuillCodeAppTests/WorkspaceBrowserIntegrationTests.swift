@@ -222,6 +222,7 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         )
         XCTAssertTrue(result.ok)
         let inspection = try JSONHelpers.decode(BrowserInspectionToolOutput.self, from: result.stdout)
+        XCTAssertEqual(inspection.title, "Deferred Preview")
         XCTAssertEqual(inspection.inspectionDepth, .staticHTMLSnapshot)
         XCTAssertEqual(inspection.summary, "HTML snapshot captured for browser review.")
         XCTAssertTrue(inspection.details.contains("Title: Deferred Preview"))
