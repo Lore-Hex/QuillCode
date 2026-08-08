@@ -48,6 +48,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let worktreeCoordinator: QuillCodeDesktopWorktreeCoordinator
     let workflowRecordingCoordinator: QuillCodeDesktopWorkflowRecordingCoordinator
     let updateController: QuillCodeDesktopUpdateController
+    let installationLocationController: QuillCodeDesktopInstallationLocationController
     let tasks = QuillCodeDesktopTaskCoordinator()
     let progressRefreshScheduler = QuillCodeDesktopProgressRefreshScheduler()
     // Retained here because UNUserNotificationCenter.delegate is weak; nil until the window installs it.
@@ -64,6 +65,7 @@ final class QuillCodeDesktopController: ObservableObject {
         transcriptExportCoordinator: QuillCodeDesktopTranscriptExportCoordinator =
             QuillCodeDesktopTranscriptExportCoordinator(),
         updateController: QuillCodeDesktopUpdateController? = nil,
+        installationLocationController: QuillCodeDesktopInstallationLocationController? = nil,
         workspaceRoot: URL? = nil
     ) {
         let launchWorkspaceRoot = workspaceRoot?.standardizedFileURL
@@ -96,6 +98,8 @@ final class QuillCodeDesktopController: ObservableObject {
         self.worktreeCoordinator = QuillCodeDesktopWorktreeCoordinator()
         self.workflowRecordingCoordinator = QuillCodeDesktopWorkflowRecordingCoordinator()
         self.updateController = updateController ?? QuillCodeDesktopUpdateController()
+        self.installationLocationController = installationLocationController
+            ?? QuillCodeDesktopInstallationLocationController()
         do {
             self.model = try bootstrap.makeModel()
         } catch {

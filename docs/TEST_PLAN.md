@@ -7,6 +7,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 ## Unit Tests
 
+- First-launch installation guidance: writable-copy suppression, already-installed suppression,
+  read-only presentation, once-per-build dismissal, a new-build reminder, disabled smoke
+  configuration, Applications-folder routing, fixed-size rendering, coordinated updater-sheet
+  presentation, and a normal launch from a real mounted packaged DMG.
 - Updater install-location UX: writable/read-only parent detection, missing app/executable refusal,
   non-directory app and out-of-bundle executable refusal, zero preparation from a non-replaceable
   copy, trusted architecture-matching DMG selection, hostile/malformed/duplicate installer rejection,

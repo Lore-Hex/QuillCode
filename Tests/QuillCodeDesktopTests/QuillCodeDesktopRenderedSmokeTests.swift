@@ -201,6 +201,38 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
     }
 
+    func testRenderedFirstLaunchFromReadOnlyLocationOffersApplicationsFolder() throws {
+        var configuration = makeConfiguration()
+        configuration.applicationURL = URL(
+            fileURLWithPath: "/Volumes/Quill Cowork/Quill Cowork.app",
+            isDirectory: true
+        )
+        let controller = QuillCodeDesktopInstallationLocationController(
+            configuration: configuration,
+            inspector: RenderedUpdateInstallationInspector(.requiresRelocation),
+            defaults: UserDefaults(
+                suiteName: "RenderedInstallLocation.\(UUID().uuidString)"
+            ) ?? .standard,
+            openApplications: { _ in }
+        )
+        controller.startIfNeeded()
+        XCTAssertTrue(controller.isPresented)
+
+        let image = try renderHostedView(
+            QuillCodeDesktopInstallationLocationView(controller: controller),
+            width: 470,
+            height: 320,
+            debugPathEnvironmentKey: "QUILLCODE_RENDER_INSTALL_LOCATION_IMAGE_PATH"
+        )
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 470)
+        XCTAssertEqual(stats.height, 320)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
+    }
+
     func testRenderedSSHConnectionDialogShowsConfiguredHostsAndActions() throws {
         let coordinator = QuillCodeSSHConnectionDialogCoordinator()
         coordinator.isPresented = true
