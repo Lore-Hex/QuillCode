@@ -16,17 +16,29 @@ struct QuillCodeSidebarThreadListView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             ScrollView {
-                LazyVStack(spacing: 2) {
+                LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(sections) { section in
-                        QuillCodeSidebarThreadSectionView(
-                            section: section,
-                            isSelectionMode: sidebar.isSelectionMode,
-                            onSelectThread: onSelectThread,
-                            onThreadAction: onThreadAction,
-                            onCommand: onCommand
-                        )
+                        Section {
+                            ForEach(section.items) { item in
+                                QuillCodeSidebarThreadRowView(
+                                    item: item,
+                                    isSelectionMode: sidebar.isSelectionMode,
+                                    onSelectThread: onSelectThread,
+                                    onThreadAction: onThreadAction,
+                                    onCommand: onCommand
+                                )
+                            }
+                        } header: {
+                            Text(section.title.uppercased())
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(QuillCodePalette.muted)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .padding(.top, 2)
+                        }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }

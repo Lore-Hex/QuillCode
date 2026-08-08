@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 import QuillCodeCore
 @testable import QuillCodeApp
 
@@ -50,6 +51,24 @@ final class TranscriptScrollFollowTests: XCTestCase {
         XCTAssertFalse(TranscriptScrollFollow.shouldCommitGeometrySample(.nan, current: 100))
         XCTAssertFalse(TranscriptScrollFollow.shouldCommitGeometrySample(.infinity, current: 100))
         XCTAssertTrue(TranscriptScrollFollow.shouldCommitGeometrySample(100.6, current: 100))
+    }
+
+    func testScrollMetricsDoNotPublishPerPixelGeometryChanges() {
+        let metrics = TranscriptScrollMetrics()
+        var publicationCount = 0
+        let cancellable = metrics.objectWillChange.sink {
+            publicationCount += 1
+        }
+
+        metrics.viewportHeight = 640
+        metrics.viewportWidth = 980
+        metrics.bottomSentinelMaxY = 1_200
+        metrics.lastContentTopMinY = -560
+        metrics.resetContentOffsetBaseline()
+
+        XCTAssertEqual(publicationCount, 0)
+        XCTAssertNil(metrics.lastContentTopMinY)
+        withExtendedLifetime(cancellable) {}
     }
 
     // MARK: - resolvePinned (the pin transition)
