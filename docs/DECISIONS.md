@@ -1,5 +1,29 @@
 # QuillCode Decisions
 
+## 2026-08-08: updater signing policy survives the Developer ID cutover
+
+- **Decision:** Manifest validation derives one typed payload requirement. Tester updates are either
+  exactly ad-hoc with no team or notarization claim, or Developer ID Application signed with a valid
+  ten-character team and Apple notarization. Stable updates require the latter and an already pinned
+  matching team.
+- **Payload boundary:** Archive verification carries that requirement into app validation. The
+  downloaded bundle must pass strict `codesign` verification, its `Signature`, `Authority`, and
+  `TeamIdentifier` fields must match the manifest-derived requirement, and Developer ID payloads must
+  also pass `spctl --assess`. A valid signature from another team, an Installer certificate, a false
+  notarization claim, or an ad-hoc downgrade is rejected before staging.
+- **Migration boundary:** An existing ad-hoc tester may trust its first notarized Developer ID
+  Application through the configured GitHub feed and Apple assessment. That replacement embeds its
+  team identifier, after which tester and stable updates are pinned to that exact team. The public
+  manifest schema stays unchanged, so build 651 can still install the first hardened ad-hoc build.
+- **Why:** Before this change, an ad-hoc tester accepted Developer ID metadata without requiring
+  notarization, while downloaded-app validation accepted any internally valid signature when no team
+  was embedded. Adding Apple credentials could therefore make the signing transition less strict
+  than steady-state updates.
+- **Evidence:** `QuillCodeDesktopUpdateSigningTests` cover contradictory metadata, malformed teams,
+  notarization, trust transition, downgrade/cross-team refusal, stable pinning, and signature output
+  parsing. The public updater smoke continues to exercise download, payload validation, swap, and
+  relaunch against the published ad-hoc channel.
+
 ## 2026-08-08: streaming progress coalesces expensive desktop projection
 
 - **Decision:** Every model progress callback still updates the authoritative thread and run state,

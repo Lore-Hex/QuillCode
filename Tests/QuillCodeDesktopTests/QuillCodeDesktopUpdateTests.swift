@@ -1060,7 +1060,8 @@ private func makeManifest(
 
 func makeRelease(
     version: String = "0.1.0",
-    build: String = "43"
+    build: String = "43",
+    signingRequirement: QuillCodeDesktopUpdateSigningRequirement = .adHoc
 ) -> QuillCodeDesktopUpdateRelease {
     QuillCodeDesktopUpdateRelease(
         channel: .tester,
@@ -1069,7 +1070,8 @@ func makeRelease(
         commit: String(repeating: "a", count: 40),
         version: version,
         build: build,
-        asset: makeAsset()
+        asset: makeAsset(),
+        signingRequirement: signingRequirement
     )
 }
 
