@@ -198,7 +198,7 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
     func testBrowserPreviewCanDeferLocalFileInspectionForVisibleUI() throws {
         let root = try makeTempDirectory()
         let previewFile = root.appendingPathComponent("deferred-preview.html")
-        try "<html><title>Must not be read yet</title></html>".write(
+        try "<html><title>Deferred Preview</title><body><h1>Pipeline health</h1></body></html>".write(
             to: previewFile,
             atomically: true,
             encoding: .utf8
@@ -215,6 +215,23 @@ final class WorkspaceBrowserIntegrationTests: XCTestCase {
         XCTAssertEqual(model.browser.snapshot?.sourceLabel, "Local HTML")
         XCTAssertEqual(model.browser.snapshot?.inspectionDepth, .fileMetadata)
         XCTAssertEqual(model.browser.snapshot?.summary, "HTML file is ready to open in the visible browser.")
+
+        let result = model.runToolCall(
+            ToolCall(name: ToolDefinition.browserInspect.name, argumentsJSON: "{}"),
+            workspaceRoot: root
+        )
+        XCTAssertTrue(result.ok)
+        let inspection = try JSONHelpers.decode(BrowserInspectionToolOutput.self, from: result.stdout)
+        XCTAssertEqual(inspection.inspectionDepth, .staticHTMLSnapshot)
+        XCTAssertEqual(inspection.summary, "HTML snapshot captured for browser review.")
+        XCTAssertTrue(inspection.details.contains("Title: Deferred Preview"))
+        XCTAssertTrue(inspection.outline.contains("H1: Pipeline health"))
+
+        XCTAssertEqual(
+            model.browser.snapshot?.inspectionDepth,
+            .fileMetadata,
+            "tool hydration must not replace the visible browser's deferred state"
+        )
     }
 
     func testBrowserPreviewSupportsHistoryNavigationAndReload() throws {

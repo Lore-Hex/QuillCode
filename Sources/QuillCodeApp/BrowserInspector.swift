@@ -87,8 +87,17 @@ enum BrowserInspector {
         guard let currentURL = browser.currentURL else {
             return ToolResult(ok: false, error: "No browser page is open.")
         }
-        guard let snapshot = browser.snapshot else {
+        guard let storedSnapshot = browser.snapshot else {
             return ToolResult(ok: false, error: "Browser page is open but no snapshot is available.")
+        }
+        // The visible desktop browser deliberately defers local HTML parsing while it prepares a
+        // live page. If no live DOM executor is attached, an explicit inspect tool call must still
+        // return usable page content instead of repeating the deferred file metadata forever.
+        let snapshot: BrowserSnapshotState
+        if let resolvedURL = URL(string: currentURL), resolvedURL.isFileURL {
+            snapshot = fileSnapshot(for: resolvedURL, inspectContents: true)
+        } else {
+            snapshot = storedSnapshot
         }
         let output = BrowserInspectionToolOutput(
             url: currentURL,
