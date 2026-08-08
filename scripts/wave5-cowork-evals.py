@@ -487,7 +487,11 @@ def contains_placeholder(text):
             continue
         if field.casefold() == "confirm":
             continue
-        if re.fullmatch(r"\d+|\^[a-z0-9_.:-]+", field, re.IGNORECASE):
+        if re.fullmatch(
+            r"\d+|[-+]?\d+(?:\.\d+)?\s*(?:,|-|\u2013|\u2014)\s*[-+]?\d+(?:\.\d+)?|\^[a-z0-9_.:-]+",
+            field,
+            re.IGNORECASE,
+        ):
             continue
         return True
     return False
