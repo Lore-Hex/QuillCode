@@ -137,10 +137,15 @@ struct QuillCodeDesktopUpdateRelease: Equatable, Sendable {
     var version: String
     var build: String
     var asset: QuillCodeDesktopUpdateManifest.Asset
+    var installerAsset: QuillCodeDesktopUpdateManifest.Asset? = nil
     var signingRequirement: QuillCodeDesktopUpdateSigningRequirement
 
     var displayVersion: String {
         "\(version) (\(build))"
+    }
+
+    var manualInstallationURL: URL {
+        installerAsset?.url ?? releaseURL
     }
 }
 
@@ -211,7 +216,7 @@ enum QuillCodeDesktopUpdateError: LocalizedError, Equatable, Sendable {
         case .invalidApplication(let reason):
             "The downloaded app could not be verified: \(reason)"
         case .installationUnavailable:
-            "Quill Cowork cannot replace itself from its current location."
+            "This copy cannot replace itself. Install Quill Cowork in Applications, reopen it, and try again."
         case .installationFailed(let reason):
             "The update could not be installed: \(reason)"
         }

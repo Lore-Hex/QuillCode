@@ -7,6 +7,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 ## Unit Tests
 
+- Updater install-location UX: writable/read-only parent detection, missing app/executable refusal,
+  non-directory app and out-of-bundle executable refusal, zero preparation from a non-replaceable
+  copy, trusted architecture-matching DMG selection, hostile/malformed/duplicate installer rejection,
+  release-page fallback, fixed-size manual-installer UI, and a real mounted-DMG update check.
 - Updater signing trust: exact ad-hoc metadata, notarized Developer ID transition, ten-character
   team validation, pinned-team continuity, ad-hoc downgrade and cross-team refusal, stable-channel
   requirements, Developer ID Application authority parsing, and Installer-authority rejection.

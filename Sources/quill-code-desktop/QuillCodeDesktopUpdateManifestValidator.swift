@@ -50,6 +50,11 @@ enum QuillCodeDesktopUpdateManifestValidator {
             throw QuillCodeDesktopUpdateError.unexpectedFeed
         }
         let asset = try compatibleAsset(in: manifest, configuration: configuration, scope: repositoryScope)
+        let installerAsset = try compatibleInstallerAsset(
+            in: manifest,
+            configuration: configuration,
+            scope: repositoryScope
+        )
         guard releaseVersion > currentVersion || (
             releaseVersion == currentVersion && releaseBuild > currentBuild
         ) else {
@@ -63,6 +68,7 @@ enum QuillCodeDesktopUpdateManifestValidator {
             version: manifest.version,
             build: manifest.build,
             asset: asset,
+            installerAsset: installerAsset,
             signingRequirement: signingRequirement
         ))
     }
@@ -121,6 +127,36 @@ enum QuillCodeDesktopUpdateManifestValidator {
               asset.sizeBytes <= maximumAssetBytes,
               isSafeAssetName(asset.name),
               isHex(asset.sha256, length: 64),
+              scope.containsDownloadURL(asset.url, tag: manifest.tag)
+        else {
+            throw QuillCodeDesktopUpdateError.noCompatibleApplication
+        }
+        return asset
+    }
+
+    private static func compatibleInstallerAsset(
+        in manifest: QuillCodeDesktopUpdateManifest,
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        scope: GitHubReleaseRepositoryScope
+    ) throws -> QuillCodeDesktopUpdateManifest.Asset? {
+        let candidates = manifest.assets.filter { asset in
+            asset.kind == "installer" &&
+                asset.platform == "macOS" &&
+                asset.arch == configuration.architecture
+        }
+        guard candidates.count <= 1 else {
+            throw QuillCodeDesktopUpdateError.noCompatibleApplication
+        }
+        guard let asset = candidates.first else { return nil }
+        guard asset.install == "dmg-app",
+              asset.sizeBytes > 0,
+              asset.sizeBytes <= maximumAssetBytes,
+              isSafeAssetName(asset.name),
+              asset.name.lowercased().hasSuffix(".dmg"),
+              isHex(asset.sha256, length: 64),
+              asset.url.lastPathComponent == asset.name,
+              asset.url.query == nil,
+              asset.url.fragment == nil,
               scope.containsDownloadURL(asset.url, tag: manifest.tag)
         else {
             throw QuillCodeDesktopUpdateError.noCompatibleApplication

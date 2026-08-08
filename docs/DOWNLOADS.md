@@ -133,6 +133,16 @@ size. Cancellation and failure remove the partial file. The update sheet reports
 bounded determinate byte progress, then identifies the verification, unpacking,
 and app-validation phases separately.
 
+Before downloading, the app verifies that its running bundle exists beside a
+writable destination and has a runnable helper executable. Copies launched from
+the read-only DMG, App Translocation, or another non-replaceable location show a
+direct **Download Installer** action instead. That action uses only an
+architecture-matching DMG whose bounded metadata and GitHub release URL passed
+the same manifest scope checks. Its URL must use the declared `.dmg` filename
+exactly and cannot carry a query or fragment; older manifests fall back to the release page.
+The installer repeats the destination checks immediately before staging, so a
+permission change after preflight still fails without replacing the app.
+
 Installation stages the verified app beside the running bundle, then uses a
 detached helper for the final rename and relaunch. The new app must complete a
 launch handshake within 45 seconds and remain running for a three-second startup
