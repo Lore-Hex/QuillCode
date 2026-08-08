@@ -13,6 +13,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
         controller: QuillCodeDesktopController,
         workspaceRoot: QuillCodeDesktopWindowSmokeWorkspaceRoot
     ) async {
+        markStage("smoke-task-started")
         do {
             let report = try await run(
                 request,
@@ -28,10 +29,12 @@ enum QuillCodeDesktopWindowSmokeRunner {
                 )
                 try json.write(to: reportURL, options: .atomic)
             }
+            markStage("complete")
             FileHandle.standardOutput.write(json)
             FileHandle.standardOutput.write(Data("\n".utf8))
             exit(0)
         } catch {
+            markStage("failed")
             FileHandle.standardError.write(Data("quill-code-desktop window smoke failed: \(error)\n".utf8))
             exit(1)
         }
@@ -57,16 +60,20 @@ enum QuillCodeDesktopWindowSmokeRunner {
         let initialPerformance = try QuillCodeDesktopInitialPerformanceSnapshot.capture(
             launchStartedAtUptime: QuillCodeDesktopLaunchClock.appEntryUptime
         )
+        markStage("launch-window-ready")
 
         let screenshotURL = screenshotURL(request: request)
+        markStage("validating-window-render")
         let stats = try await captureValidatedImageStats(
             window: window,
             contentView: contentView,
             bounds: bounds,
             to: screenshotURL
         )
+        markStage("validating-native-hit-targets")
         let workspaceSurface = try smokeSurface()
         let nativeHitTargets = try QuillCodeDesktopNativeHitTargetSmoke.validatedReport(for: workspaceSurface)
+        markStage("sampling-accessibility-frames")
         let accessibilityFrameSamples = try QuillCodeDesktopAccessibilityFrameSampler.validatedReport(
             window: window,
             contentView: contentView,
@@ -75,23 +82,28 @@ enum QuillCodeDesktopWindowSmokeRunner {
         guard let smokeController else {
             throw QuillCodeDesktopSmokeFailure.windowSurfaceIncomplete("smoke controller was not retained")
         }
+        markStage("interaction-sweep-1")
         let accessibilityActivation = try await QuillCodeDesktopAccessibilityActivationSampler.validatedReport(
             contentView: contentView,
             controller: smokeController,
             nativeHitTargets: nativeHitTargets
         )
+        markStage("settling-after-interaction-sweep-1")
         try await Task.sleep(for: .seconds(1))
         let firstSweepResources = try QuillCodeDesktopProcessResourceSnapshot.capture()
+        markStage("interaction-sweep-2")
         _ = try await QuillCodeDesktopAccessibilityActivationSampler.validatedReport(
             contentView: contentView,
             controller: smokeController,
             nativeHitTargets: nativeHitTargets
         )
         let surface = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: workspaceSurface)
+        markStage("settling-after-interaction-sweep-2")
         try await Task.sleep(for: .seconds(1))
         let performance = try initialPerformance.completingRepeatedInteractionSweep(
             firstSweepResources: firstSweepResources
         )
+        markStage("report-ready")
 
         return QuillCodeDesktopWindowSmokeReport(
             ok: true,
@@ -110,6 +122,12 @@ enum QuillCodeDesktopWindowSmokeRunner {
             accessibilityFrameSamples: accessibilityFrameSamples,
             accessibilityActivation: accessibilityActivation,
             surface: surface
+        )
+    }
+
+    private static func markStage(_ stage: String) {
+        FileHandle.standardError.write(
+            Data("quill-code-desktop window smoke stage: \(stage)\n".utf8)
         )
     }
 
