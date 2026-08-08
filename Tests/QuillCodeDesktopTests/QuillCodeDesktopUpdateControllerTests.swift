@@ -254,10 +254,11 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
             .extracting,
             .validatingApplication,
         ]
+        let progressGate = UpdatePreparationProgressGate()
         let preparer = UpdatePreparerSpy(
             release: release,
             progressUpdates: progressUpdates,
-            progressDelay: .milliseconds(30)
+            progressGate: progressGate
         )
         let installer = UpdateInstallerSpy(delay: .milliseconds(100))
         var terminationCount = 0
@@ -283,7 +284,13 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
             )
         }
         XCTAssertEqual(controller.preparationProgress?.downloadFraction, 0.5)
+        await progressGate.advance()
+        try await waitUntil { controller.preparationProgress == .verifying }
+        await progressGate.advance()
+        try await waitUntil { controller.preparationProgress == .extracting }
+        await progressGate.advance()
         try await waitUntil { controller.preparationProgress == .validatingApplication }
+        await progressGate.advance()
         try await waitUntil {
             if case .installing = controller.state { return true }
             return false
@@ -420,19 +427,19 @@ private actor UpdatePreparerSpy: QuillCodeDesktopUpdatePreparing {
     private let release: QuillCodeDesktopUpdateRelease
     private let delay: Duration?
     private let progressUpdates: [QuillCodeDesktopUpdatePreparationProgress]
-    private let progressDelay: Duration?
+    private let progressGate: UpdatePreparationProgressGate?
     private(set) var callCount = 0
 
     init(
         release: QuillCodeDesktopUpdateRelease,
         delay: Duration? = nil,
         progressUpdates: [QuillCodeDesktopUpdatePreparationProgress] = [],
-        progressDelay: Duration? = nil
+        progressGate: UpdatePreparationProgressGate? = nil
     ) {
         self.release = release
         self.delay = delay
         self.progressUpdates = progressUpdates
-        self.progressDelay = progressDelay
+        self.progressGate = progressGate
     }
 
     func prepare(
@@ -443,8 +450,8 @@ private actor UpdatePreparerSpy: QuillCodeDesktopUpdatePreparing {
         callCount += 1
         for update in progressUpdates {
             progress(update)
-            if let progressDelay {
-                try await Task.sleep(for: progressDelay)
+            if let progressGate {
+                await progressGate.wait()
             }
         }
         if let delay {
@@ -455,6 +462,29 @@ private actor UpdatePreparerSpy: QuillCodeDesktopUpdatePreparing {
             applicationURL: URL(fileURLWithPath: "/tmp/Quill Cowork.app"),
             workspaceURL: URL(fileURLWithPath: "/tmp/quill-cowork-update")
         )
+    }
+}
+
+private actor UpdatePreparationProgressGate {
+    private var permits = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if permits > 0 {
+            permits -= 1
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
+    }
+
+    func advance() {
+        guard !waiters.isEmpty else {
+            permits += 1
+            return
+        }
+        waiters.removeFirst().resume()
     }
 }
 

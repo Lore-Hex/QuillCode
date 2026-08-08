@@ -2,7 +2,7 @@ import XCTest
 
 final class ParitySearchDialogGateTests: QuillCodeParityTestCase {
     func testNativeSearchDialogsKeepLocalTypingState() throws {
-        let searchShortcutText = try Self.appSourceText(named: "QuillCodeSearchAndShortcutDialogs.swift")
+        let searchDialogText = try Self.appSourceText(named: "QuillCodeSearchView.swift")
         let searchSelectionText = try Self.appSourceText(named: "WorkspaceSearchSelection.swift")
         let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
         let commandPaletteSelectionText = try Self.appSourceText(named: "WorkspaceCommandPaletteSelection.swift")
@@ -18,9 +18,14 @@ final class ParitySearchDialogGateTests: QuillCodeParityTestCase {
             "selection.move(by: 1, in: results)",
             "selection.selectedItem(in: results)",
             "selectHighlightedResult()",
-            "private func focusSearchField()"
+            "@State private var isVisible = false",
+            "isVisible = true",
+            "private func focusSearchField() async",
+            "Task.sleep(for: .milliseconds(200))",
+            "guard !Task.isCancelled, isVisible else { return }",
+            "isVisible = false"
         ] {
-            Self.assertSource(searchShortcutText, contains: expected)
+            Self.assertSource(searchDialogText, contains: expected)
         }
         for expected in [
             "struct WorkspaceSearchSelection",

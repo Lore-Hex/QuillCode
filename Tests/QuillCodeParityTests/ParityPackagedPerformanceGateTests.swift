@@ -21,6 +21,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             #"static let measurement = "initial-live-window""#
         ])
         Self.assertSource(app, contains: "QuillCodeDesktopLaunchClock.appEntryUptime")
+        Self.assertSource(app, excludes: "await controller.refreshModelCatalog()")
         let smokeLaunchStart = try XCTUnwrap(
             app.range(of: "private enum QuillCodeDesktopWindowSmokeLaunch")
         ).lowerBound
