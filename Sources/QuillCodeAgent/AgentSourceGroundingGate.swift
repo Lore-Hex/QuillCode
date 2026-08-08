@@ -104,7 +104,16 @@ enum AgentSourceGroundingGate {
                 range: NSRange(line.startIndex..., in: line),
                 withTemplate: ""
             )
-            if sensitiveClaimRegexes.contains(where: {
+            let proseRange = NSRange(prose.startIndex..., in: prose)
+            let hasUnsupportedEventDuration = eventDurationContextRegex.firstMatch(
+                in: prose,
+                range: proseRange
+            ) != nil && containsUnsupportedMatch(
+                for: durationRegex,
+                in: prose,
+                sourceText: sourceText
+            )
+            if hasUnsupportedEventDuration || sensitiveClaimRegexes.contains(where: {
                 containsUnsupportedMatch(for: $0, in: prose, sourceText: sourceText)
             }) {
                 unsupported.insert(index)
@@ -184,9 +193,6 @@ enum AgentSourceGroundingGate {
         ),
         try! NSRegularExpression(pattern: #"(?i)\b(?:confidential|confidentiality|under\s+(?:an?\s+)?nda)\b"#),
         try! NSRegularExpression(
-            pattern: #"(?i)\b\d+(?:\s*[-–—]\s*\d+)?\s*[-–—]?\s*(?:minutes?|hours?|days?|weeks?)\b"#
-        ),
-        try! NSRegularExpression(
             pattern: #"(?i)\b(?:next|within)\s+(?:the\s+)?(?:couple|few|\d+)\s+(?:business\s+)?(?:hours?|days?|weeks?)\b"#
         ),
         try! NSRegularExpression(pattern: #"(?i)\bquick\s+(?:call|chat|conversation|meeting)\b"#),
@@ -194,6 +200,12 @@ enum AgentSourceGroundingGate {
             pattern: #"(?i)\b(?:we|i)(?:'ll|\s+will|\s+can)\s+(?:send|schedule|follow\s+up|work\s+around|confirm|provide|share)\b"#
         ),
     ]
+    private static let durationRegex = try! NSRegularExpression(
+        pattern: #"(?i)\b\d+(?:\s*[-–—]\s*\d+)?\s*[-–—]?\s*(?:minutes?|hours?|days?|weeks?)\b"#
+    )
+    private static let eventDurationContextRegex = try! NSRegularExpression(
+        pattern: #"(?i)(?:\b\d+(?:\s*[-–—]\s*\d+)?\s*[-–—]?\s*(?:minutes?|hours?|days?|weeks?)\b.{0,40}\b(?:interview|call|conversation|session|meeting)\b|\b(?:interview|call|conversation|session|meeting)\b.{0,40}\b\d+(?:\s*[-–—]\s*\d+)?\s*[-–—]?\s*(?:minutes?|hours?|days?|weeks?)\b)"#
+    )
 
     private static let unknownQualifierRegex = try! NSRegularExpression(
         pattern: #"(?i)\b(?:unknown|not\s+(?:stated|established|supplied|provided)|to\s+be\s+confirmed)\b"#

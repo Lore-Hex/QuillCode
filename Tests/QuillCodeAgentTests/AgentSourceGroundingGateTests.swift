@@ -522,6 +522,17 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         XCTAssertFalse(repaired.contains("next 2 weeks"))
     }
 
+    func testAnalyticalDurationEvidenceIsNotTreatedAsAnInventedMeetingLength() {
+        let source = "Northstar reduced owner-chasing from six hours to two hours over two closes."
+        let artifact = "Northstar cut owner-chasing from six hours to two hours—a 4-hour reduction."
+
+        XCTAssertFalse(AgentSourceGroundingGate.containsUnsupportedSensitiveClaim(
+            content: artifact,
+            path: "outputs/landing-page.md",
+            sourceText: source
+        ))
+    }
+
     private func writeCall(path: String = "outputs/brief.md", content: String) -> ToolCall {
         ToolCall(
             name: ToolDefinition.fileWrite.name,
