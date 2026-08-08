@@ -11,19 +11,23 @@ struct QuillCodeDesktopUpdateView: View {
                 .padding(.top, 18)
                 .padding(.bottom, 14)
 
-            Divider().opacity(0.55)
+            Divider()
+                .overlay(QuillCodeCharterTheme.line)
 
             content
                 .padding(24)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            Divider().opacity(0.55)
+            Divider()
+                .overlay(QuillCodeCharterTheme.line)
             footer
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
         }
         .frame(width: 470, height: 340)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(QuillCodeCharterTheme.page)
+        .foregroundStyle(QuillCodeCharterTheme.ivory)
+        .tint(QuillCodeCharterTheme.sage)
         .interactiveDismissDisabled(controller.state.isBusy)
     }
 
@@ -32,22 +36,31 @@ struct QuillCodeDesktopUpdateView: View {
             Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
                 .font(.system(size: 28, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(QuillCodeCharterTheme.sage)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Quill Cowork Update")
-                    .font(.title3.weight(.semibold))
+                    .font(.custom("Iowan Old Style", size: 20).weight(.semibold))
                     .accessibilityIdentifier("quillcode-update-title")
                 if let configuration = controller.configuration {
                     Text("Current version \(configuration.currentVersion) (\(configuration.currentBuild))")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QuillCodeCharterTheme.body)
                 }
             }
             Spacer()
             Button(action: controller.dismiss) {
                 Image(systemName: "xmark")
                     .font(.caption.weight(.bold))
-                    .quillCodeIconButtonTarget(size: 36, radius: 9)
+                    .foregroundStyle(QuillCodeCharterTheme.muted)
+                    .quillCodeIconButtonTarget(size: 36, radius: QuillCodeMetrics.iconControlRadius)
+                    .background(QuillCodeCharterTheme.raised)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous)
+                            .stroke(QuillCodeCharterTheme.line, lineWidth: 1)
+                    )
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous)
+                    )
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .disabled(controller.state.isBusy)
@@ -144,18 +157,18 @@ struct QuillCodeDesktopUpdateView: View {
                 Image(systemName: "arrow.down.app.fill")
                     .font(.system(size: 34, weight: .medium))
                     .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(QuillCodeCharterTheme.sage)
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Version \(release.displayVersion) is ready")
                         .font(.headline)
                     Text("\(release.channel.rawValue.capitalized) channel")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(QuillCodeCharterTheme.body)
                 }
                 Spacer()
                 Text(ByteCountFormatter.string(fromByteCount: release.asset.sizeBytes, countStyle: .file))
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QuillCodeCharterTheme.body)
             }
 
             VStack(alignment: .leading, spacing: 6) {
@@ -163,7 +176,7 @@ struct QuillCodeDesktopUpdateView: View {
                 Label("Automatic rollback if the new build cannot launch", systemImage: "arrow.uturn.backward.circle")
             }
             .font(.callout)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(QuillCodeCharterTheme.body)
 
             Button("View release on GitHub", action: controller.openReleasePage)
                 .buttonStyle(.link)
@@ -184,9 +197,9 @@ struct QuillCodeDesktopUpdateView: View {
             Image(systemName: icon)
                 .font(.system(size: 38, weight: .medium))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(QuillCodeCharterTheme.sage)
             Text(title)
-                .font(.headline)
+                .font(.custom("Iowan Old Style", size: 18).weight(.semibold))
                 .multilineTextAlignment(.center)
             Group {
                 if scrollsDetail {
@@ -202,17 +215,19 @@ struct QuillCodeDesktopUpdateView: View {
                 }
             }
             .font(.callout)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(QuillCodeCharterTheme.body)
             .multilineTextAlignment(.center)
             if showsProgress {
                 if let progressValue {
                     ProgressView(value: progressValue)
                         .frame(width: 220)
+                        .tint(QuillCodeCharterTheme.sage)
                         .accessibilityLabel(title)
                         .accessibilityValue(Text("\(Int(progressValue * 100)) percent"))
                 } else {
                     ProgressView()
                         .controlSize(.small)
+                        .tint(QuillCodeCharterTheme.sage)
                         .accessibilityLabel(title)
                 }
             }
@@ -244,7 +259,7 @@ struct QuillCodeDesktopUpdateView: View {
                 Spacer()
                 Text("Keep Quill Cowork open")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(QuillCodeCharterTheme.body)
             case .failed(_, let release):
                 if release != nil {
                     Button(action: controller.openDownloadInBrowser) {

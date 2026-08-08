@@ -82,7 +82,7 @@ struct QuillCodeSpendLimitSettingsCard: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
             TextField(placeholder, text: text)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(QuillCodeTextFieldStyle())
                 .quillCodeTextEntryTarget()
                 .accessibilityIdentifier(accessibilityIdentifier)
             Text(detail)

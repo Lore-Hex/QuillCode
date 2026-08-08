@@ -43,7 +43,7 @@ struct QuillCodeCommandPaletteView: View {
 
             HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 TextField("Search commands, > actions, / slash", text: $localQuery)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(QuillCodeTextFieldStyle())
                     .focused($isSearchFocused)
                     .accessibilityIdentifier("quillcode-command-palette-input")
                     .quillCodeTextEntryTarget()
@@ -55,7 +55,13 @@ struct QuillCodeCommandPaletteView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(QuillCodePalette.selection)
-                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                                .stroke(QuillCodePalette.blue.opacity(0.45), lineWidth: 1)
+                        )
+                        .clipShape(
+                            RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                        )
                 }
             }
 

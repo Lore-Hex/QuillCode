@@ -28,7 +28,7 @@ struct QuillCodeManagedWorktreeSettingsCard: View {
                     .foregroundStyle(QuillCodePalette.muted)
                 HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                     TextField("Managed worktree directory", text: $draft.managedWorktreeRootPathText)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(QuillCodeTextFieldStyle())
                         .quillCodeTextEntryTarget()
                         .accessibilityIdentifier("quillcode-settings-worktree-root")
                     Button("Use default") {

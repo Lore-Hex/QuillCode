@@ -70,6 +70,13 @@ struct QuillCodeSidebarThreadRowView: View {
                 }
             }
             .quillCodeSidebarRowChrome(background: item.isSelected ? QuillCodePalette.selection : Color.clear)
+            .overlay(alignment: .leading) {
+                if item.isSelected {
+                    Rectangle()
+                        .fill(QuillCodePalette.blue)
+                        .frame(width: 2, height: QuillCodeMetrics.sidebarVisibleRowHeight)
+                }
+            }
         }
         .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
         .accessibilityLabel("\(item.title), \(item.subtitle), updated \(activityLabel)")

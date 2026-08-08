@@ -4,8 +4,8 @@ public enum QuillCodeMetrics {
     public static let minimumHitTarget: CGFloat = 40
     public static let compactTextButtonMinWidth: CGFloat = 66
     public static let compactFormActionMinWidth: CGFloat = 52
-    public static let compactControlRadius: CGFloat = 7
-    public static let iconControlRadius: CGFloat = 10
+    public static let compactControlRadius: CGFloat = 2
+    public static let iconControlRadius: CGFloat = 2
     public static let minimumTargetClearance: CGFloat = 8
     public static let controlClusterSpacing: CGFloat = 8
     public static let denseControlClusterSpacing: CGFloat = 6
@@ -24,53 +24,61 @@ public enum QuillCodeMetrics {
     public static let sidebarIconTargetSize: CGFloat = 32
     public static let sidebarVisibleRowHeight: CGFloat = 25
     public static let sidebarVisibleRowHorizontalPadding: CGFloat = 11
-    public static let sidebarVisibleRowRadius: CGFloat = 6
+    public static let sidebarVisibleRowRadius: CGFloat = 2
     public static let commandPaletteRowHorizontalPadding: CGFloat = 10
     public static let commandPaletteRowVerticalPadding: CGFloat = 7
-    public static let commandPaletteRowRadius: CGFloat = 9
-    public static let composerSurfaceRadius: CGFloat = 12
-    public static let composerControlRadius: CGFloat = 10
-    public static let messageBubbleRadius: CGFloat = 12
+    public static let commandPaletteRowRadius: CGFloat = 4
+    public static let composerSurfaceRadius: CGFloat = 4
+    public static let composerControlRadius: CGFloat = 2
+    public static let messageBubbleRadius: CGFloat = 4
     public static let toolCardMinimumHeight: CGFloat = 74
     public static let compactToolCardMinimumHeight: CGFloat = 58
     public static let toolCardHeaderHeight: CGFloat = 44
     public static let toolCardRawDetailsMaxHeight: CGFloat = 240
-    public static let toolCardRadius: CGFloat = 12
-    public static let settingsCardRadius: CGFloat = 12
-    public static let dialogRadius: CGFloat = 10
-    public static let pressScale: CGFloat = 0.96
+    public static let toolCardRadius: CGFloat = 4
+    public static let settingsCardRadius: CGFloat = 4
+    public static let dialogRadius: CGFloat = 4
+    public static let pressScale: CGFloat = 1
+}
+
+public enum QuillCodeCharterTheme {
+    public static let page = Color(red: 0.039, green: 0.055, blue: 0.043)
+    public static let card = Color(red: 0.051, green: 0.071, blue: 0.055)
+    public static let raised = Color(red: 0.071, green: 0.094, blue: 0.075)
+    public static let hover = Color(red: 0.094, green: 0.125, blue: 0.098)
+    public static let line = Color(red: 0.125, green: 0.149, blue: 0.122)
+    public static let lineStrong = Color(red: 0.227, green: 0.259, blue: 0.227)
+    public static let ivory = Color(red: 0.929, green: 0.910, blue: 0.859)
+    public static let body = Color(red: 0.675, green: 0.710, blue: 0.643)
+    public static let muted = Color(red: 0.514, green: 0.561, blue: 0.502)
+    public static let sage = Color(red: 0.663, green: 0.804, blue: 0.725)
+    public static let sageBright = Color(red: 0.776, green: 0.886, blue: 0.827)
+    public static let clay = Color(red: 0.812, green: 0.604, blue: 0.549)
+    public static let gold = Color(red: 0.827, green: 0.718, blue: 0.475)
 }
 
 enum QuillCodePalette {
-    // Refined dark ramp (Codex/Fable): a cool near-black base with clearly STEPPED elevation — bg →
-    // sidebar → panel → panel2 → panel3 — so the rail, content, and cards read as distinct planes
-    // instead of one flat murk, with hairlines (line / lineStrong) that are actually visible. Cyan is
-    // the interactive accent (CLI: cyan = selection/status/input), purple = agent, green/red =
-    // additions/deletions. Mirrors the DOM surface :root tokens in E2E/harness/index.html — keep the two
-    // in sync so the native macOS surface and the HTML harness stay pixel-comparable.
-    static let background = Color(red: 0.059, green: 0.063, blue: 0.071)   // #0f1012 — deepest plane
-    static let sidebar = Color(red: 0.078, green: 0.082, blue: 0.094)      // #141518 — rail
-    static let panel = Color(red: 0.098, green: 0.106, blue: 0.122)        // #191b1f — main content
-    static let panel2 = Color(red: 0.129, green: 0.141, blue: 0.161)       // #212429 — cards, inputs
-    static let panel3 = Color(red: 0.165, green: 0.180, blue: 0.204)       // #2a2e34 — nested chips
-    static let line = Color(red: 0.169, green: 0.184, blue: 0.212)         // #2b2f36 — hairline
-    static let lineStrong = Color(red: 0.227, green: 0.247, blue: 0.278)   // #3a3f47 — emphasized border
-    static let selection = Color.white.opacity(0.08)
-    static let text = Color(red: 0.925, green: 0.933, blue: 0.941)         // #eceef0
-    static let muted = Color(red: 0.604, green: 0.631, blue: 0.671)        // #9aa1ab
-    static let faint = Color(red: 0.416, green: 0.439, blue: 0.471)        // #6a7078 — tertiary/disabled
-    static let blue = Color(red: 0.271, green: 0.784, blue: 0.902)         // #45c8e6 (cyan accent)
-    // Own-message bubble: a soft, muted teal (a quieter, grayer sibling of the accent) — NOT the old
-    // blue→coral gradient, and not a barely-there tint. Reads as "mine" on the right without shouting.
-    // Solid (not an opacity tint) so it renders identically over any backdrop, and kept just saturated
-    // enough to carry the transcript's cyan accent.
-    static let userBubble = Color(red: 0.227, green: 0.435, blue: 0.533)   // #3a6f88 (soft muted teal)
-    static let userBubbleBorder = Color(red: 0.337, green: 0.569, blue: 0.659) // #5691a8
-    static let green = Color(red: 0.275, green: 0.753, blue: 0.478)        // #46c07a
-    static let red = Color(red: 0.937, green: 0.357, blue: 0.322)          // #ef5b52
-    static let yellow = Color(red: 0.878, green: 0.667, blue: 0.302)       // #e0aa4d
-    static let coral = Color(red: 0.820, green: 0.420, blue: 0.370)
-    static let purple = Color(red: 0.769, green: 0.541, blue: 0.965)       // #c48af6 (agent)
+    // Charter: warm green-black planes, ivory text, sage interaction, and restrained semantic color.
+    static let background = QuillCodeCharterTheme.page                    // #0a0e0b
+    static let sidebar = QuillCodeCharterTheme.card                       // #0d120e
+    static let panel = QuillCodeCharterTheme.card                         // #0d120e
+    static let panel2 = QuillCodeCharterTheme.raised                      // #121813
+    static let panel3 = QuillCodeCharterTheme.hover                       // #182019
+    static let line = QuillCodeCharterTheme.line                          // #20261f
+    static let lineStrong = QuillCodeCharterTheme.lineStrong              // #3a423a
+    static let selection = panel3
+    static let text = QuillCodeCharterTheme.ivory                         // #ede8db
+    static let body = QuillCodeCharterTheme.body                          // #acb5a4
+    static let muted = QuillCodeCharterTheme.muted                        // #838f80
+    static let faint = Color(red: 0.349, green: 0.380, blue: 0.310)        // #59614f
+    static let blue = QuillCodeCharterTheme.sage                          // #a9cdb9, sage accent
+    static let userBubble = Color(red: 0.125, green: 0.188, blue: 0.153)   // sage-tinted message plane
+    static let userBubbleBorder = Color(red: 0.337, green: 0.408, blue: 0.361) // #56685c
+    static let green = QuillCodeCharterTheme.sageBright                   // #c6e2d3
+    static let red = QuillCodeCharterTheme.clay                           // #cf9a8c
+    static let yellow = QuillCodeCharterTheme.gold                        // #d3b779
+    static let coral = red
+    static let purple = Color(red: 0.651, green: 0.608, blue: 0.714)
 
     /// Confidential-mode ramp: the SAME stepped elevation as the neutral ramp, shifted to a deep
     /// violet cast so the mode is unmistakable at a glance — Chrome-incognito style, where the whole
@@ -127,9 +135,8 @@ public struct QuillCodePressableButtonStyle: ButtonStyle {
     }
 }
 
-/// Owns the hover state a `ButtonStyle` struct can't hold. Gives every pressable control real life:
-/// a subtle brighten + lift on hover, a snappy spring depress with a press-in dim, and the
-/// pointing-hand cursor — so a capsule reads as a button, not an inert label.
+/// Owns the hover state a `ButtonStyle` struct cannot hold. Charter controls brighten subtly on
+/// hover and move down one pixel on press without spring or scale motion.
 private struct QuillCodePressableButtonBody: View {
     let configuration: ButtonStyleConfiguration
     let enforcesMinimumHitTarget: Bool
@@ -141,26 +148,17 @@ private struct QuillCodePressableButtonBody: View {
             .quillCodeOptionalPressableFrame(enforcesMinimumHitTarget: enforcesMinimumHitTarget)
             .contentShape(Rectangle())
             .brightness(brightness)
-            .scaleEffect(scale)
+            .offset(y: !reduceMotion && configuration.isPressed ? 1 : 0)
             .quillCodePointingHandCursor()
             .onHover { isHovering = $0 }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.13), value: isHovering)
-            .animation(
-                reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.62),
-                value: configuration.isPressed
-            )
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 
     private var brightness: Double {
         guard !reduceMotion else { return 0 }
         if configuration.isPressed { return -0.05 }
-        return isHovering ? 0.06 : 0
-    }
-
-    private var scale: CGFloat {
-        guard !reduceMotion else { return 1 }
-        if configuration.isPressed { return QuillCodeMetrics.pressScale }
-        return isHovering ? 1.015 : 1
+        return isHovering ? 0.04 : 0
     }
 }
 
@@ -231,9 +229,24 @@ public struct QuillCodeActionButtonStyle: ButtonStyle {
     }
 }
 
-/// Hover-aware body for `QuillCodeActionButtonStyle`: raises the secondary/destructive tint and
-/// lightens the stroke on hover, brightens on hover / dims on press, and springs the depress — the
-/// life the `ButtonStyle` struct can't express without owning state.
+struct QuillCodeTextFieldStyle: TextFieldStyle {
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .padding(.horizontal, 9)
+            .frame(minHeight: 36)
+            .foregroundStyle(QuillCodePalette.text)
+            .background(QuillCodePalette.panel2)
+            .overlay(
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                    .stroke(QuillCodePalette.lineStrong, lineWidth: 1)
+            )
+            .clipShape(
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+            )
+    }
+}
+
+/// Hover-aware body for the shared Charter button treatments.
 private struct QuillCodeActionButtonBody: View {
     let configuration: ButtonStyleConfiguration
     let tone: QuillCodeActionButtonStyle.Tone
@@ -258,15 +271,12 @@ private struct QuillCodeActionButtonBody: View {
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .brightness(brightness)
-            .scaleEffect(!reduceMotion && configuration.isPressed ? QuillCodeMetrics.pressScale : 1)
+            .offset(y: !reduceMotion && configuration.isPressed ? 1 : 0)
             .opacity(isEnabled ? 1 : 0.48)
             .quillCodePointingHandCursor()
             .onHover { isHovering = isEnabled && $0 }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.13), value: isHovering)
-            .animation(
-                reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.62),
-                value: configuration.isPressed
-            )
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 
     private var brightness: Double {
@@ -279,9 +289,9 @@ private struct QuillCodeActionButtonBody: View {
         guard isEnabled else { return QuillCodePalette.muted }
         switch tone {
         case .primary:
-            return .white
+            return QuillCodePalette.background
         case .secondary:
-            return QuillCodePalette.blue
+            return QuillCodePalette.text
         case .destructive:
             return QuillCodePalette.red
         }
@@ -291,9 +301,9 @@ private struct QuillCodeActionButtonBody: View {
         guard isEnabled else { return QuillCodePalette.selection.opacity(0.26) }
         switch tone {
         case .primary:
-            return QuillCodePalette.blue
+            return QuillCodePalette.text
         case .secondary:
-            return QuillCodePalette.blue.opacity(isHovering ? 0.22 : 0.14)
+            return isHovering ? QuillCodePalette.panel3 : .clear
         case .destructive:
             return QuillCodePalette.red.opacity(isHovering ? 0.22 : 0.14)
         }
@@ -303,9 +313,9 @@ private struct QuillCodeActionButtonBody: View {
         guard isEnabled else { return Color.white.opacity(0.06) }
         switch tone {
         case .primary:
-            return Color.white.opacity(isHovering ? 0.28 : 0.18)
+            return QuillCodePalette.text
         case .secondary:
-            return QuillCodePalette.blue.opacity(isHovering ? 0.40 : 0.24)
+            return isHovering ? QuillCodePalette.text.opacity(0.45) : QuillCodePalette.lineStrong
         case .destructive:
             return QuillCodePalette.red.opacity(isHovering ? 0.40 : 0.24)
         }
@@ -367,7 +377,7 @@ private struct QuillCodeImageOutlineModifier: ViewModifier {
             .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                    .stroke(QuillCodePalette.lineStrong, lineWidth: 1)
             )
     }
 }
@@ -384,13 +394,12 @@ private struct QuillCodeSettingsCardModifier: ViewModifier {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: QuillCodeMetrics.settingsCardRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                    .stroke(QuillCodePalette.line, lineWidth: 1)
             )
             .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: QuillCodeMetrics.settingsCardRadius, style: .continuous)
+                Rectangle()
                     .fill(tint.opacity(0.70))
-                    .frame(width: 2)
-                    .padding(.vertical, 10)
+                    .frame(width: 1)
             }
             .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.settingsCardRadius, style: .continuous))
     }

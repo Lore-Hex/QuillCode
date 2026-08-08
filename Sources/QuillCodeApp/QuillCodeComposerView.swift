@@ -147,14 +147,18 @@ struct QuillCodeComposerView: View {
                 .stroke(composerSurfaceStroke, lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerSurfaceRadius, style: .continuous))
-        // A soft cyan focus glow, matching the harness's box-shadow ring on .composer-surface:focus-within.
-        .shadow(color: QuillCodePalette.blue.opacity(isComposerFocusRingActive ? 0.22 : 0), radius: 5)
+        .overlay {
+            if isComposerFocusRingActive {
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.composerSurfaceRadius + 2, style: .continuous)
+                    .stroke(QuillCodePalette.blue.opacity(0.22), lineWidth: 3)
+                    .padding(-2)
+            }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Message composer")
     }
 
-    /// The composer draws a cyan ring while the user is focused in it or a suggestion popover is open —
-    /// the two states that mean "this input is live". Mirrors .composer-surface:focus-within in the harness.
+    /// The composer draws a restrained sage ring whenever its input or suggestion list is active.
     private var isComposerFocusRingActive: Bool {
         isFocused.wrappedValue
             || !modelCommandSuggestions.isEmpty
@@ -243,15 +247,6 @@ struct QuillCodeComposerView: View {
             )
 
             Spacer(minLength: 8)
-
-            // Resolve the multiline field's Return-vs-newline ambiguity right where the eye lands after
-            // typing. Mirrors the suggestion popovers' own keyboard-hint idiom.
-            Text(composer.isSending ? "esc  stop" : "⏎ send   ⇧⏎ newline")
-                .font(.caption2)
-                .foregroundStyle(QuillCodePalette.faint)
-                .lineLimit(1)
-                .fixedSize()
-                .accessibilityHidden(true)
         }
         .frame(maxWidth: .infinity, minHeight: QuillCodeMetrics.minimumHitTarget, alignment: .leading)
         .accessibilityElement(children: .contain)

@@ -265,6 +265,7 @@ public struct QuillCodeWorkspaceView: View {
         .frame(minWidth: 980, minHeight: 640)
         .background(QuillCodePalette.background)
         .foregroundStyle(QuillCodePalette.text)
+        .tint(QuillCodePalette.blue)
         .environment(\.colorScheme, .dark)
         .dynamicTypeSize(surface.chrome.textScale.dynamicTypeSize)
         .overlay {

@@ -189,14 +189,17 @@ struct QuillCodeToolCardView: View {
 
     private var toolHeader: some View {
         HStack(alignment: .top, spacing: QuillCodeMetrics.controlClusterSpacing) {
-            // Glyph = tool TYPE (terminal/read/edit/…); the circle's tint = run STATUS. So color still
-            // carries status while shape carries identity, and the trailing badge keeps the status word.
+            // Shape identifies the tool while color and the trailing badge communicate status.
             Image(systemName: toolGlyph)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(statusColor)
                 .quillCodeDecorativeIconFrame()
-                .background(statusColor.opacity(0.14))
-                .clipShape(Circle())
+                .background(statusColor.opacity(0.08))
+                .overlay {
+                    RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                        .stroke(statusColor.opacity(0.38), lineWidth: 1)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous))
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
@@ -207,12 +210,9 @@ struct QuillCodeToolCardView: View {
                         QuillCodeExecutionContextChip(context: executionContext)
                     }
                 }
-                // The path/command is the most scannable value on a card: render it monospaced at
-                // near-primary brightness, one line, middle-truncated so a long path keeps its
-                // meaningful tail (the filename) instead of wrapping or hiding it.
                 Text(card.subtitle)
                     .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(QuillCodePalette.text.opacity(0.85))
+                    .foregroundStyle(QuillCodePalette.body)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }

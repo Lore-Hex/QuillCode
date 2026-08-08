@@ -157,12 +157,12 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
 
     var body: some View {
         ZStack {
-            Color(red: 0.090, green: 0.090, blue: 0.090)
-            VStack(alignment: .leading, spacing: 18) {
+            CharterSmokePalette.page
+            VStack(alignment: .leading, spacing: 20) {
                 header
                 summaryRows
-                commandSection(title: "Required Commands", commands: chrome.requiredCommandIDs)
-                commandSection(title: "Exercised Routes", commands: chrome.exercisedCommandIDs)
+                commandSection(title: "Required commands", commands: chrome.requiredCommandIDs)
+                commandSection(title: "Exercised routes", commands: chrome.exercisedCommandIDs)
                 Spacer(minLength: 0)
             }
             .padding(24)
@@ -170,17 +170,21 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(chrome.appName)
-                .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(.white)
+                .font(.custom("Iowan Old Style", size: 30).weight(.semibold))
+                .foregroundStyle(CharterSmokePalette.ivory)
             Text(chrome.primaryTitle)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Color.white.opacity(0.88))
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(CharterSmokePalette.ivoryDim)
             Text(chrome.subtitle)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.58))
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(CharterSmokePalette.muted)
                 .lineLimit(2)
+            Rectangle()
+                .fill(CharterSmokePalette.sage)
+                .frame(width: 44, height: 2)
+                .padding(.top, 4)
         }
     }
 
@@ -194,40 +198,40 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
 
     private func chip(label: String, value: String) -> some View {
         HStack(spacing: 10) {
-            Text(label)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Color(red: 0.239, green: 0.788, blue: 0.902))
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(CharterSmokePalette.muted)
                 .frame(width: 92, alignment: .leading)
             Text(value)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(CharterSmokePalette.ivory)
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
-        .background(Color(red: 0.129, green: 0.129, blue: 0.129))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(CharterSmokePalette.raised)
+        .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .stroke(CharterSmokePalette.line, lineWidth: 1)
         }
     }
 
     private func commandSection(title: String, commands: [String]) -> some View {
         VStack(alignment: .leading, spacing: 9) {
-            Text(title)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Color.white.opacity(0.55))
+            Text(title.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(CharterSmokePalette.muted)
             ForEach(commands, id: \.self) { command in
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(Color(red: 0.239, green: 0.788, blue: 0.902))
-                        .frame(width: 7, height: 7)
+                        .fill(CharterSmokePalette.sage)
+                        .frame(width: 6, height: 6)
                     Text(command)
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Color.white.opacity(0.90))
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(CharterSmokePalette.ivoryDim)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 0)
@@ -235,7 +239,22 @@ private struct QuillCodeDesktopChromeSmokePanel: View {
             }
         }
         .padding(14)
-        .background(Color(red: 0.110, green: 0.110, blue: 0.110))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(CharterSmokePalette.card)
+        .overlay {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(CharterSmokePalette.line, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
+}
+
+private enum CharterSmokePalette {
+    static let page = Color(red: 0.039, green: 0.055, blue: 0.043)
+    static let card = Color(red: 0.051, green: 0.071, blue: 0.055)
+    static let raised = Color(red: 0.071, green: 0.094, blue: 0.075)
+    static let line = Color(red: 0.165, green: 0.188, blue: 0.165)
+    static let ivory = Color(red: 0.929, green: 0.910, blue: 0.859)
+    static let ivoryDim = Color(red: 0.839, green: 0.851, blue: 0.800)
+    static let muted = Color(red: 0.514, green: 0.561, blue: 0.502)
+    static let sage = Color(red: 0.663, green: 0.804, blue: 0.725)
 }

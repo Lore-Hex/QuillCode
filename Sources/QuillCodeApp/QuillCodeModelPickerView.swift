@@ -42,7 +42,7 @@ struct QuillCodeModelPickerView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 Text(topBar.modelLabel)
-                    .font(.callout.weight(.semibold))
+                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if !topBar.modelIsLocked {
@@ -53,7 +53,13 @@ struct QuillCodeModelPickerView: View {
             }
             .foregroundStyle(QuillCodePalette.text)
             .padding(.horizontal, 8)
-            .quillCodeTextButtonTarget(minWidth: 56, radius: 8)
+            .quillCodeTextButtonTarget(minWidth: 56)
+            .background(QuillCodePalette.panel3)
+            .overlay {
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                    .stroke(QuillCodePalette.lineStrong, lineWidth: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous))
         }
         .buttonStyle(QuillCodePressableButtonStyle())
         .disabled(topBar.modelIsLocked)
@@ -106,7 +112,7 @@ struct QuillCodeModelPickerView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text("Choose Model")
-                .font(.headline)
+                .font(.custom("Iowan Old Style", size: 18).weight(.semibold))
             Text("Search provider, category, model, state, or us-only / eu-only / china-only")
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
@@ -242,7 +248,7 @@ struct QuillCodeModelPickerView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(QuillCodePalette.background.opacity(0.72))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.toolCardRadius, style: .continuous))
     }
 
     private func clearSearch() {

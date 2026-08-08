@@ -19,7 +19,7 @@ struct QuillCodeFollowUpQueueView: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.caption2.weight(.bold))
-                            .quillCodeIconButtonTarget(size: 22, radius: 6)
+                            .quillCodeIconButtonTarget(size: 22, radius: QuillCodeMetrics.compactControlRadius)
                     }
                     .buttonStyle(QuillCodePressableButtonStyle())
                     .foregroundStyle(QuillCodePalette.muted)
@@ -32,10 +32,10 @@ struct QuillCodeFollowUpQueueView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(QuillCodePalette.blue.opacity(0.12))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
                         .stroke(QuillCodePalette.blue.opacity(0.3), lineWidth: 1)
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous))
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("quillcode-followup-chip")
             }
@@ -102,8 +102,12 @@ struct QuillCodeComposerActionButton: View {
                     )
             }
             .buttonStyle(QuillCodePressableButtonStyle())
-            .background(QuillCodePalette.red)
-            .foregroundStyle(Color.white)
+            .background(QuillCodePalette.red.opacity(0.10))
+            .foregroundStyle(QuillCodePalette.red)
+            .overlay {
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous)
+                    .stroke(QuillCodePalette.red.opacity(0.55), lineWidth: 1)
+            }
             .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
             .keyboardShortcut(.cancelAction)
             .help("Stop the current run")
@@ -120,8 +124,12 @@ struct QuillCodeComposerActionButton: View {
                     )
             }
             .buttonStyle(QuillCodePressableButtonStyle())
-            .background(canSendDraft ? QuillCodePalette.blue : QuillCodePalette.background.opacity(0.72))
-            .foregroundStyle(canSendDraft ? Color.white : QuillCodePalette.muted)
+            .background(canSendDraft ? QuillCodePalette.text : QuillCodePalette.background.opacity(0.72))
+            .foregroundStyle(canSendDraft ? QuillCodePalette.background : QuillCodePalette.muted)
+            .overlay {
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous)
+                    .stroke(canSendDraft ? QuillCodePalette.text : QuillCodePalette.line, lineWidth: 1)
+            }
             .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.composerControlRadius, style: .continuous))
             .disabled(!canSendDraft)
             .keyboardShortcut(.return, modifiers: .command)

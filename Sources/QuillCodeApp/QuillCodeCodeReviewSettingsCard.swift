@@ -21,7 +21,7 @@ struct QuillCodeCodeReviewSettingsCard: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(QuillCodePalette.muted)
                 TextField("Current model", text: $draft.reviewModelText)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(QuillCodeTextFieldStyle())
                     .quillCodeTextEntryTarget()
                     .accessibilityLabel("Code review model override")
                     .accessibilityIdentifier("quillcode-code-review-model")

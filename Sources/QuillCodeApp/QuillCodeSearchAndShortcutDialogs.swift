@@ -51,7 +51,7 @@ struct QuillCodeKeyboardShortcutsView: View {
                 .accessibilityIdentifier("quillcode-shortcuts-search-mode")
 
                 TextField(searchPlaceholder, text: $query)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(QuillCodeTextFieldStyle())
                     .focused($isSearchFocused)
                     .accessibilityIdentifier("quillcode-shortcuts-search-input")
                     .quillCodeTextEntryTarget()

@@ -79,7 +79,7 @@ struct QuillCodeSettingsView: View {
         HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Settings")
-                    .font(.title2.weight(.semibold))
+                    .font(.custom("Iowan Old Style", size: 24).weight(.semibold))
                     .accessibilityIdentifier("quillcode-settings-title")
                 Text(settings.loginStatusLabel)
                     .font(.callout)
@@ -104,14 +104,29 @@ struct QuillCodeSettingsView: View {
                 .padding(.vertical, 4)
                 .background((settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow).opacity(0.16))
                 .foregroundStyle(settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow)
-                .clipShape(Capsule())
+                .overlay(
+                    RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                        .stroke(
+                            (settings.hasStoredAPIKey ? QuillCodePalette.green : QuillCodePalette.yellow).opacity(0.35),
+                            lineWidth: 1
+                        )
+                )
+                .clipShape(
+                    RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
+                )
             Button(action: onCancel) {
                 Image(systemName: "xmark")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(QuillCodePalette.muted)
-                    .quillCodeIconButtonTarget(size: 36, radius: 9)
+                    .quillCodeIconButtonTarget(size: 36, radius: QuillCodeMetrics.iconControlRadius)
                     .background(QuillCodePalette.selection.opacity(0.45))
-                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous)
+                            .stroke(QuillCodePalette.line, lineWidth: 1)
+                    )
+                    .clipShape(
+                        RoundedRectangle(cornerRadius: QuillCodeMetrics.iconControlRadius, style: .continuous)
+                    )
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .keyboardShortcut(.cancelAction)
@@ -148,7 +163,7 @@ struct QuillCodeSettingsView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
             TextField("https://api.trustedrouter.com/v1", text: $draft.apiBaseURL)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(QuillCodeTextFieldStyle())
                 .quillCodeTextEntryTarget()
                 .accessibilityIdentifier("quillcode-settings-api-base-url")
         }
@@ -184,7 +199,7 @@ struct QuillCodeSettingsView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
             SecureField(settings.hasStoredAPIKey ? "Leave blank to keep saved key" : "Paste TrustedRouter key", text: $draft.replacementAPIKey)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(QuillCodeTextFieldStyle())
                 .quillCodeTextEntryTarget()
                 .accessibilityIdentifier("quillcode-settings-api-key")
             if draft.shouldClearAPIKey {

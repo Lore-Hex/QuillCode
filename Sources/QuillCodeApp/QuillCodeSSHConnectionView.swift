@@ -76,7 +76,7 @@ struct QuillCodeSSHConnectionView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
                 TextField("Search SSH hosts", text: $coordinator.draft.query)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(QuillCodeTextFieldStyle())
                     .quillCodeTextEntryTarget()
                     .focused($focusedField, equals: .search)
                     .accessibilityIdentifier("quillcode-ssh-host-search")
