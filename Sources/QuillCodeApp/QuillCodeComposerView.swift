@@ -120,7 +120,10 @@ struct QuillCodeComposerView: View {
                 )
             }
 
-            HStack(alignment: .bottom, spacing: QuillCodeMetrics.controlClusterSpacing) {
+            HStack(
+                alignment: .bottom,
+                spacing: QuillCodeMetrics.minimumTargetClearance + 1
+            ) {
                 QuillCodeComposerTextField(
                     placeholder: isWorkspaceAvailable ? composer.placeholder : "Open a project to start",
                     draft: $draft,
