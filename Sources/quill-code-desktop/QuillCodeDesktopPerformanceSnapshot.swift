@@ -56,23 +56,29 @@ struct QuillCodeDesktopInitialPerformanceSnapshot: Equatable, Sendable {
         )
     }
 
-    func completingInteractionSweep() throws -> QuillCodeDesktopPerformanceSnapshot {
+    func completingRepeatedInteractionSweep(
+        firstSweepResources: QuillCodeDesktopProcessResourceSnapshot
+    ) throws -> QuillCodeDesktopPerformanceSnapshot {
         QuillCodeDesktopPerformanceSnapshot(
             launchReadyMilliseconds: launchReadyMilliseconds,
             initialResources: resources,
-            postInteractionResources: try QuillCodeDesktopProcessResourceSnapshot.capture()
+            postInteractionResources: firstSweepResources,
+            repeatedInteractionResources: try QuillCodeDesktopProcessResourceSnapshot.capture()
         )
     }
 }
 
 struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
-    static let schemaVersion = 2
+    static let schemaVersion = 3
     static let measurement = QuillCodeDesktopInitialPerformanceSnapshot.measurement
     static let postInteractionMeasurement = "settled-after-native-interaction-sweep"
+    static let repeatedInteractionMeasurement = "settled-after-repeated-native-interaction-sweep"
+    static let interactionSweepCount = 2
 
     var launchReadyMilliseconds: Double
     var initialResources: QuillCodeDesktopProcessResourceSnapshot
     var postInteractionResources: QuillCodeDesktopProcessResourceSnapshot
+    var repeatedInteractionResources: QuillCodeDesktopProcessResourceSnapshot
 
     var residentMemoryBytes: Int64 { initialResources.residentMemoryBytes }
     var threadCount: Int { initialResources.threadCount }
@@ -81,6 +87,12 @@ struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
     }
     var threadGrowth: Int {
         postInteractionResources.threadCount - initialResources.threadCount
+    }
+    var repeatedInteractionResidentMemoryGrowthBytes: Int64 {
+        repeatedInteractionResources.residentMemoryBytes - postInteractionResources.residentMemoryBytes
+    }
+    var repeatedInteractionThreadGrowth: Int {
+        repeatedInteractionResources.threadCount - postInteractionResources.threadCount
     }
 
     var dictionary: [String: Any] {
@@ -94,7 +106,13 @@ struct QuillCodeDesktopPerformanceSnapshot: Equatable, Sendable {
             "postInteractionResidentMemoryBytes": postInteractionResources.residentMemoryBytes,
             "postInteractionThreadCount": postInteractionResources.threadCount,
             "residentMemoryGrowthBytes": residentMemoryGrowthBytes,
-            "threadGrowth": threadGrowth
+            "threadGrowth": threadGrowth,
+            "repeatedInteractionMeasurement": Self.repeatedInteractionMeasurement,
+            "interactionSweepCount": Self.interactionSweepCount,
+            "repeatedInteractionResidentMemoryBytes": repeatedInteractionResources.residentMemoryBytes,
+            "repeatedInteractionThreadCount": repeatedInteractionResources.threadCount,
+            "repeatedInteractionResidentMemoryGrowthBytes": repeatedInteractionResidentMemoryGrowthBytes,
+            "repeatedInteractionThreadGrowth": repeatedInteractionThreadGrowth
         ]
     }
 }

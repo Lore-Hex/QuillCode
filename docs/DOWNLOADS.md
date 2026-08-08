@@ -85,13 +85,15 @@ requires at least two launches to meet the time budget, and requires every memor
 sample to meet its budget. The median-launch attempt, every attempt, thread
 counts, and enforced budgets ship as the architecture-specific `PERFORMANCE.json` asset.
 
-Each process then completes the packaged native interaction sweep, including
-reversible navigation, sheet, search, model-picker, and text-entry checks. After a
-one-second settling interval, the release gate samples the same process again. The
-post-interaction snapshot must remain below 256 MiB, retain no more than 80 MiB
-above its initial-window sample, and keep both samples at or below 64 threads.
-The public performance asset records both snapshots and their signed growth so a
-release cannot hide resource regressions behind a fast first frame.
+Each process then completes the packaged native interaction sweep twice, including
+reversible navigation, sheet, search, model-picker, and text-entry checks. The gate
+samples the same process after a one-second settling interval following each pass.
+Both interaction snapshots must remain below 256 MiB, the first may retain no more
+than 80 MiB above the initial-window sample, and the repeated pass may add no more
+than another 16 MiB or 4 additional threads. All three samples must stay at or below
+64 threads. The public performance asset records every raw snapshot and signed delta
+so a release cannot hide resource regressions behind a fast first frame or one-time
+UI warming.
 These intentionally conservative first budgets catch major regressions without
 turning one loaded-runner outlier into the product metric.
 

@@ -25,6 +25,8 @@ from .performance import (
     DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
     DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
     DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
+    DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES,
+    DEFAULT_MAX_REPEATED_THREAD_GROWTH,
     DEFAULT_MAX_THREAD_COUNT,
     write_performance_manifest,
 )
@@ -119,9 +121,19 @@ def main() -> None:
         default=DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
     )
     performance_parser.add_argument(
+        "--max-repeated-resident-memory-growth-bytes",
+        type=int,
+        default=DEFAULT_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES,
+    )
+    performance_parser.add_argument(
         "--max-thread-count",
         type=int,
         default=DEFAULT_MAX_THREAD_COUNT,
+    )
+    performance_parser.add_argument(
+        "--max-repeated-thread-growth",
+        type=int,
+        default=DEFAULT_MAX_REPEATED_THREAD_GROWTH,
     )
 
     computer_use_parser = subparsers.add_parser(
@@ -260,7 +272,11 @@ def main() -> None:
             max_launch_ready_milliseconds=args.max_launch_ready_milliseconds,
             max_resident_memory_bytes=args.max_resident_memory_bytes,
             max_resident_memory_growth_bytes=args.max_resident_memory_growth_bytes,
+            max_repeated_resident_memory_growth_bytes=(
+                args.max_repeated_resident_memory_growth_bytes
+            ),
             max_thread_count=args.max_thread_count,
+            max_repeated_thread_growth=args.max_repeated_thread_growth,
         )
     elif args.command == "computer-use":
         write_computer_use_manifest(
