@@ -42,6 +42,7 @@ struct QuillCodeSearchView: View {
                 .focused($isSearchFocused)
                 .accessibilityIdentifier("quillcode-search-input")
                 .quillCodeTextEntryTarget()
+                .onAppear(perform: focusSearchField)
                 .onSubmit(selectHighlightedResult)
 
             if results.isEmpty {
@@ -70,7 +71,6 @@ struct QuillCodeSearchView: View {
         .onAppear {
             isVisible = true
             selection.reconcile(with: results, preferredID: sidebar.selectedThreadID)
-            focusSearchField()
         }
         .onChange(of: localQuery) { _, newValue in
             if query != newValue {

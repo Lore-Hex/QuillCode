@@ -85,7 +85,6 @@ struct QuillCodeModelPickerView: View {
         .padding(14)
         .frame(width: 400, height: 500)
         .background(QuillCodePalette.panel)
-        .onAppear(perform: focusSearchField)
         .onMoveCommand { direction in
             switch direction {
             case .up:
@@ -134,6 +133,7 @@ struct QuillCodeModelPickerView: View {
             .quillCodeTextEntryTarget()
             .accessibilityLabel("Search models")
             .accessibilityIdentifier("quillcode-model-picker-search")
+            .onAppear(perform: focusSearchField)
             .onSubmit(selectHighlightedModel)
     }
 
