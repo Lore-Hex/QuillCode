@@ -1,5 +1,19 @@
 # QuillCode Decisions
 
+## 2026-08-08: public performance evidence is verified semantically
+
+- **Decision:** The post-publication release verifier must require exactly one architecture-matched
+  macOS performance asset and validate its meaning after size, digest, and checksum verification.
+- **Contract:** Published evidence uses the canonical production schema, boundaries, two-sweep count,
+  three fresh attempts, two-of-three launch policy, median selected headline, and exact production
+  budgets. The verifier recomputes raw memory/thread deltas, MiB projections, every budget result,
+  launch pass counts, and headline fields instead of trusting embedded success flags.
+- **Failure behavior:** Missing evidence, extra/missing fields without a schema bump, weakened limits,
+  incomplete aggregation, forged deltas, non-finite values, resource overruns, or selected-attempt
+  drift fail the public release job even when all published hashes are internally consistent.
+- **Why:** Checksums prove which bytes were published, not that those bytes still prove Quill Cowork's
+  native speed and resource promises. Distribution readiness requires both integrity and semantics.
+
 ## 2026-08-08: repeated native interactions must converge
 
 - **Decision:** Every packaged performance process runs the same reversible native Accessibility

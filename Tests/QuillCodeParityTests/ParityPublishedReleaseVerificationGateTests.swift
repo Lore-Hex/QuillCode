@@ -18,6 +18,124 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         XCTAssertTrue(result.output.contains("Verified public Quill Cowork tester release tester-latest"))
     }
 
+    func testVerifierRejectsPerformanceSchemaDriftAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture { evidence in
+            evidence["schemaVersion"] = 2
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("performance evidence schemaVersion is invalid"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsForgedPerformanceDeltaAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture { evidence in
+            var attempts = try XCTUnwrap(evidence["attempts"] as? [[String: Any]])
+            attempts[2]["repeatedInteractionResidentMemoryGrowthBytes"] = 1
+            evidence["attempts"] = attempts
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("performance attempt 3 repeated resident-memory delta is forged"),
+            result.output
+        )
+    }
+
+    func testVerifierRecomputesPublishedPerformanceBudgetsAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture { evidence in
+            var attempts = try XCTUnwrap(evidence["attempts"] as? [[String: Any]])
+            let postResident = try XCTUnwrap(
+                attempts[2]["postInteractionResidentMemoryBytes"] as? Int
+            )
+            let repeatedGrowth = 17 * 1_024 * 1_024
+            attempts[2]["repeatedInteractionResidentMemoryBytes"] = postResident + repeatedGrowth
+            attempts[2]["repeatedInteractionResidentMemoryMiB"] = 119.0
+            attempts[2]["repeatedInteractionResidentMemoryGrowthBytes"] = repeatedGrowth
+            attempts[2]["repeatedInteractionResidentMemoryGrowthMiB"] = 17.0
+            evidence["attempts"] = attempts
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("performance attempt 3 violates the repeated resident-memory growth budget"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsMissingPublishedPerformanceEvidence() throws {
+        let fixture = try makeFixture(includePerformanceAsset: false)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("release must contain exactly one packaged performance asset"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsPublishedPerformancePolicyDriftAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture { evidence in
+            var budgets = try XCTUnwrap(evidence["budgets"] as? [String: Any])
+            budgets["maximumRepeatedResidentMemoryGrowthBytes"] = 32 * 1_024 * 1_024
+            evidence["budgets"] = budgets
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("is not production policy"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsIncompletePublishedPerformanceAggregation() throws {
+        let fixture = try makeFixture { evidence in
+            var attempts = try XCTUnwrap(evidence["attempts"] as? [[String: Any]])
+            attempts.removeLast()
+            evidence["attempts"] = attempts
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("performance evidence must contain 3 attempts"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsPublishedPerformanceHeadlineDrift() throws {
+        let fixture = try makeFixture { evidence in
+            evidence["repeatedInteractionThreadGrowth"] = 1
+        }
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("disagrees with selectedAttempt"),
+            result.output
+        )
+    }
+
     func testVerifierRejectsFeedDriftAndPayloadCorruption() throws {
         let feedFixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: feedFixture.root) }
@@ -101,7 +219,9 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
 
     private func makeFixture(
         appCommit: String? = nil,
-        appInfoIsSymlink: Bool = false
+        appInfoIsSymlink: Bool = false,
+        includePerformanceAsset: Bool = true,
+        performanceMutation: ((inout [String: Any]) throws -> Void)? = nil
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("quill-cowork-release-verifier-tests")
@@ -112,6 +232,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         let appName = "Quill-Cowork-macOS-arm64.zip"
         let cliName = "quill-code-macOS-arm64.tar.gz"
         let buildInfoName = "BUILD_INFO.txt"
+        let performanceName = "Quill-Cowork-macOS-arm64-PERFORMANCE.json"
         let checksumsName = "SHASUMS256.txt"
         try writeAppArchive(
             to: assetsURL.appendingPathComponent(appName),
@@ -120,6 +241,14 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             infoIsSymlink: appInfoIsSymlink
         )
         try Data("verified cli payload".utf8).write(to: assetsURL.appendingPathComponent(cliName))
+        if includePerformanceAsset {
+            var performanceEvidence = performanceEvidence()
+            try performanceMutation?(&performanceEvidence)
+            try writeJSON(
+                performanceEvidence,
+                to: assetsURL.appendingPathComponent(performanceName)
+            )
+        }
         try """
         product=Quill Cowork
         platform=macOS
@@ -146,7 +275,11 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             encoding: .utf8
         )
 
-        let checksummedNames = [buildInfoName, appName, cliName].sorted()
+        var checksummedNames = [buildInfoName, appName, cliName]
+        if includePerformanceAsset {
+            checksummedNames.append(performanceName)
+        }
+        checksummedNames.sort()
         let checksumText = try checksummedNames.map { name in
             let digest = try sha256(at: assetsURL.appendingPathComponent(name))
             return "\(digest)  \(name)"
@@ -165,7 +298,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             install: "zip-app",
             assetsURL: assetsURL
         )
-        let manifestAssets = try [
+        var manifestAssets = try [
             manifestAsset(
                 named: buildInfoName,
                 kind: "metadata",
@@ -173,7 +306,19 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 arch: "any",
                 install: "text",
                 assetsURL: assetsURL
-            ),
+            )
+        ]
+        if includePerformanceAsset {
+            manifestAssets.append(try manifestAsset(
+                named: performanceName,
+                kind: "performance",
+                platform: "macOS",
+                arch: "arm64",
+                install: "json",
+                assetsURL: assetsURL
+            ))
+        }
+        manifestAssets.append(contentsOf: try [
             appAsset,
             manifestAsset(
                 named: checksumsName,
@@ -191,7 +336,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 install: "tarball",
                 assetsURL: assetsURL
             )
-        ]
+        ])
         let manifest: [String: Any] = [
             "schemaVersion": 1,
             "product": "Quill Cowork",
@@ -248,6 +393,134 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         let releaseJSONURL = root.appendingPathComponent("release.json")
         try writeJSON(release, to: releaseJSONURL)
         return Fixture(root: root, assets: assetsURL, manifest: manifestURL, releaseJSON: releaseJSONURL)
+    }
+
+    private func performanceEvidence() -> [String: Any] {
+        let attempts = [
+            performanceAttempt(
+                number: 1,
+                launchReadyMilliseconds: 3_100,
+                residentMiB: 96,
+                postInteractionMiB: 100,
+                repeatedInteractionMiB: 102,
+                threadCount: 18,
+                postInteractionThreadCount: 20,
+                repeatedInteractionThreadCount: 19
+            ),
+            performanceAttempt(
+                number: 2,
+                launchReadyMilliseconds: 500,
+                residentMiB: 97,
+                postInteractionMiB: 101,
+                repeatedInteractionMiB: 103,
+                threadCount: 19,
+                postInteractionThreadCount: 20,
+                repeatedInteractionThreadCount: 20
+            ),
+            performanceAttempt(
+                number: 3,
+                launchReadyMilliseconds: 400,
+                residentMiB: 98,
+                postInteractionMiB: 102,
+                repeatedInteractionMiB: 104,
+                threadCount: 20,
+                postInteractionThreadCount: 21,
+                repeatedInteractionThreadCount: 21
+            )
+        ]
+        let selectedAttempt = attempts[1]
+        var evidence: [String: Any] = [
+            "schemaVersion": 3,
+            "ok": true,
+            "product": "Quill Cowork",
+            "measurement": "initial-live-window",
+            "postInteractionMeasurement": "settled-after-native-interaction-sweep",
+            "repeatedInteractionMeasurement": "settled-after-repeated-native-interaction-sweep",
+            "interactionSweepCount": 2,
+            "aggregation": "median-of-fresh-processes",
+            "attemptCount": 3,
+            "selectedAttempt": 2,
+            "passingAttemptCount": 2,
+            "requiredPassingAttemptCount": 2,
+            "attempts": attempts,
+            "budgets": [
+                "maximumLaunchReadyMilliseconds": 3_000.0,
+                "maximumResidentMemoryBytes": 256 * 1_024 * 1_024,
+                "maximumResidentMemoryGrowthBytes": 80 * 1_024 * 1_024,
+                "maximumRepeatedResidentMemoryGrowthBytes": 16 * 1_024 * 1_024,
+                "maximumThreadCount": 64,
+                "maximumRepeatedThreadGrowth": 4
+            ],
+            "withinBudget": true
+        ]
+        let summaryFields = [
+            "launchReadyMilliseconds",
+            "residentMemoryBytes",
+            "residentMemoryMiB",
+            "threadCount",
+            "postInteractionResidentMemoryBytes",
+            "postInteractionResidentMemoryMiB",
+            "postInteractionThreadCount",
+            "residentMemoryGrowthBytes",
+            "residentMemoryGrowthMiB",
+            "threadGrowth",
+            "repeatedInteractionResidentMemoryBytes",
+            "repeatedInteractionResidentMemoryMiB",
+            "repeatedInteractionThreadCount",
+            "repeatedInteractionResidentMemoryGrowthBytes",
+            "repeatedInteractionResidentMemoryGrowthMiB",
+            "repeatedInteractionThreadGrowth"
+        ]
+        for field in summaryFields {
+            evidence[field] = selectedAttempt[field]
+        }
+        return evidence
+    }
+
+    private func performanceAttempt(
+        number: Int,
+        launchReadyMilliseconds: Double,
+        residentMiB: Int,
+        postInteractionMiB: Int,
+        repeatedInteractionMiB: Int,
+        threadCount: Int,
+        postInteractionThreadCount: Int,
+        repeatedInteractionThreadCount: Int
+    ) -> [String: Any] {
+        let resident = residentMiB * 1_024 * 1_024
+        let postResident = postInteractionMiB * 1_024 * 1_024
+        let repeatedResident = repeatedInteractionMiB * 1_024 * 1_024
+        let residentGrowth = postResident - resident
+        let repeatedResidentGrowth = repeatedResident - postResident
+        return [
+            "attempt": number,
+            "launchReadyMilliseconds": launchReadyMilliseconds,
+            "residentMemoryBytes": resident,
+            "residentMemoryMiB": Double(residentMiB),
+            "threadCount": threadCount,
+            "postInteractionResidentMemoryBytes": postResident,
+            "postInteractionResidentMemoryMiB": Double(postInteractionMiB),
+            "postInteractionThreadCount": postInteractionThreadCount,
+            "residentMemoryGrowthBytes": residentGrowth,
+            "residentMemoryGrowthMiB": Double(residentGrowth) / Double(1_024 * 1_024),
+            "threadGrowth": postInteractionThreadCount - threadCount,
+            "repeatedInteractionResidentMemoryBytes": repeatedResident,
+            "repeatedInteractionResidentMemoryMiB": Double(repeatedInteractionMiB),
+            "repeatedInteractionThreadCount": repeatedInteractionThreadCount,
+            "repeatedInteractionResidentMemoryGrowthBytes": repeatedResidentGrowth,
+            "repeatedInteractionResidentMemoryGrowthMiB": (
+                Double(repeatedResidentGrowth) / Double(1_024 * 1_024)
+            ),
+            "repeatedInteractionThreadGrowth": (
+                repeatedInteractionThreadCount - postInteractionThreadCount
+            ),
+            "withinLaunchBudget": launchReadyMilliseconds <= 3_000,
+            "withinResidentMemoryBudget": true,
+            "withinResidentMemoryGrowthBudget": true,
+            "withinRepeatedResidentMemoryGrowthBudget": true,
+            "withinThreadCountBudget": true,
+            "withinRepeatedThreadGrowthBudget": true
+        ]
     }
 
     private func manifestAsset(
