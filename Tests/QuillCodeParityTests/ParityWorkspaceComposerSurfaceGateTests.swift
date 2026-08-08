@@ -20,7 +20,7 @@ final class ParityWorkspaceComposerSurfaceGateTests: QuillCodeParityTestCase {
             "composerSurfaceStroke"
         ].forEach { Self.assertSource(composerViewText, contains: $0) }
 
-        Self.assertSource(designText, contains: "composerSurfaceRadius: CGFloat = 12")
+        Self.assertSource(designText, contains: "composerSurfaceRadius: CGFloat = 4")
 
         [
             "Choose Auto safety mode",

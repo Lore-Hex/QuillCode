@@ -74,7 +74,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertEqual(stats.height, 340)
         XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
         XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
-        XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
+        XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.001)
     }
 
     func testRenderedUpdaterFailureKeepsRecoveryActionsInsideSheet() async throws {
@@ -110,7 +110,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
         XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
         XCTAssertGreaterThan(stats.brightPixelRatio, 0.001)
-        XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
+        XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.001)
     }
 
     func testRenderedSSHConnectionDialogShowsConfiguredHostsAndActions() throws {
@@ -156,7 +156,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
         XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
         XCTAssertGreaterThan(stats.brightPixelRatio, 0.0005)
-        XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
+        XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.0005)
     }
 
     func testRenderedWorkspaceShowsRealWorldActionResult() async throws {
@@ -220,12 +220,12 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(transcriptStats.distinctColorBuckets, 34)
         XCTAssertGreaterThan(
             transcriptStats.brightPixelRatio,
-            0.003,
+            0.0025,
             "Rendered transcript excerpt should visibly show the prompt, tool card, and final answer."
         )
         XCTAssertGreaterThan(
-            transcriptStats.blueAccentPixelRatio,
-            0.002,
+            transcriptStats.sageAccentPixelRatio,
+            0.0012,
             "Rendered transcript excerpt should preserve tool-card and user-bubble accents."
         )
     }
@@ -492,7 +492,7 @@ private struct RenderedWorkspacePixelStats {
     var height: Int
     var opaquePixelRatio: Double
     var brightPixelRatio: Double
-    var blueAccentPixelRatio: Double
+    var sageAccentPixelRatio: Double
     var distinctColorBuckets: Int
 
     init(image: CGImage) throws {
@@ -517,7 +517,7 @@ private struct RenderedWorkspacePixelStats {
 
         var opaquePixels = 0
         var brightPixels = 0
-        var blueAccentPixels = 0
+        var sageAccentPixels = 0
         var colorBuckets = Set<Int>()
         let totalPixels = width * height
 
@@ -533,8 +533,9 @@ private struct RenderedWorkspacePixelStats {
             if red + green + blue > 560 {
                 brightPixels += 1
             }
-            if blue > 130, green > 95, red < 120 {
-                blueAccentPixels += 1
+            if red > 100, red < 220, green > 150, blue > 125,
+               green > red + 10, green > blue + 5 {
+                sageAccentPixels += 1
             }
 
             let bucket = (red / 16) << 8 | (green / 16) << 4 | (blue / 16)
@@ -543,7 +544,7 @@ private struct RenderedWorkspacePixelStats {
 
         opaquePixelRatio = Double(opaquePixels) / Double(totalPixels)
         brightPixelRatio = Double(brightPixels) / Double(totalPixels)
-        blueAccentPixelRatio = Double(blueAccentPixels) / Double(totalPixels)
+        sageAccentPixelRatio = Double(sageAccentPixels) / Double(totalPixels)
         distinctColorBuckets = colorBuckets.count
     }
 }

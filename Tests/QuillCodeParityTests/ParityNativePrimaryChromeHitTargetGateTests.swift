@@ -68,7 +68,7 @@ final class ParityNativePrimaryChromeHitTargetGateTests: QuillCodeParityTestCase
         }
         Self.assertSource(
             transcriptMessageText,
-            contains: ".quillCodeIconButtonTarget(radius: QuillCodeMetrics.minimumHitTarget / 2)"
+            contains: ".quillCodeIconButtonTarget()"
         )
         Self.assertSource(transcriptMessageText, contains: ".quillCodeTextButtonTarget(minWidth: 64")
         Self.assertSource(findText, contains: ".quillCodeIconButtonTarget()")

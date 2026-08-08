@@ -28,7 +28,8 @@ final class ParityNativeTopBarChromeGateTests: QuillCodeParityTestCase {
         // truncated the whole top bar at real window widths.
         [
             "Text(\"Context\")",
-            "font(.system(size: 14, weight: .semibold).monospacedDigit())",
+            "font(.custom(\"Iowan Old Style\", size: 16).weight(.semibold))",
+            "font(.system(size: 12, weight: .semibold, design: .monospaced))",
             ".fixedSize()",
             "tokenBudgetHelp(budget)"
         ].forEach { Self.assertSource(identityText, contains: $0) }
@@ -47,7 +48,7 @@ final class ParityNativeTopBarChromeGateTests: QuillCodeParityTestCase {
         [
             "struct QuillCodeModePickerButton",
             "selectedModeColor",
-            "quillCodeCapsuleButtonTarget",
+            "quillCodeTextButtonTarget(minWidth: 84)",
             "QuillCodePressableButtonStyle"
         ].forEach { Self.assertSource(modePickerText, contains: $0) }
         Self.assertSource(topBarViewText, excludes: "struct QuillCodeModePickerButton")
