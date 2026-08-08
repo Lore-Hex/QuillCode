@@ -116,7 +116,10 @@ enum QuillCodeDesktopUpdateManifestValidator {
         configuration: QuillCodeDesktopUpdateConfiguration,
         scope: GitHubReleaseRepositoryScope
     ) throws -> QuillCodeDesktopUpdateManifest.Asset {
-        guard let updaterAsset = manifest.updater.macOSAppAsset,
+        let updaterAssets = manifest.updater.macOSAppAssets ?? manifest.updater.macOSAppAsset.map { [$0] } ?? []
+        let matchingAssets = updaterAssets.filter { $0.arch == configuration.architecture }
+        guard matchingAssets.count == 1,
+              let updaterAsset = matchingAssets.first,
               let asset = manifest.assets.first(where: { $0.name == updaterAsset.name }),
               asset == updaterAsset,
               asset.kind == "app",

@@ -28,10 +28,14 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(workflow, containsAll: [
             "verify-updater:",
-            "runs-on: macos-15",
+            "runner: macos-15",
+            "runner: macos-15-intel",
+            "runs-on: ${{ matrix.runner }}",
+            "arch: arm64",
+            "arch: x86_64",
             "needs: publish",
             "scripts/packaged-macos-updater-smoke.sh",
-            "quillcode-public-updater-smoke"
+            "quillcode-public-updater-smoke-${{ matrix.arch }}"
         ])
     }
 }

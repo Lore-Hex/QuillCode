@@ -13,6 +13,7 @@ from urllib.parse import quote
 
 SCHEMA_VERSION = 1
 PRODUCT = "Quill Cowork"
+MACOS_ARCHITECTURES = ("arm64", "x86_64")
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -43,14 +44,57 @@ def sha256_hex(path: Path) -> str:
     return digest.hexdigest()
 
 
-def parse_build_info(asset_directory: Path) -> dict[str, str]:
+def parse_build_info_file(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
-    for path in sorted(asset_directory.glob("BUILD_INFO*.txt")):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            key, separator, value = line.partition("=")
-            if separator and key and key not in values:
-                values[key] = value
+    for line in path.read_text(encoding="utf-8").splitlines():
+        key, separator, value = line.partition("=")
+        if not separator or not key or key in values:
+            raise SystemExit(f"{path.name} contains malformed or duplicate metadata")
+        values[key] = value
     return values
+
+
+def parse_macos_build_info(asset_directory: Path) -> dict[str, dict[str, str]]:
+    values_by_arch: dict[str, dict[str, str]] = {}
+    for architecture in MACOS_ARCHITECTURES:
+        path = asset_directory / f"BUILD_INFO-macOS-{architecture}.txt"
+        if not path.is_file():
+            raise SystemExit(f"missing macOS build metadata: {path.name}")
+        values = parse_build_info_file(path)
+        if values.get("platform") != "macOS" or values.get("arch") != architecture:
+            raise SystemExit(f"{path.name} has the wrong platform or architecture")
+        values_by_arch[architecture] = values
+
+    canonical_path = asset_directory / "BUILD_INFO.txt"
+    arm_path = asset_directory / "BUILD_INFO-macOS-arm64.txt"
+    if not canonical_path.is_file() or canonical_path.read_bytes() != arm_path.read_bytes():
+        raise SystemExit("BUILD_INFO.txt must exactly mirror BUILD_INFO-macOS-arm64.txt")
+
+    shared_keys = (
+        "product",
+        "platform",
+        "version",
+        "build",
+        "commit",
+        "configuration",
+        "bundleIdentifier",
+        "minimumSystemVersion",
+        "updateChannel",
+        "updateManifestURL",
+        "stableUpdateManifestURL",
+        "testerUpdateManifestURL",
+        "codesign",
+        "signingTeamIdentifier",
+        "notarized",
+    )
+    arm_values = values_by_arch["arm64"]
+    for architecture, values in values_by_arch.items():
+        for key in shared_keys:
+            if values.get(key) != arm_values.get(key):
+                raise SystemExit(
+                    f"BUILD_INFO macOS {architecture} {key} disagrees with arm64"
+                )
+    return values_by_arch
 
 
 def classify_asset(name: str) -> dict[str, str]:
@@ -71,6 +115,9 @@ def classify_asset(name: str) -> dict[str, str]:
         return {"kind": "performance", "platform": "macOS", "arch": arch, "install": "json"}
     if name == "BUILD_INFO.txt":
         return {"kind": "metadata", "platform": "macOS", "arch": "any", "install": "text"}
+    if name.startswith("BUILD_INFO-macOS-") and name.endswith(".txt"):
+        arch = name.removeprefix("BUILD_INFO-macOS-").removesuffix(".txt")
+        return {"kind": "metadata", "platform": "macOS", "arch": arch, "install": "text"}
     if name.startswith("BUILD_INFO-linux-") and name.endswith(".txt"):
         arch = name.removeprefix("BUILD_INFO-linux-").removesuffix(".txt")
         return {"kind": "metadata", "platform": "Linux", "arch": arch, "install": "text"}
@@ -92,17 +139,52 @@ def latest_release_download_url(repo: str, asset_name: str) -> str:
     return f"https://github.com/{repo}/releases/latest/download/{encoded_name}"
 
 
+def exact_macos_assets(
+    assets: list[dict[str, object]],
+    *,
+    kind: str,
+    install: str,
+) -> list[dict[str, object]]:
+    assets_by_arch: dict[str, dict[str, object]] = {}
+    for asset in assets:
+        if (
+            asset.get("kind") != kind
+            or asset.get("platform") != "macOS"
+        ):
+            continue
+        if asset.get("install") != install:
+            raise SystemExit(
+                f"release macOS {kind} assets must use {install} installation"
+            )
+        architecture = str(asset.get("arch"))
+        if architecture not in MACOS_ARCHITECTURES or architecture in assets_by_arch:
+            raise SystemExit(
+                f"release must contain exactly one macOS {kind} for each architecture"
+            )
+        assets_by_arch[architecture] = asset
+    if set(assets_by_arch) != set(MACOS_ARCHITECTURES):
+        raise SystemExit(
+            f"release must contain exactly one macOS {kind} for each architecture"
+        )
+    return [assets_by_arch[architecture] for architecture in MACOS_ARCHITECTURES]
+
+
 def build_updater_metadata(
     *,
     repo: str,
     channel: str,
-    build_info: dict[str, str],
+    build_infos: dict[str, dict[str, str]],
     assets: list[dict[str, object]],
 ) -> dict[str, object]:
-    app_assets = [
-        asset for asset in assets
-        if asset.get("kind") == "app" and asset.get("platform") == "macOS"
-    ]
+    app_assets = exact_macos_assets(assets, kind="app", install="zip-app")
+    for kind, install in (
+        ("installer", "dmg-app"),
+        ("performance", "json"),
+        ("cli", "tarball"),
+    ):
+        exact_macos_assets(assets, kind=kind, install=install)
+
+    build_info = build_infos["arm64"]
     signing_team = build_info.get("signingTeamIdentifier")
     if not signing_team or signing_team == "none":
         signing_team = None
@@ -137,7 +219,8 @@ def build_updater_metadata(
         "codesign": build_info.get("codesign", "unknown"),
         "signingTeamIdentifier": signing_team,
         "notarized": build_info.get("notarized", "false").lower() == "true",
-        "macOSAppAsset": app_assets[0] if app_assets else None,
+        "macOSAppAsset": app_assets[0],
+        "macOSAppAssets": app_assets,
     }
 
 
@@ -147,7 +230,10 @@ def build_manifest(arguments: argparse.Namespace) -> dict[str, object]:
     if not asset_directory.is_dir():
         raise SystemExit(f"assets directory does not exist: {asset_directory}")
 
-    build_info = parse_build_info(asset_directory)
+    build_infos = parse_macos_build_info(asset_directory)
+    build_info = build_infos["arm64"]
+    if build_info.get("commit") != arguments.commit:
+        raise SystemExit("BUILD_INFO commit must match --commit")
     generated_at = arguments.generated_at or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     assets: list[dict[str, object]] = []
     for path in sorted(asset_directory.iterdir(), key=lambda item: item.name):
@@ -175,7 +261,7 @@ def build_manifest(arguments: argparse.Namespace) -> dict[str, object]:
     updater = build_updater_metadata(
         repo=arguments.repo,
         channel=arguments.channel,
-        build_info=build_info,
+        build_infos=build_infos,
         assets=assets,
     )
 

@@ -6,12 +6,14 @@ import hashlib
 import plistlib
 import re
 import stat
+import struct
 import zipfile
 from pathlib import Path
 from typing import Any
 
 from release_verification_contract import (
     BUNDLE_IDENTIFIER,
+    MACOS_ARCHITECTURES,
     PRODUCT,
     VerificationError,
 )
@@ -20,6 +22,11 @@ from release_verification_performance import verify_performance_evidence_asset
 
 APP_INFO_BYTE_LIMIT = 256 * 1024
 APP_ARCHIVE_ENTRY_LIMIT = 20_000
+MACHO_CPU_TYPES = {
+    "arm64": 0x0100000C,
+    "x86_64": 0x01000007,
+}
+MACHO_64_MAGIC = 0xFEEDFACF
 
 
 def read_bounded(path: Path, byte_limit: int, label: str) -> bytes:
@@ -81,38 +88,62 @@ def verify_build_info(
     commit: str,
 ) -> None:
     updater = manifest["updater"]
-    app_asset = updater["macOSAppAsset"]
-    build_info = parse_key_value_file(
+    signing_team = updater.get("signingTeamIdentifier") or "none"
+    asset_names = {asset["name"] for asset in assets}
+    for app_asset in updater["macOSAppAssets"]:
+        architecture = app_asset["arch"]
+        build_info_name = f"BUILD_INFO-macOS-{architecture}.txt"
+        build_info = parse_key_value_file(
+            asset_directory / build_info_name,
+            build_info_name,
+        )
+        expected = {
+            "product": PRODUCT,
+            "platform": "macOS",
+            "arch": architecture,
+            "version": manifest["version"],
+            "build": manifest["build"],
+            "commit": commit,
+            "configuration": "release",
+            "bundleIdentifier": BUNDLE_IDENTIFIER,
+            "minimumSystemVersion": updater["minimumSystemVersion"],
+            "updateChannel": channel,
+            "updateManifestURL": updater["manifestURL"],
+            "stableUpdateManifestURL": updater["stableManifestURL"],
+            "testerUpdateManifestURL": updater["testerManifestURL"],
+            "installer": f"Quill-Cowork-macOS-{architecture}.dmg",
+            "app": app_asset["name"],
+            "performance": f"Quill-Cowork-macOS-{architecture}-PERFORMANCE.json",
+            "cli": f"quill-code-macOS-{architecture}.tar.gz",
+            "codesign": updater.get("codesign") or "unknown",
+            "signingTeamIdentifier": signing_team,
+            "notarized": "true" if updater.get("notarized") is True else "false",
+        }
+        for key, expected_value in expected.items():
+            if build_info.get(key) != expected_value:
+                raise VerificationError(
+                    f"{build_info_name} {key} disagrees with the manifest"
+                )
+        for asset_key in ("installer", "app", "performance", "cli"):
+            if build_info[asset_key] not in asset_names:
+                raise VerificationError(
+                    f"{build_info_name} names a missing {asset_key} asset"
+                )
+
+    canonical_info = read_bounded(
         asset_directory / "BUILD_INFO.txt",
+        256 * 1024,
         "BUILD_INFO.txt",
     )
-    signing_team = updater.get("signingTeamIdentifier") or "none"
-    expected = {
-        "product": PRODUCT,
-        "platform": "macOS",
-        "arch": app_asset["arch"],
-        "version": manifest["version"],
-        "build": manifest["build"],
-        "commit": commit,
-        "bundleIdentifier": BUNDLE_IDENTIFIER,
-        "minimumSystemVersion": updater["minimumSystemVersion"],
-        "updateChannel": channel,
-        "updateManifestURL": updater["manifestURL"],
-        "stableUpdateManifestURL": updater["stableManifestURL"],
-        "testerUpdateManifestURL": updater["testerManifestURL"],
-        "app": app_asset["name"],
-        "codesign": updater.get("codesign") or "unknown",
-        "signingTeamIdentifier": signing_team,
-        "notarized": "true" if updater.get("notarized") is True else "false",
-    }
-    for key, expected_value in expected.items():
-        if build_info.get(key) != expected_value:
-            raise VerificationError(
-                f"BUILD_INFO.txt {key} disagrees with the manifest"
-            )
-    asset_names = {asset["name"] for asset in assets}
-    if build_info.get("cli") not in asset_names:
-        raise VerificationError("BUILD_INFO.txt names a missing macOS CLI asset")
+    arm_info = read_bounded(
+        asset_directory / "BUILD_INFO-macOS-arm64.txt",
+        256 * 1024,
+        "BUILD_INFO-macOS-arm64.txt",
+    )
+    if canonical_info != arm_info:
+        raise VerificationError(
+            "BUILD_INFO.txt must exactly mirror BUILD_INFO-macOS-arm64.txt"
+        )
 
 
 def verify_primary_checksums(
@@ -144,41 +175,67 @@ def verify_primary_checksums(
         )
 
 
+def regular_zip_entry(
+    entries: list[zipfile.ZipInfo],
+    path: str,
+    label: str,
+) -> zipfile.ZipInfo:
+    matching_entries = [entry for entry in entries if entry.filename == path]
+    if len(matching_entries) != 1:
+        raise VerificationError(f"macOS app archive does not contain one canonical {label}")
+    entry = matching_entries[0]
+    unix_file_type = stat.S_IFMT(entry.external_attr >> 16)
+    if entry.is_dir() or entry.flag_bits & 0x1 or unix_file_type not in (0, stat.S_IFREG):
+        raise VerificationError(f"macOS app {label} must be a readable regular entry")
+    return entry
+
+
+def verify_macho_header(header: bytes, architecture: str) -> None:
+    if len(header) < 8:
+        raise VerificationError("macOS app executable has a truncated Mach-O header")
+    magic, cpu_type = struct.unpack("<II", header[:8])
+    if magic != MACHO_64_MAGIC or cpu_type != MACHO_CPU_TYPES[architecture]:
+        raise VerificationError(
+            f"macOS {architecture} app executable is not a thin {architecture} Mach-O"
+        )
+
+
 def verify_app_archive(
     asset_directory: Path,
+    app_asset: dict[str, Any],
     manifest: dict[str, Any],
     *,
     channel: str,
     commit: str,
 ) -> None:
     updater = manifest["updater"]
-    app_asset = updater["macOSAppAsset"]
     archive_path = asset_directory / app_asset["name"]
     info_path = f"{PRODUCT}.app/Contents/Info.plist"
+    executable_path = f"{PRODUCT}.app/Contents/MacOS/{PRODUCT}"
     try:
         with zipfile.ZipFile(archive_path) as archive:
             entries = archive.infolist()
             if len(entries) > APP_ARCHIVE_ENTRY_LIMIT:
                 raise VerificationError("macOS app archive contains too many entries")
-            matching_entries = [entry for entry in entries if entry.filename == info_path]
-            if len(matching_entries) != 1:
-                raise VerificationError("macOS app archive does not contain one canonical Info.plist")
-            info_entry = matching_entries[0]
-            if info_entry.is_dir() or info_entry.flag_bits & 0x1:
-                raise VerificationError("macOS app Info.plist must be a readable regular entry")
-            unix_file_type = stat.S_IFMT(info_entry.external_attr >> 16)
-            if unix_file_type not in (0, stat.S_IFREG):
-                raise VerificationError("macOS app Info.plist must be a readable regular entry")
+            info_entry = regular_zip_entry(entries, info_path, "Info.plist")
             if info_entry.file_size > APP_INFO_BYTE_LIMIT:
                 raise VerificationError("macOS app Info.plist exceeds its size limit")
             with archive.open(info_entry) as handle:
                 info_bytes = handle.read(APP_INFO_BYTE_LIMIT + 1)
+            executable_entry = regular_zip_entry(
+                entries,
+                executable_path,
+                "executable",
+            )
+            with archive.open(executable_entry) as handle:
+                executable_header = handle.read(8)
     except VerificationError:
         raise
     except (OSError, RuntimeError, zipfile.BadZipFile, zipfile.LargeZipFile) as error:
         raise VerificationError("macOS app archive is not a readable ZIP") from error
     if len(info_bytes) > APP_INFO_BYTE_LIMIT:
         raise VerificationError("macOS app Info.plist exceeds its size limit")
+    verify_macho_header(executable_header, app_asset["arch"])
     try:
         values = plistlib.loads(info_bytes)
     except (plistlib.InvalidFileException, ValueError, TypeError) as error:
@@ -241,9 +298,16 @@ def verify_asset_files(
         channel=channel,
         commit=commit,
     )
-    verify_app_archive(
-        asset_directory,
-        manifest,
-        channel=channel,
-        commit=commit,
-    )
+    app_assets = manifest["updater"]["macOSAppAssets"]
+    if len(app_assets) != len(MACOS_ARCHITECTURES):
+        raise VerificationError("macOS app archive count is invalid")
+    for architecture, app_asset in zip(MACOS_ARCHITECTURES, app_assets):
+        if app_asset["arch"] != architecture:
+            raise VerificationError("macOS app archives are not in canonical order")
+        verify_app_archive(
+            asset_directory,
+            app_asset,
+            manifest,
+            channel=channel,
+            commit=commit,
+        )
