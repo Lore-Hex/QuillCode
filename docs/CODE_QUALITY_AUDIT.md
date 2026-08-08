@@ -1,5 +1,27 @@
 # Code Quality Audit
 
+## 2026-08-08 Post-Launch Update Stability
+
+Overall grade after this slice: **A+ transactional recovery, A+ bounded state, A+ continuity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Crash resilience | A+ | The helper keeps the prior app available through a three-second post-handshake observation window and atomically restores it if the replacement exits. |
+| Memory safety | A+ | Install-result reads use the shared descriptor-bounded reader with a 64 KiB cap; helper writes enforce the same cap. No result read can follow a symlink or allocate from an unbounded file. |
+| Architecture | A+ | Activation retains the launched `Process`, update support owns the shared result-size contract, and persistence owns filesystem validation. |
+| UX | A+ | Immediate startup failure reopens the working build and presents a specific rollback result. A healthy app remains visible while detached cleanup finishes. |
+| Tests | A+ | Real-process fixtures cover healthy activation and acknowledge-then-exit rollback; controller tests cover oversized and dangling-symlink results. |
+
+Validation:
+
+- Focused updater model, controller, and smoke suites (40 tests, 0 failures)
+- Full `swift test --skip-build` (5,436 tests, 5 skipped, 0 failures)
+- Release package: 3 of 3 fresh launches within budget; 257.69 ms median launch-ready
+  and 88.25 MiB resident memory
+- Packaged macOS update, direct-executable, Launch Services, and live-window smoke
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
 ## 2026-08-08 Crash-Safe Workspace Bootstrap
 
 Overall grade after this slice: **A+ bounded persistence, A+ recovery isolation, A+ visible failure**.

@@ -1,5 +1,23 @@
 # QuillCode Decisions
 
+## 2026-08-08: update activation survives an immediate post-launch crash
+
+- **Decision:** The detached updater retains the previous application until the replacement both
+  writes its launch handshake and remains alive for a three-second startup observation window. If
+  the replacement exits during that window, the helper atomically restores and reopens the previous
+  build instead of treating the handshake alone as a successful installation.
+- **Persistence boundary:** The one-shot install result is accepted only as a regular non-symlink
+  file of at most 64 KiB through the shared bounded persistence reader. Missing, malformed,
+  oversized, and unexpected filesystem entries are removed without becoming visible update state;
+  helper result writes enforce the same size contract.
+- **User experience:** A replacement that crashes immediately returns the user to the working build
+  and reports that startup stopped and rollback succeeded. Healthy replacements still appear at
+  once; only the detached helper waits before deleting the backup and reporting final success.
+- **Evidence:** `QuillCodeDesktopUpdateModelTests` launches a fixture that acknowledges and exits,
+  then verifies restoration and relaunch of the prior build. `QuillCodeDesktopUpdateControllerTests`
+  covers oversized and dangling-symlink result rejection, while the packaged updater smoke exercises
+  the complete signed-bundle swap, observation, cleanup, and relaunch path.
+
 ## 2026-08-08: damaged workspace registries recover independently
 
 - **Decision:** Config, projects, automations, and saved-search registries are accepted only as

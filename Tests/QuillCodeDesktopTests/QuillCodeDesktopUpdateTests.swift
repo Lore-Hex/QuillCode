@@ -515,6 +515,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             if [ "$1" = "--quillcode-update-handshake" ] && [ -n "$2" ]; then
               printf 'ready\n' > "$2"
             fi
+            sleep 1
             exit 0
             """
         )
@@ -533,7 +534,8 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             cacheRootURL: cacheRoot,
             resultURL: resultURL,
             parentExitTimeout: 0.1,
-            launchHandshakeTimeout: 2
+            launchHandshakeTimeout: 2,
+            launchStabilityDuration: 0.1
         )
 
         let parsedRequest = try XCTUnwrap(QuillCodeDesktopUpdateHelperRequest.parse(
@@ -552,6 +554,75 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         XCTAssertEqual(result.version, "0.2.0")
         XCTAssertEqual(result.build, "2")
         XCTAssertFalse(FileManager.default.fileExists(atPath: workspace.path))
+    }
+
+    func testHelperRollsBackWhenUpdatedAppExitsImmediatelyAfterHandshake() throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let cacheRoot = root.appendingPathComponent("cache", isDirectory: true)
+        try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        let workspace = cacheRoot.appendingPathComponent("early-exit-workspace", isDirectory: true)
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: false)
+        let destination = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
+        let incoming = root.appendingPathComponent(
+            ".Quill Cowork.update-early-exit.app",
+            isDirectory: true
+        )
+        let rollbackLaunchedURL = root.appendingPathComponent("rollback-launched")
+        try makeFakeApplication(
+            at: destination,
+            version: "0.1.0",
+            build: "1",
+            executableScript: "#!/bin/sh\nprintf 'ready' > '\(rollbackLaunchedURL.path)'\nexit 0\n"
+        )
+        try makeFakeApplication(
+            at: incoming,
+            version: "0.2.0",
+            build: "2",
+            executableScript: """
+            #!/bin/sh
+            if [ "$1" = "--quillcode-update-handshake" ] && [ -n "$2" ]; then
+              printf 'ready\n' > "$2"
+            fi
+            exit 0
+            """
+        )
+        let resultURL = root.appendingPathComponent("UpdateResult.json")
+        let request = makeHelperRequest(
+            cacheRoot: cacheRoot,
+            destination: destination,
+            incoming: incoming,
+            resultURL: resultURL,
+            expectedVersion: "0.2.0",
+            expectedBuild: "2",
+            suffix: "early-exit",
+            workspace: workspace
+        )
+        let environment = QuillCodeDesktopUpdateHelperEnvironment(
+            cacheRootURL: cacheRoot,
+            resultURL: resultURL,
+            parentExitTimeout: 0.1,
+            launchHandshakeTimeout: 1,
+            launchStabilityDuration: 0.2
+        )
+
+        XCTAssertEqual(QuillCodeDesktopUpdateHelper.run(request, environment: environment), 1)
+        XCTAssertEqual(try bundleBuild(at: destination), "1")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: incoming.path))
+        let result = try JSONDecoder().decode(
+            QuillCodeDesktopUpdateInstallResult.self,
+            from: Data(contentsOf: resultURL)
+        )
+        XCTAssertEqual(result.status, .failure)
+        XCTAssertTrue(result.message.contains("stopped during startup"))
+        XCTAssertTrue(result.message.contains("previous build was restored"))
+        let rollbackDeadline = Date().addingTimeInterval(1)
+        while !FileManager.default.fileExists(atPath: rollbackLaunchedURL.path),
+              Date() < rollbackDeadline {
+            usleep(10_000)
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: rollbackLaunchedURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: workspace.path))
     }
 
     func testHelperTerminatesFailedChildAndRollsBack() throws {
@@ -592,7 +663,8 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             cacheRootURL: cacheRoot,
             resultURL: resultURL,
             parentExitTimeout: 0.1,
-            launchHandshakeTimeout: 1
+            launchHandshakeTimeout: 1,
+            launchStabilityDuration: 0.1
         )
 
         XCTAssertEqual(QuillCodeDesktopUpdateHelper.run(request, environment: environment), 1)
@@ -653,7 +725,8 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             cacheRootURL: cacheRoot,
             resultURL: resultURL,
             parentExitTimeout: 0.1,
-            launchHandshakeTimeout: 0.1
+            launchHandshakeTimeout: 0.1,
+            launchStabilityDuration: 0.1
         )
 
         XCTAssertEqual(QuillCodeDesktopUpdateHelper.run(request, environment: environment), 1)
