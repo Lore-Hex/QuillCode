@@ -455,7 +455,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         })
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md"), encoding: .utf8),
-            "# Outreach\n\n"
+            "# Outreach\n\nDetails are unknown from the supplied sources.\n"
         )
         XCTAssertEqual(
             result.thread.messages.last?.content,
@@ -491,7 +491,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         )
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md"), encoding: .utf8),
-            "# Outreach\n"
+            "# Outreach\n\nDetails are unknown from the supplied sources.\n"
         )
     }
 
@@ -523,6 +523,19 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         XCTAssertTrue(repaired.contains("`Example: a paid interview`"))
         XCTAssertFalse(repaired.contains("work around"))
         XCTAssertFalse(repaired.contains("next 2 weeks"))
+    }
+
+    func testSensitiveClaimRemovalKeepsMarkdownArtifactSubstantive() throws {
+        let repaired = try XCTUnwrap(AgentSourceGroundingGate.removingUnsupportedSensitiveClaims(
+            content: "# Outreach\n\nThis is a paid 30-minute call.\n",
+            path: "outputs/brief.md",
+            sourceText: ""
+        ))
+
+        XCTAssertEqual(
+            repaired,
+            "# Outreach\n\nDetails are unknown from the supplied sources.\n"
+        )
     }
 
     func testAnalyticalDurationEvidenceIsNotTreatedAsAnInventedMeetingLength() {

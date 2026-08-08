@@ -69,9 +69,10 @@ enum AgentSourceGroundingGate {
             sourceText: sourceText
         )
         guard !unsupported.isEmpty else { return nil }
-        return content.components(separatedBy: "\n").enumerated().compactMap { index, line in
+        let repaired = content.components(separatedBy: "\n").enumerated().compactMap { index, line in
             unsupported.contains(index) ? nil : line
         }.joined(separator: "\n")
+        return preservingNonemptyMarkdownBody(repaired, path: path)
     }
 
     static func requestsSourceOnlyGrounding(in userMessage: String) -> Bool {
@@ -170,11 +171,27 @@ enum AgentSourceGroundingGate {
         ).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private static func preservingNonemptyMarkdownBody(_ content: String, path: String) -> String {
+        guard markdownExtensions.contains(URL(fileURLWithPath: path).pathExtension.lowercased()) else {
+            return content
+        }
+        let nonemptyLines = content.components(separatedBy: "\n").filter {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        guard !nonemptyLines.isEmpty, nonemptyLines.allSatisfy({ line in
+            let range = NSRange(line.startIndex..., in: line)
+            return markdownHeadingRegex.firstMatch(in: line, range: range) != nil
+        }) else { return content }
+
+        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+            + "\n\nDetails are unknown from the supplied sources.\n"
+    }
+
     private static let sourceOnlyRequestRegexes = [
-        try! NSRegularExpression(
+        AgentRegexCompiler.compile(
             pattern: #"(?is)\b(?:use|rely)\s+only\s+(?:on\s+)?(?:facts|information|data|evidence|content).{0,100}\b(?:sources?|inputs?|files?)\b"#
         ),
-        try! NSRegularExpression(
+        AgentRegexCompiler.compile(
             pattern: #"(?is)\bonly\s+use\b.{0,100}\b(?:supplied|provided|attached)\s+(?:sources?|inputs?|files?|data)\b"#
         ),
     ]
@@ -182,33 +199,37 @@ enum AgentSourceGroundingGate {
     private static let textExtensions: Set<String> = [
         "csv", "html", "htm", "json", "md", "markdown", "rst", "text", "tsv", "txt", "xml", "yaml", "yml",
     ]
+    private static let markdownExtensions: Set<String> = ["md", "markdown"]
+    private static let markdownHeadingRegex = AgentRegexCompiler.compile(
+        pattern: #"^\s{0,3}#{1,6}(?:\s+|$)"#
+    )
 
     private static let sensitiveClaimRegexes = [
-        try! NSRegularExpression(pattern: #"(?i)\bnot\s+selling\b"#),
-        try! NSRegularExpression(pattern: #"(?i)\bnot\s+(?:a\s+)?sales\s+(?:call|pitch)\b"#),
-        try! NSRegularExpression(pattern: #"(?i)\bno\s+(?:sales\s+)?pitch\b"#),
-        try! NSRegularExpression(pattern: #"(?i)\bresearch\s+only\b"#),
-        try! NSRegularExpression(
+        AgentRegexCompiler.compile(#"(?i)\bnot\s+selling\b"#),
+        AgentRegexCompiler.compile(#"(?i)\bnot\s+(?:a\s+)?sales\s+(?:call|pitch)\b"#),
+        AgentRegexCompiler.compile(#"(?i)\bno\s+(?:sales\s+)?pitch\b"#),
+        AgentRegexCompiler.compile(#"(?i)\bresearch\s+only\b"#),
+        AgentRegexCompiler.compile(
             pattern: #"(?i)\b(?:paid|compensated)(?:\s+[\w$-]+){0,3}\s+(?:interview|call|conversation|session)\b"#
         ),
-        try! NSRegularExpression(pattern: #"(?i)\b(?:confidential|confidentiality|under\s+(?:an?\s+)?nda)\b"#),
-        try! NSRegularExpression(
+        AgentRegexCompiler.compile(#"(?i)\b(?:confidential|confidentiality|under\s+(?:an?\s+)?nda)\b"#),
+        AgentRegexCompiler.compile(
             pattern: #"(?i)\b(?:next|within)\s+(?:the\s+)?(?:couple|few|\d+)\s+(?:business\s+)?(?:hours?|days?|weeks?)\b"#
         ),
-        try! NSRegularExpression(pattern: #"(?i)\bquick\s+(?:call|chat|conversation|meeting)\b"#),
-        try! NSRegularExpression(
+        AgentRegexCompiler.compile(#"(?i)\bquick\s+(?:call|chat|conversation|meeting)\b"#),
+        AgentRegexCompiler.compile(
             pattern: #"(?i)\b(?:we|i)(?:'ll|\s+will|\s+can)\s+(?:send|schedule|follow\s+up|work\s+around|confirm|provide|share)\b"#
         ),
     ]
-    private static let durationRegex = try! NSRegularExpression(
+    private static let durationRegex = AgentRegexCompiler.compile(
         pattern: #"(?i)\b\d+(?:\s*[-–—]\s*\d+)?\s*[-–—]?\s*(?:minutes?|hours?|days?|weeks?)\b"#
     )
-    private static let eventDurationContextRegex = try! NSRegularExpression(
+    private static let eventDurationContextRegex = AgentRegexCompiler.compile(
         pattern: #"(?i)(?:\b\d+(?:\s*[-–—]\s*\d+)?\s*[-–—]?\s*(?:minutes?|hours?|days?|weeks?)\b.{0,40}\b(?:interview|call|conversation|session|meeting)\b|\b(?:interview|call|conversation|session|meeting)\b.{0,40}\b\d+(?:\s*[-–—]\s*\d+)?\s*[-–—]?\s*(?:minutes?|hours?|days?|weeks?)\b)"#
     )
 
-    private static let unknownQualifierRegex = try! NSRegularExpression(
+    private static let unknownQualifierRegex = AgentRegexCompiler.compile(
         pattern: #"(?i)\b(?:unknown|not\s+(?:stated|established|supplied|provided)|to\s+be\s+confirmed)\b"#
     )
-    private static let inlineCodeRegex = try! NSRegularExpression(pattern: #"`[^`\n]+`"#)
+    private static let inlineCodeRegex = AgentRegexCompiler.compile(#"`[^`\n]+`"#)
 }
