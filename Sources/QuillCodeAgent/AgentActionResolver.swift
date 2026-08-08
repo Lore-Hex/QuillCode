@@ -134,6 +134,7 @@ extension AgentRunner {
                 guard attempt < Self.malformedActionCorrectionLimit else {
                     throw TrustedRouterAgentError.invalidActionJSON(text)
                 }
+                let isTruncatedFileWrite = AgentMalformedActionGuard.isTruncatedFileWriteAction(text)
                 attempt += 1
                 let correctionPrompt = AgentCorrectionEscalation.escalated(
                     AgentMalformedActionGuard.correctionPrompt(
@@ -149,15 +150,19 @@ extension AgentRunner {
                 )
                 correctiveThread.messages.append(.init(
                     role: .assistant,
-                    content: String(text.prefix(AgentMalformedActionGuard.malformedTextEchoLimit))
+                    content: AgentMalformedActionGuard.correctiveAssistantEcho(for: text)
                 ))
                 correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
                 correctiveThread.updatedAt = Date()
                 pendingCorrectionPrompt = correctionPrompt
                 thread.events.append(.init(
                     kind: .notice,
-                    summary: "Self-healing: the model returned a malformed action; asked it to re-emit "
-                        + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
+                    summary: isTruncatedFileWrite
+                        ? "Self-healing: the model truncated a file write; asked it to re-emit a "
+                            + "complete concise action (attempt \(attempt) of "
+                            + "\(Self.malformedActionCorrectionLimit))."
+                        : "Self-healing: the model returned a malformed action; asked it to re-emit "
+                            + "(attempt \(attempt) of \(Self.malformedActionCorrectionLimit))."
                 ))
                 thread.updatedAt = Date()
                 await onProgress?(thread)

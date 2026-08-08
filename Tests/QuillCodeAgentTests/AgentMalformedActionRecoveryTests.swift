@@ -103,6 +103,42 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         })
     }
 
+    func testTruncatedFileWriteUsesCompactConciseCorrectionAndRecovers() async throws {
+        let uniqueTail = "UNIQUE_TRUNCATED_TAIL_MUST_NOT_BE_ECHOED"
+        let malformed = "{\"type\":\"file.write\",\"path\":\"outputs/report.md\",\"content\":\"# Report\\n\\n"
+            + String(repeating: "detailed analysis ", count: 300)
+            + uniqueTail
+        let client = ThrowingSequenceLLMClient(steps: [
+            .failure(TrustedRouterAgentError.invalidActionJSON(malformed)),
+            .action(.say("Recovered without executing partial content.")),
+        ])
+        let runner = AgentRunner(llm: client)
+        let root = try makeTempDirectory()
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Recovered without executing partial content.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("truncated a file write")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 2)
+        XCTAssertTrue(calls[1].userMessage.contains("truncated inside its content string"))
+        XCTAssertTrue(calls[1].userMessage.contains("no more than 6000 characters"))
+        XCTAssertTrue(calls[1].messages.contains {
+            $0.role == .assistant && $0.content.contains("Truncated host.file.write action omitted")
+        })
+        XCTAssertFalse(calls[1].messages.contains { $0.content.contains(uniqueTail) })
+        XCTAssertFalse(calls[1].userMessage.contains(uniqueTail))
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: root.appendingPathComponent("outputs/report.md").path
+        ))
+    }
+
     func testPersistentMalformedOutputFailsAfterExactlyTwoCorrections() async throws {
         let client = ThrowingSequenceLLMClient(steps: [
             .failure(TrustedRouterAgentError.invalidActionJSON("bad1")),
