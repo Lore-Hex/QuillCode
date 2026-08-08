@@ -72,6 +72,26 @@ enum AgentArtifactTextQualityGate {
         )
     }
 
+    static func markdownCompletenessCorrection(
+        userMessage: String,
+        incompletePaths: Set<String>
+    ) -> Correction? {
+        let required = AgentDeliverableGate.requiredDeliverables(in: userMessage)
+        guard let path = incompletePaths.sorted().first(where: { candidate in
+            required.contains(where: { AgentArtifactVerificationGate.pathsMatch($0, candidate) })
+        }) else { return nil }
+
+        return Correction(
+            path: path,
+            prompt: """
+            The named Markdown deliverable ./\(path) contains one or more headings with no \
+            substantive content. Rewrite that same file so every retained section is complete, or \
+            remove headings that are not needed. Preserve grounded content and then read the \
+            corrected file back before finishing.
+            """
+        )
+    }
+
     static func containsMalformedLiteralEscape(content: String, path: String) -> Bool {
         guard let prose = visibleProse(content: content, path: path) else { return false }
         let range = NSRange(prose.startIndex..., in: prose)
@@ -92,6 +112,12 @@ enum AgentArtifactTextQualityGate {
         return prose.components(separatedBy: .newlines).contains {
             !enumeratedCountReplacements(in: $0).isEmpty
         }
+    }
+
+    static func emptyMarkdownSectionTitles(content: String, path: String) -> [String] {
+        markdownSections(content: content, path: path)
+            .filter(\.isEmpty)
+            .map(\.title)
     }
 
     static func replacingMalformedLiteralEscapes(content: String, path: String) -> String? {
@@ -205,6 +231,78 @@ enum AgentArtifactTextQualityGate {
         return replacedAny ? lines.joined(separator: "\n") : nil
     }
 
+    static func removingEmptyMarkdownSections(content: String, path: String) -> String? {
+        let emptySections = markdownSections(content: content, path: path).filter(\.isEmpty)
+        guard !emptySections.isEmpty else { return nil }
+
+        let removedLineIndexes = Set(emptySections.map(\.lineIndex))
+        let lines = content.components(separatedBy: "\n")
+        return lines.enumerated().compactMap { index, line in
+            removedLineIndexes.contains(index) ? nil : line
+        }.joined(separator: "\n")
+    }
+
+    private struct MarkdownSection {
+        var lineIndex: Int
+        var level: Int
+        var title: String
+        var isEmpty: Bool
+    }
+
+    private static func markdownSections(content: String, path: String) -> [MarkdownSection] {
+        let markdownExtensions: Set<String> = ["md", "markdown"]
+        guard markdownExtensions.contains(
+            URL(fileURLWithPath: path).pathExtension.lowercased()
+        ) else { return [] }
+
+        let lines = content.components(separatedBy: "\n")
+        var headings: [(lineIndex: Int, level: Int, title: String)] = []
+        var fenceDelimiterIndexes = Set<Int>()
+        var inFence = false
+        for (index, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
+                fenceDelimiterIndexes.insert(index)
+                inFence.toggle()
+                continue
+            }
+            guard !inFence else { continue }
+
+            let range = NSRange(line.startIndex..., in: line)
+            guard let match = markdownHeadingRegex.firstMatch(in: line, range: range),
+                  let markerRange = Range(match.range(at: 1), in: line),
+                  let titleRange = Range(match.range(at: 2), in: line)
+            else { continue }
+            var title = String(line[titleRange]).trimmingCharacters(in: .whitespaces)
+            title = markdownClosingHashesRegex.stringByReplacingMatches(
+                in: title,
+                range: NSRange(title.startIndex..., in: title),
+                withTemplate: ""
+            )
+            headings.append((index, line[markerRange].count, title))
+        }
+
+        let headingIndexes = Set(headings.map(\.lineIndex))
+        return headings.enumerated().map { headingOffset, heading in
+            let end = headings.dropFirst(headingOffset + 1).first(where: {
+                $0.level <= heading.level
+            })?.lineIndex ?? lines.count
+            let hasSubstantiveContent = lines.indices.contains(where: { index in
+                guard index > heading.lineIndex, index < end,
+                      !headingIndexes.contains(index),
+                      !fenceDelimiterIndexes.contains(index)
+                else { return false }
+                return !lines[index].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            })
+            return MarkdownSection(
+                lineIndex: heading.lineIndex,
+                level: heading.level,
+                title: heading.title,
+                isEmpty: !hasSubstantiveContent
+            )
+        }
+    }
+
     private static func requestsPlaceholderFreeArtifact(in userMessage: String) -> Bool {
         let range = NSRange(userMessage.startIndex..., in: userMessage)
         return placeholderFreeRequestRegexes.contains {
@@ -293,6 +391,12 @@ enum AgentArtifactTextQualityGate {
     )
     private static let recordIdentifierRegex = try! NSRegularExpression(
         pattern: #"(?i)^[a-z][a-z0-9_-]*\d+[a-z0-9_-]*$"#
+    )
+    private static let markdownHeadingRegex = try! NSRegularExpression(
+        pattern: #"^\s{0,3}(#{1,6})[ \t]+(.+?)\s*$"#
+    )
+    private static let markdownClosingHashesRegex = try! NSRegularExpression(
+        pattern: #"\s+#+\s*$"#
     )
     private static let placeholderFreeRequestRegexes = [
         try! NSRegularExpression(pattern: #"(?i)\bplaceholder[- ]free\b"#),

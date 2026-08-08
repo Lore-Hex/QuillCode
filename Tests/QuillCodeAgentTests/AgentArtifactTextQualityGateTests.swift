@@ -149,6 +149,71 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         ))
     }
 
+    func testDetectsEmptyMarkdownSectionsWithoutTreatingNestedContentOrCodeAsEmpty() {
+        let content = """
+        # Report
+
+        ## Populated parent
+        ### Detail
+        Evidence lives here.
+
+        ## Code
+        ```text
+        # This is code, not a section
+        value
+        ```
+
+        ## Empty middle
+        ## Final
+        """
+
+        XCTAssertEqual(
+            AgentArtifactTextQualityGate.emptyMarkdownSectionTitles(
+                content: content,
+                path: "outputs/report.md"
+            ),
+            ["Empty middle", "Final"]
+        )
+        XCTAssertTrue(AgentArtifactTextQualityGate.emptyMarkdownSectionTitles(
+            content: "# Not Markdown",
+            path: "outputs/report.txt"
+        ).isEmpty)
+    }
+
+    func testDeterministicMarkdownCompletenessRepairRemovesOnlyEmptyHeadings() throws {
+        let content = """
+        # Report
+
+        ## Evidence
+        The result is grounded.
+
+        ## Empty
+
+        ## Code
+        ```text
+        # Keep this line
+        ```
+
+        ## Trailing
+        """
+
+        let repaired = try XCTUnwrap(
+            AgentArtifactTextQualityGate.removingEmptyMarkdownSections(
+                content: content,
+                path: "outputs/report.md"
+            )
+        )
+
+        XCTAssertTrue(repaired.contains("## Evidence\nThe result is grounded."))
+        XCTAssertTrue(repaired.contains("```text\n# Keep this line\n```"))
+        XCTAssertFalse(repaired.contains("## Empty"))
+        XCTAssertFalse(repaired.contains("## Trailing"))
+        XCTAssertTrue(AgentArtifactTextQualityGate.emptyMarkdownSectionTitles(
+            content: repaired,
+            path: "outputs/report.md"
+        ).isEmpty)
+    }
+
     func testMalformedNamedArtifactIsRewrittenBeforeReadbackAndCompletion() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
@@ -333,6 +398,65 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         })
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("reconciled an enumerated record count")
+        })
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),
+            corrected
+        )
+    }
+
+    func testIncompleteMarkdownArtifactIsRewrittenBeforeCompletion() async throws {
+        let root = try makeTempDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let incomplete = "# Report\n\n## Evidence\nGrounded result.\n\n## Notes\n"
+        let corrected = "# Report\n\n## Evidence\nGrounded result.\n\n## Notes\nNo additional caveats.\n"
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .tool(writeCall(content: incomplete)),
+            .say("Created and verified outputs/report.md."),
+            .tool(writeCall(content: corrected)),
+            .say("Created outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+        ]))
+
+        let result = try await runner.send(
+            "Create outputs/report.md. After writing, read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 3, "two writes and the forced final readback")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("complete Markdown sections")
+        })
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),
+            corrected
+        )
+    }
+
+    func testIncompleteMarkdownArtifactIsDeterministicallyRepairedAfterIgnoredRewrite() async throws {
+        let root = try makeTempDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let incomplete = "# Report\n\n## Evidence\nGrounded result.\n\n## Notes\n"
+        let corrected = "# Report\n\n## Evidence\nGrounded result.\n\n"
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .tool(writeCall(content: incomplete)),
+            .tool(readCall()),
+            .say("Created and verified outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+            .say("Created outputs/report.md."),
+            .say("Created and verified outputs/report.md."),
+        ]), maxToolSteps: 8)
+
+        let result = try await runner.send(
+            "Create outputs/report.md. After writing, read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 4, "two writes and two readbacks")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("removed empty Markdown headings")
         })
         XCTAssertEqual(
             try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),

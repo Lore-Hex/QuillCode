@@ -39,6 +39,10 @@ struct AgentRunLoopState: Sendable {
     private(set) var contradictoryCountWrittenTextPaths: Set<String> = []
     /// Latest contradictory content by normalized path, retained for a bounded deterministic fix.
     private(set) var contradictoryCountWrittenTextContents: [String: String] = [:]
+    /// Markdown artifacts whose latest write leaves a heading without substantive section content.
+    private(set) var incompleteMarkdownWrittenTextPaths: Set<String> = []
+    /// Latest incomplete Markdown by normalized path, retained for a bounded heading removal.
+    private(set) var incompleteMarkdownWrittenTextContents: [String: String] = [:]
     /// Latest successful text write by normalized path. Source-audit verification compares the
     /// audited rewrite with this snapshot so formatting-only writes do not trigger another model
     /// pass.
@@ -161,6 +165,18 @@ struct AgentRunLoopState: Sendable {
             } else {
                 contradictoryCountWrittenTextPaths.remove(normalized)
                 contradictoryCountWrittenTextContents.removeValue(forKey: normalized)
+            }
+            if let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content"),
+               !AgentArtifactTextQualityGate.emptyMarkdownSectionTitles(
+                content: content,
+                path: normalized
+               ).isEmpty {
+                incompleteMarkdownWrittenTextPaths.insert(normalized)
+                incompleteMarkdownWrittenTextContents[normalized] = content
+            } else {
+                incompleteMarkdownWrittenTextPaths.remove(normalized)
+                incompleteMarkdownWrittenTextContents.removeValue(forKey: normalized)
             }
             if enforcesSourceOnlyGrounding,
                let arguments = try? ToolArguments(completion.call.argumentsJSON),

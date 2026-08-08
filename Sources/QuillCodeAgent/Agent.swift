@@ -227,6 +227,10 @@ public struct AgentRunner: Sendable {
             /// rewrite request, followed by at most one deterministic numeral correction.
             var artifactCountConsistencyNudgedPaths = Set<String>()
             var artifactCountConsistencyRepairedPaths = Set<String>()
+            /// Markdown sections receive one semantic completion pass, followed by at most one
+            /// deterministic removal of headings that remain empty.
+            var artifactCompletenessNudgedPaths = Set<String>()
+            var artifactCompletenessRepairedPaths = Set<String>()
             /// Aggregate rows with explicit source IDs receive at most two exact reconciliation
             /// passes before the broader semantic source audit takes over.
             var tabularSourceAuditCounts: [String: Int] = [:]
@@ -521,6 +525,38 @@ public struct AgentRunner: Sendable {
                     }
                 }
                 if case .say = resolvedAction,
+                   let correction = AgentArtifactTextQualityGate.markdownCompletenessCorrection(
+                    userMessage: userMessage,
+                    incompletePaths: runLoop.incompleteMarkdownWrittenTextPaths
+                   ) {
+                    if artifactCompletenessNudgedPaths.insert(correction.path).inserted {
+                        controlledSourceGroundingFinalization = nil
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: requested complete Markdown sections for "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    if artifactCompletenessRepairedPaths.insert(correction.path).inserted,
+                       let repairCall = Self.incompleteMarkdownRepairCall(
+                        path: correction.path,
+                        contentsByPath: runLoop.incompleteMarkdownWrittenTextContents
+                       ) {
+                        resolvedAction = .tool(repairCall)
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: removed empty Markdown headings from "
+                                + "./\(correction.path) before completion."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                    }
+                }
+                if case .say = resolvedAction,
                    let correction = AgentTabularSourceGroundingGate.correction(
                     userMessage: userMessage,
                     issuesByPath: runLoop.tabularSourceIssuesByPath,
@@ -764,6 +800,37 @@ public struct AgentRunner: Sendable {
                                 next.events.append(.init(
                                     kind: .notice,
                                     summary: "Self-healing: reconciled an enumerated record count in "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                            }
+                        }
+                        if case .say = finalized,
+                           let correction = AgentArtifactTextQualityGate.markdownCompletenessCorrection(
+                            userMessage: userMessage,
+                            incompletePaths: runLoop.incompleteMarkdownWrittenTextPaths
+                           ) {
+                            if artifactCompletenessNudgedPaths.insert(correction.path).inserted {
+                                pendingRepeatNudge = correction.prompt
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: requested complete Markdown sections for "
+                                        + "./\(correction.path) before completion."
+                                ))
+                                next.updatedAt = Date()
+                                await onProgress?(next)
+                                continue actionLoop
+                            }
+                            if artifactCompletenessRepairedPaths.insert(correction.path).inserted,
+                               let repairCall = Self.incompleteMarkdownRepairCall(
+                                path: correction.path,
+                                contentsByPath: runLoop.incompleteMarkdownWrittenTextContents
+                               ) {
+                                finalized = .tool(repairCall)
+                                next.events.append(.init(
+                                    kind: .notice,
+                                    summary: "Self-healing: removed empty Markdown headings from "
                                         + "./\(correction.path) before completion."
                                 ))
                                 next.updatedAt = Date()
@@ -1267,6 +1334,25 @@ public struct AgentRunner: Sendable {
     ) -> ToolCall? {
         guard let content = contentsByPath[path],
               let repaired = AgentArtifactTextQualityGate.replacingContradictoryEnumeratedCounts(
+                content: content,
+                path: path
+              )
+        else { return nil }
+        return ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": path,
+                "content": repaired,
+            ])
+        )
+    }
+
+    private static func incompleteMarkdownRepairCall(
+        path: String,
+        contentsByPath: [String: String]
+    ) -> ToolCall? {
+        guard let content = contentsByPath[path],
+              let repaired = AgentArtifactTextQualityGate.removingEmptyMarkdownSections(
                 content: content,
                 path: path
               )
