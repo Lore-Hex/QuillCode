@@ -291,7 +291,6 @@ private enum QuillCodeDesktopWindowSmokeLaunch {
                     NotificationCenter.default.removeObserver(observer)
                     Self.observer = nil
                 }
-                try? await Task.sleep(nanoseconds: 300_000_000)
                 await QuillCodeDesktopWindowSmokeRunner.runAndExit(
                     request,
                     controller: controller,
