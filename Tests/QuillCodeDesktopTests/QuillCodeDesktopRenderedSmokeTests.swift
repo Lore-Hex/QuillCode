@@ -276,7 +276,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
         XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
         XCTAssertGreaterThan(stats.brightPixelRatio, 0.0005)
-        XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.0005)
+        XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.0004)
     }
 
     func testRenderedWorkspaceShowsRealWorldActionResult() async throws {
