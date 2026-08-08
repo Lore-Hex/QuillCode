@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-08 Update Signing Trust Chain
+
+Overall grade after this slice: **A+ signing policy, A+ migration safety, A+ payload verification**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Security | A+ | Manifest metadata becomes a typed ad-hoc or Developer ID payload requirement; contradictory modes, malformed teams, false notarization, cross-team updates, and signed-to-ad-hoc downgrades fail closed. |
+| Distribution | A+ | Existing ad-hoc testers can move to the first notarized Developer ID Application without a manifest schema break; that app embeds the team and pins every later update. |
+| Payload integrity | A+ | The extracted app must match exact `codesign` signature/team/authority metadata; Developer ID apps additionally pass Gatekeeper assessment before staging. |
+| Architecture | A+ | Manifest policy, release state, pure signature parsing, system validation, preparation, and installation retain separate focused owners. |
+| Tests | A+ | An adversarial signing matrix covers all accepted transitions and rejection classes; the existing public updater gate exercises the real app swap and relaunch. |
+
+Validation:
+
+- Focused updater, controller, signing, smoke-contract, and release-parity suite (54 tests, 0 failures)
+- Full `swift test --skip-build` (5,449 tests, 5 skipped, 0 failures)
+- Exact release build 652 direct-executable and Launch Services smoke passed with matching
+  scheduled-task, browser, multi-file, one-turn coworker, and computer-use action reports
+- Packaged live-window and accessibility smoke passed at 1280x900 with the expected
+  TrustedRouter sign-in state and no clipped or overlapping controls
+- Release package: 3 of 3 fresh launches within budget; 268.61 ms median launch-ready,
+  88.22 MiB resident memory, and 6 threads
+- Exact ad-hoc payload metadata and strict `codesign` verification matched the typed signing policy
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
 ## 2026-08-08 Bounded Streaming Presentation
 
 Overall grade after this slice: **A+ bounded UI work, A+ lifecycle, A+ responsiveness**.

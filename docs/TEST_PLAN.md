@@ -7,6 +7,9 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
 
 ## Unit Tests
 
+- Updater signing trust: exact ad-hoc metadata, notarized Developer ID transition, ten-character
+  team validation, pinned-team continuity, ad-hoc downgrade and cross-team refusal, stable-channel
+  requirements, Developer ID Application authority parsing, and Installer-authority rejection.
 - Record & Replay contracts: request/status/capture encoding, event and snapshot bounds, skill-drafting prompt shape, empty-goal rejection, generic-backend unavailability, permission preflight, owner task/project/workspace propagation, stop-after-permission-revocation, event rejection once stop begins, protected-field redaction, and owner-only artifact permissions.
 - Config parsing, model catalog, auth state, secret store.
 - Non-interactive CLI parsing and contracts: legacy/exec routing, relative path resolution, stdin

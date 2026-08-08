@@ -119,6 +119,13 @@ the exact size, SHA-256 digest, app identity, version, embedded source commit,
 architecture, and macOS code signature before installation. The detached helper
 checks that same commit again immediately before the atomic swap.
 
+Signing metadata is also a payload requirement, not only a feed label. Ad-hoc
+updates must contain an actual ad-hoc signature with no team. A Developer ID
+update must declare a valid team, be notarized, contain a Developer ID Application
+authority for that same team, and pass Gatekeeper assessment. The first such
+update from an ad-hoc tester pins its embedded team; signed builds reject later
+ad-hoc downgrades and any other team.
+
 Archive bytes stream directly to an updater-owned partial file instead of being
 buffered in memory. A declared oversized response is rejected immediately; a
 chunked response is cancelled at the first chunk that would exceed the manifest

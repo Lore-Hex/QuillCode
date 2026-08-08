@@ -137,6 +137,7 @@ struct QuillCodeDesktopUpdateRelease: Equatable, Sendable {
     var version: String
     var build: String
     var asset: QuillCodeDesktopUpdateManifest.Asset
+    var signingRequirement: QuillCodeDesktopUpdateSigningRequirement
 
     var displayVersion: String {
         "\(version) (\(build))"
@@ -200,7 +201,7 @@ enum QuillCodeDesktopUpdateError: LocalizedError, Equatable, Sendable {
         case .noCompatibleApplication:
             "No compatible macOS app is available for this Mac."
         case .wrongSigningIdentity:
-            "The update was not signed by Quill Cowork's configured distribution identity."
+            "The update's signing identity does not match Quill Cowork's trusted update requirements."
         case .unsignedStableUpdate:
             "The stable update is not marked as signed and notarized."
         case .downloadSizeMismatch:
