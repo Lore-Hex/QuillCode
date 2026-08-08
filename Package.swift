@@ -28,7 +28,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/Lore-Hex/trusted-router-swift.git", from: "0.6.0"),
+        .package(url: "https://github.com/Lore-Hex/trusted-router-swift.git", from: "0.6.1"),
         .package(url: "https://github.com/dduan/TOMLDecoder.git", from: "0.4.5"),
         .package(url: "https://github.com/mattt/swift-toml.git", from: "2.0.0"),
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.2")
