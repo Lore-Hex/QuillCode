@@ -14,6 +14,46 @@ final class JSONThreadStoreTests: PersistenceTestCase {
         XCTAssertEqual(try store.list().count, 1)
     }
 
+    func testThreadStoreCompactsReasoningNoticesBeforeSaving() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        var thread = ChatThread(title: "Bounded reasoning")
+        thread.events = (0..<5_000).map {
+            ThreadEvent(kind: .notice, summary: "Thinking: token \($0)")
+        }
+
+        try store.save(thread)
+
+        let reloaded = try store.load(thread.id)
+        XCTAssertEqual(reloaded.events.count, 1)
+        XCTAssertEqual(reloaded.events.first?.summary, "Thinking: token 4999")
+    }
+
+    func testListingCompactsAndRewritesLegacyReasoningEventLog() throws {
+        let directory = try makeTempDirectory()
+        let store = JSONThreadStore(directory: directory)
+        var thread = ChatThread(title: "Legacy reasoning log")
+        thread.events = [ThreadEvent(kind: .message, summary: "Start")] +
+            (0..<5_000).map {
+                ThreadEvent(kind: .notice, summary: "Thinking: token \($0)")
+            } +
+            [ThreadEvent(kind: .toolQueued, summary: "host.shell.run queued")]
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let fileURL = directory.appendingPathComponent("\(thread.id.uuidString).json")
+        try encoder.encode(thread).write(to: fileURL)
+
+        let listing = store.listing()
+
+        XCTAssertEqual(listing.threads.first?.events.count, 3)
+        XCTAssertTrue(listing.issues.isEmpty)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let persisted = try decoder.decode(ChatThread.self, from: Data(contentsOf: fileURL))
+        XCTAssertEqual(persisted.events.count, 3)
+        XCTAssertEqual(persisted.events[1].summary, "Thinking: token 4999")
+    }
+
     func testThreadStoreRoundTripsModelOnlyContextWithoutCreatingMessages() throws {
         let store = try JSONThreadStore(directory: makeTempDirectory())
         let anchor = ChatMessage(role: .assistant, content: "Visible")

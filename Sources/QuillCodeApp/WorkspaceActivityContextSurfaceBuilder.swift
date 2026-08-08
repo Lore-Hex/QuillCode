@@ -2,10 +2,17 @@ import Foundation
 import QuillCodeCore
 
 enum WorkspaceActivityContextSurfaceBuilder {
+    private static let maximumEventsInspected = 2_048
+
     static func items(for thread: ChatThread) -> [ActivityItemSurface] {
-        thread.events
-            .compactMap(item(for:))
-            .suffix(6)
+        var recentItems: [ActivityItemSurface] = []
+        recentItems.reserveCapacity(6)
+        for event in thread.events.suffix(maximumEventsInspected).reversed() {
+            guard let item = item(for: event) else { continue }
+            recentItems.append(item)
+            if recentItems.count == 6 { break }
+        }
+        return recentItems.reversed()
     }
 
     private static func item(for event: ThreadEvent) -> ActivityItemSurface? {

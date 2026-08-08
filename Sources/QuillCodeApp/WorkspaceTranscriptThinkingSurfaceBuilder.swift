@@ -42,7 +42,14 @@ struct WorkspaceTranscriptThinkingSurfaceBuilder: Sendable, Hashable {
     }
 
     private static func traceLines(from events: [ThreadEvent]) -> [String] {
-        events.compactMap(traceLine).suffix(6).map { $0 }
+        var recentLines: [String] = []
+        recentLines.reserveCapacity(6)
+        for event in events.reversed() {
+            guard let line = traceLine(for: event) else { continue }
+            recentLines.append(line)
+            if recentLines.count == 6 { break }
+        }
+        return recentLines.reversed()
     }
 
     private static func traceLine(for event: ThreadEvent) -> String? {

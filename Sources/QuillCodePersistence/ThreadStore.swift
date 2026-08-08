@@ -83,7 +83,7 @@ public struct JSONThreadStore: Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(thread)
+        let data = try encoder.encode(ThreadEventLogCompactor.compact(thread))
         guard data.count <= Self.maximumThreadFileBytes else {
             throw JSONThreadStoreError.exceedsSizeLimit(
                 maximumBytes: Self.maximumThreadFileBytes
@@ -96,7 +96,7 @@ public struct JSONThreadStore: Sendable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let data = try Self.boundedData(contentsOf: fileURL(for: id))
-        return try decoder.decode(ChatThread.self, from: data)
+        return ThreadEventLogCompactor.compact(try decoder.decode(ChatThread.self, from: data))
     }
 
     public func delete(_ id: UUID) throws {
@@ -136,7 +136,12 @@ public struct JSONThreadStore: Sendable {
         for url in urls {
             do {
                 let data = try Self.boundedData(contentsOf: url)
-                threads.append(try decoder.decode(ChatThread.self, from: data))
+                let decoded = try decoder.decode(ChatThread.self, from: data)
+                let compacted = ThreadEventLogCompactor.compact(decoded)
+                threads.append(compacted)
+                if compacted.events.count != decoded.events.count {
+                    try? save(compacted)
+                }
             } catch let error as JSONThreadStoreError {
                 issues.append(ThreadFileIssue(fileURL: url, reason: Self.issueReason(for: error)))
             } catch {

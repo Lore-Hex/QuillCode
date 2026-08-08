@@ -57,7 +57,7 @@ extension QuillCodeWorkspaceModel {
         _ thread: ChatThread,
         preserveMemoryContext: Bool = true
     ) {
-        var thread = thread
+        var thread = ThreadEventLogCompactor.compact(thread)
         // A destroyed ephemeral thread must STAY destroyed: an in-flight send's progress callbacks
         // carry the run's own thread snapshot, and upserting it would resurrect a confidential/side
         // conversation the user already navigated away from (the UI promised it was gone). The
