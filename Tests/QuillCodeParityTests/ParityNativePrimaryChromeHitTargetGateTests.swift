@@ -25,7 +25,7 @@ final class ParityNativePrimaryChromeHitTargetGateTests: QuillCodeParityTestCase
             try Self.appSourceText(named: "QuillCodeComposerControls.swift"),
             try Self.appSourceText(named: "QuillCodeComposerSuggestionPanels.swift")
         ].joined(separator: "\n")
-        let searchDialogText = try Self.appSourceText(named: "QuillCodeSearchAndShortcutDialogs.swift")
+        let searchDialogText = try Self.appSourceText(named: "QuillCodeSearchView.swift")
         let commandPaletteText = try Self.appSourceText(named: "QuillCodeCommandPaletteDialog.swift")
         let dialogChromeText = try Self.appSourceText(named: "QuillCodeDialogChrome.swift")
         let settingsText = try Self.appSourceText(named: "QuillCodeSettingsView.swift")

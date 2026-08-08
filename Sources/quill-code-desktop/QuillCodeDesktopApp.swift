@@ -126,7 +126,6 @@ struct QuillCodeDesktopRootView: View {
             .task {
                 QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()
                 controller.updateController.startAutomaticChecks()
-                await controller.refreshModelCatalog()
             }
     }
 

@@ -133,7 +133,9 @@ struct QuillCodeModelPickerView: View {
             .quillCodeTextEntryTarget()
             .accessibilityLabel("Search models")
             .accessibilityIdentifier("quillcode-model-picker-search")
-            .onAppear(perform: focusSearchField)
+            .task {
+                await focusSearchFieldAfterPresentation()
+            }
             .onSubmit(selectHighlightedModel)
     }
 
@@ -247,14 +249,14 @@ struct QuillCodeModelPickerView: View {
     }
 
     private func focusSearchField() {
-        DispatchQueue.main.async {
-            guard isPresented else { return }
-            isSearchFocused = true
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            guard isPresented else { return }
-            isSearchFocused = true
-        }
+        guard isPresented else { return }
+        isSearchFocused = true
+    }
+
+    private func focusSearchFieldAfterPresentation() async {
+        try? await Task.sleep(for: .milliseconds(200))
+        guard !Task.isCancelled else { return }
+        focusSearchField()
     }
 
     private func ensureHighlightedModel(preferredID: String?) {

@@ -20,9 +20,9 @@ final class ParitySearchDialogGateTests: QuillCodeParityTestCase {
             "selectHighlightedResult()",
             "@State private var isVisible = false",
             "isVisible = true",
-            "private func focusSearchField()",
-            "DispatchQueue.main.async",
-            "guard isVisible else { return }",
+            "private func focusSearchField() async",
+            "Task.sleep(for: .milliseconds(200))",
+            "guard !Task.isCancelled, isVisible else { return }",
             "isVisible = false"
         ] {
             Self.assertSource(searchDialogText, contains: expected)

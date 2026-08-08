@@ -42,7 +42,9 @@ struct QuillCodeSearchView: View {
                 .focused($isSearchFocused)
                 .accessibilityIdentifier("quillcode-search-input")
                 .quillCodeTextEntryTarget()
-                .onAppear(perform: focusSearchField)
+                .task {
+                    await focusSearchField()
+                }
                 .onSubmit(selectHighlightedResult)
 
             if results.isEmpty {
@@ -115,15 +117,10 @@ struct QuillCodeSearchView: View {
         onSelectThread(id)
     }
 
-    private func focusSearchField() {
-        DispatchQueue.main.async {
-            guard isVisible else { return }
-            isSearchFocused = true
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-            guard isVisible else { return }
-            isSearchFocused = true
-        }
+    private func focusSearchField() async {
+        try? await Task.sleep(for: .milliseconds(200))
+        guard !Task.isCancelled, isVisible else { return }
+        isSearchFocused = true
     }
 }
 
