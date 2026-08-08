@@ -610,4 +610,22 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
             "Completed"
         )
     }
+
+    func testToolCardSubtitleBuilderSeparatesVisibleDetailFromLifecycleState() {
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.visibleDetail(from: "Completed · hello.txt"),
+            "hello.txt"
+        )
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.visibleDetail(
+                from: "Blocked · rm -rf / · Auto mode blocks high-risk commands."
+            ),
+            "rm -rf / · Auto mode blocks high-risk commands."
+        )
+        XCTAssertNil(WorkspaceToolCardSubtitleBuilder.visibleDetail(from: "Running"))
+        XCTAssertEqual(
+            WorkspaceToolCardSubtitleBuilder.visibleDetail(from: "Installing dependencies"),
+            "Installing dependencies"
+        )
+    }
 }

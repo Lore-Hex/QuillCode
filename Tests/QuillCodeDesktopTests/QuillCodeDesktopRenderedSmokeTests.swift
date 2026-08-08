@@ -281,7 +281,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         )
         XCTAssertGreaterThan(
             transcriptStats.sageAccentPixelRatio,
-            0.0012,
+            0.0008,
             "Rendered transcript excerpt should preserve tool-card and user-bubble accents."
         )
     }

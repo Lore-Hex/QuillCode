@@ -11,33 +11,29 @@ struct QuillCodeArtifactChip: View {
                     .quillCodeLinkTarget(
                         minWidth: 96,
                         alignment: .leading,
-                        radius: QuillCodeMetrics.minimumHitTarget / 2
+                        radius: QuillCodeMetrics.compactControlRadius
                     )
             }
             .buttonStyle(QuillCodePressableButtonStyle())
             .accessibilityLabel("Artifact \(artifact.label)")
+            .help(artifact.detail)
         } else {
             label
                 .quillCodeTextButtonTarget(
                     minWidth: 96,
                     alignment: .leading,
-                    radius: QuillCodeMetrics.minimumHitTarget / 2
+                    radius: QuillCodeMetrics.compactControlRadius
                 )
                 .accessibilityLabel("Artifact \(artifact.label)")
+                .help(artifact.detail)
         }
     }
 
     private var label: some View {
         HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
             Image(systemName: iconName)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(artifact.label)
-                    .lineLimit(1)
-                Text(artifact.detail)
-                    .font(.caption2)
-                    .foregroundStyle(QuillCodePalette.muted)
-                    .lineLimit(1)
-            }
+            Text(artifact.label)
+                .lineLimit(1)
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(QuillCodePalette.blue)
@@ -47,10 +43,10 @@ struct QuillCodeArtifactChip: View {
         .padding(.vertical, 6)
         .background(QuillCodePalette.blue.opacity(0.12))
         .overlay(
-            Capsule()
+            RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous)
                 .stroke(QuillCodePalette.blue.opacity(0.28), lineWidth: 1)
         )
-        .clipShape(Capsule())
+        .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.compactControlRadius, style: .continuous))
     }
 
     private var artifactURL: URL? {
