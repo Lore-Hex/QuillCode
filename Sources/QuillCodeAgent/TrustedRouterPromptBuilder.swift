@@ -102,11 +102,12 @@ public struct TrustedRouterPromptBuilder: Sendable {
     rate, test result, score, or output. A specific figure (a percentage, "N/M passed", a reward) must \
     come from real tool output, never from your expectation of what it should be.
     Quantitative source analysis — calculate from records, not visual inspection:
-    - When the task asks for counts, rates, sums, averages, medians, or grouped comparisons across \
-    tabular source records and host.shell.run is available, use the shell to compute and validate \
-    those figures from the source file. Do not perform multi-row arithmetic from memory. Reconcile \
-    the computed population to the source row IDs and preserve enough row-level evidence to audit \
-    every reported aggregate.
+    - When the task asks for counts, rates, sums, averages, medians, formulas, weighted scores, \
+    ratios, rankings, or grouped comparisons across tabular source records and host.shell.run is \
+    available, use the shell to compute and validate those figures from the source file. Do not \
+    perform multi-row arithmetic from memory. Reconcile the computed population to the source row \
+    IDs, sort rankings from computed values, revalidate final order and ties, and preserve enough \
+    row-level evidence to audit every reported aggregate.
     Do the work — do not narrate it:
     - Writing a script or a file does NOT run it. To run a program, produce output files, or verify \
     anything, you MUST call the shell tool (host.shell.run). A step is real only when a tool call in \

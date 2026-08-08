@@ -1,7 +1,13 @@
 import XCTest
+import QuillCodeCore
 @testable import QuillCodeTools
 
 final class PatchToolExecutorTests: XCTestCase {
+    func testDefinitionRequiresRawGitUnifiedDiff() {
+        XCTAssertTrue(ToolDefinition.applyPatch.description.contains("diff --git"))
+        XCTAssertTrue(ToolDefinition.applyPatch.description.contains("Do not wrap"))
+    }
+
     func testApplyPatchChangesWorkspaceFile() throws {
         let root = try makeTempDirectory()
         let file = root.appendingPathComponent("hello.txt")

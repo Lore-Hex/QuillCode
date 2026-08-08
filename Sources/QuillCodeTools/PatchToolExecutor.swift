@@ -237,7 +237,11 @@ public struct PatchToolExecutor: Sendable {
 public extension ToolDefinition {
     static let applyPatch = ToolDefinition(
         name: "host.apply_patch",
-        description: "Apply a unified diff patch inside the project workspace.",
+        description: """
+        Apply a raw git unified diff inside the project workspace. The patch must begin with \
+        `diff --git` and include `---`, `+++`, and numbered `@@ -old +new @@` hunk headers. Do not \
+        wrap it in `*** Begin Patch` / `*** End Patch`. Skip the call when no bytes would change.
+        """,
         parametersJSON: #"{"type":"object","properties":{"patch":{"type":"string"}},"required":["patch"]}"#,
         host: .local,
         risk: .append

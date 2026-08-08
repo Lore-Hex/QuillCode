@@ -219,6 +219,9 @@ public struct AgentRunner: Sendable {
             /// Source paths and data labels are not commands. Redirect each exact model proposal
             /// once after tool work has begun; a repeated proposal still reaches the shell.
             var preflightCorrectedInvalidShellCalls = Set<ToolCallFingerprint>()
+            /// Codex-envelope patches are not reversible by the git-diff patch engine. Redirect
+            /// each exact proposal once before it becomes a failed tool event.
+            var preflightCorrectedInvalidPatchCalls = Set<ToolCallFingerprint>()
             /// A malformed named prose artifact receives one corrective rewrite request per path.
             var artifactTextQualityNudgedPaths = Set<String>()
             /// If the model ignores that request, one deterministic escape-decoding repair is
@@ -956,6 +959,19 @@ public struct AgentRunner: Sendable {
                             summary: "Self-healing: attempted to verify ./\(correction.path) before "
                                 + "creating it; asked the agent to write it first."
                         ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
+                    let patchFingerprint = ToolCallFingerprint.make(
+                        name: activeCall.name,
+                        argumentsJSON: activeCall.argumentsJSON
+                    )
+                    if let correction = AgentInvalidPatchProposalPreflight.correction(for: activeCall),
+                       preflightCorrectedInvalidPatchCalls.insert(patchFingerprint).inserted {
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(kind: .notice, summary: correction.summary))
                         next.updatedAt = Date()
                         await onProgress?(next)
                         continue
