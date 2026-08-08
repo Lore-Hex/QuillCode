@@ -202,17 +202,19 @@ enum AgentTabularSourceGroundingGate {
                     + "support \(ids.count) (\(ids.joined(separator: ", ")))."
             )
         }
-        for match in outcomePairRegex.matches(in: prose, range: range) {
-            guard let declaredWon = integerCapture(match, at: 1, in: prose),
-                  let declaredLost = integerCapture(match, at: 2, in: prose)
-            else { continue }
-            let expectedWon = expectedCount(kind: .won, ids: ids, source: source)
-            let expectedLost = expectedCount(kind: .lost, ids: ids, source: source)
-            if declaredWon != expectedWon || declaredLost != expectedLost {
-                found.append(
-                    "Bullet '\(label)' declares \(declaredWon)W/\(declaredLost)L, but its "
-                        + "listed source IDs support \(expectedWon)W/\(expectedLost)L."
-                )
+        for regex in [outcomePairRegex, outcomeWordPairRegex] {
+            for match in regex.matches(in: prose, range: range) {
+                guard let declaredWon = integerCapture(match, at: 1, in: prose),
+                      let declaredLost = integerCapture(match, at: 2, in: prose)
+                else { continue }
+                let expectedWon = expectedCount(kind: .won, ids: ids, source: source)
+                let expectedLost = expectedCount(kind: .lost, ids: ids, source: source)
+                if declaredWon != expectedWon || declaredLost != expectedLost {
+                    found.append(
+                        "Bullet '\(label)' declares \(declaredWon)W/\(declaredLost)L, but its "
+                            + "listed source IDs support \(expectedWon)W/\(expectedLost)L."
+                    )
+                }
             }
         }
         return found
@@ -596,5 +598,8 @@ enum AgentTabularSourceGroundingGate {
     )
     private static let outcomePairRegex = try! NSRegularExpression(
         pattern: #"(?i)\b(\d+)\s*w\s*/\s*(\d+)\s*l\b"#
+    )
+    private static let outcomeWordPairRegex = try! NSRegularExpression(
+        pattern: #"(?i)\b(\d+)\s+won\b[^\r\n]{0,20}?\b(\d+)\s+lost\b"#
     )
 }

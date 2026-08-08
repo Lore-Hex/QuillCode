@@ -174,7 +174,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         - Outbound: 4 records (D02, D04, D08 lost; D05 won) - 1W/3L.
 
         ### Competitor
-        - CloseFlow: 5 records (D05, D12 won; D02, D09 lost) - 2W/3L.
+        - CloseFlow: 5 records (D05, D12 won; D02, D09 lost) - 3 won, 1 lost.
 
         ### Objection
         - none: 5 records (D01, D07, D10, D12 won; D04 lost) - 4W/1L.
@@ -194,7 +194,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
             $0.contains("CloseFlow") && $0.contains("declares 5 records")
         })
         XCTAssertTrue(issues.contains {
-            $0.contains("CloseFlow") && $0.contains("2W/3L") && $0.contains("2W/2L")
+            $0.contains("CloseFlow") && $0.contains("3W/1L") && $0.contains("2W/2L")
         })
         XCTAssertTrue(issues.contains { $0.contains("none") && $0.contains("D10=migration") })
         XCTAssertTrue(issues.contains { $0.contains("none") && $0.contains("[D01, D07, D12]") })
@@ -214,7 +214,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
 
         ### Competitor
         - CloseFlow: 2 records (D02 lost; D03 won) - 1W/1L.
-        - none: 1 record (D01 won) - 1W/0L.
+        - none: 1 record (D01 won) - 1 won, 0 lost.
         """
 
         XCTAssertEqual(
