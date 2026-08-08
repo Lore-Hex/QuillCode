@@ -152,6 +152,81 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         })
     }
 
+    func testTabularGateFindsCase230IDBackedProseDefects() {
+        let source = """
+        1\tid,segment,source,competitor,objection,outcome
+        2\tD01,Series A,referral,none,none,won
+        3\tD02,Series A,outbound,CloseFlow,SSO,lost
+        4\tD03,Growth,partner,MonthEnd Pro,ERP integration,lost
+        5\tD04,Series A,outbound,none,price before value,lost
+        6\tD05,Series A,referral,CloseFlow,migration,won
+        7\tD06,Growth,inbound,none,no urgency,lost
+        8\tD07,Series A,inbound,none,none,won
+        9\tD08,Series A,outbound,MonthEnd Pro,SSO,lost
+        10\tD09,Growth,referral,CloseFlow,price before value,lost
+        11\tD10,Series A,partner,none,migration,won
+        12\tD11,Growth,inbound,none,no sponsor,lost
+        13\tD12,Series A,referral,CloseFlow,none,won
+        """
+        let artifact = """
+        ### Source
+        - Referral: 4 records (D01, D05, D12 won; D09 lost) - 3W/1L.
+        - Outbound: 4 records (D02, D04, D08 lost; D05 won) - 1W/3L.
+
+        ### Competitor
+        - CloseFlow: 5 records (D05, D12 won; D02, D09 lost) - 2W/3L.
+
+        ### Objection
+        - none: 5 records (D01, D07, D10, D12 won; D04 lost) - 4W/1L.
+        """
+
+        let issues = AgentTabularSourceGroundingGate.issues(
+            content: artifact,
+            path: "outputs/wave5-230.md",
+            sourceReadsByPath: ["inputs/data.csv": source]
+        )
+
+        XCTAssertTrue(issues.contains { $0.contains("Outbound") && $0.contains("D05=referral") })
+        XCTAssertTrue(issues.contains {
+            $0.contains("Outbound") && $0.contains("[D02, D04, D08]")
+        })
+        XCTAssertTrue(issues.contains {
+            $0.contains("CloseFlow") && $0.contains("declares 5 records")
+        })
+        XCTAssertTrue(issues.contains {
+            $0.contains("CloseFlow") && $0.contains("2W/3L") && $0.contains("2W/2L")
+        })
+        XCTAssertTrue(issues.contains { $0.contains("none") && $0.contains("D10=migration") })
+        XCTAssertTrue(issues.contains { $0.contains("none") && $0.contains("[D01, D07, D12]") })
+    }
+
+    func testTabularGateAcceptsReconciledIDBackedProse() {
+        let source = """
+        1\tid,source,competitor,outcome
+        2\tD01,referral,none,won
+        3\tD02,outbound,CloseFlow,lost
+        4\tD03,outbound,CloseFlow,won
+        """
+        let artifact = """
+        ### Source
+        - Referral: 1 record (D01 won) - 1W/0L.
+        - Outbound: 2 records (D02 lost; D03 won) - 1W/1L.
+
+        ### Competitor
+        - CloseFlow: 2 records (D02 lost; D03 won) - 1W/1L.
+        - none: 1 record (D01 won) - 1W/0L.
+        """
+
+        XCTAssertEqual(
+            AgentTabularSourceGroundingGate.issues(
+                content: artifact,
+                path: "outputs/review.md",
+                sourceReadsByPath: ["inputs/data.csv": source]
+            ),
+            []
+        )
+    }
+
     func testRunnerReconcilesTabularSourceRowsBeforeCompletion() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }

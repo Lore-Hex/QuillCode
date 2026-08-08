@@ -1,8 +1,8 @@
 import Foundation
 
-/// Mechanically reconciles aggregate markdown rows with CSV/TSV records read during a source-only
-/// run. The gate deliberately requires explicit record IDs and count columns, which keeps it from
-/// treating illustrative prose tables as exhaustive analysis.
+/// Mechanically reconciles ID-backed aggregate tables and bullets with CSV/TSV records read during
+/// a source-only run. Requiring explicit record IDs keeps illustrative prose from being treated as
+/// exhaustive analysis.
 enum AgentTabularSourceGroundingGate {
     struct SourceTable {
         let path: String
@@ -38,8 +38,9 @@ enum AgentTabularSourceGroundingGate {
             \(details)
 
             Recompute the affected slices from the source file, preferably with the shell for \
-            arithmetic. Correct every affected table row and every prose conclusion derived from \
-            those rows. Preserve the source record IDs so the result remains auditable.
+            arithmetic. Correct every affected table row or aggregate bullet and every prose \
+            conclusion derived from those claims. Preserve the source record IDs so the result \
+            remains auditable.
 
             Return exactly one tool action now: rewrite ./\(entry.key) with the corrected complete \
             content. Do not return a final answer yet.
@@ -61,10 +62,11 @@ enum AgentTabularSourceGroundingGate {
         guard !sources.isEmpty else { return [] }
 
         var found: [String] = []
-        for markdownTable in parseMarkdownTables(content) {
-            for source in sources {
+        for source in sources {
+            for markdownTable in parseMarkdownTables(content) {
                 found.append(contentsOf: issues(in: markdownTable, source: source))
             }
+            found.append(contentsOf: proseIssues(in: content, source: source))
         }
         var seen = Set<String>()
         return found.filter { seen.insert($0).inserted }
@@ -102,6 +104,103 @@ enum AgentTabularSourceGroundingGate {
     private struct MarkdownTable {
         let headers: [String]
         let rows: [[String]]
+    }
+
+    private static func proseIssues(in content: String, source: SourceTable) -> [String] {
+        let knownIDs = Dictionary(uniqueKeysWithValues: source.recordsByID.keys.map {
+            ($0.lowercased(), $0)
+        })
+        var activeField: String?
+        var found: [String] = []
+
+        for rawLine in content.components(separatedBy: .newlines) {
+            if let heading = firstCapture(headingRegex, in: rawLine) {
+                activeField = sourceHeader(for: canonicalHeader(heading), in: source.headers)
+                continue
+            }
+            guard let field = activeField,
+                  let prose = firstCapture(bulletRegex, in: rawLine),
+                  let rawLabel = prose.split(separator: ":", maxSplits: 1).first.map(String.init)
+            else { continue }
+
+            let knownValues = Set(source.recordsByID.values.map {
+                canonicalValue($0[field] ?? "")
+            })
+            guard let value = categoryValue(in: rawLabel, knownValues: knownValues) else { continue }
+            let ids = extractedIDs(from: [prose], knownIDs: knownIDs)
+            guard !ids.isEmpty else { continue }
+
+            let mismatches = ids.filter { id in
+                canonicalValue(source.recordsByID[id]?[field] ?? "") != value
+            }
+            if !mismatches.isEmpty {
+                let actual = mismatches.map { id in
+                    "\(id)=\(source.recordsByID[id]?[field] ?? "blank")"
+                }.joined(separator: ", ")
+                found.append(
+                    "Bullet '\(cleanMarkdown(rawLabel))' labels \(field)=\(displayValue(value)), "
+                        + "but the source says \(actual)."
+                )
+            }
+
+            let matching = source.sortedIDs.filter { id in
+                canonicalValue(source.recordsByID[id]?[field] ?? "") == value
+            }
+            if Set(matching) != Set(ids) {
+                found.append(
+                    "Bullet '\(cleanMarkdown(rawLabel))' lists [\(ids.joined(separator: ", "))], "
+                        + "but source rows matching \(field)=\(displayValue(value)) are "
+                        + "[\(matching.joined(separator: ", "))]."
+                )
+            }
+            found.append(contentsOf: proseCountIssues(
+                prose: prose,
+                label: cleanMarkdown(rawLabel),
+                ids: ids,
+                source: source
+            ))
+        }
+        return found
+    }
+
+    private static func proseCountIssues(
+        prose: String,
+        label: String,
+        ids: [String],
+        source: SourceTable
+    ) -> [String] {
+        let range = NSRange(prose.startIndex..., in: prose)
+        var found: [String] = []
+        for match in recordCountRegex.matches(in: prose, range: range) {
+            guard let declared = integerCapture(match, at: 1, in: prose), declared != ids.count
+            else { continue }
+            found.append(
+                "Bullet '\(label)' declares \(declared) records, but its listed source IDs "
+                    + "support \(ids.count) (\(ids.joined(separator: ", ")))."
+            )
+        }
+        for match in outcomePairRegex.matches(in: prose, range: range) {
+            guard let declaredWon = integerCapture(match, at: 1, in: prose),
+                  let declaredLost = integerCapture(match, at: 2, in: prose)
+            else { continue }
+            let expectedWon = expectedCount(kind: .won, ids: ids, source: source)
+            let expectedLost = expectedCount(kind: .lost, ids: ids, source: source)
+            if declaredWon != expectedWon || declaredLost != expectedLost {
+                found.append(
+                    "Bullet '\(label)' declares \(declaredWon)W/\(declaredLost)L, but its "
+                        + "listed source IDs support \(expectedWon)W/\(expectedLost)L."
+                )
+            }
+        }
+        return found
+    }
+
+    private static func categoryValue(in rawLabel: String, knownValues: Set<String>) -> String? {
+        let label = canonicalValue(rawLabel)
+        if knownValues.contains(label) { return label }
+        return knownValues.sorted { $0.count > $1.count }.first { value in
+            label.hasPrefix(value + " ")
+        }
     }
 
     private static func issues(in table: MarkdownTable, source: SourceTable) -> [String] {
@@ -307,6 +406,23 @@ enum AgentTabularSourceGroundingGate {
         return Int(cleaned[valueRange])
     }
 
+    private static func firstCapture(_ regex: NSRegularExpression, in text: String) -> String? {
+        let range = NSRange(text.startIndex..., in: text)
+        guard let match = regex.firstMatch(in: text, range: range),
+              let capture = Range(match.range(at: 1), in: text)
+        else { return nil }
+        return String(text[capture])
+    }
+
+    private static func integerCapture(
+        _ match: NSTextCheckingResult,
+        at index: Int,
+        in text: String
+    ) -> Int? {
+        guard let range = Range(match.range(at: index), in: text) else { return nil }
+        return Int(text[range])
+    }
+
     private static func parseMarkdownTables(_ content: String) -> [MarkdownTable] {
         let lines = content.components(separatedBy: .newlines)
         var tables: [MarkdownTable] = []
@@ -433,4 +549,14 @@ enum AgentTabularSourceGroundingGate {
     }
 
     private static let integerPrefixRegex = try! NSRegularExpression(pattern: #"^\s*(\d+)\b"#)
+    private static let headingRegex = try! NSRegularExpression(
+        pattern: #"^\s{0,3}#{1,6}\s+(.+?)\s*$"#
+    )
+    private static let bulletRegex = try! NSRegularExpression(pattern: #"^\s*[-*+]\s+(.+)$"#)
+    private static let recordCountRegex = try! NSRegularExpression(
+        pattern: #"(?i)\b(\d+)\s+records?\b"#
+    )
+    private static let outcomePairRegex = try! NSRegularExpression(
+        pattern: #"(?i)\b(\d+)\s*w\s*/\s*(\d+)\s*l\b"#
+    )
 }
