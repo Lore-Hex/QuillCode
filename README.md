@@ -99,6 +99,10 @@ publishes an exact-main tester build after every successful merge.
 - [Architecture Decisions](docs/DECISIONS.md)
 - [Worktree Setup](docs/WORKTREE_SETUP.md)
 - [Merge Train](docs/MERGE_TRAIN.md)
+- [Support](SUPPORT.md)
+- [Security Policy](SECURITY.md)
+- [Contributing](CONTRIBUTING.md)
 
 Quill Cowork is an independent open-source project inspired by the best workflows in Codex, Claude
-Code, Cline, and other modern coding agents.
+Code, Cline, and other modern coding agents. It is licensed under the
+[Apache License 2.0](LICENSE).

@@ -1,0 +1,77 @@
+name: Bug report
+description: Report reproducible incorrect behavior in Quill Cowork.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Quill Cowork. Do not include credentials, API keys, private source code, transcripts, workspace paths, or customer data. Report security vulnerabilities privately through the Security tab.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Desktop app
+        - Installer or updater
+        - CLI
+        - Computer Use
+        - Browser or terminal
+        - Git, worktrees, or pull requests
+        - Automations, plugins, hooks, or MCP
+        - Authentication or model access
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the incorrect behavior and its impact.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Give the smallest reliable sequence that triggers the problem.
+      placeholder: |
+        1. Open...
+        2. Choose...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and build
+      description: Find this in About Quill Cowork or the prefilled in-app report.
+      placeholder: 0.1.0 (644), tester
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Operating system and architecture
+      placeholder: macOS 15.6, Apple silicon
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional sanitized context
+      description: Add screenshots or logs only after removing private and identifying data.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed credentials, private source code, transcripts, workspace paths, and customer data.
+          required: true
