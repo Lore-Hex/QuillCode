@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-08 First-Launch Installation Guidance
+
+Overall grade after this slice: **A+ first-run UX, A+ presentation ownership, A+ bounded state**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| UX | A+ | A user who launches from the DMG gets concise installation guidance immediately, before an update exists, with one clear Applications action and a quiet deferral. |
+| Resilience | A+ | Writable installed copies and copies already in `/Applications` proceed untouched; other non-replaceable copies reuse the updater's filesystem inspector. |
+| Memory | A+ | The feature owns one Boolean and one build-scoped preference; it creates no timers, network work, background tasks, or retained application process. |
+| Architecture | A+ | Inspector, controller, view, and the shared distribution-sheet presenter each have one narrow role; observing both child controllers keeps state transitions live. |
+| Tests | A+ | Controller tests cover availability, persistence, new builds, and routing; fixed-size rendering and mounted-DMG launch cover the native surface. |
+
+Validation:
+
+- Focused installation-location, updater-controller, and rendered suite (21 tests, 0 failures)
+- Fixed 470x320 native rendering with opaque background, distinct-color, and accent checks
+- Full `swift test --skip-build` (5,461 tests, 5 skipped, 0 failures)
+- Release-mode build 654 passed direct-executable, Launch Services, live-window, Accessibility,
+  scheduled-coworker, multi-file, one-turn, browser, and Computer Use contracts
+- Release package: 3 of 3 fresh launches within budget; 268.99 ms median launch-ready,
+  88.44 MiB resident memory, and 8 threads on the median attempt
+- A normal first launch from the read-only mounted DMG exposed every identified reminder action;
+  `Open Applications` opened Finder at `/Applications`, and the same build did not prompt on relaunch
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
 ## 2026-08-08 Read-Only Update Recovery
 
 Overall grade after this slice: **A+ preflight, A+ recovery UX, A+ race safety**.

@@ -89,6 +89,9 @@ struct QuillCodeDesktopWindowSmokeWorkspaceRoot: Sendable, Hashable {
                 configuration: nil,
                 installResultURL: nil
             ),
+            installationLocationController: QuillCodeDesktopInstallationLocationController(
+                configuration: nil
+            ),
             workspaceRoot: workspace
         )
     }

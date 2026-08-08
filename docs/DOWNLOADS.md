@@ -27,6 +27,13 @@ version, signing/notarization status, and current macOS updater asset. The DMG
 is the recommended human installation path; the ZIP remains the machine-verified
 updater payload so installation ergonomics cannot change update semantics.
 
+When Quill Cowork is launched directly from the read-only DMG or another
+non-replaceable location outside `/Applications`, it immediately offers to open
+`/Applications`. Dismissing that reminder suppresses it for the current build; a
+newer build may remind the user again. Installed copies already in `/Applications`
+do not show it. Installation guidance and available-update state use one coordinated
+sheet, so they cannot overlap.
+
 ## Build Cadence
 
 The tester release is refreshed:

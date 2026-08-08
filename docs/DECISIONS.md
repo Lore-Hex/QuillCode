@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-08: first launch explains relocation before updates are needed
+
+- **Decision:** A packaged app launched from a read-only disk image, App Translocation, or another
+  non-replaceable location outside `/Applications` presents a native installation reminder
+  immediately. The primary action opens `/Applications`; the user can still defer or close the sheet.
+- **Frequency:** Deferral is remembered once per bundle identifier and build. The same build does not
+  interrupt every launch, while a newly downloaded build can explain its installation state again.
+  Writable installed copies and copies already inside `/Applications` never present the reminder.
+- **Presentation boundary:** Installation guidance and updater state share one sheet presenter. The
+  installation reminder has priority while visible, then an already available update can occupy the
+  same surface after dismissal. Smoke modes disable the reminder so automation remains deterministic.
+- **Ownership:** The reminder reuses the updater's injected installation-location inspector. The
+  inspector decides whether the bundle is replaceable, a small controller owns persistence and the
+  Applications action, and SwiftUI only projects state.
+- **Why:** The updater could explain a read-only location only after a newer build existed. A new user
+  launching directly from the DMG therefore received no guidance at the moment moving the app mattered.
+- **Evidence:** Controller tests cover writable suppression, read-only presentation, once-per-build
+  dismissal, disabled configuration, and the Applications action. A fixed-size rendered test and a
+  normal launch from a mounted packaged DMG cover the real first-run surface.
+
 ## 2026-08-08: updater preflights read-only installation locations
 
 - **Decision:** The desktop updater inspects the running app bundle, executable, and parent-directory
