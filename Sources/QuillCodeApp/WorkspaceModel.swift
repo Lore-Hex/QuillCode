@@ -36,7 +36,7 @@ public final class QuillCodeWorkspaceModel {
     public internal(set) var sidebarSelection: SidebarSelectionState
     public internal(set) var agentRuns: WorkspaceAgentRunRegistry
     public private(set) var lastError: String?
-    let threadLoadIssue: WorkspaceThreadLoadIssue?
+    let startupLoadIssue: WorkspaceStartupLoadIssue?
 
     /// Set by the desktop layer to post a "come back and look" OS notification when an agent run
     /// finishes while the user is away — finished, errored, or blocked on an approval gate. The whole
@@ -152,6 +152,7 @@ public final class QuillCodeWorkspaceModel {
         contextSummaryGenerator: any WorkspaceContextSummaryGenerating = DeterministicWorkspaceContextSummaryGenerator(),
         threadStore: JSONThreadStore? = nil,
         threadLoadIssue: WorkspaceThreadLoadIssue? = nil,
+        startupLoadIssue: WorkspaceStartupLoadIssue? = nil,
         projectStore: JSONProjectStore? = nil,
         automationStore: JSONAutomationStore? = nil,
         sidebarSavedSearchStore: JSONSidebarSavedSearchStore? = nil,
@@ -199,7 +200,11 @@ public final class QuillCodeWorkspaceModel {
         self.subagentSchedulerOverride = nil
         self.contextSummaryGenerator = contextSummaryGenerator
         self.threadPersistence = WorkspaceThreadPersistence(store: threadStore)
-        self.threadLoadIssue = threadLoadIssue
+        self.startupLoadIssue = startupLoadIssue ?? WorkspaceStartupLoadIssue(
+            loadedThreadCount: root.threads.count,
+            threadLoadIssue: threadLoadIssue,
+            unreadableDataKinds: []
+        )
         self.projectStore = projectStore
         self.automationStore = automationStore
         self.sidebarSavedSearchStore = sidebarSavedSearchStore

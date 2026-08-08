@@ -98,7 +98,12 @@ final class QuillCodeDesktopController: ObservableObject {
         do {
             self.model = try bootstrap.makeModel()
         } catch {
-            self.model = QuillCodeWorkspaceModel()
+            self.model = QuillCodeWorkspaceModel(
+                startupLoadIssue: WorkspaceStartupLoadIssue(
+                    loadedThreadCount: 0,
+                    unreadableDataKinds: [.workspaceStorage]
+                )
+            )
         }
         self.workspaceRoot = launchWorkspaceRoot
             ?? FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL

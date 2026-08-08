@@ -1,5 +1,27 @@
 # QuillCode Decisions
 
+## 2026-08-08: damaged workspace registries recover independently
+
+- **Decision:** Config, projects, automations, and saved-search registries are accepted only as
+  regular non-symlink files within explicit 4 MiB or 16 MiB limits. Bootstrap loads each registry
+  independently, so one rejected file uses a safe in-memory default without hiding healthy chats or
+  other registries.
+- **Preservation boundary:** Startup never rewrites a rejected registry. Its store is detached for
+  the recovery session, preventing automatic model saves from replacing recoverable bytes. Failed
+  subagent reconciliation saves are also reported without aborting launch.
+- **User experience:** One content-free warning names affected data categories and the number of
+  healthy chats loaded. It routes to Settings diagnostics without exposing absolute paths, file
+  contents, or decoder errors. If workspace-directory setup is incomplete, bootstrap still loads
+  readable state and presents an explicit storage-recovery warning instead of silently constructing
+  a blank-looking workspace.
+- **Why:** Singleton registry loads previously shared one throwing bootstrap path. A malformed
+  `projects.json`, `automations.json`, `sidebar-saved-searches.json`, or `config.toml` therefore made
+  every healthy conversation appear gone for that launch, and several reads had no preflight bound.
+- **Evidence:** `BoundedFileDataReaderTests`, `ConfigStoreTests`,
+  `WorkspaceConfigurationIntegrationTests`, `JSONThreadStoreTests`, and
+  `QuillCodeDesktopControllerSmokeTests` cover bounded rejection, independent recovery, unchanged
+  source bytes, healthy-state preservation, aggregated diagnostics, and catastrophic storage failure.
+
 ## 2026-08-07: damaged saved chats stay bounded, visible, and recoverable
 
 - **Decision:** Persisted chat files are inspected as regular non-symlink files before decoding,
@@ -1229,7 +1251,7 @@
 - Model picker detail browsing is deterministic but can now include live TrustedRouter capability metadata. `TrustedRouterModelCatalogDecoding` owns flexible `/models` response parsing for context window, pricing, input/output modalities, capability tags, status, and summaries. `ModelInfo` stores normalized `ModelCapabilities`, and the app projects those claims into structured metadata rows/search terms rather than prose summaries so ordinary queries like `coding` do not match every recommended model just because a sentence mentions coding.
 - TrustedRouter model-catalog freshness is a root-state status, not a per-row capability. `ModelCatalogStatus` records bundled fallback, live TrustedRouter fetches, and fallback-after-refresh-failure with fetch age and bounded failure detail; the model picker and Settings render that shared label while individual `ModelInfo.capabilities.status` remains the provider/model health row. This keeps catalog-source diagnostics visible without repeating a global freshness badge on every model.
 - Provider health summaries are catalog-derived until TrustedRouter publishes a stable provider-status endpoint. `ModelProviderHealthSummary` groups live `ModelInfo.capabilities.status` values by canonical provider and feeds the picker/Settings header. Proactive desktop refresh polls the keyed TrustedRouter model catalog at startup and on a bounded stale interval, then derives provider health from that single catalog source instead of inventing a second status loop.
-- The first project UX is a native project rail backed by explicit selected-project state and `~/.quillcode/projects.json`. The desktop app seeds the launch working directory as the initial project, and `Open project` uses a desktop folder picker while the surface contract keeps the project action as a platform-neutral command.
+- The first project UX is a native project rail backed by explicit selected-project state and `~/.quillcode/projects.json`. Ordinary desktop launch waits for explicit project selection; only an explicit launch workspace is registered. `Open project` uses a desktop folder picker while the surface contract keeps the project action as a platform-neutral command.
 - Project registry mutation rules live in `WorkspaceProjectEngine`. The workspace model owns loaders, stores, terminal synchronization, and top-bar refresh, while the engine owns local/SSH project upsert, selected-project thread selection, project removal cleanup, metadata application, timestamp touches, and default naming. This keeps Codex-style project/worktree/remote behavior testable without booting the whole workspace model.
 - Native developer settings save the TrustedRouter API base URL in `config.toml` and the local API key through `QuillSecretStore`. Saving settings rebuilds the active desktop runtime immediately so the user does not need to relaunch to switch from mock to live mode.
 - TrustedRouter authentication has an explicit persisted mode. `oauth` is the default user-facing path, while `developer-override` is an intentional settings choice that reveals API key/base URL controls and preserves compatibility with older `developer_override_enabled` configs.
