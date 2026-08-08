@@ -373,15 +373,11 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .action(.tool(write)),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
         ])
+        let sleeper = RecordingEmptyResponseRetrySleeper()
         let runner = AgentRunner(
             llm: client,
-            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+            emptyResponseRetrySleeper: sleeper
         )
         let root = try makeTempDirectory()
 
@@ -397,7 +393,9 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("no final action after completing workspace work")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 8)
+        XCTAssertEqual(calls.count, 3, "post-tool recovery should not consume the normal retry budget")
+        let durations = await sleeper.recordedDurations()
+        XCTAssertEqual(durations, [], "the single post-tool resample should be immediate")
     }
 
     func testExhaustedEmptyResponseAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {
@@ -422,11 +420,6 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .action(.tool(readSource)),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
             .action(.tool(write)),
             .action(.say("Created and verified report.md.")),
             .action(.say("Created and verified report.md.")),
@@ -448,9 +441,9 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("no action after successful source work")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 11)
-        XCTAssertTrue(calls[8].userMessage.contains("QuillCode continuation"))
-        XCTAssertTrue(calls[8].userMessage.contains("host.file.read"))
+        XCTAssertEqual(calls.count, 6)
+        XCTAssertTrue(calls[3].userMessage.contains("QuillCode continuation"))
+        XCTAssertTrue(calls[3].userMessage.contains("host.file.read"))
     }
 
     func testExhaustedEmptyResponseAdvancesUnreadExplicitSourceBeforeModelContinuation() async throws {
@@ -484,11 +477,6 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .action(.tool(readContext)),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
             .action(.tool(write)),
             .action(.say("Created and verified outputs/report.md.")),
             .action(.say("Created and verified outputs/report.md.")),
@@ -513,7 +501,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("advanced an explicit requested source read")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 11, "local source recovery must not consume another model call")
+        XCTAssertEqual(calls.count, 6, "local source recovery must not consume another model call")
         XCTAssertFalse(calls.contains { $0.userMessage.contains("QuillCode continuation") })
     }
 

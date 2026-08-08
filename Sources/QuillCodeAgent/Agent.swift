@@ -287,7 +287,10 @@ public struct AgentRunner: Sendable {
                             workspaceRoot: workspaceRoot,
                             onProgress: onProgress,
                             injectedCorrection: repeatNudge,
-                            reasoningBudgetPhase: reasoningBudgetPhase
+                            reasoningBudgetPhase: reasoningBudgetPhase,
+                            emptyResponseRetryPolicy: runLoop.latestCompletion?.result.ok == true
+                                ? .afterSuccessfulTool
+                                : .standard
                         )
                     } catch AgentError.emptyStreamingResponse {
                         try Task.checkCancellation()

@@ -1,6 +1,29 @@
 import Foundation
 import QuillCodeCore
 
+enum AgentEmptyResponseRetryPolicy {
+    case standard
+    case afterSuccessfulTool
+
+    var retryLimit: Int {
+        switch self {
+        case .standard:
+            AgentRunner.emptyResponseRetryLimit
+        case .afterSuccessfulTool:
+            1
+        }
+    }
+
+    func backoffSeconds(forAttempt attempt: Int) -> Int {
+        switch self {
+        case .standard:
+            min(2 * (1 << (attempt - 1)), 12)
+        case .afterSuccessfulTool:
+            0
+        }
+    }
+}
+
 extension AgentRunner {
     /// `injectedCorrection` seeds the resolver's existing corrective seam for ONE sample: the
     /// prompt is delivered on the value-copy corrective thread (never the durable transcript) and
@@ -15,7 +38,8 @@ extension AgentRunner {
         workspaceRoot: URL,
         onProgress: AgentRunProgressHandler?,
         injectedCorrection: String? = nil,
-        reasoningBudgetPhase: AgentReasoningBudgetPhase = .startup
+        reasoningBudgetPhase: AgentReasoningBudgetPhase = .startup,
+        emptyResponseRetryPolicy: AgentEmptyResponseRetryPolicy = .standard
     ) async throws -> AgentAction {
         if injectedCorrection == nil,
            enablesImmediateActionPreflight,
@@ -247,7 +271,7 @@ extension AgentRunner {
                 // immediate [DONE]) — the streaming twin of TrustedRouterAgentError.emptyResponse,
                 // which the transport classifier already deems "worth one more try".
                 try Task.checkCancellation()
-                guard emptyResponseAttempt < Self.emptyResponseRetryLimit else {
+                guard emptyResponseAttempt < emptyResponseRetryPolicy.retryLimit else {
                     // F22: the primary cannot produce this step at all. Try the fallback model —
                     // once — with a fresh correction budget before declaring the run dead.
                     if let fallback = fallbackLLM, !usedFallback {
@@ -268,17 +292,25 @@ extension AgentRunner {
                     throw AgentError.emptyStreamingResponse
                 }
                 emptyResponseAttempt += 1
-                let backoffSeconds = min(2 * (1 << (emptyResponseAttempt - 1)), 12)
+                let backoffSeconds = emptyResponseRetryPolicy.backoffSeconds(
+                    forAttempt: emptyResponseAttempt
+                )
                 pendingCorrectionPrompt = nil
                 thread.events.append(.init(
                     kind: .notice,
-                    summary: "Self-healing: the model returned an empty response; retrying after "
-                        + "a \(backoffSeconds)-second backoff "
-                        + "(attempt \(emptyResponseAttempt) of \(Self.emptyResponseRetryLimit))."
+                    summary: backoffSeconds > 0
+                        ? "Self-healing: the model returned an empty response; retrying after "
+                            + "a \(backoffSeconds)-second backoff "
+                            + "(attempt \(emptyResponseAttempt) of "
+                            + "\(emptyResponseRetryPolicy.retryLimit))."
+                        : "Self-healing: the model returned an empty response after a successful "
+                            + "tool; retrying immediately once."
                 ))
                 thread.updatedAt = Date()
                 await onProgress?(thread)
-                try await emptyResponseRetrySleeper.sleep(.seconds(backoffSeconds))
+                if backoffSeconds > 0 {
+                    try await emptyResponseRetrySleeper.sleep(.seconds(backoffSeconds))
+                }
                 try Task.checkCancellation()
             }
         }
