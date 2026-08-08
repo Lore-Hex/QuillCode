@@ -300,7 +300,7 @@
 
 - **Decision:** Treat the office coworker task spreadsheet as the canonical QuillCode coverage
   tracker for business-user workflows, not just a brainstorming list.
-- **Rationale:** The 310-row catalog spans file cleanup, document packets, multi-file summaries,
+- **Rationale:** The 320-row catalog spans file cleanup, document packets, multi-file summaries,
   spreadsheets, browser/SaaS tasks, and Computer Use. A durable tracker makes it clear which rows are
   covered by current code/tests and which still need focused smoke evidence.
 - **Implementation:** Columns K:N in the sheet now derive QuillCode coverage, evidence, next gap, and

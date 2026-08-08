@@ -664,7 +664,7 @@ scripts/native-click-probe-contracts.py coworker-catalog \
 ```
 
 The coverage summary records `provenTaskIDs`, `pendingTaskIDs`, and `evidenceByTaskID` for the full
-snapshot-defined catalog range (currently 1-310). The optional Markdown report lists every row,
+snapshot-defined catalog range (currently 1-320). The optional Markdown report lists every row,
 its proven/pending result, evidence or exact next gap, category, and canonical task,
 and source manifest, so spreadsheet updates can be reviewed from row-linked evidence rather than
 manual memory.
