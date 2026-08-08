@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-08-08 Bounded Streaming Presentation
+
+Overall grade after this slice: **A+ bounded UI work, A+ lifecycle, A+ responsiveness**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Performance | A+ | Authoritative model updates remain lossless while full `WorkspaceSurface` projection is limited to one pending rebuild per 50 ms. A 10,000-signal burst produces one presentation refresh. |
+| Memory | A+ | One replaceable callback and one delay task bound pending presentation state. The task weakly references its scheduler and is cancelled during immediate refresh or teardown. |
+| UX | A+ | Streaming remains visibly progressive; start, final answer, failure, cancellation, approval, and user actions render immediately from the newest state. |
+| Architecture | A+ | One controller-owned scheduler serves ordinary sends, side chats, retries, reviews, and workflow skill creation without throttling model mutation or persistence. |
+| Tests | A+ | Deterministic burst/flush, cadence, cancellation, lifetime, separate progress routing, and concurrent-chat behavior are covered. |
+
+Validation:
+
+- Focused scheduler and desktop streaming integration suite (11 tests, 0 failures)
+- Full `swift test --skip-build` (5,441 tests, 5 skipped, 0 failures)
+- Exact release build 651 direct-executable and Launch Services smoke passed with matching
+  scheduled-task, browser, multi-file, one-turn coworker, and computer-use action reports
+- Packaged live-window and accessibility smoke passed at 1280x900 with 184 click probes and
+  9 successful sampled AX actions
+- Release package: 3 of 3 fresh launches within budget; 257.17 ms median launch-ready,
+  88.22 MiB resident memory, and 7 threads
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
 ## 2026-08-08 Post-Launch Update Stability
 
 Overall grade after this slice: **A+ transactional recovery, A+ bounded state, A+ continuity**.

@@ -3,6 +3,18 @@ import QuillCodeApp
 @MainActor
 extension QuillCodeDesktopController {
     func refresh() {
+        progressRefreshScheduler.flush { [weak self] in
+            self?.refreshNow()
+        }
+    }
+
+    func scheduleProgressRefresh() {
+        progressRefreshScheduler.schedule { [weak self] in
+            self?.refreshNow()
+        }
+    }
+
+    private func refreshNow() {
         computerUseCoordinator.refreshStatus(on: model)
         var nextSurface = surface
         var nextDraft = draft
@@ -28,17 +40,6 @@ extension QuillCodeDesktopController {
         if nextBrowserAddressDraft != browserAddressDraft {
             browserAddressDraft = nextBrowserAddressDraft
         }
-    }
-
-    func requestProgressRefresh() {
-        progressRefreshScheduler.request { [weak self] in
-            self?.refresh()
-        }
-    }
-
-    func refreshImmediatelyAfterProgress() {
-        progressRefreshScheduler.cancelPending()
-        refresh()
     }
 
     func scheduleModelCatalogRefreshIfNeeded() {

@@ -1,5 +1,27 @@
 # QuillCode Decisions
 
+## 2026-08-08: streaming progress coalesces expensive desktop projection
+
+- **Decision:** Every model progress callback still updates the authoritative thread and run state,
+  while the native desktop coalesces `WorkspaceSurface` projection behind one 50 ms main-actor
+  cadence. Ordinary sends, side conversations, failed-run retries, code reviews, and recorded
+  workflow skill creation share the same presentation path.
+- **Responsiveness boundary:** Send start, terminal completion, cancellation, failure, and every
+  user-driven refresh bypass the cadence. An immediate refresh cancels the pending projection and
+  renders the latest model state, so coalescing cannot leave stale Thinking, Stop, approval, or final
+  answer UI behind.
+- **Resource boundary:** A burst owns at most one delay task and one replaceable weak-controller
+  callback. The delay task does not retain its scheduler, and scheduler teardown cancels it. Ten
+  thousand synchronous progress signals therefore retain one pending presentation update instead of
+  constructing ten thousand full transcript/sidebar/activity surfaces.
+- **Why:** Streaming token fragments previously awaited a complete surface rebuild on every callback.
+  Long transcripts amplified transient allocation, main-thread work, and provider backpressure even
+  though only the newest fragment could be displayed at the next visible cadence.
+- **Evidence:** `QuillCodeDesktopProgressRefreshSchedulerTests` cover 10,000-signal coalescing,
+  latest-state publication, cancellation, immediate flush, and non-retention. The concurrent-chat
+  integration suite proves streaming progress uses the bounded path while start and finish remain
+  immediate.
+
 ## 2026-08-08: update activation survives an immediate post-launch crash
 
 - **Decision:** The detached updater retains the previous application until the replacement both
