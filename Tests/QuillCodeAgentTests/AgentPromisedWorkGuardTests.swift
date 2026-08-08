@@ -45,6 +45,29 @@ final class AgentPromisedWorkGuardTests: XCTestCase {
         ))
     }
 
+    func testNegativeClauseDoesNotHideLaterPositiveWorkPromise() {
+        let liveTask311Stall = """
+        Understood. Continuing task 311 from the existing outputs. I will not retry the blocked
+        browser and will not claim LinkedIn verification is complete. I will complete all independent
+        public-web research and every deliverable, then read back each artifact to verify it.
+        """
+
+        XCTAssertEqual(
+            AgentPromisedWorkGuard.correctionNeeded(
+                for: liveTask311Stall,
+                tools: [.fileRead, .fileWrite, .webSearch]
+            ),
+            .promisedWork
+        )
+    }
+
+    func testNegativePromiseStillDoesNotRequestCorrection() {
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "I will not retry the blocked browser or claim the unavailable verification.",
+            tools: [.webSearch]
+        ))
+    }
+
     func testDoesNotRequestCorrectionWithoutTools() {
         XCTAssertFalse(AgentPromisedWorkGuard.shouldRequestCorrection(
             for: "I'll run the command now.",
