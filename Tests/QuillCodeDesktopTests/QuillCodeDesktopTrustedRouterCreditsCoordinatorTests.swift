@@ -10,11 +10,7 @@ final class QuillCodeDesktopTrustedRouterCreditsCoordinatorTests: XCTestCase {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         try paths.ensure()
         let fetchedAt = Date(timeIntervalSince1970: 100)
-        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 8.5,
-            currency: "USD",
-            fetchedAt: fetchedAt
-        ))
+        let snapshot = try makeCreditsSnapshot(usage: 8.5, fetchedAt: fetchedAt)
         let recorder = CreditsFetchRecorder(results: [.success(snapshot)])
         let coordinator = QuillCodeDesktopTrustedRouterCreditsCoordinator(
             bootstrap: bootstrap(paths: paths, recorder: recorder),
@@ -48,11 +44,10 @@ final class QuillCodeDesktopTrustedRouterCreditsCoordinatorTests: XCTestCase {
     func testFailedForcedRefreshRetainsLastKnownBalanceAsStale() async throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         try paths.ensure()
-        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 4,
-            currency: "USD",
+        let snapshot = try makeCreditsSnapshot(
+            usage: 4,
             fetchedAt: Date(timeIntervalSince1970: 100)
-        ))
+        )
         let failureDate = Date(timeIntervalSince1970: 200)
         let recorder = CreditsFetchRecorder(results: [
             .failure(attemptedAt: failureDate, message: "Network unavailable.")
@@ -79,7 +74,7 @@ final class QuillCodeDesktopTrustedRouterCreditsCoordinatorTests: XCTestCase {
     func testMissingCredentialClearsBalanceWithoutNetworkRequest() async throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         try paths.ensure()
-        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(balance: 4, currency: "USD"))
+        let snapshot = try makeCreditsSnapshot(usage: 4)
         let recorder = CreditsFetchRecorder(results: [])
         let bootstrap = QuillCodeWorkspaceBootstrap(
             paths: paths,
@@ -108,16 +103,14 @@ final class QuillCodeDesktopTrustedRouterCreditsCoordinatorTests: XCTestCase {
     func testCancelledRefreshRestoresPreviousBalanceAndIgnoresLateResult() async throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         try paths.ensure()
-        let previousSnapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 4,
-            currency: "USD",
+        let previousSnapshot = try makeCreditsSnapshot(
+            usage: 4,
             fetchedAt: Date(timeIntervalSince1970: 100)
-        ))
-        let lateSnapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 999,
-            currency: "USD",
+        )
+        let lateSnapshot = try makeCreditsSnapshot(
+            usage: 999,
             fetchedAt: Date(timeIntervalSince1970: 200)
-        ))
+        )
         let deferredFetch = DeferredCreditsFetch()
         let bootstrap = QuillCodeWorkspaceBootstrap(
             paths: paths,
@@ -156,6 +149,20 @@ final class QuillCodeDesktopTrustedRouterCreditsCoordinatorTests: XCTestCase {
             ),
             accountCreditsFetcher: { config in await recorder.fetch(config: config) }
         )
+    }
+
+    private func makeCreditsSnapshot(
+        usage: Double,
+        fetchedAt: Date = Date()
+    ) throws -> TrustedRouterCreditsSnapshot {
+        try XCTUnwrap(TrustedRouterCreditsSnapshot(
+            lifetime: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .lifetime, usage: usage)),
+            daily: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .daily, usage: usage, limit: 40)),
+            weekly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .weekly, usage: usage, limit: 200)),
+            monthly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .monthly, usage: usage, limit: 800)),
+            currency: "USD",
+            fetchedAt: fetchedAt
+        ))
     }
 
     private func makeTempDirectory() throws -> URL {

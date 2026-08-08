@@ -1,15 +1,91 @@
 import Foundation
 
+public enum TrustedRouterCreditsWindow: String, Codable, Sendable, Hashable, CaseIterable {
+    case daily
+    case weekly
+    case monthly
+    case lifetime
+
+    public var displayLabel: String {
+        switch self {
+        case .daily: "Today"
+        case .weekly: "Week"
+        case .monthly: "Month"
+        case .lifetime: "Total"
+        }
+    }
+}
+
+public struct TrustedRouterCreditsWindowSnapshot: Codable, Sendable, Hashable {
+    public var window: TrustedRouterCreditsWindow
+    public var usage: Double
+    public var limit: Double?
+    public var remaining: Double?
+    public var resetsAt: Date?
+
+    public init?(
+        window: TrustedRouterCreditsWindow,
+        usage: Double,
+        limit: Double? = nil,
+        remaining: Double? = nil,
+        resetsAt: Date? = nil
+    ) {
+        guard usage.isFinite, usage >= 0 else { return nil }
+        guard limit.map({ $0.isFinite && $0 >= 0 }) ?? true else { return nil }
+        guard remaining.map({ $0.isFinite && $0 >= 0 }) ?? true else { return nil }
+
+        self.window = window
+        self.usage = usage
+        self.limit = limit
+        self.remaining = remaining ?? limit.map { max(0, $0 - usage) }
+        self.resetsAt = resetsAt
+    }
+
+    public var usedPercent: Int? {
+        guard let limit, limit > 0 else { return nil }
+        return max(0, Int((usage / limit * 100).rounded()))
+    }
+}
+
 public struct TrustedRouterCreditsSnapshot: Codable, Sendable, Hashable {
-    public var balance: Double
+    public var lifetime: TrustedRouterCreditsWindowSnapshot
+    public var daily: TrustedRouterCreditsWindowSnapshot
+    public var weekly: TrustedRouterCreditsWindowSnapshot
+    public var monthly: TrustedRouterCreditsWindowSnapshot
     public var currency: String?
     public var fetchedAt: Date
+    public var budgetAlertOnly: Bool
 
-    public init?(balance: Double, currency: String?, fetchedAt: Date = Date()) {
-        guard balance.isFinite else { return nil }
-        self.balance = balance
+    public init?(
+        lifetime: TrustedRouterCreditsWindowSnapshot,
+        daily: TrustedRouterCreditsWindowSnapshot,
+        weekly: TrustedRouterCreditsWindowSnapshot,
+        monthly: TrustedRouterCreditsWindowSnapshot,
+        currency: String?,
+        fetchedAt: Date = Date(),
+        budgetAlertOnly: Bool = false
+    ) {
+        guard lifetime.window == .lifetime,
+              daily.window == .daily,
+              weekly.window == .weekly,
+              monthly.window == .monthly else {
+            return nil
+        }
+        self.lifetime = lifetime
+        self.daily = daily
+        self.weekly = weekly
+        self.monthly = monthly
         self.currency = Self.normalizedCurrency(currency)
         self.fetchedAt = fetchedAt
+        self.budgetAlertOnly = budgetAlertOnly
+    }
+
+    public var windows: [TrustedRouterCreditsWindowSnapshot] {
+        [daily, weekly, monthly, lifetime]
+    }
+
+    public var primaryWindow: TrustedRouterCreditsWindowSnapshot {
+        windows.first(where: { $0.limit != nil }) ?? lifetime
     }
 
     private static func normalizedCurrency(_ value: String?) -> String? {
@@ -34,7 +110,7 @@ public struct TrustedRouterCreditsState: Codable, Sendable, Hashable {
 
     public var phase: TrustedRouterCreditsPhase
     public var snapshot: TrustedRouterCreditsSnapshot?
-    /// Most-recent-first successful TrustedRouter credit snapshots observed by this client.
+    /// Most-recent-first successful TrustedRouter key-usage snapshots observed by this client.
     /// This is local observation history, not a provider-side ledger.
     public var history: [TrustedRouterCreditsSnapshot]
     public var lastAttemptAt: Date?

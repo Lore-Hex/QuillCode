@@ -452,10 +452,22 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         hostingView.layoutSubtreeIfNeeded()
         hostingView.displayIfNeeded()
 
-        guard let bitmap = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(width),
+            pixelsHigh: Int(height),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
             window.orderOut(nil)
             throw RenderedWorkspaceSmokeFailure.bitmapContextFailed
         }
+        bitmap.size = hostingView.bounds.size
         hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
         window.orderOut(nil)
         guard let image = bitmap.cgImage else {

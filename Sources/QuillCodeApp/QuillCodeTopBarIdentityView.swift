@@ -2,6 +2,7 @@ import SwiftUI
 
 struct QuillCodeTopBarIdentityView: View {
     var topBar: TopBarSurface
+    @State private var showsKeyUsageDetails = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 9) {
@@ -61,12 +62,28 @@ struct QuillCodeTopBarIdentityView: View {
             }
 
             if let accountBalance = topBar.accountBalance {
-                statusChip(
-                    accountBalance.compactLabel,
-                    tint: accountBalance.tone.quillCodeTint
-                )
-                .help(accountBalance.detailLabel)
+                Button {
+                    showsKeyUsageDetails.toggle()
+                } label: {
+                    HStack(spacing: 4) {
+                        statusChip(
+                            accountBalance.compactLabel,
+                            tint: accountBalance.tone.quillCodeTint
+                        )
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(accountBalance.tone.quillCodeTint)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .quillCodeCapsuleButtonTarget()
+                .buttonStyle(QuillCodePressableButtonStyle(enforcesMinimumHitTarget: false))
+                .help("Show TrustedRouter key usage and limits")
                 .accessibilityLabel(accountBalance.accessibilityLabel)
+                .accessibilityHint("Shows daily, weekly, monthly, and total key usage")
+                .popover(isPresented: $showsKeyUsageDetails, arrowEdge: .bottom) {
+                    keyUsagePopover(accountBalance)
+                }
             }
 
             if let spendStatusLabel = topBar.spendStatusLabel {
@@ -90,6 +107,29 @@ struct QuillCodeTopBarIdentityView: View {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
                     .fill(tint.opacity(0.08))
             )
+    }
+
+    private func keyUsagePopover(_ balance: ProviderAccountBalanceSurface) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("TrustedRouter limits")
+                    .font(.headline)
+                Spacer()
+                Text(balance.statusLabel)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(balance.tone.quillCodeTint)
+            }
+            if !balance.visibleLimits.isEmpty {
+                QuillCodeTrustedRouterKeyLimitsView(limits: balance.visibleLimits)
+            }
+            Text(balance.detailLabel)
+                .font(.caption)
+                .foregroundStyle(QuillCodePalette.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(width: 340)
+        .background(QuillCodePalette.background)
     }
 
     /// The context chip stays SHORT on purpose: "Context 70.4k / 200k" plus a small meter. Remaining,

@@ -7,33 +7,70 @@ public enum ProviderAccountBalanceTone: String, Codable, Sendable, Hashable {
     case warning
 }
 
+public struct ProviderKeyLimitSurface: Codable, Sendable, Hashable, Identifiable {
+    public var id: String { periodLabel }
+    public var periodLabel: String
+    public var usageLabel: String
+    public var remainingLabel: String?
+    public var resetLabel: String?
+    public var detailLabel: String
+
+    public init(
+        periodLabel: String,
+        usageLabel: String,
+        remainingLabel: String?,
+        resetLabel: String?,
+        detailLabel: String
+    ) {
+        self.periodLabel = periodLabel
+        self.usageLabel = usageLabel
+        self.remainingLabel = remainingLabel
+        self.resetLabel = resetLabel
+        self.detailLabel = detailLabel
+    }
+}
+
 public struct ProviderAccountBalanceSurface: Codable, Sendable, Hashable {
     public var amountLabel: String?
     public var statusLabel: String
     public var detailLabel: String
     public var historyLabel: String?
     public var tone: ProviderAccountBalanceTone
+    public var limits: [ProviderKeyLimitSurface]?
 
     public init(
         amountLabel: String?,
         statusLabel: String,
         detailLabel: String,
         historyLabel: String? = nil,
-        tone: ProviderAccountBalanceTone
+        tone: ProviderAccountBalanceTone,
+        limits: [ProviderKeyLimitSurface] = []
     ) {
         self.amountLabel = amountLabel
         self.statusLabel = statusLabel
         self.detailLabel = detailLabel
         self.historyLabel = historyLabel
         self.tone = tone
+        self.limits = limits.isEmpty ? nil : limits
     }
 
     public var compactLabel: String {
-        amountLabel.map { "Balance \($0)" } ?? statusLabel
+        amountLabel ?? statusLabel
+    }
+
+    public var visibleLimits: [ProviderKeyLimitSurface] {
+        limits ?? []
     }
 
     public var accessibilityLabel: String {
-        "TrustedRouter account balance: \(amountLabel ?? statusLabel). \(detailLabel)"
+        let limitDetails = visibleLimits.map(\.detailLabel).joined(separator: ". ")
+        return [
+            "TrustedRouter key usage: \(amountLabel ?? statusLabel).",
+            detailLabel,
+            limitDetails
+        ]
+        .filter { !$0.isEmpty }
+        .joined(separator: " ")
     }
 }
 
@@ -49,44 +86,48 @@ struct WorkspaceTrustedRouterCreditsSurfaceBuilder: Sendable, Hashable {
         case .unavailable:
             return ProviderAccountBalanceSurface(
                 amountLabel: nil,
-                statusLabel: "Balance not loaded",
-                detailLabel: "Refresh to load the current TrustedRouter account balance.",
+                statusLabel: "Key limits not loaded",
+                detailLabel: "Refresh to load usage and limits for this TrustedRouter key.",
                 tone: .updating
             )
         case .refreshing:
             return ProviderAccountBalanceSurface(
-                amountLabel: state.snapshot.map(Self.amountLabel),
-                statusLabel: "Refreshing balance",
+                amountLabel: state.snapshot.map(primaryAmountLabel),
+                statusLabel: "Refreshing key limits",
                 detailLabel: refreshingDetail,
-                tone: .updating
+                tone: .updating,
+                limits: state.snapshot.map(limitSurfaces) ?? []
             )
         case .current:
             guard let snapshot = state.snapshot else {
                 return missingSnapshotSurface
             }
+            let limits = limitSurfaces(snapshot)
             return ProviderAccountBalanceSurface(
-                amountLabel: Self.amountLabel(snapshot),
-                statusLabel: "Balance current",
-                detailLabel: detailWithHistory("Current TrustedRouter account balance. \(ageLabel(snapshot.fetchedAt))."),
+                amountLabel: primaryAmountLabel(snapshot),
+                statusLabel: currentStatusLabel(snapshot),
+                detailLabel: detailWithHistory(currentDetail(snapshot)),
                 historyLabel: historyLabel,
-                tone: .normal
+                tone: currentTone(snapshot),
+                limits: limits
             )
         case .stale:
             guard let snapshot = state.snapshot else {
                 return missingSnapshotSurface
             }
             return ProviderAccountBalanceSurface(
-                amountLabel: Self.amountLabel(snapshot),
-                statusLabel: "Balance may be stale",
+                amountLabel: primaryAmountLabel(snapshot),
+                statusLabel: "Key limits may be stale",
                 detailLabel: detailWithHistory(staleDetail(snapshot)),
                 historyLabel: historyLabel,
-                tone: .warning
+                tone: .warning,
+                limits: limitSurfaces(snapshot)
             )
         case .failed:
             return ProviderAccountBalanceSurface(
                 amountLabel: nil,
-                statusLabel: "Balance unavailable",
-                detailLabel: state.failureMessage ?? "TrustedRouter account balance could not be refreshed.",
+                statusLabel: "Key limits unavailable",
+                detailLabel: state.failureMessage ?? "TrustedRouter key usage could not be refreshed.",
                 tone: .warning
             )
         }
@@ -95,17 +136,17 @@ struct WorkspaceTrustedRouterCreditsSurfaceBuilder: Sendable, Hashable {
     private var missingSnapshotSurface: ProviderAccountBalanceSurface {
         ProviderAccountBalanceSurface(
             amountLabel: nil,
-            statusLabel: "Balance unavailable",
-            detailLabel: "TrustedRouter did not return a usable account balance.",
+            statusLabel: "Key limits unavailable",
+            detailLabel: "TrustedRouter did not return usable key usage and limits.",
             tone: .warning
         )
     }
 
     private var refreshingDetail: String {
         guard let snapshot = state.snapshot else {
-            return "Loading the current TrustedRouter account balance."
+            return "Loading usage and limits for this TrustedRouter key."
         }
-        return "Refreshing the TrustedRouter account balance. "
+        return "Refreshing TrustedRouter key usage and limits. "
             + "Last successful update \(ageLabel(snapshot.fetchedAt).lowercased())."
     }
 
@@ -118,16 +159,16 @@ struct WorkspaceTrustedRouterCreditsSurfaceBuilder: Sendable, Hashable {
     }
 
     private func detailWithHistory(_ detail: String) -> String {
-        guard let historyLabel else { return detail }
-        return "\(detail) \(historyLabel)"
+        let history = historyLabel.map { " \($0)" } ?? ""
+        return "\(detail)\(history)"
     }
 
     private var historyLabel: String? {
         let entries = state.history.prefix(4).map { snapshot in
-            "\(Self.amountLabel(snapshot)) \(ageLabel(snapshot.fetchedAt).lowercased())"
+            "\(primaryAmountLabel(snapshot)) \(ageLabel(snapshot.fetchedAt).lowercased())"
         }
         guard !entries.isEmpty else { return nil }
-        return "Recent provider balance history: \(entries.joined(separator: "; "))."
+        return "Recent key-limit history: \(entries.joined(separator: "; "))."
     }
 
     private func ageLabel(_ fetchedAt: Date) -> String {
@@ -144,9 +185,68 @@ struct WorkspaceTrustedRouterCreditsSurfaceBuilder: Sendable, Hashable {
         return "Updated \(Int(elapsed / (24 * 60 * 60)))d ago"
     }
 
-    private static func amountLabel(_ snapshot: TrustedRouterCreditsSnapshot) -> String {
-        let amount = decimalLabel(snapshot.balance)
-        switch snapshot.currency {
+    private func primaryAmountLabel(_ snapshot: TrustedRouterCreditsSnapshot) -> String {
+        limitSurface(snapshot.primaryWindow, currency: snapshot.currency).map {
+            "\($0.periodLabel) \($0.usageLabel)"
+        } ?? "Total \(Self.money(snapshot.lifetime.usage, currency: snapshot.currency)) used"
+    }
+
+    private func currentDetail(_ snapshot: TrustedRouterCreditsSnapshot) -> String {
+        let enforcement = snapshot.budgetAlertOnly
+            ? "Limits send alerts without stopping requests."
+            : "Requests stop when a limit is reached."
+        return "\(ageLabel(snapshot.fetchedAt)). \(enforcement)"
+    }
+
+    private func limitSurfaces(_ snapshot: TrustedRouterCreditsSnapshot) -> [ProviderKeyLimitSurface] {
+        snapshot.windows.compactMap { window in
+            guard window.window == .lifetime || window.limit != nil || window.usage > 0 else { return nil }
+            return limitSurface(window, currency: snapshot.currency)
+        }
+    }
+
+    private func limitSurface(
+        _ window: TrustedRouterCreditsWindowSnapshot,
+        currency: String?
+    ) -> ProviderKeyLimitSurface? {
+        let usage = Self.money(window.usage, currency: currency)
+        let usageLabel = window.limit.map { "\(usage) / \(Self.money($0, currency: currency))" }
+            ?? "\(usage) used"
+        let remainingLabel = window.remaining.map { "\(Self.money($0, currency: currency)) left" }
+            ?? (window.window == .lifetime && window.limit == nil ? "No total cap" : nil)
+        let resetLabel = window.resetsAt.map(resetLabel)
+        var details = ["\(window.window.displayLabel): \(usageLabel)"]
+        if let remainingLabel { details.append(remainingLabel) }
+        if let resetLabel { details.append(resetLabel.lowercased()) }
+        if let usedPercent = window.usedPercent { details.append("\(usedPercent)% used") }
+        return ProviderKeyLimitSurface(
+            periodLabel: window.window.displayLabel,
+            usageLabel: usageLabel,
+            remainingLabel: remainingLabel,
+            resetLabel: resetLabel,
+            detailLabel: details.joined(separator: " · ")
+        )
+    }
+
+    private func currentStatusLabel(_ snapshot: TrustedRouterCreditsSnapshot) -> String {
+        currentTone(snapshot) == .warning ? "Key limit nearly reached" : "Key limits current"
+    }
+
+    private func currentTone(_ snapshot: TrustedRouterCreditsSnapshot) -> ProviderAccountBalanceTone {
+        snapshot.windows.contains { ($0.usedPercent ?? 0) >= 90 } ? .warning : .normal
+    }
+
+    private func resetLabel(_ date: Date) -> String {
+        let elapsed = date.timeIntervalSince(now)
+        guard elapsed > 0 else { return "Reset due" }
+        if elapsed < 60 * 60 { return "Resets in \(max(1, Int(ceil(elapsed / 60))))m" }
+        if elapsed < 24 * 60 * 60 { return "Resets in \(max(1, Int(ceil(elapsed / 3_600))))h" }
+        return "Resets in \(max(1, Int(ceil(elapsed / 86_400))))d"
+    }
+
+    private static func money(_ value: Double, currency: String?) -> String {
+        let amount = decimalLabel(value)
+        switch currency {
         case "USD": return "$\(amount)"
         case "EUR": return "€\(amount)"
         case "GBP": return "£\(amount)"

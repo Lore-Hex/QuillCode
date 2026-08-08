@@ -12,16 +12,12 @@ final class TrustedRouterCreditsClientTests: XCTestCase {
         super.tearDown()
     }
 
-    func testFetchUsesAuthenticatedCreditsEndpointAndDecodesBalance() async throws {
+    func testFetchUsesAuthenticatedCurrentKeyEndpointAndDecodesLimits() async throws {
         CreditsURLProtocol.handler = { request in
-            XCTAssertEqual(request.url?.absoluteString, "https://api.trustedrouter.test/v1/credits")
+            XCTAssertEqual(request.url?.absoluteString, "https://api.trustedrouter.test/v1/key")
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer sk-test-secret")
-            return Self.response(
-                request: request,
-                statusCode: 200,
-                body: #"{"balance":12.5,"currency":"usd"}"#
-            )
+            return Self.response(request: request, statusCode: 200, body: Self.keyUsageBody)
         }
         let fetchedAt = Date(timeIntervalSince1970: 200)
 
@@ -31,24 +27,51 @@ final class TrustedRouterCreditsClientTests: XCTestCase {
             urlSession: CreditsURLProtocol.session()
         ).fetch(fetchedAt: fetchedAt)
 
-        XCTAssertEqual(snapshot.balance, 12.5)
+        XCTAssertEqual(snapshot.lifetime.usage, 86.090316)
+        XCTAssertNil(snapshot.lifetime.limit)
+        XCTAssertEqual(snapshot.daily.usage, 1.25)
+        XCTAssertEqual(snapshot.daily.limit, 40)
+        XCTAssertEqual(snapshot.daily.remaining, 38.75)
+        XCTAssertEqual(snapshot.weekly.remaining, 197.356056)
+        XCTAssertEqual(snapshot.monthly.limit, 800)
         XCTAssertEqual(snapshot.currency, "USD")
         XCTAssertEqual(snapshot.fetchedAt, fetchedAt)
+        XCTAssertFalse(snapshot.budgetAlertOnly)
+        XCTAssertNotNil(snapshot.daily.resetsAt)
     }
 
-    func testMissingKeyAndInvalidBalanceFailClosed() async {
+    func testDefaultInferenceBaseRoutesCurrentKeyMetadataToControlHost() async throws {
+        CreditsURLProtocol.handler = { request in
+            XCTAssertEqual(request.url?.absoluteString, "https://trustedrouter.com/v1/key")
+            return Self.response(request: request, statusCode: 200, body: Self.keyUsageBody)
+        }
+
+        _ = try await TrustedRouterCreditsClient(
+            apiKey: "sk-test",
+            urlSession: CreditsURLProtocol.session()
+        ).fetch()
+    }
+
+    func testMissingKeyAndInvalidUsageFailClosed() async {
         do {
             _ = try await TrustedRouterCreditsClient(apiKey: " \n").fetch()
             XCTFail("Expected a missing-key error")
         } catch {
             XCTAssertEqual(
                 TrustedRouterCreditsClient.userFacingFailure(for: error),
-                "TrustedRouter sign-in is required to load account credits."
+                "TrustedRouter sign-in is required to load key usage and limits."
             )
         }
 
         CreditsURLProtocol.handler = { request in
-            Self.response(request: request, statusCode: 200, body: #"{"balance":1e999,"currency":"USD"}"#)
+            Self.response(
+                request: request,
+                statusCode: 200,
+                body: Self.keyUsageBody.replacingOccurrences(
+                    of: "\"usage\":86.090316",
+                    with: "\"usage\":-1"
+                )
+            )
         }
         do {
             _ = try await TrustedRouterCreditsClient(
@@ -60,7 +83,7 @@ final class TrustedRouterCreditsClientTests: XCTestCase {
         } catch {
             XCTAssertEqual(
                 TrustedRouterCreditsClient.userFacingFailure(for: error),
-                "TrustedRouter account credits could not be refreshed."
+                "TrustedRouter returned invalid key usage or limits."
             )
         }
     }
@@ -98,7 +121,7 @@ final class TrustedRouterCreditsClientTests: XCTestCase {
         )
         XCTAssertEqual(
             TrustedRouterCreditsClient.userFacingFailure(for: bounded),
-            "TrustedRouter rate-limited the account balance refresh; retry in 91s."
+            "TrustedRouter rate-limited the key usage refresh; retry in 91s."
         )
 
         let extreme = TrustedRouterError.rateLimit(
@@ -109,9 +132,30 @@ final class TrustedRouterCreditsClientTests: XCTestCase {
         )
         XCTAssertEqual(
             TrustedRouterCreditsClient.userFacingFailure(for: extreme),
-            "TrustedRouter rate-limited the account balance refresh."
+            "TrustedRouter rate-limited the key usage refresh."
         )
     }
+
+    private static let keyUsageBody = #"""
+    {"data":{
+      "usage":86.090316,
+      "limit":null,
+      "limit_remaining":null,
+      "usage_daily":1.25,
+      "limit_daily":40.0,
+      "limit_daily_remaining":38.75,
+      "limit_daily_resets_at":"2026-08-09T00:00:00Z",
+      "usage_weekly":2.643944,
+      "limit_weekly":200.0,
+      "limit_weekly_remaining":197.356056,
+      "limit_weekly_resets_at":"2026-08-10T00:00:00Z",
+      "usage_monthly":2.643944,
+      "limit_monthly":800.0,
+      "limit_monthly_remaining":797.356056,
+      "limit_monthly_resets_at":"2026-09-01T00:00:00Z",
+      "budget_alert_only":false
+    }}
+    """#
 
     private static func response(
         request: URLRequest,
