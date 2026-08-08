@@ -291,6 +291,15 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("never report totals you did not reconcile"))
     }
 
+    func testPromptRequiresDeterministicTabularAggregation() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
+
+        XCTAssertTrue(prompt.contains("counts, rates, sums, averages, medians"))
+        XCTAssertTrue(prompt.contains("use the shell to compute and validate"))
+        XCTAssertTrue(prompt.contains("Reconcile the computed population to the source row IDs"))
+        XCTAssertTrue(prompt.contains("Do not perform multi-row arithmetic from memory"))
+    }
+
     func testPromptForbidsInventedFactsInDraftedCommunications() {
         // Live UC-24 finding: an angry-customer draft asserted "I've checked the recent logs …
         // the project still exists" with zero tool calls behind it — an invented reassurance a
