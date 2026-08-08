@@ -77,6 +77,48 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         }
     }
 
+    func testValidatorSelectsOneMatchingAssetFromMultiArchitectureManifest() throws {
+        let armAsset = makeAsset()
+        let intelAsset = makeAsset(architecture: "x86_64")
+        var manifest = makeManifest()
+        manifest.updater.macOSAppAssets = [armAsset, intelAsset]
+        manifest.assets = [armAsset, intelAsset]
+        let configuration = makeConfiguration(architecture: "x86_64")
+
+        let result = try QuillCodeDesktopUpdateManifestValidator.validate(
+            manifest,
+            configuration: configuration
+        )
+
+        guard case .updateAvailable(let release) = result else {
+            return XCTFail("Expected an Intel update")
+        }
+        XCTAssertEqual(release.asset, intelAsset)
+    }
+
+    func testValidatorRejectsDuplicateMatchingMultiArchitectureAssets() throws {
+        let armAsset = makeAsset()
+        let intelAsset = makeAsset(architecture: "x86_64")
+        var duplicateIntelAsset = intelAsset
+        duplicateIntelAsset.name = "Quill-Cowork-macOS-x86_64-copy.zip"
+        duplicateIntelAsset.url = URL(
+            string: "https://github.com/Lore-Hex/QuillCode/releases/download/" +
+                "tester-latest/Quill-Cowork-macOS-x86_64-copy.zip"
+        )!
+        var manifest = makeManifest()
+        manifest.updater.macOSAppAssets = [armAsset, intelAsset, duplicateIntelAsset]
+        manifest.assets = [armAsset, intelAsset, duplicateIntelAsset]
+
+        XCTAssertThrowsError(
+            try QuillCodeDesktopUpdateManifestValidator.validate(
+                manifest,
+                configuration: makeConfiguration(architecture: "x86_64")
+            )
+        ) { error in
+            XCTAssertEqual(error as? QuillCodeDesktopUpdateError, .noCompatibleApplication)
+        }
+    }
+
     func testCheckerDecodesAndValidatesManifestData() async throws {
         let data = try JSONEncoder().encode(makeManifest(version: "0.2.0", build: "1"))
         let checker = QuillCodeDesktopUpdateChecker(loader: UpdateManifestLoaderStub(data: data))
@@ -996,7 +1038,8 @@ private final class UpdateDownloadURLProtocol: URLProtocol, @unchecked Sendable 
 
 func makeConfiguration(
     currentVersion: String = "0.1.0",
-    currentBuild: String = "42"
+    currentBuild: String = "42",
+    architecture: String = "arm64"
 ) -> QuillCodeDesktopUpdateConfiguration {
     QuillCodeDesktopUpdateConfiguration(
         channel: .tester,
@@ -1012,7 +1055,7 @@ func makeConfiguration(
         currentVersion: currentVersion,
         currentBuild: currentBuild,
         bundleIdentifier: "co.lorehex.QuillCowork",
-        architecture: "arm64",
+        architecture: architecture,
         applicationURL: URL(fileURLWithPath: "/Applications/Quill Cowork.app"),
         expectedSigningTeamIdentifier: nil
     )
@@ -1075,17 +1118,20 @@ func makeRelease(
     )
 }
 
-private func makeAsset() -> QuillCodeDesktopUpdateManifest.Asset {
-    QuillCodeDesktopUpdateManifest.Asset(
-        name: "Quill-Cowork-macOS-arm64.zip",
+private func makeAsset(
+    architecture: String = "arm64"
+) -> QuillCodeDesktopUpdateManifest.Asset {
+    let name = "Quill-Cowork-macOS-\(architecture).zip"
+    return QuillCodeDesktopUpdateManifest.Asset(
+        name: name,
         kind: "app",
         platform: "macOS",
-        arch: "arm64",
+        arch: architecture,
         install: "zip-app",
         sizeBytes: 10_000,
         sha256: String(repeating: "b", count: 64),
         url: URL(
-            string: "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip"
+            string: "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/\(name)"
         )!
     )
 }

@@ -13,10 +13,12 @@ final class ParityPublicDistributionGateTests: QuillCodeParityTestCase {
             readme,
             containsAll: [
                 "releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg",
+                "releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg",
                 "releases/download/tester-latest/Quill-Cowork-macOS-arm64.zip",
+                "releases/download/tester-latest/Quill-Cowork-macOS-x86_64.zip",
                 "docs/images/quill-cowork-desktop.png",
                 "macOS 14 or later",
-                "Apple silicon Mac",
+                "Apple silicon and Intel Macs",
                 "drag **Quill Cowork.app** onto **Applications**",
                 "checks for updates automatically",
                 "activation is atomic",
