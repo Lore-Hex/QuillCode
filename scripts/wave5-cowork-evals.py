@@ -1006,20 +1006,38 @@ def normalized_tool_path(value):
     return value.replace("\\", "/").removeprefix("./").rstrip("/")
 
 
+def tool_writes_artifact(tool, output_path):
+    if not tool_succeeded(tool):
+        return False
+    expected = normalized_tool_path(output_path)
+    name = tool.get("name")
+    arguments = tool_payload(tool, "inputJSON")
+    if name == "host.file.write":
+        path = arguments.get("path") or arguments.get("filename")
+        return normalized_tool_path(path) == expected
+    if name == "host.apply_patch":
+        return expected in json.dumps(arguments)
+    if name != "host.shell.run":
+        return False
+    command = arguments.get("cmd")
+    if not isinstance(command, str) or expected not in normalized_tool_path(command):
+        return False
+    escaped = re.escape(expected)
+    write_patterns = (
+        rf"open\s*\(\s*['\"]{escaped}['\"]\s*,\s*['\"][wax+]",
+        rf"Path\s*\(\s*['\"]{escaped}['\"]\s*\)\.write_(?:text|bytes)",
+        rf"(?:^|[;&|]\s*|\s)(?:>|>>)\s*['\"]?{escaped}(?:['\"]|\s|$)",
+        rf"\btee(?:\s+-a)?\s+['\"]?{escaped}(?:['\"]|\s|$)",
+    )
+    return any(re.search(pattern, command) for pattern in write_patterns)
+
+
 def has_artifact_readback(tools, output_path):
     expected = normalized_tool_path(output_path)
-    writes = []
-    for index, tool in enumerate(tools):
-        if not tool_succeeded(tool):
-            continue
-        name = tool.get("name")
-        arguments = tool_payload(tool, "inputJSON")
-        if name == "host.file.write":
-            path = arguments.get("path") or arguments.get("filename")
-            if normalized_tool_path(path) == expected:
-                writes.append(index)
-        elif name == "host.apply_patch" and expected in json.dumps(arguments):
-            writes.append(index)
+    writes = [
+        index for index, tool in enumerate(tools)
+        if tool_writes_artifact(tool, output_path)
+    ]
     if not writes:
         return False
     last_write = max(writes)
@@ -1150,7 +1168,7 @@ def grade(row, workspace, report, source_hashes):
     tools = report.get("tools", []) if report else []
     tool_names = [tool.get("name") for tool in tools if tool_succeeded(tool)]
     add("source reads", tool_names.count("host.file.read") >= 2, repr(tool_names))
-    add("artifact write", "host.file.write" in tool_names or "host.apply_patch" in tool_names, repr(tool_names))
+    add("artifact write", any(tool_writes_artifact(tool, output_path) for tool in tools), repr(tool_names))
     add("artifact verification", has_artifact_readback(tools, output_path), repr(tool_names))
     if row["Capability needed"] == "Browser pane":
         add("browser inspection", "host.browser.inspect" in tool_names, repr(tool_names))

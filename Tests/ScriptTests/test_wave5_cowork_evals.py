@@ -563,6 +563,36 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertFalse(WAVE5.has_artifact_readback([read, write], output))
         self.assertFalse(WAVE5.has_artifact_readback([write], output))
 
+    def test_shell_created_artifact_requires_explicit_write_and_readback(self):
+        output = "outputs/wave5-233.md"
+        shell_write = tool(
+            "host.shell.run",
+            {"cmd": "open('outputs/wave5-233.md', 'w').write('complete')"},
+            {"ok": True, "exitCode": 0},
+        )
+        read = tool("host.file.read", {"path": output}, {"ok": True})
+
+        self.assertTrue(WAVE5.tool_writes_artifact(shell_write, output))
+        self.assertTrue(WAVE5.has_artifact_readback([shell_write, read], output))
+        self.assertFalse(WAVE5.has_artifact_readback([read, shell_write], output))
+
+    def test_shell_artifact_provenance_rejects_failed_or_read_only_commands(self):
+        output = "outputs/wave5-233.md"
+        failed_write = tool(
+            "host.shell.run",
+            {"cmd": "open('outputs/wave5-233.md', 'w').write('incomplete')"},
+            {"ok": False, "exitCode": 1},
+            status="failed",
+        )
+        read_only = tool(
+            "host.shell.run",
+            {"cmd": "sed -n '1,20p' outputs/wave5-233.md"},
+            {"ok": True, "exitCode": 0},
+        )
+
+        self.assertFalse(WAVE5.tool_writes_artifact(failed_write, output))
+        self.assertFalse(WAVE5.tool_writes_artifact(read_only, output))
+
     def test_denied_read_does_not_verify_artifact(self):
         output = "outputs/wave5-211.md"
         tools = [
