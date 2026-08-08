@@ -59,6 +59,40 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.brightPixelRatio, 0.0008)
     }
 
+    func testRenderedEmptyWorkspaceShowsAggregatedRegistryRecoveryIssue() throws {
+        let firstThread = ChatThread(title: "Recovered chat A")
+        let secondThread = ChatThread(title: "Recovered chat B")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: [firstThread, secondThread],
+                selectedThreadID: firstThread.id
+            ),
+            startupLoadIssue: WorkspaceStartupLoadIssue(
+                loadedThreadCount: 2,
+                unreadableDataKinds: [.configuration, .projects, .automations, .savedSearches]
+            )
+        )
+        let surface = model.surface()
+        XCTAssertEqual(
+            surface.runtimeIssue?.title,
+            "Some saved workspace data could not be loaded"
+        )
+        XCTAssertEqual(
+            surface.runtimeIssue?.recovery?.reason,
+            .savedWorkspaceDataUnreadable
+        )
+        XCTAssertTrue(surface.transcript.timelineItems.isEmpty)
+
+        let image = try renderWorkspace(surface)
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 1280)
+        XCTAssertEqual(stats.height, 900)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.brightPixelRatio, 0.0008)
+    }
+
     func testRenderedUpdaterShowsDeterminateDownloadProgressInsideSheet() async throws {
         let release = makeRelease(version: "0.2.0", build: "7")
         let controller = QuillCodeDesktopUpdateController(

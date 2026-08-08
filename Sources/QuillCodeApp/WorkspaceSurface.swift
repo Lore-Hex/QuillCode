@@ -296,8 +296,8 @@ public extension QuillCodeWorkspaceModel {
     }
 
     private func runtimeIssueSurface() -> RuntimeIssueSurface? {
-        if let threadLoadIssue {
-            return threadLoadIssue.runtimeIssue
+        if let startupLoadIssue {
+            return startupLoadIssue.runtimeIssue
         }
         return WorkspaceRuntimeIssueBuilder(
             config: root.config,

@@ -1,6 +1,9 @@
 import Foundation
+import QuillCodePersistence
 
 public struct JSONSidebarSavedSearchStore: Sendable {
+    public static let maximumBytes = 4 * 1_024 * 1_024
+
     public var fileURL: URL
 
     public init(fileURL: URL) {
@@ -15,15 +18,18 @@ public struct JSONSidebarSavedSearchStore: Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(Self.normalized(savedSearches))
+        guard data.count <= Self.maximumBytes else {
+            throw BoundedFileDataError.exceedsSizeLimit(maximumBytes: Self.maximumBytes)
+        }
         try data.write(to: fileURL, options: .atomic)
     }
 
     public func load() throws -> [SidebarSavedSearch] {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
-        let decoded = try JSONDecoder().decode(
-            [SidebarSavedSearch].self,
-            from: Data(contentsOf: fileURL)
-        )
+        guard let data = try BoundedFileDataReader.readIfPresent(
+            from: fileURL,
+            maximumBytes: Self.maximumBytes
+        ) else { return [] }
+        let decoded = try JSONDecoder().decode([SidebarSavedSearch].self, from: data)
         return Self.normalized(decoded)
     }
 

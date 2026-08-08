@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-08-08 Crash-Safe Workspace Bootstrap
+
+Overall grade after this slice: **A+ bounded persistence, A+ recovery isolation, A+ visible failure**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Memory safety | A+ | One shared reader preflights file type, symlink status, and byte size before mapped loading. Config and saved searches cap at 4 MiB; projects and automations cap at 16 MiB; chat behavior retains its 128 MiB contract. |
+| Crash resilience | A+ | Config, projects, automations, saved searches, chat reconciliation, and workspace-directory setup recover independently. A rejected registry cannot collapse healthy startup or be replaced by automatic recovery-session saves. |
+| Architecture | A+ | Persistence owns bounded bytes, bootstrap owns per-store fallback, and one typed startup issue owns content-free UI diagnostics. Thread storage now reuses the same bounded reader while preserving its public error contract. |
+| UX | A+ | Partial startup states exactly which data needs attention and how many chats survived. Total workspace-directory failure is visible instead of presenting an unexplained empty app. |
+| Tests | A+ | Sparse oversized files, symlinks, non-files, mixed corruption, healthy-registry isolation, unchanged bytes, desktop fallback, and existing chat-store behavior are covered. |
+
+Validation:
+
+- Focused persistence, startup, compatibility, and native-render suite (78 tests, 0 failures)
+- Desktop catastrophic-storage fallback (1 test, 0 failures)
+- Full `swift test --skip-build` (5,434 tests, 5 skipped, 0 failures)
+- Packaged macOS direct-executable, Launch Services, live SwiftUI window,
+  accessibility/click-target, and coworker-workflow smoke passed
+- Release package: 3 of 3 fresh launches within budget; 262.68 ms median launch-ready,
+  88.02 MiB resident memory, and 7 threads
+- `python3 scripts/grade-code-quality.py --root .` (all affected modules A+)
+- `git diff --check`
+
 ## 2026-07-13 Managed Worktree Publish Branch Slice
 
 Overall grade after this slice: **A+ inspected publication architecture, A worktree parity**.

@@ -199,6 +199,119 @@ final class WorkspaceConfigurationIntegrationTests: XCTestCase {
         XCTAssertEqual(model.surface().settings.runtimeIssue, issue)
     }
 
+    func testBootstrapRecoversEachDamagedWorkspaceRegistryWithoutHidingHealthyChats() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
+        try threadStore.save(ChatThread(title: "Still here"))
+        let corruptThreadID = UUID()
+        try Data("{ truncated".utf8).write(
+            to: paths.threadsDirectory.appendingPathComponent("\(corruptThreadID.uuidString).json")
+        )
+        let rejectedBytes = Data([0xFF, 0x00, 0xFE, 0x7F])
+        let rejectedFiles = [
+            paths.configFile,
+            paths.projectsFile,
+            paths.automationsFile,
+            paths.sidebarSavedSearchesFile,
+        ]
+        for fileURL in rejectedFiles {
+            try rejectedBytes.write(to: fileURL)
+        }
+
+        let model = try QuillCodeWorkspaceBootstrap(paths: paths).makeModel()
+
+        XCTAssertEqual(model.root.threads.map(\.title), ["Still here"])
+        XCTAssertEqual(model.root.config, AppConfig())
+        XCTAssertTrue(model.root.projects.isEmpty)
+        XCTAssertTrue(model.automations.items.isEmpty)
+        XCTAssertTrue(model.sidebarSavedSearches.isEmpty)
+
+        let issue = try XCTUnwrap(model.surface().runtimeIssue)
+        XCTAssertEqual(issue.severity, .warning)
+        XCTAssertEqual(issue.title, "Some saved workspace data could not be loaded")
+        XCTAssertEqual(issue.actionLabel, "Review diagnostics")
+        XCTAssertEqual(issue.recovery?.route, .settings)
+        XCTAssertEqual(issue.recovery?.reason, .savedWorkspaceDataUnreadable)
+        let diagnostics = Dictionary(uniqueKeysWithValues: issue.diagnostics.map { ($0.label, $0.value) })
+        XCTAssertEqual(diagnostics["Affected data"], "Settings, Projects, Automations, Saved searches")
+        XCTAssertEqual(diagnostics["Loaded chats"], "1")
+        XCTAssertEqual(diagnostics["Affected chat files"], "1")
+        XCTAssertEqual(diagnostics["Chat IDs"], corruptThreadID.uuidString.lowercased())
+        let visibleRecoveryText = ([issue.title, issue.message] + issue.diagnostics.flatMap {
+            [$0.label, $0.value]
+        }).joined(separator: "\n")
+        XCTAssertFalse(visibleRecoveryText.contains(root.path))
+
+        _ = model.addProject(path: root, name: "Recovery session project")
+        _ = model.saveSidebarSavedSearch(title: "Recovery search", query: "error")
+        model.applyAutomationState(AutomationsState(items: [QuillAutomation(
+            title: "Recovery automation",
+            detail: "Should remain in memory only.",
+            kind: .monitor,
+            scheduleKind: .event,
+            scheduleDescription: "Event"
+        )]))
+        for fileURL in rejectedFiles {
+            XCTAssertEqual(try Data(contentsOf: fileURL), rejectedBytes)
+        }
+    }
+
+    func testBootstrapKeepsHealthyRegistriesWhenOneRegistryIsDamaged() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let config = AppConfig(defaultModel: "trustedrouter/glm-5.2", mode: .review)
+        let project = ProjectRef(name: "Healthy project", path: root.path)
+        let savedSearch = SidebarSavedSearch(title: "Failures", query: "failed")
+        try ConfigStore(fileURL: paths.configFile).save(config)
+        try JSONProjectStore(fileURL: paths.projectsFile).save([project])
+        try JSONSidebarSavedSearchStore(fileURL: paths.sidebarSavedSearchesFile).save([savedSearch])
+        let rejectedBytes = Data("{ truncated".utf8)
+        try rejectedBytes.write(to: paths.automationsFile)
+
+        let model = try QuillCodeWorkspaceBootstrap(paths: paths).makeModel()
+
+        XCTAssertEqual(model.root.config, config)
+        XCTAssertEqual(model.root.projects.map(\.id), [project.id])
+        XCTAssertEqual(model.root.projects.map(\.name), [project.name])
+        XCTAssertEqual(model.root.projects.map(\.path), [project.path])
+        XCTAssertEqual(model.sidebarSavedSearches, [savedSearch])
+        XCTAssertTrue(model.automations.items.isEmpty)
+        XCTAssertEqual(try Data(contentsOf: paths.automationsFile), rejectedBytes)
+        let issue = try XCTUnwrap(model.surface().runtimeIssue)
+        XCTAssertEqual(issue.diagnostics.first?.value, "Automations")
+    }
+
+    func testBootstrapKeepsHealthyStateWhenAnAuxiliaryStorageDirectoryIsBlocked() throws {
+        let root = try makeTempDirectory()
+        let paths = QuillCodePaths(home: root.appendingPathComponent(".quillcode"))
+        try paths.ensure()
+        let config = AppConfig(defaultModel: "trustedrouter/glm-5.2", mode: .review)
+        let project = ProjectRef(name: "Healthy project", path: root.path)
+        let chat = ChatThread(title: "Healthy chat", projectID: project.id)
+        try ConfigStore(fileURL: paths.configFile).save(config)
+        try JSONProjectStore(fileURL: paths.projectsFile).save([project])
+        try JSONThreadStore(directory: paths.threadsDirectory).save(chat)
+        try FileManager.default.removeItem(at: paths.attachmentsDirectory)
+        try Data("blocked".utf8).write(to: paths.attachmentsDirectory)
+
+        let model = try QuillCodeWorkspaceBootstrap(paths: paths).makeModel()
+
+        XCTAssertEqual(model.root.config, config)
+        XCTAssertEqual(model.root.projects.map(\.id), [project.id])
+        XCTAssertEqual(model.root.threads.map(\.id), [chat.id])
+        let issue = try XCTUnwrap(model.surface().runtimeIssue)
+        XCTAssertEqual(issue.title, "Workspace storage could not be opened")
+        XCTAssertEqual(issue.recovery?.reason, .savedWorkspaceDataUnreadable)
+        XCTAssertEqual(issue.diagnostics.first?.value, "Workspace storage")
+        XCTAssertEqual(
+            try String(contentsOf: paths.attachmentsDirectory, encoding: .utf8),
+            "blocked"
+        )
+    }
+
     func testBootstrapPersistsAndClearsTrustedRouterAPIKey() throws {
         let paths = QuillCodePaths(home: try makeTempDirectory())
         let bootstrap = QuillCodeWorkspaceBootstrap(

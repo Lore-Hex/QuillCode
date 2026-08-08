@@ -28,13 +28,30 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
 
     @MainActor
     public func makeModel() throws -> QuillCodeWorkspaceModel {
-        try paths.ensure()
-        let config = try ConfigStore(fileURL: paths.configFile).load()
+        var unreadableDataKinds: [WorkspaceStartupDataKind] = []
+        do {
+            try paths.ensure()
+        } catch {
+            unreadableDataKinds.append(.workspaceStorage)
+        }
+        let config: AppConfig
+        do {
+            config = try ConfigStore(fileURL: paths.configFile).load()
+        } catch {
+            config = AppConfig()
+            unreadableDataKinds.append(.configuration)
+        }
         let threadStore = JSONThreadStore(directory: paths.threadsDirectory)
         let projectStore = JSONProjectStore(fileURL: paths.projectsFile)
         let automationStore = JSONAutomationStore(fileURL: paths.automationsFile)
         let sidebarSavedSearchStore = JSONSidebarSavedSearchStore(fileURL: paths.sidebarSavedSearchesFile)
-        let storedProjects = try projectStore.load()
+        let storedProjects: [ProjectRef]
+        do {
+            storedProjects = try projectStore.load()
+        } catch {
+            storedProjects = []
+            unreadableDataKinds.append(.projects)
+        }
         let childStore = SubagentThreadStore(directory: paths.subagentThreadsDirectory)
         let payloadStore = SubagentApprovalPayloadStore(directory: paths.subagentApprovalPayloadsDirectory)
         let threadListing = threadStore.listing()
@@ -44,25 +61,47 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             payloadStore: payloadStore
         )
         let threads = reconciliation.threads
-        let projects: [ProjectRef]
-        if WorkspaceBootstrapProjectMigration.isComplete(in: paths.home) {
-            projects = storedProjects
-        } else {
-            projects = WorkspaceBootstrapProjectMigration.removingUnusedLegacyRootProject(
+        var projects = storedProjects
+        if !WorkspaceBootstrapProjectMigration.isComplete(in: paths.home)
+            && !unreadableDataKinds.contains(.projects) {
+            let migratedProjects = WorkspaceBootstrapProjectMigration.removingUnusedLegacyRootProject(
                 from: storedProjects,
                 threads: threads,
                 hasThreadLoadIssues: !threadListing.issues.isEmpty
             )
-            if projects != storedProjects {
-                try projectStore.save(projects)
+            if migratedProjects != storedProjects {
+                do {
+                    try projectStore.save(migratedProjects)
+                    projects = migratedProjects
+                    try? WorkspaceBootstrapProjectMigration.markComplete(in: paths.home)
+                } catch {
+                    unreadableDataKinds.append(.projects)
+                }
+            } else {
+                try? WorkspaceBootstrapProjectMigration.markComplete(in: paths.home)
             }
-            try WorkspaceBootstrapProjectMigration.markComplete(in: paths.home)
         }
         for thread in threads where reconciliation.changedThreadIDs.contains(thread.id) {
-            try threadStore.save(thread)
+            do {
+                try threadStore.save(thread)
+            } catch {
+                unreadableDataKinds.append(.chats)
+            }
         }
-        let automations = try automationStore.load()
-        let sidebarSavedSearches = try sidebarSavedSearchStore.load()
+        let automations: [QuillAutomation]
+        do {
+            automations = try automationStore.load()
+        } catch {
+            automations = []
+            unreadableDataKinds.append(.automations)
+        }
+        let sidebarSavedSearches: [SidebarSavedSearch]
+        do {
+            sidebarSavedSearches = try sidebarSavedSearchStore.load()
+        } catch {
+            sidebarSavedSearches = []
+            unreadableDataKinds.append(.savedSearches)
+        }
         let selectedThreadID = threads.first(where: { !$0.isArchived })?.id
         let selectedProjectID = selectedThreadID
             .flatMap { id in threads.first { $0.id == id }?.projectID }
@@ -96,10 +135,16 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
             runner: runtime.runner,
             contextSummaryGenerator: runtime.contextSummaryGenerator,
             threadStore: threadStore,
-            threadLoadIssue: WorkspaceThreadLoadIssue(listing: threadListing),
-            projectStore: projectStore,
-            automationStore: automationStore,
-            sidebarSavedSearchStore: sidebarSavedSearchStore,
+            startupLoadIssue: WorkspaceStartupLoadIssue(
+                loadedThreadCount: threads.count,
+                threadLoadIssue: WorkspaceThreadLoadIssue(listing: threadListing),
+                unreadableDataKinds: unreadableDataKinds
+            ),
+            projectStore: unreadableDataKinds.contains(.projects) ? nil : projectStore,
+            automationStore: unreadableDataKinds.contains(.automations) ? nil : automationStore,
+            sidebarSavedSearchStore: unreadableDataKinds.contains(.savedSearches)
+                ? nil
+                : sidebarSavedSearchStore,
             agentImporter: ClaudeCodeAgentImporter(
                 sourceHomeDirectory: FileManager.default.homeDirectoryForCurrentUser,
                 destinationPaths: paths
