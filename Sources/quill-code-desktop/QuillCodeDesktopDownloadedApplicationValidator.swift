@@ -16,6 +16,11 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
         else {
             throw QuillCodeDesktopUpdateError.invalidApplication("its identity or version does not match")
         }
+        guard bundle.object(
+            forInfoDictionaryKey: QuillCodeDesktopBuildMetadata.commitInfoKey
+        ) as? String == release.commit else {
+            throw QuillCodeDesktopUpdateError.invalidApplication("its source commit does not match")
+        }
 
         let signature = try QuillCodeDesktopUpdateProcessRunner.run(
             executableURL: URL(fileURLWithPath: "/usr/bin/codesign"),

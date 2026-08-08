@@ -266,6 +266,32 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         }
     }
 
+    func testDownloadedApplicationRejectsMismatchedSourceCommitBeforeSystemValidation() throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let applicationURL = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
+        try makeFakeApplication(
+            at: applicationURL,
+            version: "0.1.0",
+            build: "43",
+            commit: String(repeating: "b", count: 40),
+            executableScript: "#!/bin/sh\nexit 0\n"
+        )
+
+        XCTAssertThrowsError(
+            try QuillCodeDesktopDownloadedApplicationValidator.validate(
+                applicationURL,
+                release: makeRelease(),
+                configuration: makeConfiguration()
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? QuillCodeDesktopUpdateError,
+                .invalidApplication("its source commit does not match")
+            )
+        }
+    }
+
     func testPreparerPrunesPreviousUpdateWorkspaces() async throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }
@@ -444,7 +470,8 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             logURL: root.appendingPathComponent("install.log"),
             expectedBundleIdentifier: "co.lorehex.QuillCowork",
             expectedVersion: "0.2.0",
-            expectedBuild: "99"
+            expectedBuild: "99",
+            expectedCommit: String(repeating: "a", count: 40)
         )
 
         let parsed = try XCTUnwrap(QuillCodeDesktopUpdateHelperRequest.parse(
@@ -460,6 +487,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         XCTAssertEqual(parsed.logURL, request.logURL)
         XCTAssertEqual(parsed.expectedVersion, request.expectedVersion)
         XCTAssertEqual(parsed.expectedBuild, request.expectedBuild)
+        XCTAssertEqual(parsed.expectedCommit, request.expectedCommit)
     }
 
     func testHelperCompletesVerifiedSwapAfterLaunchHandshake() throws {
@@ -685,7 +713,8 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             logURL: workspace.appendingPathComponent("install.log"),
             expectedBundleIdentifier: "co.lorehex.QuillCowork",
             expectedVersion: expectedVersion,
-            expectedBuild: expectedBuild
+            expectedBuild: expectedBuild,
+            expectedCommit: String(repeating: "a", count: 40)
         )
     }
 
@@ -1017,6 +1046,7 @@ private func makeFakeApplication(
     at root: URL,
     version: String,
     build: String,
+    commit: String = String(repeating: "a", count: 40),
     executableScript: String
 ) throws {
     let contents = root.appendingPathComponent("Contents", isDirectory: true)
@@ -1030,7 +1060,8 @@ private func makeFakeApplication(
         "CFBundleIdentifier": "co.lorehex.QuillCowork",
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": version,
-        "CFBundleVersion": build
+        "CFBundleVersion": build,
+        QuillCodeDesktopBuildMetadata.commitInfoKey: commit
     ]
     let data = try PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0)
     try data.write(to: contents.appendingPathComponent("Info.plist"))

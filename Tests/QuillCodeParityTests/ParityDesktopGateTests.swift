@@ -68,6 +68,9 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         let menuText = try Self.desktopSourceText(named: "QuillCodeMenuBarView.swift")
         Self.assertSource(menuText, contains: "onDisconnectAll")
         Self.assertSource(menuText, contains: "onOpenBrowserSession")
+        Self.assertSource(menuText, contains: "onReportIssue")
+        Self.assertSource(commandsText, contains: "quillcode-menu-report-issue")
+        Self.assertSource(appText, contains: "onReportIssue: controller.reportIssue")
         XCTAssertFalse(
             menuText.contains(#"Button("Disconnect All") {}"#),
             "Disconnect All must not regress to a no-op button."

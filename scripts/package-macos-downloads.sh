@@ -31,6 +31,11 @@ if [[ "$UPDATE_CHANNEL" == "stable" ]]; then
 else
   DEFAULT_UPDATE_MANIFEST_URL="$TESTER_MANIFEST_URL"
 fi
+
+if [[ ! "$COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "Download packaging requires an exact lowercase Git commit." >&2
+  exit 2
+fi
 UPDATE_MANIFEST_URL="${QUILLCODE_UPDATE_MANIFEST_URL:-$DEFAULT_UPDATE_MANIFEST_URL}"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -57,6 +62,7 @@ echo "==> Packaging Quill Cowork macOS app ($ARCH, version $VERSION build $BUILD
 APP_BUNDLE="$(
   QUILLCODE_MACOS_APP_VERSION="$VERSION" \
   QUILLCODE_MACOS_BUILD_NUMBER="$BUILD_NUMBER" \
+  QUILLCODE_MACOS_BUILD_COMMIT="$COMMIT" \
   QUILLCODE_MACOS_BUNDLE_ID="$BUNDLE_ID" \
   QUILLCODE_MACOS_MINIMUM_SYSTEM_VERSION="$MINIMUM_SYSTEM_VERSION" \
   QUILLCODE_MACOS_UPDATE_CHANNEL="$UPDATE_CHANNEL" \

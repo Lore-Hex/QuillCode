@@ -58,7 +58,10 @@ same public GitHub API and download URLs users receive. It resolves the release
 tag to the expected commit, checks the exact release inventory and updater feed
 contract, then downloads every declared asset with bounded streaming and
 verifies GitHub's digest, manifest size/SHA-256, `SHASUMS256.txt`, and
-`BUILD_INFO.txt`. A publication is not green until this consumer check passes.
+`BUILD_INFO.txt`. It also reads the updater ZIP's bounded `Info.plist` and requires
+the product identity, version, build, exact source commit, channel, feed URLs,
+minimum macOS version, and signing team to agree with the public manifest. A
+publication is not green until this consumer check passes.
 
 The release-configured macOS app must also open a real native window within three
 seconds and remain below 256 MiB of resident memory at that initial-window
@@ -73,6 +76,7 @@ turning one loaded-runner outlier into the product metric.
 
 The packaged macOS app embeds update metadata in `Info.plist`:
 
+- `QuillCodeBuildCommit`
 - `QuillCodeUpdateChannel`
 - `QuillCodeUpdateManifestURL`
 - `QuillCodeStableUpdateManifestURL`
@@ -103,8 +107,9 @@ next automatic due time when it succeeds. Quiet background failures retry after
 work for five minutes. The updater compares `CFBundleShortVersionString` plus
 `CFBundleVersion`, requires the configured repository, product, channel, bundle
 identifier, architecture, and signing identity, downloads on demand, and verifies
-the exact size, SHA-256 digest, app identity, version, architecture, and macOS code
-signature before installation.
+the exact size, SHA-256 digest, app identity, version, embedded source commit,
+architecture, and macOS code signature before installation. The detached helper
+checks that same commit again immediately before the atomic swap.
 
 Archive bytes stream directly to an updater-owned partial file instead of being
 buffered in memory. A declared oversized response is rejected immediately; a
@@ -136,10 +141,11 @@ Tester builds support the same user-initiated update and rollback flow. A stable
 tag cannot publish a macOS app unless Developer ID signing and Apple notarization
 are configured.
 
-The app is still a tester build, so ask testers to include:
+The app is still a tester build. **Report an Issue...** in the app menu opens a
+GitHub report prefilled only with the app version, build, source commit, channel,
+macOS version, and architecture. It does not include workspace paths, transcripts,
+or credentials. Ask testers to add:
 
-- their operating system and CPU architecture
-- the `BUILD_INFO.txt` or `BUILD_INFO-linux-*.txt` asset contents
 - what they clicked or typed before the issue
 - a screenshot when the issue is visual
 

@@ -48,7 +48,8 @@ enum QuillCodeDesktopUpdateHelper {
                 request.incomingApplicationURL,
                 identifier: request.expectedBundleIdentifier,
                 version: request.expectedVersion,
-                build: request.expectedBuild
+                build: request.expectedBuild,
+                commit: request.expectedCommit
               )
         else {
             return
@@ -72,13 +73,15 @@ enum QuillCodeDesktopUpdateHelper {
                 request.destinationApplicationURL,
                 identifier: request.expectedBundleIdentifier,
                 version: nil,
-                build: nil
+                build: nil,
+                commit: nil
               ),
               bundleMatches(
                 request.incomingApplicationURL,
                 identifier: request.expectedBundleIdentifier,
                 version: request.expectedVersion,
-                build: request.expectedBuild
+                build: request.expectedBuild,
+                commit: request.expectedCommit
               ),
               QuillCodeDesktopUpdateLaunchHandshake.isAllowed(
                 request.handshakeURL,
@@ -216,7 +219,8 @@ enum QuillCodeDesktopUpdateHelper {
         _ url: URL,
         identifier: String,
         version: String?,
-        build: String?
+        build: String?,
+        commit: String?
     ) -> Bool {
         guard let bundle = Bundle(url: url), bundle.bundleIdentifier == identifier else { return false }
         if let version,
@@ -225,6 +229,10 @@ enum QuillCodeDesktopUpdateHelper {
         }
         if let build,
            bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String != build {
+            return false
+        }
+        if let commit,
+           bundle.object(forInfoDictionaryKey: QuillCodeDesktopBuildMetadata.commitInfoKey) as? String != commit {
             return false
         }
         return true

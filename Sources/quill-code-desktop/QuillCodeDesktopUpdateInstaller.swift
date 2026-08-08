@@ -107,7 +107,8 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             logURL: logURL,
             expectedBundleIdentifier: configuration.bundleIdentifier,
             expectedVersion: preparedUpdate.release.version,
-            expectedBuild: preparedUpdate.release.build
+            expectedBuild: preparedUpdate.release.build,
+            expectedCommit: preparedUpdate.release.commit
         )
     }
 
@@ -141,6 +142,7 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
     var expectedBundleIdentifier: String
     var expectedVersion: String
     var expectedBuild: String
+    var expectedCommit: String
 
     var arguments: [String] {
         [
@@ -153,7 +155,8 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
             "--log", logURL.path,
             "--bundle-id", expectedBundleIdentifier,
             "--version", expectedVersion,
-            "--build", expectedBuild
+            "--build", expectedBuild,
+            "--commit", expectedCommit
         ]
     }
 
@@ -180,7 +183,9 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
               let log = values["--log"],
               let bundleIdentifier = values["--bundle-id"],
               let version = values["--version"],
-              let build = values["--build"]
+              let build = values["--build"],
+              let commit = values["--commit"],
+              QuillCodeDesktopBuildMetadata.isCanonicalCommit(commit)
         else {
             return nil
         }
@@ -194,7 +199,8 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
             logURL: URL(fileURLWithPath: log).standardizedFileURL,
             expectedBundleIdentifier: bundleIdentifier,
             expectedVersion: version,
-            expectedBuild: build
+            expectedBuild: build,
+            expectedCommit: commit
         )
     }
 }

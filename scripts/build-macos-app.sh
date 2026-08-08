@@ -9,6 +9,7 @@ BUNDLE_ID="${QUILLCODE_MACOS_BUNDLE_ID:-co.lorehex.QuillCowork}"
 MINIMUM_SYSTEM_VERSION="${QUILLCODE_MACOS_MINIMUM_SYSTEM_VERSION:-14.0}"
 VERSION="${QUILLCODE_MACOS_APP_VERSION:-0.1.0}"
 BUILD_NUMBER="${QUILLCODE_MACOS_BUILD_NUMBER:-1}"
+BUILD_COMMIT="${QUILLCODE_MACOS_BUILD_COMMIT:-}"
 UPDATE_CHANNEL="${QUILLCODE_MACOS_UPDATE_CHANNEL:-tester}"
 UPDATE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json}"
 UPDATE_STABLE_MANIFEST_URL="${QUILLCODE_MACOS_UPDATE_STABLE_MANIFEST_URL:-https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json}"
@@ -41,6 +42,14 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 cd "$ROOT_DIR"
+
+if [[ -z "$BUILD_COMMIT" ]]; then
+  BUILD_COMMIT="$(git rev-parse HEAD 2>/dev/null || printf 'development')"
+fi
+if [[ "$BUILD_COMMIT" != "development" && ! "$BUILD_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "QUILLCODE_MACOS_BUILD_COMMIT must be a lowercase 40-character commit or development." >&2
+  exit 2
+fi
 
 SWIFT_BUILD_ARGUMENTS=(--configuration "$CONFIGURATION" --product quill-code-desktop)
 if [[ -n "$SWIFT_DEBUG_INFO_FORMAT" ]]; then
@@ -107,6 +116,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
   <string>$VERSION</string>
   <key>CFBundleVersion</key>
   <string>$BUILD_NUMBER</string>
+  <key>QuillCodeBuildCommit</key>
+  <string>$BUILD_COMMIT</string>
   <key>LSMinimumSystemVersion</key>
   <string>$MINIMUM_SYSTEM_VERSION</string>
   <key>LSApplicationCategoryType</key>
