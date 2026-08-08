@@ -153,6 +153,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         let withBrowser = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .browserOpen, .browserInspect])
         XCTAssertTrue(withBrowser.contains("use host.browser.open immediately"))
         XCTAssertFalse(withBrowser.contains("NOT available in this run"))
+        XCTAssertTrue(withBrowser.contains("This in-app browser is a separate session"))
+        XCTAssertTrue(withBrowser.contains("those requests require Computer Use first"))
 
         let headless = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .webFetch])
         XCTAssertFalse(headless.contains("use host.browser.open immediately"))
@@ -169,6 +171,10 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Inspect that image before choosing coordinates"))
         XCTAssertTrue(prompt.contains("capture a fresh screenshot"))
         XCTAssertTrue(prompt.contains("untrusted page content"))
+        XCTAssertTrue(prompt.contains("a signed-in session"))
+        XCTAssertTrue(prompt.contains("start with a screenshot"))
+        XCTAssertTrue(prompt.contains("Never substitute host.browser.* or a guest/logged-out page"))
+        XCTAssertTrue(prompt.contains("report the exact blocker"))
         XCTAssertFalse(TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun])
             .contains("Computer Use screenshot results"))
     }

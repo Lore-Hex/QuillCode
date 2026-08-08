@@ -197,6 +197,30 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         XCTAssertEqual(runner.additionalToolDefinitions.map(\.name), expectedNames)
     }
 
+    func testComputerUseDefinitionsExposeUnavailableSetupStatus() {
+        let runner = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            browser: BrowserState(),
+            computerUseBackend: StubComputerUseBackend(
+                status: .permissionStatus(
+                    screenRecordingGranted: false,
+                    accessibilityGranted: false
+                )
+            ),
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        ).configuredRunner(from: AgentRunner(baseToolDefinitions: [], additionalToolDefinitions: []))
+
+        let screenshot = runner.additionalToolDefinitions.first {
+            $0.name == ToolDefinition.computerScreenshot.name
+        }
+        XCTAssertTrue(screenshot?.description.contains(
+            "Current Computer Use setup status: Needs Screen Recording + Accessibility."
+        ) == true)
+    }
+
     func testConfiguredRunnerWiresSpendFusePolicyFromConfigAndCatalog() {
         let runner = WorkspaceAgentRunContextBuilder(
             selectedProject: nil,
@@ -384,13 +408,17 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
 
 private struct StubComputerUseBackend: ComputerUseBackend, ComputerUseForegroundApplicationProviding {
     var foregroundApplicationValue: ComputerUseApplication?
+    let status: ComputerUseStatus
 
-    init(foregroundApplication: ComputerUseApplication? = nil) {
+    init(
+        foregroundApplication: ComputerUseApplication? = nil,
+        status: ComputerUseStatus = .permissionStatus(
+            screenRecordingGranted: true,
+            accessibilityGranted: true
+        )
+    ) {
         self.foregroundApplicationValue = foregroundApplication
-    }
-
-    var status: ComputerUseStatus {
-        .permissionStatus(screenRecordingGranted: true, accessibilityGranted: true)
+        self.status = status
     }
 
     func screenshot() async throws -> ComputerScreenshot {

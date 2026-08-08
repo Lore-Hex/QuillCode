@@ -206,6 +206,13 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         if threadIsConfidential { return [] }
         guard let computerUseBackend else { return [] }
         var definitions = ToolDefinition.computerUseDefinitions
+        let status = computerUseBackend.status
+        if !status.available,
+           let screenshotIndex = definitions.firstIndex(where: {
+               $0.name == ToolDefinition.computerScreenshot.name
+           }) {
+            definitions[screenshotIndex].description += " Current Computer Use setup status: \(status.message)."
+        }
         if computerUseBackend is any WorkflowRecordingBackend {
             definitions += ToolDefinition.workflowRecordingDefinitions
         }
