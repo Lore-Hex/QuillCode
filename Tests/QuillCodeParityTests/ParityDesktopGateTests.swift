@@ -12,6 +12,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         Self.assertSource(text, contains: "MenuBarExtra")
         Self.assertSource(text, contains: "QuillCodeMenuBarIcon.image")
         let menuIconText = try Self.desktopSourceText(named: "QuillCodeMenuBarIcon.swift")
+        Self.assertSource(menuIconText, contains: "@MainActor")
         Self.assertSource(menuIconText, contains: "QuillCodeMenuBarTemplate")
         Self.assertSource(menuIconText, contains: "isTemplate = true")
         Self.assertSource(menuIconText, contains: "static let image")

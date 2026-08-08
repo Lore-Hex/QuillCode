@@ -1,6 +1,7 @@
 import AppKit
 import QuillCodeApp
 
+@MainActor
 enum QuillCodeMenuBarIcon {
     // SwiftUI may evaluate the MenuBarExtra label frequently. Load the bundled bitmap once so
     // those body passes never perform synchronous filesystem metadata work on the main thread.
