@@ -77,7 +77,38 @@ extension AgentRunner {
                     )
                     return action
                 }
-                throw TrustedRouterAgentError.emptyToolArguments(toolName)
+                try Task.checkCancellation()
+                guard attempt < Self.malformedActionCorrectionLimit else {
+                    throw TrustedRouterAgentError.emptyToolArguments(toolName)
+                }
+                attempt += 1
+                let correctionPrompt = AgentCorrectionEscalation.escalated(
+                    AgentMalformedActionGuard.emptyToolArgumentsCorrectionPrompt(
+                        toolName: toolName,
+                        userMessage: userMessage
+                    ),
+                    attempt: attempt - 1,
+                    limit: Self.malformedActionCorrectionLimit,
+                    alternatives: [
+                        "emit the intended tool action with every required argument populated",
+                        "if the intended action is impossible, return a say action that names the blocker",
+                    ]
+                )
+                correctiveThread.messages.append(.init(
+                    role: .assistant,
+                    content: "{\"type\":\"tool\",\"name\":\"\(toolName)\",\"arguments\":{}}"
+                ))
+                correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
+                correctiveThread.updatedAt = Date()
+                pendingCorrectionPrompt = correctionPrompt
+                thread.events.append(.init(
+                    kind: .notice,
+                    summary: "Self-healing: the model omitted arguments for \(toolName); asked it "
+                        + "to re-emit the action (attempt \(attempt) of "
+                        + "\(Self.malformedActionCorrectionLimit))."
+                ))
+                thread.updatedAt = Date()
+                await onProgress?(thread)
             } catch TrustedRouterAgentError.invalidActionJSON(let text) {
                 // A consumer-side cancellation can surface as garbage/partial text — honor the stop
                 // FIRST (even at budget exhaustion), so a user Stop is never recorded as a malformed-

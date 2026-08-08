@@ -341,6 +341,28 @@ public struct AgentRunner: Sendable {
                         ))
                         next.updatedAt = Date()
                         await onProgress?(next)
+                    } catch TrustedRouterAgentError.emptyToolArguments(let toolName) {
+                        try Task.checkCancellation()
+                        guard toolName == ToolDefinition.fileRead.name,
+                              hasCompletedWorkspaceMutation,
+                              let completion = runLoop.latestCompletion,
+                              completion.result.ok
+                        else { throw TrustedRouterAgentError.emptyToolArguments(toolName) }
+                        // The resolver already exhausted bounded schema corrections. Converting only
+                        // an empty read after a successful mutation into a candidate final answer lets
+                        // the artifact-verification gate below supply the exact required readback path.
+                        action = .say(Self.finalAnswer(
+                            for: completion.call,
+                            result: completion.result,
+                            followUpReviewResult: completion.followUpReviewResult
+                        ))
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: completed a required artifact readback after the "
+                                + "model repeatedly omitted the file path."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
                     }
                 }
                 hasEmittedModelAction = true

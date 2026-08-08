@@ -112,6 +112,54 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertEqual(calls.count, 3, "1 original + exactly 2 corrective re-prompts")
     }
 
+    func testEmptyToolArgumentsAreRepromptedAndRunSucceeds() async throws {
+        let client = ThrowingSequenceLLMClient(steps: [
+            .failure(TrustedRouterAgentError.emptyToolArguments(ToolDefinition.fileRead.name)),
+            .action(.say("Recovered with complete arguments.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Recovered with complete arguments.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("omitted arguments for host.file.read")
+        }, result.thread.events.map(\.summary).joined(separator: " | "))
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 2)
+        XCTAssertTrue(calls[1].userMessage.contains("omitted its required arguments"))
+        XCTAssertTrue(calls[1].messages.contains {
+            $0.role == .assistant && $0.content.contains("\"arguments\":{}")
+        })
+    }
+
+    func testPersistentEmptyToolArgumentsFailAfterExactlyTwoCorrections() async throws {
+        let client = ThrowingSequenceLLMClient(steps: [
+            .failure(TrustedRouterAgentError.emptyToolArguments(ToolDefinition.fileRead.name)),
+            .failure(TrustedRouterAgentError.emptyToolArguments(ToolDefinition.fileRead.name)),
+            .failure(TrustedRouterAgentError.emptyToolArguments(ToolDefinition.fileRead.name)),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        do {
+            _ = try await runner.send(
+                Self.prompt,
+                in: ChatThread(mode: .auto),
+                workspaceRoot: try makeTempDirectory()
+            )
+            XCTFail("expected emptyToolArguments after correction limit")
+        } catch TrustedRouterAgentError.emptyToolArguments(let toolName) {
+            XCTAssertEqual(toolName, ToolDefinition.fileRead.name)
+        }
+
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 3, "1 original + exactly 2 corrective re-prompts")
+    }
+
     func testStreamInterruptionIsRetriedAndRunSucceeds() async throws {
         let client = ThrowingSequenceLLMClient(steps: [
             .failure(AgentStreamInterruptedError(underlying: URLError(.cancelled))),
@@ -386,6 +434,37 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertEqual(result.toolResults.map(\.ok), [true, true], "write plus forced readback")
         XCTAssertTrue(result.thread.events.contains {
             $0.kind == .notice && $0.summary.contains("malformed terminal output")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, 5)
+    }
+
+    func testExhaustedEmptyReadArgumentsAfterWriteStillEnforceReadback() async throws {
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "report.md",
+                "content": "# Report\n\nCompleted analysis.\n",
+            ])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(write)),
+            .failure(TrustedRouterAgentError.emptyToolArguments(ToolDefinition.fileRead.name)),
+            .failure(TrustedRouterAgentError.emptyToolArguments(ToolDefinition.fileRead.name)),
+            .failure(TrustedRouterAgentError.emptyToolArguments(ToolDefinition.fileRead.name)),
+            .action(.say("Created and verified report.md.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            "Write report.md, then read the saved file back to verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true], "write plus forced readback")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("required artifact readback")
         })
         let calls = await client.state.recordedCalls()
         XCTAssertEqual(calls.count, 5)

@@ -43,4 +43,18 @@ enum AgentMalformedActionGuard {
         {"type":"say","text":"..."} with your answer. Do not wrap it in markdown.
         """
     }
+
+    static func emptyToolArgumentsCorrectionPrompt(toolName: String, userMessage: String) -> String {
+        """
+        Your previous response selected \(toolName) but omitted its required arguments.
+
+        Original user request:
+        \(userMessage)
+
+        Return exactly one QuillCode action JSON object now and no other text. If \(toolName) is \
+        still the intended next action, emit it with every required argument populated from the \
+        request and prior tool results. Otherwise emit the correct next tool action with complete \
+        arguments, or {"type":"say","text":"<what blocked you>"}. Do not wrap it in markdown.
+        """
+    }
 }
