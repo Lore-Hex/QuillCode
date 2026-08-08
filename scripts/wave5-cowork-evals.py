@@ -519,6 +519,12 @@ def contains_placeholder(text):
         if field.casefold() == "confirm":
             continue
         if re.fullmatch(
+            r"recommendation(?:\s+rationale|\s*:\s*.+)?",
+            field,
+            re.IGNORECASE,
+        ):
+            continue
+        if re.fullmatch(
             r"\d+|[-+]?\d+(?:\.\d+)?\s*(?:,|-|\u2013|\u2014)\s*[-+]?\d+(?:\.\d+)?|\^[a-z0-9_.:-]+",
             field,
             re.IGNORECASE,

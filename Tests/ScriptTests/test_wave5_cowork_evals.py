@@ -65,6 +65,13 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertTrue(WAVE5.contains_placeholder("Lorem ipsum"))
         self.assertFalse(WAVE5.contains_placeholder("- [ ] Pending\n- [x] Complete"))
         self.assertFalse(WAVE5.contains_placeholder("[CONFIRM] Finance must verify the methodology."))
+        self.assertFalse(WAVE5.contains_placeholder("[Recommendation] Sequence reliability first."))
+        self.assertFalse(WAVE5.contains_placeholder(
+            "[Recommendation: Hire H12 after the engineering team is staffed.]"
+        ))
+        self.assertFalse(WAVE5.contains_placeholder(
+            "[Recommendation rationale] Reliability precedes team expansion."
+        ))
         self.assertFalse(WAVE5.contains_placeholder("See [source](https://example.test) and [1]."))
         self.assertFalse(WAVE5.contains_placeholder("See the note[^source-1]."))
         self.assertFalse(WAVE5.contains_placeholder("Use `props['owner_id']` for ownership."))
