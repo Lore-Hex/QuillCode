@@ -49,6 +49,7 @@ final class QuillCodeDesktopController: ObservableObject {
     let workflowRecordingCoordinator: QuillCodeDesktopWorkflowRecordingCoordinator
     let updateController: QuillCodeDesktopUpdateController
     let tasks = QuillCodeDesktopTaskCoordinator()
+    let progressRefreshScheduler = QuillCodeDesktopProgressRefreshScheduler()
     // Retained here because UNUserNotificationCenter.delegate is weak; nil until the window installs it.
     private var approvalNotificationDelegate: QuillCodeApprovalNotificationDelegate?
 
@@ -231,15 +232,4 @@ final class QuillCodeDesktopController: ObservableObject {
         }
     }
 
-    func refresh() {
-        computerUseCoordinator.refreshStatus(on: model)
-        modelStateCoordinator.refreshState(
-            from: model,
-            surface: &surface,
-            draft: &draft,
-            terminalDraft: &terminalDraft,
-            browserAddressDraft: &browserAddressDraft,
-            isComposerTaskRunning: tasks.isSendRunning(threadID: model.selectedThread?.id)
-        )
-    }
 }

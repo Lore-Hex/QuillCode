@@ -28,7 +28,7 @@ extension QuillCodeDesktopController {
             await model.runCodeReview(
                 request,
                 workspaceRoot: root,
-                onProgressUpdated: { [weak self] in self?.refresh() }
+                onProgressUpdated: { [weak self] in self?.scheduleProgressRefresh() }
             )
         } onFinish: { [weak self] in
             guard let self else { return }

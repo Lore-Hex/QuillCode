@@ -8,6 +8,7 @@ struct QuillCodeDesktopWorkflowRecordingCoordinator {
         fallbackWorkspaceRoot: URL,
         tasks: QuillCodeDesktopTaskCoordinator,
         refresh: @escaping @MainActor () -> Void,
+        progressRefresh: (@MainActor () -> Void)? = nil,
         onSlotFree: @escaping @MainActor () -> Void
     ) {
         tasks.startIfIdle(.workflowRecording) {
@@ -24,7 +25,7 @@ struct QuillCodeDesktopWorkflowRecordingCoordinator {
                         capture,
                         workspaceRoot: runRoot,
                         onStarted: refresh,
-                        onProgressUpdated: refresh
+                        onProgressUpdated: progressRefresh ?? refresh
                     )
                 } onFinish: {
                     refresh()

@@ -38,6 +38,7 @@ struct QuillCodeDesktopComposerCoordinator {
         fallbackWorkspaceRoot: URL,
         tasks: QuillCodeDesktopTaskCoordinator,
         refresh: @escaping @MainActor () -> Void,
+        progressRefresh: (@MainActor () -> Void)? = nil,
         onSlotFree: @escaping @MainActor () -> Void = {}
     ) {
         let prompt = draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -81,6 +82,7 @@ struct QuillCodeDesktopComposerCoordinator {
                 fallbackWorkspaceRoot: fallbackWorkspaceRoot,
                 tasks: tasks,
                 refresh: refresh,
+                progressRefresh: progressRefresh,
                 onSlotFree: onSlotFree
             )
             return
@@ -106,6 +108,7 @@ struct QuillCodeDesktopComposerCoordinator {
             fallbackWorkspaceRoot: fallbackWorkspaceRoot,
             tasks: tasks,
             refresh: refresh,
+            progressRefresh: progressRefresh,
             onSlotFree: onSlotFree
         )
     }
@@ -116,6 +119,7 @@ struct QuillCodeDesktopComposerCoordinator {
         fallbackWorkspaceRoot: URL,
         tasks: QuillCodeDesktopTaskCoordinator,
         refresh: @escaping @MainActor () -> Void,
+        progressRefresh: (@MainActor () -> Void)? = nil,
         onSlotFree: @escaping @MainActor () -> Void = {}
     ) {
         let threadID = model.selectedThread?.id
@@ -131,6 +135,7 @@ struct QuillCodeDesktopComposerCoordinator {
             fallbackWorkspaceRoot: fallbackWorkspaceRoot,
             tasks: tasks,
             refresh: refresh,
+            progressRefresh: progressRefresh,
             onSlotFree: onSlotFree
         )
     }
@@ -141,6 +146,7 @@ struct QuillCodeDesktopComposerCoordinator {
         fallbackWorkspaceRoot: URL,
         tasks: QuillCodeDesktopTaskCoordinator,
         refresh: @escaping @MainActor () -> Void,
+        progressRefresh: (@MainActor () -> Void)?,
         onSlotFree: @escaping @MainActor () -> Void
     ) {
         let runRoot = model.workspaceRoot(forThreadID: threadID) ?? fallbackWorkspaceRoot
@@ -150,7 +156,7 @@ struct QuillCodeDesktopComposerCoordinator {
                 threadID: threadID,
                 workspaceRoot: runRoot,
                 onStarted: refresh,
-                onProgressUpdated: refresh
+                onProgressUpdated: progressRefresh ?? refresh
             )
         } onFinish: {
             refresh()
