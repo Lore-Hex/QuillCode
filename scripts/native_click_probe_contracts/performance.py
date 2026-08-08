@@ -4,14 +4,22 @@ from __future__ import annotations
 
 import json
 import math
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from .json_io import load_report, require
 
 
 DEFAULT_MAX_LAUNCH_READY_MILLISECONDS = 3_000.0
 DEFAULT_MAX_RESIDENT_MEMORY_BYTES = 256 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class PerformanceAttempt:
+    launch_ready_milliseconds: float
+    resident_memory_bytes: int
+    thread_count: int
 
 
 def _finite_number(value: Any, label: str) -> float:
@@ -32,23 +40,7 @@ def _positive_integer(value: Any, label: str) -> int:
     return value
 
 
-def write_performance_manifest(
-    report_path: Path,
-    manifest_path: Path,
-    *,
-    max_launch_ready_milliseconds: float = DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
-    max_resident_memory_bytes: int = DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
-) -> None:
-    max_launch = _finite_number(
-        max_launch_ready_milliseconds,
-        "maximum launch-ready milliseconds",
-    )
-    max_resident = _positive_integer(
-        max_resident_memory_bytes,
-        "maximum resident-memory bytes",
-    )
-    require(max_launch > 0, "maximum launch-ready milliseconds must be positive")
-
+def _load_attempt(report_path: Path) -> PerformanceAttempt:
     report = load_report(report_path)
     require(report.get("ok") is True, f"{report_path} does not report ok=true")
     require(report.get("appName") == "Quill Cowork", f"{report_path} has the wrong app identity")
@@ -73,14 +65,68 @@ def write_performance_manifest(
         "performance.threadCount",
     )
     require(launch_ready >= 0, "performance.launchReadyMilliseconds cannot be negative")
-    require(
-        launch_ready <= max_launch,
-        f"packaged launch-ready time {launch_ready:.2f}ms exceeds {max_launch:.2f}ms budget",
+    return PerformanceAttempt(
+        launch_ready_milliseconds=launch_ready,
+        resident_memory_bytes=resident,
+        thread_count=thread_count,
     )
-    require(
-        resident <= max_resident,
-        f"packaged resident memory {resident} bytes exceeds {max_resident} byte budget",
+
+
+def write_performance_manifest(
+    report_paths: Sequence[Path],
+    manifest_path: Path,
+    *,
+    max_launch_ready_milliseconds: float = DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
+    max_resident_memory_bytes: int = DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
+) -> None:
+    max_launch = _finite_number(
+        max_launch_ready_milliseconds,
+        "maximum launch-ready milliseconds",
     )
+    max_resident = _positive_integer(
+        max_resident_memory_bytes,
+        "maximum resident-memory bytes",
+    )
+    require(max_launch > 0, "maximum launch-ready milliseconds must be positive")
+    require(report_paths, "at least one packaged performance report is required")
+
+    attempts = [_load_attempt(path) for path in report_paths]
+    required_passing_attempts = len(attempts) // 2 + 1
+    passing_attempts = sum(
+        attempt.launch_ready_milliseconds <= max_launch for attempt in attempts
+    )
+    if len(attempts) == 1:
+        require(
+            passing_attempts == 1,
+            f"packaged launch-ready time {attempts[0].launch_ready_milliseconds:.2f}ms "
+            f"exceeds {max_launch:.2f}ms budget",
+        )
+    else:
+        launch_measurements = ", ".join(
+            f"{attempt.launch_ready_milliseconds:.2f}ms" for attempt in attempts
+        )
+        require(
+            passing_attempts >= required_passing_attempts,
+            f"only {passing_attempts} of {len(attempts)} packaged launches met the "
+            f"{max_launch:.2f}ms budget; {required_passing_attempts} required "
+            f"({launch_measurements})",
+        )
+
+    for attempt in attempts:
+        require(
+            attempt.resident_memory_bytes <= max_resident,
+            f"packaged resident memory {attempt.resident_memory_bytes} bytes "
+            f"exceeds {max_resident} byte budget",
+        )
+
+    selected_attempt = sorted(
+        attempts,
+        key=lambda attempt: attempt.launch_ready_milliseconds,
+    )[len(attempts) // 2]
+    selected_attempt_number = attempts.index(selected_attempt) + 1
+    launch_ready = selected_attempt.launch_ready_milliseconds
+    resident = selected_attempt.resident_memory_bytes
+    thread_count = selected_attempt.thread_count
 
     manifest = {
         "schemaVersion": 1,
@@ -91,6 +137,23 @@ def write_performance_manifest(
         "residentMemoryBytes": resident,
         "residentMemoryMiB": round(resident / (1024 * 1024), 2),
         "threadCount": thread_count,
+        "aggregation": "single-attempt" if len(attempts) == 1 else "median-of-fresh-processes",
+        "attemptCount": len(attempts),
+        "selectedAttempt": selected_attempt_number,
+        "passingAttemptCount": passing_attempts,
+        "requiredPassingAttemptCount": required_passing_attempts,
+        "attempts": [
+            {
+                "attempt": index,
+                "launchReadyMilliseconds": attempt.launch_ready_milliseconds,
+                "residentMemoryBytes": attempt.resident_memory_bytes,
+                "residentMemoryMiB": round(attempt.resident_memory_bytes / (1024 * 1024), 2),
+                "threadCount": attempt.thread_count,
+                "withinLaunchBudget": attempt.launch_ready_milliseconds <= max_launch,
+                "withinResidentMemoryBudget": attempt.resident_memory_bytes <= max_resident,
+            }
+            for index, attempt in enumerate(attempts, start=1)
+        ],
         "budgets": {
             "maximumLaunchReadyMilliseconds": max_launch,
             "maximumResidentMemoryBytes": max_resident,
@@ -104,5 +167,7 @@ def write_performance_manifest(
 
     print(
         "Quill Cowork packaged performance passed: "
-        f"{launch_ready:.2f}ms launch-ready, {manifest['residentMemoryMiB']:.2f} MiB resident."
+        f"{launch_ready:.2f}ms median launch-ready, "
+        f"{manifest['residentMemoryMiB']:.2f} MiB resident "
+        f"({passing_attempts}/{len(attempts)} launches within budget)."
     )

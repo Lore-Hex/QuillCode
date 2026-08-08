@@ -99,7 +99,7 @@ def main() -> None:
         "performance",
         help="validate packaged native launch and resident-memory evidence",
     )
-    performance_parser.add_argument("report", type=Path)
+    performance_parser.add_argument("reports", nargs="+", type=Path)
     performance_parser.add_argument("--manifest", required=True, type=Path)
     performance_parser.add_argument(
         "--max-launch-ready-milliseconds",
@@ -243,7 +243,7 @@ def main() -> None:
         )
     elif args.command == "performance":
         write_performance_manifest(
-            args.report,
+            args.reports,
             args.manifest,
             max_launch_ready_milliseconds=args.max_launch_ready_milliseconds,
             max_resident_memory_bytes=args.max_resident_memory_bytes,

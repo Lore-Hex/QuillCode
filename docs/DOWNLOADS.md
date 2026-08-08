@@ -62,10 +62,12 @@ verifies GitHub's digest, manifest size/SHA-256, `SHASUMS256.txt`, and
 
 The release-configured macOS app must also open a real native window within three
 seconds and remain below 256 MiB of resident memory at that initial-window
-boundary. The measured values, thread count, and enforced budgets
-ship as the architecture-specific `PERFORMANCE.json` asset. These intentionally
-conservative first budgets catch major regressions while repeated tester evidence
-establishes tighter native baselines.
+boundary. Release packaging measures three fresh processes with isolated state,
+requires at least two launches to meet the time budget, and requires every memory
+sample to meet its budget. The median-launch attempt, every attempt, thread
+counts, and enforced budgets ship as the architecture-specific `PERFORMANCE.json` asset.
+These intentionally conservative first budgets catch major regressions without
+turning one loaded-runner outlier into the product metric.
 
 ## Auto-Update Contract
 
