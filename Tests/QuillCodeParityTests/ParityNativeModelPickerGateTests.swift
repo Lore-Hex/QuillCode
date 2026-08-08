@@ -9,9 +9,10 @@ final class ParityNativeModelPickerGateTests: QuillCodeParityTestCase {
             "struct QuillCodeModelPickerView",
             "@State private var searchText",
             "ensureHighlightedModel",
-            "focusSearchFieldAfterPresentation()",
-            "Task.sleep(for: .milliseconds(200))",
-            "guard !Task.isCancelled else { return }"
+            "QuillCodeAutofocusTextField(",
+            "accessibilityIdentifier: \"quillcode-model-picker-search\"",
+            "isActive: isPresented",
+            "focusRequest: focusRequest"
         ].forEach { Self.assertSource(pickerText, contains: $0) }
         [
             "struct QuillCodeModelCategorySection",

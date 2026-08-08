@@ -10,20 +10,16 @@ final class ParitySearchDialogGateTests: QuillCodeParityTestCase {
         for expected in [
             "@State private var localQuery",
             "@State private var selection = WorkspaceSearchSelection()",
-            "TextField(\"Search chats\", text: $localQuery)",
+            "QuillCodeAutofocusTextField(",
+            "placeholder: \"Search chats\"",
             ".accessibilityIdentifier(\"quillcode-search-input\")",
             ".onMoveCommand",
             ".onKeyPress(.escape)",
             "selection.move(by: -1, in: results)",
             "selection.move(by: 1, in: results)",
             "selection.selectedItem(in: results)",
-            "selectHighlightedResult()",
-            "@State private var isVisible = false",
-            "isVisible = true",
-            "private func focusSearchField() async",
-            "Task.sleep(for: .milliseconds(200))",
-            "guard !Task.isCancelled, isVisible else { return }",
-            "isVisible = false"
+            "onSubmit: selectHighlightedResult",
+            "onCancel: onClose"
         ] {
             Self.assertSource(searchDialogText, contains: expected)
         }
