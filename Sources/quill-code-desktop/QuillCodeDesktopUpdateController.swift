@@ -1,10 +1,9 @@
 import AppKit
 import Foundation
+import QuillCodePersistence
 
 @MainActor
 final class QuillCodeDesktopUpdateController: ObservableObject {
-    private static let installResultByteLimit = 64 * 1_024
-
     enum State: Equatable {
         case idle
         case checking
@@ -339,21 +338,13 @@ final class QuillCodeDesktopUpdateController: ObservableObject {
     }
 
     private func consumePreviousInstallResult() {
-        guard let installResultURL,
-              FileManager.default.fileExists(atPath: installResultURL.path)
-        else {
-            return
-        }
+        guard let installResultURL else { return }
         defer { try? FileManager.default.removeItem(at: installResultURL) }
 
-        guard let values = try? installResultURL.resourceValues(
-            forKeys: [.fileSizeKey, .isRegularFileKey, .isSymbolicLinkKey]
+        guard let data = try? BoundedFileDataReader.readIfPresent(
+            from: installResultURL,
+            maximumBytes: QuillCodeDesktopUpdateInstallResult.maximumEncodedBytes
         ),
-              values.isRegularFile == true,
-              values.isSymbolicLink != true,
-              let fileSize = values.fileSize,
-              fileSize <= Self.installResultByteLimit,
-              let data = try? Data(contentsOf: installResultURL, options: .mappedIfSafe),
               let result = try? JSONDecoder().decode(QuillCodeDesktopUpdateInstallResult.self, from: data)
         else {
             return

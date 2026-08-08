@@ -105,7 +105,10 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
             at: resultURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try Data(repeating: 0x41, count: 64 * 1_024 + 1).write(to: resultURL)
+        try Data(
+            repeating: 0x41,
+            count: QuillCodeDesktopUpdateInstallResult.maximumEncodedBytes + 1
+        ).write(to: resultURL)
         let controller = QuillCodeDesktopUpdateController(
             configuration: nil,
             defaults: makeDefaults(),
@@ -118,6 +121,33 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         XCTAssertEqual(controller.state, .idle)
         XCTAssertFalse(controller.isPresented)
         XCTAssertFalse(FileManager.default.fileExists(atPath: resultURL.path))
+    }
+
+    func testDanglingInstallResultSymlinkIsDiscardedWithoutPresenting() throws {
+        let resultURL = temporaryInstallResultURL()
+        try FileManager.default.createDirectory(
+            at: resultURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: resultURL,
+            withDestinationURL: resultURL.deletingLastPathComponent()
+                .appendingPathComponent("missing-result.json")
+        )
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: nil,
+            defaults: makeDefaults(),
+            automaticSchedule: makeAutomaticSchedule(),
+            installResultURL: resultURL
+        )
+
+        controller.startAutomaticChecks()
+
+        XCTAssertEqual(controller.state, .idle)
+        XCTAssertFalse(controller.isPresented)
+        XCTAssertThrowsError(
+            try FileManager.default.destinationOfSymbolicLink(atPath: resultURL.path)
+        )
     }
 
     func testAutomaticChecksContinueWhileAppRemainsOpen() async throws {

@@ -125,6 +125,7 @@ let package = Package(
                 "QuillCodeCore",
                 "QuillCodeApp",
                 "QuillCodeAgent",
+                "QuillCodePersistence",
                 "QuillCodeReview",
                 "QuillCodeTools",
                 "QuillComputerUseKit",
