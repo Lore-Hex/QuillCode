@@ -600,7 +600,7 @@ enum AgentTabularSourceGroundingGate {
         header == "id" || header == "ids" || header.hasSuffix("id") || header.hasSuffix("ids")
     }
 
-    private static let integerPrefixRegex = try! NSRegularExpression(pattern: #"^\s*(\d+)\b"#)
+    private static let integerPrefixRegex = AgentRegexCompiler.compile(#"^\s*(\d+)\b"#)
     private static let headerAliases = [
         "leadsource": "source",
         "dealsource": "source",
@@ -610,17 +610,17 @@ enum AgentTabularSourceGroundingGate {
         "salescycleduration": "cycledays",
         "cyclelength": "cycledays",
     ]
-    private static let headingRegex = try! NSRegularExpression(
+    private static let headingRegex = AgentRegexCompiler.compile(
         pattern: #"^\s{0,3}#{1,6}\s+(.+?)\s*$"#
     )
-    private static let bulletRegex = try! NSRegularExpression(pattern: #"^\s*[-*+]\s+(.+)$"#)
-    private static let recordCountRegex = try! NSRegularExpression(
+    private static let bulletRegex = AgentRegexCompiler.compile(#"^\s*[-*+]\s+(.+)$"#)
+    private static let recordCountRegex = AgentRegexCompiler.compile(
         pattern: #"(?i)\b(\d+)\s+records?\b"#
     )
-    private static let outcomePairRegex = try! NSRegularExpression(
+    private static let outcomePairRegex = AgentRegexCompiler.compile(
         pattern: #"(?i)\b(\d+)\s*w\s*/\s*(\d+)\s*l\b"#
     )
-    private static let outcomeWordPairRegex = try! NSRegularExpression(
+    private static let outcomeWordPairRegex = AgentRegexCompiler.compile(
         pattern: #"(?i)\b(\d+)\s+won\b[^\r\n]{0,20}?\b(\d+)\s+lost\b"#
     )
 }

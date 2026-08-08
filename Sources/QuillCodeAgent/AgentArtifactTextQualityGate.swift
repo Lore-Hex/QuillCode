@@ -376,31 +376,31 @@ enum AgentArtifactTextQualityGate {
     }
 
     private static let textExtensions: Set<String> = ["md", "markdown", "txt"]
-    private static let inlineCodeRegex = try! NSRegularExpression(pattern: #"`[^`]*`"#)
-    private static let malformedEscapeRegex = try! NSRegularExpression(
+    private static let inlineCodeRegex = AgentRegexCompiler.compile(#"`[^`]*`"#)
+    private static let malformedEscapeRegex = AgentRegexCompiler.compile(
         pattern: #"\\[nrt](?=\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)]\s|[A-Za-z]))"#
     )
-    private static let malformedEscapeRunRegex = try! NSRegularExpression(
+    private static let malformedEscapeRunRegex = AgentRegexCompiler.compile(
         pattern: #"(?:\\[nrt])+(?=\s*(?:#{1,6}\s|[-*+>]\s|\d+[.)]\s|[A-Za-z]))"#
     )
-    private static let bracketedFieldRegex = try! NSRegularExpression(
+    private static let bracketedFieldRegex = AgentRegexCompiler.compile(
         pattern: #"\[([^\]\n]{0,120})\](?!\()"#
     )
-    private static let enumeratedCountRegex = try! NSRegularExpression(
+    private static let enumeratedCountRegex = AgentRegexCompiler.compile(
         pattern: #"(?i)\b(\d+)\s+(?:records?|items?|accounts?|entries?|rows?|cases?)\s*\(([^()\n]+)\)"#
     )
-    private static let recordIdentifierRegex = try! NSRegularExpression(
+    private static let recordIdentifierRegex = AgentRegexCompiler.compile(
         pattern: #"(?i)^[a-z][a-z0-9_-]*\d+[a-z0-9_-]*$"#
     )
-    private static let markdownHeadingRegex = try! NSRegularExpression(
+    private static let markdownHeadingRegex = AgentRegexCompiler.compile(
         pattern: #"^\s{0,3}(#{1,6})[ \t]+(.+?)\s*$"#
     )
-    private static let markdownClosingHashesRegex = try! NSRegularExpression(
+    private static let markdownClosingHashesRegex = AgentRegexCompiler.compile(
         pattern: #"\s+#+\s*$"#
     )
     private static let placeholderFreeRequestRegexes = [
-        try! NSRegularExpression(pattern: #"(?i)\bplaceholder[- ]free\b"#),
-        try! NSRegularExpression(
+        AgentRegexCompiler.compile(#"(?i)\bplaceholder[- ]free\b"#),
+        AgentRegexCompiler.compile(
             pattern: #"(?is)\bdo\s+not\s+leave\b.{0,60}\bbracketed\b.{0,60}\b(?:field|prompt|placeholder|token)"#
         ),
     ]
