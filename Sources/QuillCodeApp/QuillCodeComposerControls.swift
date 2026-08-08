@@ -59,6 +59,7 @@ struct QuillCodeComposerTextField: View {
     var placeholder: String
     @Binding var draft: String
     var isFocused: FocusState<Bool>.Binding
+    var isEnabled = true
     var onDownArrow: () -> KeyPress.Result
     var onUpArrow: () -> KeyPress.Result
     var onTab: () -> KeyPress.Result
@@ -74,6 +75,7 @@ struct QuillCodeComposerTextField: View {
             .padding(.vertical, 8)
             .quillCodeTextEntryTarget()
             .focused(isFocused)
+            .disabled(!isEnabled)
             .onKeyPress(.downArrow, action: onDownArrow)
             .onKeyPress(.upArrow, action: onUpArrow)
             .onKeyPress(.tab, action: onTab)

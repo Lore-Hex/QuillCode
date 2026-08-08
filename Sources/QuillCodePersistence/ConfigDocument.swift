@@ -206,14 +206,11 @@ public struct ConfigDocumentStore: Sendable {
     }
 
     public func loadSnapshot() throws -> ConfigDocumentSnapshot {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+        guard let bytes = try BoundedFileDataReader.readIfPresent(
+            from: fileURL,
+            maximumBytes: Self.maximumBytes
+        ) else {
             return ConfigDocumentSnapshot(document: ConfigDocument(), bytes: Data())
-        }
-        let bytes = try Data(contentsOf: fileURL, options: [.mappedIfSafe])
-        guard bytes.count <= Self.maximumBytes else {
-            throw ConfigDocumentError.invalidValue(
-                "Config exceeds the \(Self.maximumBytes)-byte limit."
-            )
         }
         guard let source = String(data: bytes, encoding: .utf8) else {
             throw ConfigDocumentError.invalidValue("Config must be UTF-8.")

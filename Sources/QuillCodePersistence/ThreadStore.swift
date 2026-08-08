@@ -148,28 +148,27 @@ public struct JSONThreadStore: Sendable {
     }
 
     private static func boundedData(contentsOf url: URL) throws -> Data {
-        let values = try url.resourceValues(forKeys: [
-            .fileSizeKey,
-            .isRegularFileKey,
-            .isSymbolicLinkKey,
-        ])
-        guard values.isSymbolicLink != true else {
-            throw JSONThreadStoreError.symbolicLink
+        do {
+            return try BoundedFileDataReader.read(
+                from: url,
+                maximumBytes: maximumThreadFileBytes
+            )
+        } catch let error as BoundedFileDataError {
+            switch error {
+            case .invalidSizeLimit:
+                throw JSONThreadStoreError.exceedsSizeLimit(
+                    maximumBytes: maximumThreadFileBytes
+                )
+            case .notRegularFile:
+                throw JSONThreadStoreError.notRegularFile
+            case .symbolicLink:
+                throw JSONThreadStoreError.symbolicLink
+            case .exceedsSizeLimit:
+                throw JSONThreadStoreError.exceedsSizeLimit(
+                    maximumBytes: maximumThreadFileBytes
+                )
+            }
         }
-        guard values.isRegularFile == true else {
-            throw JSONThreadStoreError.notRegularFile
-        }
-        guard let fileSize = values.fileSize,
-              fileSize >= 0,
-              fileSize <= maximumThreadFileBytes
-        else {
-            throw JSONThreadStoreError.exceedsSizeLimit(maximumBytes: maximumThreadFileBytes)
-        }
-        let data = try Data(contentsOf: url, options: .mappedIfSafe)
-        guard data.count <= maximumThreadFileBytes else {
-            throw JSONThreadStoreError.exceedsSizeLimit(maximumBytes: maximumThreadFileBytes)
-        }
-        return data
     }
 
     private static func issueReason(for error: JSONThreadStoreError) -> ThreadFileIssueReason {

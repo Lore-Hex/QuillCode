@@ -10,6 +10,62 @@ import QuillComputerUseKit
 @MainActor
 final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
 
+    func testOrdinaryDesktopLaunchStartsWithoutRegisteringTheProcessDirectory() throws {
+        let stateRoot = try makeTempDirectory()
+        let paths = QuillCodePaths(home: stateRoot)
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+        )
+        let controller = QuillCodeDesktopController(
+            bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
+            browserLiveDOMCapturer: nil,
+            updateController: QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            ),
+            workspaceRoot: nil
+        )
+
+        XCTAssertTrue(controller.model.root.projects.isEmpty)
+        XCTAssertTrue(controller.surface.projects.items.isEmpty)
+        XCTAssertEqual(
+            controller.workspaceRoot,
+            FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL
+        )
+    }
+
+    func testDesktopLaunchSurfacesWorkspaceStorageFailureInsteadOfSilentBlankState() throws {
+        let root = try makeTempDirectory()
+        let blockedHome = root.appendingPathComponent("state-is-a-file")
+        try Data("not a directory".utf8).write(to: blockedHome)
+        let paths = QuillCodePaths(home: blockedHome)
+        let runtimeFactory = QuillCodeRuntimeFactory(
+            paths: paths,
+            environment: ["QUILLCODE_USE_MOCK_LLM": "1"]
+        )
+
+        let controller = QuillCodeDesktopController(
+            bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
+            browserLiveDOMCapturer: nil,
+            updateController: QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            ),
+            workspaceRoot: nil
+        )
+
+        let issue = try XCTUnwrap(controller.surface.runtimeIssue)
+        XCTAssertEqual(issue.severity, .warning)
+        XCTAssertEqual(issue.title, "Workspace storage could not be opened")
+        XCTAssertEqual(issue.recovery?.route, .settings)
+        XCTAssertEqual(issue.recovery?.reason, .savedWorkspaceDataUnreadable)
+        XCTAssertTrue(
+            issue.diagnostics.first?.value.contains("Workspace storage") == true
+        )
+        XCTAssertFalse(issue.message.contains(blockedHome.path))
+    }
+
     func testDesktopRegistersOnlyAProbedSSHProjectAndUsesResolvedFolder() async throws {
         let root = try makeTempDirectory()
         let fakeSSH = root.appendingPathComponent("fake-ssh")

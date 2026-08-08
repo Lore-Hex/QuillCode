@@ -399,6 +399,34 @@ final class ConfigStoreTests: PersistenceTestCase {
         XCTAssertFalse(loaded.developerOverrideEnabled)
         XCTAssertEqual(loaded.defaultModel, TrustedRouterDefaults.prometheusModel)
     }
+
+    func testConfigRejectsOversizedFileWithoutFallingBackToUnboundedLegacyRead() throws {
+        let fileURL = try makeTempDirectory().appendingPathComponent("config.toml")
+        XCTAssertTrue(FileManager.default.createFile(atPath: fileURL.path, contents: Data()))
+        let handle = try FileHandle(forWritingTo: fileURL)
+        try handle.truncate(atOffset: UInt64(ConfigDocumentStore.maximumBytes + 1))
+        try handle.close()
+
+        XCTAssertThrowsError(try ConfigStore(fileURL: fileURL).load()) { error in
+            XCTAssertEqual(
+                error as? BoundedFileDataError,
+                .exceedsSizeLimit(maximumBytes: ConfigDocumentStore.maximumBytes)
+            )
+        }
+    }
+
+    func testConfigRejectsDanglingSymbolicLinkInsteadOfTreatingItAsMissing() throws {
+        let directory = try makeTempDirectory()
+        let fileURL = directory.appendingPathComponent("config.toml")
+        try FileManager.default.createSymbolicLink(
+            at: fileURL,
+            withDestinationURL: directory.appendingPathComponent("missing.toml")
+        )
+
+        XCTAssertThrowsError(try ConfigStore(fileURL: fileURL).load()) { error in
+            XCTAssertEqual(error as? BoundedFileDataError, .symbolicLink)
+        }
+    }
 }
 
 private extension ConfigStoreTests {

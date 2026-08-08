@@ -1,0 +1,47 @@
+name: Feature request
+description: Propose an improvement to a real Quill Cowork workflow.
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the workflow and desired outcome without including credentials, private source code, transcripts, workspace paths, or customer data.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Workflow or problem
+      description: What are you trying to accomplish, and where does the current experience break down?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe what a successful experience would make possible.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current workaround
+      description: Explain how you handle this today, if at all.
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often would you use this?
+      options:
+        - Multiple times a day
+        - A few times a week
+        - A few times a month
+        - Occasionally
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed credentials, private source code, transcripts, workspace paths, and customer data.
+          required: true

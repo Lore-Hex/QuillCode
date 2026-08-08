@@ -23,6 +23,7 @@ public enum RuntimeRecoveryReason: String, Codable, Sendable, Hashable {
     case malformedModelAction = "malformed-model-action"
     case runFailed = "run-failed"
     case savedChatsUnreadable = "saved-chats-unreadable"
+    case savedWorkspaceDataUnreadable = "saved-workspace-data-unreadable"
 }
 
 public struct RuntimeRecoveryTelemetry: Codable, Sendable, Hashable {

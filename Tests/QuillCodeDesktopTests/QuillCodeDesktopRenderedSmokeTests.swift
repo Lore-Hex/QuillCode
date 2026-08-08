@@ -9,6 +9,28 @@ import QuillCodeTools
 
 @MainActor
 final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
+    func testRenderedProjectlessWorkspaceShowsSafeFirstLaunchSetup() throws {
+        let model = QuillCodeWorkspaceModel()
+        model.root.topBar.agentStatus = QuillCodeRuntimeStatusLabel.signInWithTrustedRouter
+        let surface = model.surface()
+
+        XCTAssertTrue(surface.projects.items.isEmpty)
+        XCTAssertTrue(surface.transcript.timelineItems.isEmpty)
+        XCTAssertEqual(
+            surface.runtimeIssue?.recovery?.reason,
+            .trustedRouterSignInRequired
+        )
+
+        let image = try renderWorkspace(surface)
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 1280)
+        XCTAssertEqual(stats.height, 900)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
+    }
+
     func testRenderedEmptyWorkspaceShowsSavedChatRecoveryIssue() throws {
         let invalidID = UUID()
         let listing = ThreadListing(
@@ -25,6 +47,40 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         )
         let surface = model.surface()
         XCTAssertEqual(surface.runtimeIssue?.title, "A saved chat could not be loaded")
+        XCTAssertTrue(surface.transcript.timelineItems.isEmpty)
+
+        let image = try renderWorkspace(surface)
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 1280)
+        XCTAssertEqual(stats.height, 900)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.brightPixelRatio, 0.0008)
+    }
+
+    func testRenderedEmptyWorkspaceShowsAggregatedRegistryRecoveryIssue() throws {
+        let firstThread = ChatThread(title: "Recovered chat A")
+        let secondThread = ChatThread(title: "Recovered chat B")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(
+                threads: [firstThread, secondThread],
+                selectedThreadID: firstThread.id
+            ),
+            startupLoadIssue: WorkspaceStartupLoadIssue(
+                loadedThreadCount: 2,
+                unreadableDataKinds: [.configuration, .projects, .automations, .savedSearches]
+            )
+        )
+        let surface = model.surface()
+        XCTAssertEqual(
+            surface.runtimeIssue?.title,
+            "Some saved workspace data could not be loaded"
+        )
+        XCTAssertEqual(
+            surface.runtimeIssue?.recovery?.reason,
+            .savedWorkspaceDataUnreadable
+        )
         XCTAssertTrue(surface.transcript.timelineItems.isEmpty)
 
         let image = try renderWorkspace(surface)

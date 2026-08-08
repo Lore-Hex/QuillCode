@@ -20,9 +20,6 @@ public struct ConfigStore: Sendable {
     }
 
     public func load() throws -> AppConfig {
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            return AppConfig()
-        }
         if let document = try? ConfigDocumentStore(fileURL: fileURL).load() {
             return Self.config(from: document)
         }
@@ -30,7 +27,13 @@ public struct ConfigStore: Sendable {
         // Keep accepting early QuillCode files containing invalid bare values. New writes always
         // use the strict TOML document store, but silently discarding an older user's settings
         // because one boolean was malformed would be a worse migration failure.
-        let text = try String(contentsOf: fileURL, encoding: .utf8)
+        let bytes = try BoundedFileDataReader.read(
+            from: fileURL,
+            maximumBytes: ConfigDocumentStore.maximumBytes
+        )
+        guard let text = String(data: bytes, encoding: .utf8) else {
+            throw ConfigDocumentError.invalidValue("Config must be UTF-8.")
+        }
         var config = AppConfig()
         var explicitAuthMode: TrustedRouterAuthMode?
         var legacyDeveloperOverrideEnabled: Bool?
