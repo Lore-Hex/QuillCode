@@ -391,7 +391,7 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         )
         XCTAssertEqual(
             result.thread.messages.last?.content,
-            "The review is corrected."
+            "Completed and verified `outputs/review.md`."
         )
     }
 
@@ -457,7 +457,10 @@ final class AgentSourceGroundingGateTests: XCTestCase {
             try String(contentsOf: root.appendingPathComponent("outputs/brief.md"), encoding: .utf8),
             "# Outreach\n\n"
         )
-        XCTAssertEqual(result.thread.messages.last?.content, "Created and verified outputs/brief.md.")
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified `outputs/brief.md`."
+        )
     }
 
     func testFormattingOnlyAuditSkipsVerificationAndFinalizesDeterministicRepair() async throws {

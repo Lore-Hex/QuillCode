@@ -234,7 +234,6 @@ public struct AgentRunner: Sendable {
             /// that bounded model pass, deterministic gates own repair, readback, and finalization.
             var sourceGroundingAuditCounts: [String: Int] = [:]
             var pendingSourceGroundingAuditPath: String?
-            var pendingSourceGroundingFinalization: AgentAction?
             var sourceGroundingRepairedPaths = Set<String>()
             /// A completed semantic audit or deterministic source repair owns finalization. Keeping
             /// this action across the forced readback prevents a fresh model turn from restoring or
@@ -539,7 +538,7 @@ public struct AgentRunner: Sendable {
                     await onProgress?(next)
                     continue actionLoop
                 }
-                if case .say(let candidateFinalAnswer) = resolvedAction,
+                if case .say = resolvedAction,
                    let correction = AgentSourceGroundingGate.correction(
                     userMessage: userMessage,
                     writtenPaths: runLoop.writtenWorkspacePaths,
@@ -548,7 +547,6 @@ public struct AgentRunner: Sendable {
                     controlledSourceGroundingFinalization = nil
                     sourceGroundingAuditCounts[correction.path, default: 0] += 1
                     pendingSourceGroundingAuditPath = correction.path
-                    pendingSourceGroundingFinalization = .say(candidateFinalAnswer)
                     pendingRepeatNudge = correction.prompt
                     next.events.append(.init(
                         kind: .notice,
@@ -788,15 +786,13 @@ public struct AgentRunner: Sendable {
                             await onProgress?(next)
                             continue actionLoop
                         }
-                        if case .say(let candidateFinalAnswer) = finalized,
-                           let correction = AgentSourceGroundingGate.correction(
+                        if let correction = AgentSourceGroundingGate.correction(
                             userMessage: userMessage,
                             writtenPaths: runLoop.writtenWorkspacePaths,
                             auditCounts: sourceGroundingAuditCounts
                         ) {
                             sourceGroundingAuditCounts[correction.path, default: 0] += 1
                             pendingSourceGroundingAuditPath = correction.path
-                            pendingSourceGroundingFinalization = .say(candidateFinalAnswer)
                             pendingRepeatNudge = correction.prompt
                             next.events.append(.init(
                                 kind: .notice,
@@ -1010,16 +1006,11 @@ public struct AgentRunner: Sendable {
                                 from: completion.call
                                ),
                                AgentArtifactVerificationGate.pathsMatch(auditPath, completedPath) {
-                                controlledSourceGroundingFinalization =
-                                    pendingSourceGroundingFinalization
-                                    ?? .say(Self.finalAnswer(
-                                        for: completion.call,
-                                        result: completion.result,
-                                        followUpReviewResult: completion.followUpReviewResult
-                                    ))
+                                controlledSourceGroundingFinalization = .say(
+                                    "Completed and verified `\(auditPath)`."
+                                )
                             }
                             pendingSourceGroundingAuditPath = nil
-                            pendingSourceGroundingFinalization = nil
                         }
                         if let repairPath = pendingSourceGroundingRepairPath {
                             if completion.result.ok,
