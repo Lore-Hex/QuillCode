@@ -427,6 +427,8 @@ enum AgentTabularSourceGroundingGate {
     private static func sectionHeading(_ canonical: String, matches dimension: String) -> Bool {
         canonical.hasPrefix(dimension + "pattern")
             || canonical.hasSuffix("by" + dimension)
+            || canonical.hasSuffix(dimension + "pattern")
+            || canonical.hasSuffix(dimension + "patterns")
             || canonical.hasSuffix(dimension + "analysis")
     }
 

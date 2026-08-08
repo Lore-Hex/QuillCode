@@ -299,6 +299,32 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         })
     }
 
+    func testTabularGateMapsNumberedPatternHeadingToSourceColumn() {
+        let source = """
+        1\tid,founder_action,outcome
+        2\tD01,quantified chasing time,won
+        3\tD09,skipped workflow validation,lost
+        """
+        let artifact = """
+        ### 5.6 Founder-action patterns
+
+        ## Recommendation
+
+        Compare the actions before changing qualification.
+        """
+
+        let issues = AgentTabularSourceGroundingGate.issues(
+            content: artifact,
+            path: "outputs/review.md",
+            sourceReadsByPath: ["inputs/data.csv": source]
+        )
+
+        XCTAssertTrue(issues.contains {
+            $0.contains("Founder-action patterns")
+                && $0.contains("source column founderaction")
+        })
+    }
+
     func testRunnerReconcilesTabularSourceRowsBeforeCompletion() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
