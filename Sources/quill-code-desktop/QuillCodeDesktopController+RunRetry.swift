@@ -28,7 +28,7 @@ extension QuillCodeDesktopController {
                 threadID: threadID,
                 workspaceRoot: runRoot,
                 onStarted: { [weak self] in self?.refresh() },
-                onProgressUpdated: { [weak self] in self?.refresh() }
+                onProgressUpdated: { [weak self] in self?.scheduleProgressRefresh() }
             )
         } onFinish: { [weak self] in
             self?.refresh()

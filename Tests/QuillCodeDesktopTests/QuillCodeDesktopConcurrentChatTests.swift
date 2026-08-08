@@ -8,6 +8,35 @@ import QuillComputerUseKit
 
 @MainActor
 final class QuillCodeDesktopConcurrentChatTests: XCTestCase {
+    func testDesktopComposerSeparatesImmediateAndStreamingRefreshes() async throws {
+        let workspaceRoot = try makeTempDirectory()
+        let model = QuillCodeWorkspaceModel(
+            runner: AgentRunner(llm: DesktopBurstStreamingLLMClient())
+        )
+        let coordinator = QuillCodeDesktopComposerCoordinator()
+        let tasks = QuillCodeDesktopTaskCoordinator()
+        let threadID = model.newChat()
+        var draft = "stream a desktop answer"
+        var immediateRefreshCount = 0
+        var progressRefreshCount = 0
+
+        coordinator.send(
+            draft: &draft,
+            model: model,
+            fallbackWorkspaceRoot: workspaceRoot,
+            tasks: tasks,
+            refresh: { immediateRefreshCount += 1 },
+            progressRefresh: { progressRefreshCount += 1 }
+        )
+        try await waitUntil(timeoutSeconds: 1) {
+            !tasks.isSendRunning(threadID: threadID)
+        }
+
+        XCTAssertEqual(immediateRefreshCount, 2, "start and finish stay immediate")
+        XCTAssertGreaterThan(progressRefreshCount, 1, "stream fragments use the bounded path")
+        XCTAssertEqual(model.selectedThread?.messages.last?.content, "A streamed answer")
+    }
+
     func testDesktopComposerRunsDifferentChatsInIndependentTaskSlots() async throws {
         let workspaceRoot = try makeTempDirectory()
         let gate = DesktopConcurrentPromptGate()
@@ -326,6 +355,37 @@ private struct DesktopConcurrentPromptGateLLMClient: LLMClient {
     ) async throws -> AgentAction {
         await gate.wait(for: userMessage)
         return .say("Finished \(userMessage)")
+    }
+}
+
+private struct DesktopBurstStreamingLLMClient: StreamingLLMClient {
+    func nextAction(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AgentAction {
+        let stream = try await actionTextStream(
+            thread: thread,
+            userMessage: userMessage,
+            tools: tools
+        )
+        return try await AgentActionStreamCollector.collect(
+            from: stream,
+            emptyError: AgentError.emptyStreamingResponse
+        )
+    }
+
+    func actionTextStream(
+        thread _: ChatThread,
+        userMessage _: String,
+        tools _: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            continuation.yield(#"{"type":"say","text":"A"#)
+            continuation.yield(" streamed")
+            continuation.yield(#" answer"}"#)
+            continuation.finish()
+        }
     }
 }
 
