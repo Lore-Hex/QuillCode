@@ -24,6 +24,8 @@ from .packaged_window import (
 from .performance import (
     DEFAULT_MAX_LAUNCH_READY_MILLISECONDS,
     DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
+    DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
+    DEFAULT_MAX_THREAD_COUNT,
     write_performance_manifest,
 )
 from .probe_contracts import validate_report
@@ -110,6 +112,16 @@ def main() -> None:
         "--max-resident-memory-bytes",
         type=int,
         default=DEFAULT_MAX_RESIDENT_MEMORY_BYTES,
+    )
+    performance_parser.add_argument(
+        "--max-resident-memory-growth-bytes",
+        type=int,
+        default=DEFAULT_MAX_RESIDENT_MEMORY_GROWTH_BYTES,
+    )
+    performance_parser.add_argument(
+        "--max-thread-count",
+        type=int,
+        default=DEFAULT_MAX_THREAD_COUNT,
     )
 
     computer_use_parser = subparsers.add_parser(
@@ -247,6 +259,8 @@ def main() -> None:
             args.manifest,
             max_launch_ready_milliseconds=args.max_launch_ready_milliseconds,
             max_resident_memory_bytes=args.max_resident_memory_bytes,
+            max_resident_memory_growth_bytes=args.max_resident_memory_growth_bytes,
+            max_thread_count=args.max_thread_count,
         )
     elif args.command == "computer-use":
         write_computer_use_manifest(

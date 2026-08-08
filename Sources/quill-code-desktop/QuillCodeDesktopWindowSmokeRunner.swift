@@ -54,7 +54,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
         guard bounds.width >= 900, bounds.height >= 620 else {
             throw QuillCodeDesktopSmokeFailure.windowContentTooSmall(bounds.width, bounds.height)
         }
-        let performance = try QuillCodeDesktopPerformanceSnapshot.capture(
+        let initialPerformance = try QuillCodeDesktopInitialPerformanceSnapshot.capture(
             launchStartedAtUptime: QuillCodeDesktopLaunchClock.appEntryUptime
         )
 
@@ -81,6 +81,8 @@ enum QuillCodeDesktopWindowSmokeRunner {
             nativeHitTargets: nativeHitTargets
         )
         let surface = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: workspaceSurface)
+        try await Task.sleep(for: .seconds(1))
+        let performance = try initialPerformance.completingInteractionSweep()
 
         return QuillCodeDesktopWindowSmokeReport(
             ok: true,
