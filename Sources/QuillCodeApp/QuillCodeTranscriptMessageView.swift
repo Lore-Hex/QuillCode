@@ -10,6 +10,10 @@ struct QuillCodeMessageBubble: View {
     var canRetry: Bool
     var onRetry: () -> Void
     var onRevertTurn: (UUID) -> Void = { _ in }
+    @State private var isHovering = false
+    @FocusState private var isBubbleFocused: Bool
+    @FocusState private var focusedAction: MessageAction?
+    @Environment(\.accessibilityVoiceOverEnabled) private var isVoiceOverEnabled
 
     var body: some View {
         HStack(spacing: QuillCodeMetrics.controlClusterSpacing) {
@@ -43,42 +47,91 @@ struct QuillCodeMessageBubble: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: QuillCodeMetrics.messageBubbleRadius, style: .continuous))
                     .accessibilityLabel(message.accessibilityLabel)
-                HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
-                    QuillCodeTranscriptCopyButton(
-                        label: "Copy",
-                        copiedLabel: "Copied",
-                        isCopied: isCopied,
-                        action: onCopy
-                    )
-                    .accessibilityIdentifier("transcript-copy-\(timelineItemID)")
-                    if message.role == .user {
-                        QuillCodeMessageDraftButton(action: onUseAsDraft)
-                            .accessibilityIdentifier("message-use-as-draft")
-                        if let revert = message.revert {
-                            QuillCodeMessageRevertButton(
-                                hasNonApplyPatchEdits: revert.hasNonApplyPatchEdits,
-                                action: { onRevertTurn(revert.turnMessageID) }
-                            )
-                            .accessibilityIdentifier("message-revert-turn")
+                if showsActions {
+                    HStack(spacing: QuillCodeMetrics.denseControlClusterSpacing) {
+                        QuillCodeTranscriptCopyButton(
+                            label: "Copy",
+                            copiedLabel: "Copied",
+                            isCopied: isCopied,
+                            action: onCopy
+                        )
+                        .focused($focusedAction, equals: .copy)
+                        .accessibilityIdentifier("transcript-copy-\(timelineItemID)")
+                        if message.role == .user {
+                            QuillCodeMessageDraftButton(action: onUseAsDraft)
+                                .focused($focusedAction, equals: .draft)
+                                .accessibilityIdentifier("message-use-as-draft")
+                            if let revert = message.revert {
+                                QuillCodeMessageRevertButton(
+                                    hasNonApplyPatchEdits: revert.hasNonApplyPatchEdits,
+                                    action: { onRevertTurn(revert.turnMessageID) }
+                                )
+                                .focused($focusedAction, equals: .revert)
+                                .accessibilityIdentifier("message-revert-turn")
+                            }
+                        }
+                        if message.role == .assistant {
+                            if canRetry {
+                                QuillCodeMessageRetryButton(action: onRetry)
+                                    .focused($focusedAction, equals: .retry)
+                                    .accessibilityIdentifier("message-retry")
+                            }
                         }
                     }
-                    if message.role == .assistant {
-                        if canRetry {
-                            QuillCodeMessageRetryButton(action: onRetry)
-                                .accessibilityIdentifier("message-retry")
-                        }
-                    }
+                    .accessibilityIdentifier("message-actions-\(timelineItemID)")
+                    .transition(.opacity)
                 }
-                .accessibilityIdentifier("message-actions-\(timelineItemID)")
             }
             if message.role != .user {
                 Spacer(minLength: 80)
             }
         }
+        .contentShape(Rectangle())
+        .onHover { isHovering = $0 }
+        .focusable()
+        .focused($isBubbleFocused)
+        .focusEffectDisabled()
+        .contextMenu {
+            messageContextMenu
+        }
     }
 
     private var actionAlignment: HorizontalAlignment {
         message.role == .user ? .trailing : .leading
+    }
+
+    private var showsActions: Bool {
+        isHovering || isBubbleFocused || focusedAction != nil || isVoiceOverEnabled
+    }
+
+    @ViewBuilder
+    private var messageContextMenu: some View {
+        Button("Copy", action: onCopy)
+            .quillCodePlatformMenuItemTarget(reason: Self.contextMenuItemTargetReason)
+        if message.role == .user {
+            Button("Use as draft", action: onUseAsDraft)
+                .quillCodePlatformMenuItemTarget(reason: Self.contextMenuItemTargetReason)
+            if let revert = message.revert {
+                Button(TurnRevertCopy.buttonTitle) {
+                    onRevertTurn(revert.turnMessageID)
+                }
+                .quillCodePlatformMenuItemTarget(reason: Self.contextMenuItemTargetReason)
+            }
+        }
+        if message.role == .assistant, canRetry {
+            Button("Retry", action: onRetry)
+                .quillCodePlatformMenuItemTarget(reason: Self.contextMenuItemTargetReason)
+        }
+    }
+
+    private static let contextMenuItemTargetReason =
+        "AppKit owns context menu row geometry; the transcript bubble carries the custom hit-target contract."
+
+    private enum MessageAction: Hashable {
+        case copy
+        case draft
+        case revert
+        case retry
     }
 
     @Environment(\.quillCodeConfidentialAppearance) private var isConfidentialAppearance

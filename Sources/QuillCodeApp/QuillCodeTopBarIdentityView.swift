@@ -5,21 +5,13 @@ struct QuillCodeTopBarIdentityView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 9) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(topBar.primaryTitle)
-                    .font(.custom("Iowan Old Style", size: 16).weight(.semibold))
-                    .foregroundStyle(QuillCodePalette.text)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-                    .truncationMode(.tail)
-
-                Text(topBar.subtitle)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(QuillCodePalette.body)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            .layoutPriority(2)
+            Text(topBar.primaryTitle)
+                .font(.custom("Iowan Old Style", size: 16).weight(.semibold))
+                .foregroundStyle(QuillCodePalette.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+                .truncationMode(.tail)
+                .layoutPriority(2)
 
             if let branchStatusLabel = topBar.branchStatusLabel {
                 statusChip(branchStatusLabel)

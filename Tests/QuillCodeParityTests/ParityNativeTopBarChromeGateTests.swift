@@ -36,7 +36,8 @@ final class ParityNativeTopBarChromeGateTests: QuillCodeParityTestCase {
         [
             "topBarTokenBudgetMinWidth",
             "tokenBudgetRemainingLabel",
-            "visibleQuotaLimits.prefix(3)"
+            "visibleQuotaLimits.prefix(3)",
+            "Text(topBar.subtitle)"
         ].forEach { Self.assertSource(identityText, excludes: $0) }
         assertTopBarCompositionAvoidsBusyChrome(topBarViewText)
     }
