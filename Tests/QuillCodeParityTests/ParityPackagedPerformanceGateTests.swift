@@ -36,7 +36,10 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         Self.assertSource(runner, containsAll: [
             "QuillCodeDesktopInitialPerformanceSnapshot.capture(",
             "QuillCodeDesktopProcessResourceSnapshot.capture()",
-            "initialPerformance.completingRepeatedInteractionSweep("
+            "initialPerformance.completingRepeatedInteractionSweep(",
+            #"markStage("interaction-sweep-1")"#,
+            #"markStage("interaction-sweep-2")"#,
+            #"markStage("complete")"#
         ])
         XCTAssertEqual(
             runner.components(
@@ -71,6 +74,9 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "--max-repeated-resident-memory-growth-bytes",
             "--max-thread-count",
             "--max-repeated-thread-growth",
+            "QUILLCODE_PACKAGED_PERFORMANCE_ATTEMPT_TIMEOUT_SECONDS",
+            #"ATTEMPT_TIMEOUT_SECONDS="${QUILLCODE_PACKAGED_PERFORMANCE_ATTEMPT_TIMEOUT_SECONDS:-180}""#,
+            "terminate_smoke_process",
             "QUILLCODE_MAX_LAUNCH_READY_MILLISECONDS",
             "QUILLCODE_MAX_RESIDENT_MEMORY_BYTES",
             "QUILLCODE_MAX_RESIDENT_MEMORY_GROWTH_BYTES",
