@@ -280,3 +280,52 @@ jobs:
             --channel "$RELEASE_CHANNEL" \
             --commit "$GITHUB_SHA" \
             --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+  verify-updater:
+    needs: publish
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Download public updater inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            RELEASE_CHANNEL="stable"
+          else
+            RELEASE_TAG="tester-latest"
+            RELEASE_CHANNEL="tester"
+          fi
+          mkdir -p "$RUNNER_TEMP/public-updater"
+          gh release download "$RELEASE_TAG" \
+            --pattern 'Quill-Cowork-macOS-*.zip' \
+            --dir "$RUNNER_TEMP/public-updater"
+          gh release download "$RELEASE_TAG" \
+            --pattern "latest-${RELEASE_CHANNEL}-build.json" \
+            --dir "$RUNNER_TEMP/public-updater"
+      - name: Verify public app updates and relaunches itself
+        env:
+          QUILLCODE_UPDATER_SMOKE_ARTIFACT_DIR: ${{ runner.temp }}/updater-smoke-artifacts
+        run: |
+          APP_ZIPS=("$RUNNER_TEMP"/public-updater/Quill-Cowork-macOS-*.zip)
+          MANIFESTS=("$RUNNER_TEMP"/public-updater/latest-*-build.json)
+          if [[ ${#APP_ZIPS[@]} -ne 1 || ${#MANIFESTS[@]} -ne 1 ]]; then
+            echo "Expected exactly one public app archive and one updater manifest." >&2
+            exit 1
+          fi
+          scripts/packaged-macos-updater-smoke.sh \
+            --app-zip "${APP_ZIPS[0]}" \
+            --manifest "${MANIFESTS[0]}"
+      - name: Upload updater smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quillcode-public-updater-smoke
+          path: ${{ runner.temp }}/updater-smoke-artifacts
+          if-no-files-found: error
+          retention-days: 14

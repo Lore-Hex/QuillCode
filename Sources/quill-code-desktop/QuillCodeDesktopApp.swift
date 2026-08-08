@@ -14,6 +14,22 @@ struct QuillCodeDesktopApp: App {
             Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
         }
 
+        if let updaterSmokeRequest = QuillCodeDesktopUpdaterSmokeRequest(
+            arguments: CommandLine.arguments
+        ) {
+            let controller = QuillCodeDesktopController(
+                updateController: QuillCodeDesktopUpdateController(
+                    configuration: nil,
+                    installResultURL: nil
+                )
+            )
+            _controller = StateObject(wrappedValue: controller)
+            Task { @MainActor in
+                await QuillCodeDesktopUpdaterSmokeRunner.runAndExit(updaterSmokeRequest)
+            }
+            return
+        }
+
         // Quill Cowork is a dark-themed appliance: pin the whole app (every window, sheet, popover, and
         // system-drawn control) to the dark aqua appearance. Without this, system chrome — .roundedBorder
         // text fields, sheet/popover backgrounds, menu text — follows the user's macOS appearance, so on a
