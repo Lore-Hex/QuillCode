@@ -239,6 +239,36 @@ final class AgentToolArgumentNormalizerTests: XCTestCase {
     func testMinimumRequiredArgumentsAllowKnownNoArgumentToolsOnly() {
         XCTAssertFalse(
             AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.fileRead.name,
+                arguments: [:]
+            )
+        )
+        XCTAssertTrue(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.fileRead.name,
+                arguments: ["path": "source.md"]
+            )
+        )
+        XCTAssertFalse(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.fileWrite.name,
+                arguments: ["content": "# Report\n"]
+            )
+        )
+        XCTAssertFalse(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.fileWrite.name,
+                arguments: ["path": "report.md"]
+            )
+        )
+        XCTAssertTrue(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
+                for: ToolDefinition.fileWrite.name,
+                arguments: ["path": "report.md", "content": "# Report\n"]
+            )
+        )
+        XCTAssertFalse(
+            AgentToolArgumentNormalizer.hasMinimumRequiredArguments(
                 for: ToolDefinition.shellRun.name,
                 arguments: [:]
             )

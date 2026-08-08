@@ -281,6 +281,17 @@ final class TrustedRouterActionParserTests: XCTestCase {
         )
     }
 
+    func testActionParserRejectsFileWriteWithoutPathBeforeExecution() {
+        XCTAssertThrowsError(try AgentActionJSONParser.parse(
+            ##"{"type":"tool","name":"host.file.write","arguments":{"content":"# Revised report\n"}}"##
+        )) { error in
+            guard case TrustedRouterAgentError.emptyToolArguments(let toolName) = error else {
+                return XCTFail("Expected emptyToolArguments, got \(error)")
+            }
+            XCTAssertEqual(toolName, ToolDefinition.fileWrite.name)
+        }
+    }
+
     func testActionParserDoesNotRepairBareQuotesInTruncatedFileWriteContent() {
         XCTAssertThrowsError(try AgentActionJSONParser.parse(
             #"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"Positioning stayed "close automation""#
