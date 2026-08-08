@@ -231,24 +231,4 @@ final class QuillCodeDesktopController: ObservableObject {
         ))
     }
 
-    private func scheduleModelCatalogRefreshIfNeeded() {
-        tasks.startIfIdle(.modelCatalogRefresh) { [weak self] in
-            guard let self else { return }
-            await modelCatalogRefreshCoordinator.refreshIfNeeded(
-                on: model,
-                refresh: { [weak self] in self?.refresh() }
-            )
-        }
-    }
-
-    private func scheduleTrustedRouterCreditsRefreshIfNeeded() {
-        tasks.startIfIdle(.trustedRouterCreditsRefresh) { [weak self] in
-            guard let self else { return }
-            await trustedRouterCreditsCoordinator.refresh(
-                on: model,
-                refreshSurface: { [weak self] in self?.refresh() }
-            )
-        }
-    }
-
 }
