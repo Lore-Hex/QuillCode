@@ -66,9 +66,6 @@ struct QuillCodeModelPickerView: View {
             if presented {
                 expandedModelID = currentModelID
                 ensureHighlightedModel(preferredID: currentModelID)
-                DispatchQueue.main.async {
-                    isSearchFocused = true
-                }
             } else {
                 searchText = ""
                 expandedModelID = nil
@@ -88,6 +85,7 @@ struct QuillCodeModelPickerView: View {
         .padding(14)
         .frame(width: 400, height: 500)
         .background(QuillCodePalette.panel)
+        .onAppear(perform: focusSearchField)
         .onMoveCommand { direction in
             switch direction {
             case .up:
@@ -245,7 +243,16 @@ struct QuillCodeModelPickerView: View {
     private func clearSearch() {
         searchText = ""
         ensureHighlightedModel(preferredID: currentModelID)
+        focusSearchField()
+    }
+
+    private func focusSearchField() {
         DispatchQueue.main.async {
+            guard isPresented else { return }
+            isSearchFocused = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            guard isPresented else { return }
             isSearchFocused = true
         }
     }
