@@ -75,12 +75,21 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
         XCTAssertTrue(decoded.tokenBudget?.visibleQuotaLimits.isEmpty == true)
     }
 
-    func testTopBarRoundTripsAndRendersAccountBalanceSeparatelyFromQuota() throws {
+    func testTopBarRoundTripsAndRendersKeyLimitsSeparatelyFromContextQuota() throws {
         let accountBalance = ProviderAccountBalanceSurface(
-            amountLabel: "$12.50",
-            statusLabel: "Balance current",
-            detailLabel: "Current TrustedRouter account balance.",
-            tone: .normal
+            amountLabel: "Today $1.25 / $40.00",
+            statusLabel: "Key limits current",
+            detailLabel: "Current TrustedRouter key usage.",
+            tone: .normal,
+            limits: [
+                ProviderKeyLimitSurface(
+                    periodLabel: "Today",
+                    usageLabel: "$1.25 / $40.00",
+                    remainingLabel: "$38.75 left",
+                    resetLabel: "Resets in 8h",
+                    detailLabel: "Today: $1.25 / $40.00 · $38.75 left · resets in 8h"
+                )
+            ]
         )
         let topBar = makeTopBar(usageStatusLabel: nil, accountBalance: accountBalance)
 
@@ -89,7 +98,8 @@ final class WorkspaceTokenUsageChipRenderTests: XCTestCase {
 
         XCTAssertEqual(decoded.accountBalance, accountBalance)
         XCTAssertTrue(html.contains(#"data-testid="top-bar-account-balance""#))
-        XCTAssertTrue(html.contains("Balance $12.50"))
+        XCTAssertEqual(decoded.accountBalance?.visibleLimits.count, 1)
+        XCTAssertTrue(html.contains("Today $1.25 / $40.00"))
         XCTAssertFalse(html.contains(#"data-testid="top-bar-token-quota-limits""#))
     }
 

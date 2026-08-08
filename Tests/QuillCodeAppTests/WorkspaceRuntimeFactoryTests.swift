@@ -131,11 +131,11 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
         let paths = QuillCodePaths(home: try makeQuillCodeTestDirectory())
         try paths.ensure()
         RuntimeFactoryCatalogURLProtocol.handler = { request in
-            XCTAssertEqual(request.url?.absoluteString, "https://api.trustedrouter.test/v1/credits")
+            XCTAssertEqual(request.url?.absoluteString, "https://api.trustedrouter.test/v1/key")
             XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer sk-test")
             return (
                 HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!,
-                Data(#"{"balance":7.25,"currency":"USD"}"#.utf8)
+                Data(#"{"data":{"usage":7.25,"limit":null,"limit_remaining":null,"usage_daily":1.25,"limit_daily":40,"limit_daily_remaining":38.75,"limit_daily_resets_at":"2026-08-09T00:00:00Z","usage_weekly":2,"limit_weekly":200,"limit_weekly_remaining":198,"limit_weekly_resets_at":"2026-08-10T00:00:00Z","usage_monthly":3,"limit_monthly":800,"limit_monthly_remaining":797,"limit_monthly_resets_at":"2026-09-01T00:00:00Z","budget_alert_only":false}}"#.utf8)
             )
         }
 
@@ -150,7 +150,8 @@ final class WorkspaceRuntimeFactoryTests: XCTestCase {
         guard case .success(let snapshot) = result else {
             return XCTFail("Expected a live account credit snapshot")
         }
-        XCTAssertEqual(snapshot.balance, 7.25)
+        XCTAssertEqual(snapshot.lifetime.usage, 7.25)
+        XCTAssertEqual(snapshot.daily.limit, 40)
         XCTAssertEqual(snapshot.currency, "USD")
     }
 

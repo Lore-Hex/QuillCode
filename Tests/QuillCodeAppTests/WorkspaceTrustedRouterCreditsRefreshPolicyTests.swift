@@ -21,11 +21,7 @@ final class WorkspaceTrustedRouterCreditsRefreshPolicyTests: XCTestCase {
     }
 
     func testUsesFreshnessAndFailureBackoffWithoutOverlappingRefreshes() throws {
-        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 10,
-            currency: "USD",
-            fetchedAt: now.addingTimeInterval(-59)
-        ))
+        let snapshot = try makeSnapshot(fetchedAt: now.addingTimeInterval(-59))
         let policy = WorkspaceTrustedRouterCreditsRefreshPolicy(
             staleAfter: 60,
             retryAfterFailure: 30
@@ -37,11 +33,7 @@ final class WorkspaceTrustedRouterCreditsRefreshPolicyTests: XCTestCase {
             now: now
         ))
         XCTAssertTrue(policy.shouldRefresh(
-            state: .current(try XCTUnwrap(TrustedRouterCreditsSnapshot(
-                balance: 10,
-                currency: "USD",
-                fetchedAt: now.addingTimeInterval(-60)
-            ))),
+            state: .current(try makeSnapshot(fetchedAt: now.addingTimeInterval(-60))),
             hasTrustedRouterAPIKey: true,
             now: now
         ))
@@ -69,16 +61,23 @@ final class WorkspaceTrustedRouterCreditsRefreshPolicyTests: XCTestCase {
     }
 
     func testInvalidThresholdsDoNotDisableRefresh() throws {
-        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 10,
-            currency: "USD",
-            fetchedAt: now
-        ))
+        let snapshot = try makeSnapshot(fetchedAt: now)
 
         XCTAssertTrue(WorkspaceTrustedRouterCreditsRefreshPolicy(staleAfter: .nan).shouldRefresh(
             state: .current(snapshot),
             hasTrustedRouterAPIKey: true,
             now: now
+        ))
+    }
+
+    private func makeSnapshot(fetchedAt: Date) throws -> TrustedRouterCreditsSnapshot {
+        try XCTUnwrap(TrustedRouterCreditsSnapshot(
+            lifetime: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .lifetime, usage: 10)),
+            daily: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .daily, usage: 1, limit: 40)),
+            weekly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .weekly, usage: 2, limit: 200)),
+            monthly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .monthly, usage: 3, limit: 800)),
+            currency: "USD",
+            fetchedAt: fetchedAt
         ))
     }
 }

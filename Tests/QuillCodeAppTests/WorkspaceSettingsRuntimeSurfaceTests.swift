@@ -88,11 +88,13 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
         XCTAssertEqual(settings.accountLabel, "quill@example.com")
     }
 
-    func testSettingsSurfaceShowsLiveTrustedRouterBalanceAndRefreshCommand() throws {
+    func testSettingsSurfaceShowsLiveTrustedRouterKeyLimitsAndRefreshCommand() throws {
         let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 19.75,
-            currency: "USD",
-            fetchedAt: Date()
+            lifetime: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .lifetime, usage: 19.75)),
+            daily: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .daily, usage: 1.25, limit: 40)),
+            weekly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .weekly, usage: 3, limit: 200)),
+            monthly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .monthly, usage: 7, limit: 800)),
+            currency: "USD"
         ))
         let settings = WorkspaceSettingsSurface(
             config: AppConfig(),
@@ -100,8 +102,9 @@ final class WorkspaceSettingsRuntimeSurfaceTests: XCTestCase {
             trustedRouterCredits: .current(snapshot)
         )
 
-        XCTAssertEqual(settings.trustedRouterAccountBalance?.amountLabel, "$19.75")
-        XCTAssertEqual(settings.trustedRouterAccountBalance?.statusLabel, "Balance current")
+        XCTAssertEqual(settings.trustedRouterAccountBalance?.amountLabel, "Today $1.25 / $40.00")
+        XCTAssertEqual(settings.trustedRouterAccountBalance?.statusLabel, "Key limits current")
+        XCTAssertEqual(settings.trustedRouterAccountBalance?.visibleLimits.count, 4)
         XCTAssertEqual(settings.trustedRouterCreditsRefreshCommand.id, "trustedrouter-credits-refresh")
         XCTAssertTrue(settings.trustedRouterCreditsRefreshCommand.isEnabled)
     }

@@ -97,12 +97,8 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
         XCTAssertTrue(topBar.showsComputerUseSetup)
     }
 
-    func testProjectsTrustedRouterAccountBalanceIntoTopBar() throws {
-        let snapshot = try XCTUnwrap(TrustedRouterCreditsSnapshot(
-            balance: 6.5,
-            currency: "USD",
-            fetchedAt: Date()
-        ))
+    func testProjectsTrustedRouterKeyLimitsIntoTopBar() throws {
+        let snapshot = try makeCreditsSnapshot(dailyUsage: 6.5)
         let topBar = WorkspaceTopBarSurfaceBuilder(
             topBarState: TopBarState(model: TrustedRouterDefaults.fastModel),
             thread: nil,
@@ -118,8 +114,19 @@ final class WorkspaceTopBarSurfaceBuilderTests: XCTestCase {
             hasTrustedRouterCredential: true
         ).surface()
 
-        XCTAssertEqual(topBar.accountBalance?.amountLabel, "$6.50")
-        XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("TrustedRouter account balance"))
+        XCTAssertEqual(topBar.accountBalance?.amountLabel, "Today $6.50 / $40.00")
+        XCTAssertEqual(topBar.accountBalance?.visibleLimits.count, 4)
+        XCTAssertTrue(topBar.topBarAccessibilityLabel.contains("TrustedRouter key usage"))
+    }
+
+    private func makeCreditsSnapshot(dailyUsage: Double) throws -> TrustedRouterCreditsSnapshot {
+        try XCTUnwrap(TrustedRouterCreditsSnapshot(
+            lifetime: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .lifetime, usage: 20)),
+            daily: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .daily, usage: dailyUsage, limit: 40)),
+            weekly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .weekly, usage: 8, limit: 200)),
+            monthly: XCTUnwrap(TrustedRouterCreditsWindowSnapshot(window: .monthly, usage: 16, limit: 800)),
+            currency: "USD"
+        ))
     }
 
     func testShowsResolvableWorktreeBindingInTopBar() throws {
