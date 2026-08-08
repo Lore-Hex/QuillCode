@@ -1134,9 +1134,13 @@ def build_prompt(row):
             "Use the file read tool separately on `inputs/context.md` and `inputs/data.csv`, then "
             "use the shell tool for one concise calculation or validation of the numeric source data. "
             "Keep every temporary script and output inside the workspace, inspect the source "
-            "schema first, and convert only fields known to be numeric. Do not execute a source "
-            "path as a command or list the output directory; after a successful validation, write "
-            "the deliverable directly."
+            "schema first, convert only fields known to be numeric, and validate only identities "
+            "the sources explicitly define; similar column names do not establish an equality. "
+            "A failed shell command does not satisfy this requirement: correct it and rerun until "
+            "one validation succeeds. Do not execute a source path as a command or list the output "
+            "directory; after a successful validation, write the deliverable directly. After the "
+            "required readback, compare every saved numeric reconciliation value with the successful "
+            "shell output; correct and reread the artifact if any value differs."
         ),
         "Multi-file artifacts": (
             "Use the file read tool separately on `inputs/context.md` and `inputs/data.csv` "

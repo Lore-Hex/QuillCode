@@ -34,6 +34,9 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("temporary script and output inside the workspace", prompt)
         self.assertIn("inspect the source schema first", prompt)
         self.assertIn("only fields known to be numeric", prompt)
+        self.assertIn("similar column names do not establish an equality", prompt)
+        self.assertIn("correct it and rerun until one validation succeeds", prompt)
+        self.assertIn("compare every saved numeric reconciliation value", prompt)
         self.assertIn("Do not execute a source path as a command", prompt)
         self.assertIn("do not leave bracketed fill-in fields", prompt.lower())
 
@@ -128,6 +131,18 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertEqual(len(required), 12)
         self.assertEqual(matched, list(required))
         self.assertIn("H12", WAVE5.fixture_context({"ID": 278, "Category": "Hiring & Team"}))
+
+    def test_cash_scenario_fixture_defines_budget_burn_semantics(self):
+        context = WAVE5.fixture_context({"ID": 265, "Category": "Finance & Runway"})
+        prompt = WAVE5.build_prompt({
+            "ID": 265,
+            "Task (what the person types)": "Create cash scenarios.",
+            "Capability needed": "Files/Shell",
+        })
+
+        self.assertIn("separately supplied budget benchmark", context)
+        self.assertIn("not equal to `payroll + non_payroll`", context)
+        self.assertIn("validate the explicitly defined ending-cash identity", prompt)
 
     def test_rescue_plan_requires_each_stale_open_account(self):
         complete = "\n".join(
