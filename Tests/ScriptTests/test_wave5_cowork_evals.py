@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -406,6 +407,24 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertTrue(any("D04" in issue and "outbound" in issue for issue in issues))
         self.assertTrue(any("CloseFlow" in issue and "support 2" in issue for issue in issues))
         self.assertTrue(any("D05=migration" in issue and "D10=migration" in issue for issue in issues))
+
+    def test_win_loss_review_reconciles_id_backed_prose_counts(self):
+        source = WAVE5.CASE_FIXTURES[230]["dataCSV"]
+        correct = textwrap.dedent("""
+            ### 5.3 By competitor
+            - none: 6 records (D01, D04, D06, D07, D10, D11) - 3 won, 3 lost.
+        """)
+        self.assertEqual(WAVE5.tabular_source_reconciliation_issues(correct, source), [])
+
+        incorrect = correct.replace("3 won, 3 lost", "4 won, 2 lost")
+        issues = WAVE5.tabular_source_reconciliation_issues(incorrect, source)
+
+        self.assertTrue(any("4W/2L" in issue and "3W/3L" in issue for issue in issues))
+
+        comparison = """### 5.6 Founder-action patterns
+- Skipped workflow validation - D09 (lost). D01 and D12 used distinct actions.
+"""
+        self.assertEqual(WAVE5.tabular_source_reconciliation_issues(comparison, source), [])
 
     def test_grounding_uses_explicit_case_anchors_without_required_output_terms(self):
         row = {"ID": 280, "Category": "Hiring & Team"}

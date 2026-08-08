@@ -542,6 +542,7 @@ def tabular_source_reconciliation_issues(text, source_csv):
         if record.get(id_header, "").strip()
     }
     known_ids = {record_id.lower(): record_id for record_id in records_by_id}
+    outcome_header = headers.get("outcome")
     issues = []
 
     for table_headers, rows in markdown_tables(text):
@@ -608,7 +609,10 @@ def tabular_source_reconciliation_issues(text, source_csv):
                     expected = len(ids)
                 else:
                     expected = sum(
-                        canonical_value(records_by_id[record_id].get("outcome", "")) == kind
+                        outcome_header is not None
+                        and canonical_value(
+                            records_by_id[record_id].get(outcome_header, "")
+                        ) == kind
                         for record_id in ids
                     )
                 if declared != expected:
@@ -630,7 +634,10 @@ def tabular_source_reconciliation_issues(text, source_csv):
                 )
                 and (
                     outcome_filter is None
-                    or canonical_value(record.get("outcome", "")) == outcome_filter
+                    or (
+                        outcome_header is not None
+                        and canonical_value(record.get(outcome_header, "")) == outcome_filter
+                    )
                 )
             )
             if matching != ids:
@@ -641,7 +648,118 @@ def tabular_source_reconciliation_issues(text, source_csv):
                     f"row {label!r} lists {ids}, but source rows matching "
                     f"{dimensions} are {matching}"
                 )
+
+    active_header = None
+    for line in text.splitlines():
+        heading = re.match(r"^\s{0,3}#{1,6}\s+(.+?)\s*$", line)
+        if heading:
+            active_header = source_header_for_section(heading.group(1), headers)
+            continue
+        bullet = re.match(r"^\s*[-*+]\s+(.+)$", line)
+        if not bullet or active_header is None:
+            continue
+        prose = bullet.group(1)
+        claim = prose.split(".", 1)[0]
+        ids = sorted({
+            known_ids[token.lower()]
+            for token in re.findall(r"[A-Za-z0-9_-]+", claim)
+            if token.lower() in known_ids
+        })
+        if not ids:
+            continue
+        label = clean_markdown(prose.split(":", 1)[0])
+        known_values = {
+            canonical_value(record.get(active_header, "")) for record in records
+        }
+        canonical_label = canonical_value(label)
+        category = next(
+            (
+                value for value in sorted(known_values, key=len, reverse=True)
+                if canonical_label == value or canonical_label.startswith(value + " ")
+            ),
+            None,
+        )
+        if category is None:
+            continue
+        mismatches = [
+            f"{record_id}={records_by_id[record_id].get(active_header, '')}"
+            for record_id in ids
+            if canonical_value(records_by_id[record_id].get(active_header, "")) != category
+        ]
+        if mismatches:
+            issues.append(
+                f"bullet {label!r} labels {active_header}={category}, but source says "
+                + ", ".join(mismatches)
+            )
+        matching = sorted(
+            record_id
+            for record_id, record in records_by_id.items()
+            if canonical_value(record.get(active_header, "")) == category
+        )
+        if matching != ids:
+            issues.append(
+                f"bullet {label!r} lists {ids}, but source rows matching "
+                f"{active_header}={category} are {matching}"
+            )
+        for match in re.finditer(r"(?i)\b(\d+)\s+records?\b", claim):
+            declared = int(match.group(1))
+            if declared != len(ids):
+                issues.append(
+                    f"bullet {label!r} declares {declared} records, but IDs {ids} support "
+                    f"{len(ids)}"
+                )
+        for pattern in (
+            r"(?i)\b(\d+)\s*w\s*/\s*(\d+)\s*l\b",
+            r"(?i)\b(\d+)\s+won\b[^\r\n]{0,20}?\b(\d+)\s+lost\b",
+        ):
+            for match in re.finditer(pattern, claim):
+                declared_won, declared_lost = map(int, match.groups())
+                expected_won = sum(
+                    outcome_header is not None
+                    and canonical_value(records_by_id[record_id].get(outcome_header, "")) == "won"
+                    for record_id in ids
+                )
+                expected_lost = sum(
+                    outcome_header is not None
+                    and canonical_value(records_by_id[record_id].get(outcome_header, "")) == "lost"
+                    for record_id in ids
+                )
+                if (declared_won, declared_lost) != (expected_won, expected_lost):
+                    issues.append(
+                        f"bullet {label!r} declares {declared_won}W/{declared_lost}L, "
+                        f"but IDs {ids} support {expected_won}W/{expected_lost}L"
+                    )
     return list(dict.fromkeys(issues))
+
+
+def source_header_for_section(heading, headers):
+    canonical = canonical_header(heading)
+    aliases = {
+        "leadsource": "source",
+        "dealsource": "source",
+        "primaryobjection": "objection",
+        "salescyclelength": "cycledays",
+        "salescycleduration": "cycledays",
+        "cyclelength": "cycledays",
+    }
+    if canonical in headers:
+        return headers[canonical]
+    if canonical in aliases and aliases[canonical] in headers:
+        return headers[aliases[canonical]]
+    dimensions = list(headers)
+    dimensions.extend(
+        alias for alias, source_header in aliases.items() if source_header in headers
+    )
+    for dimension in sorted(dimensions, key=len, reverse=True):
+        if (
+            canonical.startswith(dimension + "pattern")
+            or canonical.endswith("by" + dimension)
+            or canonical.endswith(dimension + "pattern")
+            or canonical.endswith(dimension + "patterns")
+            or canonical.endswith(dimension + "analysis")
+        ):
+            return headers.get(dimension) or headers[aliases[dimension]]
+    return None
 
 
 def markdown_tables(text):
