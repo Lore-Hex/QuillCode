@@ -15,6 +15,7 @@ from release_verification_contract import (
     PRODUCT,
     VerificationError,
 )
+from release_verification_performance import verify_performance_evidence_asset
 
 
 APP_INFO_BYTE_LIMIT = 256 * 1024
@@ -232,6 +233,7 @@ def verify_asset_files(
                 f"downloaded asset {asset['name']!r} failed SHA-256 verification"
             )
     verify_primary_checksums(asset_directory, assets)
+    verify_performance_evidence_asset(asset_directory, assets, manifest)
     verify_build_info(
         asset_directory,
         assets,

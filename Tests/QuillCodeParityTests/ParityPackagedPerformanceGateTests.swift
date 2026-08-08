@@ -18,7 +18,14 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "PROC_PIDTASKINFO",
             "pti_resident_size",
             "pti_threadnum",
-            #"static let measurement = "initial-live-window""#
+            #"static let measurement = "initial-live-window""#,
+            #"static let postInteractionMeasurement = "settled-after-native-interaction-sweep""#,
+            #"static let repeatedInteractionMeasurement = "settled-after-repeated-native-interaction-sweep""#,
+            "interactionSweepCount = 2",
+            "residentMemoryGrowthBytes",
+            "threadGrowth",
+            "repeatedInteractionResidentMemoryGrowthBytes",
+            "repeatedInteractionThreadGrowth"
         ])
         Self.assertSource(app, contains: "QuillCodeDesktopLaunchClock.appEntryUptime")
         Self.assertSource(app, excludes: "await controller.refreshModelCatalog()")
@@ -26,10 +33,27 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             app.range(of: "private enum QuillCodeDesktopWindowSmokeLaunch")
         ).lowerBound
         Self.assertSource(String(app[smokeLaunchStart...]), excludes: "Task.sleep")
-        Self.assertSource(runner, contains: "QuillCodeDesktopPerformanceSnapshot.capture(")
-        let performanceIndex = try XCTUnwrap(runner.range(of: "let performance = try")).lowerBound
+        Self.assertSource(runner, containsAll: [
+            "QuillCodeDesktopInitialPerformanceSnapshot.capture(",
+            "QuillCodeDesktopProcessResourceSnapshot.capture()",
+            "initialPerformance.completingRepeatedInteractionSweep("
+        ])
+        XCTAssertEqual(
+            runner.components(
+                separatedBy: "QuillCodeDesktopAccessibilityActivationSampler.validatedReport("
+            ).count - 1,
+            2
+        )
+        let performanceIndex = try XCTUnwrap(runner.range(of: "let initialPerformance = try")).lowerBound
         let screenshotIndex = try XCTUnwrap(runner.range(of: "captureValidatedImageStats(")).lowerBound
+        let interactionIndex = try XCTUnwrap(
+            runner.range(of: "QuillCodeDesktopAccessibilityActivationSampler.validatedReport(")
+        ).lowerBound
+        let completedPerformanceIndex = try XCTUnwrap(
+            runner.range(of: "initialPerformance.completingRepeatedInteractionSweep(")
+        ).lowerBound
         XCTAssertLessThan(performanceIndex, screenshotIndex)
+        XCTAssertLessThan(interactionIndex, completedPerformanceIndex)
         Self.assertSource(support, contains: #""performance": performance.dictionary"#)
 
         Self.assertSource(packagedSmoke, containsAll: [
@@ -43,8 +67,16 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             #"REPORT_PATHS+=("$REPORT_PATH")"#,
             "--max-launch-ready-milliseconds",
             "--max-resident-memory-bytes",
+            "--max-resident-memory-growth-bytes",
+            "--max-repeated-resident-memory-growth-bytes",
+            "--max-thread-count",
+            "--max-repeated-thread-growth",
             "QUILLCODE_MAX_LAUNCH_READY_MILLISECONDS",
-            "QUILLCODE_MAX_RESIDENT_MEMORY_BYTES"
+            "QUILLCODE_MAX_RESIDENT_MEMORY_BYTES",
+            "QUILLCODE_MAX_RESIDENT_MEMORY_GROWTH_BYTES",
+            "QUILLCODE_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES",
+            "QUILLCODE_MAX_THREAD_COUNT",
+            "QUILLCODE_MAX_REPEATED_THREAD_GROWTH"
         ])
         Self.assertSource(packageDownloads, containsAll: [
             "Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",
@@ -56,6 +88,10 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         Self.assertSource(downloads, containsAll: [
             "within three",
             "256 MiB",
+            "80 MiB",
+            "16 MiB",
+            "64 threads",
+            "4 additional threads",
             "PERFORMANCE.json"
         ])
     }
@@ -76,14 +112,48 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(manifest["ok"] as? Bool, true)
         XCTAssertEqual(manifest["withinBudget"] as? Bool, true)
+        XCTAssertEqual(manifest["schemaVersion"] as? Int, 3)
         XCTAssertEqual(manifest["measurement"] as? String, "initial-live-window")
+        XCTAssertEqual(
+            manifest["postInteractionMeasurement"] as? String,
+            "settled-after-native-interaction-sweep"
+        )
         XCTAssertEqual(manifest["launchReadyMilliseconds"] as? Double, 750)
         XCTAssertEqual(manifest["residentMemoryBytes"] as? Int, 96 * 1_024 * 1_024)
+        XCTAssertEqual(
+            manifest["postInteractionResidentMemoryBytes"] as? Int,
+            100 * 1_024 * 1_024
+        )
+        XCTAssertEqual(manifest["residentMemoryGrowthBytes"] as? Int, 4 * 1_024 * 1_024)
+        XCTAssertEqual(manifest["postInteractionThreadCount"] as? Int, 20)
+        XCTAssertEqual(manifest["threadGrowth"] as? Int, 2)
+        XCTAssertEqual(
+            manifest["repeatedInteractionMeasurement"] as? String,
+            "settled-after-repeated-native-interaction-sweep"
+        )
+        XCTAssertEqual(manifest["interactionSweepCount"] as? Int, 2)
+        XCTAssertEqual(
+            manifest["repeatedInteractionResidentMemoryBytes"] as? Int,
+            102 * 1_024 * 1_024
+        )
+        XCTAssertEqual(
+            manifest["repeatedInteractionResidentMemoryGrowthBytes"] as? Int,
+            2 * 1_024 * 1_024
+        )
+        XCTAssertEqual(manifest["repeatedInteractionThreadCount"] as? Int, 19)
+        XCTAssertEqual(manifest["repeatedInteractionThreadGrowth"] as? Int, -1)
         XCTAssertEqual(manifest["aggregation"] as? String, "single-attempt")
         XCTAssertEqual(manifest["attemptCount"] as? Int, 1)
         let budgets = try XCTUnwrap(manifest["budgets"] as? [String: Any])
         XCTAssertEqual(budgets["maximumLaunchReadyMilliseconds"] as? Double, 1_000)
         XCTAssertEqual(budgets["maximumResidentMemoryBytes"] as? Int, 128 * 1_024 * 1_024)
+        XCTAssertEqual(budgets["maximumResidentMemoryGrowthBytes"] as? Int, 80 * 1_024 * 1_024)
+        XCTAssertEqual(
+            budgets["maximumRepeatedResidentMemoryGrowthBytes"] as? Int,
+            16 * 1_024 * 1_024
+        )
+        XCTAssertEqual(budgets["maximumThreadCount"] as? Int, 64)
+        XCTAssertEqual(budgets["maximumRepeatedThreadGrowth"] as? Int, 4)
     }
 
     func testPerformanceValidatorFailsClosedAboveEitherBudget() throws {
@@ -183,6 +253,179 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
     }
 
+    func testPerformanceValidatorFailsAbovePostInteractionMemoryBudget() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try writeReport(
+            to: fixture.report,
+            launchReadyMilliseconds: 750,
+            postInteractionResidentMemoryBytes: 129 * 1_024 * 1_024
+        )
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("post-interaction resident memory"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
+    func testPerformanceValidatorFailsAboveRepeatedInteractionMemoryBudget() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try writeReport(
+            to: fixture.report,
+            launchReadyMilliseconds: 750,
+            repeatedInteractionResidentMemoryBytes: 129 * 1_024 * 1_024
+        )
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("repeated-interaction resident memory"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
+    func testPerformanceValidatorFailsAboveRetainedMemoryGrowthBudget() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try writeReport(
+            to: fixture.report,
+            launchReadyMilliseconds: 750,
+            residentMemoryBytes: 96 * 1_024 * 1_024,
+            postInteractionResidentMemoryBytes: 177 * 1_024 * 1_024
+        )
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 256 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("retained resident-memory growth"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
+    func testPerformanceValidatorFailsWhenRepeatedInteractionMemoryDoesNotConverge() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try writeReport(
+            to: fixture.report,
+            launchReadyMilliseconds: 750,
+            postInteractionResidentMemoryBytes: 100 * 1_024 * 1_024,
+            repeatedInteractionResidentMemoryBytes: 117 * 1_024 * 1_024
+        )
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 256 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.output.contains("repeated-interaction retained resident-memory growth"),
+            result.output
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
+    func testPerformanceValidatorFailsAbovePostInteractionThreadBudget() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try writeReport(
+            to: fixture.report,
+            launchReadyMilliseconds: 750,
+            postInteractionThreadCount: 65
+        )
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("post-interaction thread count"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
+    func testPerformanceValidatorFailsAboveRepeatedInteractionThreadBudget() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try writeReport(
+            to: fixture.report,
+            launchReadyMilliseconds: 750,
+            repeatedInteractionThreadCount: 65
+        )
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("repeated-interaction thread count"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
+    func testPerformanceValidatorFailsWhenRepeatedInteractionThreadsDoNotConverge() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try writeReport(
+            to: fixture.report,
+            launchReadyMilliseconds: 750,
+            postInteractionThreadCount: 20,
+            repeatedInteractionThreadCount: 25
+        )
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(result.output.contains("repeated-interaction thread growth"), result.output)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
+    func testPerformanceValidatorRejectsForgedRepeatedInteractionDelta() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let reportData = try Data(contentsOf: fixture.report)
+        var report = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: reportData) as? [String: Any]
+        )
+        var performance = try XCTUnwrap(report["performance"] as? [String: Any])
+        performance["repeatedInteractionResidentMemoryGrowthBytes"] = 1
+        report["performance"] = performance
+        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted])
+            .write(to: fixture.report, options: .atomic)
+
+        let result = try runValidator(
+            reports: [fixture.report],
+            manifest: fixture.manifest,
+            maximumLaunchMilliseconds: 3_000,
+            maximumResidentBytes: 128 * 1_024 * 1_024
+        )
+        XCTAssertNotEqual(result.exitCode, 0)
+        XCTAssertTrue(
+            result.output.contains("repeated resident-memory growth does not match"),
+            result.output
+        )
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.manifest.path))
+    }
+
     private func makeFixture() throws -> (root: URL, report: URL, manifest: URL) {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("quillcode-performance-gate-(UUID().uuidString)")
@@ -196,17 +439,37 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
     private func writeReport(
         to report: URL,
         launchReadyMilliseconds: Double,
-        residentMemoryBytes: Int = 96 * 1_024 * 1_024
+        residentMemoryBytes: Int = 96 * 1_024 * 1_024,
+        postInteractionResidentMemoryBytes: Int = 100 * 1_024 * 1_024,
+        repeatedInteractionResidentMemoryBytes: Int = 102 * 1_024 * 1_024,
+        threadCount: Int = 18,
+        postInteractionThreadCount: Int = 20,
+        repeatedInteractionThreadCount: Int = 19
     ) throws {
         let payload: [String: Any] = [
             "ok": true,
             "appName": "Quill Cowork",
             "performance": [
-                "schemaVersion": 1,
+                "schemaVersion": 3,
                 "measurement": "initial-live-window",
                 "launchReadyMilliseconds": launchReadyMilliseconds,
                 "residentMemoryBytes": residentMemoryBytes,
-                "threadCount": 18
+                "threadCount": threadCount,
+                "postInteractionMeasurement": "settled-after-native-interaction-sweep",
+                "postInteractionResidentMemoryBytes": postInteractionResidentMemoryBytes,
+                "postInteractionThreadCount": postInteractionThreadCount,
+                "residentMemoryGrowthBytes": postInteractionResidentMemoryBytes - residentMemoryBytes,
+                "threadGrowth": postInteractionThreadCount - threadCount,
+                "repeatedInteractionMeasurement": "settled-after-repeated-native-interaction-sweep",
+                "interactionSweepCount": 2,
+                "repeatedInteractionResidentMemoryBytes": repeatedInteractionResidentMemoryBytes,
+                "repeatedInteractionThreadCount": repeatedInteractionThreadCount,
+                "repeatedInteractionResidentMemoryGrowthBytes": (
+                    repeatedInteractionResidentMemoryBytes - postInteractionResidentMemoryBytes
+                ),
+                "repeatedInteractionThreadGrowth": (
+                    repeatedInteractionThreadCount - postInteractionThreadCount
+                )
             ]
         ]
         try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted])
@@ -224,7 +487,11 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             arguments: ["performance"] + reports.map(\.path) + [
                 "--manifest", manifest.path,
                 "--max-launch-ready-milliseconds", String(maximumLaunchMilliseconds),
-                "--max-resident-memory-bytes", String(maximumResidentBytes)
+                "--max-resident-memory-bytes", String(maximumResidentBytes),
+                "--max-resident-memory-growth-bytes", String(80 * 1_024 * 1_024),
+                "--max-repeated-resident-memory-growth-bytes", String(16 * 1_024 * 1_024),
+                "--max-thread-count", "64",
+                "--max-repeated-thread-growth", "4"
             ]
         )
     }

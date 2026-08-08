@@ -99,6 +99,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
             configuration: makeConfiguration(),
             checker: RenderedUpdateChecker(release: release),
             preparer: RenderedProgressUpdatePreparer(),
+            installationInspector: RenderedUpdateInstallationInspector(.available),
             defaults: UserDefaults(suiteName: "RenderedUpdaterProgress.\(UUID().uuidString)") ?? .standard,
             automaticSchedule: .production,
             installResultURL: nil
@@ -139,6 +140,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
             configuration: makeConfiguration(),
             checker: RenderedUpdateChecker(release: release),
             preparer: RenderedFailingUpdatePreparer(),
+            installationInspector: RenderedUpdateInstallationInspector(.available),
             defaults: UserDefaults(suiteName: "RenderedUpdaterFailure.\(UUID().uuidString)") ?? .standard,
             automaticSchedule: .production,
             installResultURL: nil
@@ -166,6 +168,68 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
         XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
         XCTAssertGreaterThan(stats.brightPixelRatio, 0.001)
+        XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.0008)
+    }
+
+    func testRenderedUpdaterOffersManualInstallerFromReadOnlyLocation() async throws {
+        var release = makeRelease(version: "0.2.0", build: "7")
+        release.installerAsset = makeManualInstallerAsset()
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            checker: RenderedUpdateChecker(release: release),
+            installationInspector: RenderedUpdateInstallationInspector(.requiresRelocation),
+            defaults: UserDefaults(suiteName: "RenderedUpdaterRelocation.\(UUID().uuidString)") ?? .standard,
+            automaticSchedule: .production,
+            installResultURL: nil
+        )
+        controller.checkForUpdates()
+        try await waitForUpdaterState(controller) { $0 == .updateAvailable(release) }
+        XCTAssertTrue(controller.updateRequiresManualInstallation)
+
+        let image = try renderHostedView(
+            QuillCodeDesktopUpdateView(controller: controller),
+            width: 470,
+            height: 340,
+            debugPathEnvironmentKey: "QUILLCODE_RENDER_UPDATE_RELOCATION_IMAGE_PATH"
+        )
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 470)
+        XCTAssertEqual(stats.height, 340)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.001)
+    }
+
+    func testRenderedFirstLaunchFromReadOnlyLocationOffersApplicationsFolder() throws {
+        var configuration = makeConfiguration()
+        configuration.applicationURL = URL(
+            fileURLWithPath: "/Volumes/Quill Cowork/Quill Cowork.app",
+            isDirectory: true
+        )
+        let controller = QuillCodeDesktopInstallationLocationController(
+            configuration: configuration,
+            inspector: RenderedUpdateInstallationInspector(.requiresRelocation),
+            defaults: UserDefaults(
+                suiteName: "RenderedInstallLocation.\(UUID().uuidString)"
+            ) ?? .standard,
+            openApplications: { _ in }
+        )
+        controller.startIfNeeded()
+        XCTAssertTrue(controller.isPresented)
+
+        let image = try renderHostedView(
+            QuillCodeDesktopInstallationLocationView(controller: controller),
+            width: 470,
+            height: 320,
+            debugPathEnvironmentKey: "QUILLCODE_RENDER_INSTALL_LOCATION_IMAGE_PATH"
+        )
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 470)
+        XCTAssertEqual(stats.height, 320)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
         XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.001)
     }
 
@@ -480,6 +544,20 @@ private struct RenderedUpdateChecker: QuillCodeDesktopUpdateChecking {
         configuration: QuillCodeDesktopUpdateConfiguration
     ) async throws -> QuillCodeDesktopUpdateCheckResult {
         .updateAvailable(release)
+    }
+}
+
+private struct RenderedUpdateInstallationInspector: QuillCodeDesktopUpdateInstallationInspecting {
+    var value: QuillCodeDesktopUpdateInstallationAvailability
+
+    init(_ value: QuillCodeDesktopUpdateInstallationAvailability) {
+        self.value = value
+    }
+
+    func availability(
+        for configuration: QuillCodeDesktopUpdateConfiguration
+    ) -> QuillCodeDesktopUpdateInstallationAvailability {
+        value
     }
 }
 

@@ -21,6 +21,9 @@ struct QuillCodeDesktopApp: App {
                 updateController: QuillCodeDesktopUpdateController(
                     configuration: nil,
                     installResultURL: nil
+                ),
+                installationLocationController: QuillCodeDesktopInstallationLocationController(
+                    configuration: nil
                 )
             )
             _controller = StateObject(wrappedValue: controller)
@@ -67,6 +70,9 @@ struct QuillCodeDesktopApp: App {
                     updateController: QuillCodeDesktopUpdateController(
                         configuration: nil,
                         installResultURL: nil
+                    ),
+                    installationLocationController: QuillCodeDesktopInstallationLocationController(
+                        configuration: nil
                     ),
                     workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
                 )
@@ -139,7 +145,10 @@ struct QuillCodeDesktopRootView: View {
         workspaceContent
             .preferredColorScheme(.dark)
             .quillCodeDesktopCommandBindings(controller: controller)
-            .modifier(QuillCodeDesktopUpdatePresentation(controller: controller.updateController))
+            .modifier(QuillCodeDesktopDistributionPresentation(
+                installationLocationController: controller.installationLocationController,
+                updateController: controller.updateController
+            ))
             .fileImporter(
                 isPresented: $controller.isProjectImporterPresented,
                 allowedContentTypes: [.folder],
@@ -159,6 +168,7 @@ struct QuillCodeDesktopRootView: View {
             }
             .task {
                 QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()
+                controller.installationLocationController.startIfNeeded()
                 controller.updateController.startAutomaticChecks()
             }
     }
@@ -244,13 +254,36 @@ struct QuillCodeDesktopRootView: View {
     }
 }
 
-private struct QuillCodeDesktopUpdatePresentation: ViewModifier {
-    @ObservedObject var controller: QuillCodeDesktopUpdateController
+private struct QuillCodeDesktopDistributionPresentation: ViewModifier {
+    @ObservedObject var installationLocationController: QuillCodeDesktopInstallationLocationController
+    @ObservedObject var updateController: QuillCodeDesktopUpdateController
 
     func body(content: Content) -> some View {
-        content.sheet(isPresented: $controller.isPresented) {
-            QuillCodeDesktopUpdateView(controller: controller)
+        content.sheet(isPresented: presentationBinding) {
+            if installationLocationController.isPresented {
+                QuillCodeDesktopInstallationLocationView(
+                    controller: installationLocationController
+                )
+            } else {
+                QuillCodeDesktopUpdateView(controller: updateController)
+            }
         }
+    }
+
+    private var presentationBinding: Binding<Bool> {
+        Binding(
+            get: {
+                installationLocationController.isPresented || updateController.isPresented
+            },
+            set: { isPresented in
+                guard !isPresented else { return }
+                if installationLocationController.isPresented {
+                    installationLocationController.dismiss()
+                } else {
+                    updateController.dismiss()
+                }
+            }
+        )
     }
 }
 

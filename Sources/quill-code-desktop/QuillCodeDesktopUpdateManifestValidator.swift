@@ -21,7 +21,10 @@ enum QuillCodeDesktopUpdateManifestValidator {
         else {
             throw QuillCodeDesktopUpdateError.wrongProductOrChannel
         }
-        try validateSigning(manifest.updater, configuration: configuration)
+        let signingRequirement = try signingRequirement(
+            for: manifest.updater,
+            configuration: configuration
+        )
         guard manifest.updater.manifestURL == configuration.manifestURL,
               manifest.updater.stableManifestURL == configuration.stableManifestURL,
               manifest.updater.testerManifestURL == configuration.testerManifestURL
@@ -47,6 +50,11 @@ enum QuillCodeDesktopUpdateManifestValidator {
             throw QuillCodeDesktopUpdateError.unexpectedFeed
         }
         let asset = try compatibleAsset(in: manifest, configuration: configuration, scope: repositoryScope)
+        let installerAsset = try compatibleInstallerAsset(
+            in: manifest,
+            configuration: configuration,
+            scope: repositoryScope
+        )
         guard releaseVersion > currentVersion || (
             releaseVersion == currentVersion && releaseBuild > currentBuild
         ) else {
@@ -59,28 +67,48 @@ enum QuillCodeDesktopUpdateManifestValidator {
             commit: manifest.commit,
             version: manifest.version,
             build: manifest.build,
-            asset: asset
+            asset: asset,
+            installerAsset: installerAsset,
+            signingRequirement: signingRequirement
         ))
     }
 
-    private static func validateSigning(
-        _ updater: QuillCodeDesktopUpdateManifest.Updater,
+    private static func signingRequirement(
+        for updater: QuillCodeDesktopUpdateManifest.Updater,
         configuration: QuillCodeDesktopUpdateConfiguration
-    ) throws {
-        if let expectedTeam = configuration.expectedSigningTeamIdentifier {
-            guard updater.codesign == "developer-id",
-                  updater.signingTeamIdentifier == expectedTeam
+    ) throws -> QuillCodeDesktopUpdateSigningRequirement {
+        let requirement: QuillCodeDesktopUpdateSigningRequirement
+        switch updater.codesign {
+        case "ad-hoc":
+            guard updater.signingTeamIdentifier == nil,
+                  updater.notarized == false
             else {
                 throw QuillCodeDesktopUpdateError.wrongSigningIdentity
             }
-        }
-        if configuration.channel == .stable {
-            guard configuration.expectedSigningTeamIdentifier != nil,
+            requirement = .adHoc
+        case "developer-id":
+            guard let teamIdentifier = updater.signingTeamIdentifier,
+                  isSigningTeamIdentifier(teamIdentifier),
                   updater.notarized == true
+            else {
+                throw QuillCodeDesktopUpdateError.wrongSigningIdentity
+            }
+            requirement = .developerID(teamIdentifier: teamIdentifier)
+        default:
+            throw QuillCodeDesktopUpdateError.wrongSigningIdentity
+        }
+
+        if configuration.channel == .stable {
+            guard let expectedTeam = configuration.expectedSigningTeamIdentifier,
+                  requirement == .developerID(teamIdentifier: expectedTeam)
             else {
                 throw QuillCodeDesktopUpdateError.unsignedStableUpdate
             }
+        } else if let expectedTeam = configuration.expectedSigningTeamIdentifier,
+                  requirement != .developerID(teamIdentifier: expectedTeam) {
+            throw QuillCodeDesktopUpdateError.wrongSigningIdentity
         }
+        return requirement
     }
 
     private static func compatibleAsset(
@@ -99,6 +127,36 @@ enum QuillCodeDesktopUpdateManifestValidator {
               asset.sizeBytes <= maximumAssetBytes,
               isSafeAssetName(asset.name),
               isHex(asset.sha256, length: 64),
+              scope.containsDownloadURL(asset.url, tag: manifest.tag)
+        else {
+            throw QuillCodeDesktopUpdateError.noCompatibleApplication
+        }
+        return asset
+    }
+
+    private static func compatibleInstallerAsset(
+        in manifest: QuillCodeDesktopUpdateManifest,
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        scope: GitHubReleaseRepositoryScope
+    ) throws -> QuillCodeDesktopUpdateManifest.Asset? {
+        let candidates = manifest.assets.filter { asset in
+            asset.kind == "installer" &&
+                asset.platform == "macOS" &&
+                asset.arch == configuration.architecture
+        }
+        guard candidates.count <= 1 else {
+            throw QuillCodeDesktopUpdateError.noCompatibleApplication
+        }
+        guard let asset = candidates.first else { return nil }
+        guard asset.install == "dmg-app",
+              asset.sizeBytes > 0,
+              asset.sizeBytes <= maximumAssetBytes,
+              isSafeAssetName(asset.name),
+              asset.name.lowercased().hasSuffix(".dmg"),
+              isHex(asset.sha256, length: 64),
+              asset.url.lastPathComponent == asset.name,
+              asset.url.query == nil,
+              asset.url.fragment == nil,
               scope.containsDownloadURL(asset.url, tag: manifest.tag)
         else {
             throw QuillCodeDesktopUpdateError.noCompatibleApplication
@@ -128,6 +186,12 @@ enum QuillCodeDesktopUpdateManifestValidator {
     private static func isHex(_ value: String, length: Int) -> Bool {
         value.count == length && value.unicodeScalars.allSatisfy { scalar in
             ("0"..."9").contains(Character(scalar)) || ("a"..."f").contains(Character(scalar))
+        }
+    }
+
+    private static func isSigningTeamIdentifier(_ value: String) -> Bool {
+        value.count == 10 && value.unicodeScalars.allSatisfy { scalar in
+            ("0"..."9").contains(Character(scalar)) || ("A"..."Z").contains(Character(scalar))
         }
     }
 }

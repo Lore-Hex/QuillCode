@@ -1,5 +1,161 @@
 # Code Quality Audit
 
+## 2026-08-08 Published Performance Semantics Gate
+
+Overall grade after this slice: **A+ public integrity, A+ semantic verification, A+ fail-closed policy**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Evidence integrity | A+ | The verifier checks the exact public asset size, digest, and checksums before parsing a bounded regular JSON file. |
+| Semantics | A+ | Schema, product, measurement boundaries, two sweeps, three attempts, launch majority, median selection, and every headline field are independently checked. |
+| Resource policy | A+ | Canonical production limits are shared with the evidence producer; every memory/thread delta, MiB projection, pass flag, and budget result is recomputed. |
+| Resilience | A+ | Missing evidence, policy weakening, incomplete aggregation, forged values, non-finite numbers, resource misses, and summary drift fail publication closed. |
+| Architecture | A+ | Production policy, package generation, release-asset ownership, top-level aggregation, and per-attempt validation remain focused modules. |
+
+Validation:
+
+- Focused package and public-verifier suites (26 tests, 0 failures)
+- Full `swift test --skip-build` (5,476 tests, 5 skipped, 0 failures)
+- Strengthened verifier passed against exact public build 656 at
+  `c0f05fff192bfdd8f01630576797e6e5aa361899`
+- Adversarial fixtures regenerate asset digests, checksums, manifests, and release metadata before
+  proving schema drift, forged deltas, weakened budgets, missing evidence, incomplete attempts, and
+  headline drift are rejected semantically
+- Changed files and all repository modules grade A+
+- `git diff --check`
+
+## 2026-08-08 Repeated-Interaction Resource Convergence
+
+Overall grade after this slice: **A+ lifecycle evidence, A+ fail-closed budgets, A+ release parity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Memory | A+ | Every release process records initial, first-settled, and repeated-settled memory; a repeated UI pass may add at most 16 MiB. |
+| Thread lifecycle | A+ | Initial, first-pass, and repeated-pass counts stay below 64, and a repeated pass may add at most four threads. |
+| Evidence integrity | A+ | Schema 3 requires exactly two successful sweeps and recomputes both memory/thread deltas from raw snapshots. |
+| UX coverage | A+ | The second pass repeats real AXPress navigation, sheets, search, model selection, and reversible text entry rather than synthetic allocation. |
+| Architecture | A+ | Native sampling, interaction orchestration, validation, CLI policy, packaging, and public evidence remain separately owned. |
+
+Validation:
+
+- Focused desktop and release-contract suite (27 tests, 0 failures)
+- Full `swift test` (5,469 tests, 5 skipped, 0 failures)
+- Three optimized fresh processes: 263.00 ms median launch-ready, 88.58 MiB initial,
+  151.62 MiB first-pass, 156.75 MiB repeated-pass, and 5.12 MiB selected convergence growth
+- All repeated-pass deltas stayed between 3.97 and 8.27 MiB; thread deltas stayed between -1 and 1
+- Full release-mode packaged smoke passed direct-executable, Launch Services, live-window,
+  Accessibility, scheduled-coworker, multi-file, one-turn, browser, and Computer Use contracts
+- Three-process packaged live-window evidence: 246.85 ms median launch-ready, 88.59 MiB initial,
+  151.55 MiB first-pass, 156.38 MiB repeated-pass, 4.83 MiB convergence growth,
+  and 8 repeated-pass threads; all attempts passed the 4-thread convergence ceiling
+- Preserved 1280x900 screenshot inspected with no blank content, clipping, or overlap
+- `python3 scripts/grade-code-quality.py --root .` (all modules A+)
+- `git diff --check`
+
+## 2026-08-08 Post-Interaction Release Resource Gate
+
+Overall grade after this slice: **A+ measurement architecture, A+ resource bounds, A+ release evidence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Performance | A+ | Launch timing remains captured at the first live window; a second sample follows the restored native interaction sweep and a one-second settling interval. |
+| Memory | A+ | Every fresh process must keep initial and post-interaction resident memory below 256 MiB and retained growth below 80 MiB. |
+| Thread lifecycle | A+ | Initial and post-interaction thread counts must each remain at or below 64; signed growth remains visible even when threads shrink. |
+| Evidence integrity | A+ | Schema-versioned reports carry both raw snapshots, while the validator recomputes memory and thread deltas before publishing per-attempt results. |
+| Architecture | A+ | Process resource capture, launch timing, smoke orchestration, validation, CLI configuration, and public manifest projection retain focused ownership. |
+
+Validation:
+
+- Focused desktop and release-contract suite (22 tests, 0 failures)
+- Full `swift test` (5,464 tests, 5 skipped, 0 failures)
+- Three fresh release-mode launches: 346.23 ms median launch-ready, 98.20 MiB initial,
+  164.73 MiB post-interaction, 66.53 MiB retained growth, and 7 post-interaction threads
+- Full release-mode packaged smoke passed direct-executable, Launch Services, live-window,
+  Accessibility, scheduled-coworker, multi-file, one-turn, browser, and Computer Use contracts
+- Packaged live-window evidence: 358.02 ms launch-ready, 97.72 MiB initial,
+  164.33 MiB post-interaction, 66.61 MiB retained growth, and 8 post-interaction threads
+- Changed production, script, and test files all grade A+
+- `git diff --check`
+
+## 2026-08-08 First-Launch Installation Guidance
+
+Overall grade after this slice: **A+ first-run UX, A+ presentation ownership, A+ bounded state**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| UX | A+ | A user who launches from the DMG gets concise installation guidance immediately, before an update exists, with one clear Applications action and a quiet deferral. |
+| Resilience | A+ | Writable installed copies and copies already in `/Applications` proceed untouched; other non-replaceable copies reuse the updater's filesystem inspector. |
+| Memory | A+ | The feature owns one Boolean and one build-scoped preference; it creates no timers, network work, background tasks, or retained application process. |
+| Architecture | A+ | Inspector, controller, view, and the shared distribution-sheet presenter each have one narrow role; observing both child controllers keeps state transitions live. |
+| Tests | A+ | Controller tests cover availability, persistence, new builds, and routing; fixed-size rendering and mounted-DMG launch cover the native surface. |
+
+Validation:
+
+- Focused installation-location, updater-controller, and rendered suite (21 tests, 0 failures)
+- Fixed 470x320 native rendering with opaque background, distinct-color, and accent checks
+- Full `swift test --skip-build` (5,461 tests, 5 skipped, 0 failures)
+- Release-mode build 654 passed direct-executable, Launch Services, live-window, Accessibility,
+  scheduled-coworker, multi-file, one-turn, browser, and Computer Use contracts
+- Release package: 3 of 3 fresh launches within budget; 268.99 ms median launch-ready,
+  88.44 MiB resident memory, and 8 threads on the median attempt
+- A normal first launch from the read-only mounted DMG exposed every identified reminder action;
+  `Open Applications` opened Finder at `/Applications`, and the same build did not prompt on relaunch
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
+## 2026-08-08 Read-Only Update Recovery
+
+Overall grade after this slice: **A+ preflight, A+ recovery UX, A+ race safety**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| UX | A+ | A non-replaceable copy offers the human DMG before any download; ordinary users are no longer sent to the updater ZIP after avoidable work. |
+| Performance | A+ | Constant-space filesystem checks replace a full download, digest, extraction, signature validation, and staging attempt on a path that cannot be updated. |
+| Security | A+ | The manual DMG must match architecture, kind, install mode, size, digest, safe-name, tag, and repository scope before its URL reaches the UI. |
+| Resilience | A+ | Controller preflight improves feedback while installer-time destination checks remain authoritative against permission and location races. |
+| Architecture | A+ | A small injected inspector owns environment capability; manifest validation owns external URLs; controller owns state; SwiftUI only projects the result. |
+
+Validation:
+
+- Focused updater, signing, controller, updater-smoke, and rendered suite (61 tests, 0 failures)
+- Full `swift test --skip-build` (5,455 tests, 5 skipped, 0 failures)
+- Exact release-source build 653 passed direct-executable, Launch Services, live-window,
+  accessibility, scheduled-coworker, multi-file, one-turn, browser, and Computer Use contracts
+- Release package: 3 of 3 fresh launches within budget; 282.05 ms median launch-ready,
+  88.45 MiB resident memory, and 7 threads
+- A signed build-651 fixture launched from a read-only mounted DMG, discovered public build 652,
+  and presented the Applications relocation message and `Download Installer` action
+- The packaged public updater smoke completed download, validation, swap, cleanup, and relaunch from
+  build 651 to build 652 (`b45c786ebc752116b828ea492564ded9cf3f145c`)
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
+## 2026-08-08 Update Signing Trust Chain
+
+Overall grade after this slice: **A+ signing policy, A+ migration safety, A+ payload verification**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Security | A+ | Manifest metadata becomes a typed ad-hoc or Developer ID payload requirement; contradictory modes, malformed teams, false notarization, cross-team updates, and signed-to-ad-hoc downgrades fail closed. |
+| Distribution | A+ | Existing ad-hoc testers can move to the first notarized Developer ID Application without a manifest schema break; that app embeds the team and pins every later update. |
+| Payload integrity | A+ | The extracted app must match exact `codesign` signature/team/authority metadata; Developer ID apps additionally pass Gatekeeper assessment before staging. |
+| Architecture | A+ | Manifest policy, release state, pure signature parsing, system validation, preparation, and installation retain separate focused owners. |
+| Tests | A+ | An adversarial signing matrix covers all accepted transitions and rejection classes; the existing public updater gate exercises the real app swap and relaunch. |
+
+Validation:
+
+- Focused updater, controller, signing, smoke-contract, and release-parity suite (54 tests, 0 failures)
+- Full `swift test --skip-build` (5,449 tests, 5 skipped, 0 failures)
+- Exact release build 652 direct-executable and Launch Services smoke passed with matching
+  scheduled-task, browser, multi-file, one-turn coworker, and computer-use action reports
+- Packaged live-window and accessibility smoke passed at 1280x900 with the expected
+  TrustedRouter sign-in state and no clipped or overlapping controls
+- Release package: 3 of 3 fresh launches within budget; 268.61 ms median launch-ready,
+  88.22 MiB resident memory, and 6 threads
+- Exact ad-hoc payload metadata and strict `codesign` verification matched the typed signing policy
+- `python3 scripts/grade-code-quality.py --root .`
+- `git diff --check`
+
 ## 2026-08-08 Bounded Streaming Presentation
 
 Overall grade after this slice: **A+ bounded UI work, A+ lifecycle, A+ responsiveness**.

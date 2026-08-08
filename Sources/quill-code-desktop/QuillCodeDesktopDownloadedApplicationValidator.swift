@@ -30,15 +30,26 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
             throw QuillCodeDesktopUpdateError.invalidApplication("its code signature is invalid")
         }
 
-        if let expectedTeam = configuration.expectedSigningTeamIdentifier {
-            let details = try QuillCodeDesktopUpdateProcessRunner.run(
-                executableURL: URL(fileURLWithPath: "/usr/bin/codesign"),
-                arguments: ["--display", "--verbose=4", applicationURL.path]
+        try validateSigningRequirement(release.signingRequirement, configuration: configuration)
+        let details = try QuillCodeDesktopUpdateProcessRunner.run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/codesign"),
+            arguments: ["--display", "--verbose=4", applicationURL.path]
+        )
+        guard details.exitCode == 0,
+              QuillCodeDesktopCodeSignatureMetadata(
+                codesignOutput: details.combinedOutput
+              ).satisfies(release.signingRequirement)
+        else {
+            throw QuillCodeDesktopUpdateError.invalidApplication("its signing identity does not match")
+        }
+
+        if case .developerID = release.signingRequirement {
+            let assessment = try QuillCodeDesktopUpdateProcessRunner.run(
+                executableURL: URL(fileURLWithPath: "/usr/sbin/spctl"),
+                arguments: ["--assess", "--type", "execute", "--verbose=2", applicationURL.path]
             )
-            guard details.exitCode == 0,
-                  details.combinedOutput.contains("TeamIdentifier=\(expectedTeam)")
-            else {
-                throw QuillCodeDesktopUpdateError.invalidApplication("its signing identity does not match")
+            guard assessment.exitCode == 0 else {
+                throw QuillCodeDesktopUpdateError.invalidApplication("Gatekeeper did not accept it")
             }
         }
 
@@ -53,6 +64,21 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
               availableArchitectures.contains(configuration.architecture)
         else {
             throw QuillCodeDesktopUpdateError.invalidApplication("it does not support this Mac")
+        }
+    }
+
+    private static func validateSigningRequirement(
+        _ requirement: QuillCodeDesktopUpdateSigningRequirement,
+        configuration: QuillCodeDesktopUpdateConfiguration
+    ) throws {
+        if let expectedTeam = configuration.expectedSigningTeamIdentifier {
+            guard requirement == .developerID(teamIdentifier: expectedTeam) else {
+                throw QuillCodeDesktopUpdateError.invalidApplication("its signing identity does not match")
+            }
+        }
+        if configuration.channel == .stable,
+           case .adHoc = requirement {
+            throw QuillCodeDesktopUpdateError.invalidApplication("the stable app is not Developer ID signed")
         }
     }
 }

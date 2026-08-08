@@ -1,5 +1,121 @@
 # QuillCode Decisions
 
+## 2026-08-08: public performance evidence is verified semantically
+
+- **Decision:** The post-publication release verifier must require exactly one architecture-matched
+  macOS performance asset and validate its meaning after size, digest, and checksum verification.
+- **Contract:** Published evidence uses the canonical production schema, boundaries, two-sweep count,
+  three fresh attempts, two-of-three launch policy, median selected headline, and exact production
+  budgets. The verifier recomputes raw memory/thread deltas, MiB projections, every budget result,
+  launch pass counts, and headline fields instead of trusting embedded success flags.
+- **Failure behavior:** Missing evidence, extra/missing fields without a schema bump, weakened limits,
+  incomplete aggregation, forged deltas, non-finite values, resource overruns, or selected-attempt
+  drift fail the public release job even when all published hashes are internally consistent.
+- **Why:** Checksums prove which bytes were published, not that those bytes still prove Quill Cowork's
+  native speed and resource promises. Distribution readiness requires both integrity and semantics.
+
+## 2026-08-08: repeated native interactions must converge
+
+- **Decision:** Every packaged performance process runs the same reversible native Accessibility
+  interaction sweep twice. Process resources are captured at the initial live window and after a
+  one-second settling interval following each sweep; the second sweep must pass every interaction
+  contract again before its resources can become release evidence.
+- **Budgets:** All three resident-memory samples remain capped at 256 MiB and all thread samples at
+  64. The first sweep may retain at most 80 MiB over the initial window, while the repeated sweep may
+  add at most 16 MiB or four threads over the first settled snapshot. Launch timing remains a
+  two-of-three gate; every resource sample and convergence delta must pass in every fresh process.
+- **Evidence contract:** Version-3 performance evidence carries the three raw snapshots, two signed
+  memory/thread deltas, exact sweep count, per-attempt results, and all enforced budgets. Validation
+  recomputes both deltas and rejects a missing sweep, forged growth value, or repeated thread surge.
+- **Calibration:** Three optimized local processes added 8.27, 5.12, and 3.97 MiB on the repeated
+  pass, with repeated thread deltas of -1, 0, and 1. The 16 MiB ceiling leaves nearly twice the worst
+  observed allocator variation without allowing sustained UI-state accumulation to ship.
+- **Why:** A single post-interaction snapshot distinguishes a light first frame from one-time UI
+  warming, but cannot prove repeated open/type/dismiss cycles release transient state. Convergence is
+  the stronger daily-driving signal and protects Quill Cowork's native memory advantage.
+
+## 2026-08-08: release performance includes settled interaction resources
+
+- **Decision:** Every packaged performance attempt captures process resources at the initial live
+  window and again after the existing reversible native interaction sweep has restored the UI and
+  settled for one second. Launch timing remains anchored to the first snapshot.
+- **Budgets:** Initial and post-interaction resident memory must each remain at or below 256 MiB,
+  retained growth must remain at or below 80 MiB, and both thread counts must remain at or below 64.
+  Every fresh process must pass the resource budgets; launch timing retains its two-of-three policy
+  to tolerate a loaded hosted runner.
+- **Evidence contract:** The version-2 performance report and public asset carry both snapshots,
+  signed memory/thread growth, per-attempt budget results, and the selected median-launch attempt.
+  The validator recomputes growth from the snapshots instead of trusting reported deltas.
+- **Why:** The release smoke already exercised real sheets, panes, search, text entry, and model
+  selection, but sampled resources only before that work. A build could therefore launch lightly
+  and retain expensive UI or worker state without failing publication.
+
+## 2026-08-08: first launch explains relocation before updates are needed
+
+- **Decision:** A packaged app launched from a read-only disk image, App Translocation, or another
+  non-replaceable location outside `/Applications` presents a native installation reminder
+  immediately. The primary action opens `/Applications`; the user can still defer or close the sheet.
+- **Frequency:** Deferral is remembered once per bundle identifier and build. The same build does not
+  interrupt every launch, while a newly downloaded build can explain its installation state again.
+  Writable installed copies and copies already inside `/Applications` never present the reminder.
+- **Presentation boundary:** Installation guidance and updater state share one sheet presenter. The
+  installation reminder has priority while visible, then an already available update can occupy the
+  same surface after dismissal. Smoke modes disable the reminder so automation remains deterministic.
+- **Ownership:** The reminder reuses the updater's injected installation-location inspector. The
+  inspector decides whether the bundle is replaceable, a small controller owns persistence and the
+  Applications action, and SwiftUI only projects state.
+- **Why:** The updater could explain a read-only location only after a newer build existed. A new user
+  launching directly from the DMG therefore received no guidance at the moment moving the app mattered.
+- **Evidence:** Controller tests cover writable suppression, read-only presentation, once-per-build
+  dismissal, disabled configuration, and the Applications action. A fixed-size rendered test and a
+  normal launch from a mounted packaged DMG cover the real first-run surface.
+
+## 2026-08-08: updater preflights read-only installation locations
+
+- **Decision:** The desktop updater inspects the running app bundle, executable, and parent-directory
+  writability before downloading an available update. A copy launched from a read-only disk image,
+  App Translocation, or another non-replaceable location presents a manual installer action instead
+  of starting preparation that cannot finish.
+- **Recovery contract:** The release model carries the architecture-matching DMG only after its kind,
+  install mode, bounded size, digest, safe `.dmg` name, exact URL filename, tag, and repository URL
+  pass manifest validation. Query and fragment suffixes are rejected. Manual recovery opens that
+  installer, falling back to the scoped release page for older manifests that do not declare one.
+  It never sends an ordinary user to the machine-oriented updater ZIP.
+- **Race boundary:** Preflight is a UX optimization, not the authority for mutation. The installer
+  rechecks the app identity, executable, destination existence, and parent writability immediately
+  before staging beside the running bundle.
+- **Why:** The DMG is intentionally read-only and is also the first place many users launch a newly
+  downloaded app. Previously Quill Cowork could download and validate the entire update before
+  reporting that it could not replace itself, then offer the ZIP as its browser fallback.
+- **Evidence:** Filesystem tests cover writable and read-only parents, non-directory app paths, and
+  executables outside the bundle; controller tests prove no preparation or installation starts when
+  relocation is required; manifest tests reject hostile and malformed installer URLs; fixed-size
+  rendering and a real mounted-DMG launch cover the dedicated installer state.
+
+## 2026-08-08: updater signing policy survives the Developer ID cutover
+
+- **Decision:** Manifest validation derives one typed payload requirement. Tester updates are either
+  exactly ad-hoc with no team or notarization claim, or Developer ID Application signed with a valid
+  ten-character team and Apple notarization. Stable updates require the latter and an already pinned
+  matching team.
+- **Payload boundary:** Archive verification carries that requirement into app validation. The
+  downloaded bundle must pass strict `codesign` verification, its `Signature`, `Authority`, and
+  `TeamIdentifier` fields must match the manifest-derived requirement, and Developer ID payloads must
+  also pass `spctl --assess`. A valid signature from another team, an Installer certificate, a false
+  notarization claim, or an ad-hoc downgrade is rejected before staging.
+- **Migration boundary:** An existing ad-hoc tester may trust its first notarized Developer ID
+  Application through the configured GitHub feed and Apple assessment. That replacement embeds its
+  team identifier, after which tester and stable updates are pinned to that exact team. The public
+  manifest schema stays unchanged, so build 651 can still install the first hardened ad-hoc build.
+- **Why:** Before this change, an ad-hoc tester accepted Developer ID metadata without requiring
+  notarization, while downloaded-app validation accepted any internally valid signature when no team
+  was embedded. Adding Apple credentials could therefore make the signing transition less strict
+  than steady-state updates.
+- **Evidence:** `QuillCodeDesktopUpdateSigningTests` cover contradictory metadata, malformed teams,
+  notarization, trust transition, downgrade/cross-team refusal, stable pinning, and signature output
+  parsing. The public updater smoke continues to exercise download, payload validation, swap, and
+  relaunch against the published ad-hoc channel.
+
 ## 2026-08-08: streaming progress coalesces expensive desktop projection
 
 - **Decision:** Every model progress callback still updates the authoritative thread and run state,

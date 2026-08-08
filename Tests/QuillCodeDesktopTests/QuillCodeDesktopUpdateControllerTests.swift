@@ -15,6 +15,7 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
             checker: checker,
             preparer: preparer,
             installer: installer,
+            installationInspector: UpdateInstallationInspectorStub(.available),
             defaults: defaults,
             automaticSchedule: makeAutomaticSchedule(),
             installResultURL: temporaryInstallResultURL(),
@@ -32,6 +33,42 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         let installCallCount = await installer.callCount
         XCTAssertEqual(prepareCallCount, 1)
         XCTAssertEqual(installCallCount, 1)
+    }
+
+    func testReadOnlyLocationStopsBeforeDownloadAndKeepsManualInstaller() async throws {
+        var release = makeRelease(version: "0.2.0", build: "7")
+        release.installerAsset = makeManualInstallerAsset()
+        let preparer = UpdatePreparerSpy(release: release)
+        let installer = UpdateInstallerSpy()
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            checker: UpdateCheckerSpy(result: .updateAvailable(release)),
+            preparer: preparer,
+            installer: installer,
+            installationInspector: UpdateInstallationInspectorStub(.requiresRelocation),
+            defaults: makeDefaults(),
+            automaticSchedule: makeAutomaticSchedule(),
+            installResultURL: temporaryInstallResultURL()
+        )
+
+        controller.checkForUpdates()
+        try await waitUntil { controller.state == .updateAvailable(release) }
+        XCTAssertTrue(controller.updateRequiresManualInstallation)
+        XCTAssertEqual(release.manualInstallationURL, makeManualInstallerAsset().url)
+
+        controller.updateAndRelaunch()
+
+        XCTAssertEqual(
+            controller.state,
+            .failed(
+                message: QuillCodeDesktopUpdateError.installationUnavailable.localizedDescription,
+                release: release
+            )
+        )
+        let prepareCallCount = await preparer.callCount
+        let installCallCount = await installer.callCount
+        XCTAssertEqual(prepareCallCount, 0)
+        XCTAssertEqual(installCallCount, 0)
     }
 
     func testRecentSuccessfulAutomaticCheckSuppressesNetworkWork() async throws {
@@ -224,6 +261,7 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
             checker: checker,
             preparer: preparer,
             installer: installer,
+            installationInspector: UpdateInstallationInspectorStub(.available),
             defaults: makeDefaults(),
             automaticSchedule: makeAutomaticSchedule(),
             installResultURL: temporaryInstallResultURL(),
@@ -256,6 +294,7 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
             checker: checker,
             preparer: UpdatePreparerSpy(release: release),
             installer: installer,
+            installationInspector: UpdateInstallationInspectorStub(.available),
             defaults: makeDefaults(),
             automaticSchedule: makeAutomaticSchedule(),
             installResultURL: temporaryInstallResultURL(),
@@ -297,6 +336,7 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
             checker: UpdateCheckerSpy(result: .updateAvailable(release)),
             preparer: preparer,
             installer: installer,
+            installationInspector: UpdateInstallationInspectorStub(.available),
             defaults: makeDefaults(),
             automaticSchedule: makeAutomaticSchedule(),
             installResultURL: temporaryInstallResultURL(),
@@ -534,6 +574,20 @@ private actor UpdateInstallerSpy: QuillCodeDesktopUpdateInstalling {
         if let delay {
             try await Task.sleep(for: delay)
         }
+    }
+}
+
+private struct UpdateInstallationInspectorStub: QuillCodeDesktopUpdateInstallationInspecting {
+    let value: QuillCodeDesktopUpdateInstallationAvailability
+
+    init(_ value: QuillCodeDesktopUpdateInstallationAvailability) {
+        self.value = value
+    }
+
+    func availability(
+        for configuration: QuillCodeDesktopUpdateConfiguration
+    ) -> QuillCodeDesktopUpdateInstallationAvailability {
+        value
     }
 }
 

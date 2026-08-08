@@ -27,6 +27,13 @@ version, signing/notarization status, and current macOS updater asset. The DMG
 is the recommended human installation path; the ZIP remains the machine-verified
 updater payload so installation ergonomics cannot change update semantics.
 
+When Quill Cowork is launched directly from the read-only DMG or another
+non-replaceable location outside `/Applications`, it immediately offers to open
+`/Applications`. Dismissing that reminder suppresses it for the current build; a
+newer build may remind the user again. Installed copies already in `/Applications`
+do not show it. Installation guidance and available-update state use one coordinated
+sheet, so they cannot overlap.
+
 ## Build Cadence
 
 The tester release is refreshed:
@@ -77,6 +84,21 @@ boundary. Release packaging measures three fresh processes with isolated state,
 requires at least two launches to meet the time budget, and requires every memory
 sample to meet its budget. The median-launch attempt, every attempt, thread
 counts, and enforced budgets ship as the architecture-specific `PERFORMANCE.json` asset.
+
+Each process then completes the packaged native interaction sweep twice, including
+reversible navigation, sheet, search, model-picker, and text-entry checks. The gate
+samples the same process after a one-second settling interval following each pass.
+Both interaction snapshots must remain below 256 MiB, the first may retain no more
+than 80 MiB above the initial-window sample, and the repeated pass may add no more
+than another 16 MiB or 4 additional threads. All three samples must stay at or below
+64 threads. The public performance asset records every raw snapshot and signed delta
+so a release cannot hide resource regressions behind a fast first frame or one-time
+UI warming.
+The post-publication verifier downloads that exact performance asset after its
+checksum passes, requires the production schema and three-process aggregation,
+recomputes every memory/thread delta and budget result, checks the median headline,
+and rejects missing evidence or weakened production limits. Publication therefore
+proves the public JSON's meaning as well as its bytes.
 These intentionally conservative first budgets catch major regressions without
 turning one loaded-runner outlier into the product metric.
 
@@ -119,12 +141,29 @@ the exact size, SHA-256 digest, app identity, version, embedded source commit,
 architecture, and macOS code signature before installation. The detached helper
 checks that same commit again immediately before the atomic swap.
 
+Signing metadata is also a payload requirement, not only a feed label. Ad-hoc
+updates must contain an actual ad-hoc signature with no team. A Developer ID
+update must declare a valid team, be notarized, contain a Developer ID Application
+authority for that same team, and pass Gatekeeper assessment. The first such
+update from an ad-hoc tester pins its embedded team; signed builds reject later
+ad-hoc downgrades and any other team.
+
 Archive bytes stream directly to an updater-owned partial file instead of being
 buffered in memory. A declared oversized response is rejected immediately; a
 chunked response is cancelled at the first chunk that would exceed the manifest
 size. Cancellation and failure remove the partial file. The update sheet reports
 bounded determinate byte progress, then identifies the verification, unpacking,
 and app-validation phases separately.
+
+Before downloading, the app verifies that its running bundle exists beside a
+writable destination and has a runnable helper executable. Copies launched from
+the read-only DMG, App Translocation, or another non-replaceable location show a
+direct **Download Installer** action instead. That action uses only an
+architecture-matching DMG whose bounded metadata and GitHub release URL passed
+the same manifest scope checks. Its URL must use the declared `.dmg` filename
+exactly and cannot carry a query or fragment; older manifests fall back to the release page.
+The installer repeats the destination checks immediately before staging, so a
+permission change after preflight still fails without replacing the app.
 
 Installation stages the verified app beside the running bundle, then uses a
 detached helper for the final rename and relaunch. The new app must complete a
