@@ -64,6 +64,7 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertTrue(WAVE5.contains_placeholder("Owner: [TBD]"))
         self.assertTrue(WAVE5.contains_placeholder("Lorem ipsum"))
         self.assertFalse(WAVE5.contains_placeholder("- [ ] Pending\n- [x] Complete"))
+        self.assertFalse(WAVE5.contains_placeholder("[CONFIRM] Finance must verify the methodology."))
         self.assertFalse(WAVE5.contains_placeholder("See [source](https://example.test) and [1]."))
         self.assertFalse(WAVE5.contains_placeholder("See the note[^source-1]."))
 

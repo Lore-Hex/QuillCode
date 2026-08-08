@@ -467,6 +467,8 @@ def contains_placeholder(text):
         field = match.group(1).strip()
         if not field or field.lower() == "x":
             continue
+        if field.casefold() == "confirm":
+            continue
         if re.fullmatch(r"\d+|\^[a-z0-9_.:-]+", field, re.IGNORECASE):
             continue
         return True
