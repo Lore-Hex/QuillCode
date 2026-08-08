@@ -6,6 +6,20 @@ https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu
 The sheet is the product-facing catalog for office coworker tasks QuillCode should handle. Keep it
 grounded in verified QuillCode evidence, not intention.
 
+## 2026-08-08 Long-Horizon Founder Expansion
+
+The canonical sheet now contains 320 task rows. Rows #311 through #320 add ten deliberately long,
+multi-step YC founder workflows, one in each existing founder category. Every prompt requires broad
+web research, authenticated but read-only LinkedIn research, source-level evidence, contradiction
+handling, resumable `progress.md` checkpoints, explicit minimum record counts, multiple saved
+artifacts, and a final quality pass. External side effects are prohibited: the agent may draft
+outreach, but it may not message, connect, post, submit forms, purchase, or alter an account.
+
+These rows are `Proposed - not yet driven`, not covered. The intended evaluation model is
+`deepseek/deepseek-v4-flash-0731`; a row can move to verified only after a native Cowork run proves
+authenticated browser use, checkpoint/resume behavior, source traceability, every requested artifact,
+and artifact readback. The original rows #211 through #310 retain their Wave 5 `100/100` evidence.
+
 ## 2026-08-06 Founder Workflow Expansion
 
 The canonical sheet now contains 310 task rows. Rows #211 through #310 add 100 YC-style founder

@@ -331,20 +331,21 @@ def validate_catalog(payload):
     rows = payload.get("rows")
     if payload.get("version") != 1 or not isinstance(rows, list):
         raise EvalError("Wave 5 catalog must be version 1 with rows")
-    ids = {row.get("ID") for row in rows}
-    if ids != EXPECTED_IDS or len(rows) != 100:
+    wave5_rows = [row for row in rows if row.get("ID") in EXPECTED_IDS]
+    ids = {row.get("ID") for row in wave5_rows}
+    if ids != EXPECTED_IDS or len(wave5_rows) != 100:
         raise EvalError("Wave 5 catalog must contain IDs 211 through 310 exactly once")
-    counts = Counter(row.get("Category") for row in rows)
+    counts = Counter(row.get("Category") for row in wave5_rows)
     if set(counts) != EXPECTED_CATEGORIES or set(counts.values()) != {10}:
         raise EvalError("Wave 5 catalog must contain ten tasks in each of ten categories")
-    for row in rows:
+    for row in wave5_rows:
         task = row.get("Task (what the person types)")
         capability = row.get("Capability needed")
         if not isinstance(task, str) or not task.strip():
             raise EvalError(f"Task {row.get('ID')} has no prompt")
         if capability not in {"Multi-file artifacts", "Browser pane", "Files/Shell"}:
             raise EvalError(f"Task {row.get('ID')} has unsupported capability {capability}")
-    return sorted(rows, key=lambda row: row["ID"])
+    return sorted(wave5_rows, key=lambda row: row["ID"])
 
 
 def validate_case_fixtures():

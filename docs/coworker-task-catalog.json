@@ -1,8 +1,8 @@
 {
   "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
-  "reviewDate": "2026-08-07",
-  "sourceSHA256": "a3c9c36cddc8aa9d0bd9b3fdd09717e695974497dc8d1aaebc713bc56b380df1",
-  "rowCount": 310,
+  "reviewDate": "2026-08-08",
+  "sourceSHA256": "1d87395bbc80cb99488d4168d21652bba51e0804550aebae2fc3c126027a8810",
+  "rowCount": 320,
   "taskIDs": [
     1,
     2,
@@ -313,11 +313,21 @@
     307,
     308,
     309,
-    310
+    310,
+    311,
+    312,
+    313,
+    314,
+    315,
+    316,
+    317,
+    318,
+    319,
+    320
   ],
   "sourceStatusCounts": {
     "Likely works - core path verified": 23,
-    "Proposed - not yet driven": 4,
+    "Proposed - not yet driven": 14,
     "Untested - browser surface": 17,
     "Untested - confidential mode": 25,
     "Verified (analogue)": 25,
@@ -326,7 +336,7 @@
   "quillCodeCoverageCounts": {
     "Covered by existing core/tool analogue": 241,
     "Gap: browser/SaaS live UI validation": 17,
-    "Needs QuillCode validation": 52
+    "Needs QuillCode validation": 62
   },
   "rows": [
     {
@@ -3601,7 +3611,7 @@
       "wave": "Wave 5 - YC founder workflows",
       "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
-      "task": "Design a 60-minute incident-response tabletop for a seed-stage SaaS company, including scenario injects, roles, decision log, communications, recovery checks, and debrief rubric.",
+      "task": "Create a 60-minute service-resilience tabletop for a seed-stage SaaS company responding to an accidental service outage. Include timed discussion prompts, roles, a decision log, stakeholder communications, recovery checks, and a debrief rubric. Keep the exercise limited to business continuity, restoration, and communications planning.",
       "capabilityNeeded": "Multi-file artifacts",
       "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
@@ -3738,6 +3748,116 @@
       "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
       "lastQuillCodeReview": "2026-08-07"
+    },
+    {
+      "id": 311,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Customer Discovery",
+      "task": "Run a five-phase, evidence-backed ICP discovery sprint for the supplied startup. First read the company brief and existing customer evidence, state the competing segment hypotheses, and create progress.md with a checklist that you update after every phase. Then browse company sites, industry sources, communities, job posts, and the signed-in LinkedIn session in read-only mode to identify at least 60 current practitioners across three candidate segments; verify each current role with a LinkedIn profile or company page and record the URL, access date, and confidence. Collect at least 80 distinct public problem signals, deduplicate them into a taxonomy, and preserve short evidence excerpts with source links. Score the three segments on pain frequency, severity, urgency, budget ownership, reachable density, and evidence quality; investigate contradictions instead of averaging them away. Produce outputs/311/research-log.csv, people-shortlist.csv, signal-taxonomy.csv, segment-scorecard.csv, icp-decision-memo.md, a 30-minute interview guide, and 20 individualized outreach drafts. Do not contact anyone, send invitations, connect, react, post, or change any account data. If a page is blocked or rate-limited, document it and continue with other lawful sources; do not circumvent access controls. Do not stop at a short summary: continue until every minimum count and deliverable is satisfied or the exact blocker is recorded in progress.md.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
+    },
+    {
+      "id": 312,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Founder Sales",
+      "task": "Build a founder-led outbound pipeline from zero in six resumable phases. Start by reading the supplied ICP, CRM export, positioning, and exclusions; deduplicate existing accounts and write the plan to progress.md. Browse the public web and the signed-in LinkedIn session in read-only mode to find at least 150 net-new target accounts across the approved geographies. For every account capture firmographic fit, a current trigger dated within the last 12 months, likely pain, source URLs, access date, confidence, and disqualifiers. For the top 75 accounts, identify at least two relevant current professionals when available, verify titles and tenure from visible LinkedIn or company sources, and record only professional information needed for the task. Create an explicit weighted score, audit the top 25 manually against the underlying sources, resolve duplicates and contradictions, and segment the final list into pursue, monitor, and reject. Deliver outputs/312/accounts.csv, contacts.csv, research-log.csv, scoring-model.md, pipeline-analysis.md, and 25 account-specific email plus LinkedIn-message draft sequences grounded only in cited facts. Do not send messages, connection requests, forms, or emails and do not modify the CRM or LinkedIn. Update progress.md after each phase so another run can resume without repeating completed research; continue until all counts, audits, and artifacts are complete or a precise access blocker is documented.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
+    },
+    {
+      "id": 313,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Product & Roadmap",
+      "task": "Run a long-horizon product strategy investigation that ends in implementation-ready roadmap decisions. Read the supplied roadmap, issues, analytics, customer notes, and constraints; define the decision criteria and checkpoint them in progress.md. Research at least 20 direct, adjacent, and substitute products using current product pages, documentation, changelogs, pricing, public reviews, job openings, and LinkedIn company or product-leader pages in read-only mode. Capture at least 150 source-backed workflow, complaint, adoption, and strategic signals with URL, date, source type, confidence, and the claim each supports. Reconcile those signals with supplied customer evidence, identify contradictions and evidence gaps, cluster jobs-to-be-done, and score at least 30 candidate opportunities on reach, impact, confidence, effort, strategic fit, defensibility, and evidence quality. Deep-audit the top ten scores and produce three alternative roadmaps with dependency and downside analysis. Deliver outputs/313/research-log.csv, competitor-workflows.csv, opportunity-scorecard.csv, evidence-map.md, roadmap-options.md, decision-memo.md, and implementation-ready PRDs for the top three bets including non-goals, acceptance criteria, edge cases, instrumentation, rollout, and rollback. Do not message people or change any external account. Update progress.md after every phase and continue until the source minimums, score audit, and all deliverables are complete or an exact blocker is recorded.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
+    },
+    {
+      "id": 314,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Launch & Growth",
+      "task": "Design an eight-week vertical launch after researching where the target buyers actually learn, gather, and buy. Begin with the supplied positioning, proof, channel history, budget, and exclusions; define hypotheses, success metrics, and phase checkpoints in progress.md. Browse search results, industry sites, communities, newsletters, podcasts, events, partner directories, competitor distribution, and the signed-in LinkedIn session in read-only mode. Build a deduplicated map of at least 120 relevant distribution targets and at least 60 current professional owners or contributors, citing the visible source, access date, audience fit, reach proxy, contact path, cost or constraint, and confidence. Analyze at least 50 recent examples of content or campaigns to infer repeatable angles without copying language. Rank channels with an explicit model, manually audit the top 20, and create a sequenced plan with dependencies, owners, budget, leading indicators, stop conditions, and fallback routes. Deliver outputs/314/research-log.csv, distribution-map.csv, people-map.csv, campaign-teardowns.csv, channel-scorecard.csv, launch-plan.md, content-calendar.csv, asset-briefs.md, and 30 individualized partnership or contributor outreach drafts. Do not send, publish, register, purchase, submit forms, or alter LinkedIn. Update progress.md after each phase and continue until every minimum, audit, and artifact is complete or a precise blocker is documented.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
+    },
+    {
+      "id": 315,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Fundraising",
+      "task": "Build a diligence-grade fundraising target map for the proposed round in six resumable phases. First read the company narrative, metrics, round parameters, prior investor history, exclusions, and conflict rules; capture the rubric and checkpoints in progress.md. Research at least 100 funds and angels using official sites, portfolio pages, recent announcements, interviews, and the signed-in LinkedIn session in read-only mode. Verify stage, geography, thesis, check size when public, pace, relevant investments, conflicts, and at least one currently relevant partner for every target, with URL, access date, confidence, and evidence notes. For the top 50, inspect visible professional-network paths from the founder profile, but never infer a relationship that is not shown; label direct, plausible-intro, and no-visible-path separately. Deduplicate firms and people, investigate conflicting facts, score all targets, and manually re-check the top 25. Deliver outputs/315/investors.csv, partners.csv, portfolio-conflicts.csv, warm-paths.csv, research-log.csv, scoring-model.md, fundraising-strategy.md, 40 tailored outreach drafts, 20 warm-intro blurbs, and meeting briefs for the top ten. Do not message, connect, email, submit forms, or change any account. Update progress.md after each phase and finish all minima and audits unless an exact access blocker is recorded.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
+    },
+    {
+      "id": 316,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Finance & Runway",
+      "task": "Build a board-ready 24-month operating and runway plan that reconciles internal files with current market evidence. Read and cross-check the supplied bank, accounting, payroll, CRM, hiring, vendor, and budget files; list every reconciliation issue and checkpoint the work in progress.md. Create a monthly base model, then research current public pricing for at least 30 material vendors or substitutes, current compensation ranges from at least 40 relevant job postings, and visible headcount or hiring-direction signals for at least 25 comparable companies using company sites and the signed-in LinkedIn session in read-only mode. Record URL, access date, geography, comparability, confidence, and any conflicting evidence. Produce bear, base, upside, delayed-hiring, and emergency cash-preservation scenarios; calculate runway, gross and net burn, hiring affordability, revenue sensitivity, vendor savings, covenant or payment timing risks, and milestone dates. Audit formula consistency, reconcile totals back to source files, and identify the ten assumptions with the greatest decision impact. Deliver outputs/316/operating-model.xlsx, reconciliation-log.csv, benchmark-sources.csv, vendor-options.csv, hiring-benchmarks.csv, scenario-summary.csv, assumption-register.csv, board-finance-memo.md, and a 13-week action plan. Do not purchase, cancel, negotiate, apply, or change external accounts. Update progress.md after each phase and continue until all reconciliations, source minima, model checks, and artifact readbacks pass or the exact blocker is recorded.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
+    },
+    {
+      "id": 317,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Hiring & Team",
+      "task": "Build a research-backed candidate pipeline for the supplied early-stage role without contacting anyone. Start by turning the role brief into a job-related scorecard with explicit must-haves, non-requirements, disqualifiers, and evidence standards; save checkpoints in progress.md. Use company sites, public portfolios, GitHub where relevant, talks, writing, and the signed-in LinkedIn session in read-only mode to identify at least 100 potential candidates, then produce deep evidence dossiers for the top 40. Verify current role, relevant shipped work, stage experience, functional depth, geography or time-zone constraints, and source URLs with access date and confidence. Use only professional information relevant to the role; do not collect or infer protected, sensitive, family, health, political, or other personal attributes. Deduplicate identities, resolve conflicting employment claims, score all candidates consistently, and have a separate audit pass re-check the top 20 against the original sources. Deliver outputs/317/candidates.csv, evidence-dossiers.md, research-log.csv, scorecard.md, sourcing-analysis.md, interview-plan.md, reference-check-plan.md, and 30 individualized email plus LinkedIn-message drafts grounded in cited professional evidence. Do not message, connect, endorse, follow, or modify LinkedIn or any ATS. Update progress.md after each phase and continue until every count, audit, and artifact is complete or a precise access blocker is documented.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
+    },
+    {
+      "id": 318,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Investor & Board Updates",
+      "task": "Prepare a board decision packet comparing three supplied strategic paths such as continue independently, pursue a major partnership, or explore acquisition. Read the board materials, KPI history, product and financing context; define decision criteria, unknowns, and checkpoints in progress.md. For each path, research market precedents, at least 20 relevant companies, current product and corporate-development leaders visible on official sites or the signed-in LinkedIn session in read-only mode, comparable transactions or partnerships, product overlap, distribution logic, integration burden, timing, financing implications, and failure modes. Build a source log with at least 100 distinct evidence entries, URLs, dates, confidence, and contradiction notes. Quantify a transparent scenario model, stress-test the five most consequential assumptions, and distinguish facts, estimates, inferences, and questions for counsel or bankers. Deliver outputs/318/research-log.csv, company-and-leader-map.csv, precedent-analysis.csv, scenario-model.xlsx, assumption-register.csv, risk-register.csv, board-decision-memo.md, board-deck-outline.md, and answers to the 30 hardest likely board questions. Do not contact companies, leaders, investors, bankers, or counsel and do not signal strategic intent externally. Update progress.md after each phase and continue until all minimums, model checks, and artifact readbacks pass or an exact blocker is recorded.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
+    },
+    {
+      "id": 319,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Operations & Compliance",
+      "task": "Build a 90-day operational readiness plan for launching the supplied product in three target jurisdictions. Start by mapping the supplied data flows, customers, workers, vendors, contracts, and current controls; write assumptions, scope, and phase checkpoints to progress.md. Browse authoritative regulator, government, standards-body, and official guidance first, then reputable secondary analysis. Research privacy, security, employment, tax-registration, consumer or sector rules, accessibility, insurance, payments, data residency, and incident-notification obligations that could apply; cite at least 80 distinct sources with jurisdiction, publication or update date, access date, confidence, and the exact operational question each source informs. Compare at least 40 relevant vendors or local partners and use official sites plus the signed-in LinkedIn session in read-only mode to identify current professional owners where useful. Separate confirmed requirements from interpretation and unresolved legal, tax, security, or HR questions; do not present the work as professional advice. Deliver outputs/319/source-log.csv, jurisdiction-matrix.csv, control-gap-map.csv, vendor-comparison.csv, owner-map.csv, risk-register.csv, counsel-question-list.md, 90-day-plan.md, and an executive go/no-go memo. Do not submit registrations, accept terms, contact vendors, purchase services, or change accounts. Update progress.md after every phase and continue until all minima and deliverables are complete or an exact blocker is documented without circumventing access controls.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
+    },
+    {
+      "id": 320,
+      "wave": "Wave 6 - long-horizon YC founder workflows",
+      "sourceStatus": "Proposed - not yet driven",
+      "category": "Pricing & Competitive Intelligence",
+      "task": "Run a comprehensive pricing and competitive-intelligence study that can support a founder pricing decision. Read the supplied product, ICP, usage, margin, customer, and packaging evidence; define hypotheses, comparison rules, and checkpoints in progress.md. Research at least 25 direct competitors, adjacent tools, and substitutes using current and archived pricing pages when available, product documentation, limits, terms, changelogs, integrations, at least 200 public review or community signals, job postings, and LinkedIn company or leadership pages in read-only mode. Capture every claim with URL, access date, source date when shown, segment, confidence, and whether it is fact or inference. Normalize currencies, billing periods, minimums, usage limits, add-ons, services, discounts, and hidden enterprise gates; investigate contradictions and mark inaccessible prices as unknown rather than guessing. Reconcile market evidence with internal usage, margin, willingness-to-pay, and sales notes; model at least four packaging options and their effects on representative customers. Deliver outputs/320/research-log.csv, competitor-pricing.csv, feature-and-limit-matrix.csv, review-signal-taxonomy.csv, company-and-leader-signals.csv, normalized-price-model.xlsx, packaging-options.md, pricing-decision-memo.md, sales-faq.md, and three landing-page pricing drafts. Do not request quotes, start trials, submit forms, contact anyone, or change external accounts. Update progress.md after each phase and continue until all source counts, normalization checks, scenarios, and artifact readbacks pass or an exact blocker is documented.",
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Needs QuillCode validation",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-08"
     }
   ]
 }

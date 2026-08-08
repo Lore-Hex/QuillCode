@@ -23,6 +23,14 @@ def tool(name, input_payload=None, output_payload=None, status="done"):
 
 
 class Wave5CoworkEvalTests(unittest.TestCase):
+    def test_catalog_validation_selects_only_the_verified_wave5_cases(self):
+        payload = WAVE5.read_json(WAVE5.SOURCE_CATALOG)
+        rows = WAVE5.validate_catalog(payload)
+
+        self.assertEqual(len(payload["rows"]), 110)
+        self.assertEqual(len(rows), 100)
+        self.assertEqual([row["ID"] for row in rows], list(range(211, 311)))
+
     def test_shell_prompt_requires_safe_schema_aware_validation(self):
         prompt = WAVE5.build_prompt({
             "ID": 261,
