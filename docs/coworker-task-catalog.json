@@ -1,7 +1,7 @@
 {
   "catalogSpreadsheetURL": "https://docs.google.com/spreadsheets/d/1uq8uYGwoAxdwPcVn11nysjoozZjKY4acYZNVw-Hu5LM/edit?gid=0#gid=0",
-  "reviewDate": "2026-08-06",
-  "sourceSHA256": "1dde51cc06906e011605f4add9ff1690b0a8fcae5a7dac3b0b92845a295cc75b",
+  "reviewDate": "2026-08-07",
+  "sourceSHA256": "a3c9c36cddc8aa9d0bd9b3fdd09717e695974497dc8d1aaebc713bc56b380df1",
   "rowCount": 310,
   "taskIDs": [
     1,
@@ -317,16 +317,16 @@
   ],
   "sourceStatusCounts": {
     "Likely works - core path verified": 23,
-    "Proposed - not yet driven": 104,
+    "Proposed - not yet driven": 4,
     "Untested - browser surface": 17,
     "Untested - confidential mode": 25,
     "Verified (analogue)": 25,
-    "Verified end-to-end": 116
+    "Verified end-to-end": 216
   },
   "quillCodeCoverageCounts": {
-    "Covered by existing core/tool analogue": 141,
+    "Covered by existing core/tool analogue": 241,
     "Gap: browser/SaaS live UI validation": 17,
-    "Needs QuillCode validation": 152
+    "Needs QuillCode validation": 52
   },
   "rows": [
     {
@@ -2642,1102 +2642,1102 @@
     {
       "id": 211,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Synthesize these 25 customer interviews into a ranked pain-point report by segment, with supporting quotes, frequency, severity, and unresolved questions. Save customer-discovery-synthesis.md.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 212,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Create a 30-minute customer interview guide to test our ICP and top three problem hypotheses without leading the participant. Include follow-up probes and a note-taking template.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 213,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Tag these lost-demo notes by primary objection, urgency, current workaround, decision maker, and next evidence needed. Produce lost-demo-patterns.csv and a one-page summary.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 214,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Compare interviews from activated customers and customers who churned. Identify the five clearest differences in trigger, expectations, onboarding friction, and realized value.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 215,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Turn this folder of feature requests into a jobs-to-be-done map. Separate requested solutions from underlying jobs and cite the source note for every job.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 216,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Build a recruiting brief for 12 discovery interviews across our three target segments, including screening criteria, outreach copy, scheduling fields, and disqualifiers.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 217,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Create an evidence map for our ten riskiest customer assumptions. Mark each assumption supported, contradicted, or unknown and link it to the interview evidence.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 218,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Summarize this discovery call into problem, current alternatives, budget ownership, buying trigger, success metric, and follow-up questions. Do not infer missing facts.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 219,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Produce a weekly customer-insight digest from these support tickets, sales calls, and interview notes. Deduplicate themes and separate anecdotes from repeated patterns.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 220,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Customer Discovery",
       "task": "Design a two-week concierge test for this problem hypothesis, including participant criteria, manual workflow, success thresholds, daily observations, and a stop-or-continue decision rule.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 221,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Prioritize these 50 target accounts using our ICP, recent trigger events, likely pain, and reachable champion. Produce a scored account list with a reason for every rank.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 222,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Draft five genuinely personalized cold emails for the highest-ranked accounts using only facts in the supplied research. Include one concise follow-up for each.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 223,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Turn these discovery and demo notes into a mutual action plan with buyer owner, founder owner, milestone, date, dependency, and decision criterion.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 224,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Rebuild this early-stage pipeline forecast from the CRM export. Separate committed, likely, upside, and unqualified revenue and flag every stale or unsupported close date.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 225,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Prepare a demo brief for tomorrow's prospect: company context, participants, likely pains, proof points to show, questions to ask, landmines, and the desired next step.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 226,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Draft same-day follow-up emails for these eight sales calls. Each email must recap verified priorities, answer open questions, and propose one concrete next step.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 227,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Create a founder-sales objection library from these call transcripts. Group exact objections, diagnose the underlying concern, and write evidence-backed responses without inventing claims.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 228,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Build a rescue plan for opportunities with no activity in 21 days. Recommend close, nurture, or re-engage and draft the appropriate message for each account.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 229,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Create a clean handoff packet for the first account executive from the founder's notes, including account history, stakeholders, commitments, risks, and next actions.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 230,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Founder Sales",
       "task": "Run a win-loss review across closed opportunities. Quantify patterns by segment, source, competitor, objection, sales-cycle length, and founder action to change next month.",
-      "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
-      "nextQuillCodeGap": "Filesystem/shell calculation and artifact smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "capabilityNeeded": "Browser pane",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
+      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 231,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Triage this combined bug, support, and feature-request backlog. Deduplicate items, link customer evidence, estimate impact and urgency, and propose the top ten next actions.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 232,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Write a concise PRD for this workflow using the supplied research. Include user, problem, non-goals, acceptance criteria, edge cases, instrumentation, rollout, and open questions.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 233,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Score these roadmap candidates using reach, impact, confidence, effort, strategic fit, and evidence quality. Show the math and identify assumptions that could change the ranking.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 234,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Scope the smallest credible MVP for this idea. Separate must-have behavior, manual operations, deferred capabilities, technical spikes, and a two-week validation plan.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 235,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Create a feature launch checklist spanning engineering, QA, migration, analytics, documentation, support, sales enablement, rollback, and post-launch review.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 236,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Synthesize this beta feedback into blockers, usability friction, missing value, delight, and noise. Recommend ship, extend beta, narrow scope, or stop with evidence.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 237,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Draft customer-facing release notes from these merged pull requests and issue links. Explain user value, limitations, migration steps, and known issues without exposing internal jargon.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 238,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Design an instrumentation plan for the activation funnel. Define events, required properties, identity rules, success metrics, guardrails, dashboards, and validation queries.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 239,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Compare customer commitments in these sales notes against the current roadmap. Flag conflicts, unowned promises, date risk, and language that needs correction.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 240,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Product & Roadmap",
       "task": "Convert this incident timeline and support fallout into product learnings. Propose prevention work, detection improvements, customer remediation, and roadmap tradeoffs.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 241,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Build a four-week launch plan for this product release with audience, message, channel, asset, owner, deadline, dependency, success metric, and rollback trigger.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 242,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Rewrite this landing page from the customer research. Produce headline, subhead, problem, proof, workflow, objection handling, CTA, and three testable variants.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 243,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Prioritize ten growth experiments by expected impact, confidence, effort, time to signal, and reversibility. Define the smallest test and pass-fail threshold for each.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 244,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Diagnose this week's acquisition-to-activation funnel. Quantify the largest changes, segment the drop-offs, list plausible causes, and specify the next queries or experiments.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 245,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Create a six-week founder-led content calendar from our customer questions and product insights. Include audience, angle, format, distribution, reuse plan, and measurable goal.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 246,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Design a referral loop for our current product behavior. Specify trigger, incentive, sharing surface, abuse controls, attribution, and the metrics that prove incremental growth.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 247,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Prepare a Product Hunt launch packet with positioning, maker comment, FAQ, response bank, launch-day schedule, outreach list structure, and post-launch follow-up.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 248,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Build an SEO topic map from these customer questions and competitor pages. Cluster by intent, propose pillar and supporting pages, and flag claims requiring original evidence.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 249,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Draft a seven-message activation email sequence tied to actual user milestones. Include audience rule, send timing, goal, copy, CTA, and suppression condition for each message.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 250,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Launch & Growth",
       "task": "Run a post-launch retrospective from the plan, analytics, support log, and team notes. Separate outcomes from stories and recommend keep, change, stop, and investigate actions.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 251,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Turn these company notes and metrics into a seed fundraising narrative covering insight, problem, product, why now, traction, market, moat, team, and use of funds.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 252,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Build a prioritized investor target list from the supplied fund profiles. Score stage, check size, thesis, relevant portfolio conflicts, warm paths, and likely fit.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 253,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Audit this pitch deck for unsupported claims, inconsistent numbers, missing context, weak transitions, and likely partner objections. Produce a slide-by-slide fix list.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 254,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Create a diligence-ready data-room index with requested artifact, owner, status, sensitivity, freshness date, investor visibility, and missing-item follow-up.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 255,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Build a diligence Q&A bank from investor emails and meeting notes. Draft concise evidence-backed answers and mark every answer that needs founder, legal, or finance confirmation.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 256,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Draft personalized investor outreach for the top 15 targets using only the supplied relationship and thesis evidence. Keep each note under 120 words.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 257,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Clean this fundraising pipeline. Deduplicate investors, normalize stages, identify missing next steps, calculate funnel conversion, and flag stale conversations.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 258,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Prepare a partner-meeting brief with attendee backgrounds, prior questions, likely objections, metric definitions, competitive framing, and the three outcomes we need.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 259,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Draft customer-reference requests for fundraising. Match each investor concern to an appropriate customer, explain the ask, and minimize burden on the customer.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 260,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Fundraising",
       "task": "Compare these term sheets across economics, control, dilution, option pool, liquidation, pro rata, governance, closing conditions, and questions for counsel. Do not give legal advice.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 261,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Build a monthly runway model from these exports with beginning cash, cash in, payroll, non-payroll burn, ending cash, net burn, gross burn, and runway date.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 262,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Explain actual versus budget burn for the last three months. Rank material variances, identify one-time versus recurring effects, and list decisions needed this week.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 263,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Analyze vendor spend for duplicates, price increases, unused subscriptions, renewal dates, owner, cancellation risk, and the fastest credible savings opportunities.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 264,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Model whether we can afford these planned hires. Show base, delayed-hiring, and no-hiring scenarios with cash-out date, milestones reached, and assumptions.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 265,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Create bear, base, and upside cash scenarios from these revenue and expense assumptions. Highlight the five inputs with the largest runway sensitivity.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 266,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Calculate unit economics by customer segment, including gross margin, acquisition cost, payback period, retention assumption, and contribution margin. Flag missing or unreliable inputs.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 267,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Reconcile the CRM pipeline with the revenue forecast. Apply explicit probability rules, separate new and expansion revenue, and flag unsupported timing or amount assumptions.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 268,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Build a collections plan for overdue invoices with customer, amount, age, owner, dispute status, next action, and a professional follow-up draft.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 269,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Create a one-page finance summary for the board with cash, burn, runway, revenue, margin, budget variance, forecast change, risks, and decisions requested.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 270,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Finance & Runway",
       "task": "Draft a lightweight cash-control checklist for a seed-stage company covering approvals, payment access, vendor changes, reimbursements, cards, payroll, reconciliation, and exception review.",
       "capabilityNeeded": "Files/Shell",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "One-turn shell/file execution smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 271,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Create a role scorecard for our first product engineer with mission, outcomes at 30/90/180 days, competencies, interview evidence, and explicit non-requirements.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 272,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Rewrite this job description for an early-stage hire. Make the actual problems, ownership, constraints, learning, compensation context, and selection process concrete.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 273,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Prepare a candidate interview packet with resume evidence, role-specific questions, assigned competencies, follow-up probes, and prohibited or redundant questions.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 274,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Synthesize these interviewer notes without averaging away disagreement. Score each competency, cite evidence, flag missing signals, and recommend advance, hold, or decline.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 275,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Create a reference-check guide tailored to this candidate and role. Include relationship verification, specific claims to test, performance examples, weaknesses, and rehire question.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 276,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Compare these offer scenarios across cash, equity, vesting, start date, level, runway impact, and internal consistency. Flag inputs that need legal or tax review.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 277,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Build a 30/60/90-day onboarding plan for this first functional leader with context, relationships, systems, deliverables, decision rights, and founder check-ins.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 278,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Propose an org design for the next 12 hires. Map company milestones to roles, sequencing, managers, spans, dependencies, and roles that should remain founder-owned.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 279,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Turn these company principles into observable performance expectations for managers and individual contributors, with examples of strong and weak behavior.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 280,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Hiring & Team",
       "task": "Assess whether to convert these contractors into employees. Compare scope, continuity, management need, cost, classification risk, knowledge concentration, and transition steps.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 281,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Draft this month's investor update with highlights, lowlights, KPI changes, product, go-to-market, team, cash, asks, and a candid founder note.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 282,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Create a board deck outline from these operating reviews. Put decisions before detail and include metrics, variances, strategic questions, risks, and requested approvals.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 283,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Write KPI variance commentary for every metric that moved more than 10 percent. Separate measurement changes, seasonality, execution causes, and unknowns.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 284,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Prepare answers to the 20 hardest board questions implied by these materials. Cite source data and mark any answer that cannot yet be supported.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 285,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Build a board action log from these meeting notes with decision, owner, due date, status, dependency, and the exact follow-up needed before the next meeting.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 286,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Turn weekly operating notes into a quarterly company narrative explaining what changed, why it changed, what we learned, and which bets come next.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 287,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Draft a concise bad-news investor note about this missed milestone. State facts, impact, root cause, corrective action, leading indicators, and the specific help requested.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 288,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Match our current hiring, customer, partnership, and fundraising asks to the most relevant investors based on their supplied backgrounds and networks.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 289,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Prepare a board-consent agenda from these proposed actions. Separate discussion, approval, and information items and flag anything requiring counsel confirmation.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 290,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Investor & Board Updates",
       "task": "Create an annual investor retrospective comparing original plan, actual outcomes, key decisions, capital efficiency, lessons, and the next year's explicit priorities.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 291,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
       "task": "Build a company compliance calendar from these incorporation, tax, payroll, insurance, and reporting documents. Include jurisdiction, deadline, owner, dependency, and source.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 292,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
       "task": "Draft responses to this customer security questionnaire using only supplied policies and architecture evidence. Mark unsupported answers and required security-owner review.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 293,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
       "task": "Create a vendor due-diligence register with service, data accessed, business owner, contract term, security evidence, subprocessors, renewal, risk, and follow-up.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 294,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
       "task": "Assess our SOC 2 readiness evidence against this control list. Map artifacts, owners, test frequency, gaps, remediation priority, and claims we must not make yet.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 295,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
       "task": "Extract business issues from these customer contract redlines: economics, liability, data, security, support, termination, IP, and operational commitments. Route legal questions to counsel.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 296,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
       "task": "Build a privacy data map from these system descriptions. Trace collection, purpose, storage, processors, access, retention, deletion, and unresolved ownership.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 297,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
       "task": "Prepare an insurance renewal packet with current policies, limits, exclusions, claims, customer requirements, headcount, revenue, changes, and broker questions.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 298,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
-      "task": "Create an authorized, defensive 60-minute business-continuity tabletop for a seed-stage SaaS company responding to a service incident. Include scenario injects, roles, a decision log, stakeholder communications, recovery checks, and a debrief rubric. This is planning and documentation only; do not perform or describe offensive security actions.",
+      "task": "Design a 60-minute incident-response tabletop for a seed-stage SaaS company, including scenario injects, roles, decision log, communications, recovery checks, and debrief rubric.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 299,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
       "task": "Run an access-review analysis from these identity exports. Flag former workers, dormant accounts, excessive roles, shared credentials, missing owners, and recommended revocations.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 300,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Operations & Compliance",
       "task": "Create a lightweight procurement workflow with intake fields, spend thresholds, security and legal routing, approval owners, renewal tracking, and an emergency exception path.",
       "capabilityNeeded": "Multi-file artifacts",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 301,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Build a competitor matrix from the supplied sources covering target user, core job, workflow, pricing, proof, integrations, constraints, and our defensible difference.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 302,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Compare the current and archived pricing pages for these competitors. Report exact packaging, price, limit, and positioning changes with source date and URL.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 303,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Propose three packaging options for our product using customer value, usage, support cost, gross margin, and sales motion. State tradeoffs and testable assumptions.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 304,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Synthesize willingness-to-pay evidence from these interviews and sales calls. Separate stated budgets, anchors, procurement thresholds, objections, and observed purchase behavior.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 305,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Analyze discounting across closed deals by segment, seller, contract term, stage, competitor, and outcome. Recommend approval rules and exceptions to investigate.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 306,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Design enterprise add-ons for this product. Tie each add-on to a distinct buyer need, delivery cost, proof requirement, packaging boundary, and price test.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 307,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Recommend usage thresholds for free, starter, team, and enterprise plans using this distribution. Show affected accounts, expansion opportunity, abuse risk, and migration concerns.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 308,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Draft a pricing FAQ for sales and support covering value metric, limits, overages, trials, discounts, migration, cancellation, taxes, and claims that need confirmation.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 309,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Run a competitor-specific win-loss analysis from these opportunities. Separate product gaps, positioning, trust, price, timing, relationship, and execution errors.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     },
     {
       "id": 310,
       "wave": "Wave 5 - YC founder workflows",
-      "sourceStatus": "Proposed - not yet driven",
+      "sourceStatus": "Verified end-to-end",
       "category": "Pricing & Competitive Intelligence",
       "task": "Create a quarterly market brief from the supplied competitor updates, customer evidence, and category news. Identify signal, noise, implications, and three founder decisions.",
       "capabilityNeeded": "Browser pane",
-      "quillCodeCoverage": "Needs QuillCode validation",
+      "quillCodeCoverage": "Covered by existing core/tool analogue",
       "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
-      "lastQuillCodeReview": "2026-08-06"
+      "lastQuillCodeReview": "2026-08-07"
     }
   ]
 }

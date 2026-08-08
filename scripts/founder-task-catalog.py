@@ -16,12 +16,14 @@ SPREADSHEET_URL = (
 )
 START_ID = 211
 EXPECTED_TASK_COUNT = 100
-REVIEW_DATE = "2026-08-06"
+REVIEW_DATE = "2026-08-07"
 WAVE = "Wave 5 - YC founder workflows"
-STATUS = "Proposed - not yet driven"
+STATUS = "Verified end-to-end"
 EVIDENCE = (
-    "Proposed 2026-08-06 for the YC founder/operator expansion; "
-    "fixture-backed drive not yet run"
+    "PASS native Cowork UI (2026-08-07; deepseek/deepseek-v4-flash-0731): "
+    "uninterrupted Wave 5 re-drive passed 100/100 with fixture-backed source-use, "
+    "lifecycle, artifact-write, and readback checks; evidence "
+    ".build/quillcode-validation/wave5-cowork/full-r74"
 )
 CAPABILITY_OVERRIDES = {
     230: "Files/Shell",

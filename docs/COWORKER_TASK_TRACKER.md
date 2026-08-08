@@ -23,8 +23,12 @@ python3 scripts/sync-coworker-catalog.py <sheet.csv> docs/coworker-task-catalog.
   --review-date YYYY-MM-DD
 ```
 
-The new rows remain `Proposed - not yet driven`: adding a realistic task to the catalog is not proof
-that QuillCode completed it. The fail-closed row-linked evidence gates continue to decide coverage.
+On 2026-08-07, all 100 rows passed one uninterrupted native Cowork re-drive with
+`deepseek/deepseek-v4-flash-0731`. The run exercised fixture-backed source use, task lifecycle,
+artifact writes, and readback validation; its summary is at
+`.build/quillcode-validation/wave5-cowork/full-r74/summary.md`. Rows #211 through #310 are now
+`Verified end-to-end` in the canonical sheet and checked-in snapshot. The fail-closed evidence
+gates still apply: future task additions remain pending until a row-linked run proves them.
 
 ## 2026-08-05 Full Catalog Audit
 
