@@ -112,10 +112,15 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        let catalog = try Self.coworkerCatalogSnapshot()
+        let lastTask = try XCTUnwrap(catalog.lastTask)
         XCTAssertTrue(coverage.contains(#""provenTaskCount": 3"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 307"#), coverage)
-        XCTAssertTrue(coverage.contains(#""last": 310"#), coverage)
-        XCTAssertTrue(coverage.contains(#""total": 310"#), coverage)
+        XCTAssertTrue(
+            coverage.contains(#""pendingTaskCount": \#(catalog.rowCount - 3)"#),
+            coverage
+        )
+        XCTAssertTrue(coverage.contains(#""last": \#(lastTask.id)"#), coverage)
+        XCTAssertTrue(coverage.contains(#""total": \#(catalog.rowCount)"#), coverage)
         XCTAssertTrue(coverage.contains(#""provenTaskIDs": ["#), coverage)
         XCTAssertTrue(coverage.contains(#"196"#), coverage)
         XCTAssertTrue(coverage.contains(#"199"#), coverage)
@@ -127,7 +132,10 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertTrue(markdown.contains("| 199 | proven | Sales | In HubSpot"), markdown)
         XCTAssertTrue(markdown.contains("live-saas"), markdown)
         XCTAssertTrue(markdown.contains("| 210 | pending | CRM Nudges |"), markdown)
-        XCTAssertTrue(markdown.contains("| 310 | pending | Pricing & Competitive Intelligence |"), markdown)
+        XCTAssertTrue(
+            markdown.contains("| \(lastTask.id) | pending | \(lastTask.category) |"),
+            markdown
+        )
         XCTAssertTrue(markdown.contains("All catalog rows are listed"), markdown)
     }
 
@@ -280,8 +288,12 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        let catalog = try Self.coworkerCatalogSnapshot()
         XCTAssertTrue(coverage.contains(#""provenTaskCount": 59"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 251"#), coverage)
+        XCTAssertTrue(
+            coverage.contains(#""pendingTaskCount": \#(catalog.rowCount - 59)"#),
+            coverage
+        )
         XCTAssertTrue(coverage.contains(#""evidenceType": "packaged-multi-file-artifact""#), coverage)
         XCTAssertTrue(coverage.contains(#""69": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""70": ["#), coverage)
@@ -366,9 +378,13 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        let catalog = try Self.coworkerCatalogSnapshot()
         XCTAssertTrue(coverage.contains(#""provenTaskCount": 0"#), coverage)
         XCTAssertTrue(coverage.contains(#""analogueTaskCount": 2"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 308"#), coverage)
+        XCTAssertTrue(
+            coverage.contains(#""pendingTaskCount": \#(catalog.rowCount - 2)"#),
+            coverage
+        )
         XCTAssertTrue(coverage.contains(#""result": "analogue""#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceClass": "analogue""#), coverage)
         let markdown = try String(contentsOf: markdownURL, encoding: .utf8)
@@ -423,6 +439,9 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
+        let catalog = try Self.coworkerCatalogSnapshot()
+        let invalidTaskID = try XCTUnwrap(catalog.lastTask?.id).advanced(by: 1)
+
         let templateURL = temporaryDirectory.appendingPathComponent("crm-template.json")
         let accepted = try Self.runPython(
             Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
@@ -436,11 +455,13 @@ final class ParityLiveSaaSSmokeGateTests: QuillCodeParityTestCase {
         let invalidTemplateURL = temporaryDirectory.appendingPathComponent("invalid-template.json")
         let rejected = try Self.runPython(
             Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
-            arguments: ["live-saas-template", "311", "--output", invalidTemplateURL.path]
+            arguments: ["live-saas-template", String(invalidTaskID), "--output", invalidTemplateURL.path]
         )
         XCTAssertNotEqual(rejected.exitCode, 0)
         XCTAssertTrue(
-            rejected.output.contains("catalogTaskIDs[0] must match a catalog row ID between 1 and 310"),
+            rejected.output.contains(
+                "catalogTaskIDs[0] must match a catalog row ID between 1 and \(invalidTaskID - 1)"
+            ),
             rejected.output
         )
         XCTAssertFalse(FileManager.default.fileExists(atPath: invalidTemplateURL.path))

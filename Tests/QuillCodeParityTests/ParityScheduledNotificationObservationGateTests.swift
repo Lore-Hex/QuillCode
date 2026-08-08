@@ -106,10 +106,15 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
 
         XCTAssertEqual(result.exitCode, 0, result.output)
         let coverage = try String(contentsOf: coverageURL, encoding: .utf8)
+        let catalog = try Self.coworkerCatalogSnapshot()
+        let lastTaskID = try XCTUnwrap(catalog.lastTask?.id)
         XCTAssertTrue(coverage.contains(#""provenTaskCount": 1"#), coverage)
-        XCTAssertTrue(coverage.contains(#""pendingTaskCount": 309"#), coverage)
-        XCTAssertTrue(coverage.contains(#""last": 310"#), coverage)
-        XCTAssertTrue(coverage.contains(#""total": 310"#), coverage)
+        XCTAssertTrue(
+            coverage.contains(#""pendingTaskCount": \#(catalog.rowCount - 1)"#),
+            coverage
+        )
+        XCTAssertTrue(coverage.contains(#""last": \#(lastTaskID)"#), coverage)
+        XCTAssertTrue(coverage.contains(#""total": \#(catalog.rowCount)"#), coverage)
         XCTAssertTrue(coverage.contains(#""42": ["#), coverage)
         XCTAssertTrue(coverage.contains(#""evidenceType": "scheduled-notification-observation""#), coverage)
         XCTAssertTrue(coverage.contains(#""serviceName": "Quill Cowork Notifications""#), coverage)
@@ -152,15 +157,25 @@ final class ParityScheduledNotificationObservationGateTests: QuillCodeParityTest
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
+        let catalog = try Self.coworkerCatalogSnapshot()
+        let invalidTaskID = try XCTUnwrap(catalog.lastTask?.id).advanced(by: 1)
+
         let templateURL = temporaryDirectory.appendingPathComponent("invalid-template.json")
         let result = try Self.runPython(
             Self.packageRoot().appendingPathComponent("scripts/native-click-probe-contracts.py"),
-            arguments: ["scheduled-notification-observation-template", "311", "--output", templateURL.path]
+            arguments: [
+                "scheduled-notification-observation-template",
+                String(invalidTaskID),
+                "--output",
+                templateURL.path,
+            ]
         )
 
         XCTAssertNotEqual(result.exitCode, 0)
         XCTAssertTrue(
-            result.output.contains("catalogTaskIDs[0] must match a catalog row ID between 1 and 310"),
+            result.output.contains(
+                "catalogTaskIDs[0] must match a catalog row ID between 1 and \(invalidTaskID - 1)"
+            ),
             result.output
         )
         XCTAssertFalse(FileManager.default.fileExists(atPath: templateURL.path))
