@@ -66,6 +66,32 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         XCTAssertTrue(tagResult.output.contains("release tag resolves to"), tagResult.output)
     }
 
+    func testVerifierRejectsAppArchiveCommitDriftAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture(appCommit: String(repeating: "b", count: 40))
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("Info.plist QuillCodeBuildCommit disagrees with the manifest"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsSymlinkedAppInfoAfterIntegrityChecksPass() throws {
+        let fixture = try makeFixture(appInfoIsSymlink: true)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("Info.plist must be a readable regular entry"),
+            result.output
+        )
+    }
+
     private struct Fixture {
         var root: URL
         var assets: URL
@@ -73,7 +99,10 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         var releaseJSON: URL
     }
 
-    private func makeFixture() throws -> Fixture {
+    private func makeFixture(
+        appCommit: String? = nil,
+        appInfoIsSymlink: Bool = false
+    ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("quill-cowork-release-verifier-tests")
             .appendingPathComponent(UUID().uuidString)
@@ -84,7 +113,12 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         let cliName = "quill-code-macOS-arm64.tar.gz"
         let buildInfoName = "BUILD_INFO.txt"
         let checksumsName = "SHASUMS256.txt"
-        try Data("verified app payload".utf8).write(to: assetsURL.appendingPathComponent(appName))
+        try writeAppArchive(
+            to: assetsURL.appendingPathComponent(appName),
+            commit: appCommit ?? commit,
+            root: root,
+            infoIsSymlink: appInfoIsSymlink
+        )
         try Data("verified cli payload".utf8).write(to: assetsURL.appendingPathComponent(cliName))
         try """
         product=Quill Cowork
@@ -235,6 +269,58 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "sha256": try sha256(at: url),
             "url": releaseDownloadURL(named: name)
         ]
+    }
+
+    private func writeAppArchive(
+        to archiveURL: URL,
+        commit: String,
+        root: URL,
+        infoIsSymlink: Bool
+    ) throws {
+        let scriptURL = root.appendingPathComponent("make-app-archive.py")
+        try """
+        import plistlib
+        import sys
+        import zipfile
+
+        values = {
+            "CFBundleName": "Quill Cowork",
+            "CFBundleDisplayName": "Quill Cowork",
+            "CFBundleIdentifier": "co.lorehex.QuillCowork",
+            "CFBundleShortVersionString": "0.2.0",
+            "CFBundleVersion": "123",
+            "LSMinimumSystemVersion": "14.0",
+            "QuillCodeBuildCommit": sys.argv[2],
+            "QuillCodeUpdateChannel": "tester",
+            "QuillCodeUpdateManifestURL": sys.argv[3],
+            "QuillCodeStableUpdateManifestURL": sys.argv[4],
+            "QuillCodeTesterUpdateManifestURL": sys.argv[3],
+        }
+        with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as archive:
+            path = "Quill Cowork.app/Contents/Info.plist"
+            if sys.argv[5] == "symlink":
+                entry = zipfile.ZipInfo(path)
+                entry.create_system = 3
+                entry.external_attr = 0o120777 << 16
+                archive.writestr(entry, b"Info.plist")
+            else:
+                archive.writestr(path, plistlib.dumps(values))
+        """.write(to: scriptURL, atomically: true, encoding: .utf8)
+        let result = try Self.runPython(scriptURL, arguments: [
+            archiveURL.path,
+            commit,
+            testerManifestURL,
+            stableManifestURL,
+            infoIsSymlink ? "symlink" : "regular"
+        ])
+        try FileManager.default.removeItem(at: scriptURL)
+        guard result.exitCode == 0 else {
+            throw NSError(
+                domain: "ParityPublishedReleaseVerificationGateTests",
+                code: Int(result.exitCode),
+                userInfo: [NSLocalizedDescriptionKey: result.output]
+            )
+        }
     }
 
     private func runVerifier(

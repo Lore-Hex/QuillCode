@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import plistlib
 import re
+import stat
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +15,10 @@ from release_verification_contract import (
     PRODUCT,
     VerificationError,
 )
+
+
+APP_INFO_BYTE_LIMIT = 256 * 1024
+APP_ARCHIVE_ENTRY_LIMIT = 20_000
 
 
 def read_bounded(path: Path, byte_limit: int, label: str) -> bytes:
@@ -136,6 +143,71 @@ def verify_primary_checksums(
         )
 
 
+def verify_app_archive(
+    asset_directory: Path,
+    manifest: dict[str, Any],
+    *,
+    channel: str,
+    commit: str,
+) -> None:
+    updater = manifest["updater"]
+    app_asset = updater["macOSAppAsset"]
+    archive_path = asset_directory / app_asset["name"]
+    info_path = f"{PRODUCT}.app/Contents/Info.plist"
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            entries = archive.infolist()
+            if len(entries) > APP_ARCHIVE_ENTRY_LIMIT:
+                raise VerificationError("macOS app archive contains too many entries")
+            matching_entries = [entry for entry in entries if entry.filename == info_path]
+            if len(matching_entries) != 1:
+                raise VerificationError("macOS app archive does not contain one canonical Info.plist")
+            info_entry = matching_entries[0]
+            if info_entry.is_dir() or info_entry.flag_bits & 0x1:
+                raise VerificationError("macOS app Info.plist must be a readable regular entry")
+            unix_file_type = stat.S_IFMT(info_entry.external_attr >> 16)
+            if unix_file_type not in (0, stat.S_IFREG):
+                raise VerificationError("macOS app Info.plist must be a readable regular entry")
+            if info_entry.file_size > APP_INFO_BYTE_LIMIT:
+                raise VerificationError("macOS app Info.plist exceeds its size limit")
+            with archive.open(info_entry) as handle:
+                info_bytes = handle.read(APP_INFO_BYTE_LIMIT + 1)
+    except VerificationError:
+        raise
+    except (OSError, RuntimeError, zipfile.BadZipFile, zipfile.LargeZipFile) as error:
+        raise VerificationError("macOS app archive is not a readable ZIP") from error
+    if len(info_bytes) > APP_INFO_BYTE_LIMIT:
+        raise VerificationError("macOS app Info.plist exceeds its size limit")
+    try:
+        values = plistlib.loads(info_bytes)
+    except (plistlib.InvalidFileException, ValueError, TypeError) as error:
+        raise VerificationError("macOS app Info.plist is invalid") from error
+    if not isinstance(values, dict):
+        raise VerificationError("macOS app Info.plist must contain a dictionary")
+
+    expected = {
+        "CFBundleName": PRODUCT,
+        "CFBundleDisplayName": PRODUCT,
+        "CFBundleIdentifier": BUNDLE_IDENTIFIER,
+        "CFBundleShortVersionString": manifest["version"],
+        "CFBundleVersion": manifest["build"],
+        "LSMinimumSystemVersion": updater["minimumSystemVersion"],
+        "QuillCodeBuildCommit": commit,
+        "QuillCodeUpdateChannel": channel,
+        "QuillCodeUpdateManifestURL": updater["manifestURL"],
+        "QuillCodeStableUpdateManifestURL": updater["stableManifestURL"],
+        "QuillCodeTesterUpdateManifestURL": updater["testerManifestURL"],
+    }
+    signing_team = updater.get("signingTeamIdentifier")
+    if signing_team is not None:
+        expected["QuillCodeSigningTeamIdentifier"] = signing_team
+    for key, expected_value in expected.items():
+        if values.get(key) != expected_value:
+            raise VerificationError(
+                f"macOS app Info.plist {key} disagrees with the manifest"
+            )
+
+
 def verify_asset_files(
     asset_directory: Path,
     assets: list[dict[str, Any]],
@@ -163,6 +235,12 @@ def verify_asset_files(
     verify_build_info(
         asset_directory,
         assets,
+        manifest,
+        channel=channel,
+        commit=commit,
+    )
+    verify_app_archive(
+        asset_directory,
         manifest,
         channel=channel,
         commit=commit,

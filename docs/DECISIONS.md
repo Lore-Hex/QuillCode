@@ -3560,3 +3560,21 @@
 - **Evidence:** The public performance manifest records every attempt, pass counts, aggregation,
   the selected median-launch attempt, and budgets; `ParityPackagedPerformanceGateTests` covers
   passing and failing majorities.
+
+## 2026-08-07: packaged source provenance is end-to-end verified
+
+- **Decision:** Every packaged macOS app embeds its exact lowercase 40-character Git commit in
+  `QuillCodeBuildCommit`. Public release verification requires the updater ZIP's bounded
+  `Info.plist` identity, version, build, commit, update channel, feed URLs, minimum system version,
+  and optional signing team to agree with the public manifest.
+- **Updater boundary:** The downloaded-app validator and detached activation helper both require the
+  incoming app's embedded commit to equal the selected release. The currently installed app is not
+  required to carry the new key, preserving upgrades from earlier tester builds while preventing a
+  manifest and replacement app from naming different source revisions.
+- **Support boundary:** **Report an Issue...** opens the public GitHub issue form with only bounded
+  version, build, commit, channel, macOS, and architecture metadata. It does not collect logs,
+  transcripts, project paths, or credentials.
+- **Evidence:** `build-macos-app.sh`, `package-macos-downloads.sh`, packaged smoke,
+  `release_verification_files.py`, `QuillCodeDesktopDownloadedApplicationValidator`,
+  `QuillCodeDesktopUpdateHelper`, `QuillCodeDesktopIssueReporter`, and their focused parity and unit
+  tests.

@@ -41,8 +41,10 @@ remains available as a manual fallback and as the verified auto-update payload.
 
 Quill Cowork checks for updates automatically and also provides **Check for Updates...** in the app
 menu. Downloads are size- and SHA-256-verified, the app identity and code signature are checked before
-installation, activation is atomic, and the previous build is restored if the new build cannot
-finish launching.
+installation, the packaged source commit must match the public manifest, activation is atomic, and
+the previous build is restored if the new build cannot finish launching. Use **Report an Issue...**
+in the app menu to open a prefilled GitHub report with bounded build and system information; it does
+not attach project paths, transcripts, or credentials.
 
 ## Downloads
 

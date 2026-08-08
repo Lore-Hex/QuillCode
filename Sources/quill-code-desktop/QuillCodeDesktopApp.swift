@@ -64,7 +64,8 @@ struct QuillCodeDesktopApp: App {
                     preferences: controller.surface.settings.keyboardShortcuts
                 ),
                 onCommand: { controller.runCommand(commandID: $0) },
-                onCheckForUpdates: controller.checkForUpdates
+                onCheckForUpdates: controller.checkForUpdates,
+                onReportIssue: controller.reportIssue
             )
         }
         MenuBarExtra {
@@ -85,6 +86,7 @@ struct QuillCodeDesktopApp: App {
                 onDisconnectAll: controller.disconnectAll,
                 onComputerUseSetup: controller.openSettings,
                 onCheckForUpdates: controller.checkForUpdates,
+                onReportIssue: controller.reportIssue,
                 onQuit: {
                     NSApplication.shared.terminate(nil)
                 }

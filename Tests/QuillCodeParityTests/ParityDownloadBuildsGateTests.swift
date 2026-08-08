@@ -318,6 +318,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "<key>QuillCodeUpdateManifestURL</key>",
             "<key>QuillCodeStableUpdateManifestURL</key>",
             "<key>QuillCodeTesterUpdateManifestURL</key>",
+            "<key>QuillCodeBuildCommit</key>",
             "QuillCodeSigningTeamIdentifier"
         ])
         Self.assertSource(packageScript, containsAll: [
@@ -327,6 +328,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "updateManifestURL=$UPDATE_MANIFEST_URL",
             "stableUpdateManifestURL=$STABLE_MANIFEST_URL",
             "testerUpdateManifestURL=$TESTER_MANIFEST_URL",
+            "QUILLCODE_MACOS_BUILD_COMMIT=\"$COMMIT\"",
             "installer=Quill-Cowork-macOS-$ARCH.dmg",
             "performance=Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",
             "scripts/packaged-macos-performance-smoke.sh",
@@ -344,6 +346,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         ])
         Self.assertSource(smokeScript, containsAll: [
             "assert_plist_value QuillCodeUpdateChannel tester",
+            "assert_plist_value QuillCodeBuildCommit \"$EXPECTED_BUILD_COMMIT\"",
             "assert_plist_value QuillCodeUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json",
             "assert_plist_value QuillCodeStableUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json",
             "assert_plist_value QuillCodeTesterUpdateManifestURL https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json"

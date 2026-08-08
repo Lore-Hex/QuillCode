@@ -7,6 +7,7 @@ struct QuillCodeDesktopCommands: Commands {
     var shortcutProfile: WorkspaceShortcutProfile
     var onCommand: (String) -> Void
     var onCheckForUpdates: () -> Void
+    var onReportIssue: () -> Void
 
     private var commandsByID: [String: WorkspaceCommandSurface] {
         Dictionary(uniqueKeysWithValues: commands.map { ($0.id, $0) })
@@ -16,6 +17,8 @@ struct QuillCodeDesktopCommands: Commands {
         CommandGroup(after: .appInfo) {
             Button("Check for Updates...", action: onCheckForUpdates)
                 .accessibilityIdentifier("quillcode-menu-check-for-updates")
+            Button("Report an Issue...", action: onReportIssue)
+                .accessibilityIdentifier("quillcode-menu-report-issue")
         }
 
         CommandMenu(QuillCodeProduct.displayName) {

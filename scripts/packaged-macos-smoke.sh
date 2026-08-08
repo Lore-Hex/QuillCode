@@ -115,6 +115,7 @@ echo "==> Building packaged macOS app"
 APP_BUNDLE="$("$ROOT_DIR/scripts/build-macos-app.sh" --output "$APP_OUTPUT_DIR")"
 INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"
 APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/Quill Cowork"
+EXPECTED_BUILD_COMMIT="$(git rev-parse HEAD)"
 
 assert_plist_value() {
   local key="$1"
@@ -162,6 +163,7 @@ assert_plist_value CFBundleDisplayName "Quill Cowork"
 assert_plist_value CFBundleExecutable "Quill Cowork"
 assert_plist_value CFBundleIdentifier co.lorehex.QuillCowork
 assert_plist_value CFBundlePackageType APPL
+assert_plist_value QuillCodeBuildCommit "$EXPECTED_BUILD_COMMIT"
 assert_plist_value LSApplicationCategoryType public.app-category.developer-tools
 assert_plist_value NSPrincipalClass NSApplication
 assert_plist_value QuillCodeUpdateChannel tester
