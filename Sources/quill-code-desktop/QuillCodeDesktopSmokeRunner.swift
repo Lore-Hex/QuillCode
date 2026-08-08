@@ -124,7 +124,8 @@ enum QuillCodeDesktopSmokeRunner {
             expectedHeight: 900,
             minDistinctColorBuckets: 28,
             minBrightPixelRatio: 0.0008,
-            minBlueAccentPixelRatio: 0.0001
+            // The inactive workspace is intentionally neutral; focused render smokes cover accents.
+            minAccentPixelRatio: 0
         )
 
         let resultRenderURL = root.resultRenderURL(request: request)
@@ -139,7 +140,7 @@ enum QuillCodeDesktopSmokeRunner {
             expectedHeight: 720,
             minDistinctColorBuckets: 28,
             minBrightPixelRatio: 0.004,
-            minBlueAccentPixelRatio: 0.0004
+            minAccentPixelRatio: 0.0004
         )
 
         let chromeRenderURL = root.chromeRenderURL(request: request)
@@ -150,7 +151,7 @@ enum QuillCodeDesktopSmokeRunner {
             expectedHeight: 760,
             minDistinctColorBuckets: 22,
             minBrightPixelRatio: 0.004,
-            minBlueAccentPixelRatio: 0.0005
+            minAccentPixelRatio: 0.0005
         )
 
         let htmlURL = root.htmlURL(request: request)
@@ -313,15 +314,14 @@ enum QuillCodeDesktopSmokeRunner {
         controller.openBrowserPreview()
         controller.addBrowserComment("Check the smoke hero")
 
-        let browser = controller.surface.browser
-        guard browser.currentURL?.hasSuffix("/browser-smoke.html") == true,
-              browser.title == "Browser Smoke",
-              browser.snapshot?.inspectionDepth == .staticHTMLSnapshot,
-              browser.snapshot?.outline.contains("H1: Browser Smoke") == true,
-              browser.snapshot?.textSnippet?.contains("Native browser smoke preview text.") == true
+        let initialBrowser = controller.surface.browser
+        guard initialBrowser.currentURL?.hasSuffix("/browser-smoke.html") == true,
+              initialBrowser.title == "browser-smoke.html",
+              initialBrowser.snapshot?.sourceLabel == "Local HTML",
+              initialBrowser.snapshot?.inspectionDepth == .fileMetadata
         else {
             throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(
-                "browser preview did not expose the local HTML snapshot"
+                "browser preview did not expose the deferred local HTML state"
             )
         }
 
@@ -338,8 +338,21 @@ enum QuillCodeDesktopSmokeRunner {
         let surface = controller.surface
         let finalAnswer = surface.transcript.messages.last?.text ?? ""
         let toolCard = surface.transcript.toolCards.last
+        let inspectionResult = toolCard?.outputJSON.flatMap {
+            try? JSONHelpers.decode(ToolResult.self, from: $0)
+        }
+        let inspection = inspectionResult.flatMap {
+            try? JSONHelpers.decode(BrowserInspectionToolOutput.self, from: $0.stdout)
+        }
         guard toolCard?.title == ToolDefinition.browserInspect.name,
               toolCard?.status == .done,
+              inspectionResult?.ok == true,
+              let inspection,
+              inspection.title == "Browser Smoke",
+              inspection.sourceLabel == "Local HTML",
+              inspection.inspectionDepth == .staticHTMLSnapshot,
+              inspection.outline.contains("H1: Browser Smoke"),
+              inspection.textSnippet?.contains("Native browser smoke preview text.") == true,
               finalAnswer.contains("Inspected `Browser Smoke`"),
               finalAnswer.contains("H1: Browser Smoke"),
               finalAnswer.contains("Native browser smoke preview text."),
@@ -348,16 +361,15 @@ enum QuillCodeDesktopSmokeRunner {
             throw QuillCodeDesktopSmokeFailure.browserSmokeFailed(finalAnswer)
         }
 
-        let snapshot = surface.browser.snapshot
         return QuillCodeDesktopBrowserSmokeReport(
             previewPath: previewFile.path,
-            url: surface.browser.currentURL ?? "",
-            title: surface.browser.title,
-            status: surface.browser.statusLabel,
-            sourceLabel: snapshot?.sourceLabel ?? "",
-            inspectionDepth: snapshot?.inspectionDepth.label ?? "",
-            outline: snapshot?.outline ?? [],
-            textSnippet: snapshot?.textSnippet ?? "",
+            url: inspection.url,
+            title: inspection.title,
+            status: inspection.status,
+            sourceLabel: inspection.sourceLabel,
+            inspectionDepth: inspection.inspectionDepth.label,
+            outline: inspection.outline,
+            textSnippet: inspection.textSnippet ?? "",
             commentCount: surface.browser.comments.count,
             toolName: toolCard?.title ?? "",
             finalAnswer: finalAnswer
@@ -1414,7 +1426,7 @@ enum QuillCodeDesktopSmokeRunner {
             ),
             OneTurnCoworkerSmokeCase(
                 taskID: 27,
-                prompt: "Create a file named `delay-notice.md` that says `Subject: Delivery delay notice\\n\\nHi customer, your order is delayed until Friday because the carrier missed pickup. We are sorry for the delay and will send tracking as soon as it moves.\\n`",
+                prompt: "Create a file named `delay-notice.md` that says `Subject: Delivery delay notice\n\nHi customer, your order is delayed until Friday because the carrier missed pickup. We are sorry for the delay and will send tracking as soon as it moves.\n`",
                 expectedToolName: ToolDefinition.fileWrite.name,
                 expectedAnswer: "Wrote `delay-notice.md`.",
                 artifactRelativePath: "delay-notice.md",

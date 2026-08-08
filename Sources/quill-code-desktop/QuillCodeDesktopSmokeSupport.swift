@@ -238,7 +238,7 @@ struct QuillCodeDesktopSmokePixelReport {
     var height: Int
     var opaquePixelRatio: Double
     var brightPixelRatio: Double
-    var blueAccentPixelRatio: Double
+    var accentPixelRatio: Double
     var distinctColorBuckets: Int
 
     var dictionary: [String: Any] {
@@ -247,7 +247,7 @@ struct QuillCodeDesktopSmokePixelReport {
             "height": height,
             "opaquePixelRatio": opaquePixelRatio,
             "brightPixelRatio": brightPixelRatio,
-            "blueAccentPixelRatio": blueAccentPixelRatio,
+            "accentPixelRatio": accentPixelRatio,
             "distinctColorBuckets": distinctColorBuckets
         ]
     }
@@ -281,7 +281,7 @@ struct QuillCodeDesktopSmokePixelStats {
 
         var opaquePixels = 0
         var brightPixels = 0
-        var blueAccentPixels = 0
+        var accentPixels = 0
         var colorBuckets = Set<Int>()
         let totalPixels = width * height
 
@@ -297,8 +297,9 @@ struct QuillCodeDesktopSmokePixelStats {
             if red + green + blue > 560 {
                 brightPixels += 1
             }
-            if blue > 130, green > 95, red < 120 {
-                blueAccentPixels += 1
+            if red > 100, red < 220, green > 150, blue > 125,
+               green > red + 10, green > blue + 5 {
+                accentPixels += 1
             }
 
             let bucket = (red / 16) << 8 | (green / 16) << 4 | (blue / 16)
@@ -310,7 +311,7 @@ struct QuillCodeDesktopSmokePixelStats {
             height: height,
             opaquePixelRatio: Double(opaquePixels) / Double(totalPixels),
             brightPixelRatio: Double(brightPixels) / Double(totalPixels),
-            blueAccentPixelRatio: Double(blueAccentPixels) / Double(totalPixels),
+            accentPixelRatio: Double(accentPixels) / Double(totalPixels),
             distinctColorBuckets: colorBuckets.count
         )
     }
@@ -320,7 +321,7 @@ struct QuillCodeDesktopSmokePixelStats {
         expectedHeight: Int,
         minDistinctColorBuckets: Int,
         minBrightPixelRatio: Double,
-        minBlueAccentPixelRatio: Double
+        minAccentPixelRatio: Double
     ) throws {
         guard report.width == expectedWidth, report.height == expectedHeight else {
             throw QuillCodeDesktopSmokeFailure.invalidImageSize(report.width, report.height)
@@ -334,8 +335,8 @@ struct QuillCodeDesktopSmokePixelStats {
         guard report.brightPixelRatio > minBrightPixelRatio else {
             throw QuillCodeDesktopSmokeFailure.imageMissingBrightPixels(report.brightPixelRatio)
         }
-        guard minBlueAccentPixelRatio <= 0 || report.blueAccentPixelRatio > minBlueAccentPixelRatio else {
-            throw QuillCodeDesktopSmokeFailure.imageMissingAccentPixels(report.blueAccentPixelRatio)
+        guard minAccentPixelRatio <= 0 || report.accentPixelRatio > minAccentPixelRatio else {
+            throw QuillCodeDesktopSmokeFailure.imageMissingAccentPixels(report.accentPixelRatio)
         }
     }
 }
