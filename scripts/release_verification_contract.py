@@ -12,6 +12,7 @@ from urllib.parse import quote
 
 PRODUCT = "Quill Cowork"
 BUNDLE_IDENTIFIER = "co.lorehex.QuillCowork"
+MACOS_ARCHITECTURES = ("arm64", "x86_64")
 MANIFEST_BYTE_LIMIT = 256 * 1024
 API_BYTE_LIMIT = 4 * 1024 * 1024
 MAXIMUM_ASSET_BYTES = 2 * 1024 * 1024 * 1024
@@ -109,6 +110,37 @@ def validate_api_asset(
         raise VerificationError(
             f"release asset {name!r} URL disagrees with the manifest"
         )
+
+
+def exact_macos_assets(
+    assets: list[dict[str, Any]],
+    *,
+    kind: str,
+    install: str,
+) -> list[dict[str, Any]]:
+    matching = [
+        asset
+        for asset in assets
+        if asset["kind"] == kind
+        and asset["platform"] == "macOS"
+    ]
+    assets_by_arch: dict[str, dict[str, Any]] = {}
+    for asset in matching:
+        if asset["install"] != install:
+            raise VerificationError(
+                f"release macOS {kind} assets must use {install} installation"
+            )
+        architecture = asset["arch"]
+        if architecture not in MACOS_ARCHITECTURES or architecture in assets_by_arch:
+            raise VerificationError(
+                f"release must contain exactly one macOS {kind} for each architecture"
+            )
+        assets_by_arch[architecture] = asset
+    if set(assets_by_arch) != set(MACOS_ARCHITECTURES):
+        raise VerificationError(
+            f"release must contain exactly one macOS {kind} for each architecture"
+        )
+    return [assets_by_arch[architecture] for architecture in MACOS_ARCHITECTURES]
 
 
 def validate_manifest(
@@ -264,13 +296,17 @@ def validate_manifest(
         url=urls["manifest"],
     )
 
-    app_assets = [
-        asset
-        for asset in assets
-        if asset["kind"] == "app"
-        and asset["platform"] == "macOS"
-        and asset["install"] == "zip-app"
-    ]
-    if len(app_assets) != 1 or updater.get("macOSAppAsset") != app_assets[0]:
-        raise VerificationError("updater macOS app asset is missing or ambiguous")
+    app_assets = exact_macos_assets(assets, kind="app", install="zip-app")
+    for kind, install in (
+        ("installer", "dmg-app"),
+        ("performance", "json"),
+        ("cli", "tarball"),
+    ):
+        exact_macos_assets(assets, kind=kind, install=install)
+    if updater.get("macOSAppAsset") != app_assets[0]:
+        raise VerificationError("legacy updater asset must be the arm64 app archive")
+    if updater.get("macOSAppAssets") != app_assets:
+        raise VerificationError(
+            "updater macOS app assets must exactly cover arm64 and x86_64"
+        )
     return assets

@@ -8,34 +8,57 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
-        try """
-        product=Quill Cowork
-        platform=macOS
-        arch=arm64
-        version=0.2.0
-        build=123
-        bundleIdentifier=co.lorehex.QuillCowork
-        minimumSystemVersion=14.0
-        updateChannel=tester
-        updateManifestURL=https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
-        stableUpdateManifestURL=https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json
-        testerUpdateManifestURL=https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
-        """
-            .write(to: temporaryDirectory.appendingPathComponent("BUILD_INFO.txt"), atomically: true, encoding: .utf8)
+        let commit = String(repeating: "a", count: 40)
+        for architecture in ["arm64", "x86_64"] {
+            let buildInfo = """
+            product=Quill Cowork
+            platform=macOS
+            arch=\(architecture)
+            version=0.2.0
+            build=123
+            commit=\(commit)
+            configuration=release
+            bundleIdentifier=co.lorehex.QuillCowork
+            minimumSystemVersion=14.0
+            updateChannel=tester
+            updateManifestURL=https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
+            stableUpdateManifestURL=https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json
+            testerUpdateManifestURL=https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/latest-tester-build.json
+            """
+            try buildInfo.write(
+                to: temporaryDirectory.appendingPathComponent("BUILD_INFO-macOS-\(architecture).txt"),
+                atomically: true,
+                encoding: .utf8
+            )
+            if architecture == "arm64" {
+                try buildInfo.write(
+                    to: temporaryDirectory.appendingPathComponent("BUILD_INFO.txt"),
+                    atomically: true,
+                    encoding: .utf8
+                )
+            }
+            let appPayload = architecture == "arm64" ? "mac app" : "intel app"
+            try Data(appPayload.utf8).write(
+                to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-\(architecture).zip")
+            )
+            try Data("mac installer \(architecture)".utf8).write(
+                to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-\(architecture).dmg")
+            )
+            try Data(#"{"withinBudget":true}"#.utf8).write(
+                to: temporaryDirectory.appendingPathComponent(
+                    "Quill-Cowork-macOS-\(architecture)-PERFORMANCE.json"
+                )
+            )
+            try Data("mac cli \(architecture)".utf8).write(
+                to: temporaryDirectory.appendingPathComponent("quill-code-macOS-\(architecture).tar.gz")
+            )
+        }
         try "product=Quill Cowork\nplatform=Linux\narch=x86_64\nversion=0.2.0\nbuild=123\n"
             .write(
                 to: temporaryDirectory.appendingPathComponent("BUILD_INFO-linux-x86_64.txt"),
                 atomically: true,
                 encoding: .utf8
             )
-        try Data("mac app".utf8).write(to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64.zip"))
-        try Data("mac installer".utf8).write(
-            to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64.dmg")
-        )
-        try Data(#"{"withinBudget":true}"#.utf8).write(
-            to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64-PERFORMANCE.json")
-        )
-        try Data("mac cli".utf8).write(to: temporaryDirectory.appendingPathComponent("quill-code-macOS-arm64.tar.gz"))
         try Data("linux cli".utf8).write(to: temporaryDirectory.appendingPathComponent("quill-code-linux-x86_64.tar.gz"))
         try "placeholder checksums\n"
             .write(to: temporaryDirectory.appendingPathComponent("SHASUMS256.txt"), atomically: true, encoding: .utf8)
@@ -49,7 +72,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--repo", "Lore-Hex/QuillCode",
             "--tag", "tester-latest",
             "--channel", "tester",
-            "--commit", "abc123",
+            "--commit", commit,
             "--workflow-run-url", "https://github.com/Lore-Hex/QuillCode/actions/runs/1",
             "--generated-at", "2026-07-05T00:00:00Z",
             "--output", manifestURL.path
@@ -63,7 +86,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(manifest["channel"] as? String, "tester")
         XCTAssertEqual(manifest["tag"] as? String, "tester-latest")
         XCTAssertEqual(manifest["releaseURL"] as? String, "https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest")
-        XCTAssertEqual(manifest["commit"] as? String, "abc123")
+        XCTAssertEqual(manifest["commit"] as? String, commit)
         XCTAssertEqual(manifest["version"] as? String, "0.2.0")
         XCTAssertEqual(manifest["build"] as? String, "123")
         XCTAssertEqual(manifest["generatedAt"] as? String, "2026-07-05T00:00:00Z")
@@ -95,9 +118,18 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertNil(updater["signingTeamIdentifier"] as? String)
         let updaterAppAsset = try XCTUnwrap(updater["macOSAppAsset"] as? [String: Any])
         XCTAssertEqual(updaterAppAsset["name"] as? String, "Quill-Cowork-macOS-arm64.zip")
+        let updaterAppAssets = try XCTUnwrap(updater["macOSAppAssets"] as? [[String: Any]])
+        XCTAssertEqual(
+            updaterAppAssets.compactMap { $0["arch"] as? String },
+            ["arm64", "x86_64"]
+        )
+        XCTAssertEqual(
+            updaterAppAssets.compactMap { $0["name"] as? String },
+            ["Quill-Cowork-macOS-arm64.zip", "Quill-Cowork-macOS-x86_64.zip"]
+        )
 
         let assets = try XCTUnwrap(manifest["assets"] as? [[String: Any]])
-        XCTAssertEqual(assets.count, 8)
+        XCTAssertEqual(assets.count, 14)
 
         let installerAsset = try asset(named: "Quill-Cowork-macOS-arm64.dmg", in: assets)
         XCTAssertEqual(installerAsset["kind"] as? String, "installer")
@@ -133,6 +165,11 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(macMetadata["platform"] as? String, "macOS")
         XCTAssertEqual(macMetadata["arch"] as? String, "any")
 
+        let intelMetadata = try asset(named: "BUILD_INFO-macOS-x86_64.txt", in: assets)
+        XCTAssertEqual(intelMetadata["kind"] as? String, "metadata")
+        XCTAssertEqual(intelMetadata["platform"] as? String, "macOS")
+        XCTAssertEqual(intelMetadata["arch"] as? String, "x86_64")
+
         let linuxMetadata = try asset(named: "BUILD_INFO-linux-x86_64.txt", in: assets)
         XCTAssertEqual(linuxMetadata["kind"] as? String, "metadata")
         XCTAssertEqual(linuxMetadata["platform"] as? String, "Linux")
@@ -152,23 +189,49 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         let stableFeed = "https://github.com/Lore-Hex/QuillCode/releases/latest/download/latest-stable-build.json"
         let testerFeed = "https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/" +
             "latest-tester-build.json"
-        let buildInfoURL = temporaryDirectory.appendingPathComponent("BUILD_INFO.txt")
-        try """
-        product=Quill Cowork
-        platform=macOS
-        arch=arm64
-        version=1.2.3
-        build=456
-        bundleIdentifier=co.lorehex.QuillCowork
-        minimumSystemVersion=14.0
-        updateChannel=stable
-        updateManifestURL=\(stableFeed)
-        stableUpdateManifestURL=\(stableFeed)
-        testerUpdateManifestURL=\(testerFeed)
-        """.write(to: buildInfoURL, atomically: true, encoding: .utf8)
-        try Data("stable app".utf8).write(
-            to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-arm64.zip")
-        )
+        let commit = String(repeating: "a", count: 40)
+        var buildInfoURLs: [URL] = []
+        for architecture in ["arm64", "x86_64"] {
+            let buildInfo = """
+            product=Quill Cowork
+            platform=macOS
+            arch=\(architecture)
+            version=1.2.3
+            build=456
+            commit=\(commit)
+            configuration=release
+            bundleIdentifier=co.lorehex.QuillCowork
+            minimumSystemVersion=14.0
+            updateChannel=stable
+            updateManifestURL=\(stableFeed)
+            stableUpdateManifestURL=\(stableFeed)
+            testerUpdateManifestURL=\(testerFeed)
+            """
+            let buildInfoURL = temporaryDirectory.appendingPathComponent(
+                "BUILD_INFO-macOS-\(architecture).txt"
+            )
+            try buildInfo.write(to: buildInfoURL, atomically: true, encoding: .utf8)
+            buildInfoURLs.append(buildInfoURL)
+            if architecture == "arm64" {
+                let canonicalURL = temporaryDirectory.appendingPathComponent("BUILD_INFO.txt")
+                try buildInfo.write(to: canonicalURL, atomically: true, encoding: .utf8)
+                buildInfoURLs.append(canonicalURL)
+            }
+            try Data("stable app \(architecture)".utf8).write(
+                to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-\(architecture).zip")
+            )
+            try Data("stable installer \(architecture)".utf8).write(
+                to: temporaryDirectory.appendingPathComponent("Quill-Cowork-macOS-\(architecture).dmg")
+            )
+            try Data("performance \(architecture)".utf8).write(
+                to: temporaryDirectory.appendingPathComponent(
+                    "Quill-Cowork-macOS-\(architecture)-PERFORMANCE.json"
+                )
+            )
+            try Data("cli \(architecture)".utf8).write(
+                to: temporaryDirectory.appendingPathComponent("quill-code-macOS-\(architecture).tar.gz")
+            )
+        }
 
         let manifestURL = temporaryDirectory.appendingPathComponent("latest-stable-build.json")
         let script = Self.packageRoot()
@@ -179,7 +242,7 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--repo", "Lore-Hex/QuillCode",
             "--tag", "v1.2.3",
             "--channel", "stable",
-            "--commit", String(repeating: "a", count: 40),
+            "--commit", commit,
             "--workflow-run-url", "https://github.com/Lore-Hex/QuillCode/actions/runs/456",
             "--generated-at", "2026-08-07T00:00:00Z",
             "--output", manifestURL.path
@@ -195,9 +258,16 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertEqual(updater["stableManifestURL"] as? String, stableFeed)
         XCTAssertEqual(updater["testerManifestURL"] as? String, testerFeed)
 
-        let mismatchedBuildInfo = try String(contentsOf: buildInfoURL, encoding: .utf8)
-            .replacingOccurrences(of: stableFeed, with: "https://example.com/stable.json", options: [], range: nil)
-        try mismatchedBuildInfo.write(to: buildInfoURL, atomically: true, encoding: .utf8)
+        for buildInfoURL in buildInfoURLs {
+            let mismatchedBuildInfo = try String(contentsOf: buildInfoURL, encoding: .utf8)
+                .replacingOccurrences(
+                    of: stableFeed,
+                    with: "https://example.com/stable.json",
+                    options: [],
+                    range: nil
+                )
+            try mismatchedBuildInfo.write(to: buildInfoURL, atomically: true, encoding: .utf8)
+        }
         let mismatch = try Self.runPython(script, arguments: arguments)
         XCTAssertNotEqual(mismatch.exitCode, 0)
         XCTAssertTrue(mismatch.output.contains("BUILD_INFO updateManifestURL must be"), mismatch.output)
@@ -229,7 +299,12 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--output \"$RUNNER_TEMP/release-assets/$MANIFEST_NAME\"",
             "RELEASE_CHANNEL=\"tester\"",
             "RELEASE_CHANNEL=\"stable\"",
-            "quillcode-macos-downloads/BUILD_INFO.txt",
+            "quillcode-macos-downloads-arm64/BUILD_INFO-macOS-arm64.txt",
+            "macos-15-intel",
+            "runner: macos-15",
+            "runner: macos-15-intel",
+            "name: quillcode-macos-downloads-${{ matrix.arch }}",
+            "name: quillcode-public-updater-smoke-${{ matrix.arch }}",
             "Quill-Cowork-macOS-*.dmg",
             "recommended drag-to-Applications macOS installer",
             "\\`${MANIFEST_NAME}\\`: machine-readable build metadata",
@@ -334,7 +409,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "scripts/packaged-macos-performance-smoke.sh",
             "scripts/create-macos-disk-image.sh",
             "signingTeamIdentifier=${SIGNING_TEAM_IDENTIFIER:-none}",
-            "notarized=$NOTARIZED"
+            "notarized=$NOTARIZED",
+            "BUILD_INFO-macOS-$ARCH.txt"
         ])
         Self.assertSource(diskImageScript, containsAll: [
             "ditto \"$APP_BUNDLE\" \"$STAGING_DIR/$APP_NAME\"",

@@ -44,13 +44,27 @@ jobs:
   macos:
     needs: release-policy
     if: needs.release-policy.outputs.build-required == 'true'
-    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Verify native build architecture
+        run: |
+          if [[ "$(uname -m)" != "${{ matrix.arch }}" ]]; then
+            echo "Runner architecture $(uname -m) does not match ${{ matrix.arch }}." >&2
+            exit 1
+          fi
       - name: Set build metadata
         run: |
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
@@ -73,7 +87,7 @@ jobs:
         run: scripts/configure-macos-distribution-signing.sh
       - name: Package macOS app and CLI
         env:
-          QUILLCODE_DOWNLOAD_DIST_DIR: ${{ runner.temp }}/quillcode-macos-downloads
+          QUILLCODE_DOWNLOAD_DIST_DIR: ${{ runner.temp }}/quillcode-macos-downloads-${{ matrix.arch }}
         run: scripts/package-macos-downloads.sh
       - name: Remove temporary Apple signing material
         if: always()
@@ -90,8 +104,8 @@ jobs:
       - name: Upload macOS downloads
         uses: actions/upload-artifact@v7
         with:
-          name: quillcode-macos-downloads
-          path: ${{ runner.temp }}/quillcode-macos-downloads/assets/*
+          name: quillcode-macos-downloads-${{ matrix.arch }}
+          path: ${{ runner.temp }}/quillcode-macos-downloads-${{ matrix.arch }}/assets/*
           if-no-files-found: error
           retention-days: 14
 
@@ -144,8 +158,8 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p "$RUNNER_TEMP/release-assets"
-          find "$RUNNER_TEMP/downloaded-artifacts" -maxdepth 3 -type f ! -name BUILD_INFO.txt -print -exec cp {} "$RUNNER_TEMP/release-assets/" \;
-          cp "$RUNNER_TEMP/downloaded-artifacts/quillcode-macos-downloads/BUILD_INFO.txt" \
+          find "$RUNNER_TEMP/downloaded-artifacts" -maxdepth 3 -type f -print -exec cp {} "$RUNNER_TEMP/release-assets/" \;
+          cp "$RUNNER_TEMP/downloaded-artifacts/quillcode-macos-downloads-arm64/BUILD_INFO-macOS-arm64.txt" \
             "$RUNNER_TEMP/release-assets/BUILD_INFO.txt"
           if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
             RELEASE_TAG="${GITHUB_REF_NAME}"
@@ -283,13 +297,27 @@ jobs:
 
   verify-updater:
     needs: publish
-    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Verify native updater architecture
+        run: |
+          if [[ "$(uname -m)" != "${{ matrix.arch }}" ]]; then
+            echo "Runner architecture $(uname -m) does not match ${{ matrix.arch }}." >&2
+            exit 1
+          fi
       - name: Download public updater inputs
         env:
           GH_TOKEN: ${{ github.token }}
@@ -303,7 +331,7 @@ jobs:
           fi
           mkdir -p "$RUNNER_TEMP/public-updater"
           gh release download "$RELEASE_TAG" \
-            --pattern 'Quill-Cowork-macOS-*.zip' \
+            --pattern 'Quill-Cowork-macOS-${{ matrix.arch }}.zip' \
             --dir "$RUNNER_TEMP/public-updater"
           gh release download "$RELEASE_TAG" \
             --pattern "latest-${RELEASE_CHANNEL}-build.json" \
@@ -312,7 +340,7 @@ jobs:
         env:
           QUILLCODE_UPDATER_SMOKE_ARTIFACT_DIR: ${{ runner.temp }}/updater-smoke-artifacts
         run: |
-          APP_ZIPS=("$RUNNER_TEMP"/public-updater/Quill-Cowork-macOS-*.zip)
+          APP_ZIPS=("$RUNNER_TEMP"/public-updater/Quill-Cowork-macOS-${{ matrix.arch }}.zip)
           MANIFESTS=("$RUNNER_TEMP"/public-updater/latest-*-build.json)
           if [[ ${#APP_ZIPS[@]} -ne 1 || ${#MANIFESTS[@]} -ne 1 ]]; then
             echo "Expected exactly one public app archive and one updater manifest." >&2
@@ -325,7 +353,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: quillcode-public-updater-smoke
+          name: quillcode-public-updater-smoke-${{ matrix.arch }}
           path: ${{ runner.temp }}/updater-smoke-artifacts
           if-no-files-found: error
           retention-days: 14

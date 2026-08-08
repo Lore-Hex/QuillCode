@@ -115,6 +115,7 @@ struct QuillCodeDesktopUpdateManifest: Codable, Equatable, Sendable {
         var signingTeamIdentifier: String?
         var notarized: Bool?
         var macOSAppAsset: Asset?
+        var macOSAppAssets: [Asset]? = nil
     }
 
     struct Asset: Codable, Equatable, Sendable {
