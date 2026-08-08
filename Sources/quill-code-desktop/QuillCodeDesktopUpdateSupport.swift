@@ -28,6 +28,8 @@ enum QuillCodeDesktopUpdateLaunchHandshake {
 }
 
 struct QuillCodeDesktopUpdateInstallResult: Codable, Equatable, Sendable {
+    static let maximumEncodedBytes = 64 * 1_024
+
     enum Status: String, Codable, Sendable {
         case success
         case failure

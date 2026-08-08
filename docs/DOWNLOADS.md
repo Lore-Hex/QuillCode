@@ -128,16 +128,19 @@ and app-validation phases separately.
 
 Installation stages the verified app beside the running bundle, then uses a
 detached helper for the final rename and relaunch. The new app must complete a
-launch handshake within 45 seconds. Otherwise the helper restores and reopens the
-previous bundle. Background check failures stay quiet; user-initiated failures
-remain visible and retain direct retry and browser-download actions. Repeated
-menu checks cannot cancel an active download or the non-cancellable activation
-phase, and a background result never replaces update UI that is already visible.
-Failed or cancelled preparation removes its cache workspace immediately. After a
-two-minute active-helper grace period on launch, the app also removes only its
-exact hidden `.Quill Cowork.update-<lowercase UUID>.app` sibling directories left
-by an interrupted install; symlinks, lookalikes, and unexpected app identities are
-never treated as updater-owned staging.
+launch handshake within 45 seconds and remain running for a three-second startup
+observation window. If either check fails, the helper restores and reopens the
+previous bundle. The one-shot install result is read only when it is a regular,
+non-symlink file no larger than 64 KiB; malformed or unexpected entries are
+discarded. Background check failures stay quiet; user-initiated failures remain
+visible and retain direct retry and browser-download actions. Repeated menu checks
+cannot cancel an active download or the non-cancellable activation phase, and a
+background result never replaces update UI that is already visible. Failed or
+cancelled preparation removes its cache workspace immediately. After a two-minute
+active-helper grace period on launch, the app also removes only its exact hidden
+`.Quill Cowork.update-<lowercase UUID>.app` sibling directories left by an
+interrupted install; symlinks, lookalikes, and unexpected app identities are never
+treated as updater-owned staging.
 
 ## Tester Install Notes
 
