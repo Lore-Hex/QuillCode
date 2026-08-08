@@ -10,10 +10,34 @@ MAX_RESIDENT_MEMORY_GROWTH_BYTES="${QUILLCODE_MAX_RESIDENT_MEMORY_GROWTH_BYTES:-
 MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES="${QUILLCODE_MAX_REPEATED_RESIDENT_MEMORY_GROWTH_BYTES:-16777216}"
 MAX_THREAD_COUNT="${QUILLCODE_MAX_THREAD_COUNT:-64}"
 MAX_REPEATED_THREAD_GROWTH="${QUILLCODE_MAX_REPEATED_THREAD_GROWTH:-4}"
+ATTEMPT_TIMEOUT_SECONDS="${QUILLCODE_PACKAGED_PERFORMANCE_ATTEMPT_TIMEOUT_SECONDS:-180}"
 SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quillcode-packaged-performance.XXXXXX")"
 PERFORMANCE_ATTEMPT_COUNT=3
+SMOKE_PID=""
+
+terminate_smoke_process() {
+  if [[ -z "$SMOKE_PID" ]]; then
+    return
+  fi
+
+  if kill -0 "$SMOKE_PID" 2>/dev/null; then
+    kill "$SMOKE_PID" 2>/dev/null || true
+    for ((shutdown_attempt = 0; shutdown_attempt < 5; shutdown_attempt += 1)); do
+      if ! kill -0 "$SMOKE_PID" 2>/dev/null; then
+        break
+      fi
+      sleep 1
+    done
+    if kill -0 "$SMOKE_PID" 2>/dev/null; then
+      kill -KILL "$SMOKE_PID" 2>/dev/null || true
+    fi
+  fi
+  wait "$SMOKE_PID" 2>/dev/null || true
+  SMOKE_PID=""
+}
 
 cleanup() {
+  terminate_smoke_process
   rm -rf "$SMOKE_ROOT"
 }
 trap cleanup EXIT
@@ -43,6 +67,10 @@ if [[ ! -d "$APP_BUNDLE" || -z "$MANIFEST_PATH" ]]; then
   echo "Usage: packaged-macos-performance-smoke.sh --app APP_BUNDLE --manifest OUTPUT_JSON" >&2
   exit 2
 fi
+if [[ ! "$ATTEMPT_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "QUILLCODE_PACKAGED_PERFORMANCE_ATTEMPT_TIMEOUT_SECONDS must be a positive integer." >&2
+  exit 2
+fi
 
 INFO_PLIST="$APP_BUNDLE/Contents/Info.plist"
 EXECUTABLE_NAME="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$INFO_PLIST")"
@@ -69,16 +97,16 @@ for ((attempt = 1; attempt <= PERFORMANCE_ATTEMPT_COUNT; attempt += 1)); do
 
   elapsed=0
   while kill -0 "$SMOKE_PID" 2>/dev/null; do
-    if [[ "$elapsed" -ge 60 ]]; then
-      echo "Packaged performance attempt $attempt timed out after 60s." >&2
-      kill "$SMOKE_PID" 2>/dev/null || true
-      wait "$SMOKE_PID" 2>/dev/null || true
+    if [[ "$elapsed" -ge "$ATTEMPT_TIMEOUT_SECONDS" ]]; then
+      echo "Packaged performance attempt $attempt exceeded its ${ATTEMPT_TIMEOUT_SECONDS}s wall-clock guard." >&2
+      terminate_smoke_process
       exit 124
     fi
     sleep 1
     elapsed=$((elapsed + 1))
   done
   wait "$SMOKE_PID"
+  SMOKE_PID=""
   REPORT_PATHS+=("$REPORT_PATH")
 done
 
