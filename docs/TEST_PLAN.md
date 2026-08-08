@@ -363,3 +363,6 @@ Drive the QuillCode test harness with mock LLM:
   function calls with exact argument graders. Manifests are redacted and scanned for the API key.
   These are QuillCode compatibility fixtures informed by the upstream suites, not official TAU or
   BFCL benchmark scores.
+- Last full live verification: 2026-08-07, TAU3 banking 6/6 and BFCL 8/8, with 24/24 bounded paid
+  invocations on `deepseek/deepseek-v4-flash-0731`. Evidence:
+  `.build/quillcode-validation/benchmark-compat/live-r1/manifest.json`.

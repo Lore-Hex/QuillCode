@@ -3651,4 +3651,6 @@
   fuse run before or during any paid execution.
 - **Evidence:** `docs/tau3-banking-eval-catalog.json`, `docs/bfcl-eval-catalog.json`,
   `scripts/benchmark-compat-evals.py`, `BenchmarkCompatibilityActionParserTests`, and
-  `ParityBenchmarkCompatibilityEvalsTests`.
+  `ParityBenchmarkCompatibilityEvalsTests`. The 2026-08-07 exact-model live run passed TAU3 banking
+  6/6 and BFCL 8/8 with all 24 bounded paid invocations successful; the redacted local manifest is
+  `.build/quillcode-validation/benchmark-compat/live-r1/manifest.json`.
