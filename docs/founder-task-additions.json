@@ -289,7 +289,7 @@
       "Category": "Product & Roadmap",
       "Task (what the person types)": "Score these roadmap candidates using reach, impact, confidence, effort, strategic fit, and evidence quality. Show the math and identify assumptions that could change the ranking.",
       "Role": "Technical Founder",
-      "Capability needed": "Multi-file artifacts",
+      "Capability needed": "Files/Shell",
       "They must supply": "Roadmap, issue tracker export, customer evidence, product metrics, and engineering constraints",
       "Why it saves time": "Turns scattered product evidence into scoped, testable priorities without another planning meeting",
       "Evidence / gap": "Proposed 2026-08-06 for the YC founder/operator expansion; fixture-backed drive not yet run"

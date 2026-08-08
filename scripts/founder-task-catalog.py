@@ -25,6 +25,7 @@ EVIDENCE = (
 )
 CAPABILITY_OVERRIDES = {
     230: "Files/Shell",
+    233: "Files/Shell",
 }
 
 

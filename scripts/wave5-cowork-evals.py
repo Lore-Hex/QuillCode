@@ -367,6 +367,13 @@ def validate_case_fixtures():
             raise EvalError(
                 f"Case fixture {case_id} tabular reconciliation requires boolean opt-in and dataCSV"
             )
+        validate_ranked_scores = fixture.get("validateRankedScores", False)
+        if not isinstance(validate_ranked_scores, bool) or (
+            validate_ranked_scores and data_csv is None
+        ):
+            raise EvalError(
+                f"Case fixture {case_id} ranked-score validation requires boolean opt-in and dataCSV"
+            )
         output_requirements = fixture.get("outputRequirements")
         if output_requirements is not None and (
             not isinstance(output_requirements, str) or not output_requirements.strip()
@@ -779,6 +786,87 @@ def tabular_source_reconciliation_issues(text, source_csv):
     return list(dict.fromkeys(issues))
 
 
+def ranked_score_issues(text, source_csv):
+    records = list(csv.DictReader(io.StringIO(source_csv)))
+    required_columns = {
+        "id", "reach", "impact", "confidence", "effort", "strategic_fit", "evidence_quality",
+    }
+    if not records or not required_columns.issubset(records[0]):
+        return ["ranked-score source is missing required columns"]
+
+    expected = []
+    try:
+        for record in records:
+            score = round(
+                0.20 * float(record["reach"])
+                + 0.20 * float(record["impact"])
+                + 0.15 * float(record["confidence"])
+                + 0.15 * (10 - float(record["effort"]))
+                + 0.15 * float(record["strategic_fit"])
+                + 0.15 * float(record["evidence_quality"]),
+                2,
+            )
+            expected.append((record["id"].strip(), score, float(record["effort"])))
+    except (TypeError, ValueError):
+        return ["ranked-score source contains non-numeric factor values"]
+    expected.sort(key=lambda item: (-item[1], item[2], item[0]))
+
+    ranking_tables = []
+    for headers, rows in markdown_tables(text):
+        canonical = [canonical_header(header) for header in headers]
+        rank_index = next((index for index, header in enumerate(canonical) if header == "rank"), None)
+        id_index = next(
+            (index for index, header in enumerate(canonical) if header in {"id", "candidateid", "roadmapid"}),
+            None,
+        )
+        score_index = next(
+            (index for index, header in enumerate(canonical) if "score" in header),
+            None,
+        )
+        if rank_index is not None and id_index is not None and score_index is not None:
+            ranking_tables.append((rows, rank_index, id_index, score_index))
+    if len(ranking_tables) != 1:
+        return [f"expected exactly one Rank/ID/Score table, found {len(ranking_tables)}"]
+
+    rows, rank_index, id_index, score_index = ranking_tables[0]
+    issues = []
+    parsed = []
+    for row_number, row in enumerate(rows, start=1):
+        rank_match = re.fullmatch(r"#?\s*(\d+)\s*[.)]?", clean_markdown(row[rank_index]))
+        score_match = re.fullmatch(
+            r"[-+]?\d+(?:\.\d+)?",
+            clean_markdown(row[score_index]).replace(",", ""),
+        )
+        if not rank_match or not score_match:
+            issues.append(f"ranking row {row_number} has a non-numeric rank or score")
+            continue
+        parsed.append((
+            int(rank_match.group(1)),
+            clean_markdown(row[id_index]),
+            float(score_match.group(0)),
+        ))
+
+    expected_ids = [item[0] for item in expected]
+    actual_ids = [item[1] for item in parsed]
+    if len(rows) != len(expected) or len(parsed) != len(expected):
+        issues.append(f"ranking has {len(rows)} rows; expected {len(expected)}")
+    if [item[0] for item in parsed] != list(range(1, len(expected) + 1)):
+        issues.append("ranks must be sequential from 1 in table order")
+    if actual_ids != expected_ids:
+        issues.append(f"ranking order is {actual_ids}; expected {expected_ids}")
+    if len(set(actual_ids)) != len(actual_ids):
+        issues.append("ranking contains duplicate candidate IDs")
+
+    expected_scores = {item[0]: item[1] for item in expected}
+    for _, candidate_id, score in parsed:
+        expected_score = expected_scores.get(candidate_id)
+        if expected_score is not None and abs(score - expected_score) > 0.011:
+            issues.append(
+                f"{candidate_id} reports score {score:.2f}; expected {expected_score:.2f}"
+            )
+    return list(dict.fromkeys(issues))
+
+
 def source_header_for_section(heading, headers):
     canonical = canonical_header(heading)
     aliases = {
@@ -1125,6 +1213,13 @@ def grade(row, workspace, report, source_hashes):
             repr(reconciliation_issues[:4])
             if reconciliation_issues
             else "all ID-backed rows reconcile",
+        )
+    if case_fixture.get("validateRankedScores"):
+        ranking_issues = ranked_score_issues(coverage_text, case_fixture["dataCSV"])
+        add(
+            "computed ranking integrity",
+            not ranking_issues,
+            repr(ranking_issues[:4]) if ranking_issues else "all scores and ranks reconcile",
         )
     refusal = contains_task_refusal(text)
     add("no refusal", not refusal, "refusal language" if refusal else "clean")

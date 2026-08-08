@@ -361,6 +361,60 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("D12,Series A,referral", data)
         self.assertNotIn("Account 01", data)
 
+    def test_roadmap_scoring_uses_shell_and_auditable_twenty_row_source(self):
+        rows = WAVE5.validate_catalog(WAVE5.read_json(WAVE5.SOURCE_CATALOG))
+        row = next(row for row in rows if row["ID"] == 233)
+
+        self.assertEqual(row["Capability needed"], "Files/Shell")
+        prompt = WAVE5.build_prompt(row)
+        self.assertIn("use the shell tool for one concise calculation", prompt)
+        self.assertIn("exactly one final item-level ranking table", prompt)
+
+        case_fixture = WAVE5.CASE_FIXTURES[233]
+        self.assertIn("0.20*reach", case_fixture["appendix"])
+        source = case_fixture["dataCSV"]
+        self.assertEqual(len(list(WAVE5.csv.DictReader(WAVE5.io.StringIO(source)))), 20)
+
+    def test_ranked_score_validation_rejects_bad_math_and_order(self):
+        source = WAVE5.CASE_FIXTURES[233]["dataCSV"]
+        records = list(WAVE5.csv.DictReader(WAVE5.io.StringIO(source)))
+        scored = []
+        for record in records:
+            score = round(
+                0.20 * float(record["reach"])
+                + 0.20 * float(record["impact"])
+                + 0.15 * float(record["confidence"])
+                + 0.15 * (10 - float(record["effort"]))
+                + 0.15 * float(record["strategic_fit"])
+                + 0.15 * float(record["evidence_quality"]),
+                2,
+            )
+            scored.append((record["id"], score, float(record["effort"])))
+        scored.sort(key=lambda item: (-item[1], item[2], item[0]))
+        valid = "\n".join([
+            "| Rank | ID | Weighted score |",
+            "|---:|---|---:|",
+            *(f"| {rank} | {candidate_id} | {score:.2f} |"
+              for rank, (candidate_id, score, _) in enumerate(scored, start=1)),
+        ])
+
+        self.assertEqual(WAVE5.ranked_score_issues(valid, source), [])
+
+        wrong_order = valid.replace(
+            f"| 1 | {scored[0][0]} | {scored[0][1]:.2f} |",
+            f"| 1 | {scored[1][0]} | {scored[1][1]:.2f} |",
+        ).replace(
+            f"| 2 | {scored[1][0]} | {scored[1][1]:.2f} |",
+            f"| 2 | {scored[0][0]} | {scored[0][1]:.2f} |",
+        )
+        self.assertTrue(any("ranking order" in issue for issue in WAVE5.ranked_score_issues(wrong_order, source)))
+
+        bad_math = valid.replace(
+            f"| 1 | {scored[0][0]} | {scored[0][1]:.2f} |",
+            f"| 1 | {scored[0][0]} | 0.00 |",
+        )
+        self.assertTrue(any("expected" in issue for issue in WAVE5.ranked_score_issues(bad_math, source)))
+
     def test_incident_tabletop_is_explicitly_defensive_planning(self):
         rows = WAVE5.validate_catalog(WAVE5.read_json(WAVE5.SOURCE_CATALOG))
         row = next(row for row in rows if row["ID"] == 298)
