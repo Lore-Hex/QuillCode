@@ -284,6 +284,7 @@ CONCEPT_ALIASES = {
     "event": ("event", "trigger"),
     "jobs to be done": ("jobs to be done", "jtbd", "functional job"),
     "investor": ("investor", "seed outreach", "fundraising", "venture fund", "fund 01"),
+    "hiring": ("hiring", "hire", "candidate", "head of product"),
     "landing page": ("landing page", "headline", "subhead", "call to action", "cta"),
     "target account": ("target account", "account prioritization", "priority account", "ranked account"),
     "variance": ("variance", "var vs", "vs plan"),

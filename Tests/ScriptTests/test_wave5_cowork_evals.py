@@ -250,6 +250,11 @@ class Wave5CoworkEvalTests(unittest.TestCase):
             WAVE5.normalize("Continue the product investment approved in the operating plan."),
         ))
 
+        hiring_output = WAVE5.normalize(
+            "Northline can introduce Head of Product candidates within the approved hire envelope."
+        )
+        self.assertTrue(WAVE5.concept_matches("hiring", hiring_output))
+
     def test_normalize_ignores_numeric_thousands_separators(self):
         self.assertIn("820000", WAVE5.normalize("Cash: $820,000"))
         self.assertIn("98000", WAVE5.normalize("Burn: 98_000"))
@@ -339,6 +344,18 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("D01", matched)
         self.assertIn("D12", matched)
         self.assertGreaterEqual(len(matched), 2)
+
+    def test_follow_up_grounding_uses_the_requested_pipeline_rows(self):
+        row = {"ID": 226, "Category": "Founder Sales"}
+        anchors = WAVE5.grounding_anchors(row)
+        output = WAVE5.normalize(
+            "Account 01 has an $18,500 amount and Account 08 has a $22,000 amount. "
+            "The board-close calls and Account 05 security review need separate next steps."
+        )
+        matched = [anchor for anchor in anchors if WAVE5.grounding_anchor_matches(anchor, output)]
+
+        self.assertGreaterEqual(len(matched), 4)
+        self.assertNotIn("$24,000", anchors)
 
     def test_win_loss_review_uses_structured_source_and_shell_routing(self):
         rows = WAVE5.validate_catalog(WAVE5.read_json(WAVE5.SOURCE_CATALOG))

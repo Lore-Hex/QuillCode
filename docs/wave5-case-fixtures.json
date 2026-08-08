@@ -22,6 +22,11 @@
       "appendix": "## Case 219 source appendix: weekly inputs\n\nSupport S-01 and sales call C-03 both report CSV delimiter failures and refer to the same Northstar incident; deduplicate them as one account signal. Support S-02 reports timezone reminders firing an hour late. Interview I-11 and sales call C-08 independently report owner-chasing in Slack. Support S-04 asks for automated bookkeeping once; this is an anecdote and outside product scope. Interview I-14 and I-17 both report that CFO staff meetings use the dependency view.",
       "groundingAnchors": ["S-01", "C-03", "S-02", "I-11", "C-08", "S-04", "I-14", "I-17"]
     },
+    "226": {
+      "appendix": "## Case 226 source appendix: same-day follow-ups\n\nThe eight requested sales calls are Account 01 through Account 08 in inputs/data.csv. Keep each account's amount, stage, trigger, champion status, and objection separate; do not substitute the showcase Northstar deal for those row-specific facts.",
+      "groundingAnchors": ["Account 01", "$18,500", "Account 08", "$22,000", "security review", "board close"],
+      "requiredOutputTerms": ["Account 01", "Account 02", "Account 03", "Account 04", "Account 05", "Account 06", "Account 07", "Account 08"]
+    },
     "228": {
       "appendix": "## Case 228 source appendix: rescue-plan rules\n\nUse 2026-05-27 as the as-of date. An open opportunity is stale when its last_activity is on or before 2026-05-06. Exclude won opportunities. For stale open opportunities, recommend Close when the trigger is board close and the champion is reachable; Nurture when the trigger is new controller and the champion is reachable; and Re-engage whenever the champion is unknown. This produces exactly ten rescue accounts: Close for Account 02, Account 04, and Account 32; Nurture for Account 01, Account 05, Account 29, and Account 31; and Re-engage for Account 03, Account 30, and Account 33. Draft a separate ready-to-send message for every one of those ten accounts. Use a concrete generic salutation such as 'Hello finance team' when a contact name is unknown; do not use templates, mail-merge tokens, or bracketed fields.",
       "requiredOutputTerms": ["Account 01", "Account 02", "Account 03", "Account 04", "Account 05", "Account 29", "Account 30", "Account 31", "Account 32", "Account 33"]
