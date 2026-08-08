@@ -48,6 +48,10 @@ struct AgentRunLoopState: Sendable {
     /// compared mechanically with that corpus.
     private var enforcesSourceOnlyGrounding = false
     private(set) var sourceGroundingText = ""
+    /// Successful tabular source reads retain their path so aggregate artifact rows can be checked
+    /// against the exact records rather than flattened prose context.
+    private(set) var sourceReadsByPath: [String: String] = [:]
+    private(set) var tabularSourceIssuesByPath: [String: [String]] = [:]
     private(set) var unsupportedSourceClaimWrittenTextPaths: Set<String> = []
     private(set) var unsupportedSourceClaimWrittenTextContents: [String: String] = [:]
 
@@ -172,6 +176,22 @@ struct AgentRunLoopState: Sendable {
                 unsupportedSourceClaimWrittenTextPaths.remove(normalized)
                 unsupportedSourceClaimWrittenTextContents.removeValue(forKey: normalized)
             }
+            if enforcesSourceOnlyGrounding,
+               let arguments = try? ToolArguments(completion.call.argumentsJSON),
+               let content = arguments.string("content") {
+                let issues = AgentTabularSourceGroundingGate.issues(
+                    content: content,
+                    path: normalized,
+                    sourceReadsByPath: sourceReadsByPath
+                )
+                if issues.isEmpty {
+                    tabularSourceIssuesByPath.removeValue(forKey: normalized)
+                } else {
+                    tabularSourceIssuesByPath[normalized] = issues
+                }
+            } else {
+                tabularSourceIssuesByPath.removeValue(forKey: normalized)
+            }
         case ToolDefinition.fileRead.name:
             successfullyReadWorkspacePaths.insert(normalized)
             unverifiedWrittenWorkspacePaths = Set(unverifiedWrittenWorkspacePaths.filter {
@@ -182,6 +202,19 @@ struct AgentRunLoopState: Sendable {
                 AgentArtifactVerificationGate.pathsMatch($0, normalized)
                }) {
                 sourceGroundingText += "\n" + completion.result.stdout
+                sourceReadsByPath[normalized] = completion.result.stdout
+                for (writtenPath, content) in latestWrittenTextContents {
+                    let issues = AgentTabularSourceGroundingGate.issues(
+                        content: content,
+                        path: writtenPath,
+                        sourceReadsByPath: sourceReadsByPath
+                    )
+                    if issues.isEmpty {
+                        tabularSourceIssuesByPath.removeValue(forKey: writtenPath)
+                    } else {
+                        tabularSourceIssuesByPath[writtenPath] = issues
+                    }
+                }
             }
         default:
             break
@@ -212,6 +245,8 @@ struct AgentRunLoopState: Sendable {
             in: userMessage
         )
         sourceGroundingText = enforcesSourceOnlyGrounding ? userMessage : ""
+        sourceReadsByPath = [:]
+        tabularSourceIssuesByPath = [:]
     }
 
     private mutating func recordCitationProvenance(_ completion: AgentToolStepCompletion) {

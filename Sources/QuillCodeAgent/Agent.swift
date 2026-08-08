@@ -227,6 +227,9 @@ public struct AgentRunner: Sendable {
             /// rewrite request, followed by at most one deterministic numeral correction.
             var artifactCountConsistencyNudgedPaths = Set<String>()
             var artifactCountConsistencyRepairedPaths = Set<String>()
+            /// Aggregate rows with explicit source IDs receive at most two exact reconciliation
+            /// passes before the broader semantic source audit takes over.
+            var tabularSourceAuditCounts: [String: Int] = [:]
             /// Explicitly source-only named artifacts receive one post-draft semantic audit. A
             /// rewrite from that audit receives one verification pass; read-only audits stop at one.
             var sourceGroundingAuditCounts: [String: Int] = [:]
@@ -516,6 +519,23 @@ public struct AgentRunner: Sendable {
                     }
                 }
                 if case .say = resolvedAction,
+                   let correction = AgentTabularSourceGroundingGate.correction(
+                    userMessage: userMessage,
+                    issuesByPath: runLoop.tabularSourceIssuesByPath,
+                    auditCounts: tabularSourceAuditCounts
+                   ) {
+                    tabularSourceAuditCounts[correction.path, default: 0] += 1
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: requested tabular source reconciliation for "
+                            + "./\(correction.path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
+                if case .say = resolvedAction,
                    let correction = AgentSourceGroundingGate.correction(
                     userMessage: userMessage,
                     writtenPaths: runLoop.writtenWorkspacePaths,
@@ -750,6 +770,22 @@ public struct AgentRunner: Sendable {
                                 next.updatedAt = Date()
                                 await onProgress?(next)
                             }
+                        }
+                        if let correction = AgentTabularSourceGroundingGate.correction(
+                            userMessage: userMessage,
+                            issuesByPath: runLoop.tabularSourceIssuesByPath,
+                            auditCounts: tabularSourceAuditCounts
+                        ) {
+                            tabularSourceAuditCounts[correction.path, default: 0] += 1
+                            pendingRepeatNudge = correction.prompt
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: requested tabular source reconciliation for "
+                                    + "./\(correction.path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
                         }
                         if let correction = AgentSourceGroundingGate.correction(
                             userMessage: userMessage,
