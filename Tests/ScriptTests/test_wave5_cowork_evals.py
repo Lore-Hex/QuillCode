@@ -361,6 +361,15 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertIn("D12,Series A,referral", data)
         self.assertNotIn("Account 01", data)
 
+    def test_incident_tabletop_is_explicitly_defensive_planning(self):
+        rows = WAVE5.validate_catalog(WAVE5.read_json(WAVE5.SOURCE_CATALOG))
+        row = next(row for row in rows if row["ID"] == 298)
+        prompt = WAVE5.build_prompt(row)
+
+        self.assertIn("authorized, defensive", prompt)
+        self.assertIn("planning and documentation only", prompt)
+        self.assertIn("do not perform or describe offensive security actions", prompt)
+
     def test_win_loss_review_requires_canonical_source_totals(self):
         correct = """
         | Slice | Total | Won | Lost | Win rate |

@@ -2854,9 +2854,9 @@
       "sourceStatus": "Proposed - not yet driven",
       "category": "Founder Sales",
       "task": "Run a win-loss review across closed opportunities. Quantify patterns by segment, source, competitor, objection, sales-cycle length, and founder action to change next month.",
-      "capabilityNeeded": "Browser pane",
+      "capabilityNeeded": "Files/Shell",
       "quillCodeCoverage": "Needs QuillCode validation",
-      "nextQuillCodeGap": "Browser pane + Computer Use live SaaS smoke",
+      "nextQuillCodeGap": "Filesystem/shell calculation and artifact smoke",
       "lastQuillCodeReview": "2026-08-06"
     },
     {
@@ -3601,7 +3601,7 @@
       "wave": "Wave 5 - YC founder workflows",
       "sourceStatus": "Proposed - not yet driven",
       "category": "Operations & Compliance",
-      "task": "Design a 60-minute incident-response tabletop for a seed-stage SaaS company, including scenario injects, roles, decision log, communications, recovery checks, and debrief rubric.",
+      "task": "Create an authorized, defensive 60-minute business-continuity tabletop for a seed-stage SaaS company responding to a service incident. Include scenario injects, roles, a decision log, stakeholder communications, recovery checks, and a debrief rubric. This is planning and documentation only; do not perform or describe offensive security actions.",
       "capabilityNeeded": "Multi-file artifacts",
       "quillCodeCoverage": "Needs QuillCode validation",
       "nextQuillCodeGap": "Multi-file artifact/read-write smoke",

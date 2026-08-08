@@ -23,6 +23,12 @@ final class ParityFounderTaskCatalogTests: QuillCodeParityTestCase {
         let prompts = rows.compactMap { $0["Task (what the person types)"] as? String }
         XCTAssertEqual(prompts.count, 100)
         XCTAssertEqual(Set(prompts).count, 100)
+        let incidentTabletop = try XCTUnwrap(
+            rows.first { $0["ID"] as? Int == 298 }?["Task (what the person types)"] as? String
+        )
+        XCTAssertTrue(incidentTabletop.contains("authorized, defensive"))
+        XCTAssertTrue(incidentTabletop.contains("planning and documentation only"))
+        XCTAssertTrue(incidentTabletop.contains("do not perform or describe offensive security actions"))
         let requiredColumns = Set([
             "ID", "Wave", "Status", "Category", "Task (what the person types)", "Role",
             "Capability needed", "They must supply", "Why it saves time", "Evidence / gap",

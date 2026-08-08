@@ -23,6 +23,9 @@ EVIDENCE = (
     "Proposed 2026-08-06 for the YC founder/operator expansion; "
     "fixture-backed drive not yet run"
 )
+CAPABILITY_OVERRIDES = {
+    230: "Files/Shell",
+}
 
 
 GROUPS = [
@@ -192,7 +195,7 @@ GROUPS = [
             "Extract business issues from these customer contract redlines: economics, liability, data, security, support, termination, IP, and operational commitments. Route legal questions to counsel.",
             "Build a privacy data map from these system descriptions. Trace collection, purpose, storage, processors, access, retention, deletion, and unresolved ownership.",
             "Prepare an insurance renewal packet with current policies, limits, exclusions, claims, customer requirements, headcount, revenue, changes, and broker questions.",
-            "Design a 60-minute incident-response tabletop for a seed-stage SaaS company, including scenario injects, roles, decision log, communications, recovery checks, and debrief rubric.",
+            "Create an authorized, defensive 60-minute business-continuity tabletop for a seed-stage SaaS company responding to a service incident. Include scenario injects, roles, a decision log, stakeholder communications, recovery checks, and a debrief rubric. This is planning and documentation only; do not perform or describe offensive security actions.",
             "Run an access-review analysis from these identity exports. Flag former workers, dormant accounts, excessive roles, shared credentials, missing owners, and recommended revocations.",
             "Create a lightweight procurement workflow with intake fields, spend thresholds, security and legal routing, approval owners, renewal tracking, and an emergency exception path.",
         ],
@@ -223,15 +226,16 @@ def build_catalog() -> dict:
     rows = []
     for group in GROUPS:
         for task in group["tasks"]:
+            task_id = START_ID + len(rows)
             rows.append(
                 {
-                    "ID": START_ID + len(rows),
+                    "ID": task_id,
                     "Wave": WAVE,
                     "Status": STATUS,
                     "Category": group["category"],
                     "Task (what the person types)": task,
                     "Role": group["role"],
-                    "Capability needed": group["capability"],
+                    "Capability needed": CAPABILITY_OVERRIDES.get(task_id, group["capability"]),
                     "They must supply": group["supply"],
                     "Why it saves time": group["why"],
                     "Evidence / gap": EVIDENCE,
