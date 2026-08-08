@@ -28,7 +28,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertEqual(stats.height, 900)
         XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
         XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
-        XCTAssertGreaterThan(stats.blueAccentPixelRatio, 0.001)
+        XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.00025)
     }
 
     func testRenderedEmptyWorkspaceShowsSavedChatRecoveryIssue() throws {

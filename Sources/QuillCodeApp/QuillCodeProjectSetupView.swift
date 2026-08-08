@@ -6,8 +6,12 @@ struct QuillCodeProjectSetupView: View {
     var body: some View {
         VStack(spacing: 16) {
             ZStack {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(QuillCodePalette.blue.opacity(0.14))
+                RoundedRectangle(cornerRadius: QuillCodeMetrics.settingsCardRadius, style: .continuous)
+                    .fill(QuillCodePalette.panel2)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: QuillCodeMetrics.settingsCardRadius, style: .continuous)
+                            .stroke(QuillCodePalette.lineStrong, lineWidth: 1)
+                    }
                     .frame(width: 60, height: 60)
                 Image(systemName: "folder.badge.plus")
                     .font(.system(size: 26, weight: .semibold))
@@ -16,11 +20,11 @@ struct QuillCodeProjectSetupView: View {
             .accessibilityHidden(true)
 
             Text("Open a project")
-                .font(.title3.weight(.semibold))
+                .font(.custom("Iowan Old Style", size: 22).weight(.semibold))
                 .foregroundStyle(QuillCodePalette.text)
 
             Text("Choose the workspace folder Quill Cowork can work in.")
-                .font(.callout)
+                .font(.body)
                 .foregroundStyle(QuillCodePalette.muted)
 
             Button(action: onOpenProject) {
