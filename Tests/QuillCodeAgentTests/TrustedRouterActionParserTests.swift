@@ -265,6 +265,22 @@ final class TrustedRouterActionParserTests: XCTestCase {
         )
     }
 
+    func testActionParserRepairsBareQuotesAndMissingOuterBraceInFileWrite() throws {
+        let action = try AgentActionJSONParser.parse(
+            ##"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"# Report\nPositioning stayed "close automation" for this period.\n"}"##
+        )
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected repaired file-write action")
+        }
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "report.md")
+        XCTAssertEqual(
+            try arguments.requiredString("content"),
+            "# Report\nPositioning stayed \"close automation\" for this period.\n"
+        )
+    }
+
     func testActionParserDoesNotRepairBareQuotesInTruncatedFileWriteContent() {
         XCTAssertThrowsError(try AgentActionJSONParser.parse(
             #"{"type":"tool","name":"host.file.write","arguments":{"path":"report.md","content":"Positioning stayed "close automation""#

@@ -41,7 +41,7 @@ enum AgentActionJSONExtractor {
               nameRegex.firstMatch(in: text, range: fullRange) != nil,
               let contentRegex = try? NSRegularExpression(pattern: #"\"content\"\s*:\s*\""#),
               let contentMarker = contentRegex.firstMatch(in: text, range: fullRange),
-              let closingRegex = try? NSRegularExpression(pattern: #"\"\s*\}\s*\}\s*$"#),
+              let closingRegex = try? NSRegularExpression(pattern: #"\"\s*\}\s*(?:\}\s*)?$"#),
               let closing = closingRegex.firstMatch(in: text, range: fullRange),
               contentMarker.range.location + contentMarker.range.length <= closing.range.location,
               let contentStart = Range(contentMarker.range, in: text)?.upperBound,
@@ -52,7 +52,13 @@ enum AgentActionJSONExtractor {
         let repaired = String(text[..<contentStart])
             + escapingBareQuotes(in: body)
             + String(text[contentEnd...])
-        return parseObject(repaired)
+        if let object = parseObject(repaired) {
+            return object
+        }
+        // A provider can combine the two common file-write defects: bare quotes in an otherwise
+        // complete content string and one omitted outer brace. The closed content string and the
+        // required arguments brace above make appending exactly one outer brace unambiguous.
+        return parseObject(repaired + "}")
     }
 
     private static func parseObject(_ text: String) -> [String: Any]? {
