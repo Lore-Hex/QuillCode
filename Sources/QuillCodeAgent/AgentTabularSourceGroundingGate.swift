@@ -395,13 +395,7 @@ enum AgentTabularSourceGroundingGate {
 
     private static func sourceHeader(for markdownHeader: String, in sourceHeaders: [String]) -> String? {
         if sourceHeaders.contains(markdownHeader) { return markdownHeader }
-        let aliases = [
-            "leadsource": "source",
-            "dealsource": "source",
-            "founderaction": "founderaction",
-            "primaryobjection": "objection",
-        ]
-        if let alias = aliases[markdownHeader], sourceHeaders.contains(alias) { return alias }
+        if let alias = headerAliases[markdownHeader], sourceHeaders.contains(alias) { return alias }
         return nil
     }
 
@@ -411,13 +405,24 @@ enum AgentTabularSourceGroundingGate {
     ) -> String? {
         let canonical = canonicalHeader(heading)
         if let direct = sourceHeader(for: canonical, in: sourceHeaders) { return direct }
+        if let aliased = headerAliases.keys.sorted().first(where: { alias in
+            guard let sourceHeader = headerAliases[alias], sourceHeaders.contains(sourceHeader)
+            else { return false }
+            return sectionHeading(canonical, matches: alias)
+        }) {
+            return headerAliases[aliased]
+        }
         return sourceHeaders.filter { header in
             !isIDHeader(header) && header.count >= 4
         }.sorted { $0.count > $1.count }.first { header in
-            canonical.hasPrefix(header + "pattern")
-                || canonical.hasSuffix("by" + header)
-                || canonical.hasSuffix(header + "analysis")
+            sectionHeading(canonical, matches: header)
         }
+    }
+
+    private static func sectionHeading(_ canonical: String, matches dimension: String) -> Bool {
+        canonical.hasPrefix(dimension + "pattern")
+            || canonical.hasSuffix("by" + dimension)
+            || canonical.hasSuffix(dimension + "analysis")
     }
 
     private static func extractedIDs(
@@ -589,6 +594,15 @@ enum AgentTabularSourceGroundingGate {
     }
 
     private static let integerPrefixRegex = try! NSRegularExpression(pattern: #"^\s*(\d+)\b"#)
+    private static let headerAliases = [
+        "leadsource": "source",
+        "dealsource": "source",
+        "founderaction": "founderaction",
+        "primaryobjection": "objection",
+        "salescyclelength": "cycledays",
+        "salescycleduration": "cycledays",
+        "cyclelength": "cycledays",
+    ]
     private static let headingRegex = try! NSRegularExpression(
         pattern: #"^\s{0,3}#{1,6}\s+(.+?)\s*$"#
     )

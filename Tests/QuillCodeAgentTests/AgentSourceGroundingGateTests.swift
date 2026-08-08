@@ -252,6 +252,31 @@ final class AgentSourceGroundingGateTests: XCTestCase {
         })
     }
 
+    func testTabularGateMapsHumanHeadingToCycleDaysSourceColumn() {
+        let source = """
+        1\tid,cycle_days,outcome
+        2\tD01,24,won
+        3\tD02,41,lost
+        """
+        let artifact = """
+        ### 5.5 By sales-cycle length
+
+        ## Recommendation
+
+        Compare cycle length before changing qualification.
+        """
+
+        let issues = AgentTabularSourceGroundingGate.issues(
+            content: artifact,
+            path: "outputs/review.md",
+            sourceReadsByPath: ["inputs/data.csv": source]
+        )
+
+        XCTAssertTrue(issues.contains {
+            $0.contains("By sales-cycle length") && $0.contains("source column cycledays")
+        })
+    }
+
     func testRunnerReconcilesTabularSourceRowsBeforeCompletion() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
