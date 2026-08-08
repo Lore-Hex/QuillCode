@@ -276,13 +276,13 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(transcriptStats.distinctColorBuckets, 34)
         XCTAssertGreaterThan(
             transcriptStats.brightPixelRatio,
-            0.0025,
-            "Rendered transcript excerpt should visibly show the prompt, tool card, and final answer."
+            0.0022,
+            "Rendered transcript excerpt should visibly show the prompt, activity row, and final answer."
         )
         XCTAssertGreaterThan(
             transcriptStats.sageAccentPixelRatio,
-            0.0008,
-            "Rendered transcript excerpt should preserve tool-card and user-bubble accents."
+            0.0005,
+            "Rendered transcript excerpt should preserve activity-row and user-bubble accents."
         )
     }
 

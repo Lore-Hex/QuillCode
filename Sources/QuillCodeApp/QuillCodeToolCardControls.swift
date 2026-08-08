@@ -25,9 +25,6 @@ struct QuillCodeToolCardActionRow: View {
                         minWidth: action.style == .primary ? 118 : 72,
                         radius: QuillCodeMetrics.compactControlRadius
                     )
-                    .frame(
-                        maxWidth: action.style == .primary ? .infinity : 92
-                    )
                     .foregroundStyle(foregroundColor(for: action.style))
                     .background(backgroundColor(for: action.style))
                     .overlay(

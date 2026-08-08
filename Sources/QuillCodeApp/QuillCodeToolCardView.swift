@@ -23,7 +23,7 @@ struct QuillCodeToolCardView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: usesCompactActivityLayout ? 0 : 10) {
             toolHeaderControl
             if let progress = card.progress, card.status == .running {
                 progressView(progress)
@@ -89,8 +89,13 @@ struct QuillCodeToolCardView: View {
                     .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(14)
-        .frame(maxWidth: 760, minHeight: minimumHeight, alignment: .topLeading)
+        .padding(.horizontal, usesCompactActivityLayout ? 8 : 14)
+        .padding(.vertical, usesCompactActivityLayout ? 2 : 14)
+        .frame(
+            maxWidth: usesCompactActivityLayout ? nil : 760,
+            minHeight: minimumHeight,
+            alignment: .topLeading
+        )
         // Flat, not floating: a dozen stacked tool cards with per-card drop shadows read as lumpy,
         // heavy chrome. The panel2 fill + hairline stroke already separate cards from the transcript.
         .quillCodeSurface(
@@ -100,7 +105,7 @@ struct QuillCodeToolCardView: View {
             shadow: false
         )
         .overlay(alignment: .leading) {
-            if let executionContext = card.executionContext {
+            if let executionContext = card.executionContext, showsExecutionRail {
                 QuillCodeExecutionRail(context: executionContext)
             }
         }
@@ -179,7 +184,8 @@ struct QuillCodeToolCardView: View {
                 toolHeader
             }
             .quillCodeFullRowButtonTarget(
-                minHeight: QuillCodeMetrics.toolCardHeaderHeight,
+                minHeight: headerHeight,
+                maxWidth: usesCompactActivityLayout ? nil : .infinity,
                 alignment: .leading,
                 radius: QuillCodeMetrics.toolCardRadius
             )
@@ -194,7 +200,10 @@ struct QuillCodeToolCardView: View {
     }
 
     private var toolHeader: some View {
-        HStack(alignment: .center, spacing: QuillCodeMetrics.controlClusterSpacing) {
+        HStack(
+            alignment: .center,
+            spacing: usesCompactActivityLayout ? 6 : QuillCodeMetrics.controlClusterSpacing
+        ) {
             if hasDetails {
                 Image(systemName: isDetailsOpen ? "chevron.down" : "chevron.right")
                     .font(.caption.weight(.bold))
@@ -204,12 +213,12 @@ struct QuillCodeToolCardView: View {
             }
 
             Image(systemName: toolGlyph)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: usesCompactActivityLayout ? 13 : 15, weight: .semibold))
                 .foregroundStyle(statusColor)
-                .quillCodeDecorativeIconFrame(size: 30)
+                .quillCodeDecorativeIconFrame(size: usesCompactActivityLayout ? 24 : 30)
 
             Text(displayTitle)
-                .font(.subheadline.weight(.semibold))
+                .font(usesCompactActivityLayout ? .caption.weight(.semibold) : .subheadline.weight(.semibold))
                 .lineLimit(1)
                 .layoutPriority(1)
 
@@ -221,20 +230,33 @@ struct QuillCodeToolCardView: View {
                     .truncationMode(.middle)
             }
 
-            if let executionContext = card.executionContext {
+            if let executionContext = card.executionContext, showsExecutionContextChip {
                 QuillCodeExecutionContextChip(context: executionContext)
             }
 
-            Spacer(minLength: 10)
+            if usesCompactActivityLayout {
+                compactDoneStatus
+            } else {
+                Spacer(minLength: 10)
 
-            QuillCodeToolStatusBadge(
-                label: card.statusDisplayLabel,
-                accessibilityLabel: card.statusAccessibilityLabel,
-                tint: statusColor,
-                iconName: statusBadgeIconName
-            )
+                QuillCodeToolStatusBadge(
+                    label: card.statusDisplayLabel,
+                    accessibilityLabel: card.statusAccessibilityLabel,
+                    tint: statusColor,
+                    iconName: statusBadgeIconName
+                )
+            }
         }
-        .frame(minHeight: QuillCodeMetrics.toolCardHeaderHeight, alignment: .center)
+        .frame(minHeight: headerHeight, alignment: .center)
+    }
+
+    private var compactDoneStatus: some View {
+        Image(systemName: "checkmark.circle.fill")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(QuillCodePalette.green)
+            .frame(width: 20, height: 20)
+            .help(card.statusDisplayLabel)
+            .accessibilityLabel("Tool status \(card.statusAccessibilityLabel)")
     }
 
     private var copyActionButton: some View {
@@ -264,9 +286,35 @@ struct QuillCodeToolCardView: View {
     }
 
     private var minimumHeight: CGFloat {
-        card.density == .collapsed
+        usesCompactActivityLayout
             ? QuillCodeMetrics.compactToolCardMinimumHeight
             : QuillCodeMetrics.toolCardMinimumHeight
+    }
+
+    private var headerHeight: CGFloat {
+        usesCompactActivityLayout
+            ? QuillCodeMetrics.compactToolCardMinimumHeight
+            : QuillCodeMetrics.toolCardHeaderHeight
+    }
+
+    private var usesCompactActivityLayout: Bool {
+        card.status == .done
+            && !isDetailsOpen
+            && card.actions.isEmpty
+            && card.progress == nil
+            && displayedArtifacts.isEmpty
+            && card.textPreviewArtifacts.isEmpty
+            && card.documentPreviewArtifacts.isEmpty
+            && card.imagePreviewArtifacts.isEmpty
+    }
+
+    private var showsExecutionContextChip: Bool {
+        guard let executionContext = card.executionContext else { return false }
+        return !usesCompactActivityLayout || executionContext.kind == .sshRemote
+    }
+
+    private var showsExecutionRail: Bool {
+        showsExecutionContextChip
     }
 
     private var statusColor: Color {

@@ -39,4 +39,18 @@ final class ParityNativeWorkspaceProgressiveDisclosureGateTests: QuillCodeParity
             "Capsule()"
         ])
     }
+
+    func testCompletedToolCardsCollapseIntoCompactActivityRows() throws {
+        let toolCardText = try Self.appSourceText(named: "QuillCodeToolCardView.swift")
+        let targetModifierText = try Self.appSourceText(named: "QuillCodeButtonHitTargetViewModifiers.swift")
+
+        Self.assertSource(toolCardText, containsAll: [
+            "private var usesCompactActivityLayout",
+            "maxWidth: usesCompactActivityLayout ? nil : 760",
+            "maxWidth: usesCompactActivityLayout ? nil : .infinity",
+            "private var compactDoneStatus",
+            "executionContext.kind == .sshRemote"
+        ])
+        Self.assertSource(targetModifierText, contains: "maxWidth: CGFloat? = .infinity")
+    }
 }

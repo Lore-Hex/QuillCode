@@ -50,11 +50,13 @@ extension View {
 
     public func quillCodeFullRowButtonTarget(
         minHeight: CGFloat = QuillCodeMetrics.minimumHitTarget,
+        maxWidth: CGFloat? = .infinity,
         alignment: Alignment = .leading,
         radius: CGFloat = QuillCodeMetrics.compactControlRadius
     ) -> some View {
         quillCodeInteractiveTarget(.fullRow(
             minHeight: minHeight,
+            maxWidth: maxWidth,
             alignment: alignment,
             radius: radius
         ))

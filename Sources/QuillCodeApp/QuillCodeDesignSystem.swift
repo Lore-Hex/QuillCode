@@ -32,7 +32,7 @@ public enum QuillCodeMetrics {
     public static let composerControlRadius: CGFloat = 2
     public static let messageBubbleRadius: CGFloat = 4
     public static let toolCardMinimumHeight: CGFloat = 74
-    public static let compactToolCardMinimumHeight: CGFloat = 58
+    public static let compactToolCardMinimumHeight: CGFloat = 40
     public static let toolCardHeaderHeight: CGFloat = 44
     public static let toolCardRawDetailsMaxHeight: CGFloat = 240
     public static let toolCardRadius: CGFloat = 4
