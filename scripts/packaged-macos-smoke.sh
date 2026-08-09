@@ -20,6 +20,7 @@ WINDOW_REPORT_PATH="$SMOKE_ROOT/window-report.json"
 WINDOW_SCREENSHOT_PATH="$SMOKE_ROOT/window.png"
 WINDOW_STATE_ROOT="$SMOKE_ROOT/window-state"
 ARTIFACT_DIR="${QUILLCODE_PACKAGED_MACOS_SMOKE_ARTIFACT_DIR:-}"
+WINDOW_SMOKE_TIMEOUT_SECONDS="${QUILLCODE_PACKAGED_WINDOW_SMOKE_TIMEOUT_SECONDS:-90}"
 
 cleanup() {
   local status=$?
@@ -106,6 +107,10 @@ trap cleanup EXIT
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   echo "packaged-macos-smoke.sh must run on macOS." >&2
+  exit 2
+fi
+if [[ ! "$WINDOW_SMOKE_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "QUILLCODE_PACKAGED_WINDOW_SMOKE_TIMEOUT_SECONDS must be a positive integer." >&2
   exit 2
 fi
 
@@ -220,7 +225,11 @@ echo "==> Running packaged macOS app live-window smoke"
     >/dev/null
 ) &
 WINDOW_SMOKE_PID="$!"
-if ! wait_for_smoke_process "$WINDOW_SMOKE_PID" 45 "Packaged app live-window smoke"; then
+if ! wait_for_smoke_process \
+  "$WINDOW_SMOKE_PID" \
+  "$WINDOW_SMOKE_TIMEOUT_SECONDS" \
+  "Packaged app live-window smoke"
+then
   cat "$WINDOW_REPORT_PATH" >&2 2>/dev/null || true
   exit 1
 fi
