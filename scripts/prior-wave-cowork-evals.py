@@ -475,6 +475,48 @@ def task_table(row, reference="", item_index=1, count=40):
             ),
         ]
 
+    if row["id"] == 33:
+        return [
+            (
+                "contact_id", "first_name", "email", "job_title", "company",
+                "booth-notes", "event_name",
+            ),
+            (
+                "C-001", "Alice", "alice@northstar.example", "VP Sales",
+                "Northstar Systems",
+                "Asked for a pricing recap for 75 sales seats and SSO",
+                "SaaS Founders Summit",
+            ),
+            (
+                "C-002", "Bruno", "bruno@juniper.example", "Director of Customer Success",
+                "Juniper Health",
+                "Wants a 30-minute workflow demo with two CSM leads next Tuesday",
+                "SaaS Founders Summit",
+            ),
+            (
+                "C-003", "Chen", "chen@cobalt.example", "CFO", "Cobalt Works",
+                "Needs the SOC 2 report and annual billing estimate before finance review",
+                "SaaS Founders Summit",
+            ),
+            (
+                "C-004", "Dana", "dana@cedar.example", "Engineering Manager",
+                "Cedar Robotics",
+                "Interested in API rate limits and sandbox access for a migration prototype",
+                "SaaS Founders Summit",
+            ),
+            (
+                "C-005", "Elena", "elena@harbor.example", "COO", "Harbor Logistics",
+                "Discussed replacing weekly spreadsheet handoffs across three regional teams",
+                "SaaS Founders Summit",
+            ),
+            (
+                "C-006", "Fatima", "fatima@lumen.example", "Head of Operations",
+                "Lumen Labs",
+                "Asked for a health-tech customer reference and implementation timeline",
+                "SaaS Founders Summit",
+            ),
+        ]
+
     if "kpi-dashboard" in reference.casefold():
         return [
             ("Metric", "Q2", "Q3", "Owner"),
@@ -1202,6 +1244,15 @@ automation is visible in Quill Cowork's persisted automation state.
             "host.pdf.merge tool after producing the ordered inputs. "
         )
     required_inputs = ", ".join(f"`{path}`" for path in required_source_paths(row))
+    task_specific_instruction = ""
+    if row["id"] == 33:
+        task_specific_instruction = (
+            "Draft exactly three fully written emails for each of the six prospects (18 emails "
+            "total). Group them by contact ID, number each prospect's emails 1 through 3, and "
+            "include a concrete subject, greeting, body, call to action, and closing in every "
+            "email. Personalize each first paragraph from that prospect's `booth-notes` value. "
+            "Do not provide reusable templates or substitution tokens. "
+        )
     return f"""{task}
 
 This is an end-to-end native desktop evaluation using an isolated workspace. The
@@ -1216,7 +1267,7 @@ Complete the requested analysis or transformation using those supplied records. 
 modify a real external account or anything outside the workspace. Represent requested
 renames, deletions, messages, service updates, or other side effects as an exact action
 log in the deliverable. Do not ask a follow-up question and do not stop at a proposal.
-{pdf_tool_instruction}
+{task_specific_instruction}{pdf_tool_instruction}
 
 Save the complete, decision-ready result to `{output_path(row)}`. Include specific
 source facts, rows or calculations, owners, dates, uncertainties, and the actions taken
@@ -1642,6 +1693,78 @@ def validate_budget_workbook(path):
     return valid, detail
 
 
+def validate_task_33_sequence(path):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        return False, f"could not read sequence: {error}"
+
+    source = path.parents[1] / "inputs" / "conference-leads.csv"
+    try:
+        with source.open(encoding="utf-8", newline="") as stream:
+            prospects = list(csv.DictReader(stream))
+    except (OSError, csv.Error) as error:
+        return False, f"could not read prospects: {error}"
+
+    normalized = " ".join(normalized_words(text))
+    missing_sections = []
+    missing_email_numbers = []
+    missing_booth_anchors = []
+    positions = []
+    for prospect in prospects:
+        contact_id = prospect["contact_id"]
+        match = re.search(rf"(?i)\b{re.escape(contact_id)}\b", text)
+        if not match:
+            missing_sections.append(contact_id)
+        else:
+            positions.append((match.start(), contact_id, prospect))
+
+    positions.sort()
+    for index, (start, contact_id, prospect) in enumerate(positions):
+        end = positions[index + 1][0] if index + 1 < len(positions) else len(text)
+        section = text[start:end]
+        email_numbers = {
+            int(number)
+            for number in re.findall(r"(?i)\bemail\s*(?:#|no\.?\s*)?([123])\b", section)
+        }
+        subject_count = len(re.findall(r"(?im)^\s*(?:\*\*)?subject\b", section))
+        if email_numbers != {1, 2, 3} or subject_count < 3:
+            missing_email_numbers.append(
+                f"{contact_id}: email numbers={sorted(email_numbers)}, subjects={subject_count}"
+            )
+
+        note_words = [
+            word for word in normalized_words(prospect["booth-notes"])
+            if len(word) >= 4 and word not in {"asked", "before", "three", "with"}
+        ]
+        required_note_words = set(note_words[:3])
+        section_words = set(normalized_words(section))
+        if len(required_note_words & section_words) < min(2, len(required_note_words)):
+            missing_booth_anchors.append(
+                f"{contact_id}: expected anchors={sorted(required_note_words)}"
+            )
+
+    placeholders = re.findall(
+        r"\{[^{}\n]{1,80}\}|\[(?:your|insert|tbd|todo|first\s+name|name|company|date|"
+        r"owner|sender|hook|time|relevant|value\s+prop|placeholder)[^\]\n]*\]",
+        text,
+        flags=re.IGNORECASE,
+    )
+    valid = not any((
+        missing_sections,
+        missing_email_numbers,
+        missing_booth_anchors,
+        placeholders,
+        len(prospects) != 6,
+    ))
+    detail = (
+        f"prospects={len(prospects)}; missing sections={missing_sections}; "
+        f"incomplete sequences={missing_email_numbers}; missing booth anchors={missing_booth_anchors}; "
+        f"placeholders={placeholders[:12]}"
+    )
+    return valid, detail
+
+
 def grade(row, workspace, report, source_hashes):
     checks = []
 
@@ -1767,6 +1890,9 @@ def grade(row, workspace, report, source_hashes):
     if row["id"] == 19:
         budget_valid, budget_detail = validate_budget_workbook(artifact)
         add("budget workbook semantics", budget_valid, budget_detail)
+    if row["id"] == 33:
+        sequence_valid, sequence_detail = validate_task_33_sequence(artifact)
+        add("complete personalized email sequences", sequence_valid, sequence_detail)
     verification_text = "\n".join(tool_output_text(tool) for tool in reads + shell_reads)
     combined_text = "\n".join(
         value for value in (artifact_text, verification_text, report.get("finalAnswer", "") if report else "")
@@ -1800,7 +1926,8 @@ def grade(row, workspace, report, source_hashes):
         citations = re.findall(r"https?://[^\s)>\]]+", combined_text)
         add("source citations", len(set(citations)) >= 2, f"{len(set(citations))} unique URLs")
     placeholders = re.findall(
-        r"\[(?:your|insert|tbd|todo|name|company|date|owner|placeholder)[^\]]*\]",
+        r"\{[^{}\n]{1,80}\}|\[(?:your|insert|tbd|todo|first\s+name|name|company|date|"
+        r"owner|sender|hook|time|relevant|value\s+prop|placeholder)[^\]\n]*\]",
         combined_text,
         flags=re.IGNORECASE,
     )

@@ -248,6 +248,28 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertTrue(any(not row["phone"] for row in rows))
         self.assertTrue(any(row["opt_out"] == "yes" for row in rows))
 
+    def test_follow_up_fixture_contains_distinct_booth_notes(self):
+        row = self.rows[32]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            with (workspace / "inputs" / "conference-leads.csv").open(
+                encoding="utf-8", newline=""
+            ) as source:
+                prospects = list(csv.DictReader(source))
+
+        self.assertEqual(len(prospects), 6)
+        self.assertIn("booth-notes", prospects[0])
+        self.assertEqual(len({prospect["booth-notes"] for prospect in prospects}), 6)
+        self.assertTrue(all(prospect["first_name"] for prospect in prospects))
+
+    def test_follow_up_prompt_requires_complete_per_prospect_sequences(self):
+        prompt = PRIOR.build_prompt(self.rows[32])
+
+        self.assertIn("exactly three fully written emails for each of the six prospects", prompt)
+        self.assertIn("18 emails total", prompt)
+        self.assertIn("Do not provide reusable templates", prompt)
+
     def test_budget_fixture_has_approved_annual_plan_and_exact_seasonality(self):
         table = PRIOR.task_table(self.rows[18])
         headers = table[0]
@@ -730,6 +752,42 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             checks, _ = PRIOR.grade(row, workspace, report, hashes)
         placeholder = next(check for check in checks if check["name"] == "no template placeholders")
         self.assertFalse(placeholder["passed"])
+
+    def test_task_33_semantic_grade_requires_every_personalized_sequence(self):
+        row = self.rows[32]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            artifact = workspace / PRIOR.output_path(row)
+            artifact.parent.mkdir(parents=True)
+            sections = []
+            with (workspace / "inputs" / "conference-leads.csv").open(
+                encoding="utf-8", newline=""
+            ) as source:
+                prospects = list(csv.DictReader(source))
+            for prospect in prospects:
+                sections.append(
+                    f"## {prospect['contact_id']} - {prospect['first_name']}\n\n"
+                    + "\n\n".join(
+                        f"### Email {number}\nSubject: Follow-up {number}\n\n"
+                        f"Hi {prospect['first_name']},\n\n"
+                        f"Your {prospect['booth-notes']} conversation was useful. "
+                        "Could we continue it this week?\n\nBest,\nAtlas Team"
+                        for number in (1, 2, 3)
+                    )
+                )
+            artifact.write_text("# Conference follow-up\n\n" + "\n\n".join(sections), encoding="utf-8")
+
+            valid, detail = PRIOR.validate_task_33_sequence(artifact)
+            self.assertTrue(valid, detail)
+
+            artifact.write_text(
+                "# Conference follow-up\n\n## C-001\n### Email 1\nSubject: Hi {Company}\n",
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_33_sequence(artifact)
+            self.assertFalse(valid)
+            self.assertIn("missing sections", detail)
 
     def test_schedule_grade_requires_persisted_automation(self):
         row = self.rows[147]
