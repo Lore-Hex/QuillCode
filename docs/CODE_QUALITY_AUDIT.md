@@ -1,5 +1,24 @@
 # Code Quality Audit
 
+## 2026-08-09 Latest-Wins Browser Snapshot Scheduling
+
+Overall grade after this slice: **A+ bounded work, A+ stale-result safety, A+ lifecycle cleanup**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Bounded work | A+ | Each visible browser tab owns at most one active rendered-DOM capture and one latest-wins pending request, so rapid navigation and script events cannot create an unbounded task backlog. |
+| Stale-result safety | A+ | A newer request suppresses the active result, and worker identities prevent a cancelled worker from publishing through or deleting its replacement. |
+| Lifecycle cleanup | A+ | Closing a tab cancels its active and pending refreshes; closing the browser window cancels every refresh and releases the scheduler without retaining the controller or WebKit view. |
+| Regression coverage | A+ | A 10,000-request unit burst executes only the active and newest requests, while a real WebKit test keeps work bounded across 200 DOM mutations and observes the final rendered state. |
+
+Validation:
+
+- Latest-wins scheduler suite (7 tests, 0 failures)
+- Desktop browser suite including real WebKit integration (19 tests, 0 failures)
+- Full `swift test` (5,687 tests, 5 skipped, 0 failures)
+- `python3 scripts/grade-code-quality.py --root .` reports every module A+
+- `git diff --check`
+
 ## 2026-08-09 Transactional Apple Signing Setup
 
 Overall grade after this slice: **A+ credential safety, A+ release integrity, A+ failure recovery**.

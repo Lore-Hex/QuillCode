@@ -1,5 +1,26 @@
 # QuillCode Decisions
 
+## 2026-08-09: visible-browser DOM refreshes are latest-wins per tab
+
+- **Decision:** Best-effort rendered-DOM updates from a visible WebKit session run through one
+  latest-wins scheduler keyed by tab. Each tab may have one active capture and one pending request;
+  subsequent events replace that pending request instead of creating another task.
+- **Freshness:** If a newer request arrives during an active capture, the active result is discarded.
+  Worker identities and tab/WebView identity checks prevent cancelled or replaced work from
+  publishing stale state or interfering with a replacement worker.
+- **Lifecycle:** Tab removal cancels work for that tab. Window closure cancels every worker, drops all
+  pending input, and releases the scheduler. Requests hold WebKit views weakly until a capture begins.
+- **Scope:** Explicit agent-requested DOM capture remains direct and authoritative. Coalescing applies
+  only to reverse session updates emitted after visible browser activity, where current state matters
+  and intermediate snapshots do not.
+- **Why:** Navigation and JavaScript completion events can arrive faster than WebKit can serialize a
+  rendered document. One untracked task per event allowed memory, work, and stale-result risk to grow
+  with the event burst instead of with the number of tabs.
+- **Evidence:** Scheduler tests cover a 10,000-request burst, independent keys, failure recovery,
+  cancellation, replacement-worker isolation, and ownership release. A real WebKit integration test
+  keeps active and pending counts at one or less through 200 rapid mutations and captures the final
+  DOM state.
+
 ## 2026-08-09: Apple signing setup is transactional and team-bound
 
 - **Decision:** Distribution setup validates Apple team and key identifiers plus the App Store

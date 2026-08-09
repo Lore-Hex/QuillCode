@@ -58,6 +58,42 @@ final class DesktopBrowserOpenNavigationTests: XCTestCase {
         XCTAssertTrue(snapshot.visibleText?.isEmpty == true)
     }
 
+    func testRapidScriptUpdatesKeepRenderedDOMRefreshWorkBounded() async throws {
+        let root = try makeTempDirectory()
+        let page = root.appendingPathComponent("fixture.html")
+        try "<main id='state'>Initial</main>".write(to: page, atomically: true, encoding: .utf8)
+        let tabID = UUID()
+        let controller = DesktopBrowserSessionWindowController(
+            snapshot: BrowserSessionSyncSnapshot(
+                tabs: [
+                    BrowserSessionTabSnapshot(
+                        id: tabID,
+                        title: "fixture.html",
+                        url: page,
+                        isActive: true
+                    ),
+                ],
+                activeTabID: tabID
+            )
+        )
+        defer { controller.close() }
+        _ = try await controller.navigateSelectedTab(to: page)
+
+        for iteration in 0..<200 {
+            _ = try await controller.evaluateJavaScriptInSelectedTab(
+                "document.querySelector('#state').textContent = 'Iteration \(iteration)'"
+            )
+            XCTAssertLessThanOrEqual(controller.renderedSnapshotRefreshCounts.active, 1)
+            XCTAssertLessThanOrEqual(controller.renderedSnapshotRefreshCounts.pending, 1)
+        }
+        await waitForRenderedSnapshotRefreshesToDrain(controller)
+
+        let snapshot = try await controller.captureLiveDOMSnapshotInSelectedTab()
+        XCTAssertTrue(snapshot.visibleText?.contains("Iteration 199") == true)
+        XCTAssertEqual(controller.renderedSnapshotRefreshCounts.active, 0)
+        XCTAssertEqual(controller.renderedSnapshotRefreshCounts.pending, 0)
+    }
+
     func testOpenNavigatesAndReturnsTheNavigatedPagesDOM() async throws {
         let presenter = NavigationRecordingPresenter()
         let controller = try makeController(presenter: presenter)
@@ -189,6 +225,19 @@ final class DesktopBrowserOpenNavigationTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    private func waitForRenderedSnapshotRefreshesToDrain(
+        _ controller: DesktopBrowserSessionWindowController
+    ) async {
+        for _ in 0..<2_000 {
+            let counts = controller.renderedSnapshotRefreshCounts
+            if counts.active == 0, counts.pending == 0 {
+                return
+            }
+            try? await Task.sleep(nanoseconds: 1_000_000)
+        }
+        XCTFail("rendered DOM refresh work did not drain")
+    }
 
     private func makeController(
         presenter: any DesktopBrowserSessionPresenting
