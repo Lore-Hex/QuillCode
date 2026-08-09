@@ -7,6 +7,7 @@ enum WorkspaceToolDisplayNameBuilder {
     static let knownToolNames: [String] = [
         ToolDefinition.shellRun.name,
         ToolDefinition.fileRead.name,
+        ToolDefinition.fileReadMany.name,
         ToolDefinition.fileWrite.name,
         ToolDefinition.chartRender.name,
         ToolDefinition.fileList.name,
@@ -85,7 +86,7 @@ enum WorkspaceToolDisplayNameBuilder {
         switch toolName {
         case ToolDefinition.shellRun.name:
             return "Run"
-        case ToolDefinition.fileRead.name:
+        case ToolDefinition.fileRead.name, ToolDefinition.fileReadMany.name:
             return "Read"
         case ToolDefinition.fileWrite.name:
             return "Write"
@@ -118,6 +119,8 @@ enum WorkspaceToolDisplayNameBuilder {
             return "Shell command"
         case ToolDefinition.fileRead.name:
             return "Read file"
+        case ToolDefinition.fileReadMany.name:
+            return "Read files"
         case ToolDefinition.fileWrite.name:
             return "Write file"
         case ToolDefinition.chartRender.name:

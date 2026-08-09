@@ -88,6 +88,96 @@ final class FileToolExecutorTests: XCTestCase {
         XCTAssertTrue(result.stdout.contains("C2=[formula=SUM(B2:B2)]"))
     }
 
+    func testFileReadManyReadsCollectionInOneBoundedResultWithArtifacts() throws {
+        let root = try makeTempDirectory()
+        try "Alpha renewal 2027-10-01\n".write(
+            to: root.appendingPathComponent("alpha.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Beta renewal 2027-11-02\n".write(
+            to: root.appendingPathComponent("beta.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let files = FileToolExecutor(workspaceRoot: root)
+
+        let result = files.readMany(
+            paths: ["alpha.txt", "beta.txt"],
+            perFileLimit: 20,
+            maxOutputCharacters: 10_000
+        )
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("## File 1: alpha.txt"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("Alpha renewal 2027-10-01"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("## File 2: beta.txt"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("Beta renewal 2027-11-02"), result.stdout)
+        XCTAssertEqual(Set(result.artifacts), Set([
+            root.appendingPathComponent("alpha.txt").path,
+            root.appendingPathComponent("beta.txt").path,
+        ]))
+        XCTAssertLessThanOrEqual(result.stdout.count, 10_000)
+    }
+
+    func testFileReadManyRejectsDuplicateAndOversizedCollections() throws {
+        let root = try makeTempDirectory()
+        let files = FileToolExecutor(workspaceRoot: root)
+
+        XCTAssertFalse(files.readMany(paths: ["same.txt", "same.txt"]).ok)
+        XCTAssertFalse(files.readMany(paths: (1...51).map { "file-\($0).txt" }).ok)
+    }
+
+    func testFileReadManySharesCharacterBudgetAcrossEverySource() throws {
+        let root = try makeTempDirectory()
+        try String(repeating: "alpha 123456789012345\n", count: 400).write(
+            to: root.appendingPathComponent("alpha.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try String(repeating: "beta 123456789012345\n", count: 400).write(
+            to: root.appendingPathComponent("beta.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let result = FileToolExecutor(workspaceRoot: root).readMany(
+            paths: ["alpha.txt", "beta.txt"],
+            maxOutputCharacters: 10_000
+        )
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertLessThanOrEqual(result.stdout.count, 10_000)
+        XCTAssertTrue(result.stdout.contains("## File 1: alpha.txt"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("## File 2: beta.txt"), result.stdout)
+        XCTAssertEqual(result.stdout.components(separatedBy: "[truncated for collection]").count - 1, 2)
+        XCTAssertEqual(result.artifacts.count, 2)
+    }
+
+    func testToolRouterExposesAndRoutesFileReadMany() throws {
+        let root = try makeTempDirectory()
+        try "first\n".write(
+            to: root.appendingPathComponent("first.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "second\n".write(
+            to: root.appendingPathComponent("second.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        XCTAssertTrue(ToolRouter.definitions.map(\.name).contains(ToolDefinition.fileReadMany.name))
+        let result = ToolRouter(workspaceRoot: root).execute(ToolCall(
+            name: ToolDefinition.fileReadMany.name,
+            argumentsJSON: ToolArguments.json(["paths": ["first.txt", "second.txt"]])
+        ))
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("1\tfirst"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("1\tsecond"), result.stdout)
+    }
+
     func testToolRouterExposesAndRoutesFileSearch() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root)
@@ -187,11 +277,14 @@ final class FileToolExecutorTests: XCTestCase {
     func testUnrestrictedDefinitionsTellModelAbsolutePathsAreAllowed() throws {
         let adapted = HostToolAccessScope.unrestricted.adapting(ToolRouter.definitions)
         let fileRead = try XCTUnwrap(adapted.first { $0.name == ToolDefinition.fileRead.name })
+        let fileReadMany = try XCTUnwrap(adapted.first { $0.name == ToolDefinition.fileReadMany.name })
         let shellRun = try XCTUnwrap(adapted.first { $0.name == ToolDefinition.shellRun.name })
         let chartRender = try XCTUnwrap(adapted.first { $0.name == ToolDefinition.chartRender.name })
 
         XCTAssertTrue(fileRead.description.contains("host filesystem"))
         XCTAssertTrue(fileRead.parametersJSON.contains("absolute and escaping paths are allowed"))
+        XCTAssertTrue(fileReadMany.description.contains("Host filesystem paths"))
+        XCTAssertTrue(fileReadMany.parametersJSON.contains("absolute and escaping paths are allowed"))
         XCTAssertTrue(shellRun.description.contains("absolute or escaping cwd values are allowed"))
         XCTAssertTrue(shellRun.parametersJSON.contains("absolute and escaping paths are allowed"))
         XCTAssertTrue(chartRender.description.contains("host filesystem"))

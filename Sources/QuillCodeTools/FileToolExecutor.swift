@@ -2,6 +2,11 @@ import Foundation
 import QuillCodeCore
 
 public struct FileToolExecutor: Sendable {
+    private static let maximumBatchPaths = 50
+    private static let defaultBatchLineLimit = 400
+    private static let defaultBatchCharacterLimit = 200_000
+    private static let maximumBatchCharacterLimit = 500_000
+
     public var workspaceRoot: URL
     public let accessScope: HostToolAccessScope
     /// When set, `write` refuses to overwrite an existing file the session never read, rejects
@@ -88,6 +93,72 @@ public struct FileToolExecutor: Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    public func readMany(
+        paths: [String],
+        perFileLimit: Int? = nil,
+        maxOutputCharacters: Int? = nil
+    ) -> ToolResult {
+        let uniquePaths = paths.reduce(into: [String]()) { result, path in
+            let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, !result.contains(trimmed) else { return }
+            result.append(trimmed)
+        }
+        guard !uniquePaths.isEmpty else {
+            return ToolResult(ok: false, error: "Missing required string array argument: paths")
+        }
+        guard uniquePaths.count == paths.count else {
+            return ToolResult(ok: false, error: "paths must contain 1 to 50 unique, non-empty file paths")
+        }
+        guard uniquePaths.count <= Self.maximumBatchPaths else {
+            return ToolResult(ok: false, error: "paths exceeds the maximum of 50 files")
+        }
+
+        let lineLimit = max(1, min(perFileLimit ?? Self.defaultBatchLineLimit, FileReadRenderer.defaultMaxLines))
+        let characterLimit = max(
+            10_000,
+            min(maxOutputCharacters ?? Self.defaultBatchCharacterLimit, Self.maximumBatchCharacterLimit)
+        )
+        var sections = [String]()
+        var artifacts = [String]()
+        var failures = [String]()
+        var characterCount = 0
+
+        for (index, path) in uniquePaths.enumerated() {
+            let result = read(path: path, limit: lineLimit)
+            let body = result.ok ? result.stdout : "[read failed: \(result.error ?? "unknown error")]"
+            let displayPath = path.count > 120 ? String(path.prefix(120)) + "..." : path
+            let header = "## File \(index + 1): \(displayPath)\n"
+            let separatorCount = sections.isEmpty ? 0 : 2
+            let remaining = max(1, characterLimit - characterCount - separatorCount)
+            let remainingFileCount = uniquePaths.count - index
+            let allocation = max(1, remaining / remainingFileCount)
+            let bodyLimit = max(0, allocation - header.count)
+            let truncationMarker = "\n[truncated for collection]"
+            let renderedBody: String
+            if body.count > bodyLimit, bodyLimit > truncationMarker.count {
+                renderedBody = String(body.prefix(bodyLimit - truncationMarker.count)) + truncationMarker
+            } else if body.count > bodyLimit {
+                renderedBody = String(body.prefix(bodyLimit))
+            } else {
+                renderedBody = body
+            }
+            let section = String((header + renderedBody).prefix(allocation))
+            sections.append(section)
+            characterCount += separatorCount + section.count
+            artifacts.append(contentsOf: result.artifacts)
+            if !result.ok {
+                failures.append("\(path): \(result.error ?? "unknown error")")
+            }
+        }
+
+        return ToolResult(
+            ok: failures.isEmpty,
+            stdout: sections.joined(separator: "\n\n"),
+            error: failures.isEmpty ? nil : "Failed to read \(failures.count) file(s): " + failures.joined(separator: "; "),
+            artifacts: artifacts
+        )
     }
 
     /// Whether a `[offset, …)` read window intersects the file at all — mirrors

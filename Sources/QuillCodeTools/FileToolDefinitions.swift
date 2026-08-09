@@ -17,6 +17,27 @@ public extension ToolDefinition {
         risk: .read
     )
 
+    static let fileReadMany = ToolDefinition(
+        name: "host.file.read_many",
+        description: """
+        Read a known collection of files in one bounded action. Use this instead of one host.file.read \
+        call per file when the task names multiple contracts, reports, notes, or other homogeneous \
+        sources. Text and supported rich documents are rendered exactly like host.file.read. Results \
+        are separated by file, preserve source artifacts for provenance, and are capped to protect \
+        model context. Pass at most 50 unique paths.
+        """,
+        parametersJSON: """
+        {"type":"object","properties":{"paths":{"type":"array","items":{"type":"string"},\
+        "minItems":1,"maxItems":50,"uniqueItems":true,"description":"Workspace-relative file paths \
+        to read in order."},"perFileLimit":{"type":"integer","minimum":1,"maximum":2000,\
+        "description":"Maximum rendered lines per file. Defaults to 400."},"maxOutputCharacters":{\
+        "type":"integer","minimum":10000,"maximum":500000,"description":"Maximum characters \
+        returned across the collection. Defaults to 200000."}},"required":["paths"]}
+        """,
+        host: .local,
+        risk: .read
+    )
+
     static let fileList = ToolDefinition(
         name: "host.file.list",
         description: """

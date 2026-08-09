@@ -44,6 +44,17 @@ public enum HostToolAccessScope: Sendable, Hashable {
                 with: "on the host filesystem"
             )
             adapted.parametersJSON = pathSchema(definition.parametersJSON)
+        case ToolDefinition.fileReadMany.name:
+            adapted.description = definition.description
+                + " Host filesystem paths outside the current project are allowed."
+            adapted.parametersJSON = schema(
+                definition.parametersJSON,
+                property: "paths",
+                description: """
+                Paths to read in order. Relative paths start at the current project; absolute and \
+                escaping paths are allowed.
+                """
+            )
         case ToolDefinition.fileList.name:
             adapted.description = definition.description.replacingOccurrences(
                 of: "inside a workspace directory",

@@ -246,6 +246,45 @@ final class AgentCitationIntegrityGateTests: XCTestCase {
         )
     }
 
+    func testBatchReadingOwnDeliverableDoesNotGroundItsCitations() {
+        var state = AgentRunLoopState()
+        let root = URL(fileURLWithPath: "/tmp")
+        func record(_ call: ToolCall, stdout: String, artifacts: [String] = []) {
+            _ = state.recordCompletedStep(
+                AgentToolStepCompletion(
+                    call: call,
+                    result: ToolResult(ok: true, stdout: stdout, artifacts: artifacts),
+                    followUpReviewResult: nil,
+                    toolResults: []
+                ),
+                workspaceRoot: root,
+                stateSignature: { _ in "" }
+            )
+        }
+        let fabricated = "https://fabricated.example.com/batch"
+        record(
+            ToolCall(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json(["path": "brief.md", "content": fabricated])
+            ),
+            stdout: "Wrote /tmp/brief.md",
+            artifacts: ["/tmp/brief.md"]
+        )
+        record(
+            ToolCall(
+                name: ToolDefinition.fileReadMany.name,
+                argumentsJSON: ToolArguments.json(["paths": ["sources/notes.md", "brief.md"]])
+            ),
+            stdout: "https://real.example.com/page\n\(fabricated)"
+        )
+
+        XCTAssertFalse(state.groundedURLs.contains(AgentCitationIntegrityGate.normalize(fabricated)))
+        XCTAssertFalse(
+            state.groundedURLs.contains(AgentCitationIntegrityGate.normalize("https://real.example.com/page")),
+            "a mixed batch containing an own output must not launder any URL from the aggregate output"
+        )
+    }
+
     func testSeededProvenanceCoversUserMessageAndPriorTurns() {
         var state = AgentRunLoopState()
         var thread = ChatThread(title: "t")

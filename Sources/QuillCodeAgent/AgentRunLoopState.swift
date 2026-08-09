@@ -147,6 +147,12 @@ struct AgentRunLoopState: Sendable {
             }
             return
         }
+        if completion.call.name == ToolDefinition.fileReadMany.name,
+           let arguments = try? ToolArguments(completion.call.argumentsJSON),
+           let paths = arguments.stringArray("paths") {
+            recordSuccessfulFileReads(paths: paths, output: completion.result.stdout)
+            return
+        }
         guard let path = AgentArtifactVerificationGate.pathArgument(from: completion.call) else {
             return
         }
@@ -240,31 +246,39 @@ struct AgentRunLoopState: Sendable {
                 tabularSourceIssuesByPath.removeValue(forKey: normalized)
             }
         case ToolDefinition.fileRead.name:
+            recordSuccessfulFileReads(paths: [path], output: completion.result.stdout)
+        default:
+            break
+        }
+    }
+
+    private mutating func recordSuccessfulFileReads(paths: [String], output: String) {
+        let normalizedPaths = paths.map(AgentArtifactVerificationGate.normalizedPath)
+        for normalized in normalizedPaths {
             successfullyReadWorkspacePaths.insert(normalized)
             unverifiedWrittenWorkspacePaths = Set(unverifiedWrittenWorkspacePaths.filter {
                 !AgentArtifactVerificationGate.pathsMatch($0, normalized)
             })
-            if enforcesSourceOnlyGrounding,
-               !writtenWorkspacePaths.contains(where: {
+        }
+        let sourcePaths = normalizedPaths.filter { normalized in
+            !writtenWorkspacePaths.contains(where: {
                 AgentArtifactVerificationGate.pathsMatch($0, normalized)
-               }) {
-                sourceGroundingText += "\n" + completion.result.stdout
-                sourceReadsByPath[normalized] = completion.result.stdout
-                for (writtenPath, content) in latestWrittenTextContents {
-                    let issues = AgentTabularSourceGroundingGate.issues(
-                        content: content,
-                        path: writtenPath,
-                        sourceReadsByPath: sourceReadsByPath
-                    )
-                    if issues.isEmpty {
-                        tabularSourceIssuesByPath.removeValue(forKey: writtenPath)
-                    } else {
-                        tabularSourceIssuesByPath[writtenPath] = issues
-                    }
-                }
+            })
+        }
+        guard enforcesSourceOnlyGrounding, !sourcePaths.isEmpty else { return }
+        sourceGroundingText += "\n" + output
+        sourceReadsByPath[sourcePaths.joined(separator: " | ")] = output
+        for (writtenPath, content) in latestWrittenTextContents {
+            let issues = AgentTabularSourceGroundingGate.issues(
+                content: content,
+                path: writtenPath,
+                sourceReadsByPath: sourceReadsByPath
+            )
+            if issues.isEmpty {
+                tabularSourceIssuesByPath.removeValue(forKey: writtenPath)
+            } else {
+                tabularSourceIssuesByPath[writtenPath] = issues
             }
-        default:
-            break
         }
     }
 
@@ -337,14 +351,23 @@ struct AgentRunLoopState: Sendable {
     }
 
     private func isReadOfOwnOutput(_ completion: AgentToolStepCompletion) -> Bool {
-        guard completion.call.name == "host.file.read",
-              let data = completion.call.argumentsJSON.data(using: .utf8),
-              let arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let path = arguments["path"] as? String
-        else { return false }
-        let read = AgentArtifactVerificationGate.normalizedPath(path)
-        return writtenWorkspacePaths.contains { written in
-            AgentArtifactVerificationGate.pathsMatch(written, read)
+        guard let arguments = try? ToolArguments(completion.call.argumentsJSON) else { return false }
+        let paths: [String]
+        switch completion.call.name {
+        case ToolDefinition.fileRead.name:
+            guard let path = arguments.string("path") else { return false }
+            paths = [path]
+        case ToolDefinition.fileReadMany.name:
+            guard let batchPaths = arguments.stringArray("paths") else { return false }
+            paths = batchPaths
+        default:
+            return false
+        }
+        return paths.contains { path in
+            let read = AgentArtifactVerificationGate.normalizedPath(path)
+            return writtenWorkspacePaths.contains { written in
+                AgentArtifactVerificationGate.pathsMatch(written, read)
+            }
         }
     }
 

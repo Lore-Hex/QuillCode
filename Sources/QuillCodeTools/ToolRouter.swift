@@ -55,6 +55,7 @@ public struct ToolRouter: Sendable {
 
     public static let definitions: [ToolDefinition] = ShellToolCallDispatcher.definitions + [
         .fileRead,
+        .fileReadMany,
         .fileList,
         .fileSearch,
         .fileWrite,
@@ -95,6 +96,15 @@ public struct ToolRouter: Sendable {
                     path: try args.requiredString("path"),
                     offset: args.int("offset"),
                     limit: args.int("limit")
+                )
+            case ToolDefinition.fileReadMany.name:
+                guard let paths = args.stringArray("paths") else {
+                    return ToolResult(ok: false, error: "Missing required string array argument: paths")
+                }
+                return files.readMany(
+                    paths: paths,
+                    perFileLimit: args.int("perFileLimit"),
+                    maxOutputCharacters: args.int("maxOutputCharacters")
                 )
             case ToolDefinition.fileList.name:
                 return files.list(

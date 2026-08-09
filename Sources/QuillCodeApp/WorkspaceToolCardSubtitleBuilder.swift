@@ -60,6 +60,9 @@ enum WorkspaceToolCardSubtitleBuilder {
              ToolDefinition.gitPullRequestDiff.name, ToolDefinition.gitPullRequestReviewComment.name,
              ToolDefinition.gitWorktreeRemove.name:
             return sanitized(arguments.string("path"))
+        case ToolDefinition.fileReadMany.name:
+            guard let count = arguments.stringArray("paths")?.count else { return nil }
+            return "\(count) file\(count == 1 ? "" : "s")"
         case ToolDefinition.fileSearch.name, ToolDefinition.webSearch.name:
             return sanitized(arguments.string("query"))
         case ToolDefinition.applyPatch.name:

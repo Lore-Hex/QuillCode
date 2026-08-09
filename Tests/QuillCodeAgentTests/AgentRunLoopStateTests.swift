@@ -99,6 +99,37 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertTrue(state.unverifiedWrittenWorkspacePaths.isEmpty)
     }
 
+    func testBatchReadVerifiesEveryWrittenPath() {
+        var state = AgentRunLoopState()
+        let firstWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/first.md", "content": "first"])
+        )
+        let secondWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/second.md", "content": "second"])
+        )
+        let batchRead = ToolCall(
+            name: ToolDefinition.fileReadMany.name,
+            argumentsJSON: ToolArguments.json(["paths": ["outputs/first.md", "outputs/second.md"]])
+        )
+
+        _ = state.recordCompletedStep(completed(call: firstWrite, stdout: "wrote"), workspaceRoot: root) { _ in
+            "first"
+        }
+        _ = state.recordCompletedStep(completed(call: secondWrite, stdout: "wrote"), workspaceRoot: root) { _ in
+            "second"
+        }
+        XCTAssertEqual(state.unverifiedWrittenWorkspacePaths, ["outputs/first.md", "outputs/second.md"])
+
+        _ = state.recordCompletedStep(completed(call: batchRead, stdout: "first\nsecond"), workspaceRoot: root) { _ in
+            "second"
+        }
+
+        XCTAssertTrue(state.unverifiedWrittenWorkspacePaths.isEmpty)
+        XCTAssertEqual(state.successfullyReadWorkspacePaths, ["outputs/first.md", "outputs/second.md"])
+    }
+
     private func recordNoProgress(
         _ call: ToolCall,
         in state: inout AgentRunLoopState
