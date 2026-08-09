@@ -290,6 +290,8 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("four numeric quarterly values", prompt)
         self.assertIn("inline SVG chart or a functional canvas chart", prompt)
         self.assertIn("source URL in every competitor row", prompt)
+        self.assertIn("focused query containing the company, fiscal quarters, and revenue", prompt)
+        self.assertIn("one results-history or annual-report page per company", prompt)
 
     def test_reusable_macro_prompt_allows_only_documented_runtime_fields(self):
         prompt = PRIOR.build_prompt(self.rows[59])
