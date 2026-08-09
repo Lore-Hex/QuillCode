@@ -1779,6 +1779,11 @@ def validate_task_33_sequence(path):
 
 
 def visible_prose(text):
+    text = re.sub(
+        r"(?is)<(?:style|script)\b[^>]*>.*?</(?:style|script)\s*>",
+        "",
+        text,
+    )
     lines = []
     in_fence = False
     for line in text.splitlines():

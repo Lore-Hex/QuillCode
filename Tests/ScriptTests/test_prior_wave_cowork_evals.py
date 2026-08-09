@@ -813,6 +813,17 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             self.assertFalse(valid)
             self.assertIn("missing sections", detail)
 
+    def test_visible_prose_excludes_html_code_but_keeps_rendered_placeholders(self):
+        html = (
+            "<style>.card { color: red; margin: 0; }</style>"
+            "<script>const row = { name: 'Alice' };</script>"
+            "<main>Prepared for {Company}</main>"
+        )
+        prose = PRIOR.visible_prose(html)
+        self.assertNotIn("color: red", prose)
+        self.assertNotIn("const row", prose)
+        self.assertIn("{Company}", prose)
+
     def test_schedule_grade_requires_persisted_automation(self):
         row = self.rows[147]
         report = {
