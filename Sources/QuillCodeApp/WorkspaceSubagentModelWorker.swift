@@ -300,6 +300,11 @@ enum WorkspaceSubagentPromptBuilder {
 
         Do not finish while any recoverable part of your assigned role remains.
         Use the available tools now instead of returning a plan or "next steps".
+        For research work, preserve each useful fact with its source URL as soon
+        as you find it. Prefer direct evidence gathering over building helper
+        scripts unless the role explicitly requires automation. If two focused
+        fetches of the same page produce no new evidence, switch to another
+        source or extraction method instead of rewriting the query again.
         End with COMPLETE: followed by a concise result only after every role
         requirement is satisfied and verified. If the role is genuinely blocked
         after concrete attempts, end with BLOCKED: followed by the exact blocker,
