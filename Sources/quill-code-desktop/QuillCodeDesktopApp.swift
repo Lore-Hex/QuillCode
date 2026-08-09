@@ -66,7 +66,6 @@ struct QuillCodeDesktopApp: App {
         if let request = QuillCodeDesktopCoworkEvalRequest(arguments: CommandLine.arguments) {
             let controller = request.makeController()
             _controller = StateObject(wrappedValue: controller)
-            QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)
             Task { @MainActor in
                 await QuillCodeDesktopCoworkEvalRunner.runAndExit(request, controller: controller)
             }
