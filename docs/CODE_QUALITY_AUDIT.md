@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-08-09 Transactional Disk-Image Packaging
+
+Overall grade after this slice: **A+ publication resilience, A+ failure visibility, A+ integrity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Publication resilience | A+ | Create, verify, and attach each receive three bounded attempts with a fresh candidate and mount point. |
+| Artifact integrity | A+ | The destination changes only after mounted-content, shortcut, signature, size, and detach checks pass. |
+| Failure visibility | A+ | Quiet `hdiutil` calls are gone; every failed image-service operation reports stage, attempt, bound, and exit status. |
+| Fail-closed policy | A+ | Bundle, shortcut, signature, and detach failures never retry; exhausted transient failures preserve the prior installer. |
+
+Validation:
+
+- Executable fake-tool packaging suite covers independent create, verify, and attach recovery,
+  partial-attach cleanup, retry exhaustion, prior-output preservation, invalid policy, and fail-fast
+  signature rejection (4 tests, 0 failures)
+- Real ad-hoc signed app DMG creation, verification, mount inspection, signature validation, detach,
+  and transactional replacement all passed against the release-mode Quill Cowork bundle
+- Focused disk-image and distribution contract suite (10 tests, 0 failures)
+- Full `swift test` (5,668 tests, 5 skipped, 0 failures)
+- Exact native package and public dual-architecture publication pending in this release follow-up
+- `python3 scripts/grade-code-quality.py --root .` reports every module A+
+- `bash -n scripts/create-macos-disk-image.sh`; `git diff --check`
+
 ## 2026-08-08 Unified Transcript Surface Projection
 
 Overall grade after this slice: **A+ main-actor latency, A+ transient memory, A+ semantic fidelity**.

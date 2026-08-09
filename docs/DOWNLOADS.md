@@ -65,6 +65,13 @@ When a build is required, the workflow updates the stable `tester-latest` tag
 and replaces release assets in place, so the links above do not change as new
 builds are published.
 
+DMG construction is transactional and stage-aware. The packager creates each
+candidate beside the destination, then verifies, mounts, inspects, signature-checks,
+and detaches it before an atomic replacement. Transient macOS disk-image service
+failures during create, verify, or attach receive up to three bounded attempts with
+the exact failed stage in the log. Bundle-content and code-signature failures never
+retry, and an exhausted attempt set leaves any prior installer untouched.
+
 After publishing, a separate read-only job consumes the release through the
 same public GitHub API and download URLs users receive. It resolves the release
 tag to the expected commit, checks the exact release inventory and updater feed
