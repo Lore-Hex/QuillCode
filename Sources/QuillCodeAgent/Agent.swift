@@ -27,6 +27,11 @@ public struct AgentRunner: Sendable {
     /// can consume the remaining turn deadline by repeating the same reasoning spiral.
     public static let correctiveActionReasoningCharacterLimit = 2_000
     static let promisedWorkCorrectionLimit = 2
+    /// A long-running task can encounter passive or empty model turns after many different tools.
+    /// Keep this budget scoped to the latest completed tool instead of consuming one allowance for
+    /// the entire run. Three run-level continuations, on top of the action resolver's local retry,
+    /// are enough to survive a stubborn route while remaining bounded if the model never acts.
+    static let exhaustedActionContinuationLimit = 3
     /// Bounded recovery for a malformed model action (garbage/mojibake tokens) or a mid-stream
     /// transport reset: re-prompt/re-request up to this many times before the failure is terminal.
     /// One bad sample must not kill an unattended run ([F5/F6] coworker-program findings).
@@ -212,11 +217,10 @@ public struct AgentRunner: Sendable {
             /// Unsafe shell paths get one preflight correction per exact call. A repeated proposal
             /// still reaches the approval gate, preserving its authority and bounded termination.
             var preflightCorrectedShellCalls = Set<ToolCallFingerprint>()
-            /// A successful read/fetch may be followed by an exhausted empty or passive model turn.
-            /// Give each failure class one run-level continuation; the action resolver still owns
-            /// its own bounded retries, so provider instability cannot create an unbounded loop.
-            var recoveredExhaustedEmptyAfterTool = false
-            var recoveredExhaustedPromisedWorkAfterTool = false
+            /// A successful tool may be followed by an exhausted empty or passive model turn. Keep a
+            /// shared bounded budget for both failure shapes and reset it after the next executed tool,
+            /// so one recovered phase cannot make every later phase of a long run less resilient.
+            var exhaustedActionContinuationAttempts = 0
             /// Listing a not-yet-created output directory is predictably unsuccessful. Correct each
             /// exact proposal once, then allow a repeat through so this preflight stays bounded.
             var preflightCorrectedMissingListCalls = Set<ToolCallFingerprint>()
@@ -325,16 +329,20 @@ public struct AgentRunner: Sendable {
                             ))
                             next.updatedAt = Date()
                             await onProgress?(next)
-                        } else if !recoveredExhaustedEmptyAfterTool {
-                            recoveredExhaustedEmptyAfterTool = true
+                        } else if exhaustedActionContinuationAttempts
+                                    < Self.exhaustedActionContinuationLimit {
+                            exhaustedActionContinuationAttempts += 1
                             pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
                                 after: completion.call,
-                                failure: "an empty response"
+                                failure: "an empty response",
+                                attempt: exhaustedActionContinuationAttempts
                             )
                             next.events.append(.init(
                                 kind: .notice,
                                 summary: "Self-healing: the model returned no action after successful "
-                                    + "source work; requested the next concrete step once."
+                                    + "source work; requested a concrete continuation "
+                                    + "(attempt \(exhaustedActionContinuationAttempts) of "
+                                    + "\(Self.exhaustedActionContinuationLimit))."
                             ))
                             next.updatedAt = Date()
                             await onProgress?(next)
@@ -427,17 +435,21 @@ public struct AgentRunner: Sendable {
                         next.updatedAt = Date()
                         await onProgress?(next)
                     } else {
-                        guard !recoveredExhaustedPromisedWorkAfterTool
+                        guard exhaustedActionContinuationAttempts
+                                < Self.exhaustedActionContinuationLimit
                         else { throw AgentError.promisedWorkWithoutToolAction }
-                        recoveredExhaustedPromisedWorkAfterTool = true
+                        exhaustedActionContinuationAttempts += 1
                         pendingRepeatNudge = Self.exhaustedActionContinuationPrompt(
                             after: completion.call,
-                            failure: "a passive promise instead of a tool action"
+                            failure: "a passive promise instead of a tool action",
+                            attempt: exhaustedActionContinuationAttempts
                         )
                         next.events.append(.init(
                             kind: .notice,
                             summary: "Self-healing: the model stopped at a promise after successful "
-                                + "tool work; requested the next concrete step once."
+                                + "tool work; requested a concrete continuation "
+                                + "(attempt \(exhaustedActionContinuationAttempts) of "
+                                + "\(Self.exhaustedActionContinuationLimit))."
                         ))
                         next.updatedAt = Date()
                         await onProgress?(next)
@@ -1094,6 +1106,10 @@ public struct AgentRunner: Sendable {
                             )
                         }
                     case .completed(let completion, let reviewOutcome):
+                        // The model emitted and executed a new concrete action. Recovery for the next
+                        // turn starts fresh even when this tool reports a failure: its feedback is new
+                        // information the model must be allowed to act on.
+                        exhaustedActionContinuationAttempts = 0
                         if let auditPath = pendingSourceGroundingAuditPath {
                             if completion.result.ok,
                                (completion.call.name == ToolDefinition.fileWrite.name
@@ -1309,13 +1325,19 @@ public struct AgentRunner: Sendable {
             + "your best final answer now."
     }
 
-    static func exhaustedActionContinuationPrompt(after call: ToolCall, failure: String) -> String {
+    static func exhaustedActionContinuationPrompt(
+        after call: ToolCall,
+        failure: String,
+        attempt: Int
+    ) -> String {
         """
-        [QuillCode continuation] The successful \(call.name) result is already in the conversation, \
-        but your next turn ended with \(failure). Continue the original request now. Return exactly \
-        one concrete next tool action; do not repeat the completed call, describe future work, ask \
-        for confirmation, or return an empty response. If every requested deliverable already exists, \
-        return the concise final answer instead.
+        [QuillCode continuation \(attempt) of \(exhaustedActionContinuationLimit)] The completed \
+        \(call.name) result is already in the conversation, but your next turn ended with \(failure). \
+        Do not plan, narrate, or announce what you will do. Emit exactly one QuillCode JSON object now. \
+        Unless every requested deliverable already exists and has been verified, that object MUST be a \
+        concrete next {"type":"tool",...} action with complete arguments. Do not repeat the completed \
+        call, ask for confirmation, or return an empty response. Only when all work is actually complete \
+        may you return a concise {"type":"say",...} final answer.
         """
     }
 

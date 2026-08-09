@@ -398,7 +398,7 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertEqual(durations, [], "the single post-tool resample should be immediate")
     }
 
-    func testExhaustedEmptyResponseAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {
+    func testExhaustedEmptyResponseAfterSuccessfulReadGetsThreeRunLevelContinuations() async throws {
         let root = try makeTempDirectory()
         try "source facts\n".write(
             to: root.appendingPathComponent("source.txt"),
@@ -420,8 +420,11 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             .action(.tool(readSource)),
             .failure(AgentError.emptyStreamingResponse),
             .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
             .action(.tool(write)),
-            .action(.say("Created and verified report.md.")),
             .action(.say("Created and verified report.md.")),
         ])
         let runner = AgentRunner(
@@ -441,9 +444,67 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             $0.kind == .notice && $0.summary.contains("no action after successful source work")
         })
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 6)
+        XCTAssertEqual(calls.count, 9)
         XCTAssertTrue(calls[3].userMessage.contains("QuillCode continuation"))
+        XCTAssertTrue(calls[3].userMessage.contains("continuation 1 of 3"))
+        XCTAssertTrue(calls[5].userMessage.contains("continuation 2 of 3"))
+        XCTAssertTrue(calls[7].userMessage.contains("continuation 3 of 3"))
         XCTAssertTrue(calls[3].userMessage.contains("host.file.read"))
+    }
+
+    func testExhaustedContinuationBudgetResetsAfterNextExecutedTool() async throws {
+        let root = try makeTempDirectory()
+        try "source facts\n".write(
+            to: root.appendingPathComponent("source.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let readSource = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "source.txt"])
+        )
+        let listWorkspace = ToolCall(
+            name: ToolDefinition.fileList.name,
+            argumentsJSON: ToolArguments.json(["path": "."])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(readSource)),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .action(.tool(listWorkspace)),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .failure(AgentError.emptyStreamingResponse),
+            .action(.say("Read the source and inspected the workspace.")),
+        ])
+        let runner = AgentRunner(
+            llm: client,
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true])
+        let continuationNotices = result.thread.events.filter {
+            $0.kind == .notice && $0.summary.contains("no action after successful source work")
+        }
+        XCTAssertEqual(continuationNotices.count, 4)
+        XCTAssertEqual(
+            continuationNotices.filter { $0.summary.contains("attempt 1 of 3") }.count,
+            2,
+            "the continuation budget should restart after the second tool executes"
+        )
+        XCTAssertEqual(
+            continuationNotices.filter { $0.summary.contains("attempt 2 of 3") }.count,
+            2
+        )
     }
 
     func testExhaustedEmptyResponseAdvancesUnreadExplicitSourceBeforeModelContinuation() async throws {
