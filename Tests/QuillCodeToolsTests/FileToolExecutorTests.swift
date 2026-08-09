@@ -3,6 +3,70 @@ import QuillCodeCore
 @testable import QuillCodeTools
 
 final class FileToolExecutorTests: XCTestCase {
+    func testFileReadExtractsWordAndPowerPointText() throws {
+        let root = try makeTempDirectory()
+        let wordURL = root.appendingPathComponent("brief.docx")
+        let slidesURL = root.appendingPathComponent("deck.pptx")
+        try makeArchive(
+            at: wordURL,
+            entries: [
+                "word/document.xml": """
+                <w:document xmlns:w="word"><w:body><w:p><w:r><w:t>Board update</w:t></w:r></w:p><w:p><w:r><w:t>Runway is 18 months</w:t></w:r></w:p></w:body></w:document>
+                """
+            ]
+        )
+        try makeArchive(
+            at: slidesURL,
+            entries: [
+                "ppt/slides/slide2.xml": """
+                <p:sld xmlns:p="presentation" xmlns:a="drawing"><a:t>Second milestone</a:t></p:sld>
+                """,
+                "ppt/slides/slide10.xml": """
+                <p:sld xmlns:p="presentation" xmlns:a="drawing"><a:t>Tenth milestone</a:t></p:sld>
+                """
+            ]
+        )
+        let files = FileToolExecutor(workspaceRoot: root)
+
+        let word = files.read(path: "brief.docx")
+        let slides = files.read(path: "deck.pptx")
+
+        XCTAssertTrue(word.ok, word.error ?? "")
+        XCTAssertTrue(word.stdout.contains("Board update"))
+        XCTAssertTrue(word.stdout.contains("Runway is 18 months"))
+        XCTAssertTrue(slides.ok, slides.error ?? "")
+        XCTAssertTrue(slides.stdout.contains("Second milestone"))
+        XCTAssertTrue(slides.stdout.contains("Tenth milestone"))
+        XCTAssertLessThan(
+            try XCTUnwrap(slides.stdout.range(of: "Second milestone")?.lowerBound),
+            try XCTUnwrap(slides.stdout.range(of: "Tenth milestone")?.lowerBound)
+        )
+    }
+
+    func testFileReadExtractsSpreadsheetSharedAndInlineStrings() throws {
+        let root = try makeTempDirectory()
+        let workbookURL = root.appendingPathComponent("metrics.xlsx")
+        try makeArchive(
+            at: workbookURL,
+            entries: [
+                "xl/sharedStrings.xml": """
+                <sst xmlns="spreadsheet"><si><t>Company</t></si><si><t>LedgerLoop</t></si></sst>
+                """,
+                "xl/worksheets/sheet1.xml": """
+                <worksheet xmlns="spreadsheet"><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t>ARR</t></is></c></row><row r="2"><c r="A2" t="s"><v>1</v></c><c r="B2"><v>1250000</v></c></row></sheetData></worksheet>
+                """
+            ]
+        )
+
+        let result = FileToolExecutor(workspaceRoot: root).read(path: "metrics.xlsx")
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("A1=Company"))
+        XCTAssertTrue(result.stdout.contains("B1=ARR"))
+        XCTAssertTrue(result.stdout.contains("A2=LedgerLoop"))
+        XCTAssertTrue(result.stdout.contains("B2=1250000"))
+    }
+
     func testToolRouterExposesAndRoutesFileSearch() throws {
         let root = try makeTempDirectory()
         let files = FileToolExecutor(workspaceRoot: root)
@@ -254,5 +318,27 @@ final class FileToolExecutorTests: XCTestCase {
 
         XCTAssertFalse(files.search(query: "needle", path: "../outside").ok)
         XCTAssertFalse(files.search(query: "   ").ok)
+    }
+
+    private func makeArchive(at archiveURL: URL, entries: [String: String]) throws {
+        let source = try makeTempDirectory()
+        for (path, contents) in entries {
+            let url = source.appendingPathComponent(path)
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try contents.write(to: url, atomically: true, encoding: .utf8)
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/zip")
+        process.arguments = ["-q", "-r", archiveURL.path, "."]
+        process.currentDirectoryURL = source
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 0)
     }
 }

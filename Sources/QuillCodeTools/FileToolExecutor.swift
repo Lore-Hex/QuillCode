@@ -52,6 +52,16 @@ public struct FileToolExecutor: Sendable {
             // context. The refusal must NOT count as a read: the session was never shown the
             // content, so it earns no write/patch rights over it.
             if FileReadRenderer.isProbablyBinary(data) {
+                if let extracted = RichDocumentTextExtractor.extract(from: url) {
+                    if Self.windowShowsContent(display: extracted, offset: offset) {
+                        editGuard?.markRead(url)
+                    }
+                    return ToolResult(
+                        ok: true,
+                        stdout: FileReadRenderer.render(extracted, offset: offset, limit: limit),
+                        artifacts: [url.path]
+                    )
+                }
                 return ToolResult(
                     ok: true,
                     stdout: FileReadRenderer.binaryDescription(data, fileName: url.lastPathComponent),
