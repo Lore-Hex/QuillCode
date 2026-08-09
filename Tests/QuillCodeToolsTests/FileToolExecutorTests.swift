@@ -3,6 +3,22 @@ import QuillCodeCore
 @testable import QuillCodeTools
 
 final class FileToolExecutorTests: XCTestCase {
+    func testFileReadExtractsTextFromASCIIPDFInsteadOfDumpingObjectStreams() throws {
+        let root = try makeTempDirectory()
+        let pdfURL = root.appendingPathComponent("renewal.pdf")
+        let data = makeASCIIPDF(text: "Renewal date 2027-12-31")
+        XCTAssertFalse(FileReadRenderer.isProbablyBinary(data))
+        try data.write(to: pdfURL)
+
+        let result = FileToolExecutor(workspaceRoot: root).read(path: "renewal.pdf")
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("Renewal date 2027-12-31"), result.stdout)
+        XCTAssertTrue(result.stdout.contains("## Page 1"), result.stdout)
+        XCTAssertFalse(result.stdout.contains("%PDF-1.4"), result.stdout)
+        XCTAssertFalse(result.stdout.contains("endobj"), result.stdout)
+    }
+
     func testFileReadExtractsWordAndPowerPointText() throws {
         let root = try makeTempDirectory()
         let wordURL = root.appendingPathComponent("brief.docx")
@@ -398,5 +414,33 @@ final class FileToolExecutorTests: XCTestCase {
         try process.run()
         process.waitUntilExit()
         XCTAssertEqual(process.terminationStatus, 0)
+    }
+
+    private func makeASCIIPDF(text: String) -> Data {
+        let escaped = text
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "(", with: "\\(")
+            .replacingOccurrences(of: ")", with: "\\)")
+        let stream = "BT /F1 12 Tf 72 720 Td (\(escaped)) Tj ET\n"
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+            "<< /Length \(stream.utf8.count) >>\nstream\n\(stream)endstream"
+        ]
+        var pdf = "%PDF-1.4\n"
+        var offsets = [Int]()
+        for (index, object) in objects.enumerated() {
+            offsets.append(pdf.utf8.count)
+            pdf += "\(index + 1) 0 obj\n\(object)\nendobj\n"
+        }
+        let xrefOffset = pdf.utf8.count
+        pdf += "xref\n0 \(objects.count + 1)\n0000000000 65535 f \n"
+        for offset in offsets {
+            pdf += String(format: "%010d 00000 n \n", offset)
+        }
+        pdf += "trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xrefOffset)\n%%EOF\n"
+        return Data(pdf.utf8)
     }
 }

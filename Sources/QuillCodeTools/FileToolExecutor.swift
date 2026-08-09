@@ -48,20 +48,23 @@ public struct FileToolExecutor: Sendable {
                 )
             }
             let data = try FileSystemIO.readFile(at: url)
+            // Rich formats are selected by their declared file type, not by whether their bytes
+            // happen to decode as UTF-8. Small, valid PDFs can be entirely ASCII; treating those
+            // as text would dump PDF object streams into the model context instead of page text.
+            if let extracted = RichDocumentTextExtractor.extract(from: url) {
+                if Self.windowShowsContent(display: extracted, offset: offset) {
+                    editGuard?.markRead(url)
+                }
+                return ToolResult(
+                    ok: true,
+                    stdout: FileReadRenderer.render(extracted, offset: offset, limit: limit),
+                    artifacts: [url.path]
+                )
+            }
             // Refuse binary/image content gracefully instead of erroring or dumping garbage into
             // context. The refusal must NOT count as a read: the session was never shown the
             // content, so it earns no write/patch rights over it.
             if FileReadRenderer.isProbablyBinary(data) {
-                if let extracted = RichDocumentTextExtractor.extract(from: url) {
-                    if Self.windowShowsContent(display: extracted, offset: offset) {
-                        editGuard?.markRead(url)
-                    }
-                    return ToolResult(
-                        ok: true,
-                        stdout: FileReadRenderer.render(extracted, offset: offset, limit: limit),
-                        artifacts: [url.path]
-                    )
-                }
                 return ToolResult(
                     ok: true,
                     stdout: FileReadRenderer.binaryDescription(data, fileName: url.lastPathComponent),
