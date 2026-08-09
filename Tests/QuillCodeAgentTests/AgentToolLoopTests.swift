@@ -405,12 +405,15 @@ final class AgentToolLoopTests: XCTestCase {
             workspaceRoot: root
         )
 
+        guard let toolResult = result.toolResults.first else {
+            return XCTFail("Expected a recovered shell result; transcript: \(result.thread.messages)")
+        }
         XCTAssertEqual(result.toolResults.count, 1)
-        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertTrue(toolResult.ok, toolResult.error ?? "")
         XCTAssertFalse(result.thread.messages.contains {
             $0.content.contains("I'll execute")
         })
-        XCTAssertEqual(result.toolResults[0].stdout.trimmingCharacters(in: .whitespacesAndNewlines), "not found")
+        XCTAssertEqual(toolResult.stdout.trimmingCharacters(in: .whitespacesAndNewlines), "not found")
         XCTAssertEqual(result.thread.messages.last?.content, "Done after checking the command.")
     }
 
