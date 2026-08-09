@@ -78,6 +78,67 @@ final class WorkspaceRuntimeIssueIntegrationTests: XCTestCase {
         XCTAssertNotEqual(model.surface().runtimeIssue?.title, issue.title)
     }
 
+    func testFailedRegistrySaveSurfacesContentFreeDurabilityWarning() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let privateDirectoryName = "private-acquisition-registry"
+        let blockingFile = root.appendingPathComponent(privateDirectoryName)
+        try Data().write(to: blockingFile)
+        let privateProjectName = "Private acquisition project"
+        let model = QuillCodeWorkspaceModel(
+            projectStore: JSONProjectStore(
+                fileURL: blockingFile.appendingPathComponent("projects.json")
+            )
+        )
+
+        _ = model.addProject(path: root, name: privateProjectName)
+
+        let surface = model.surface()
+        let issue = try XCTUnwrap(surface.runtimeIssue)
+        XCTAssertEqual(issue.severity, .error)
+        XCTAssertEqual(issue.title, "A workspace change is not saved")
+        XCTAssertNil(issue.actionLabel)
+        XCTAssertNil(issue.recovery)
+        XCTAssertEqual(surface.topBar.runtimeIssueLabel, issue.title)
+        XCTAssertEqual(surface.settings.runtimeIssue, issue)
+        XCTAssertEqual(
+            issue.diagnostics.first { $0.label == "Affected data" }?.value,
+            "Projects"
+        )
+        let visibleText = ([issue.title, issue.message] + issue.diagnostics.flatMap {
+            [$0.label, $0.value]
+        }).joined(separator: " ")
+        XCTAssertFalse(visibleText.contains(privateDirectoryName))
+        XCTAssertFalse(visibleText.contains(privateProjectName))
+
+        try FileManager.default.removeItem(at: blockingFile)
+        model.saveProjects()
+
+        XCTAssertNotEqual(model.surface().runtimeIssue?.title, issue.title)
+    }
+
+    func testChatSaveFailureKeepsPriorityOverRegistrySaveFailure() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let blockingFile = root.appendingPathComponent("blocked")
+        try Data().write(to: blockingFile)
+        let thread = ChatThread(title: "Unsaved chat")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread]),
+            threadStore: JSONThreadStore(
+                directory: blockingFile.appendingPathComponent("threads")
+            ),
+            projectStore: JSONProjectStore(
+                fileURL: blockingFile.appendingPathComponent("projects.json")
+            )
+        )
+
+        model.threadPersistence.save(thread)
+        _ = model.addProject(path: root, name: "Unsaved project")
+
+        XCTAssertEqual(model.threadPersistenceIssueTracker.failedThreadCount, 1)
+        XCTAssertEqual(model.registryPersistenceIssueTracker.failedKindCount, 1)
+        XCTAssertEqual(model.surface().runtimeIssue?.title, "A chat change is not saved")
+    }
+
     func testStartupLoadIssueKeepsPriorityOverLaterSaveFailure() throws {
         let root = try makeQuillCodeTestDirectory()
         let blockingFile = root.appendingPathComponent("blocked")

@@ -87,6 +87,29 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.brightPixelRatio, 0.0008)
     }
 
+    func testRenderedWorkspaceShowsUnsavedRegistryDurabilityWarning() throws {
+        let root = try makeTempDirectory()
+        let blockingFile = root.appendingPathComponent("blocked")
+        try Data().write(to: blockingFile)
+        let model = QuillCodeWorkspaceModel(
+            projectStore: JSONProjectStore(
+                fileURL: blockingFile.appendingPathComponent("projects.json")
+            )
+        )
+        _ = model.addProject(path: root, name: "Unsaved project")
+        let surface = model.surface()
+        XCTAssertEqual(surface.runtimeIssue?.title, "A workspace change is not saved")
+
+        let image = try renderWorkspace(surface)
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 1280)
+        XCTAssertEqual(stats.height, 900)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.brightPixelRatio, 0.0008)
+    }
+
     func testRenderedEmptyWorkspaceShowsAggregatedRegistryRecoveryIssue() throws {
         let firstThread = ChatThread(title: "Recovered chat A")
         let secondThread = ChatThread(title: "Recovered chat B")
