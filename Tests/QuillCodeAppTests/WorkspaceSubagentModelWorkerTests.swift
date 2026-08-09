@@ -216,6 +216,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             "The role is not fully complete; I need to fetch the remaining releases.",
             "Starting research. I have Q1, and now I need Q2 through Q4.",
             "Q2 revenue is confirmed. I need to gather Q3 and Q4 next.",
+            "The query windows returned only the headline ($333.9M for Q4 2025) and not the full GAAP revenue table. Fetching the alternate press-release URL to extract the complete fiscal-year and quarterly GAAP revenue figures.",
         ]
 
         for stall in stalls {

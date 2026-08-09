@@ -394,8 +394,7 @@ enum WorkspaceSubagentTerminalStatus {
             "reading", "fetching", "searching", "checking", "reviewing", "retrying",
             "writing", "verifying",
         ]
-        if terminalClause.contains(" next"),
-           actionGerunds.contains(where: { terminalClause.hasPrefix("\($0) ") }) {
+        if actionGerunds.contains(where: { terminalClause.hasPrefix("\($0) ") }) {
             return true
         }
         let nextActionMarkers = [
