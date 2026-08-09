@@ -84,6 +84,9 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$SOURCE_EXECUTABLE" "$MACOS_DIR/$APP_NAME"
 chmod 755 "$MACOS_DIR/$APP_NAME"
+if [[ "$CONFIGURATION" == "release" ]]; then
+  "$ROOT_DIR/scripts/strip-macos-release-executable.sh" "$MACOS_DIR/$APP_NAME"
+fi
 if [[ -f "$APP_ICON_SOURCE" ]]; then
   cp "$APP_ICON_SOURCE" "$RESOURCES_DIR/QuillCode.icns"
 fi

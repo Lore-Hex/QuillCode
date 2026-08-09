@@ -63,6 +63,11 @@ def parse_macos_build_info(asset_directory: Path) -> dict[str, dict[str, str]]:
         values = parse_build_info_file(path)
         if values.get("platform") != "macOS" or values.get("arch") != architecture:
             raise SystemExit(f"{path.name} has the wrong platform or architecture")
+        if values.get("symbolsStripped") != "true":
+            raise SystemExit(f"{path.name} must declare symbolsStripped=true")
+        executable_size = values.get("executableSizeBytes", "")
+        if not executable_size.isdecimal() or int(executable_size) <= 0:
+            raise SystemExit(f"{path.name} executableSizeBytes must be a positive integer")
         values_by_arch[architecture] = values
 
     canonical_path = asset_directory / "BUILD_INFO.txt"
@@ -77,6 +82,7 @@ def parse_macos_build_info(asset_directory: Path) -> dict[str, dict[str, str]]:
         "build",
         "commit",
         "configuration",
+        "symbolsStripped",
         "bundleIdentifier",
         "minimumSystemVersion",
         "updateChannel",

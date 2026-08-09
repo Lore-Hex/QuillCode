@@ -302,6 +302,19 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         )
     }
 
+    func testVerifierRejectsExecutableSizeThatDisagreesWithAppArchive() throws {
+        let fixture = try makeFixture(armExecutableSizeBytes: 31)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("macOS app executable size disagrees with BUILD_INFO"),
+            result.output
+        )
+    }
+
     func testVerifierRejectsIncompleteUpdaterArchitectureInventory() throws {
         let fixture = try makeFixture()
         defer { try? FileManager.default.removeItem(at: fixture.root) }
@@ -360,6 +373,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         intelExecutableArchitecture: String = "x86_64",
         channel: String = "tester",
         prerelease: Bool? = nil,
+        armExecutableSizeBytes: Int = 32,
         performanceMutation: ((inout [String: Any]) throws -> Void)? = nil
     ) throws -> Fixture {
         precondition(channel == "tester" || channel == "stable")
@@ -417,6 +431,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             commit=\(commit)
             createdAt=2026-08-07T00:00:00Z
             configuration=release
+            symbolsStripped=true
+            executableSizeBytes=\(architecture == "arm64" ? armExecutableSizeBytes : 32)
             bundleIdentifier=co.lorehex.QuillCowork
             minimumSystemVersion=14.0
             updateChannel=\(channel)

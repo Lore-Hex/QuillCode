@@ -90,6 +90,12 @@ APP_BUNDLE="$(
 APP_ZIP="$ASSET_DIR/Quill-Cowork-macOS-$ARCH.zip"
 APP_DMG="$ASSET_DIR/Quill-Cowork-macOS-$ARCH.dmg"
 PERFORMANCE_MANIFEST="$ASSET_DIR/Quill-Cowork-macOS-$ARCH-PERFORMANCE.json"
+APP_EXECUTABLE="$APP_BUNDLE/Contents/MacOS/Quill Cowork"
+APP_EXECUTABLE_SIZE_BYTES="$(stat -f '%z' "$APP_EXECUTABLE")"
+SYMBOLS_STRIPPED=false
+if [[ "$CONFIGURATION" == "release" ]]; then
+  SYMBOLS_STRIPPED=true
+fi
 NOTARIZED=false
 CODESIGN_KIND="ad-hoc"
 if [[ -n "$SIGNING_IDENTITY" ]]; then
@@ -163,6 +169,8 @@ build=$BUILD_NUMBER
 commit=$COMMIT
 createdAt=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 configuration=$CONFIGURATION
+symbolsStripped=$SYMBOLS_STRIPPED
+executableSizeBytes=$APP_EXECUTABLE_SIZE_BYTES
 bundleIdentifier=$BUNDLE_ID
 minimumSystemVersion=$MINIMUM_SYSTEM_VERSION
 updateChannel=$UPDATE_CHANNEL
