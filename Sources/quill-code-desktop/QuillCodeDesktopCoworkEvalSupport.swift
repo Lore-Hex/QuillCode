@@ -173,7 +173,10 @@ struct QuillCodeDesktopCoworkEvalReport: Encodable {
     var lastError: String?
     var browserURL: String?
     var workspacePath: String
+    var windowSource: String
+    var workspaceWindowCount: Int
     var screenshot: Screenshot?
+    var desktopCaptureError: String?
     var scheduledAutomation: ScheduledAutomation?
     var durationMilliseconds: Int
     var usage: ModelTokenUsage

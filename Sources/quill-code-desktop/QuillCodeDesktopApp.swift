@@ -66,9 +66,7 @@ struct QuillCodeDesktopApp: App {
         if let request = QuillCodeDesktopCoworkEvalRequest(arguments: CommandLine.arguments) {
             let controller = request.makeController()
             _controller = StateObject(wrappedValue: controller)
-            Task { @MainActor in
-                await QuillCodeDesktopCoworkEvalRunner.runAndExit(request, controller: controller)
-            }
+            QuillCodeDesktopCoworkEvalLaunch.schedule(request, controller: controller)
             return
         }
 
@@ -166,6 +164,30 @@ struct QuillCodeDesktopApp: App {
         } label: {
             Image(nsImage: QuillCodeMenuBarIcon.image)
                 .accessibilityLabel(QuillCodeProduct.displayName)
+        }
+    }
+}
+
+@MainActor
+private enum QuillCodeDesktopCoworkEvalLaunch {
+    private static var observer: NSObjectProtocol?
+
+    static func schedule(
+        _ request: QuillCodeDesktopCoworkEvalRequest,
+        controller: QuillCodeDesktopController
+    ) {
+        observer = NotificationCenter.default.addObserver(
+            forName: NSApplication.didFinishLaunchingNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { @MainActor in
+                if let observer {
+                    NotificationCenter.default.removeObserver(observer)
+                    Self.observer = nil
+                }
+                await QuillCodeDesktopCoworkEvalRunner.runAndExit(request, controller: controller)
+            }
         }
     }
 }

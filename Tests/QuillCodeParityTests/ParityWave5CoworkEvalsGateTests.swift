@@ -26,6 +26,8 @@ final class ParityWave5CoworkEvalsGateTests: XCTestCase {
         XCTAssertTrue(runner.contains("controller.send()"))
         XCTAssertTrue(runner.contains("controller.openBrowserPreview()"))
         XCTAssertTrue(app.contains("QuillCodeDesktopCoworkEvalRequest(arguments: CommandLine.arguments)"))
+        XCTAssertTrue(app.contains("QuillCodeDesktopCoworkEvalLaunch.schedule(request, controller: controller)"))
+        XCTAssertTrue(app.contains("NSApplication.didFinishLaunchingNotification"))
         XCTAssertTrue(
             app.contains("Window(QuillCodeProduct.displayName, id: QuillCodeDesktopSceneID.mainWindow)"),
             "Native Cowork evaluations must use the app's single SwiftUI-owned main window."
@@ -35,9 +37,12 @@ final class ParityWave5CoworkEvalsGateTests: XCTestCase {
         for physicalWindowEvidence in [
             "NSApplication.shared.activate(ignoringOtherApps: true)",
             "NSApplication.shared.windows.first(where:",
-            "candidate.isVisible",
+            "QuillCodeDesktopCoworkEvalWindow.acquire(",
+            "retainedFallbackWindow = window",
             "window.makeKeyAndOrderFront(nil)",
+            "window.orderFrontRegardless()",
             "contentView.cacheDisplay(in: bounds, to: bitmap)",
+            "desktopCaptureError = String(describing: error)",
         ] {
             XCTAssertTrue(
                 runner.contains(physicalWindowEvidence),

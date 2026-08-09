@@ -1,4 +1,5 @@
 import ApplicationServices
+import AppKit
 import Foundation
 import XCTest
 import QuillCodeApp
@@ -184,6 +185,39 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(config.defaultModel, request.modelID)
         XCTAssertEqual(config.maxToolSteps, request.maxToolSteps)
         XCTAssertEqual(config.runSpendFuseUSD, request.runSpendFuseUSD)
+    }
+
+    func testCoworkEvalWindowRetainsOnePhysicalFallbackWindow() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("quillcode-cowork-eval-window-test-\(UUID().uuidString)")
+        defer {
+            QuillCodeDesktopCoworkEvalWindow.releaseFallbackForTesting()
+            try? FileManager.default.removeItem(at: root)
+        }
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-home", root.appendingPathComponent("home").path,
+            "--cowork-eval-workspace", root.appendingPathComponent("workspace").path,
+            "--cowork-eval-prompt-file", root.appendingPathComponent("prompt.txt").path,
+        ]))
+        let controller = request.makeController(environment: ["QUILLCODE_USE_MOCK_LLM": "1"])
+
+        let first = QuillCodeDesktopCoworkEvalWindow.retainFallbackForTesting(
+            contentView: NSView(frame: NSRect(x: 0, y: 0, width: 1_280, height: 900))
+        )
+        let second = try await QuillCodeDesktopCoworkEvalWindow.acquire(
+            controller: controller,
+            sceneSettleAttempts: 1
+        )
+
+        XCTAssertEqual(first.source, .evalFallback)
+        XCTAssertEqual(second.source, .evalFallback)
+        XCTAssertTrue(first.window === second.window)
+        XCTAssertTrue(first.window.isVisible)
+        XCTAssertEqual(first.window.contentView?.bounds.width, 1_280)
+        XCTAssertEqual(first.window.contentView?.bounds.height, 900)
+        XCTAssertEqual(QuillCodeDesktopCoworkEvalWindow.visibleWindowCount, 1)
     }
 
     func testCoworkEvalReportDistinguishesRecoveredToolFailures() {
