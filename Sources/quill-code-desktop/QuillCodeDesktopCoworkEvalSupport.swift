@@ -74,6 +74,10 @@ struct QuillCodeDesktopCoworkEvalRequest: Sendable {
             bootstrap: QuillCodeWorkspaceBootstrap(paths: paths, runtimeFactory: runtimeFactory),
             browserLiveDOMCapturer: nil,
             automationNotifier: QuillCodeDesktopCoworkEvalNotifier(),
+            updateController: QuillCodeDesktopUpdateController(
+                configuration: nil,
+                installResultURL: nil
+            ),
             workspaceRoot: workspace
         )
     }
