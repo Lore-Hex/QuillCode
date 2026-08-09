@@ -1108,11 +1108,15 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         html = (
             "<style>.card { color: red; margin: 0; }</style>"
             "<script>const row = { name: 'Alice' };</script>"
+            "<pre>awk '{q[$7]+=$8}' inputs/records.csv</pre>"
+            "<code>{for (k in q) print k, q[k]}</code>"
             "<main>Prepared for {Company}</main>"
         )
         prose = PRIOR.visible_prose(html)
         self.assertNotIn("color: red", prose)
         self.assertNotIn("const row", prose)
+        self.assertNotIn("q[$7]", prose)
+        self.assertNotIn("for (k in q)", prose)
         self.assertIn("{Company}", prose)
 
     def test_schedule_grade_requires_persisted_automation(self):

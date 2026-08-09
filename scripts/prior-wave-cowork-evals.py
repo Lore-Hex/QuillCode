@@ -2018,7 +2018,7 @@ def validate_task_117_revenue_chart(path):
 
 def visible_prose(text):
     text = re.sub(
-        r"(?is)<(?:style|script)\b[^>]*>.*?</(?:style|script)\s*>",
+        r"(?is)<(?:style|script|pre|code)\b[^>]*>.*?</(?:style|script|pre|code)\s*>",
         "",
         text,
     )
