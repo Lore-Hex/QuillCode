@@ -9,6 +9,21 @@ public protocol ModelOverridingLLMClient: LLMClient {
     func overridingModel(_ modelID: String) -> Self
 }
 
+/// Exposes the route a concrete client actually sends to. A thread keeps the user's selected model,
+/// while a fallback or auxiliary client can serve one request on a different route; usage accounting
+/// and route-specific safety limits must follow the serving client rather than the thread label.
+public protocol ModelIdentifyingLLMClient: LLMClient {
+    var routedModelID: String { get }
+}
+
+extension TrustedRouterLLMClient: ModelIdentifyingLLMClient {
+    public var routedModelID: String { model }
+}
+
+extension RetryingLLMClient: ModelIdentifyingLLMClient where Base: ModelIdentifyingLLMClient {
+    public var routedModelID: String { base.routedModelID }
+}
+
 extension TrustedRouterLLMClient: ModelOverridingLLMClient {
     public func overridingModel(_ modelID: String) -> TrustedRouterLLMClient {
         var copy = self
@@ -65,4 +80,9 @@ public func overridingModelIfSupported(_ client: any LLMClient, modelID: String)
         return client
     }
     return overridable.overridingModel(modelID)
+}
+
+/// Returns the concrete serving route when the client exposes it, otherwise the caller's model ID.
+public func routedModelIDIfSupported(_ client: any LLMClient, fallback: String) -> String {
+    (client as? any ModelIdentifyingLLMClient)?.routedModelID ?? fallback
 }

@@ -70,6 +70,42 @@ final class AgentFallbackLLMTests: XCTestCase {
         XCTAssertEqual(fallbackCalls, 1)
     }
 
+    func testSuccessfulFallbackRemainsActiveForRestOfRun() async throws {
+        let root = try makeTempDirectory()
+        try Data("grounded context".utf8).write(to: root.appendingPathComponent("input.txt"))
+        let primary = ScriptedState(Self.alwaysEmpty)
+        let fallback = ScriptedState([
+            .success(.tool(.init(
+                name: "host.file.read",
+                argumentsJSON: #"{"path":"input.txt"}"#
+            ))),
+            .success(.say("fallback summarized the grounded context")),
+        ])
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: primary),
+            maxToolSteps: 3,
+            fallbackLLM: ScriptedClient(state: fallback),
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
+
+        let result = try await runner.send(
+            "Read input.txt, then summarize its contents.",
+            in: ChatThread(title: "t"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults[0].ok, result.toolResults[0].error ?? "")
+        XCTAssertEqual(result.thread.messages.last?.content, "fallback summarized the grounded context")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("keeping that route for the rest of this run")
+        })
+        let primaryCalls = await primary.calls()
+        let fallbackCalls = await fallback.calls()
+        XCTAssertEqual(primaryCalls, 7, "the failed primary must not be retried after recovery")
+        XCTAssertEqual(fallbackCalls, 2, "fallback owns both the tool action and finalization")
+    }
+
     func testFallbackAlsoFailingStaysFatalAcrossBoundedStartupRecovery() async {
         let primary = ScriptedState(Self.exhaustedStartup)
         let fallback = ScriptedState(Self.exhaustedStartup)

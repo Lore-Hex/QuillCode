@@ -113,7 +113,7 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
                 .text(#"{"type":"say","text":"too late"}"#),
             ],
             [
-                .reasoning(String(repeating: "still planning ", count: 200)),
+                .reasoning(String(repeating: "still planning ", count: 600)),
                 .text(#"{"type":"say","text":"still too late"}"#),
             ],
             [
@@ -148,6 +148,7 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         )
         XCTAssertNil(AgentRunner(preActionReasoningCharacterLimit: nil).preActionReasoningCharacterLimit)
         XCTAssertNil(AgentRunner(interActionReasoningCharacterLimit: nil).interActionReasoningCharacterLimit)
+        XCTAssertEqual(AgentRunner.correctiveActionReasoningCharacterLimit, 6_000)
     }
 
     func testDeepSeekV4FlashUsesProviderSafeReasoningLimit() {

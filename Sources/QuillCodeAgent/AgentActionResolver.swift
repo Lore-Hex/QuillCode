@@ -70,7 +70,7 @@ extension AgentRunner {
         var emptyResponseAttempt = 0
         // F22: which client resolves this action. Flips to `fallbackLLM` (at most once) when the
         // primary exhausts the empty-response budget — a route-quality death an alternate model
-        // reliably survives. Scoped per-action: the next action starts back on the primary.
+        // reliably survives. The owning send loop promotes a successful fallback for later actions.
         var activeLLM: LLMClient = llm
         var usedFallback = false
         while true {
@@ -282,8 +282,7 @@ extension AgentRunner {
                         pendingCorrectionPrompt = nil
                         thread.events.append(.init(
                             kind: .notice,
-                            summary: "Self-healing: the model kept returning empty responses; "
-                                + "switching to the fallback model for this step."
+                            summary: Self.fallbackSwitchNotice
                         ))
                         thread.updatedAt = Date()
                         await onProgress?(thread)

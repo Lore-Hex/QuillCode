@@ -24,8 +24,12 @@ public struct AgentRunner: Sendable {
     /// routing; the bound still prevents an inter-action reasoner spiral.
     public static let defaultInterActionReasoningCharacterLimit = 16_000
     /// Corrective samples must converge faster than the sample they replace; otherwise recovery
-    /// can consume the remaining turn deadline by repeating the same reasoning spiral.
-    public static let correctiveActionReasoningCharacterLimit = 2_000
+    /// can consume the remaining turn deadline by repeating the same reasoning spiral. Six thousand
+    /// characters still bounds recovery tightly while leaving reasoning routes enough room to turn
+    /// a complex research correction into a concrete action.
+    public static let correctiveActionReasoningCharacterLimit = 6_000
+    static let fallbackSwitchNotice = "Self-healing: the model kept returning empty responses; "
+        + "switching to the fallback model for this step."
     static let promisedWorkCorrectionLimit = 2
     /// A long-running task can encounter passive or empty model turns after many different tools.
     /// Keep this budget scoped to the latest completed tool instead of consuming one allowance for
@@ -119,7 +123,9 @@ public struct AgentRunner: Sendable {
     /// exhausts the empty-response correction budget — a route-quality failure observed at ~1-in-6
     /// runs on one provider while an alternate model completed the same step first try — the
     /// resolver retries the SAME step once on this client instead of killing the run. All prior
-    /// tool work is preserved (same thread); the switch is recorded as a Self-healing notice.
+    /// tool work is preserved (same thread); after a successful fallback action the route remains
+    /// active for the rest of that send so every subsequent tool does not re-probe a known-bad route.
+    /// The switch is recorded as a Self-healing notice.
     /// nil (the default) keeps today's behavior: exhaustion is terminal.
     public var fallbackLLM: LLMClient?
     /// Pauses between clean-but-empty model streams. Immediate resampling can hit the same brief
@@ -210,6 +216,10 @@ public struct AgentRunner: Sendable {
             let tools = hostToolAccessScope.adapting(
                 Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
             )
+            // Route ownership belongs to the whole send, not one action. Once a fallback proves it
+            // can produce the next action, this value copy keeps it active through subsequent tools
+            // and every completion gate while preserving the user's selected model on the thread.
+            var actionRunner = self
             var runLoop = AgentRunLoopState()
             var hasEmittedModelAction = false
             var hasCompletedWorkspaceMutation = false
@@ -301,7 +311,8 @@ public struct AgentRunner: Sendable {
                     action = controlledSourceGroundingFinalization
                 } else {
                     do {
-                        action = try await nextActionCompactingOnOverflow(
+                        let priorEventIDs = Set(next.events.map(\.id))
+                        action = try await actionRunner.nextActionCompactingOnOverflow(
                             thread: &next,
                             userMessage: userMessage,
                             tools: tools,
@@ -313,6 +324,21 @@ public struct AgentRunner: Sendable {
                                 ? .afterSuccessfulTool
                                 : .standard
                         )
+                        if let fallback = actionRunner.fallbackLLM,
+                           next.events.contains(where: {
+                               !priorEventIDs.contains($0.id)
+                                   && $0.summary == Self.fallbackSwitchNotice
+                           }) {
+                            actionRunner.llm = fallback
+                            actionRunner.fallbackLLM = nil
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: the fallback model completed the step; "
+                                    + "keeping that route for the rest of this run."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        }
                     } catch AgentError.emptyStreamingResponse {
                         try Task.checkCancellation()
                         if runLoop.latestCompletion == nil, !hasEmittedModelAction {
@@ -448,7 +474,7 @@ public struct AgentRunner: Sendable {
                 }
                 var resolvedAction: AgentAction
                 do {
-                    resolvedAction = try await actionByRetryingPromisedWorkIfNeeded(
+                    resolvedAction = try await actionRunner.actionByRetryingPromisedWorkIfNeeded(
                         action,
                         thread: next,
                         userMessage: userMessage,
@@ -747,7 +773,7 @@ public struct AgentRunner: Sendable {
                 // Skipped when any tool action was denied this run — a blocked write is a
                 // legitimate reason for the file to be missing, not a model failure.
                 if !runLoop.hadDeniedStep {
-                    resolvedAction = try await actionByRequiringNamedDeliverables(
+                    resolvedAction = try await actionRunner.actionByRequiringNamedDeliverables(
                         resolvedAction,
                         thread: next,
                         userMessage: userMessage,
@@ -760,7 +786,7 @@ public struct AgentRunner: Sendable {
                 // an ungrounded citation — and its failure mode is a bounded corrective plus an
                 // honest notice, so a denied-run false flag costs a note, not the run.
                 if runLoop.didFetchSuccessfully {
-                    resolvedAction = try await actionByRequiringCitationIntegrity(
+                    resolvedAction = try await actionRunner.actionByRequiringCitationIntegrity(
                         resolvedAction,
                         thread: next,
                         userMessage: userMessage,
@@ -772,7 +798,7 @@ public struct AgentRunner: Sendable {
                 }
                 // F30: explicit N-word specs are checked mechanically, like every other gate.
                 if !runLoop.hadDeniedStep {
-                    resolvedAction = try await actionByRequiringWordBudget(
+                    resolvedAction = try await actionRunner.actionByRequiringWordBudget(
                         resolvedAction,
                         thread: next,
                         userMessage: userMessage,
@@ -1069,7 +1095,7 @@ public struct AgentRunner: Sendable {
                             continue actionLoop
                         }
                         if !runLoop.hadDeniedStep {
-                            finalized = try await actionByRequiringNamedDeliverables(
+                            finalized = try await actionRunner.actionByRequiringNamedDeliverables(
                                 finalized,
                                 thread: next,
                                 userMessage: userMessage,
@@ -1082,7 +1108,7 @@ public struct AgentRunner: Sendable {
                         // grounded set includes the repeated fetch's own content, so a
                         // finalization that quotes the fetched page never self-flags.
                         if runLoop.didFetchSuccessfully {
-                            finalized = try await actionByRequiringCitationIntegrity(
+                            finalized = try await actionRunner.actionByRequiringCitationIntegrity(
                                 finalized,
                                 thread: next,
                                 userMessage: userMessage,
@@ -1094,7 +1120,7 @@ public struct AgentRunner: Sendable {
                         }
                         // F30: the finalized say is a terminal say (F25 lesson) — same gates.
                         if !runLoop.hadDeniedStep {
-                            finalized = try await actionByRequiringWordBudget(
+                            finalized = try await actionRunner.actionByRequiringWordBudget(
                                 finalized,
                                 thread: next,
                                 userMessage: userMessage,

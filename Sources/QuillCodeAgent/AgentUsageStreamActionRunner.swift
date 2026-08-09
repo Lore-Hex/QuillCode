@@ -16,6 +16,7 @@ extension AgentRunner {
             userMessage: userMessage,
             tools: tools
         )
+        let routedModelID = routedModelIDIfSupported(streamingLLM, fallback: thread.model)
         if let deadline = turnDeadlineSeconds {
             stream = AgentTurnDeadline.enforcing(seconds: deadline, on: stream)
         }
@@ -35,7 +36,7 @@ extension AgentRunner {
                     1,
                     AgentPreActionReasoningBudget.effectiveMaximumCharacters(
                         configured: reasoningLimit,
-                        modelID: thread.model
+                        modelID: routedModelID
                     )
                 ),
                 on: stream
@@ -45,6 +46,7 @@ extension AgentRunner {
             return try await Self.collectStreamingAction(
                 from: stream,
                 thread: &thread,
+                modelID: routedModelID,
                 onProgress: onProgress
             )
         } catch let error where RetryClassifier.classify(error) != .none {

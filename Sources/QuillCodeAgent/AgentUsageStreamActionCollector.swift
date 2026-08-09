@@ -5,6 +5,7 @@ extension AgentRunner {
     static func collectStreamingAction(
         from stream: AsyncThrowingStream<AgentTextStreamEvent, Error>,
         thread: inout ChatThread,
+        modelID: String,
         onProgress: AgentRunProgressHandler?
     ) async throws -> AgentAction {
         var draftThread = thread
@@ -34,7 +35,7 @@ extension AgentRunner {
 
             thread = draftThread
             if let latestUsage {
-                thread.events.append(ModelTokenUsageEvent.event(usage: latestUsage, modelID: thread.model))
+                thread.events.append(ModelTokenUsageEvent.event(usage: latestUsage, modelID: modelID))
                 thread.updatedAt = Date()
                 await onProgress?(thread)
             }
@@ -45,7 +46,7 @@ extension AgentRunner {
             // never lose accounting for corrective attempts.
             thread = draftThread
             if let latestUsage {
-                thread.events.append(ModelTokenUsageEvent.event(usage: latestUsage, modelID: thread.model))
+                thread.events.append(ModelTokenUsageEvent.event(usage: latestUsage, modelID: modelID))
                 thread.updatedAt = Date()
                 await onProgress?(thread)
             }

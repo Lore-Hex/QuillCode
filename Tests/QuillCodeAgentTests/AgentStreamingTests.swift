@@ -194,6 +194,33 @@ final class AgentStreamingTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "hello")
     }
 
+    func testUsageStreamingRecordsServingRouteWithoutChangingSelectedModel() async throws {
+        let root = try makeTempDirectory()
+        let usage = ModelTokenUsage(promptTokens: 8_000, completionTokens: 300, totalTokens: 8_300)
+        let servingModelID = "acme/recovery-model"
+        let runner = AgentRunner(llm: ModelIdentifiedUsageStreamingLLMClient(
+            routedModelID: servingModelID,
+            events: [
+                .text(#"{"type":"say","text":"recovered"}"#),
+                .usage(usage)
+            ]
+        ))
+        var thread = ChatThread(mode: .auto)
+        thread.model = TrustedRouterDefaults.defaultModel
+
+        let result = try await runner.send(
+            "recover",
+            in: thread,
+            workspaceRoot: root
+        )
+
+        let usageRecord = result.thread.events.compactMap(ModelTokenUsageEvent.record(from:)).last
+        XCTAssertEqual(usageRecord?.usage, usage)
+        XCTAssertEqual(usageRecord?.modelID, servingModelID)
+        XCTAssertEqual(result.thread.model, TrustedRouterDefaults.defaultModel)
+        XCTAssertEqual(result.thread.messages.last?.content, "recovered")
+    }
+
     func testUsageStreamingToolActionRecordsProviderTokenUsageBeforeToolEvents() async throws {
         let root = try makeTempDirectory()
         let usage = ModelTokenUsage(promptTokens: 10_000, completionTokens: 80, totalTokens: 10_080)
@@ -444,6 +471,54 @@ private struct NeverReturningLLMClient: LLMClient {
         while true {
             try Task.checkCancellation()
             try await Task.sleep(nanoseconds: 5_000_000)
+        }
+    }
+}
+
+private struct ModelIdentifiedUsageStreamingLLMClient: UsageStreamingLLMClient, ModelIdentifyingLLMClient {
+    let routedModelID: String
+    let events: [AgentTextStreamEvent]
+
+    func nextAction(thread: ChatThread, userMessage: String, tools: [ToolDefinition]) async throws -> AgentAction {
+        throw StreamingActionLLMError.nonStreamingPathUsed
+    }
+
+    func actionTextStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<String, Error> {
+        let events = try await actionEventStream(
+            thread: thread,
+            userMessage: userMessage,
+            tools: tools
+        )
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    for try await event in events {
+                        if case .text(let chunk) = event {
+                            continuation.yield(chunk)
+                        }
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
+    func actionEventStream(
+        thread: ChatThread,
+        userMessage: String,
+        tools: [ToolDefinition]
+    ) async throws -> AsyncThrowingStream<AgentTextStreamEvent, Error> {
+        AsyncThrowingStream { continuation in
+            for event in events {
+                continuation.yield(event)
+            }
+            continuation.finish()
         }
     }
 }
