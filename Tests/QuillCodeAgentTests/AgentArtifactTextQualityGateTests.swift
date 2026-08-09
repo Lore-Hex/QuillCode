@@ -52,9 +52,9 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         ))
     }
 
-    func testDetectsBracketedFieldsButIgnoresMarkdownControlsAndCitations() {
+    func testDetectsBracketedAndBracedFieldsButIgnoresMarkdownControlsAndCitations() {
         XCTAssertTrue(AgentArtifactTextQualityGate.containsBracketedPlaceholder(
-            content: "Ask what their role is at [company], then repeat [their words].",
+            content: "Ask what their role is at {Company}, then repeat [their words].",
             path: "outputs/guide.md"
         ))
         XCTAssertFalse(AgentArtifactTextQualityGate.containsBracketedPlaceholder(
@@ -79,11 +79,18 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         ))
         XCTAssertEqual(correction.path, "outputs/guide.md")
         XCTAssertTrue(correction.prompt.contains("blank lines, empty cells, or checkboxes"))
+
+        let evaluationCorrection = try XCTUnwrap(AgentArtifactTextQualityGate.placeholderCorrection(
+            userMessage: "Create outputs/guide.md. Do not leave template placeholders or blank fields.",
+            placeholderPaths: paths
+        ))
+        XCTAssertEqual(evaluationCorrection.path, "outputs/guide.md")
+        XCTAssertTrue(evaluationCorrection.prompt.contains("Fully personalize repeated messages"))
     }
 
     func testDeterministicPlaceholderRepairPreservesMarkdownControlsAndCode() throws {
         let content = """
-        Hi [First name], schedule at [calendar link].
+        Hi {First name}, schedule at [calendar link] for {Company}.
         - [ ] Pending
         - [x] Complete
         See [source](https://example.test), [1], and [^note].
@@ -98,7 +105,7 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
             path: "outputs/outreach.md"
         ))
 
-        XCTAssertTrue(repaired.contains("Hi ________, schedule at ________."))
+        XCTAssertTrue(repaired.contains("Hi ________, schedule at ________ for ________."))
         XCTAssertTrue(repaired.contains("- [ ] Pending\n- [x] Complete"))
         XCTAssertTrue(repaired.contains("[source](https://example.test), [1], and [^note]"))
         XCTAssertTrue(repaired.contains("`[company]`"))
@@ -280,7 +287,7 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
     func testPlaceholderFreeNamedArtifactIsRewrittenBeforeCompletion() async throws {
         let root = try makeTempDirectory()
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
-        let incomplete = "# Guide\n\nWhat is your role at [company]?\n"
+        let incomplete = "# Guide\n\nHi {First name}, what is your role at {Company}?\n"
         let corrected = "# Guide\n\nWhat is your role, and what work do you own?\n"
         let runner = AgentRunner(llm: SequenceLLMClient(actions: [
             .tool(writeCall(content: incomplete)),
@@ -291,7 +298,7 @@ final class AgentArtifactTextQualityGateTests: XCTestCase {
         ]))
 
         let result = try await runner.send(
-            "Create outputs/report.md. Do not leave bracketed fill-in fields. "
+            "Create outputs/report.md. Do not leave template placeholders or blank fields. "
                 + "After writing, read the saved file back to verify it.",
             in: ChatThread(mode: .auto),
             workspaceRoot: root

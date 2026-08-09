@@ -42,12 +42,13 @@ enum AgentArtifactTextQualityGate {
         return Correction(
             path: path,
             prompt: """
-            The named text deliverable ./\(path) still contains a bracketed substitution or \
+            The named text deliverable ./\(path) still contains a substitution or \
             fill-in token even though the user explicitly requested a placeholder-free artifact. \
-            Rewrite that same file so prose reads naturally without tokens such as `[company]` or \
-            `[their words]`. In reusable forms, use blank lines, empty cells, or checkboxes for \
-            future-entry fields. Preserve the substantive content, then read the corrected file \
-            back before finishing.
+            Rewrite that same file so prose reads naturally without tokens such as `{Company}`, \
+            `[company]`, or `[their words]`. Fully personalize repeated messages from the supplied \
+            records instead of leaving a reusable template. In reusable forms, use blank lines, \
+            empty cells, or checkboxes for future-entry fields. Preserve the substantive content, \
+            then read the corrected file back before finishing.
             """
         )
     }
@@ -100,10 +101,8 @@ enum AgentArtifactTextQualityGate {
 
     static func containsBracketedPlaceholder(content: String, path: String) -> Bool {
         guard let prose = visibleProse(content: content, path: path) else { return false }
-        let range = NSRange(prose.startIndex..., in: prose)
-        return bracketedFieldRegex.matches(in: prose, range: range).contains { match in
-            guard let fieldRange = Range(match.range(at: 1), in: prose) else { return false }
-            return isPlaceholderField(String(prose[fieldRange]))
+        return placeholderMatches(in: prose).contains { match in
+            isPlaceholderField(match.field)
         }
     }
 
@@ -183,14 +182,12 @@ enum AgentArtifactTextQualityGate {
                 in: line,
                 range: fullRange
             ).map(\.range)
-            let replacements = bracketedFieldRegex.matches(in: line, range: fullRange).filter {
-                match in
-                guard !inlineCodeRanges.contains(where: { NSIntersectionRange($0, match.range).length > 0 }),
-                      let fieldRange = Range(match.range(at: 1), in: line)
-                else { return false }
-                return isPlaceholderField(String(line[fieldRange]))
+            let replacements = placeholderMatches(in: line).filter { match in
+                !inlineCodeRanges.contains(where: {
+                    NSIntersectionRange($0, match.range).length > 0
+                }) && isPlaceholderField(match.field)
             }
-            for match in replacements.reversed() {
+            for match in replacements.sorted(by: { $0.range.location > $1.range.location }) {
                 mutable.replaceCharacters(in: match.range, with: "________")
                 replacedAny = true
             }
@@ -349,6 +346,18 @@ enum AgentArtifactTextQualityGate {
         return true
     }
 
+    private static func placeholderMatches(
+        in text: String
+    ) -> [(range: NSRange, field: String)] {
+        let range = NSRange(text.startIndex..., in: text)
+        return [bracketedFieldRegex, bracedFieldRegex].flatMap { regex in
+            regex.matches(in: text, range: range).compactMap { match in
+                guard let fieldRange = Range(match.range(at: 1), in: text) else { return nil }
+                return (match.range, String(text[fieldRange]))
+            }
+        }
+    }
+
     private static func enumeratedCountReplacements(
         in line: String
     ) -> [(matchRange: NSRange, countRange: NSRange, value: String)] {
@@ -386,6 +395,9 @@ enum AgentArtifactTextQualityGate {
     private static let bracketedFieldRegex = AgentRegexCompiler.compile(
         pattern: #"\[([^\]\n]{0,120})\](?!\()"#
     )
+    private static let bracedFieldRegex = AgentRegexCompiler.compile(
+        pattern: #"\{([^{}\n]{1,120})\}"#
+    )
     private static let enumeratedCountRegex = AgentRegexCompiler.compile(
         pattern: #"(?i)\b(\d+)\s+(?:records?|items?|accounts?|entries?|rows?|cases?)\s*\(([^()\n]+)\)"#
     )
@@ -400,6 +412,9 @@ enum AgentArtifactTextQualityGate {
     )
     private static let placeholderFreeRequestRegexes = [
         AgentRegexCompiler.compile(#"(?i)\bplaceholder[- ]free\b"#),
+        AgentRegexCompiler.compile(
+            pattern: #"(?is)\b(?:do\s+not|don't|must\s+not|without)\b.{0,80}\b(?:template\s+)?placeholders?\b"#
+        ),
         AgentRegexCompiler.compile(
             pattern: #"(?is)\bdo\s+not\s+leave\b.{0,60}\bbracketed\b.{0,60}\b(?:field|prompt|placeholder|token)"#
         ),
