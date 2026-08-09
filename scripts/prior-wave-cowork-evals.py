@@ -1042,8 +1042,6 @@ def materialize_source(path, row, reference="", item_index=1, count=1):
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(context, encoding="utf-8")
-
-
 def write_fixture(row, workspace):
     inputs = workspace / "inputs"
     inputs.mkdir(parents=True)
@@ -1219,6 +1217,13 @@ def path_matches(actual, expected):
     return actual == expected or actual.endswith(f"/{expected}")
 
 
+def shell_command_references_path(command, path):
+    normalized_path = path.replace("\\", "/").strip("/")
+    normalized_command = command.replace("\\", "/")
+    unquoted_command = normalized_command.replace('"', "").replace("'", "")
+    return normalized_path in normalized_command or normalized_path in unquoted_command
+
+
 def tool_output_text(tool):
     output = tool_payload(tool, "outputJSON")
     return str(output.get("stdout") or output.get("content") or "")
@@ -1365,11 +1370,17 @@ def grade(row, workspace, report, source_hashes):
                 member for member in members
                 if not any(path_matches(consumed, member) for consumed in consumed_paths)
             ]
-            if missing and not any(path in command for command in shell_commands):
+            if missing and not any(
+                shell_command_references_path(command, path)
+                for command in shell_commands
+            ):
                 unread_sources.extend(missing)
         elif (
             not any(path_matches(consumed, path) for consumed in consumed_paths)
-            and not any(path in command for command in shell_commands)
+            and not any(
+                shell_command_references_path(command, path)
+                for command in shell_commands
+            )
         ):
             unread_sources.append(path)
     add("mapped source consumption", not unread_sources, f"unconsumed {unread_sources[:20]}")

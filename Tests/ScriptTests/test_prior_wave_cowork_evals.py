@@ -380,6 +380,47 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         by_name = {check["name"]: check["passed"] for check in checks}
         self.assertTrue(by_name["mapped source consumption"])
 
+    def test_grade_accepts_shell_quoted_collection_path_with_spaces(self):
+        row = self.rows[16]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            artifact = workspace / PRIOR.output_path(row)
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text(
+                "# Client Files archive\n\n"
+                + "\n".join(
+                    f"- item-{index:03d}.txt -> 2024-Q{((index - 1) % 4) + 1}"
+                    for index in range(1, 9)
+                )
+                + "\n\nArchive README records modified dates and quarterly folders.\n" * 10,
+                encoding="utf-8",
+            )
+            shell = tool("host.shell.run")
+            shell["inputJSON"] = json.dumps({
+                "cmd": 'for f in inputs/"Client Files"/*.txt; do cat "$f"; done'
+            })
+            report = {
+                "ok": True,
+                "requestedModelID": PRIOR.EXACT_MODEL,
+                "selectedModelID": PRIOR.EXACT_MODEL,
+                "tools": [
+                    tool("host.file.read", "inputs/source-map.md"),
+                    tool("host.file.read", "inputs/evaluation-context.md"),
+                    shell,
+                    tool("host.file.write", PRIOR.output_path(row)),
+                    tool("host.file.read", PRIOR.output_path(row)),
+                ],
+            }
+            hashes = {
+                path: PRIOR.sha256(path)
+                for path in workspace.rglob("*") if path.is_file() and path != artifact
+            }
+            checks, _ = PRIOR.grade(row, workspace, report, hashes)
+
+        by_name = {check["name"]: check["passed"] for check in checks}
+        self.assertTrue(by_name["mapped source consumption"])
+
     def test_grade_accepts_native_pdf_merge_as_consumption_and_artifact_write(self):
         row = self.rows[4]
         with tempfile.TemporaryDirectory() as temporary:
