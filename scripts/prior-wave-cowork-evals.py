@@ -1706,18 +1706,26 @@ def validate_task_33_sequence(path):
     except (OSError, csv.Error) as error:
         return False, f"could not read prospects: {error}"
 
-    normalized = " ".join(normalized_words(text))
     missing_sections = []
     missing_email_numbers = []
     missing_booth_anchors = []
+    prospect_by_id = {prospect["contact_id"]: prospect for prospect in prospects}
+    contact_ids = "|".join(re.escape(contact_id) for contact_id in prospect_by_id)
+    section_heading = re.compile(
+        rf"(?im)^\s*(?:#{{1,6}}\s+|\*\*)[^\n]{{0,80}}?\b({contact_ids})\b"
+    )
     positions = []
-    for prospect in prospects:
-        contact_id = prospect["contact_id"]
-        match = re.search(rf"(?i)\b{re.escape(contact_id)}\b", text)
-        if not match:
-            missing_sections.append(contact_id)
-        else:
-            positions.append((match.start(), contact_id, prospect))
+    seen_ids = set()
+    for match in section_heading.finditer(text):
+        contact_id = match.group(1).upper()
+        if contact_id in seen_ids:
+            continue
+        seen_ids.add(contact_id)
+        positions.append((match.start(), contact_id, prospect_by_id[contact_id]))
+
+    missing_sections.extend(
+        contact_id for contact_id in prospect_by_id if contact_id not in seen_ids
+    )
 
     positions.sort()
     for index, (start, contact_id, prospect) in enumerate(positions):

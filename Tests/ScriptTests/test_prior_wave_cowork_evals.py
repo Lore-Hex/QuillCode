@@ -776,7 +776,18 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
                         for number in (1, 2, 3)
                     )
                 )
-            artifact.write_text("# Conference follow-up\n\n" + "\n\n".join(sections), encoding="utf-8")
+            overview = "\n".join(
+                f"| {prospect['contact_id']} | {prospect['first_name']} | {prospect['company']} |"
+                for prospect in prospects
+            )
+            artifact.write_text(
+                "# Conference follow-up\n\n"
+                "| Contact ID | Name | Company |\n"
+                "|---|---|---|\n"
+                f"{overview}\n\n"
+                + "\n\n".join(sections),
+                encoding="utf-8",
+            )
 
             valid, detail = PRIOR.validate_task_33_sequence(artifact)
             self.assertTrue(valid, detail)
