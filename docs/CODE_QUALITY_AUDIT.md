@@ -1,5 +1,27 @@
 # Code Quality Audit
 
+## 2026-08-09 Layout-Stable Activity Accessibility Verification
+
+Overall grade after this slice: **A+ native resilience, A+ interaction integrity, A+ bounded latency**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Native resilience | A+ | Activity presentation is proven through its title, task summary, and Close control before the composer is measured; missing and changing AX frames are re-sampled rather than treated as a completed layout. |
+| Interaction integrity | A+ | Dismissal still requires a real Close-button `AXPress`, surface disappearance, and at least 240 points of restored composer width. |
+| Bounded latency | A+ | Three stable samples normally complete in about 100 ms; slow native trees receive at most 40 samples at 50 ms without adding retained state or product-runtime polling. |
+| Regression coverage | A+ | Focused tests cover missing frames, changing frames, sub-point AX jitter, stale constrained frames after dismissal, and bounded non-convergence. |
+
+Validation:
+
+- Focused desktop Accessibility suites (11 tests, 0 failures)
+- Full `swift test` (5,671 tests, 5 skipped, 0 failures)
+- Real packaged macOS direct-executable, Launch Services, and live-window smoke passed both
+  native interaction sweeps; Activity restored the composer from 563 to 884 points
+- Packaged performance passed at 254.44 ms median launch-ready, 98.14 MiB initial memory,
+  162.61 MiB post-interaction memory, and 167.44 MiB repeated-interaction memory
+- `python3 scripts/grade-code-quality.py --root .` reports every module A+
+- `git diff --check`
+
 ## 2026-08-09 Transactional Disk-Image Packaging
 
 Overall grade after this slice: **A+ publication resilience, A+ failure visibility, A+ integrity**.

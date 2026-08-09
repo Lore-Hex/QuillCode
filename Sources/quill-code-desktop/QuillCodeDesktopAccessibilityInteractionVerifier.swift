@@ -200,23 +200,38 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
     static func verifyActivityDismissal(
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
-        guard let constrainedComposer = await waitForInput(composerInputIdentifier, expectedValue: nil, in: contentView),
-              let constrainedFrame = constrainedComposer.frame
-        else {
+        var constrainedFrame: CGRect?
+        let dismissal = await verifyDismissibleSurface(
+            activitySurfaceContract,
+            contentView: contentView,
+            validateBeforeDismiss: {
+                guard let frame = await waitForStableInputFrame(composerInputIdentifier, in: contentView) else {
+                    return .init(
+                        evidence: "Activity rendered without a stable, measurable composer",
+                        validationIssue: "command.toggle-activity could not measure the composer while Activity was visible"
+                    )
+                }
+                constrainedFrame = frame
+                return nil
+            }
+        )
+        guard dismissal.validationIssue == nil else { return dismissal }
+        guard let constrainedFrame else {
             return .init(
-                evidence: "Activity rendered without a measurable composer",
-                validationIssue: "command.toggle-activity could not measure the composer while Activity was visible"
+                evidence: "Activity dismissed before the composer measurement completed",
+                validationIssue: "command.toggle-activity did not complete its composer measurement"
             )
         }
 
-        let dismissal = await verifyDismissibleSurface(activitySurfaceContract, contentView: contentView)
-        guard dismissal.validationIssue == nil else { return dismissal }
-        guard let restoredComposer = await waitForInput(composerInputIdentifier, expectedValue: nil, in: contentView),
-              let restoredFrame = restoredComposer.frame
-        else {
+        let minimumRestoredWidth = constrainedFrame.width + 240
+        guard let restoredFrame = await waitForStableInputFrame(
+            composerInputIdentifier,
+            minimumWidth: minimumRestoredWidth,
+            in: contentView
+        ) else {
             return .init(
-                evidence: "Activity dismissed but the composer did not reappear",
-                validationIssue: "command.toggle-activity did not restore the composer after dismissal"
+                evidence: "Activity dismissed but the composer did not stabilize at least \(Int(minimumRestoredWidth)) points wide",
+                validationIssue: "command.toggle-activity did not restore the horizontal workspace after dismissal"
             )
         }
 
@@ -309,7 +324,8 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
 
     private static func verifyDismissibleSurface(
         _ contract: DismissibleSurfaceContract,
-        contentView: NSView
+        contentView: NSView,
+        validateBeforeDismiss: (() async -> QuillCodeDesktopAccessibilityActivationVerification?)? = nil
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
         guard await waitForElement(contract.titleIdentifier, in: contentView) != nil else {
             return .init(
@@ -323,10 +339,21 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
                 validationIssue: "\(contract.contractID) did not expose its \(contract.requiredControlDescription)"
             )
         }
-        guard let closeButton = await waitForElement(contract.closeIdentifier, in: contentView) else {
+        guard await waitForElement(contract.closeIdentifier, in: contentView) != nil else {
             return .init(
                 evidence: "\(contract.name) rendered without an accessible close button",
                 validationIssue: "\(contract.contractID) did not expose \(contract.closeIdentifier)"
+            )
+        }
+        if let validateBeforeDismiss,
+           let validation = await validateBeforeDismiss()
+        {
+            return validation
+        }
+        guard let closeButton = await waitForElement(contract.closeIdentifier, in: contentView) else {
+            return .init(
+                evidence: "\(contract.name) close button disappeared before dismissal",
+                validationIssue: "\(contract.contractID) lost \(contract.closeIdentifier) before dismissal"
             )
         }
 
@@ -404,6 +431,21 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
         return nil
+    }
+
+    private static func waitForStableInputFrame(
+        _ identifier: String,
+        minimumWidth: CGFloat? = nil,
+        in contentView: NSView
+    ) async -> CGRect? {
+        await QuillCodeDesktopAccessibilityLayoutSampler.waitForStableFrame(
+            accepts: { frame in
+                minimumWidth.map { frame.width >= $0 } ?? true
+            },
+            sample: {
+                input(identifier, in: contentView)?.frame
+            }
+        )
     }
 
     private static func input(
