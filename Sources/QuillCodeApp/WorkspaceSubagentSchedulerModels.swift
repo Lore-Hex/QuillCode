@@ -152,6 +152,9 @@ struct WorkspaceSubagentRunResult: Sendable, Hashable {
     var update: SubagentProgressUpdate
     var summary: String
     var record: SubagentRunRecord
+    /// Full public worker answers for the parent model. Durable progress records intentionally keep
+    /// their short presentation summaries, and private child transcripts remain separate.
+    var workerResults: [String: String]
     private var legacyState: WorkspaceSubagentRunState?
 
     var state: WorkspaceSubagentRunState {
@@ -167,11 +170,13 @@ struct WorkspaceSubagentRunResult: Sendable, Hashable {
         update: SubagentProgressUpdate,
         summary: String,
         record: SubagentRunRecord,
+        workerResults: [String: String] = [:],
         legacyState: WorkspaceSubagentRunState? = nil
     ) {
         self.update = update
         self.summary = summary
         self.record = record
+        self.workerResults = workerResults
         self.legacyState = legacyState
     }
 }

@@ -161,7 +161,7 @@ enum AgentUtilityToolAnswerFormatters {
                 ? "Delegated work is waiting for approval in Activity."
                 : "Delegated work completed."
         }
-        let boundedSummary = AgentToolAnswerFormatters.truncated(summary)
+        let boundedSummary = AgentToolAnswerFormatters.truncated(summary, maxCharacters: 12_000)
         return output.awaitingApproval
             ? "Delegated work is waiting for approval in Activity.\n\n\(boundedSummary)"
             : boundedSummary

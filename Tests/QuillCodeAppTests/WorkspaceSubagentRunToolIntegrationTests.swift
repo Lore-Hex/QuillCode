@@ -57,9 +57,11 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
     func testToolOutputExposesSummariesWithoutPrivateChildTranscript() async throws {
         let root = try makeQuillCodeTestDirectory()
         let factory = testFactory(root: root, llm: ChildToolInventoryLLMClient())
+        let marker = "PUBLIC-EVIDENCE-BEYOND-COMPACT-SUMMARY"
+        let publicSummary = String(repeating: "Official source fact. ", count: 20) + marker
         let scheduler = WorkspaceSubagentScheduler(detailedWorker: { _ in
             WorkspaceSubagentWorkerResult(
-                summary: "Public worker summary.",
+                summary: publicSummary,
                 transcript: [
                     SubagentTranscriptEntry(
                         id: "private-tool",
@@ -89,7 +91,7 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
         let execution = await executor.executionOverride(call, root, ChatThread(), nil)
         let resolved = try XCTUnwrap(execution)
 
-        XCTAssertTrue(resolved.result.stdout.contains("Public worker summary."))
+        XCTAssertTrue(resolved.result.stdout.contains(marker))
         XCTAssertFalse(resolved.result.stdout.contains("private child detail"))
         XCTAssertFalse(resolved.result.stdout.contains("private-tool"))
     }

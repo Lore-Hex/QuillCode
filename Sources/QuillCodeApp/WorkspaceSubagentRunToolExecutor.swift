@@ -99,6 +99,8 @@ private actor WorkspaceSubagentParentProjection {
 }
 
 private struct WorkspaceSubagentRunToolOutput: Codable, Sendable, Hashable {
+    private static let parentSummaryLimit = 1_800
+
     struct Worker: Codable, Sendable, Hashable {
         var name: String
         var role: String
@@ -113,10 +115,22 @@ private struct WorkspaceSubagentRunToolOutput: Codable, Sendable, Hashable {
 
     init(result: WorkspaceSubagentRunResult) {
         self.runID = result.record.id
-        self.summary = result.summary
-        self.workers = result.record.workers.map {
-            Worker(name: $0.name, role: $0.role, status: $0.status, summary: $0.summary)
+        self.workers = result.record.workers.map { worker in
+            Worker(
+                name: worker.name,
+                role: worker.role,
+                status: worker.status,
+                summary: result.workerResults[worker.id] ?? worker.summary
+            )
         }
+        let detailedResults = workers.compactMap { worker -> String? in
+            guard let summary = worker.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !summary.isEmpty
+            else { return nil }
+            let bounded = String(summary.prefix(Self.parentSummaryLimit))
+            return "## \(worker.name) (\(worker.status.label))\n\(bounded)"
+        }
+        self.summary = ([result.summary] + detailedResults).joined(separator: "\n\n")
         self.awaitingApproval = result.record.workers.contains { $0.status == .awaitingApproval }
     }
 }

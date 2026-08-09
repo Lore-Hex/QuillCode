@@ -28,6 +28,24 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         XCTAssertEqual(result.update.subagents.first?.transcript, transcript)
     }
 
+    func testSchedulerPreservesFullWorkerResultOutsideCompactProgressRecord() async {
+        let marker = "FULL-EVIDENCE-AFTER-COMPACT-SUMMARY"
+        let fullResult = String(repeating: "research evidence ", count: 30) + marker
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { _ in
+            WorkspaceSubagentWorkerResult(summary: fullResult)
+        })
+
+        let result = await scheduler.run(request: WorkspaceSubagentRunRequest(
+            objective: "Research a company",
+            workers: [.init(name: "Researcher", role: "Find official financial evidence")]
+        ))
+
+        let workerID = result.record.workers[0].id
+        XCTAssertEqual(result.workerResults[workerID], fullResult)
+        XCTAssertLessThanOrEqual(result.record.workers[0].summary?.count ?? .max, 223)
+        XCTAssertFalse(result.record.workers[0].summary?.contains(marker) == true)
+    }
+
     func testSchedulerRunsWorkersConcurrentlyAndPublishesProgress() async throws {
         let probe = ConcurrencyProbe()
         let scheduler = WorkspaceSubagentScheduler { job in

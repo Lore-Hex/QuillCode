@@ -6,6 +6,7 @@ import QuillCodeTools
 /// Long web pages otherwise get copied into every subsequent request in the sliding history.
 enum AgentToolFeedbackModelProjector {
     private static let sourceReadLimit = 12_000
+    private static let delegatedOutputLimit = 12_000
     private static let genericOutputLimit = 4_000
 
     static func project(_ content: String) -> String {
@@ -22,6 +23,16 @@ enum AgentToolFeedbackModelProjector {
         if call.name == ToolDefinition.fileRead.name
             || call.name == ToolDefinition.fileReadMany.name {
             return heading + "\n" + sourceReadObservation(result)
+        }
+
+        if call.name == ToolDefinition.subagentsRun.name,
+           let formatted = AgentToolAnswerFormatters.all.lazy.compactMap({
+               $0(call, result, feedback.followUpResult)
+           }).first {
+            return heading + "\n" + AgentToolAnswerFormatters.truncated(
+                formatted,
+                maxCharacters: delegatedOutputLimit
+            )
         }
 
         if let formatted = AgentToolAnswerFormatters.all.lazy.compactMap({
@@ -72,7 +83,10 @@ enum AgentToolFeedbackModelProjector {
             summary[key] = object[key]
         }
         guard !summary.isEmpty,
-              let encoded = try? JSONSerialization.data(withJSONObject: summary, options: [.sortedKeys]),
+              let encoded = try? JSONSerialization.data(
+                  withJSONObject: summary,
+                  options: [.sortedKeys, .withoutEscapingSlashes]
+              ),
               let text = String(data: encoded, encoding: .utf8)
         else { return "" }
         return " \(AgentToolAnswerFormatters.truncated(text, maxCharacters: 1_000))"
