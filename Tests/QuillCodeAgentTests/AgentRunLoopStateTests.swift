@@ -239,6 +239,61 @@ final class AgentRunLoopStateTests: XCTestCase {
         ) { _ in "final" }
 
         XCTAssertNil(state.pendingResearchContinuationPath())
+        XCTAssertEqual(state.successfulResearchStepsAfterCheckpoint, 0)
+    }
+
+    func testPostCheckpointResearchBudgetRequiresSynthesis() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research competitors and write outputs/revenue.html with citations."
+        )
+        state.expectResearchCheckpoint(at: "outputs/revenue.html")
+        let checkpoint = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/revenue.html",
+                "content": "<p>Checkpoint</p>",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: checkpoint, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "checkpoint" }
+
+        let delegated = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "research competitors",
+                "workers": [["name": "A", "role": "research A"]],
+            ] as [String: Any])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: delegated, stdout: "verified evidence"),
+            workspaceRoot: root
+        ) { _ in "delegated" }
+        XCTAssertEqual(
+            state.successfulResearchStepsAfterCheckpoint,
+            AgentResearchCheckpointGate.delegatedResearchWeight
+        )
+
+        for index in 0..<(AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
+            - AgentResearchCheckpointGate.delegatedResearchWeight) {
+            let fetch = ToolCall(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: ToolArguments.json(["url": "https://example.com/\(index)"])
+            )
+            _ = state.recordCompletedStep(
+                completed(call: fetch, stdout: "evidence \(index)"),
+                workspaceRoot: root
+            ) { _ in "fetch-\(index)" }
+        }
+
+        XCTAssertEqual(
+            state.pendingResearchFinalizationPath(
+                minimumResearchSteps: AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
+            ),
+            "outputs/revenue.html"
+        )
     }
 
     func testOrdinaryDraftDoesNotArmResearchContinuation() {

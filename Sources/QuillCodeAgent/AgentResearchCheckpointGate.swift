@@ -11,6 +11,8 @@ enum AgentResearchCheckpointGate {
     }
 
     static let minimumWebSteps = 8
+    static let minimumPostCheckpointResearchSteps = 6
+    static let delegatedResearchWeight = 3
     static let correctionLimitPerPath = 2
 
     static func correction(
@@ -60,6 +62,32 @@ enum AgentResearchCheckpointGate {
             that final version back. Do not return a final answer while Evidence gaps, draft, \
             checkpoint, pending, or in-progress status remains. Respond with the next concrete tool \
             action now.
+            """
+        )
+    }
+
+    static func finalizationCorrection(
+        path: String?,
+        proposedToolRisk: ToolRiskClass?,
+        canWriteFiles: Bool,
+        correctionCounts: [String: Int]
+    ) -> Correction? {
+        guard proposedToolRisk == .read,
+              canWriteFiles,
+              let path,
+              correctionCounts[path, default: 0] < correctionLimitPerPath
+        else { return nil }
+
+        return Correction(
+            path: path,
+            prompt: """
+            The post-checkpoint research budget is complete. Before another read, search, fetch, \
+            skill-load, or delegated-research action, synthesize all evidence gathered so far into \
+            the complete final artifact at ./\(path). Replace the checkpoint rather than appending \
+            another status update. Resolve every evidence gap you can from the current tool results; \
+            do not leave TBD, pending, draft, checkpoint, or in-progress markers. Then read the \
+            rewritten artifact back before completing. Respond with host.file.write for exactly \
+            ./\(path) now.
             """
         )
     }

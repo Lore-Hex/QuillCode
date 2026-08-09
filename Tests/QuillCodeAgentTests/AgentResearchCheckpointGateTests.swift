@@ -80,4 +80,33 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
             correctionCounts: ["outputs/revenue.html": 2]
         ))
     }
+
+    func testPostCheckpointResearchBudgetForcesFinalSynthesisBeforeAnotherRead() throws {
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.finalizationCorrection(
+            path: "outputs/revenue.html",
+            proposedToolRisk: .read,
+            canWriteFiles: true,
+            correctionCounts: [:]
+        ))
+
+        XCTAssertTrue(correction.prompt.contains("post-checkpoint research budget"))
+        XCTAssertTrue(correction.prompt.contains("complete final artifact"))
+        XCTAssertTrue(correction.prompt.contains("do not leave TBD"))
+        XCTAssertTrue(correction.prompt.contains("host.file.write"))
+    }
+
+    func testPostCheckpointSynthesisDoesNotInterruptWritesAndIsBounded() {
+        XCTAssertNil(AgentResearchCheckpointGate.finalizationCorrection(
+            path: "outputs/revenue.html",
+            proposedToolRisk: .append,
+            canWriteFiles: true,
+            correctionCounts: [:]
+        ))
+        XCTAssertNil(AgentResearchCheckpointGate.finalizationCorrection(
+            path: "outputs/revenue.html",
+            proposedToolRisk: .read,
+            canWriteFiles: true,
+            correctionCounts: ["outputs/revenue.html": 2]
+        ))
+    }
 }

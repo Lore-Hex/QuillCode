@@ -40,6 +40,11 @@ struct AgentRunLoopState: Sendable {
     private var expectedResearchCheckpointWorkspacePaths: Set<String> = []
     private(set) var pendingResearchContinuationWorkspacePaths: Set<String> = []
     private var resumedResearchCheckpointWorkspacePaths: Set<String> = []
+    /// Weighted successful research actions completed after a forced draft. Once this bounded
+    /// budget is reached, the runner requires synthesis before permitting another read-only step.
+    /// Delegated research counts more than one serial web call because it can return several full
+    /// evidence tracks in a single tool result.
+    private(set) var successfulResearchStepsAfterCheckpoint = 0
     /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
     /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
     private(set) var malformedWrittenTextPaths: Set<String> = []
@@ -169,6 +174,13 @@ struct AgentRunLoopState: Sendable {
     func didResumeResearch(afterCheckpointAt path: String) -> Bool {
         resumedResearchCheckpointWorkspacePaths.contains(where: {
             AgentArtifactVerificationGate.pathsMatch($0, path)
+        })
+    }
+
+    func pendingResearchFinalizationPath(minimumResearchSteps: Int) -> String? {
+        guard successfulResearchStepsAfterCheckpoint >= minimumResearchSteps else { return nil }
+        return pendingResearchContinuationWorkspacePaths.sorted().first(where: {
+            didResumeResearch(afterCheckpointAt: $0)
         })
     }
 
@@ -412,9 +424,20 @@ struct AgentRunLoopState: Sendable {
         switch completion.call.name {
         case ToolDefinition.webSearch.name, ToolDefinition.webFetch.name:
             successfulWebResearchStepsBeforeDraft += 1
+            if !pendingResearchContinuationWorkspacePaths.isEmpty {
+                successfulResearchStepsAfterCheckpoint += 1
+            }
             resumedResearchCheckpointWorkspacePaths.formUnion(
                 pendingResearchContinuationWorkspacePaths
             )
+        case ToolDefinition.subagentsRun.name:
+            if !pendingResearchContinuationWorkspacePaths.isEmpty {
+                successfulResearchStepsAfterCheckpoint +=
+                    AgentResearchCheckpointGate.delegatedResearchWeight
+                resumedResearchCheckpointWorkspacePaths.formUnion(
+                    pendingResearchContinuationWorkspacePaths
+                )
+            }
         case ToolDefinition.fileWrite.name, ToolDefinition.chartRender.name:
             if let path = AgentArtifactVerificationGate.pathArgument(from: completion.call),
                let deliverablePath = namedTextDeliverableWorkspacePaths.first(where: {
@@ -427,12 +450,14 @@ struct AgentRunLoopState: Sendable {
                     expectedResearchCheckpointWorkspacePaths.remove(checkpointPath)
                     pendingResearchContinuationWorkspacePaths.insert(deliverablePath)
                     resumedResearchCheckpointWorkspacePaths.remove(deliverablePath)
+                    successfulResearchStepsAfterCheckpoint = 0
                 } else if let pendingPath = pendingResearchContinuationWorkspacePaths.first(where: {
                     AgentArtifactVerificationGate.pathsMatch($0, deliverablePath)
                 }), resumedResearchCheckpointWorkspacePaths.contains(where: {
                     AgentArtifactVerificationGate.pathsMatch($0, deliverablePath)
                 }) {
                     pendingResearchContinuationWorkspacePaths.remove(pendingPath)
+                    successfulResearchStepsAfterCheckpoint = 0
                     resumedResearchCheckpointWorkspacePaths = Set(
                         resumedResearchCheckpointWorkspacePaths.filter {
                             !AgentArtifactVerificationGate.pathsMatch($0, deliverablePath)
