@@ -37,6 +37,18 @@ if [[ -z "${RUNNER_TEMP:-}" || -z "${GITHUB_ENV:-}" ]]; then
   echo "RUNNER_TEMP and GITHUB_ENV are required on the signing runner." >&2
   exit 2
 fi
+if [[ ! "$SIGNING_TEAM_IDENTIFIER" =~ ^[A-Z0-9]{10}$ ]]; then
+  echo "APPLE_TEAM_ID must be a 10-character uppercase Apple team identifier." >&2
+  exit 2
+fi
+if [[ ! "$NOTARY_KEY_ID" =~ ^[A-Z0-9]{10}$ ]]; then
+  echo "APPLE_NOTARY_KEY_ID must be a 10-character uppercase App Store Connect key identifier." >&2
+  exit 2
+fi
+if [[ ! "$NOTARY_ISSUER_ID" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+  echo "APPLE_NOTARY_ISSUER_ID must be an App Store Connect issuer UUID." >&2
+  exit 2
+fi
 
 SIGNING_ROOT="$RUNNER_TEMP/quill-cowork-signing"
 CERTIFICATE_PATH="$SIGNING_ROOT/developer-id.p12"
@@ -44,11 +56,27 @@ NOTARY_KEY_PATH="$SIGNING_ROOT/AuthKey_${NOTARY_KEY_ID}.p8"
 KEYCHAIN_PATH="$SIGNING_ROOT/build.keychain-db"
 KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
 
+cleanup_failed_configuration() {
+  local status=$?
+  trap - EXIT
+  set +e
+  if [[ -e "$KEYCHAIN_PATH" ]]; then
+    security delete-keychain "$KEYCHAIN_PATH" >/dev/null 2>&1
+  fi
+  rm -rf "$SIGNING_ROOT"
+  exit "$status"
+}
+trap cleanup_failed_configuration EXIT
+
 mkdir -p "$SIGNING_ROOT"
 chmod 700 "$SIGNING_ROOT"
 printf '%s' "$CERTIFICATE_BASE64" | openssl base64 -d -A > "$CERTIFICATE_PATH"
 printf '%s' "$NOTARY_KEY_BASE64" | openssl base64 -d -A > "$NOTARY_KEY_PATH"
 chmod 600 "$CERTIFICATE_PATH" "$NOTARY_KEY_PATH"
+if [[ ! -s "$CERTIFICATE_PATH" || ! -s "$NOTARY_KEY_PATH" ]]; then
+  echo "Apple signing credentials decoded to an empty file." >&2
+  exit 2
+fi
 
 security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -63,7 +91,22 @@ security set-key-partition-list \
   -s \
   -k "$KEYCHAIN_PASSWORD" \
   "$KEYCHAIN_PATH"
-security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -F "$SIGNING_IDENTITY" >/dev/null
+IDENTITY_OUTPUT="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH")"
+IDENTITY_LINE=""
+while IFS= read -r line; do
+  if [[ "$line" == *"$SIGNING_IDENTITY"* ]]; then
+    IDENTITY_LINE="$line"
+    break
+  fi
+done <<< "$IDENTITY_OUTPUT"
+if [[ -z "$IDENTITY_LINE" ]]; then
+  echo "The imported keychain does not contain the configured Developer ID identity." >&2
+  exit 2
+fi
+if [[ "$IDENTITY_LINE" != *"($SIGNING_TEAM_IDENTIFIER)"* ]]; then
+  echo "The configured Apple team does not own the imported Developer ID identity." >&2
+  exit 2
+fi
 
 {
   echo "QUILLCODE_MACOS_SIGNING_IDENTITY=$SIGNING_IDENTITY"
@@ -75,4 +118,5 @@ security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep -F "$SIGNING_ID
   echo "QUILLCODE_MACOS_NOTARY_KEY_PATH=$NOTARY_KEY_PATH"
 } >> "$GITHUB_ENV"
 
+trap - EXIT
 echo "Configured Developer ID signing and App Store Connect notarization credentials."

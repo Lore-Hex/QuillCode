@@ -272,9 +272,17 @@ The certificate secret is a base64-encoded Developer ID Application `.p12`. The
 notary key secret is a base64-encoded App Store Connect API `.p8`. The workflow
 imports both into a temporary runner-only signing area, enables the hardened
 runtime, submits the zipped app to `notarytool`, staples and validates the ticket,
-and deletes temporary credential files. Partial secret configuration fails the
-macOS job. Missing secrets still permit ad-hoc tester builds, but stable `v*` tags
-fail before packaging.
+and deletes temporary credential files. `APPLE_TEAM_ID` and
+`APPLE_NOTARY_KEY_ID` must be their 10-character uppercase Apple identifiers;
+`APPLE_NOTARY_ISSUER_ID` must be the App Store Connect issuer UUID. The imported
+Developer ID identity must resolve inside the private build keychain and belong
+to `APPLE_TEAM_ID`.
+
+Partial configuration and malformed identifiers fail before decoded files are
+created. Once files can exist, any setup failure deletes the private keychain and
+complete signing directory locally; only successful setup transfers cleanup
+ownership to the workflow's unconditional cleanup step. Missing secrets still
+permit ad-hoc tester builds, but stable `v*` tags fail before packaging.
 
 ## Manual Build Refresh
 

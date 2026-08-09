@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-08-09 Transactional Apple Signing Setup
+
+Overall grade after this slice: **A+ credential safety, A+ release integrity, A+ failure recovery**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Credential safety | A+ | The certificate and notary key decode only inside a mode-700 runner directory, receive mode 600, and never enter the workflow environment; only owned temporary paths and non-secret identifiers are exported. |
+| Release integrity | A+ | Team and key IDs must use Apple's 10-character form, the issuer must be a UUID, and the configured Developer ID identity must exist in the imported keychain and belong to the configured team. |
+| Failure recovery | A+ | A local exit trap deletes the temporary keychain and complete signing directory on decode, import, partition-list, identity, ownership, or environment-export failure. |
+| Regression coverage | A+ | Executable fake-`security` tests cover absent and partial configuration, malformed identifiers, complete success, import failure cleanup, and wrong-team rejection without requiring Apple credentials. |
+
+Validation:
+
+- Focused Apple signing configuration suite (6 tests, 0 failures)
+- Stable-release, download-workflow, and updater-signing contract suite (27 tests, 0 failures)
+- Full `swift test` (5,679 tests, 5 skipped, 0 failures)
+- `bash -n scripts/configure-macos-distribution-signing.sh`
+
 ## 2026-08-09 Bounded Native Smoke Wall Clock
 
 Overall grade after this slice: **A+ release fidelity, A+ bounded recovery, A+ configurability**.

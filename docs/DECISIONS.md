@@ -1,5 +1,27 @@
 # QuillCode Decisions
 
+## 2026-08-09: Apple signing setup is transactional and team-bound
+
+- **Decision:** Distribution setup validates Apple team and key identifiers plus the App Store
+  Connect issuer UUID before decoding secrets. After certificate import, the selected Developer ID
+  identity must be present in the private build keychain and its identity line must name the same
+  Apple team.
+- **Credential boundary:** Certificate and notary bytes remain in a mode-700 runner directory as
+  mode-600 files. The workflow environment receives only their paths and the non-secret signing
+  identifiers; certificate bytes, private-key bytes, certificate password, and generated keychain
+  password are never exported.
+- **Recovery:** Once sensitive files can exist, a local exit trap owns failure cleanup. Any decode,
+  keychain, import, partition, identity, ownership, or environment-write failure deletes the
+  temporary keychain and the complete signing directory before preserving the original exit status.
+  Successful setup transfers cleanup ownership to the workflow's unconditional cleanup step.
+- **Why:** Stable release automation was already fail-closed, but an import failure occurred before
+  cleanup paths were exported and therefore left decoded files for ephemeral-runner disposal. Stable
+  publication should be ready for real credentials without depending on runner destruction for
+  secret cleanup or discovering a team mismatch during final package validation.
+- **Evidence:** Six executable fake-tool cases prove no-op tester behavior, partial and malformed
+  rejection before disk writes, path-only success, import-failure cleanup, and wrong-team cleanup.
+  The complete stable-release, download, updater-signing, and full Swift suites remain green.
+
 ## 2026-08-09: native smoke wall-clock guards encompass semantic retry budgets
 
 - **Decision:** The packaged live-window process receives a named 90-second wall-clock guard. CI and
