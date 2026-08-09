@@ -112,4 +112,116 @@ final class WorkspaceThreadPersistenceTests: XCTestCase {
 
         XCTAssertThrowsError(try store.load(side.id))
     }
+
+    func testFailedSaveIsVisibleUntilAFullSnapshotSucceeds() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let privateDirectoryName = "private-customer-project"
+        let blockingFile = root.appendingPathComponent(privateDirectoryName)
+        try Data("not-a-directory".utf8).write(to: blockingFile)
+        let store = JSONThreadStore(
+            directory: blockingFile.appendingPathComponent("threads")
+        )
+        let tracker = WorkspaceThreadPersistenceIssueTracker()
+        let persistence = WorkspaceThreadPersistence(store: store, issueTracker: tracker)
+        let thread = ChatThread(title: "Unsaved customer plan")
+
+        persistence.save(thread)
+
+        let issue = try XCTUnwrap(tracker.runtimeIssue)
+        XCTAssertEqual(tracker.failedThreadCount, 1)
+        XCTAssertEqual(issue.severity, .error)
+        XCTAssertEqual(issue.title, "A chat change is not saved")
+        XCTAssertEqual(
+            issue.diagnostics.first { $0.label == "Affected chats" }?.value,
+            "1"
+        )
+        XCTAssertFalse(issue.message.contains(privateDirectoryName))
+        XCTAssertFalse(issue.diagnostics.contains { $0.value.contains(privateDirectoryName) })
+
+        try FileManager.default.removeItem(at: blockingFile)
+        persistence.save(thread)
+
+        XCTAssertEqual(tracker.failedThreadCount, 0)
+        XCTAssertNil(tracker.runtimeIssue)
+        XCTAssertEqual(try store.load(thread.id).title, thread.title)
+    }
+
+    func testThrowingSaveRecordsFailureBeforeRethrowing() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let blockingFile = root.appendingPathComponent("blocked")
+        try Data().write(to: blockingFile)
+        let tracker = WorkspaceThreadPersistenceIssueTracker()
+        let persistence = WorkspaceThreadPersistence(
+            store: JSONThreadStore(directory: blockingFile.appendingPathComponent("threads")),
+            issueTracker: tracker
+        )
+
+        XCTAssertThrowsError(try persistence.saveOrThrow(ChatThread(title: "Important")))
+        XCTAssertEqual(tracker.failedThreadCount, 1)
+    }
+
+    func testFailedDeleteIsVisibleUntilDeleteCanComplete() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let storeDirectory = root.appendingPathComponent("threads", isDirectory: true)
+        let store = JSONThreadStore(directory: storeDirectory)
+        let thread = ChatThread(title: "Delete me")
+        try store.save(thread)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o500],
+            ofItemAtPath: storeDirectory.path
+        )
+        defer {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: storeDirectory.path
+            )
+        }
+        let tracker = WorkspaceThreadPersistenceIssueTracker()
+        let persistence = WorkspaceThreadPersistence(
+            store: store,
+            issueTracker: tracker
+        )
+
+        persistence.delete(thread.id)
+
+        XCTAssertEqual(tracker.failedThreadCount, 1)
+        XCTAssertEqual(tracker.runtimeIssue?.title, "A chat change is not saved")
+
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: storeDirectory.path
+        )
+        persistence.delete(thread.id)
+
+        XCTAssertEqual(tracker.failedThreadCount, 0)
+        XCTAssertNil(tracker.runtimeIssue)
+        XCTAssertThrowsError(try store.load(thread.id))
+    }
+
+    func testEachAffectedChatRequiresItsOwnSuccessfulSnapshot() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let blockingFile = root.appendingPathComponent("blocked")
+        try Data().write(to: blockingFile)
+        let store = JSONThreadStore(directory: blockingFile.appendingPathComponent("threads"))
+        let tracker = WorkspaceThreadPersistenceIssueTracker()
+        let persistence = WorkspaceThreadPersistence(store: store, issueTracker: tracker)
+        let first = ChatThread(title: "First")
+        let second = ChatThread(title: "Second")
+
+        persistence.save([first, second])
+
+        XCTAssertEqual(tracker.failedThreadCount, 2)
+        XCTAssertEqual(tracker.runtimeIssue?.title, "Some chat changes are not saved")
+
+        try FileManager.default.removeItem(at: blockingFile)
+        persistence.save(first)
+
+        XCTAssertEqual(tracker.failedThreadCount, 1)
+        XCTAssertEqual(tracker.runtimeIssue?.title, "A chat change is not saved")
+
+        persistence.save(second)
+
+        XCTAssertEqual(tracker.failedThreadCount, 0)
+        XCTAssertNil(tracker.runtimeIssue)
+    }
 }

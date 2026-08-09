@@ -78,6 +78,7 @@ public final class QuillCodeWorkspaceModel {
     /// can supply a fake `ToolResult` instead of spawning a real shell. nil = run the real command.
     var verificationRunner: (@Sendable (LocalEnvironmentAction, URL) async -> ToolResult)?
     let threadPersistence: WorkspaceThreadPersistence
+    let threadPersistenceIssueTracker: WorkspaceThreadPersistenceIssueTracker
     private let projectStore: JSONProjectStore?
     private let automationStore: JSONAutomationStore?
     private let sidebarSavedSearchStore: JSONSidebarSavedSearchStore?
@@ -222,7 +223,12 @@ public final class QuillCodeWorkspaceModel {
         self.runner = runner
         self.subagentSchedulerOverride = nil
         self.contextSummaryGenerator = contextSummaryGenerator
-        self.threadPersistence = WorkspaceThreadPersistence(store: threadStore)
+        let threadPersistenceIssueTracker = WorkspaceThreadPersistenceIssueTracker()
+        self.threadPersistenceIssueTracker = threadPersistenceIssueTracker
+        self.threadPersistence = WorkspaceThreadPersistence(
+            store: threadStore,
+            issueTracker: threadPersistenceIssueTracker
+        )
         self.startupLoadIssue = startupLoadIssue ?? WorkspaceStartupLoadIssue(
             loadedThreadCount: root.threads.count,
             threadLoadIssue: threadLoadIssue,

@@ -239,6 +239,12 @@ or credentials. Ask testers to add:
 - what they clicked or typed before the issue
 - a screenshot when the issue is visual
 
+If a saved-chat write or delete fails, the workspace shows a durability warning until a full
+snapshot for each affected chat succeeds. The warning includes only the affected-chat count, never
+the chat title, transcript, filesystem path, underlying error text, or credentials. Testers should
+keep the app open while they free disk space, restore application-data permissions, or compact an
+oversized chat, then make another change so Quill Cowork can retry the complete snapshot.
+
 ## Versioned Releases
 
 Stable releases are immutable and must use a canonical `vMAJOR.MINOR.PATCH` tag

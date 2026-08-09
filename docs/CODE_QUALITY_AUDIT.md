@@ -1,5 +1,27 @@
 # Code Quality Audit
 
+## 2026-08-09 Visible Chat Durability Failures
+
+Overall grade after this slice: **A+ data integrity, A+ privacy, A+ recovery UX**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Data integrity | A+ | Every durable chat save/delete now records failure instead of silently swallowing it; only a successful operation for that exact chat clears its pending durability state. |
+| Recovery UX | A+ | The existing runtime-issue surface explains that the session can continue but changes may not survive relaunch, and gives disk-space, permission, and compaction guidance. |
+| Privacy | A+ | The bounded in-memory tracker retains UUIDs only; rendered diagnostics expose one count and explicitly contain no private content, paths, titles, transcripts, raw errors, or credentials. |
+| Priority integrity | A+ | Startup load damage remains above session write failures, while provider/runtime issues return automatically after all affected snapshots become durable. |
+| Regression coverage | A+ | Focused tests force real filesystem failures, prove per-chat recovery, throwing-path tracking, confidential/ephemeral exclusion, diagnostic redaction, startup priority, and native rendered output. |
+
+Validation:
+
+- Focused persistence, runtime-issue, parity, and native rendered suites (24 tests, 0 failures)
+- Full `swift test` (5,718 tests, 5 skipped, 0 failures)
+- Optimized packaged app Launch Services smoke passed with 126 transcript messages,
+  79 tool cards, 205 timeline items, and 186 native click probes
+- Release executable stripped from 56,101,392 to 28,144,272 bytes; strict code-signature
+  verification passed
+- `python3 scripts/grade-code-quality.py --root .` reports every module A+
+
 ## 2026-08-09 Pre-Sign Release Executable Stripping
 
 Overall grade after this slice: **A+ binary footprint, A+ signing integrity, A+ public evidence**.

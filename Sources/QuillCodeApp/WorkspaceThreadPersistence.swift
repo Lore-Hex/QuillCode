@@ -5,20 +5,37 @@ import QuillCodePersistence
 struct WorkspaceThreadPersistence {
     let store: JSONThreadStore?
     let now: @Sendable () -> Date
+    let issueTracker: WorkspaceThreadPersistenceIssueTracker
 
-    init(store: JSONThreadStore?, now: @escaping @Sendable () -> Date = Date.init) {
+    init(
+        store: JSONThreadStore?,
+        now: @escaping @Sendable () -> Date = Date.init,
+        issueTracker: WorkspaceThreadPersistenceIssueTracker = WorkspaceThreadPersistenceIssueTracker()
+    ) {
         self.store = store
         self.now = now
+        self.issueTracker = issueTracker
     }
 
     func save(_ thread: ChatThread) {
-        guard !thread.runtimeContext.isEphemeral else { return }
-        try? store?.save(thread)
+        guard !thread.runtimeContext.isEphemeral, let store else { return }
+        do {
+            try store.save(thread)
+            issueTracker.recordSuccess(for: thread.id)
+        } catch {
+            issueTracker.recordFailure(for: thread.id)
+        }
     }
 
     func saveOrThrow(_ thread: ChatThread) throws {
-        guard !thread.runtimeContext.isEphemeral else { return }
-        try store?.save(thread)
+        guard !thread.runtimeContext.isEphemeral, let store else { return }
+        do {
+            try store.save(thread)
+            issueTracker.recordSuccess(for: thread.id)
+        } catch {
+            issueTracker.recordFailure(for: thread.id)
+            throw error
+        }
     }
 
     func save(_ threads: [ChatThread]) {
@@ -28,7 +45,13 @@ struct WorkspaceThreadPersistence {
     }
 
     func delete(_ id: UUID) {
-        try? store?.delete(id)
+        guard let store else { return }
+        do {
+            try store.delete(id)
+            issueTracker.recordSuccess(for: id)
+        } catch {
+            issueTracker.recordFailure(for: id)
+        }
     }
 
     @discardableResult
