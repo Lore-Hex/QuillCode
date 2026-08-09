@@ -1,5 +1,27 @@
 # Code Quality Audit
 
+## 2026-08-09 Atomic Native Surface Readiness
+
+Overall grade after this slice: **A+ semantic integrity, A+ slow-runner resilience, A+ main-actor cost**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Semantic integrity | A+ | A dismissible pane becomes ready only when its title, required content, and Close control coexist in one live Accessibility generation; partial generations are never combined. |
+| Slow-runner resilience | A+ | SwiftUI presentation and dismissal each receive a bounded five-second semantic poll, while the ready path resolves the complete pane from one hierarchy scan instead of three. |
+| Main-actor cost | A+ | The sampler retains only one candidate per required identifier, returns immediately for a complete first generation, and adds no runtime cache, observer, or product-state polling. |
+| Regression coverage | A+ | Tests prove delayed complete readiness, reject accumulation across complementary partial generations, and preserve bounded failure diagnostics from the latest generation. |
+
+Validation:
+
+- Focused desktop Accessibility suites (13 tests, 0 failures)
+- Full `swift test` (5,673 tests, 5 skipped, 0 failures)
+- Real packaged macOS direct-executable and Launch Services smoke passed two complete native
+  interaction sweeps; Settings, Automations, Extensions, Memories, Activity, and Review all
+  presented and dismissed through their identified native controls
+- Packaged performance passed at 283.43 ms median launch-ready, 98.06 MiB initial memory,
+  160.98 MiB post-interaction memory, and 165.69 MiB repeated-interaction memory
+- Activity restored the composer from 563 to 884 points after the refreshed Close-button `AXPress`
+
 ## 2026-08-09 Layout-Stable Activity Accessibility Verification
 
 Overall grade after this slice: **A+ native resilience, A+ interaction integrity, A+ bounded latency**.

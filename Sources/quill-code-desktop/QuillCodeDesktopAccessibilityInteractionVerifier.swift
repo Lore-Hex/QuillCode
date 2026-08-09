@@ -327,34 +327,30 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         contentView: NSView,
         validateBeforeDismiss: (() async -> QuillCodeDesktopAccessibilityActivationVerification?)? = nil
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
-        guard await waitForElement(contract.titleIdentifier, in: contentView) != nil else {
-            return .init(
-                evidence: "\(contract.name) title did not render",
-                validationIssue: "\(contract.contractID) did not render \(contract.name)"
-            )
+        let presentation = await waitForDismissibleSurface(contract, in: contentView)
+        guard presentation.isComplete,
+              var closeButton = presentation.elementsByIdentifier[contract.closeIdentifier]
+        else {
+            return dismissibleSurfaceReadinessFailure(contract, sample: presentation)
         }
-        guard await waitForElement(contract.requiredControlIdentifier, in: contentView) != nil else {
-            return .init(
-                evidence: "\(contract.name) rendered without its \(contract.requiredControlDescription)",
-                validationIssue: "\(contract.contractID) did not expose its \(contract.requiredControlDescription)"
-            )
-        }
-        guard await waitForElement(contract.closeIdentifier, in: contentView) != nil else {
-            return .init(
-                evidence: "\(contract.name) rendered without an accessible close button",
-                validationIssue: "\(contract.contractID) did not expose \(contract.closeIdentifier)"
-            )
-        }
+
         if let validateBeforeDismiss,
            let validation = await validateBeforeDismiss()
         {
             return validation
         }
-        guard let closeButton = await waitForElement(contract.closeIdentifier, in: contentView) else {
-            return .init(
-                evidence: "\(contract.name) close button disappeared before dismissal",
-                validationIssue: "\(contract.contractID) lost \(contract.closeIdentifier) before dismissal"
-            )
+        if validateBeforeDismiss != nil {
+            let refreshedPresentation = await waitForDismissibleSurface(contract, in: contentView)
+            guard refreshedPresentation.isComplete,
+                  let refreshedCloseButton = refreshedPresentation.elementsByIdentifier[contract.closeIdentifier]
+            else {
+                return .init(
+                    evidence: "\(contract.name) changed while waiting for layout; missing "
+                        + refreshedPresentation.missingIdentifiers.sorted().joined(separator: ", "),
+                    validationIssue: "\(contract.contractID) did not remain fully accessible before dismissal"
+                )
+            }
+            closeButton = refreshedCloseButton
         }
 
         let pressError = QuillCodeDesktopAccessibilityTree.performPress(on: closeButton)
@@ -364,7 +360,11 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
                 validationIssue: "\(contract.contractID) could not dismiss through \(contract.closeIdentifier): \(pressError)"
             )
         }
-        guard await waitForElementToDisappear(contract.titleIdentifier, in: contentView) else {
+        guard await waitForElementToDisappear(
+            contract.titleIdentifier,
+            maximumAttempts: 100,
+            in: contentView
+        ) else {
             return .init(
                 evidence: "\(contract.closeIdentifier) accepted AXPress but \(contract.name) remained visible",
                 validationIssue: "\(contract.contractID) close button did not dismiss \(contract.name)"
@@ -374,6 +374,44 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         return .init(
             evidence: "rendered \(contract.name) with its \(contract.requiredControlDescription) and dismissed through \(contract.closeIdentifier) with AXPress",
             validationIssue: nil
+        )
+    }
+
+    private static func waitForDismissibleSurface(
+        _ contract: DismissibleSurfaceContract,
+        in contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityRequiredElementSample {
+        await QuillCodeDesktopAccessibilityElementSetSampler.waitForRequiredElements(
+            [
+                contract.titleIdentifier,
+                contract.requiredControlIdentifier,
+                contract.closeIdentifier
+            ],
+            elements: {
+                QuillCodeDesktopAccessibilityTree(root: contentView).elements
+            }
+        )
+    }
+
+    private static func dismissibleSurfaceReadinessFailure(
+        _ contract: DismissibleSurfaceContract,
+        sample: QuillCodeDesktopAccessibilityRequiredElementSample
+    ) -> QuillCodeDesktopAccessibilityActivationVerification {
+        if sample.missingIdentifiers.contains(contract.titleIdentifier) {
+            return .init(
+                evidence: "\(contract.name) title did not render",
+                validationIssue: "\(contract.contractID) did not render \(contract.name)"
+            )
+        }
+        if sample.missingIdentifiers.contains(contract.requiredControlIdentifier) {
+            return .init(
+                evidence: "\(contract.name) rendered without its \(contract.requiredControlDescription)",
+                validationIssue: "\(contract.contractID) did not expose its \(contract.requiredControlDescription)"
+            )
+        }
+        return .init(
+            evidence: "\(contract.name) rendered without an accessible close button",
+            validationIssue: "\(contract.contractID) did not expose \(contract.closeIdentifier)"
         )
     }
 
@@ -396,9 +434,10 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
 
     private static func waitForElementToDisappear(
         _ identifier: String,
+        maximumAttempts: Int = 20,
         in contentView: NSView
     ) async -> Bool {
-        for _ in 0..<20 {
+        for _ in 0..<max(1, maximumAttempts) {
             if element(identifier, in: contentView) == nil {
                 return true
             }

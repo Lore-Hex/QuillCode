@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-09: native surface readiness is one Accessibility generation
+
+- **Decision:** A dismissible native pane is ready only when its identified title, required content,
+  and Close control coexist in one Accessibility-tree generation. The verifier takes one fresh tree
+  per attempt for up to 100 attempts at 50 ms and never assembles success from partial generations.
+- **Latency:** A ready pane now needs one tree walk instead of the previous three independent waits.
+  Slow SwiftUI presentation and post-press disappearance retain a bounded five-second semantic
+  window, and cancellation stops further sampling.
+- **Why:** Public build 673 completed Activity but the hosted Intel runner observed Memories' title
+  and content without its Close control inside the previous one-second snapshot window. Independent
+  title, content, and Close waits could also combine different hierarchy generations, making the
+  evidence weaker while still being brittle during a healthy native transition.
+- **Integrity boundary:** The gate still performs a real `AXPress`, requires the pane to disappear,
+  and reports the latest generation's missing identifier on exhaustion. It does not mutate a
+  controller directly, weaken a surface contract, retain runtime Accessibility state, or poll in the
+  shipped product.
+- **Evidence:** Unit tests prove delayed complete readiness and rejection of complementary partial
+  generations. The packaged app passed two live interaction sweeps across all shared dismissible
+  panes, including Memories and Activity, within the existing launch, memory, and thread budgets.
+
 ## 2026-08-09: native layout evidence must stabilize before comparison
 
 - **Decision:** The Activity Accessibility verifier first proves the identified title, task summary,
