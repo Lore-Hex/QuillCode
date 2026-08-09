@@ -97,7 +97,8 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
             objective: "validate release",
             workers: [
                 .init(name: "Explorer", role: "inspect code"),
-                .init(name: "Verifier", role: "run tests")
+                .init(name: "Verifier", role: "run tests"),
+                .init(name: "Researcher", role: "collect evidence")
             ]
         )
         let progress = ProgressRecorder()
@@ -107,14 +108,17 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         }
 
         let maxRunning = await probe.maximumRunningCount()
-        XCTAssertEqual(maxRunning, 2)
-        XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .completed])
-        XCTAssertEqual(result.update.subagents.map(\.summary), ["checked inspect code", "checked run tests"])
-        XCTAssertTrue(result.summary.contains("Subagents completed 2 workers"))
+        XCTAssertEqual(maxRunning, 3)
+        XCTAssertEqual(result.update.subagents.map(\.status), [.completed, .completed, .completed])
+        XCTAssertEqual(
+            result.update.subagents.map(\.summary),
+            ["checked inspect code", "checked run tests", "checked collect evidence"]
+        )
+        XCTAssertTrue(result.summary.contains("Subagents completed 3 workers"))
         let updates = await progress.updates
-        XCTAssertEqual(updates.first?.subagents.map(\.status), [.queued, .queued])
-        XCTAssertEqual(updates.dropFirst().first?.subagents.map(\.status), [.running, .running])
-        XCTAssertEqual(updates.last?.subagents.map(\.status), [.completed, .completed])
+        XCTAssertEqual(updates.first?.subagents.map(\.status), [.queued, .queued, .queued])
+        XCTAssertEqual(updates.dropFirst().first?.subagents.map(\.status), [.running, .running, .running])
+        XCTAssertEqual(updates.last?.subagents.map(\.status), [.completed, .completed, .completed])
     }
 
     func testSchedulerCapsConcurrencyAtTheRequestedLimit() async throws {
