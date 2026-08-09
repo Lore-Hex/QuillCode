@@ -71,6 +71,45 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         })
     }
 
+    func testBudgetOverrunPreservesInjectedForcedWriteAndExactPath() async throws {
+        let state = ScriptedState([
+            .failure(AgentPreActionReasoningBudgetExceededError(maximumCharacters: 6_000)),
+            .success(.tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: #"{"path":"outputs/final.html","content":"complete"}"#
+            ))),
+        ])
+        let runner = AgentRunner(llm: ScriptedClient(state: state))
+        let forcedWrite = """
+        The post-checkpoint synthesis gate is authoritative. Respond with host.file.write for exactly \
+        ./outputs/final.html now. Do not resume research or return a final answer first.
+        """
+        var thread = ChatThread(title: "forced synthesis")
+
+        let action = try await runner.nextAction(
+            thread: &thread,
+            userMessage: "Create the requested deliverable.",
+            tools: [ToolDefinition.fileWrite],
+            workspaceRoot: FileManager.default.temporaryDirectory,
+            onProgress: nil,
+            injectedCorrection: forcedWrite,
+            reasoningBudgetPhase: .checkpoint
+        )
+
+        guard case .tool(let call) = action else {
+            XCTFail("expected the forced file-write action")
+            return
+        }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        XCTAssertTrue(call.argumentsJSON.contains("outputs/final.html"))
+        let calls = await state.recorded()
+        XCTAssertEqual(calls.count, 2)
+        let retryContext = calls[1].filter { $0.role == .user }.map(\.content).joined(separator: "\n")
+        XCTAssertTrue(retryContext.contains("./outputs/final.html"))
+        XCTAssertTrue(retryContext.contains("immediately preceding corrective instruction remains authoritative"))
+        XCTAssertTrue(retryContext.contains("next action MUST use that tool and exact path"))
+    }
+
     func testRepeatedReasoningOverrunSwitchesToFallbackAndKeepsItForRun() async throws {
         let root = try makeTempDirectory()
         try Data("grounded evidence".utf8).write(to: root.appendingPathComponent("input.txt"))

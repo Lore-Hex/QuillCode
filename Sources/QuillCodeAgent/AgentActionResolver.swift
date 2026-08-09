@@ -62,6 +62,7 @@ extension AgentRunner {
         // transcript; the durable thread gets only a Self-healing notice per attempt.
         var correctiveThread = thread
         var pendingCorrectionPrompt: String? = injectedCorrection
+        let authoritativeCorrectionPrompt = injectedCorrection
         if let injectedCorrection {
             correctiveThread.messages.append(.init(role: .user, content: injectedCorrection))
             correctiveThread.updatedAt = Date()
@@ -200,7 +201,11 @@ extension AgentRunner {
                     throw overrun
                 }
                 attempt += 1
-                let correctionPrompt = AgentTurnDeadline.correctionPrompt
+                let correctionPrompt = authoritativeCorrectionPrompt == nil
+                    ? AgentTurnDeadline.correctionPrompt
+                    : AgentPreActionReasoningBudget.recoveryPrompt(
+                        preserving: authoritativeCorrectionPrompt
+                    )
                 correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
                 correctiveThread.updatedAt = Date()
                 pendingCorrectionPrompt = correctionPrompt
@@ -219,7 +224,9 @@ extension AgentRunner {
                         usedFallback = true
                         activeLLM = fallback
                         attempt = 0
-                        pendingCorrectionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                        pendingCorrectionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
+                            preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
+                        )
                         thread.events.append(.init(
                             kind: .notice,
                             summary: Self.reasoningFallbackSwitchNotice
@@ -231,7 +238,9 @@ extension AgentRunner {
                     throw overrun
                 }
                 attempt += 1
-                let correctionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                let correctionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
+                    preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
+                )
                 correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
                 correctiveThread.updatedAt = Date()
                 pendingCorrectionPrompt = correctionPrompt
@@ -249,7 +258,9 @@ extension AgentRunner {
                     throw reasoningOnly
                 }
                 attempt += 1
-                let correctionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                let correctionPrompt = AgentPreActionReasoningBudget.recoveryPrompt(
+                    preserving: authoritativeCorrectionPrompt ?? pendingCorrectionPrompt
+                )
                 correctiveThread.messages.append(.init(role: .user, content: correctionPrompt))
                 correctiveThread.updatedAt = Date()
                 pendingCorrectionPrompt = correctionPrompt
@@ -269,7 +280,7 @@ extension AgentRunner {
                 }
                 attempt += 1
                 // A pure resample through the normal (streaming) path — no corrective context needed.
-                pendingCorrectionPrompt = nil
+                pendingCorrectionPrompt = authoritativeCorrectionPrompt
                 thread.events.append(.init(
                     kind: .notice,
                     summary: "Self-healing: the model stream was interrupted mid-response; retrying "
@@ -292,7 +303,7 @@ extension AgentRunner {
                         activeLLM = fallback
                         attempt = 0
                         emptyResponseAttempt = 0
-                        pendingCorrectionPrompt = nil
+                        pendingCorrectionPrompt = authoritativeCorrectionPrompt
                         thread.events.append(.init(
                             kind: .notice,
                             summary: Self.fallbackSwitchNotice
@@ -307,7 +318,7 @@ extension AgentRunner {
                 let backoffSeconds = emptyResponseRetryPolicy.backoffSeconds(
                     forAttempt: emptyResponseAttempt
                 )
-                pendingCorrectionPrompt = nil
+                pendingCorrectionPrompt = authoritativeCorrectionPrompt
                 thread.events.append(.init(
                     kind: .notice,
                     summary: backoffSeconds > 0

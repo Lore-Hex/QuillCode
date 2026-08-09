@@ -99,4 +99,20 @@ enum AgentPreActionReasoningBudget {
     can make progress. Respond now with exactly one JSON action object (a concrete tool call, or a \
     final "say" only when the requested work is actually complete or irrecoverably blocked).
     """
+
+    static func recoveryPrompt(preserving priorCorrection: String?) -> String {
+        guard let priorCorrection,
+              !priorCorrection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return correctionPrompt
+        }
+        return """
+        You used the available reasoning budget without starting an action. The immediately preceding \
+        corrective instruction remains authoritative; do not replace, reinterpret, or defer it. Stop \
+        planning and execute its concrete action now using the evidence already in the thread. If that \
+        instruction names a tool or exact output path, your next action MUST use that tool and exact path. \
+        Do not resume research, delegate more work, ask the user, narrate, or return a final answer instead \
+        of the required action. Respond now with exactly one JSON action object.
+        """
+    }
 }
