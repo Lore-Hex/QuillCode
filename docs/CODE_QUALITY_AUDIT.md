@@ -1,5 +1,26 @@
 # Code Quality Audit
 
+## 2026-08-09 Validated Public Release Page Generation
+
+Overall grade after this slice: **A+ download UX, A+ claim integrity, A+ maintainability**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Download UX | A+ | Every tester and stable release page leads with a commit-pinned product screenshot, explicit Apple silicon and Intel DMG links, minimum macOS version, installation steps, first-launch guidance, and automatic-update behavior. |
+| Claim integrity | A+ | The generator rejects a mismatched channel, tag, commit, product, platform, architecture, configuration, version, build, minimum system, signing mode, signing team, or notarization claim before GitHub edits the release. |
+| Maintainability | A+ | One bounded deterministic generator replaces workflow-embedded Markdown and derives both human copy and links from validated build identity, channel, repository, and tag inputs. |
+| Regression coverage | A+ | Executable tests cover a real tester page shape, a notarized Developer ID stable page, mismatched commit and stable version rejection, and false-notarization rejection; the broader workflow contract pins generator invocation and removal of the legacy heredoc. |
+
+Validation:
+
+- Release-page generator suite (5 tests, 0 failures)
+- Download-build workflow and manifest suite (6 tests, 0 failures)
+- Complete parity module (385 tests, 0 failures)
+- Full `swift test` (5,692 tests, 5 skipped, 0 failures)
+- Real public build 678 metadata rendered into the complete tester release page
+- `python3 scripts/grade-code-quality.py --root .` reports every module A+
+- `git diff --check`
+
 ## 2026-08-09 Latest-Wins Browser Snapshot Scheduling
 
 Overall grade after this slice: **A+ bounded work, A+ stale-result safety, A+ lifecycle cleanup**.
