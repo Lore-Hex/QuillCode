@@ -1,5 +1,20 @@
 # QuillCode Decisions
 
+## 2026-08-08: sidebar transcript search is bounded before concatenation
+
+- **Decision:** `SidebarItem` builds its searchable transcript prefix incrementally and stops after
+  8,000 user/assistant characters. It preserves the existing message order, newline separators, role
+  filtering, and extended-grapheme behavior without first joining the complete transcript.
+- **Why:** Workspace surface refreshes rebuild sidebar rows frequently. Joining a long transcript and
+  trimming afterward created a transcript-sized temporary allocation and O(total history) latency on
+  the main actor even though the UI retained only a bounded prefix.
+- **Architecture:** The projection remains a pure value transformation beside `SidebarItem`; no
+  long-lived cache, invalidation protocol, or duplicate retained transcript is introduced. Work and
+  temporary storage are bounded by the actual 8,000-character product contract.
+- **Evidence:** `SidebarItemSearchTextTests` covers exact legacy parity, hidden system/tool messages,
+  boundary separators, and composed Unicode. An optimized 128-million-character stress benchmark
+  reduced twelve projections from about 105 ms to 0.49 ms while producing the same output.
+
 ## 2026-08-08: first-run developer keys reuse the Settings credential path
 
 - **Decision:** The first-run connection surface offers browser OAuth as the primary action and

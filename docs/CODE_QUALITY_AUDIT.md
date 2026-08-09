@@ -1,5 +1,26 @@
 # Code Quality Audit
 
+## 2026-08-08 Bounded Sidebar History Projection
+
+Overall grade after this slice: **A+ memory behavior, A+ latency, A+ semantic fidelity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Memory behavior | A+ | Sidebar search text stops at the retained 8,000-character bound instead of allocating a joined copy of the complete transcript on every workspace refresh. |
+| Main-actor latency | A+ | An optimized 128-million-character stress case reduced twelve equivalent projections from about 105 ms to 0.49 ms. |
+| Search fidelity | A+ | Message order, newline separators, user/assistant role filtering, exact boundary behavior, and composed Unicode characters remain identical to the prior projection. |
+| Architecture | A+ | The pure bounded builder replaces transient work without adding a retained cache, invalidation state, or another search representation. |
+
+Validation:
+
+- Full `swift test` (5,657 tests, 5 skipped, 0 failures)
+- Focused sidebar, navigation, saved-search, and global-search suites (31 tests, 0 failures)
+- Exact legacy-projection parity across empty, separator-boundary, length-boundary, role, and Unicode
+  cases
+- Optimized old/new stress benchmark over a 128-million-character synthetic transcript
+- `python3 scripts/grade-code-quality.py --root .` reports every module A+
+- `git diff --check`; exact leaked-token fingerprint absent
+
 ## 2026-08-08 First-Run Developer Key Onboarding
 
 Overall grade after this slice: **A+ onboarding UX, A+ credential ownership, A+ release evidence**.
