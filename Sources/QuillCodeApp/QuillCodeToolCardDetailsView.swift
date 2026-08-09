@@ -1,5 +1,16 @@
 import SwiftUI
 
+enum QuillCodeToolRawDetailsPreview {
+    static let characterLimit = 16_000
+
+    static func text(_ text: String) -> String {
+        guard text.count > characterLimit else { return text }
+        let omittedCount = text.count - characterLimit
+        return String(text.prefix(characterLimit))
+            + "\n\n[Preview truncated: \(omittedCount) characters omitted]"
+    }
+}
+
 struct QuillCodeCodeBlock: View {
     var title: String
     var text: String
@@ -10,7 +21,7 @@ struct QuillCodeCodeBlock: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(QuillCodePalette.muted)
             ScrollView([.horizontal, .vertical]) {
-                Text(text)
+                Text(QuillCodeToolRawDetailsPreview.text(text))
                     .font(.system(.caption, design: .monospaced))
                     .textSelection(.enabled)
                     .padding(10)

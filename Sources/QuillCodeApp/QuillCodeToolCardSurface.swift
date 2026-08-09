@@ -216,7 +216,9 @@ public struct ToolCardState: Codable, Sendable, Hashable, Identifiable {
             return .peek
         case .done:
             return .collapsed
-        case .failed, .review:
+        case .failed:
+            return .peek
+        case .review:
             return .expanded
         }
     }
