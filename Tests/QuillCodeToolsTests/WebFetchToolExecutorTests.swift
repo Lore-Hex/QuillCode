@@ -411,6 +411,26 @@ final class WebFetchToolExecutorTests: XCTestCase {
         XCTAssertLessThan(result.stdout.utf8.count, 4_000)
     }
 
+    func testFocusedQueryKeepsRelevantEvidenceFromEndOfLongPage() {
+        let paragraphs = (0..<10_000).map { "<p>General filing text \($0).</p>" }.joined()
+        let body = paragraphs + "<table><tr><td>Q4 FY2026</td><td>Revenue $42.7M</td></tr></table>"
+        let (executor, _) = makeExecutor(
+            responses: [htmlResponse(body)],
+            outputMaxBytes: 2_000
+        )
+
+        let result = executor.fetch(
+            urlString: "https://example.com/long-filing",
+            query: "Q4 FY2026 revenue"
+        )
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("Q4 FY2026"))
+        XCTAssertTrue(result.stdout.contains("Revenue $42.7M"))
+        XCTAssertTrue(result.stdout.contains("Focused evidence windows"))
+        XCTAssertLessThan(result.stdout.utf8.count, 4_000)
+    }
+
     func testTransportErrorIsSurfaced() {
         let client = StubWebFetchHTTPClient([.failure(.timedOut)])
         let executor = WebFetchToolExecutor(client: client)

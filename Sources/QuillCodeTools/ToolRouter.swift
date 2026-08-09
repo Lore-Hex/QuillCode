@@ -162,7 +162,10 @@ public struct ToolRouter: Sendable {
                 let touched = PatchToolExecutor.targetPaths(in: patchText)
                 return withLSPFeedback(result, writtenPaths: touched)
             case ToolDefinition.webFetch.name:
-                return web.fetch(urlString: try args.requiredString("url"))
+                return web.fetch(
+                    urlString: try args.requiredString("url"),
+                    query: args.string("query")
+                )
             case ToolDefinition.webSearch.name:
                 // `host.web.search` is async and routes through TrustedRouter, so the live agent
                 // loop dispatches it directly to a `WebSearchToolExecutor` (see AgentToolStepRunner)
