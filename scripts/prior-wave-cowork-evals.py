@@ -1253,6 +1253,30 @@ def shell_command_references_path(command, path):
     return normalized_path in normalized_command or normalized_path in unquoted_command
 
 
+def shell_command_inspects_path(command, path):
+    if not shell_command_references_path(command, path):
+        return False
+    normalized = command.lower().replace('"', "").replace("'", "")
+    normalized_path = path.replace("\\", "/").strip("/").lower()
+    parser_call = re.compile(
+        r"(?:load_workbook|zipfile(?:\.zipfile)?|pdfreader|pdfplumber\.open|"
+        r"document|read_excel|read_csv|image\.open|et\.parse)"
+        rf"\s*\([^)]*{re.escape(normalized_path)}"
+    )
+    pathlib_read = re.compile(
+        rf"{re.escape(normalized_path)}[^;\n]{{0,120}}\.read_(?:text|bytes)\s*\("
+    )
+    command_readers = re.compile(
+        r"(?:^|[;&|\s])(?:cat|head|tail|file|unzip|zipinfo|pdfinfo|pdftotext|"
+        r"identify|sips|xmllint)(?:\s|$)"
+    )
+    return bool(
+        parser_call.search(normalized)
+        or pathlib_read.search(normalized)
+        or command_readers.search(normalized)
+    )
+
+
 def tool_output_text(tool):
     output = tool_payload(tool, "outputJSON")
     return str(output.get("stdout") or output.get("content") or "")
@@ -1417,15 +1441,30 @@ def grade(row, workspace, report, source_hashes):
     writes = [
         tool for tool in successful
         if (tool.get("name") == "host.file.write" and tool_path(tool).endswith(target))
-        or (tool.get("name") == "host.shell.run" and target in tool_command(tool))
+        or (
+            tool.get("name") == "host.shell.run"
+            and (
+                shell_command_references_path(tool_output_text(tool), target)
+                or (
+                    shell_command_references_path(tool_command(tool), target)
+                    and not shell_command_inspects_path(tool_command(tool), target)
+                )
+            )
+        )
         or (
             tool.get("name") == "host.pdf.merge"
             and any(path_matches(path, target) for path in tool_paths(tool, "output"))
         )
     ]
     reads = [tool for tool in successful if tool.get("name") == "host.file.read" and tool_path(tool).endswith(target)]
+    shell_reads = [
+        tool for tool in successful
+        if tool.get("name") == "host.shell.run"
+        and shell_command_inspects_path(tool_command(tool), target)
+        and tool_output_text(tool).strip()
+    ]
     add("artifact write", bool(writes), repr(names))
-    add("artifact verification", bool(reads), repr(names))
+    add("artifact verification", bool(reads or shell_reads), repr(names))
     if row["capabilityNeeded"] == "Browser pane":
         add("browser inspection", "host.browser.inspect" in names, repr(names))
     if row["capabilityNeeded"] == "Web research":
@@ -1440,7 +1479,7 @@ def grade(row, workspace, report, source_hashes):
     extension = output_format(row)
     valid, format_detail, artifact_text = validate_artifact(artifact, extension)
     add("primary artifact format", valid, format_detail)
-    verification_text = "\n".join(tool_output_text(tool) for tool in reads)
+    verification_text = "\n".join(tool_output_text(tool) for tool in reads + shell_reads)
     combined_text = "\n".join(
         value for value in (artifact_text, verification_text, report.get("finalAnswer", "") if report else "")
         if value

@@ -442,6 +442,55 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         by_name = {check["name"]: check["passed"] for check in checks}
         self.assertTrue(by_name["mapped source consumption"])
 
+    def test_grade_accepts_successful_shell_artifact_readback(self):
+        row = self.rows[18]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            artifact = workspace / PRIOR.output_path(row)
+            PRIOR.write_xlsx(artifact, ["marketing", "budget", "monthly", "spend"])
+
+            creation = tool("host.shell.run")
+            creation["inputJSON"] = json.dumps({"cmd": "python3 build_budget.py"})
+            creation["outputJSON"] = json.dumps({
+                "ok": True,
+                "stdout": f"saved {PRIOR.output_path(row)}\n",
+            })
+            inspection = tool("host.shell.run")
+            inspection["inputJSON"] = json.dumps({
+                "cmd": (
+                    "python3 -c \"import openpyxl; "
+                    f"print(openpyxl.load_workbook('{PRIOR.output_path(row)}').sheetnames)\""
+                )
+            })
+            inspection["outputJSON"] = json.dumps({"ok": True, "stdout": "['Sheet1']\n"})
+            report = {
+                "ok": True,
+                "requestedModelID": PRIOR.EXACT_MODEL,
+                "selectedModelID": PRIOR.EXACT_MODEL,
+                "tools": [
+                    tool("host.file.read", "inputs/source-map.md"),
+                    tool("host.file.read", "inputs/evaluation-context.md"),
+                    tool("host.file.read", "inputs/records.csv"),
+                    creation,
+                    inspection,
+                ],
+            }
+            hashes = {
+                path: PRIOR.sha256(path)
+                for path in workspace.rglob("*") if path.is_file() and path != artifact
+            }
+            checks, _ = PRIOR.grade(row, workspace, report, hashes)
+
+        by_name = {check["name"]: check["passed"] for check in checks}
+        self.assertTrue(by_name["artifact write"])
+        self.assertTrue(by_name["artifact verification"])
+        self.assertFalse(PRIOR.shell_command_inspects_path("python3 build_budget.py", PRIOR.output_path(row)))
+        self.assertFalse(PRIOR.shell_command_inspects_path(
+            f"wb = openpyxl.Workbook(); wb.save('{PRIOR.output_path(row)}')",
+            PRIOR.output_path(row),
+        ))
+
     def test_grade_accepts_native_pdf_merge_as_consumption_and_artifact_write(self):
         row = self.rows[4]
         with tempfile.TemporaryDirectory() as temporary:
