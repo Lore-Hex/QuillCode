@@ -31,6 +31,10 @@ struct AgentRunLoopState: Sendable {
     /// the ordinary readback gate then verifies the refreshed artifact.
     private(set) var researchStaleWorkspacePaths: Set<String> = []
     private var namedTextDeliverableWorkspacePaths: Set<String> = []
+    /// Successful live-web actions completed before the first durable named-text draft. Long
+    /// research runs use this to checkpoint accumulated evidence before context compaction can
+    /// make the model restart the investigation.
+    private(set) var successfulWebResearchStepsBeforeDraft = 0
     /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
     /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
     private(set) var malformedWrittenTextPaths: Set<String> = []
@@ -110,6 +114,7 @@ struct AgentRunLoopState: Sendable {
         lastCompletion = completion
         recordArtifactVerification(completion, workspaceRoot: workspaceRoot)
         recordCitationProvenance(completion)
+        recordResearchCheckpointProgress(completion)
 
         let workspaceState = stateSignature(workspaceRoot)
         let deltaSignature = workspaceState == previousWorkspaceState ? "" : workspaceState
@@ -134,6 +139,15 @@ struct AgentRunLoopState: Sendable {
         namedTextDeliverableWorkspacePaths = Set(deliverables.filter(Self.isResearchTextArtifact))
         if AgentArtifactVerificationGate.requiresReadback(in: userMessage) {
             requiredReadbackWorkspacePaths = Set(deliverables)
+        }
+    }
+
+    func pendingResearchCheckpointPath(minimumWebSteps: Int) -> String? {
+        guard successfulWebResearchStepsBeforeDraft >= minimumWebSteps else { return nil }
+        return namedTextDeliverableWorkspacePaths.sorted().first { path in
+            !writtenWorkspacePaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, path)
+            })
         }
     }
 
@@ -368,6 +382,25 @@ struct AgentRunLoopState: Sendable {
         researchStaleWorkspacePaths = Set(researchStaleWorkspacePaths.filter {
             !AgentArtifactVerificationGate.pathsMatch($0, writtenPath)
         })
+    }
+
+    private mutating func recordResearchCheckpointProgress(
+        _ completion: AgentToolStepCompletion
+    ) {
+        guard completion.result.ok else { return }
+        switch completion.call.name {
+        case ToolDefinition.webSearch.name, ToolDefinition.webFetch.name:
+            successfulWebResearchStepsBeforeDraft += 1
+        case ToolDefinition.fileWrite.name, ToolDefinition.chartRender.name:
+            if let path = AgentArtifactVerificationGate.pathArgument(from: completion.call),
+               namedTextDeliverableWorkspacePaths.contains(where: {
+                   AgentArtifactVerificationGate.pathsMatch($0, path)
+               }) {
+                successfulWebResearchStepsBeforeDraft = 0
+            }
+        default:
+            break
+        }
     }
 
     private static func isResearchTextArtifact(_ path: String) -> Bool {

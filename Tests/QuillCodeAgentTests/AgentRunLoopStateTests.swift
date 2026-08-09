@@ -130,6 +130,68 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertEqual(state.successfullyReadWorkspacePaths, ["outputs/first.md", "outputs/second.md"])
     }
 
+    func testResearchCheckpointArmsAfterSuccessfulWebWorkAndClearsOnNamedDraft() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research competitors and write outputs/revenue.html with citations."
+        )
+
+        for index in 0..<AgentResearchCheckpointGate.minimumWebSteps {
+            let search = ToolCall(
+                name: ToolDefinition.webSearch.name,
+                argumentsJSON: ToolArguments.json(["query": "competitor \(index)"])
+            )
+            _ = state.recordCompletedStep(
+                completed(call: search, stdout: "result \(index)"),
+                workspaceRoot: root
+            ) { _ in "search-\(index)" }
+        }
+
+        XCTAssertEqual(
+            state.pendingResearchCheckpointPath(
+                minimumWebSteps: AgentResearchCheckpointGate.minimumWebSteps
+            ),
+            "outputs/revenue.html"
+        )
+
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/revenue.html",
+                "content": "<p>Checkpoint</p>",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        XCTAssertNil(state.pendingResearchCheckpointPath(minimumWebSteps: 1))
+        XCTAssertEqual(state.successfulWebResearchStepsBeforeDraft, 0)
+    }
+
+    func testFailedWebWorkDoesNotArmResearchCheckpoint() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(userMessage: "Research and write outputs/report.md.")
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.com"])
+        )
+
+        for _ in 0..<AgentResearchCheckpointGate.minimumWebSteps {
+            _ = state.recordCompletedStep(
+                completed(call: fetch, stdout: "failed", ok: false),
+                workspaceRoot: root
+            ) { _ in "constant" }
+        }
+
+        XCTAssertNil(
+            state.pendingResearchCheckpointPath(
+                minimumWebSteps: AgentResearchCheckpointGate.minimumWebSteps
+            )
+        )
+    }
+
     private func recordNoProgress(
         _ call: ToolCall,
         in state: inout AgentRunLoopState

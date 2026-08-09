@@ -264,6 +264,9 @@ public struct AgentRunner: Sendable {
             /// Live evidence gathered after a named text artifact was drafted gets two bounded
             /// opportunities per path to force an incorporated, re-verified final artifact.
             var researchRefreshCorrectionCounts: [String: Int] = [:]
+            /// A long read-only research phase gets two bounded opportunities to checkpoint a
+            /// named text deliverable before more evidence collection can continue.
+            var researchCheckpointCorrectionCounts: [String: Int] = [:]
             var pendingSourceGroundingAuditPath: String?
             var sourceGroundingRepairedPaths = Set<String>()
             /// A completed semantic audit or deterministic source repair owns finalization. Keeping
@@ -1151,6 +1154,30 @@ public struct AgentRunner: Sendable {
                             kind: .notice,
                             summary: "Self-healing: redirected an outside-workspace shell path "
                                 + "before approval review."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
+                    if let correction = AgentResearchCheckpointGate.correction(
+                        path: runLoop.pendingResearchCheckpointPath(
+                            minimumWebSteps: AgentResearchCheckpointGate.minimumWebSteps
+                        ),
+                        proposedToolRisk: tools.first(where: {
+                            $0.name == activeCall.name
+                        })?.risk,
+                        canWriteFiles: tools.contains(where: {
+                            $0.name == ToolDefinition.fileWrite.name
+                        }),
+                        correctionCounts: researchCheckpointCorrectionCounts
+                    ) {
+                        researchCheckpointCorrectionCounts[correction.path, default: 0] += 1
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: required a durable research checkpoint at "
+                                + "./\(correction.path) before more read-only work."
                         ))
                         next.updatedAt = Date()
                         await onProgress?(next)
