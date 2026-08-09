@@ -163,6 +163,37 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("vendor", page)
         self.assertIn("due_date", page)
 
+    def test_source_grounding_uses_mapped_collection_members(self):
+        row = self.rows[0]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            artifact_text = (
+                "filename,width,height,size,format,status,notes\n"
+                + "\n".join(
+                    f"item-{index:03d}.png,1200,600,2048,PNG,ok,verified"
+                    for index in range(1, 9)
+                )
+            )
+            matched = PRIOR.matched_source_grounding_anchors(row, workspace, artifact_text)
+
+        self.assertGreaterEqual(len(matched), 2)
+        self.assertIn("item 001", matched)
+        self.assertNotIn("atlas", PRIOR.source_grounding_anchors(row, workspace))
+
+    def test_source_grounding_rejects_task_words_without_source_facts(self):
+        row = self.rows[0]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            matched = PRIOR.matched_source_grounding_anchors(
+                row,
+                workspace,
+                "Inventory dimensions, size, format, and logo flags were reviewed.",
+            )
+
+        self.assertEqual(matched, [])
+
     def test_office_fixtures_include_standard_package_relationships(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -300,6 +300,62 @@ def task_terms(row):
     return words[:8]
 
 
+def source_grounding_anchors(row, workspace):
+    ignored = {
+        "and", "atlas", "complete", "confirmed", "context", "evaluation", "file",
+        "inputs", "needs", "open", "outputs", "record", "records", "review",
+        "source", "task", "the", "workspace",
+    }
+    anchors = []
+
+    def add(value):
+        words = [word for word in normalized_words(str(value)) if word not in ignored]
+        if not words or not any(any(character.isalpha() for character in word) for word in words):
+            return
+        phrase = " ".join(words)
+        if (len(words) >= 2 or len(words[0]) >= 6) and phrase not in anchors:
+            anchors.append(phrase)
+
+    for description, relative, _, _ in COLLECTION_SPECS.get(row["id"], []):
+        add(description)
+        source = workspace / relative
+        if source.is_dir():
+            for member in sorted(path for path in source.rglob("*") if path.is_file())[:40]:
+                add(member.relative_to(source).with_suffix("").as_posix())
+    for reference in source_references(row["task"]):
+        add(reference)
+    for description, relative in IMPLICIT_SOURCES.get(row["id"], []):
+        add(description)
+        add(Path(relative).stem)
+
+    table_references = ["records.csv", *source_references(row["task"])]
+    table_references.extend(description for description, _ in IMPLICIT_SOURCES.get(row["id"], []))
+    table_references.extend(description for description, _, _, _ in COLLECTION_SPECS.get(row["id"], []))
+    for reference in table_references:
+        for values in task_table(row, reference, count=12)[1:13]:
+            for value in values:
+                add(value)
+
+    context_references = source_references(row["task"]) or [row["category"]]
+    context_references.extend(description for description, _ in IMPLICIT_SOURCES.get(row["id"], []))
+    context_references.extend(description for description, _, _, _ in COLLECTION_SPECS.get(row["id"], []))
+    for reference in context_references[:4]:
+        for line in task_source_context(row, reference).splitlines():
+            words = [word for word in normalized_words(line) if word not in ignored]
+            for size in (3, 2):
+                for index in range(max(0, len(words) - size + 1)):
+                    add(" ".join(words[index:index + size]))
+    return anchors[:160]
+
+
+def matched_source_grounding_anchors(row, workspace, text):
+    normalized = f" {' '.join(normalized_words(text))} "
+    return [
+        anchor for anchor in source_grounding_anchors(row, workspace)
+        if f" {anchor} " in normalized
+    ]
+
+
 def evidence_class(row):
     capability = row["capabilityNeeded"]
     if capability == "Browser pane":
@@ -1343,9 +1399,13 @@ def grade(row, workspace, report, source_hashes):
     required = min(3, len(task_terms(row)))
     if extension != "png":
         add("task coverage", len(matched) >= required, f"matched {matched}; required {required}")
-    grounded = sum(term in normalized for term in ("atlas", "priya", "rafael", "2026", "northstar"))
     if extension != "png":
-        add("source grounding", grounded >= 2, f"matched {grounded} source anchors")
+        grounded = matched_source_grounding_anchors(row, workspace, combined_text)
+        add(
+            "source grounding",
+            len(grounded) >= 2,
+            f"matched {grounded[:12]}; required 2 task-specific source anchors",
+        )
     if row["capabilityNeeded"] == "Web research":
         citations = re.findall(r"https?://[^\s)>\]]+", combined_text)
         add("source citations", len(set(citations)) >= 2, f"{len(set(citations))} unique URLs")
