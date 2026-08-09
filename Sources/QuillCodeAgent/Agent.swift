@@ -267,6 +267,9 @@ public struct AgentRunner: Sendable {
             /// A long read-only research phase gets two bounded opportunities to checkpoint a
             /// named text deliverable before more evidence collection can continue.
             var researchCheckpointCorrectionCounts: [String: Int] = [:]
+            /// A forced checkpoint cannot terminate the run until web work resumes and the named
+            /// deliverable is rewritten. This budget is separate from checkpoint creation.
+            var researchCheckpointContinuationCorrectionCounts: [String: Int] = [:]
             var pendingSourceGroundingAuditPath: String?
             var sourceGroundingRepairedPaths = Set<String>()
             /// A completed semantic audit or deterministic source repair owns finalization. Keeping
@@ -658,6 +661,30 @@ public struct AgentRunner: Sendable {
                     continue actionLoop
                 }
                 if case .say = resolvedAction,
+                   let checkpointPath = runLoop.pendingResearchContinuationPath(),
+                   let correction = AgentResearchCheckpointGate.continuationCorrection(
+                    path: checkpointPath,
+                    didResumeResearch: runLoop.didResumeResearch(
+                        afterCheckpointAt: checkpointPath
+                    ),
+                    correctionCounts: researchCheckpointContinuationCorrectionCounts
+                   ) {
+                    researchCheckpointContinuationCorrectionCounts[
+                        correction.path,
+                        default: 0
+                    ] += 1
+                    controlledSourceGroundingFinalization = nil
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: continued research after the checkpoint at "
+                            + "./\(correction.path)."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
+                if case .say = resolvedAction,
                    let correction = AgentSourceGroundingGate.correction(
                     userMessage: userMessage,
                     writtenPaths: runLoop.writtenWorkspacePaths,
@@ -968,6 +995,28 @@ public struct AgentRunner: Sendable {
                             await onProgress?(next)
                             continue actionLoop
                         }
+                        if let checkpointPath = runLoop.pendingResearchContinuationPath(),
+                           let correction = AgentResearchCheckpointGate.continuationCorrection(
+                            path: checkpointPath,
+                            didResumeResearch: runLoop.didResumeResearch(
+                                afterCheckpointAt: checkpointPath
+                            ),
+                            correctionCounts: researchCheckpointContinuationCorrectionCounts
+                           ) {
+                            researchCheckpointContinuationCorrectionCounts[
+                                correction.path,
+                                default: 0
+                            ] += 1
+                            pendingRepeatNudge = correction.prompt
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: continued research after the checkpoint at "
+                                    + "./\(correction.path)."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
+                        }
                         if let correction = AgentSourceGroundingGate.correction(
                             userMessage: userMessage,
                             writtenPaths: runLoop.writtenWorkspacePaths,
@@ -1173,6 +1222,7 @@ public struct AgentRunner: Sendable {
                         correctionCounts: researchCheckpointCorrectionCounts
                     ) {
                         researchCheckpointCorrectionCounts[correction.path, default: 0] += 1
+                        runLoop.expectResearchCheckpoint(at: correction.path)
                         pendingRepeatNudge = correction.prompt
                         next.events.append(.init(
                             kind: .notice,

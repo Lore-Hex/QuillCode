@@ -35,6 +35,11 @@ struct AgentRunLoopState: Sendable {
     /// research runs use this to checkpoint accumulated evidence before context compaction can
     /// make the model restart the investigation.
     private(set) var successfulWebResearchStepsBeforeDraft = 0
+    /// Paths for which the runner explicitly requested a forced research checkpoint. The first
+    /// successful write arms continuation; only a later write after renewed web work clears it.
+    private var expectedResearchCheckpointWorkspacePaths: Set<String> = []
+    private(set) var pendingResearchContinuationWorkspacePaths: Set<String> = []
+    private var resumedResearchCheckpointWorkspacePaths: Set<String> = []
     /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
     /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
     private(set) var malformedWrittenTextPaths: Set<String> = []
@@ -149,6 +154,22 @@ struct AgentRunLoopState: Sendable {
                 AgentArtifactVerificationGate.pathsMatch($0, path)
             })
         }
+    }
+
+    mutating func expectResearchCheckpoint(at path: String) {
+        expectedResearchCheckpointWorkspacePaths.insert(
+            AgentArtifactVerificationGate.normalizedPath(path)
+        )
+    }
+
+    func pendingResearchContinuationPath() -> String? {
+        pendingResearchContinuationWorkspacePaths.sorted().first
+    }
+
+    func didResumeResearch(afterCheckpointAt path: String) -> Bool {
+        resumedResearchCheckpointWorkspacePaths.contains(where: {
+            AgentArtifactVerificationGate.pathsMatch($0, path)
+        })
     }
 
     private mutating func recordArtifactVerification(
@@ -391,12 +412,33 @@ struct AgentRunLoopState: Sendable {
         switch completion.call.name {
         case ToolDefinition.webSearch.name, ToolDefinition.webFetch.name:
             successfulWebResearchStepsBeforeDraft += 1
+            resumedResearchCheckpointWorkspacePaths.formUnion(
+                pendingResearchContinuationWorkspacePaths
+            )
         case ToolDefinition.fileWrite.name, ToolDefinition.chartRender.name:
             if let path = AgentArtifactVerificationGate.pathArgument(from: completion.call),
-               namedTextDeliverableWorkspacePaths.contains(where: {
+               let deliverablePath = namedTextDeliverableWorkspacePaths.first(where: {
                    AgentArtifactVerificationGate.pathsMatch($0, path)
                }) {
                 successfulWebResearchStepsBeforeDraft = 0
+                if let checkpointPath = expectedResearchCheckpointWorkspacePaths.first(where: {
+                    AgentArtifactVerificationGate.pathsMatch($0, deliverablePath)
+                }) {
+                    expectedResearchCheckpointWorkspacePaths.remove(checkpointPath)
+                    pendingResearchContinuationWorkspacePaths.insert(deliverablePath)
+                    resumedResearchCheckpointWorkspacePaths.remove(deliverablePath)
+                } else if let pendingPath = pendingResearchContinuationWorkspacePaths.first(where: {
+                    AgentArtifactVerificationGate.pathsMatch($0, deliverablePath)
+                }), resumedResearchCheckpointWorkspacePaths.contains(where: {
+                    AgentArtifactVerificationGate.pathsMatch($0, deliverablePath)
+                }) {
+                    pendingResearchContinuationWorkspacePaths.remove(pendingPath)
+                    resumedResearchCheckpointWorkspacePaths = Set(
+                        resumedResearchCheckpointWorkspacePaths.filter {
+                            !AgentArtifactVerificationGate.pathsMatch($0, deliverablePath)
+                        }
+                    )
+                }
             }
         default:
             break

@@ -52,4 +52,32 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
             correctionCounts: ["outputs/revenue.html": 2]
         ))
     }
+
+    func testContinuationRequiresResearchBeforeFinalRewrite() throws {
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.continuationCorrection(
+            path: "outputs/revenue.html",
+            didResumeResearch: false,
+            correctionCounts: [:]
+        ))
+
+        XCTAssertTrue(correction.prompt.contains("host.web.search"))
+        XCTAssertTrue(correction.prompt.contains("host.web.fetch"))
+        XCTAssertTrue(correction.prompt.contains("cannot complete the task"))
+        XCTAssertTrue(correction.prompt.contains("./outputs/revenue.html"))
+    }
+
+    func testContinuationAfterResearchRequiresFinalRewriteAndIsBounded() throws {
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.continuationCorrection(
+            path: "outputs/revenue.html",
+            didResumeResearch: true,
+            correctionCounts: ["outputs/revenue.html": 1]
+        ))
+
+        XCTAssertTrue(correction.prompt.contains("evidence gathered after the checkpoint"))
+        XCTAssertNil(AgentResearchCheckpointGate.continuationCorrection(
+            path: "outputs/revenue.html",
+            didResumeResearch: true,
+            correctionCounts: ["outputs/revenue.html": 2]
+        ))
+    }
 }

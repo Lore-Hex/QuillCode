@@ -192,6 +192,74 @@ final class AgentRunLoopStateTests: XCTestCase {
         )
     }
 
+    func testForcedResearchCheckpointRequiresWebWorkAndFinalRewrite() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research competitors and write outputs/revenue.html with citations."
+        )
+        state.expectResearchCheckpoint(at: "outputs/revenue.html")
+
+        let checkpoint = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/revenue.html",
+                "content": "<p>Checkpoint with evidence gaps</p>",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: checkpoint, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "checkpoint" }
+
+        XCTAssertEqual(state.pendingResearchContinuationPath(), "outputs/revenue.html")
+        XCTAssertFalse(state.didResumeResearch(afterCheckpointAt: "outputs/revenue.html"))
+
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.com/revenue"])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: fetch, stdout: "revenue evidence"),
+            workspaceRoot: root
+        ) { _ in "fetch" }
+
+        XCTAssertTrue(state.didResumeResearch(afterCheckpointAt: "outputs/revenue.html"))
+        XCTAssertEqual(state.pendingResearchContinuationPath(), "outputs/revenue.html")
+
+        let finalWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/revenue.html",
+                "content": "<p>Complete final comparison</p>",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: finalWrite, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "final" }
+
+        XCTAssertNil(state.pendingResearchContinuationPath())
+    }
+
+    func testOrdinaryDraftDoesNotArmResearchContinuation() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(userMessage: "Write outputs/report.md.")
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "Complete report",
+            ])
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        XCTAssertNil(state.pendingResearchContinuationPath())
+    }
+
     private func recordNoProgress(
         _ call: ToolCall,
         in state: inout AgentRunLoopState

@@ -37,4 +37,30 @@ enum AgentResearchCheckpointGate {
             """
         )
     }
+
+    static func continuationCorrection(
+        path: String?,
+        didResumeResearch: Bool,
+        correctionCounts: [String: Int]
+    ) -> Correction? {
+        guard let path,
+              correctionCounts[path, default: 0] < correctionLimitPerPath
+        else { return nil }
+
+        let nextStep = if didResumeResearch {
+            "Use the evidence gathered after the checkpoint to rewrite"
+        } else {
+            "Resume the missing research with host.web.search and host.web.fetch, then rewrite"
+        }
+        return Correction(
+            path: path,
+            prompt: """
+            The current artifact at ./\(path) is only the required research checkpoint and cannot \
+            complete the task. \(nextStep) ./\(path) as the complete final deliverable, then read \
+            that final version back. Do not return a final answer while Evidence gaps, draft, \
+            checkpoint, pending, or in-progress status remains. Respond with the next concrete tool \
+            action now.
+            """
+        )
+    }
 }
