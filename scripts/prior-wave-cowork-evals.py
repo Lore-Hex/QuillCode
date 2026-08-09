@@ -759,6 +759,29 @@ def task_table(row, reference="", item_index=1, count=40):
 
 
 def task_source_context(row, reference, item_index=1, count=1):
+    if row["id"] == 42:
+        return """# Atlas Labs Equipment Safety Guide
+Document ID: SAFE-OPS-042. Revision: 2026-07-15. Owner: Jo Chen.
+## Before You Begin
+WARNING BOX: Only trained staff may operate the packaging line.
+Wear safety glasses, cut-resistant gloves, and closed-toe shoes.
+## Numbered Shutdown Procedure
+1. Press the red STOP button and wait for all conveyor motion to cease.
+WARNING BOX 1: Do not reach across a moving conveyor.
+2. Turn the main disconnect clockwise to OFF and attach lockout tag SAFE-17.
+WARNING BOX 2: The disconnect remains energized until the indicator is dark.
+3. Verify the amber power indicator is dark, then test the START control once.
+WARNING BOX 3: If the conveyor moves, step away and call Facilities at extension 7712.
+4. Clear loose material with the blue-handled brush; never use hands or compressed air.
+WARNING BOX 4: Report damaged guards to Jo Chen before restarting equipment.
+5. Remove the lockout tag only after the guard is secured and the work area is clear.
+## Emergency Response
+Call Security at extension 7000 for an injury, fire, or chemical release.
+Record the incident in Atlas Safety Log within 30 minutes when conditions are safe.
+## Restart Authorization
+Jo Chen or the shift supervisor must sign the restart checklist.
+"""
+
     key = f"{row['category']} {row['task']} {reference}".casefold()
     base = fixture_context(row)
     details = [

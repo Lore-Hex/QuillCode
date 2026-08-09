@@ -313,6 +313,18 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("vendor", page)
         self.assertIn("due_date", page)
 
+    def test_task_42_fixture_preserves_translatable_safety_structure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(self.rows[41], workspace)
+            source = (workspace / "inputs/safety-guide.pdf").read_bytes().decode("latin-1")
+
+        self.assertIn("(## Numbered Shutdown Procedure) Tj", source)
+        self.assertIn("(1. Press the red STOP button", source)
+        self.assertIn("(WARNING BOX 4: Report damaged guards", source)
+        self.assertIn("(## Emergency Response) Tj", source)
+        self.assertIn("Jo Chen or the shift supervisor", source)
+
     def test_source_grounding_uses_mapped_collection_members(self):
         row = self.rows[0]
         with tempfile.TemporaryDirectory() as temporary:
