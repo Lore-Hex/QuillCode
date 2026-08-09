@@ -750,8 +750,21 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             }
             hashes = {path: PRIOR.sha256(path) for path in workspace.rglob("*") if path.is_file()}
             checks, _ = PRIOR.grade(row, workspace, report, hashes)
-        placeholder = next(check for check in checks if check["name"] == "no template placeholders")
-        self.assertFalse(placeholder["passed"])
+            placeholder = next(
+                check for check in checks if check["name"] == "no template placeholders"
+            )
+            self.assertFalse(placeholder["passed"])
+
+            artifact.write_text(
+                "# Atlas result\n\nNo substitution tokens such as `[Name]` remain.\n"
+                "Northstar review in 2026.\n" * 20,
+                encoding="utf-8",
+            )
+            checks, _ = PRIOR.grade(row, workspace, report, hashes)
+            placeholder = next(
+                check for check in checks if check["name"] == "no template placeholders"
+            )
+            self.assertTrue(placeholder["passed"])
 
     def test_task_33_semantic_grade_requires_every_personalized_sequence(self):
         row = self.rows[32]

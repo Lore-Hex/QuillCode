@@ -1760,7 +1760,7 @@ def validate_task_33_sequence(path):
     placeholders = re.findall(
         r"\{[^{}\n]{1,80}\}|\[(?:your|insert|tbd|todo|first\s+name|name|company|date|"
         r"owner|sender|hook|time|relevant|value\s+prop|placeholder)[^\]\n]*\]",
-        text,
+        visible_prose(text),
         flags=re.IGNORECASE,
     )
     valid = not any((
@@ -1776,6 +1776,19 @@ def validate_task_33_sequence(path):
         f"placeholders={placeholders[:12]}"
     )
     return valid, detail
+
+
+def visible_prose(text):
+    lines = []
+    in_fence = False
+    for line in text.splitlines():
+        trimmed = line.strip()
+        if trimmed.startswith("```") or trimmed.startswith("~~~"):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            lines.append(re.sub(r"`[^`]*`", "", line))
+    return "\n".join(lines)
 
 
 def grade(row, workspace, report, source_hashes):
@@ -1941,7 +1954,7 @@ def grade(row, workspace, report, source_hashes):
     placeholders = re.findall(
         r"\{[^{}\n]{1,80}\}|\[(?:your|insert|tbd|todo|first\s+name|name|company|date|"
         r"owner|sender|hook|time|relevant|value\s+prop|placeholder)[^\]\n]*\]",
-        combined_text,
+        visible_prose(combined_text),
         flags=re.IGNORECASE,
     )
     add("no template placeholders", not placeholders, repr(placeholders))
