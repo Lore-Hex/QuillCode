@@ -587,6 +587,50 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         by_name = {check["name"]: check["passed"] for check in checks}
         self.assertTrue(by_name["mapped source consumption"])
 
+    def test_grade_accepts_successful_batch_read_consumption_of_mapped_sources(self):
+        row = self.rows[73]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            artifact = workspace / PRIOR.output_path(row)
+            PRIOR.write_xlsx(
+                artifact,
+                ["counterparty", "end date", "auto-renew notice window", "termination clause"],
+            )
+            contract_paths = sorted(
+                path.relative_to(workspace).as_posix()
+                for path in (workspace / "inputs" / "Contracts" / "2026").glob("*.pdf")
+            )
+            batch_read = tool("host.file.read_many")
+            batch_read["inputJSON"] = json.dumps({
+                "paths": [
+                    "inputs/evaluation-context.md",
+                    "inputs/renewals.xlsx",
+                    *contract_paths,
+                ]
+            })
+            report = {
+                "ok": True,
+                "requestedModelID": PRIOR.EXACT_MODEL,
+                "selectedModelID": PRIOR.EXACT_MODEL,
+                "tools": [
+                    tool("host.file.read", "inputs/source-map.md"),
+                    batch_read,
+                    tool("host.file.write", PRIOR.output_path(row)),
+                    tool("host.file.read", PRIOR.output_path(row)),
+                ],
+            }
+            hashes = {
+                path: PRIOR.sha256(path)
+                for path in workspace.rglob("*") if path.is_file() and path != artifact
+            }
+            checks, _ = PRIOR.grade(row, workspace, report, hashes)
+
+        by_name = {check["name"]: check["passed"] for check in checks}
+        self.assertTrue(by_name["source reads"])
+        source_check = next(check for check in checks if check["name"] == "mapped source consumption")
+        self.assertTrue(source_check["passed"], source_check["detail"])
+
     def test_grade_accepts_shell_quoted_collection_path_with_spaces(self):
         row = self.rows[16]
         with tempfile.TemporaryDirectory() as temporary:

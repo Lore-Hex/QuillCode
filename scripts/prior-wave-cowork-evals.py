@@ -1952,16 +1952,21 @@ def grade(row, workspace, report, source_hashes):
     tools = report.get("tools", []) if report else []
     successful = [tool for tool in tools if tool_succeeded(tool)]
     names = [tool.get("name") for tool in successful]
-    add("source reads", names.count("host.file.read") >= 2, repr(names))
     read_paths = [
         tool_path(tool) for tool in successful if tool.get("name") == "host.file.read"
     ]
+    batch_read_paths = [
+        path
+        for tool in successful if tool.get("name") == "host.file.read_many"
+        for path in tool_paths(tool, "paths")
+    ]
+    add("source reads", len(read_paths + batch_read_paths) >= 2, repr(names))
     merge_input_paths = [
         path
         for tool in successful if tool.get("name") == "host.pdf.merge"
         for path in tool_paths(tool, "inputs")
     ]
-    consumed_paths = read_paths + merge_input_paths
+    consumed_paths = read_paths + batch_read_paths + merge_input_paths
     shell_commands = [
         tool_command(tool) for tool in successful if tool.get("name") == "host.shell.run"
     ]
