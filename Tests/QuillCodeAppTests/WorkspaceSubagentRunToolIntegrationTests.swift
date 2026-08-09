@@ -8,6 +8,13 @@ import QuillCodeTools
 
 @MainActor
 final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
+    func testDefaultDelegationBudgetSupportsBoundedLongResearch() {
+        XCTAssertEqual(
+            WorkspaceSubagentRunToolExecutor.defaultDelegationBudget,
+            .seconds(300)
+        )
+    }
+
     func testModelAuthoredDelegationRunsWorkersAndReturnsToParentInOneTurn() async throws {
         let root = try makeQuillCodeTestDirectory()
         let threadStore = SubagentThreadStore(directory: root.appendingPathComponent("children"))
