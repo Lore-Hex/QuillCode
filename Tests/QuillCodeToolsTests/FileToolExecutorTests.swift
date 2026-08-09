@@ -49,11 +49,14 @@ final class FileToolExecutorTests: XCTestCase {
         try makeArchive(
             at: workbookURL,
             entries: [
+                "xl/workbook.xml": """
+                <workbook xmlns="spreadsheet"><sheets><sheet name="Metrics &amp; Forecast" sheetId="1"/></sheets></workbook>
+                """,
                 "xl/sharedStrings.xml": """
                 <sst xmlns="spreadsheet"><si><t>Company</t></si><si><t>LedgerLoop</t></si></sst>
                 """,
                 "xl/worksheets/sheet1.xml": """
-                <worksheet xmlns="spreadsheet"><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t>ARR</t></is></c></row><row r="2"><c r="A2" t="s"><v>1</v></c><c r="B2"><v>1250000</v></c></row></sheetData></worksheet>
+                <worksheet xmlns="spreadsheet"><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t>ARR</t></is></c></row><row r="2"><c r="A2" t="s"><v>1</v></c><c r="B2"><v>1250000</v></c><c r="C2"><f>SUM(B2:B2)</f></c></row></sheetData></worksheet>
                 """
             ]
         )
@@ -61,10 +64,12 @@ final class FileToolExecutorTests: XCTestCase {
         let result = FileToolExecutor(workspaceRoot: root).read(path: "metrics.xlsx")
 
         XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("## Metrics & Forecast"))
         XCTAssertTrue(result.stdout.contains("A1=Company"))
         XCTAssertTrue(result.stdout.contains("B1=ARR"))
         XCTAssertTrue(result.stdout.contains("A2=LedgerLoop"))
         XCTAssertTrue(result.stdout.contains("B2=1250000"))
+        XCTAssertTrue(result.stdout.contains("C2=[formula=SUM(B2:B2)]"))
     }
 
     func testToolRouterExposesAndRoutesFileSearch() throws {

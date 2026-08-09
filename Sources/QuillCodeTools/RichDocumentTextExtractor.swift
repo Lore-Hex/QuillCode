@@ -59,14 +59,20 @@ enum RichDocumentTextExtractor {
         let sharedStrings = entries.contains("xl/sharedStrings.xml")
             ? archiveEntry("xl/sharedStrings.xml", in: url).map(SpreadsheetSharedStringCollector.strings(from:)) ?? []
             : []
+        let sheetNames = entries.contains("xl/workbook.xml")
+            ? archiveEntry("xl/workbook.xml", in: url).map(SpreadsheetWorkbookCollector.sheetNames(from:)) ?? []
+            : []
         let sheets = entries
             .filter { $0.range(of: #"^xl/worksheets/sheet\d+\.xml$"#, options: .regularExpression) != nil }
             .sorted(by: naturalArchiveOrder)
-            .compactMap { entry -> String? in
+            .enumerated()
+            .compactMap { index, entry -> String? in
                 guard let data = archiveEntry(entry, in: url) else { return nil }
                 let text = SpreadsheetSheetCollector.text(from: data, sharedStrings: sharedStrings)
                 guard !text.isEmpty else { return nil }
-                let name = URL(fileURLWithPath: entry).deletingPathExtension().lastPathComponent
+                let name = sheetNames.indices.contains(index)
+                    ? sheetNames[index]
+                    : URL(fileURLWithPath: entry).deletingPathExtension().lastPathComponent
                 return "## \(name)\n\(text)"
             }
         return sheets.isEmpty ? nil : sheets.joined(separator: "\n\n")
@@ -158,6 +164,30 @@ private final class OfficeXMLTextCollector: NSObject, XMLParserDelegate {
     }
 }
 
+private final class SpreadsheetWorkbookCollector: NSObject, XMLParserDelegate {
+    private var sheetNames: [String] = []
+
+    static func sheetNames(from data: Data) -> [String] {
+        let collector = SpreadsheetWorkbookCollector()
+        let parser = XMLParser(data: data)
+        parser.shouldProcessNamespaces = true
+        parser.delegate = collector
+        return parser.parse() ? collector.sheetNames : []
+    }
+
+    func parser(
+        _ parser: XMLParser,
+        didStartElement elementName: String,
+        namespaceURI: String?,
+        qualifiedName qName: String?,
+        attributes attributeDict: [String: String] = [:]
+    ) {
+        if elementName == "sheet", let name = attributeDict["name"], !name.isEmpty {
+            sheetNames.append(name)
+        }
+    }
+}
+
 private final class SpreadsheetSharedStringCollector: NSObject, XMLParserDelegate {
     private var strings: [String] = []
     private var current = ""
@@ -213,7 +243,9 @@ private final class SpreadsheetSheetCollector: NSObject, XMLParserDelegate {
     private var cellReference = ""
     private var cellType = ""
     private var cellValue = ""
+    private var cellFormula = ""
     private var isReadingValue = false
+    private var isReadingFormula = false
 
     init(sharedStrings: [String]) {
         self.sharedStrings = sharedStrings
@@ -240,13 +272,20 @@ private final class SpreadsheetSheetCollector: NSObject, XMLParserDelegate {
             cellReference = attributeDict["r"] ?? "cell"
             cellType = attributeDict["t"] ?? ""
             cellValue = ""
+            cellFormula = ""
+        } else if elementName == "f" {
+            isReadingFormula = true
         } else if elementName == "v" || elementName == "t" {
             isReadingValue = true
         }
     }
 
     func parser(_ parser: XMLParser, foundCharacters string: String) {
-        if isReadingValue { cellValue += string }
+        if isReadingFormula {
+            cellFormula += string
+        } else if isReadingValue {
+            cellValue += string
+        }
     }
 
     func parser(
@@ -255,7 +294,9 @@ private final class SpreadsheetSheetCollector: NSObject, XMLParserDelegate {
         namespaceURI: String?,
         qualifiedName qName: String?
     ) {
-        if elementName == "v" || elementName == "t" {
+        if elementName == "f" {
+            isReadingFormula = false
+        } else if elementName == "v" || elementName == "t" {
             isReadingValue = false
         } else if elementName == "c" {
             let value: String
@@ -264,7 +305,13 @@ private final class SpreadsheetSheetCollector: NSObject, XMLParserDelegate {
             } else {
                 value = cellValue
             }
-            cells.append("\(cellReference)=\(value)")
+            if cellFormula.isEmpty {
+                cells.append("\(cellReference)=\(value)")
+            } else if value.isEmpty {
+                cells.append("\(cellReference)=[formula=\(cellFormula)]")
+            } else {
+                cells.append("\(cellReference)=\(value) [formula=\(cellFormula)]")
+            }
         } else if elementName == "row", !cells.isEmpty {
             rows.append(cells.joined(separator: "\t"))
         }
