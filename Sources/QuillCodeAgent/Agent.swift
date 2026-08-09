@@ -1267,7 +1267,8 @@ public struct AgentRunner: Sendable {
 
                     if let correction = AgentResearchCheckpointGate.correction(
                         path: runLoop.pendingResearchCheckpointPath(
-                            minimumWebSteps: AgentResearchCheckpointGate.minimumWebSteps
+                            minimumResearchWeight:
+                                AgentResearchCheckpointGate.minimumPreDraftResearchWeight
                         ),
                         proposedToolRisk: tools.first(where: {
                             $0.name == activeCall.name

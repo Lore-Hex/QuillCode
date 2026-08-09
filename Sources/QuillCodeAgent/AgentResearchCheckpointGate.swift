@@ -10,7 +10,7 @@ enum AgentResearchCheckpointGate {
         var prompt: String
     }
 
-    static let minimumWebSteps = 8
+    static let minimumPreDraftResearchWeight = 8
     static let minimumPostCheckpointResearchSteps = 6
     static let delegatedResearchWeight = 3
     static let correctionLimitPerPath = 2

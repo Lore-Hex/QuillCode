@@ -136,7 +136,7 @@ final class AgentRunLoopStateTests: XCTestCase {
             userMessage: "Research competitors and write outputs/revenue.html with citations."
         )
 
-        for index in 0..<AgentResearchCheckpointGate.minimumWebSteps {
+        for index in 0..<AgentResearchCheckpointGate.minimumPreDraftResearchWeight {
             let search = ToolCall(
                 name: ToolDefinition.webSearch.name,
                 argumentsJSON: ToolArguments.json(["query": "competitor \(index)"])
@@ -149,7 +149,7 @@ final class AgentRunLoopStateTests: XCTestCase {
 
         XCTAssertEqual(
             state.pendingResearchCheckpointPath(
-                minimumWebSteps: AgentResearchCheckpointGate.minimumWebSteps
+                minimumResearchWeight: AgentResearchCheckpointGate.minimumPreDraftResearchWeight
             ),
             "outputs/revenue.html"
         )
@@ -166,8 +166,8 @@ final class AgentRunLoopStateTests: XCTestCase {
             workspaceRoot: root
         ) { _ in "write" }
 
-        XCTAssertNil(state.pendingResearchCheckpointPath(minimumWebSteps: 1))
-        XCTAssertEqual(state.successfulWebResearchStepsBeforeDraft, 0)
+        XCTAssertNil(state.pendingResearchCheckpointPath(minimumResearchWeight: 1))
+        XCTAssertEqual(state.successfulResearchWeightBeforeDraft, 0)
     }
 
     func testFailedWebWorkDoesNotArmResearchCheckpoint() {
@@ -178,7 +178,7 @@ final class AgentRunLoopStateTests: XCTestCase {
             argumentsJSON: ToolArguments.json(["url": "https://example.com"])
         )
 
-        for _ in 0..<AgentResearchCheckpointGate.minimumWebSteps {
+        for _ in 0..<AgentResearchCheckpointGate.minimumPreDraftResearchWeight {
             _ = state.recordCompletedStep(
                 completed(call: fetch, stdout: "failed", ok: false),
                 workspaceRoot: root
@@ -187,8 +187,46 @@ final class AgentRunLoopStateTests: XCTestCase {
 
         XCTAssertNil(
             state.pendingResearchCheckpointPath(
-                minimumWebSteps: AgentResearchCheckpointGate.minimumWebSteps
+                minimumResearchWeight: AgentResearchCheckpointGate.minimumPreDraftResearchWeight
             )
+        )
+    }
+
+    func testDelegatedResearchContributesToPreDraftCheckpoint() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research competitors and write outputs/revenue.html with citations."
+        )
+
+        for index in 0..<(AgentResearchCheckpointGate.minimumPreDraftResearchWeight
+            - AgentResearchCheckpointGate.delegatedResearchWeight) {
+            let search = ToolCall(
+                name: ToolDefinition.webSearch.name,
+                argumentsJSON: ToolArguments.json(["query": "competitor \(index)"])
+            )
+            _ = state.recordCompletedStep(
+                completed(call: search, stdout: "result \(index)"),
+                workspaceRoot: root
+            ) { _ in "search-\(index)" }
+        }
+
+        let delegated = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "research competitors",
+                "workers": [["name": "A", "role": "research A"]],
+            ] as [String: Any])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: delegated, stdout: "verified evidence"),
+            workspaceRoot: root
+        ) { _ in "delegated" }
+
+        XCTAssertEqual(
+            state.pendingResearchCheckpointPath(
+                minimumResearchWeight: AgentResearchCheckpointGate.minimumPreDraftResearchWeight
+            ),
+            "outputs/revenue.html"
         )
     }
 
