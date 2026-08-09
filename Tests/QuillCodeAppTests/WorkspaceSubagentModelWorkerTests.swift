@@ -209,6 +209,8 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         let stalls = [
             "COMPLETE: I need Q4 revenue to finish the requested set.",
             "The IR page uses JavaScript. Fetching the Q2 release next for revenue figures.",
+            "I found the annual report. I will try Nasdaq next for the missing quarter.",
+            "The first source was blocked; let me search the investor-relations archive.",
         ]
 
         for stall in stalls {

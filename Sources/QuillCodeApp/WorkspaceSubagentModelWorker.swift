@@ -333,6 +333,14 @@ enum WorkspaceSubagentTerminalStatus {
         if text.contains("still need to ") {
             return true
         }
+        let promisedAttempts = [
+            "i will try ", "i'll try ", "i will now ", "i'll now ",
+            "next i will ", "next i'll ", "let me try ", "let me check ",
+            "let me search ", "let me fetch ", "going to try ",
+        ]
+        if promisedAttempts.contains(where: text.contains) {
+            return true
+        }
         let terminalClause = text
             .split(whereSeparator: { $0 == "." || $0 == "!" || $0 == "?" || $0.isNewline })
             .last?

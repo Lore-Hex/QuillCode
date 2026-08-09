@@ -381,14 +381,23 @@ struct AgentRunLoopState: Sendable {
                 writtenWorkspacePaths.insert(artifact)
             }
         }
-        if name == "host.web.fetch" {
-            didFetchSuccessfully = true
+        if name == "host.web.fetch" || name == ToolDefinition.subagentsRun.name {
+            // Delegated results are new research observations just like fetched pages. If they
+            // arrive after an artifact write, that artifact must be reconciled before completion.
+            // This is especially important when one worker returns usable evidence alongside a
+            // partial/failed worker: the parent should preserve what it learned, not silently bless
+            // the pre-delegation draft.
+            if name == "host.web.fetch" {
+                didFetchSuccessfully = true
+            }
             for path in namedTextDeliverableWorkspacePaths where
                 writtenWorkspacePaths.contains(where: {
                     AgentArtifactVerificationGate.pathsMatch($0, path)
                 }) {
                 researchStaleWorkspacePaths.insert(path)
             }
+        }
+        if name == "host.web.fetch" {
             if let data = completion.call.argumentsJSON.data(using: .utf8),
                let arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let requested = arguments["url"] as? String {
@@ -446,6 +455,24 @@ struct AgentRunLoopState: Sendable {
                 resumedResearchCheckpointWorkspacePaths.formUnion(
                     pendingResearchContinuationWorkspacePaths
                 )
+            } else {
+                // A delegated batch launched after a deliverable write is a high-density final
+                // research step. Require immediate reconciliation before allowing another read-only
+                // action; otherwise the parent can serially restart the same research after workers
+                // have already returned the evidence needed to finish.
+                let writtenDeliverables = namedTextDeliverableWorkspacePaths.filter { path in
+                    writtenWorkspacePaths.contains(where: {
+                        AgentArtifactVerificationGate.pathsMatch($0, path)
+                    })
+                }
+                if !writtenDeliverables.isEmpty {
+                    pendingResearchContinuationWorkspacePaths.formUnion(writtenDeliverables)
+                    resumedResearchCheckpointWorkspacePaths.formUnion(writtenDeliverables)
+                    successfulResearchStepsAfterCheckpoint = max(
+                        successfulResearchStepsAfterCheckpoint,
+                        AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
+                    )
+                }
             }
         case ToolDefinition.fileWrite.name, ToolDefinition.chartRender.name:
             if let path = AgentArtifactVerificationGate.pathArgument(from: completion.call),

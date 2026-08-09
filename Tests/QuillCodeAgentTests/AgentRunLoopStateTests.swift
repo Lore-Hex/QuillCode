@@ -354,6 +354,53 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertNil(state.pendingResearchContinuationPath())
     }
 
+    func testDelegatedResearchAfterWrittenArtifactRequiresImmediateResynthesis() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research competitors and write outputs/revenue.html with citations."
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/revenue.html",
+                "content": "<p>Initial comparison</p>",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        let delegated = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "research competitors",
+                "workers": [["name": "A", "role": "research A"]],
+            ] as [String: Any])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: delegated, stdout: "verified evidence"),
+            workspaceRoot: root
+        ) { _ in "delegated" }
+
+        XCTAssertEqual(state.pendingResearchContinuationPath(), "outputs/revenue.html")
+        XCTAssertTrue(state.didResumeResearch(afterCheckpointAt: "outputs/revenue.html"))
+        XCTAssertEqual(state.researchStaleWorkspacePaths, ["outputs/revenue.html"])
+        XCTAssertEqual(
+            state.pendingResearchFinalizationPath(
+                minimumResearchSteps: AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
+            ),
+            "outputs/revenue.html"
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "rewrote"),
+            workspaceRoot: root
+        ) { _ in "rewrite" }
+        XCTAssertNil(state.pendingResearchContinuationPath())
+        XCTAssertTrue(state.researchStaleWorkspacePaths.isEmpty)
+    }
+
     private func recordNoProgress(
         _ call: ToolCall,
         in state: inout AgentRunLoopState
