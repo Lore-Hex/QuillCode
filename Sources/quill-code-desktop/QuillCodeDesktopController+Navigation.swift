@@ -10,6 +10,7 @@ extension QuillCodeDesktopController {
         model.setDraft(draft)
         cancelSelectedSideConversationTask()
         navigationCoordinator.newChat(model: model)
+        model.focusComposer()
         modelStateCoordinator.syncComposerDraft(from: model, draft: &draft)
         refresh()
     }

@@ -112,6 +112,18 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
         XCTAssertEqual(controller.surface.settings.reviewDelivery, .detached)
     }
 
+    func testDesktopNewChatCommandMovesKeyboardIntentToComposer() throws {
+        let controller = try makeController(workspaceRoot: try makeTempDirectory())
+        let initialThreadCount = controller.model.root.threads.count
+        let initialFocusToken = controller.model.composer.focusToken
+
+        controller.runCommand(commandID: "new-chat")
+
+        XCTAssertEqual(controller.model.root.threads.count, initialThreadCount + 1)
+        XCTAssertEqual(controller.model.composer.focusToken, initialFocusToken + 1)
+        XCTAssertEqual(controller.surface.composer.focusToken, controller.model.composer.focusToken)
+    }
+
     func testDesktopWindowSmokeSurfaceReportSummarizesWorkspaceChrome() throws {
         let controller = try makeController(workspaceRoot: try makeTempDirectory())
         let report = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: controller.surface)

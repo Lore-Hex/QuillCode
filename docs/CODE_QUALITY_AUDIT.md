@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-08-08 Native Interaction Sequence And New Chat Focus
+
+Overall grade after this slice: **A+ keyboard UX, A+ native determinism, A+ interaction evidence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| New Chat UX | A+ | The shared desktop navigation path bumps the model-owned focus token, then refreshes the same token into the rendered composer for every command entrypoint. |
+| Native determinism | A+ | Lifecycle phases remain explicit while declaration order is preserved inside each phase; model picker is first among repeatable controls and workspace replacement remains last. |
+| Interaction integrity | A+ | No contract is removed or mocked; both sweeps continue to require fresh AX resolution, `AXPress`, state transition, deeper interaction, and baseline restoration. |
+| Regression coverage | A+ | Controller coverage drives the routed `new-chat` command and asserts thread creation plus model/surface focus tokens; desktop report coverage asserts the complete execution order. |
+
+Validation:
+
+- Full `swift test` (5,662 tests, 5 skipped, 0 failures)
+- Controller, Accessibility resolution, desktop window report, and packaged macOS gate suites
+  (62 tests, 0 failures)
+- Exact native package and public Intel publication evidence pending in this release follow-up
+
 ## 2026-08-08 Intel Accessibility Discovery Resilience
 
 Overall grade after this slice: **A+ native resilience, A+ interaction integrity, A+ regression coverage**.
