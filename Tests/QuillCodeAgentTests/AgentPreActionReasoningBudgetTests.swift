@@ -104,7 +104,7 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
             $0.summary == AgentRunner.reasoningFallbackSwitchNotice
         })
         XCTAssertTrue(result.thread.events.contains {
-            $0.summary.contains("keeping that route for the rest of this run")
+            $0.summary.contains("promoting that route")
         })
         let primaryCalls = await primary.recorded().count
         let fallbackCalls = await fallback.recorded().count

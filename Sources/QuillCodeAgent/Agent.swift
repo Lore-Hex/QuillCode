@@ -125,9 +125,10 @@ public struct AgentRunner: Sendable {
     /// exhausts the empty-response correction budget — a route-quality failure observed at ~1-in-6
     /// runs on one provider while an alternate model completed the same step first try — the
     /// resolver retries the SAME step once on this client instead of killing the run. All prior
-    /// tool work is preserved (same thread); after a successful fallback action the route remains
-    /// active for the rest of that send so every subsequent tool does not re-probe a known-bad route.
-    /// The switch is recorded as a Self-healing notice.
+    /// tool work is preserved (same thread); after a successful fallback action that route becomes
+    /// active and the displaced route remains as a standby for a later, different failure mode.
+    /// Per-step retry limits and the send's tool-step cap keep route recovery bounded. The switch is
+    /// recorded as a Self-healing notice.
     /// nil (the default) keeps today's behavior: exhaustion is terminal.
     public var fallbackLLM: LLMClient?
     /// Pauses between clean-but-empty model streams. Immediate resampling can hit the same brief
@@ -219,8 +220,8 @@ public struct AgentRunner: Sendable {
                 Self.mergedToolDefinitions(baseToolDefinitions, additionalToolDefinitions)
             )
             // Route ownership belongs to the whole send, not one action. Once a fallback proves it
-            // can produce the next action, this value copy keeps it active through subsequent tools
-            // and every completion gate while preserving the user's selected model on the thread.
+            // can produce the next action, this value copy promotes it through subsequent tools and
+            // keeps the displaced route as a standby. The thread still preserves the selected model.
             var actionRunner = self
             var runLoop = AgentRunLoopState()
             var hasEmittedModelAction = false
@@ -334,12 +335,13 @@ public struct AgentRunner: Sendable {
                                    && ($0.summary == Self.fallbackSwitchNotice
                                        || $0.summary == Self.reasoningFallbackSwitchNotice)
                            }) {
+                            let displacedLLM = actionRunner.llm
                             actionRunner.llm = fallback
-                            actionRunner.fallbackLLM = nil
+                            actionRunner.fallbackLLM = displacedLLM
                             next.events.append(.init(
                                 kind: .notice,
                                 summary: "Self-healing: the fallback model completed the step; "
-                                    + "keeping that route for the rest of this run."
+                                    + "promoting that route and retaining the prior route as standby."
                             ))
                             next.updatedAt = Date()
                             await onProgress?(next)
