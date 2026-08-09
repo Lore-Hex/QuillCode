@@ -7,20 +7,20 @@ struct WorkspaceToolCardEventReducer<State> {
     private var activeToolCardIndex: Int?
     private var activeApprovalCardIndex: Int?
     private let appendCard: (inout State, ToolCardState) -> Int
+    private let appendOrphanCard: ((inout State, ToolCardState) -> Void)?
     private let card: (State, Int) -> ToolCardState?
     private let replaceCard: (inout State, Int, ToolCardState) -> Void
-    private let orphanCardID: (() -> String)?
 
     init(
         state: State,
-        orphanCardID: (() -> String)? = nil,
         appendCard: @escaping (inout State, ToolCardState) -> Int,
+        appendOrphanCard: ((inout State, ToolCardState) -> Void)? = nil,
         card: @escaping (State, Int) -> ToolCardState?,
         replaceCard: @escaping (inout State, Int, ToolCardState) -> Void
     ) {
         self.state = state
-        self.orphanCardID = orphanCardID
         self.appendCard = appendCard
+        self.appendOrphanCard = appendOrphanCard
         self.card = card
         self.replaceCard = replaceCard
     }
@@ -30,13 +30,23 @@ struct WorkspaceToolCardEventReducer<State> {
         case .toolQueued:
             activeToolCardIndex = appendCard(&state, WorkspaceToolCardProjection.queuedCard(for: event))
         case .toolRunning:
-            updateActiveToolCard(status: .running, stateLabel: "Running")
+            updateActiveToolCard(for: event, status: .running, stateLabel: "Running")
         case .toolProgress:
             updateActiveToolProgress(event)
         case .toolCompleted:
-            updateActiveToolCard(status: .done, stateLabel: "Completed", outputJSON: event.payloadJSON)
+            updateActiveToolCard(
+                for: event,
+                status: .done,
+                stateLabel: "Completed",
+                outputJSON: event.payloadJSON
+            )
         case .toolFailed:
-            updateActiveToolCard(status: .failed, stateLabel: "Failed", outputJSON: event.payloadJSON)
+            updateActiveToolCard(
+                for: event,
+                status: .failed,
+                stateLabel: "Failed",
+                outputJSON: event.payloadJSON
+            )
         case .approvalRequested:
             replaceActiveToolWithApproval(for: event)
         case .approvalDecided:
@@ -57,6 +67,7 @@ struct WorkspaceToolCardEventReducer<State> {
     }
 
     private mutating func updateActiveToolCard(
+        for event: ThreadEvent,
         status: ToolCardStatus,
         stateLabel: String,
         outputJSON: String? = nil
@@ -64,7 +75,12 @@ struct WorkspaceToolCardEventReducer<State> {
         guard let index = activeToolCardIndex,
               var currentCard = card(state, index)
         else {
-            appendOrphanCard(status: status, stateLabel: stateLabel, outputJSON: outputJSON)
+            appendOrphanCard(
+                for: event,
+                status: status,
+                stateLabel: stateLabel,
+                outputJSON: outputJSON
+            )
             return
         }
 
@@ -81,13 +97,14 @@ struct WorkspaceToolCardEventReducer<State> {
     }
 
     private mutating func appendOrphanCard(
+        for event: ThreadEvent,
         status: ToolCardStatus,
         stateLabel: String,
         outputJSON: String?
     ) {
-        guard let orphanCardID else { return }
-        _ = appendCard(&state, WorkspaceToolCardProjection.orphanCard(
-            id: orphanCardID(),
+        guard let appendOrphanCard else { return }
+        appendOrphanCard(&state, WorkspaceToolCardProjection.orphanCard(
+            id: "orphan-\(event.id.uuidString.lowercased())",
             status: status,
             stateLabel: stateLabel,
             outputJSON: outputJSON
@@ -144,10 +161,12 @@ extension WorkspaceToolCardEventReducer where State == [TranscriptTimelineItemSu
     static func timeline() -> Self {
         Self(
             state: [],
-            orphanCardID: { "orphan-\(UUID().uuidString)" },
             appendCard: { items, card in
                 items.append(.toolCard(card))
                 return items.count - 1
+            },
+            appendOrphanCard: { items, card in
+                items.append(.toolCard(card))
             },
             card: { items, index in
                 guard items.indices.contains(index) else { return nil }
@@ -156,6 +175,70 @@ extension WorkspaceToolCardEventReducer where State == [TranscriptTimelineItemSu
             replaceCard: { items, index, card in
                 guard items.indices.contains(index) else { return }
                 items[index] = .toolCard(card)
+            }
+        )
+    }
+}
+
+struct WorkspaceTranscriptProjectionAccumulator {
+    var toolCards: [ToolCardState] = []
+    var timelineItems: [TranscriptTimelineItemSurface] = []
+    private var timelineIndexByToolCardIndex: [Int] = []
+
+    init(toolCardCapacity: Int, timelineCapacity: Int) {
+        toolCards.reserveCapacity(toolCardCapacity)
+        timelineItems.reserveCapacity(timelineCapacity)
+        timelineIndexByToolCardIndex.reserveCapacity(toolCardCapacity)
+    }
+
+    mutating func appendMessage(_ message: MessageSurface) {
+        timelineItems.append(.message(message))
+    }
+
+    mutating func appendToolCard(_ card: ToolCardState) -> Int {
+        let cardIndex = toolCards.count
+        toolCards.append(card)
+        timelineIndexByToolCardIndex.append(timelineItems.count)
+        timelineItems.append(.toolCard(card))
+        return cardIndex
+    }
+
+    mutating func appendOrphanToolCard(_ card: ToolCardState) {
+        timelineItems.append(.toolCard(card))
+    }
+
+    func toolCard(at index: Int) -> ToolCardState? {
+        toolCards.indices.contains(index) ? toolCards[index] : nil
+    }
+
+    mutating func replaceToolCard(at index: Int, with card: ToolCardState) {
+        guard toolCards.indices.contains(index),
+              timelineIndexByToolCardIndex.indices.contains(index)
+        else {
+            return
+        }
+        let timelineIndex = timelineIndexByToolCardIndex[index]
+        guard timelineItems.indices.contains(timelineIndex) else { return }
+        toolCards[index] = card
+        timelineItems[timelineIndex] = .toolCard(card)
+    }
+}
+
+extension WorkspaceToolCardEventReducer where State == WorkspaceTranscriptProjectionAccumulator {
+    static func transcriptProjection(state: State) -> Self {
+        Self(
+            state: state,
+            appendCard: { state, card in
+                state.appendToolCard(card)
+            },
+            appendOrphanCard: { state, card in
+                state.appendOrphanToolCard(card)
+            },
+            card: { state, index in
+                state.toolCard(at: index)
+            },
+            replaceCard: { state, index, card in
+                state.replaceToolCard(at: index, with: card)
             }
         )
     }

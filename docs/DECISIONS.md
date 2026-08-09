@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-08: workspace surface refreshes project transcript history once
+
+- **Decision:** The selected chat now produces messages, canonical tool cards, and chronological
+  timeline items through one transcript projection. A paired reducer constructs each tool card once
+  and updates its canonical-list and timeline positions together; focused callers can still request
+  only messages or canonical cards through their existing APIs.
+- **Why:** Every coalesced streaming repaint previously planned message reverts twice and reduced the
+  complete tool-event history twice before SwiftUI received an immutable surface. A 2,000-turn
+  daily-driving fixture therefore spent 259 ms in a debug surface rebuild despite the native view
+  itself using lazy rows.
+- **Memory and recovery boundary:** Visible message reuse is indexed by one compact integer per source
+  message, speculative tool capacity is capped at 4,096 entries, and no retained cache or invalidation
+  graph is added. Malformed terminal events remain timeline-only, but derive stable fallback identity
+  from their persisted event UUID so repeated refreshes cannot manufacture apparent row changes.
+- **Evidence:** The same 2,000-turn fixture projects 4,000 messages, 2,000 completed tools, and 6,000
+  chronological rows in 190-196 ms after the change. Focused tests preserve duplicate text/ID
+  behavior, hidden internal messages, unmatched-message append order, approval replacement, orphan
+  exclusion from canonical cards, execution-context enrichment, review and Activity projections, and
+  streaming-refresh coalescing.
+
 ## 2026-08-08: new chats own composer focus and native interaction order is intentional
 
 - **New Chat focus:** The desktop navigation boundary bumps the existing composer focus token after

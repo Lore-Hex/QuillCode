@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-08 Unified Transcript Surface Projection
+
+Overall grade after this slice: **A+ main-actor latency, A+ transient memory, A+ semantic fidelity**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Main-actor latency | A+ | A complete workspace refresh plans message reverts and reduces tool events once; the 2,000-turn debug fixture fell from 259 ms to 190-196 ms. |
+| Transient memory | A+ | One compact source-index array replaces duplicate message-surface construction, tool-card capacity is capped, and no retained projection cache or invalidation state was added. |
+| Recovery stability | A+ | Orphan lifecycle rows use persisted event UUIDs, so malformed history remains visible without changing identity on every surface rebuild. |
+| Semantic fidelity | A+ | Canonical cards still exclude orphan-only terminal events while the timeline retains them; duplicate IDs/text, internal roles, unmatched messages, approvals, review, Activity, and execution-context behavior remain covered. |
+
+Validation:
+
+- Focused transcript and 2,000-turn workspace stress suite (22 tests, 0 failures)
+- Broader surface, review, Activity, execution-context, concurrent-chat, and progress-refresh suite
+  (80 tests, 0 failures)
+- `python3 scripts/grade-code-quality.py --root .` reports every module A+
+- Full `swift test` (5,664 tests, 5 skipped, 0 failures)
+- Release-mode arm64 package passed 3 of 3 fresh launches and both native interaction sweeps:
+  256.75 ms median launch-ready, 90.38 MiB initial memory, 148.95 MiB first-settled memory,
+  153.11 MiB repeated-settled memory, 4.16 MiB convergence growth, and 9 to 8 to 8 threads
+- Packaged direct-executable and Launch Services smokes passed scheduled coworker, multi-file
+  artifact, one-turn coworker, browser, computer-use, Accessibility, and click-probe contracts
+- Visual inspection at 1280 x 900 confirmed stable first-run hierarchy and composer dimensions
+  with no overlap or clipping
+
 ## 2026-08-08 Native Interaction Sequence And New Chat Focus
 
 Overall grade after this slice: **A+ keyboard UX, A+ native determinism, A+ interaction evidence**.

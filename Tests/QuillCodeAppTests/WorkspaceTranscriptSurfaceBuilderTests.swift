@@ -315,6 +315,89 @@ final class WorkspaceTranscriptSurfaceBuilderTests: XCTestCase {
         XCTAssertEqual(timeline.last?.message?.id, messages.last?.id)
     }
 
+    func testUnifiedProjectionPreservesIndependentAndMalformedEventSemantics() throws {
+        let orphanEventID = UUID(uuidString: "00000000-0000-0000-0000-0000000000aa")!
+        let user = ChatMessage(role: .user, content: "Inspect the workspace")
+        let internalToolMessage = ChatMessage(role: .tool, content: "hidden tool feedback")
+        let assistant = ChatMessage(role: .assistant, content: "Inspection complete")
+        let unmatchedAssistant = ChatMessage(role: .assistant, content: "One more detail")
+        let approvalCall = ToolCall(
+            id: "approval-call",
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json(["path": "notes.txt", "content": "notes"])
+        )
+        let approval = ApprovalRequest(
+            id: "approval-request",
+            toolCall: approvalCall,
+            toolDefinition: ToolDefinition.fileWrite,
+            reason: "review required"
+        )
+        let decision = ApprovalDecision(
+            requestID: approval.id,
+            verdict: .deny,
+            rationale: "Skipped from the test fixture."
+        )
+        let shellCall = ToolCall(
+            id: "shell-call",
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json(["cmd": "pwd"])
+        )
+        let success = ToolResult(ok: true, stdout: "/workspace\n")
+        let thread = ChatThread(
+            messages: [user, internalToolMessage, assistant, unmatchedAssistant],
+            events: [
+                ThreadEvent(kind: .message, summary: user.content),
+                ThreadEvent(
+                    id: orphanEventID,
+                    kind: .toolCompleted,
+                    summary: "orphaned completion",
+                    payloadJSON: try JSONHelpers.encodePretty(success)
+                ),
+                ThreadEvent(
+                    kind: .approvalRequested,
+                    summary: "approval",
+                    payloadJSON: try JSONHelpers.encodePretty(approval)
+                ),
+                ThreadEvent(
+                    kind: .approvalDecided,
+                    summary: "skipped",
+                    payloadJSON: try JSONHelpers.encodePretty(decision)
+                ),
+                ThreadEvent(kind: .message, summary: assistant.content),
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "queued",
+                    payloadJSON: try JSONHelpers.encodePretty(shellCall)
+                ),
+                ThreadEvent(kind: .toolRunning, summary: "running"),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "completed",
+                    payloadJSON: try JSONHelpers.encodePretty(success)
+                )
+            ]
+        )
+        let builder = WorkspaceTranscriptSurfaceBuilder(thread: thread, allowsRevert: false)
+
+        let projection = builder.projection()
+
+        XCTAssertEqual(projection.messages, builder.messageSurfaces())
+        XCTAssertEqual(projection.toolCards, builder.toolCards())
+        XCTAssertEqual(projection, builder.projection(), "orphan timeline identity must be stable")
+        XCTAssertEqual(projection.messages.map { $0.id }, [user.id, assistant.id, unmatchedAssistant.id])
+        XCTAssertEqual(projection.toolCards.map { $0.id }, [approvalCall.id, shellCall.id])
+        XCTAssertEqual(projection.timelineItems.compactMap { $0.toolCard }.map { $0.id }, [
+            "orphan-\(orphanEventID.uuidString.lowercased())",
+            approvalCall.id,
+            shellCall.id
+        ])
+        XCTAssertEqual(projection.timelineItems.compactMap { $0.message }.map { $0.id }, [
+            user.id,
+            assistant.id,
+            unmatchedAssistant.id
+        ])
+    }
+
     func testApprovalRequestTurnsActiveToolCardIntoActionableReview() throws {
         let call = ToolCall(
             id: "shell-approval-1",

@@ -5,6 +5,56 @@ import QuillComputerUseKit
 
 @MainActor
 final class WorkspaceSurfaceTests: XCTestCase {
+    func testLongDailyDrivingSurfaceProjectsCompleteTranscriptHistory() throws {
+        let turnCount = 2_000
+        var messages: [ChatMessage] = []
+        var events: [ThreadEvent] = []
+        messages.reserveCapacity(turnCount * 2)
+        events.reserveCapacity(turnCount * 5)
+
+        for index in 0..<turnCount {
+            let user = ChatMessage(role: .user, content: "Run check \(index)")
+            let assistant = ChatMessage(role: .assistant, content: "Check \(index) passed")
+            let call = ToolCall(
+                id: "check-\(index)",
+                name: ToolDefinition.shellRun.name,
+                argumentsJSON: ToolArguments.json(["cmd": "check \(index)"])
+            )
+            let result = ToolResult(ok: true, stdout: "passed\n")
+            messages.append(contentsOf: [user, assistant])
+            events.append(contentsOf: [
+                ThreadEvent(kind: .message, summary: user.content),
+                ThreadEvent(
+                    kind: .toolQueued,
+                    summary: "queued",
+                    payloadJSON: try JSONHelpers.encodePretty(call)
+                ),
+                ThreadEvent(kind: .toolRunning, summary: "running"),
+                ThreadEvent(
+                    kind: .toolCompleted,
+                    summary: "completed",
+                    payloadJSON: try JSONHelpers.encodePretty(result)
+                ),
+                ThreadEvent(kind: .message, summary: assistant.content)
+            ])
+        }
+        let thread = ChatThread(messages: messages, events: events)
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+
+        let surface = model.surface()
+
+        XCTAssertEqual(surface.transcript.messages.count, turnCount * 2)
+        XCTAssertEqual(surface.transcript.toolCards.count, turnCount)
+        XCTAssertEqual(surface.transcript.timelineItems.count, turnCount * 3)
+        XCTAssertEqual(surface.transcript.timelineItems.first?.message?.id, messages.first?.id)
+        XCTAssertEqual(surface.transcript.timelineItems.last?.message?.id, messages.last?.id)
+        XCTAssertEqual(surface.transcript.toolCards.first?.id, "check-0")
+        XCTAssertEqual(surface.transcript.toolCards.last?.id, "check-\(turnCount - 1)")
+    }
+
     func testSurfaceProjectsWorkflowRecordingAndCommandAvailability() throws {
         let workspace = try makeQuillCodeTestDirectory()
         let project = ProjectRef(name: "Recorder", path: workspace.path)
