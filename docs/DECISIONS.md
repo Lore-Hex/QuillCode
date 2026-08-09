@@ -1,5 +1,17 @@
 # QuillCode Decisions
 
+## 2026-08-09: public updater smoke waits out bounded feed propagation
+
+- **Decision:** The packaged public-updater runner retries only an authenticated, valid feed that
+  still reports the smoke fixture as current. It makes at most six checks with a two-second delay.
+- **Failure boundary:** Invalid responses, malformed or mismatched manifests, unsupported
+  architecture, signing or checksum failures, preparation errors, activation failures, and relaunch
+  failures remain immediate hard failures. Exhausted stale-feed retries fail publication.
+- **Why:** GitHub replaces the stable manifest asset in place. During build 681 publication, the
+  Apple silicon verifier reached that URL seconds before propagation completed and saw build 680;
+  Intel reached it moments later and completed 680-to-681 update and relaunch. A short bounded wait
+  distinguishes eventual release propagation from a broken updater without masking integrity bugs.
+
 ## 2026-08-09: the desktop has one main-window owner
 
 - **Decision:** The product workspace is a uniquely identified SwiftUI `Window`, not a

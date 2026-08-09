@@ -1,5 +1,23 @@
 # Code Quality Audit
 
+## 2026-08-09 Bounded Public-Updater Feed Propagation
+
+Overall grade after this slice: **A+ release resilience, A+ failure integrity, A+ regression evidence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Release resilience | A+ | Public updater smoke tolerates the short GitHub release-asset replacement window with six bounded feed checks separated by two seconds. |
+| Failure integrity | A+ | Only a valid but not-yet-newer feed is retried; transport, schema, product, architecture, signing, checksum, preparation, installation, and relaunch failures still fail immediately. |
+| Operational evidence | A+ | Build 681 initially observed the previous build 680 feed on Apple silicon while Intel updated successfully; a workflow rerun after propagation then verified both architectures end to end. |
+| Regression coverage | A+ | Unit tests prove eventual success, exact retry and delay counts, and bounded exhaustion; the packaged-updater parity gate pins retry ownership beside download, swap, cleanup, and relaunch evidence. |
+
+Validation:
+
+- Focused updater-smoke and packaged parity suites (5 tests, 0 failures)
+- Full `swift test` (5,707 tests, 5 skipped, 0 failures)
+- Public build 681 updater rerun: arm64 and x86_64 both passed update, activation, cleanup, and relaunch
+- Public build and download manifest verification passed for exact main commit `5aa35a70c42c3fcd010c5dbfde46109f1b8cfc95`
+
 ## 2026-08-09 Unique Main-Window Ownership
 
 Overall grade after this slice: **A+ memory ownership, A+ lifecycle UX, A+ release hygiene**.
