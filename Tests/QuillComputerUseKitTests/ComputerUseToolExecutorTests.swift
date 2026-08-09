@@ -158,6 +158,56 @@ final class ComputerUseToolExecutorTests: XCTestCase {
         XCTAssertEqual(actions, [])
     }
 
+    func testActivateRoutesToApprovedTargetApplication() async throws {
+        let firefox = ComputerUseApplication(
+            name: "Firefox",
+            bundleIdentifier: "org.mozilla.firefox"
+        )
+        let backend = ActivatingComputerUseBackend(application: firefox)
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            appApprovalPolicy: ComputerUseAppApprovalPolicy(
+                approvedBundleIdentifiers: ["org.mozilla.firefox"]
+            )
+        )
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerActivate.name,
+            argumentsJSON: #"{"application":"Firefox"}"#
+        ))
+        let result = try XCTUnwrap(toolResult)
+        let actions = await backend.recordedActions()
+
+        XCTAssertTrue(result.ok)
+        XCTAssertEqual(result.stdout, "Activated Firefox.")
+        XCTAssertEqual(actions, ["activate:Firefox"])
+    }
+
+    func testActivateBlocksUnapprovedTargetApplication() async throws {
+        let backend = ActivatingComputerUseBackend(application: ComputerUseApplication(
+            name: "Passwords",
+            bundleIdentifier: "com.apple.Passwords"
+        ))
+        let executor = ComputerUseToolExecutor(
+            backend: backend,
+            appApprovalPolicy: ComputerUseAppApprovalPolicy(approvedAppNames: ["Firefox"])
+        )
+
+        let toolResult = await executor.execute(ToolCall(
+            name: ToolDefinition.computerActivate.name,
+            argumentsJSON: #"{"application":"Passwords"}"#
+        ))
+        let result = try XCTUnwrap(toolResult)
+        let actions = await backend.recordedActions()
+
+        XCTAssertFalse(result.ok)
+        XCTAssertEqual(
+            result.error,
+            "Computer Use is not approved for Passwords. Add this app to Computer Use approvals before controlling it."
+        )
+        XCTAssertEqual(actions, [])
+    }
+
     func testAppApprovalRequiresForegroundAppProviderWhenConfigured() async throws {
         let backend = PermissionRecordingComputerUseBackend(
             status: .permissionStatus(screenRecordingGranted: true, accessibilityGranted: true)
@@ -383,8 +433,50 @@ private func accessibilityPreflightCases() -> [(call: ToolCall, expectedError: S
         (
             ToolCall(name: ToolDefinition.computerKey.name, argumentsJSON: #"{"key":"return"}"#),
             "Computer Use keyboard needs Accessibility. Open Computer Use setup from Settings, grant Accessibility, then refresh status."
+        ),
+        (
+            ToolCall(name: ToolDefinition.computerActivate.name, argumentsJSON: #"{"application":"Firefox"}"#),
+            "Computer Use application activation needs Accessibility. Open Computer Use setup from Settings, grant Accessibility, then refresh status."
         )
     ]
+}
+
+private actor ActivatingComputerUseBackend: ComputerUseBackend, ComputerUseApplicationActivating {
+    nonisolated let status = ComputerUseStatus.permissionStatus(
+        screenRecordingGranted: true,
+        accessibilityGranted: true
+    )
+    private let targetApplication: ComputerUseApplication
+    private var actions: [String] = []
+
+    init(application: ComputerUseApplication) {
+        self.targetApplication = application
+    }
+
+    func recordedActions() -> [String] {
+        actions
+    }
+
+    func application(matching nameOrBundleIdentifier: String) async -> ComputerUseApplication? {
+        targetApplication
+    }
+
+    func activateApplication(
+        matching nameOrBundleIdentifier: String
+    ) async throws -> ComputerUseApplication {
+        actions.append("activate:\(nameOrBundleIdentifier)")
+        return targetApplication
+    }
+
+    func screenshot() async throws -> ComputerScreenshot {
+        ComputerScreenshot(width: 1, height: 1, pngBase64: "iVBORw0KGgo=")
+    }
+
+    func leftClick(x: Int, y: Int) async throws {}
+    func type(_ text: String) async throws {}
+    func scroll(dx: Int, dy: Int) async throws {}
+    func moveCursor(x: Int, y: Int) async throws {}
+    func pressKey(_ key: String) async throws {}
 }
 
 private actor PermissionRecordingComputerUseBackend: ComputerUseBackend {

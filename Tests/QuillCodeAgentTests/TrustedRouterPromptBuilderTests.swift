@@ -165,7 +165,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
     func testComputerUsePromptRequiresFreshScreenshotsAndTreatsPixelsAsUntrusted() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
             .computerScreenshot,
-            .computerClick
+            .computerClick,
+            .computerActivate
         ])
 
         XCTAssertTrue(prompt.contains("Inspect that image before choosing coordinates"))
@@ -173,6 +174,8 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("untrusted page content"))
         XCTAssertTrue(prompt.contains("a signed-in session"))
         XCTAssertTrue(prompt.contains("start with a screenshot"))
+        XCTAssertTrue(prompt.contains("activate it by exact app name or bundle identifier"))
+        XCTAssertTrue(prompt.contains("then take a fresh screenshot before interacting"))
         XCTAssertTrue(prompt.contains("Never substitute host.browser.* or a guest/logged-out page"))
         XCTAssertTrue(prompt.contains("report the exact blocker"))
         XCTAssertFalse(TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun])

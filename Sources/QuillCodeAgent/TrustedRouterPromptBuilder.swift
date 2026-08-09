@@ -617,7 +617,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
 
         When the user explicitly requires an existing desktop app or browser, a signed-in session, a named \
         browser/profile (such as Firefox), or local application state, use Computer Use first and start with a \
-        screenshot to verify the active app and session. Never substitute host.browser.* or a guest/logged-out page. \
+        screenshot to verify the active app and session. If the named running app is not foreground and \
+        host.computer.activate is available, activate it by exact app name or bundle identifier, then take a fresh \
+        screenshot before interacting. Never substitute host.browser.* or a guest/logged-out page. \
         If Computer Use returns a setup or permission error, report the exact blocker, do not claim the signed-in \
         work was completed, and continue only independent parts that do not require that desktop session.
         """

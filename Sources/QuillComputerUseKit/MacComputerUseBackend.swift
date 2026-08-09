@@ -7,6 +7,7 @@ import Foundation
 public struct MacComputerUseBackend: ComputerUseBackend,
     ComputerUsePermissionRequesting,
     ComputerUseForegroundApplicationProviding,
+    ComputerUseApplicationActivating,
     ComputerUseAccessibilitySnapshotProviding,
     WorkflowRecordingBackend
 {
@@ -120,10 +121,28 @@ public struct MacComputerUseBackend: ComputerUseBackend,
 
     public func foregroundApplication() async -> ComputerUseApplication? {
         guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
-        return ComputerUseApplication(
-            name: app.localizedName,
-            bundleIdentifier: app.bundleIdentifier
-        )
+        return Self.applicationDescription(app)
+    }
+
+    public func application(matching nameOrBundleIdentifier: String) async -> ComputerUseApplication? {
+        Self.runningApplication(matching: nameOrBundleIdentifier).map(Self.applicationDescription)
+    }
+
+    public func activateApplication(
+        matching nameOrBundleIdentifier: String
+    ) async throws -> ComputerUseApplication {
+        try requireAccessibility()
+        guard let application = Self.runningApplication(matching: nameOrBundleIdentifier) else {
+            throw ComputerUseError.unavailable(
+                "No running application matches \(nameOrBundleIdentifier). Open it first, then retry."
+            )
+        }
+        guard application.activate(options: [.activateAllWindows]) else {
+            throw ComputerUseError.unavailable(
+                "Could not activate \(Self.applicationDescription(application).displayLabel)."
+            )
+        }
+        return Self.applicationDescription(application)
     }
 
     public func accessibilitySnapshot(limit: Int) async -> ComputerUseAccessibilitySnapshot? {
@@ -271,6 +290,28 @@ public struct MacComputerUseBackend: ComputerUseBackend,
         default:
             return nil
         }
+    }
+
+    private static func runningApplication(
+        matching nameOrBundleIdentifier: String
+    ) -> NSRunningApplication? {
+        let requested = nameOrBundleIdentifier
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard !requested.isEmpty else { return nil }
+        return NSWorkspace.shared.runningApplications.first { application in
+            application.bundleIdentifier?.lowercased() == requested
+                || application.localizedName?.lowercased() == requested
+        }
+    }
+
+    private static func applicationDescription(
+        _ application: NSRunningApplication
+    ) -> ComputerUseApplication {
+        ComputerUseApplication(
+            name: application.localizedName,
+            bundleIdentifier: application.bundleIdentifier
+        )
     }
 
     private static func focusedWindow(in application: AXUIElement) -> AXUIElement? {

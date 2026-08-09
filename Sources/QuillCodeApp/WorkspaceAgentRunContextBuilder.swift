@@ -206,6 +206,9 @@ struct WorkspaceAgentRunContextBuilder: Sendable {
         if threadIsConfidential { return [] }
         guard let computerUseBackend else { return [] }
         var definitions = ToolDefinition.computerUseDefinitions
+        if computerUseBackend is any ComputerUseApplicationActivating {
+            definitions.append(ToolDefinition.computerActivate)
+        }
         let status = computerUseBackend.status
         if !status.available,
            let screenshotIndex = definitions.firstIndex(where: {
