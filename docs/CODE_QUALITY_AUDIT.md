@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-08-08 Transactional Stable Release Promotion
+
+Overall grade after this slice: **A+ release control, A+ feed integrity, A+ recovery**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Release control | A+ | Versioned artifacts become a non-latest prerelease candidate, pass public semantic verification, and only then become the stable latest release. |
+| Feed integrity | A+ | Final verification requires GitHub's latest-release identity and the moving stable manifest bytes to match the already-verified versioned release exactly. |
+| Native updates | A+ | Apple silicon and Intel updater relaunch gates depend on successful promotion and exercise the actual stable latest feed. |
+| Recovery | A+ | A failed candidate returns to draft before promotion; a failed native update or final feed check returns the promoted release to draft so the previous stable feed resumes. |
+| Compatibility | A+ | Tester publication and its updater path retain their existing prerelease contract; the changed verifier independently accepts the current public tester build. |
+
+Validation:
+
+- Full `swift test --skip-build` (5,652 tests, 5 skipped, 0 failures)
+- Complete parity suite (370 tests, 0 failures)
+- Published-release verifier suite (21 tests, 0 failures), including stable candidate, promotion,
+  latest-release identity, feed drift, CPU architecture, symlink, provenance, and performance attacks
+- Download workflow suite (6 tests, 0 failures) and packaged updater parity gate (1 test, 0 failures)
+- Current public tester build 661 passed the changed semantic verifier at exact commit `65aca0bd`
+- Workflow parses as YAML; `python3 scripts/grade-code-quality.py --root .` reports every module A+
+- `git diff --check`
+
 ## 2026-08-08 Native Dual-Architecture macOS Distribution
 
 Overall grade after this slice: **A+ distribution architecture, A+ compatibility, A+ native verification**.

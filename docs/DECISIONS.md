@@ -1,5 +1,20 @@
 # QuillCode Decisions
 
+## 2026-08-08: stable releases use verified promotion and automatic quarantine
+
+- **Decision:** A versioned release first becomes a non-latest prerelease candidate. The exact public
+  inventory and semantic contract must pass before the candidate can become GitHub's stable latest
+  release. Candidate verification is an explicit verifier mode and remains invalid for tester builds.
+- **Promotion proof:** After promotion, native Apple silicon and Intel runners update and relaunch
+  through the real stable latest feed. Final verification requires both GitHub's latest-release
+  identity and the moving stable manifest bytes to match the verified versioned release.
+- **Recovery:** Candidate verification failure returns the new release to draft before promotion.
+  Native updater or final feed failure returns a promoted release to draft, causing GitHub to resume
+  the previous stable latest release without modifying that prior release.
+- **Why:** Upload completion does not prove public asset semantics, and a successful release-edit
+  command does not prove the moving updater feed. Stable publication must be an ordered, observable,
+  fail-closed state transition with an automatic path back to the last known-good release.
+
 ## 2026-08-08: macOS distribution is native on Apple silicon and Intel
 
 - **Decision:** Every public macOS release contains exactly one native arm64 and one native x86_64

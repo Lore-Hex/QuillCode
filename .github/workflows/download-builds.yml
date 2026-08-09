@@ -240,7 +240,10 @@ jobs:
               --notes-file "$RUNNER_TEMP/release-notes.md" \
               --target "$GITHUB_SHA"
             gh release upload "$RELEASE_TAG" "$RUNNER_TEMP"/release-assets/*
-            gh release edit "$RELEASE_TAG" --draft=false --latest
+            gh release edit "$RELEASE_TAG" \
+              --draft=false \
+              --prerelease \
+              --latest=false
           else
             if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
               gh release edit "$RELEASE_TAG" \
@@ -288,15 +291,72 @@ jobs:
             RELEASE_TAG="tester-latest"
             RELEASE_CHANNEL="tester"
           fi
-          scripts/verify-published-release.py \
-            --repo "$GITHUB_REPOSITORY" \
-            --tag "$RELEASE_TAG" \
-            --channel "$RELEASE_CHANNEL" \
-            --commit "$GITHUB_SHA" \
+          VERIFY_ARGUMENTS=(
+            --repo "$GITHUB_REPOSITORY"
+            --tag "$RELEASE_TAG"
+            --channel "$RELEASE_CHANNEL"
+            --commit "$GITHUB_SHA"
             --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          )
+          if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
+            VERIFY_ARGUMENTS+=(--stable-candidate)
+          fi
+          scripts/verify-published-release.py "${VERIFY_ARGUMENTS[@]}"
+
+  quarantine-stable-candidate:
+    needs: [publish, verify-published]
+    if: >-
+      ${{
+        always() &&
+        github.ref_type == 'tag' &&
+        startsWith(github.ref_name, 'v') &&
+        needs.publish.result == 'success' &&
+        needs.verify-published.result != 'success'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Return failed stable candidate to draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft --latest=false --repo "$GITHUB_REPOSITORY"
+
+  promote-stable:
+    needs: [publish, verify-published]
+    if: >-
+      ${{
+        github.ref_type == 'tag' &&
+        startsWith(github.ref_name, 'v') &&
+        needs.publish.result == 'success' &&
+        needs.verify-published.result == 'success'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Promote verified stable candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release edit "$GITHUB_REF_NAME"
+          --draft=false
+          --prerelease=false
+          --latest
+          --repo "$GITHUB_REPOSITORY"
 
   verify-updater:
-    needs: publish
+    needs: [publish, verify-published, promote-stable]
+    if: >-
+      ${{
+        always() &&
+        needs.publish.result == 'success' &&
+        needs.verify-published.result == 'success' &&
+        (
+          !(github.ref_type == 'tag' && startsWith(github.ref_name, 'v')) ||
+          needs.promote-stable.result == 'success'
+        )
+      }}
     strategy:
       fail-fast: false
       matrix:
@@ -357,3 +417,53 @@ jobs:
           path: ${{ runner.temp }}/updater-smoke-artifacts
           if-no-files-found: error
           retention-days: 14
+
+  verify-stable-promotion:
+    needs: [promote-stable, verify-updater]
+    if: >-
+      ${{
+        github.ref_type == 'tag' &&
+        startsWith(github.ref_name, 'v') &&
+        needs.promote-stable.result == 'success' &&
+        needs.verify-updater.result == 'success'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Verify promoted stable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/verify-published-release.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$GITHUB_REF_NAME" \
+            --channel stable \
+            --commit "$GITHUB_SHA" \
+            --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+  quarantine-promoted-stable:
+    needs: [publish, promote-stable, verify-updater, verify-stable-promotion]
+    if: >-
+      ${{
+        always() &&
+        github.ref_type == 'tag' &&
+        startsWith(github.ref_name, 'v') &&
+        needs.publish.result == 'success' &&
+        needs.promote-stable.result == 'success' &&
+        (
+          needs.verify-updater.result != 'success' ||
+          needs.verify-stable-promotion.result != 'success'
+        )
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Return failed promoted stable release to draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft --latest=false --repo "$GITHUB_REPOSITORY"

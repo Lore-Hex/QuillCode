@@ -18,6 +18,83 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         XCTAssertTrue(result.output.contains("Verified public Quill Cowork tester release tester-latest"))
     }
 
+    func testVerifierAcceptsAnExplicitStableCandidateBeforePromotion() throws {
+        let fixture = try makeFixture(channel: "stable", prerelease: true)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture, stableCandidate: true)
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        XCTAssertTrue(result.output.contains("Verified public Quill Cowork stable release v0.2.0"))
+    }
+
+    func testVerifierRejectsStableCandidateModeForTesterChannel() throws {
+        let fixture = try makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture, stableCandidate: true)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("--stable-candidate requires --channel stable"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsStableCandidateUnderFinalReleaseRules() throws {
+        let fixture = try makeFixture(channel: "stable", prerelease: true)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("prerelease state does not match its channel"),
+            result.output
+        )
+    }
+
+    func testVerifierAcceptsPromotedStableReleaseAndExactLatestFeed() throws {
+        let fixture = try makeFixture(channel: "stable", prerelease: false)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 0, result.output)
+        XCTAssertTrue(result.output.contains("Verified public Quill Cowork stable release v0.2.0"))
+    }
+
+    func testVerifierRejectsPromotedStableReleaseWhenLatestFeedDrifts() throws {
+        let fixture = try makeFixture(channel: "stable", prerelease: false)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        try Data("{}\n".utf8).write(to: try XCTUnwrap(fixture.stableFeedManifest))
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("latest stable feed does not match"),
+            result.output
+        )
+    }
+
+    func testVerifierRejectsPromotedStableReleaseWhenLatestIdentityDrifts() throws {
+        let fixture = try makeFixture(channel: "stable", prerelease: false)
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let latestReleaseURL = try XCTUnwrap(fixture.latestReleaseJSON)
+        var latestRelease = try jsonObject(at: latestReleaseURL)
+        latestRelease["id"] = 54_321
+        try writeJSON(latestRelease, to: latestReleaseURL)
+
+        let result = try runVerifier(fixture)
+
+        XCTAssertEqual(result.exitCode, 2, result.output)
+        XCTAssertTrue(
+            result.output.contains("latest release is not the verified stable release"),
+            result.output
+        )
+    }
+
     func testVerifierRejectsPerformanceSchemaDriftAfterIntegrityChecksPass() throws {
         let fixture = try makeFixture { evidence in
             evidence["schemaVersion"] = 2
@@ -270,6 +347,10 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         var assets: URL
         var manifest: URL
         var releaseJSON: URL
+        var latestReleaseJSON: URL?
+        var stableFeedManifest: URL?
+        var tag: String
+        var channel: String
     }
 
     private func makeFixture(
@@ -277,8 +358,16 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         appInfoIsSymlink: Bool = false,
         includePerformanceAsset: Bool = true,
         intelExecutableArchitecture: String = "x86_64",
+        channel: String = "tester",
+        prerelease: Bool? = nil,
         performanceMutation: ((inout [String: Any]) throws -> Void)? = nil
     ) throws -> Fixture {
+        precondition(channel == "tester" || channel == "stable")
+        let releaseTag = channel == "stable" ? "v0.2.0" : tag
+        let updateManifestURL = channel == "stable" ? stableManifestURL : testerManifestURL
+        let signingTeamIdentifier = channel == "stable" ? "A1B2C3D4E5" : nil
+        let codesign = channel == "stable" ? "developer-id" : "ad-hoc"
+        let notarized = channel == "stable"
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("quill-cowork-release-verifier-tests")
             .appendingPathComponent(UUID().uuidString)
@@ -301,7 +390,10 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 commit: appCommit ?? commit,
                 architecture: executableArchitecture,
                 root: root,
-                infoIsSymlink: appInfoIsSymlink
+                infoIsSymlink: appInfoIsSymlink,
+                channel: channel,
+                updateManifestURL: updateManifestURL,
+                signingTeamIdentifier: signingTeamIdentifier
             )
             try Data("verified installer \(architecture)".utf8).write(
                 to: assetsURL.appendingPathComponent(installerName)
@@ -327,17 +419,17 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             configuration=release
             bundleIdentifier=co.lorehex.QuillCowork
             minimumSystemVersion=14.0
-            updateChannel=tester
-            updateManifestURL=\(testerManifestURL)
+            updateChannel=\(channel)
+            updateManifestURL=\(updateManifestURL)
             stableUpdateManifestURL=\(stableManifestURL)
             testerUpdateManifestURL=\(testerManifestURL)
             installer=\(installerName)
             app=\(appName)
             performance=\(performanceName)
             cli=\(cliName)
-            codesign=ad-hoc
-            signingTeamIdentifier=none
-            notarized=false
+            codesign=\(codesign)
+            signingTeamIdentifier=\(signingTeamIdentifier ?? "none")
+            notarized=\(notarized)
             """
             try buildInfo.write(
                 to: assetsURL.appendingPathComponent("BUILD_INFO-macOS-\(architecture).txt"),
@@ -374,7 +466,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 platform: "macOS",
                 arch: "any",
                 install: "text",
-                assetsURL: assetsURL
+                assetsURL: assetsURL,
+                releaseTag: releaseTag
             )
         ]
         var appAssets: [[String: Any]] = []
@@ -385,7 +478,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 platform: "macOS",
                 arch: architecture,
                 install: "text",
-                assetsURL: assetsURL
+                assetsURL: assetsURL,
+                releaseTag: releaseTag
             ))
             manifestAssets.append(try manifestAsset(
                 named: "Quill-Cowork-macOS-\(architecture).dmg",
@@ -393,7 +487,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 platform: "macOS",
                 arch: architecture,
                 install: "dmg-app",
-                assetsURL: assetsURL
+                assetsURL: assetsURL,
+                releaseTag: releaseTag
             ))
             let appAsset = try manifestAsset(
                 named: "Quill-Cowork-macOS-\(architecture).zip",
@@ -401,7 +496,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 platform: "macOS",
                 arch: architecture,
                 install: "zip-app",
-                assetsURL: assetsURL
+                assetsURL: assetsURL,
+                releaseTag: releaseTag
             )
             appAssets.append(appAsset)
             manifestAssets.append(appAsset)
@@ -412,7 +508,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                     platform: "macOS",
                     arch: architecture,
                     install: "json",
-                    assetsURL: assetsURL
+                    assetsURL: assetsURL,
+                    releaseTag: releaseTag
                 ))
             }
             manifestAssets.append(try manifestAsset(
@@ -421,7 +518,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 platform: "macOS",
                 arch: architecture,
                 install: "tarball",
-                assetsURL: assetsURL
+                assetsURL: assetsURL,
+                releaseTag: releaseTag
             ))
         }
         manifestAssets.append(contentsOf: try [
@@ -431,15 +529,16 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 platform: "any",
                 arch: "any",
                 install: "text",
-                assetsURL: assetsURL
+                assetsURL: assetsURL,
+                releaseTag: releaseTag
             )
         ])
         let manifest: [String: Any] = [
             "schemaVersion": 1,
             "product": "Quill Cowork",
-            "channel": "tester",
-            "tag": tag,
-            "releaseURL": "https://github.com/\(repository)/releases/tag/\(tag)",
+            "channel": channel,
+            "tag": releaseTag,
+            "releaseURL": "https://github.com/\(repository)/releases/tag/\(releaseTag)",
             "commit": commit,
             "version": "0.2.0",
             "build": "123",
@@ -448,21 +547,21 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "updater": [
                 "schemaVersion": 1,
                 "format": "github-release-manifest",
-                "channel": "tester",
-                "manifestURL": testerManifestURL,
+                "channel": channel,
+                "manifestURL": updateManifestURL,
                 "stableManifestURL": stableManifestURL,
                 "testerManifestURL": testerManifestURL,
                 "bundleIdentifier": "co.lorehex.QuillCowork",
                 "minimumSystemVersion": "14.0",
-                "codesign": "ad-hoc",
-                "signingTeamIdentifier": NSNull(),
-                "notarized": false,
+                "codesign": codesign,
+                "signingTeamIdentifier": signingTeamIdentifier.map { $0 as Any } ?? NSNull(),
+                "notarized": notarized,
                 "macOSAppAsset": appAssets[0],
                 "macOSAppAssets": appAssets
             ],
             "assets": manifestAssets
         ]
-        let manifestURL = root.appendingPathComponent("latest-tester-build.json")
+        let manifestURL = root.appendingPathComponent("latest-\(channel)-build.json")
         try writeJSON(manifest, to: manifestURL)
 
         var releaseAssets = try manifestAssets.map { asset -> [String: Any] in
@@ -472,7 +571,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 "state": "uploaded",
                 "size": try XCTUnwrap(asset["sizeBytes"] as? Int),
                 "digest": "sha256:\(try XCTUnwrap(asset["sha256"] as? String))",
-                "browser_download_url": releaseDownloadURL(named: name)
+                "browser_download_url": releaseDownloadURL(named: name, tag: releaseTag)
             ]
         }
         releaseAssets.append([
@@ -480,17 +579,40 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "state": "uploaded",
             "size": try Data(contentsOf: manifestURL).count,
             "digest": "sha256:\(try sha256(at: manifestURL))",
-            "browser_download_url": releaseDownloadURL(named: manifestURL.lastPathComponent)
+            "browser_download_url": releaseDownloadURL(
+                named: manifestURL.lastPathComponent,
+                tag: releaseTag
+            )
         ])
         let release: [String: Any] = [
-            "tag_name": tag,
+            "id": 12_345,
+            "tag_name": releaseTag,
             "draft": false,
-            "prerelease": true,
+            "prerelease": prerelease ?? (channel == "tester"),
             "assets": releaseAssets
         ]
         let releaseJSONURL = root.appendingPathComponent("release.json")
         try writeJSON(release, to: releaseJSONURL)
-        return Fixture(root: root, assets: assetsURL, manifest: manifestURL, releaseJSON: releaseJSONURL)
+        var latestReleaseJSON: URL?
+        var stableFeedManifest: URL?
+        if channel == "stable" {
+            let latestURL = root.appendingPathComponent("latest-release.json")
+            let feedURL = root.appendingPathComponent("latest-stable-feed.json")
+            try writeJSON(release, to: latestURL)
+            try Data(contentsOf: manifestURL).write(to: feedURL)
+            latestReleaseJSON = latestURL
+            stableFeedManifest = feedURL
+        }
+        return Fixture(
+            root: root,
+            assets: assetsURL,
+            manifest: manifestURL,
+            releaseJSON: releaseJSONURL,
+            latestReleaseJSON: latestReleaseJSON,
+            stableFeedManifest: stableFeedManifest,
+            tag: releaseTag,
+            channel: channel
+        )
     }
 
     private func performanceEvidence() -> [String: Any] {
@@ -627,7 +749,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         platform: String,
         arch: String,
         install: String,
-        assetsURL: URL
+        assetsURL: URL,
+        releaseTag: String
     ) throws -> [String: Any] {
         let url = assetsURL.appendingPathComponent(name)
         return [
@@ -638,7 +761,7 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "install": install,
             "sizeBytes": try Data(contentsOf: url).count,
             "sha256": try sha256(at: url),
-            "url": releaseDownloadURL(named: name)
+            "url": releaseDownloadURL(named: name, tag: releaseTag)
         ]
     }
 
@@ -647,7 +770,10 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         commit: String,
         architecture: String,
         root: URL,
-        infoIsSymlink: Bool
+        infoIsSymlink: Bool,
+        channel: String,
+        updateManifestURL: String,
+        signingTeamIdentifier: String?
     ) throws {
         let scriptURL = root.appendingPathComponent("make-app-archive.py")
         try """
@@ -664,14 +790,16 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
             "CFBundleVersion": "123",
             "LSMinimumSystemVersion": "14.0",
             "QuillCodeBuildCommit": sys.argv[2],
-            "QuillCodeUpdateChannel": "tester",
-            "QuillCodeUpdateManifestURL": sys.argv[3],
-            "QuillCodeStableUpdateManifestURL": sys.argv[4],
-            "QuillCodeTesterUpdateManifestURL": sys.argv[3],
+            "QuillCodeUpdateChannel": sys.argv[3],
+            "QuillCodeUpdateManifestURL": sys.argv[4],
+            "QuillCodeStableUpdateManifestURL": sys.argv[5],
+            "QuillCodeTesterUpdateManifestURL": sys.argv[6],
         }
+        if sys.argv[7] != "none":
+            values["QuillCodeSigningTeamIdentifier"] = sys.argv[7]
         with zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED) as archive:
             path = "Quill Cowork.app/Contents/Info.plist"
-            if sys.argv[5] == "symlink":
+            if sys.argv[8] == "symlink":
                 entry = zipfile.ZipInfo(path)
                 entry.create_system = 3
                 entry.external_attr = 0o120777 << 16
@@ -680,15 +808,18 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
                 archive.writestr(path, plistlib.dumps(values))
             cpu_types = {"arm64": 0x0100000C, "x86_64": 0x01000007}
             executable = struct.pack(
-                "<IIIIIIII", 0xFEEDFACF, cpu_types[sys.argv[6]], 0, 2, 0, 0, 0, 0
+                "<IIIIIIII", 0xFEEDFACF, cpu_types[sys.argv[9]], 0, 2, 0, 0, 0, 0
             )
             archive.writestr("Quill Cowork.app/Contents/MacOS/Quill Cowork", executable)
         """.write(to: scriptURL, atomically: true, encoding: .utf8)
         let result = try Self.runPython(scriptURL, arguments: [
             archiveURL.path,
             commit,
-            testerManifestURL,
+            channel,
+            updateManifestURL,
             stableManifestURL,
+            testerManifestURL,
+            signingTeamIdentifier ?? "none",
             infoIsSymlink ? "symlink" : "regular",
             architecture
         ])
@@ -704,22 +835,32 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
 
     private func runVerifier(
         _ fixture: Fixture,
-        tagCommit: String? = nil
+        tagCommit: String? = nil,
+        stableCandidate: Bool = false
     ) throws -> ScriptResult {
         let script = Self.packageRoot()
             .appendingPathComponent("scripts")
             .appendingPathComponent("verify-published-release.py")
-        return try Self.runPython(script, arguments: [
+        var arguments = [
             "--repo", repository,
-            "--tag", tag,
-            "--channel", "tester",
+            "--tag", fixture.tag,
+            "--channel", fixture.channel,
             "--commit", commit,
             "--workflow-run-url", workflowRunURL,
             "--release-json", fixture.releaseJSON.path,
             "--tag-commit", tagCommit ?? commit,
             "--manifest", fixture.manifest.path,
             "--assets-dir", fixture.assets.path
-        ])
+        ]
+        if stableCandidate {
+            arguments.append("--stable-candidate")
+        } else if fixture.channel == "stable" {
+            arguments.append(contentsOf: [
+                "--latest-release-json", try XCTUnwrap(fixture.latestReleaseJSON).path,
+                "--stable-feed-manifest", try XCTUnwrap(fixture.stableFeedManifest).path
+            ])
+        }
+        return try Self.runPython(script, arguments: arguments)
     }
 
     private func mutateManifest(
@@ -754,8 +895,8 @@ final class ParityPublishedReleaseVerificationGateTests: QuillCodeParityTestCase
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    private func releaseDownloadURL(named name: String) -> String {
-        "https://github.com/\(repository)/releases/download/\(tag)/\(name)"
+    private func releaseDownloadURL(named name: String, tag releaseTag: String? = nil) -> String {
+        "https://github.com/\(repository)/releases/download/\(releaseTag ?? tag)/\(name)"
     }
 
     private var testerManifestURL: String {
