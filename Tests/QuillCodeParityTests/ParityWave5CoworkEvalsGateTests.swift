@@ -26,5 +26,9 @@ final class ParityWave5CoworkEvalsGateTests: XCTestCase {
         XCTAssertTrue(runner.contains("controller.send()"))
         XCTAssertTrue(runner.contains("controller.openBrowserPreview()"))
         XCTAssertTrue(app.contains("QuillCodeDesktopCoworkEvalRequest(arguments: CommandLine.arguments)"))
+        XCTAssertTrue(
+            app.contains("QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)"),
+            "Native Cowork evaluations must retain a visible app window for physical UI evidence."
+        )
     }
 }
