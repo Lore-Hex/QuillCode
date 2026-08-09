@@ -75,7 +75,7 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             )
         }.value
         try Task.checkCancellation()
-        try Self.launchHelper(request)
+        try QuillCodeDesktopUpdateHelperLauncher.launch(request)
     }
 
     private static func stage(
@@ -150,11 +150,15 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
             expectedBundleIdentifier: configuration.bundleIdentifier,
             expectedVersion: preparedUpdate.release.version,
             expectedBuild: preparedUpdate.release.build,
-            expectedCommit: preparedUpdate.release.commit
+            expectedCommit: preparedUpdate.release.commit,
+            activationMode: .replaceExisting,
+            rollbackApplicationURL: nil
         )
     }
+}
 
-    private static func launchHelper(_ request: QuillCodeDesktopUpdateHelperRequest) throws {
+enum QuillCodeDesktopUpdateHelperLauncher {
+    static func launch(_ request: QuillCodeDesktopUpdateHelperRequest) throws {
         FileManager.default.createFile(atPath: request.logURL.path, contents: nil)
         let logHandle = try FileHandle(forWritingTo: request.logURL)
         let process = Process()
@@ -171,6 +175,11 @@ struct QuillCodeDesktopUpdateInstaller: QuillCodeDesktopUpdateInstalling, Sendab
     }
 }
 
+enum QuillCodeDesktopApplicationActivationMode: String, Equatable, Sendable {
+    case replaceExisting = "replace-existing"
+    case installNew = "install-new"
+}
+
 struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
     static let modeArgument = "--quillcode-apply-update"
 
@@ -185,9 +194,11 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
     var expectedVersion: String
     var expectedBuild: String
     var expectedCommit: String
+    var activationMode: QuillCodeDesktopApplicationActivationMode
+    var rollbackApplicationURL: URL?
 
     var arguments: [String] {
-        [
+        var values = [
             Self.modeArgument,
             "--parent-pid", String(parentProcessID),
             "--incoming-app", incomingApplicationURL.path,
@@ -198,8 +209,13 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
             "--bundle-id", expectedBundleIdentifier,
             "--version", expectedVersion,
             "--build", expectedBuild,
-            "--commit", expectedCommit
+            "--commit", expectedCommit,
+            "--activation-mode", activationMode.rawValue
         ]
+        if let rollbackApplicationURL {
+            values.append(contentsOf: ["--rollback-app", rollbackApplicationURL.path])
+        }
+        return values
     }
 
     static func parse(arguments: [String], executableURL: URL? = Bundle.main.executableURL) -> Self? {
@@ -227,9 +243,22 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
               let version = values["--version"],
               let build = values["--build"],
               let commit = values["--commit"],
+              let activationValue = values["--activation-mode"],
+              let activationMode = QuillCodeDesktopApplicationActivationMode(
+                rawValue: activationValue
+              ),
               QuillCodeDesktopBuildMetadata.isCanonicalCommit(commit)
         else {
             return nil
+        }
+        let rollbackApplicationURL = values["--rollback-app"].map {
+            URL(fileURLWithPath: $0).standardizedFileURL
+        }
+        switch activationMode {
+        case .replaceExisting:
+            guard rollbackApplicationURL == nil else { return nil }
+        case .installNew:
+            guard rollbackApplicationURL != nil else { return nil }
         }
         return Self(
             parentProcessID: parentProcessID,
@@ -242,7 +271,9 @@ struct QuillCodeDesktopUpdateHelperRequest: Equatable, Sendable {
             expectedBundleIdentifier: bundleIdentifier,
             expectedVersion: version,
             expectedBuild: build,
-            expectedCommit: commit
+            expectedCommit: commit,
+            activationMode: activationMode,
+            rollbackApplicationURL: rollbackApplicationURL
         )
     }
 }
