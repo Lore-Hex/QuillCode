@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-08: native Accessibility discovery tolerates equivalent titles and delayed trees
+
+- **Decision:** Native command-menu fallback compares case-, diacritic-, and width-folded titles, so
+  equivalent AppKit capitalization such as `New Chat` and workspace capitalization such as
+  `New chat` resolve to the same real menu item. Identified workspace controls remain preferred.
+- **Timing:** Activation target discovery re-snapshots the live Accessibility hierarchy for up to
+  five seconds instead of abandoning a control after one second. A normally available target still
+  resolves on the first snapshot and incurs no retry delay; cancellation and the attempt bound remain
+  explicit.
+- **Interaction integrity:** The sampler still requires a resolvable native element and a successful
+  `AXPress` followed by observable state and deeper interaction evidence. It does not substitute
+  controller mutation for a missing control or turn a failed live interaction into a pass.
+- **Why:** Native Intel packaging exposed both platform-real behaviors in one first sweep: AppKit
+  surfaced the New Chat menu item with title-case capitalization, and SwiftUI had not yet exposed the
+  model-picker button during the previous one-second discovery window. Distribution smoke should be
+  strict about semantics while allowing bounded native rendering latency and equivalent UI spelling.
+
 ## 2026-08-08: sidebar transcript search is bounded before concatenation
 
 - **Decision:** `SidebarItem` builds its searchable transcript prefix incrementally and stops after

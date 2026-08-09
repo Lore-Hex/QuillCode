@@ -124,6 +124,76 @@ final class QuillCodeDesktopAccessibilityActivationResolutionTests: XCTestCase {
         }
     }
 
+    func testNewChatActivationMatchesNativeMenuTitleCaseInsensitively() {
+        let probe = QuillCodeNativeHitTargetProbe(
+            contractID: "command.new-chat",
+            family: .sidebar,
+            collisionScope: "sidebar:primary",
+            label: "New chat",
+            kind: .fullRow,
+            action: .press,
+            allowsNestedInteractiveChildren: false,
+            requiresUnblockedInterior: true,
+            requiresTactileFeedback: true,
+            allowsTextSelection: false,
+            selectorKind: .commandID,
+            selector: "new-chat",
+            requiredMinWidth: 40,
+            requiredMinHeight: 40,
+            samplePoints: []
+        )
+        let menu = element(
+            identifier: "",
+            role: kAXMenuItemRole as String,
+            title: "New Chat",
+            frame: .zero
+        )
+
+        let resolved = QuillCodeDesktopAccessibilityFrameSampler.resolveElementForActivation(
+            probe,
+            in: [menu]
+        )
+
+        XCTAssertEqual(resolved?.title, "New Chat")
+        XCTAssertEqual(resolved?.role, kAXMenuItemRole as String)
+    }
+
+    func testActivationResolutionResnapshotsUntilDelayedTargetAppears() async {
+        let delayedTarget = element(
+            identifier: "quillcode-sidebar-command-toggle-memories",
+            frame: CGRect(x: 0, y: 0, width: 40, height: 40)
+        )
+        var snapshotCount = 0
+
+        let resolved = await QuillCodeDesktopAccessibilityActivationSampler.waitForResolvableElement(
+            commandProbe,
+            maximumAttempts: 4,
+            retryIntervalNanoseconds: 0
+        ) {
+            snapshotCount += 1
+            return snapshotCount == 3 ? [delayedTarget] : []
+        }
+
+        XCTAssertEqual(resolved?.identifier, delayedTarget.identifier)
+        XCTAssertEqual(snapshotCount, 3)
+    }
+
+    func testActivationResolutionStopsAtBoundWhenTargetNeverAppears() async {
+        var snapshotCount = 0
+
+        let resolved = await QuillCodeDesktopAccessibilityActivationSampler.waitForResolvableElement(
+            commandProbe,
+            maximumAttempts: 3,
+            retryIntervalNanoseconds: 0
+        ) {
+            snapshotCount += 1
+            return []
+        }
+
+        XCTAssertNil(resolved)
+        XCTAssertEqual(snapshotCount, 3)
+    }
+
     private var commandProbe: QuillCodeNativeHitTargetProbe {
         QuillCodeNativeHitTargetProbe(
             contractID: "command.toggle-memories",

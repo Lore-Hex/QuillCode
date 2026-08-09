@@ -1,5 +1,22 @@
 # Code Quality Audit
 
+## 2026-08-08 Intel Accessibility Discovery Resilience
+
+Overall grade after this slice: **A+ native resilience, A+ interaction integrity, A+ regression coverage**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Native compatibility | A+ | Menu fallback folds case, diacritics, and width while still requiring a real AppKit menu item and preferring identified workspace controls. |
+| Slow-runner resilience | A+ | Discovery takes fresh AX snapshots for a bounded five seconds; first-snapshot success retains the existing fast path. |
+| Interaction integrity | A+ | The release smoke still requires `AXPress`, observable state change, reversible text entry, surface checks, dismissal, and baseline restoration. |
+| Regression coverage | A+ | Focused tests prove title-case fallback, delayed third-snapshot discovery, the retry bound, identified-control precedence, menu identifiers, toggle titles, and ellipsis variants. |
+
+Validation:
+
+- Full `swift test` (5,660 tests, 5 skipped, 0 failures)
+- Accessibility resolution, desktop window report, and packaged macOS gate suites (29 tests, 0 failures)
+- Exact native package and public Intel publication evidence pending in this release follow-up
+
 ## 2026-08-08 Bounded Sidebar History Projection
 
 Overall grade after this slice: **A+ memory behavior, A+ latency, A+ semantic fidelity**.
