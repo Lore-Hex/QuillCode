@@ -484,6 +484,43 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertTrue(calls[3].userMessage.contains("host.file.read"))
     }
 
+    func testExhaustedEmptyResponseAfterFailedToolGetsRunLevelContinuation() async throws {
+        let root = try makeTempDirectory()
+        let missingRead = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "missing-source.txt"])
+        )
+        let attemptsPerResolver = AgentRunner.emptyResponseRetryLimit + 1
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(missingRead)),
+        ] + (0..<attemptsPerResolver).map { _ in
+            .failure(AgentError.emptyStreamingResponse)
+        } + [
+            .action(.say("Recovered after the failed source read.")),
+        ])
+        let runner = AgentRunner(
+            llm: client,
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.map(\.ok), [false])
+        XCTAssertEqual(result.thread.messages.last?.content, "Recovered after the failed source read.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("no action after a failed tool result")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, attemptsPerResolver + 2)
+        XCTAssertTrue(calls.last?.userMessage.contains("continuation 1 of 3") == true)
+        XCTAssertTrue(calls.last?.userMessage.contains("including any reported failure") == true)
+        XCTAssertTrue(calls.last?.userMessage.contains("host.file.read") == true)
+    }
+
     func testExhaustedContinuationBudgetResetsAfterNextExecutedTool() async throws {
         let root = try makeTempDirectory()
         try "source facts\n".write(

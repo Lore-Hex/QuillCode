@@ -328,9 +328,9 @@ public struct AgentRunner: Sendable {
                             await onProgress?(next)
                             continue actionLoop
                         }
-                        guard let completion = runLoop.latestCompletion,
-                              completion.result.ok
-                        else { throw AgentError.emptyStreamingResponse }
+                        guard let completion = runLoop.latestCompletion else {
+                            throw AgentError.emptyStreamingResponse
+                        }
                         if let recoveredRead = AgentExplicitSourceReadRecovery.nextAction(
                             userMessage: userMessage,
                             workspaceRoot: workspaceRoot,
@@ -345,7 +345,7 @@ public struct AgentRunner: Sendable {
                             ))
                             next.updatedAt = Date()
                             await onProgress?(next)
-                        } else if hasCompletedWorkspaceMutation {
+                        } else if hasCompletedWorkspaceMutation, completion.result.ok {
                             action = .say(Self.finalAnswer(
                                 for: completion.call,
                                 result: completion.result,
@@ -369,8 +369,11 @@ public struct AgentRunner: Sendable {
                             )
                             next.events.append(.init(
                                 kind: .notice,
-                                summary: "Self-healing: the model returned no action after successful "
-                                    + "source work; requested a concrete continuation "
+                                summary: "Self-healing: the model returned no action after "
+                                    + (completion.result.ok
+                                        ? "successful source work"
+                                        : "a failed tool result")
+                                    + "; requested a concrete continuation "
                                     + "(attempt \(exhaustedActionContinuationAttempts) of "
                                     + "\(Self.exhaustedActionContinuationLimit))."
                             ))
@@ -447,9 +450,9 @@ public struct AgentRunner: Sendable {
                     )
                 } catch AgentError.promisedWorkWithoutToolAction {
                     try Task.checkCancellation()
-                    guard let completion = runLoop.latestCompletion,
-                          completion.result.ok
-                    else { throw AgentError.promisedWorkWithoutToolAction }
+                    guard let completion = runLoop.latestCompletion else {
+                        throw AgentError.promisedWorkWithoutToolAction
+                    }
                     if let recoveredRead = AgentExplicitSourceReadRecovery.nextAction(
                         userMessage: userMessage,
                         workspaceRoot: workspaceRoot,
@@ -476,8 +479,11 @@ public struct AgentRunner: Sendable {
                         )
                         next.events.append(.init(
                             kind: .notice,
-                            summary: "Self-healing: the model stopped at a promise after successful "
-                                + "tool work; requested a concrete continuation "
+                            summary: "Self-healing: the model stopped at a promise after "
+                                + (completion.result.ok
+                                    ? "successful tool work"
+                                    : "a failed tool result")
+                                + "; requested a concrete continuation "
                                 + "(attempt \(exhaustedActionContinuationAttempts) of "
                                 + "\(Self.exhaustedActionContinuationLimit))."
                         ))
@@ -1441,8 +1447,9 @@ public struct AgentRunner: Sendable {
         attempt: Int
     ) -> String {
         """
-        [QuillCode continuation \(attempt) of \(exhaustedActionContinuationLimit)] The completed \
-        \(call.name) result is already in the conversation, but your next turn ended with \(failure). \
+        [QuillCode continuation \(attempt) of \(exhaustedActionContinuationLimit)] The \(call.name) \
+        result, including any reported failure, is already in the conversation, but your next turn \
+        ended with \(failure). \
         Do not plan, narrate, or announce what you will do. Emit exactly one QuillCode JSON object now. \
         Unless every requested deliverable already exists and has been verified, that object MUST be a \
         concrete next {"type":"tool",...} action with complete arguments. Do not repeat the completed \
