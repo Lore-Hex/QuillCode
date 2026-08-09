@@ -103,13 +103,22 @@ public extension QuillCodeWorkspaceModel {
     func surface() -> WorkspaceSurface {
         let thread = selectedThread
         let topBarState = root.topBar
-        let toolCards = currentToolCards
         let runtimeIssue = runtimeIssueSurface()
-        let transcriptMessages = thread.map {
+        let transcriptProjection = thread.map {
             WorkspaceTranscriptSurfaceBuilder(
                 thread: $0,
                 allowsRevert: selectedProject?.isRemote != true
-            ).messageSurfaces()
+            ).projection()
+        } ?? .empty
+        let executionContextBuilder = WorkspaceExecutionContextSurfaceBuilder(
+            selectedProject: selectedProject,
+            projects: root.projects
+        )
+        let toolCards = thread.map {
+            executionContextBuilder.enrichToolCards(transcriptProjection.toolCards, for: $0)
+        } ?? []
+        let timelineItems = thread.map {
+            executionContextBuilder.enrichTimelineItems(transcriptProjection.timelineItems, for: $0)
         } ?? []
         let activeSources = WorkspaceContextResolver(
             projects: root.projects,
@@ -180,9 +189,9 @@ public extension QuillCodeWorkspaceModel {
             projects: navigation.projects,
             sidebar: navigation.sidebar,
             transcript: TranscriptSurface(
-                messages: transcriptMessages,
+                messages: transcriptProjection.messages,
                 toolCards: toolCards,
-                timelineItems: thread == nil ? nil : currentTimelineItems,
+                timelineItems: thread == nil ? nil : timelineItems,
                 thinking: WorkspaceTranscriptThinkingSurfaceBuilder(
                     thread: thread,
                     composer: composer,

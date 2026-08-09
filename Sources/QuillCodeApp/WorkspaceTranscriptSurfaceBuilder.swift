@@ -1,6 +1,18 @@
 import Foundation
 import QuillCodeCore
 
+struct WorkspaceTranscriptProjection: Sendable, Hashable {
+    var messages: [MessageSurface]
+    var toolCards: [ToolCardState]
+    var timelineItems: [TranscriptTimelineItemSurface]
+
+    static let empty = WorkspaceTranscriptProjection(
+        messages: [],
+        toolCards: [],
+        timelineItems: []
+    )
+}
+
 struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
     var thread: ChatThread
     /// Whether to offer per-turn revert affordances. False for remote projects, where the
@@ -9,11 +21,10 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
 
     func messageSurfaces() -> [MessageSurface] {
         let revertByMessageID = allowsRevert ? Self.revertByMessageID(for: thread) : [:]
-        return thread.messages
-            .filter { Self.isVisibleTranscriptRole($0.role) }
-            .map { message in
-                MessageSurface(message: message, revert: revertByMessageID[message.id])
-            }
+        return Self.messageSurfaces(
+            for: thread.messages,
+            revertByMessageID: revertByMessageID
+        )
     }
 
     /// Maps each revertable turn's starting user-message id to its revert affordance.
@@ -38,14 +49,47 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
     }
 
     func timelineItems() -> [TranscriptTimelineItemSurface] {
-        guard !thread.events.isEmpty else {
-            return messageSurfaces().map(TranscriptTimelineItemSurface.message)
-                + toolCards().map(TranscriptTimelineItemSurface.toolCard)
+        projection().timelineItems
+    }
+
+    /// Builds the three transcript views together so a desktop surface refresh decodes each tool
+    /// lifecycle and plans each message revert once. The separate accessors remain for focused
+    /// callers that only need one representation.
+    func projection() -> WorkspaceTranscriptProjection {
+        let revertByMessageID = allowsRevert ? Self.revertByMessageID(for: thread) : [:]
+        var visibleSurfaceIndexByMessageIndex = Array(
+            repeating: -1,
+            count: thread.messages.count
+        )
+        var visibleMessages: [MessageSurface] = []
+        visibleMessages.reserveCapacity(thread.messages.count)
+        for index in thread.messages.indices {
+            let message = thread.messages[index]
+            guard Self.isVisibleTranscriptRole(message.role) else { continue }
+            let surface = MessageSurface(
+                message: message,
+                revert: revertByMessageID[message.id]
+            )
+            visibleSurfaceIndexByMessageIndex[index] = visibleMessages.count
+            visibleMessages.append(surface)
         }
 
-        let revertByMessageID = allowsRevert ? Self.revertByMessageID(for: thread) : [:]
+        guard !thread.events.isEmpty else {
+            return WorkspaceTranscriptProjection(
+                messages: visibleMessages,
+                toolCards: [],
+                timelineItems: visibleMessages.map(TranscriptTimelineItemSurface.message)
+            )
+        }
+
         var messageIndex: WorkspaceTranscriptMessageIndex?
-        var reducer = WorkspaceToolCardEventReducer<[TranscriptTimelineItemSurface]>.timeline()
+        let estimatedToolCardCount = min(thread.events.count / 3 + 1, 4_096)
+        var reducer = WorkspaceToolCardEventReducer.transcriptProjection(
+            state: WorkspaceTranscriptProjectionAccumulator(
+                toolCardCapacity: estimatedToolCardCount,
+                timelineCapacity: visibleMessages.count + estimatedToolCardCount
+            )
+        )
 
         for event in thread.events {
             switch event.kind {
@@ -57,10 +101,11 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
                     continue
                 }
                 let message = thread.messages[index]
-                reducer.state.append(.message(MessageSurface(
-                    message: message,
-                    revert: revertByMessageID[message.id]
-                )))
+                let visibleSurfaceIndex = visibleSurfaceIndexByMessageIndex[index]
+                let surface = visibleSurfaceIndex >= 0
+                    ? visibleMessages[visibleSurfaceIndex]
+                    : MessageSurface(message: message, revert: revertByMessageID[message.id])
+                reducer.state.appendMessage(surface)
             case .messageFeedback, .reviewComment, .notice:
                 continue
             case .toolQueued, .toolRunning, .toolProgress, .toolCompleted, .toolFailed,
@@ -76,9 +121,26 @@ struct WorkspaceTranscriptSurfaceBuilder: Sendable, Hashable {
             else {
                 continue
             }
-            reducer.state.append(.message(MessageSurface(message: message, revert: revertByMessageID[message.id])))
+            let visibleSurfaceIndex = visibleSurfaceIndexByMessageIndex[index]
+            if visibleSurfaceIndex >= 0 {
+                reducer.state.appendMessage(visibleMessages[visibleSurfaceIndex])
+            }
         }
-        return reducer.state
+        return WorkspaceTranscriptProjection(
+            messages: visibleMessages,
+            toolCards: reducer.state.toolCards,
+            timelineItems: reducer.state.timelineItems
+        )
+    }
+
+    private static func messageSurfaces(
+        for messages: [ChatMessage],
+        revertByMessageID: [UUID: MessageRevertSurface]
+    ) -> [MessageSurface] {
+        messages.compactMap { message in
+            guard isVisibleTranscriptRole(message.role) else { return nil }
+            return MessageSurface(message: message, revert: revertByMessageID[message.id])
+        }
     }
 
     private static func isVisibleTranscriptRole(_ role: ChatRole) -> Bool {
