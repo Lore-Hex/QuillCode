@@ -585,8 +585,14 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
                 "command.toggle-extensions",
                 "command.toggle-memories",
                 "command.toggle-activity",
-                "command.toggle-review-panel"
+                "command.toggle-review-panel",
+                "onboarding.developer-key"
             ]
+        )
+        XCTAssertEqual(
+            QuillCodeDesktopAccessibilityActivationSampler.repeatableActivationContractIDs,
+            QuillCodeDesktopAccessibilityActivationSampler.requiredActivationContractIDs
+                .subtracting(["onboarding.developer-key"])
         )
     }
 

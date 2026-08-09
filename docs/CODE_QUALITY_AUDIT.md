@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-08-08 First-Run Developer Key Onboarding
+
+Overall grade after this slice: **A+ onboarding UX, A+ credential ownership, A+ release evidence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| First-run UX | A+ | The keyless connection surface keeps TrustedRouter OAuth primary and adds a polished, 240-point secondary `Use a developer key` action with a native key icon and distinct Accessibility identity. |
+| Security architecture | A+ | The action opens the existing Settings form through a one-shot draft override; no API key is persisted or source configuration changed until the existing Save path runs. |
+| Accessibility | A+ | The live native smoke resolves `quillcode-connect-developer-key` as an `AXButton`, performs `AXPress`, requires the secure developer-key field, and closes Settings through `quillcode-settings-close`. |
+| Release resilience | A+ | Initial-only activation is explicit, repeatable post-mutation controls remain in the second sweep, and unresolved AX targets now report nearby live identifiers and labels. |
+| Performance | A+ | The release-mode package reached first frame in 220.63 ms at 90.52 MiB, settled at 149.77 MiB after the first interaction sweep, and converged at 154.03 MiB with 4.27 MiB and one thread of repeated growth. |
+
+Validation:
+
+- Full `swift test` (5,654 tests, 5 skipped, 0 failures)
+- Focused onboarding, Settings draft, native hit-target, desktop window, public distribution, and
+  packaged click-probe suites (52 tests, 0 failures)
+- Exact-commit release-mode packaging passed direct executable, Launch Services, 10 first-sweep
+  Accessibility activations, the repeatable second sweep, and every semantic release validator
+- Visual inspection at 1280 x 900 confirmed the complete connection surface, button hierarchy,
+  stable composer dimensions, and no overlap or clipping
+- `python3 scripts/grade-code-quality.py --root .` reports every module A+
+- `git diff --check`; exact leaked-token fingerprint absent
+
 ## 2026-08-08 Native Interaction And Connection Race Recovery
 
 Overall grade after this slice: **A+ native resilience, A+ connection truth, A+ release evidence**.

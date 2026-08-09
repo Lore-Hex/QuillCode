@@ -1,12 +1,13 @@
 import SwiftUI
 
 /// First-run "connect your account" hero, shown in place of the project starter cards when the app has
-/// no TrustedRouter credential. It reuses the existing OAuth sign-in action (`onSignIn`) — no new auth
-/// path — and simply surfaces it up front so a new user can't reach a composer that would silently
-/// fail. See ``TranscriptConnectPrompt`` for the show/hide decision and copy.
+/// no TrustedRouter credential. It surfaces the existing OAuth action and routes developer-key users
+/// into the existing Settings flow, so credential storage still has one owner. See
+/// ``TranscriptConnectPrompt`` for the show/hide decision and copy.
 struct QuillCodeConnectView: View {
     var prompt: TranscriptConnectPrompt
     var onSignIn: () -> Void
+    var onUseDeveloperKey: () -> Void
 
     var body: some View {
         VStack(spacing: 16) {
@@ -40,6 +41,14 @@ struct QuillCodeConnectView: View {
                 .font(.caption)
                 .foregroundStyle(QuillCodePalette.muted)
 
+            Button(action: onUseDeveloperKey) {
+                Label(TranscriptConnectPrompt.developerKeyTitle, systemImage: "key.fill")
+            }
+            .buttonStyle(QuillCodeActionButtonStyle(.secondary, minWidth: 240))
+            .quillCodeFormActionTarget(minWidth: 240)
+            .accessibilityIdentifier("quillcode-connect-developer-key")
+            .help("Open Developer override settings")
+
             if let accountURL = URL(string: prompt.accountURL) {
                 Link(destination: accountURL) {
                     Text(TranscriptConnectPrompt.createAccountTitle)
@@ -57,7 +66,6 @@ struct QuillCodeConnectView: View {
         .frame(maxWidth: 560)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 22)
-        .accessibilityIdentifier("quillcode-connect-empty-state")
     }
 
     private var stepsRow: some View {
@@ -74,6 +82,6 @@ struct QuillCodeConnectView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Steps: sign in, choose a model, start a task")
+        .accessibilityLabel("Steps: connect, choose a model, start a task")
     }
 }

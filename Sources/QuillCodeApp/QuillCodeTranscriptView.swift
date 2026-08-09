@@ -38,6 +38,7 @@ struct QuillCodeTranscriptView: View {
     /// silently fail. See ``TranscriptConnectPrompt``.
     var connectPrompt: TranscriptConnectPrompt? = nil
     var onStartTrustedRouterSignIn: () -> Void = {}
+    var onUseDeveloperKey: () -> Void = {}
     var requiresProjectSelection = false
     var onOpenProject: () -> Void = {}
 
@@ -332,7 +333,11 @@ struct QuillCodeTranscriptView: View {
         } else if let connectPrompt {
             // Not connected yet: the sign-in gate takes precedence over the starter cards (and even
             // confidential mode) — there is nothing to start until an account is connected.
-            QuillCodeConnectView(prompt: connectPrompt, onSignIn: onStartTrustedRouterSignIn)
+            QuillCodeConnectView(
+                prompt: connectPrompt,
+                onSignIn: onStartTrustedRouterSignIn,
+                onUseDeveloperKey: onUseDeveloperKey
+            )
         } else if isConfidentialAppearance {
             confidentialEmptyState
         } else {

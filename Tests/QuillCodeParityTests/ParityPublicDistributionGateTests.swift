@@ -43,9 +43,21 @@ final class ParityPublicDistributionGateTests: QuillCodeParityTestCase {
         let connectView = try Self.appSourceText(named: "QuillCodeConnectView.swift")
         let connectPrompt = try Self.appSourceText(named: "TranscriptConnectPrompt.swift")
         let settingsView = try Self.appSourceText(named: "QuillCodeSettingsView.swift")
+        let workspaceView = try Self.appSourceText(named: "WorkspaceSwiftUIView.swift")
+        let workspaceSheets = try Self.appSourceText(named: "QuillCodeWorkspaceSheets.swift")
 
         Self.assertSource(connectView, excludes: "prompt.signInURL")
+        Self.assertSource(connectView, containsAll: [
+            "TranscriptConnectPrompt.developerKeyTitle",
+            "quillcode-connect-developer-key",
+            "onUseDeveloperKey"
+        ])
         Self.assertSource(connectPrompt, excludes: "var signInURL")
         Self.assertSource(settingsView, contains: "Text(settings.signInURL)")
+        Self.assertSource(workspaceView, containsAll: [
+            "onUseDeveloperKey: presentDeveloperKeySettings",
+            "settingsAuthModeOverride = .developerOverride"
+        ])
+        Self.assertSource(workspaceSheets, contains: "authModeOverride: settingsAuthModeOverride")
     }
 }

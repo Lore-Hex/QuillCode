@@ -19,6 +19,14 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         requiredControlDescription: "notifications control",
         closeIdentifier: "quillcode-settings-close"
     )
+    private static let developerKeySettingsSurfaceContract = DismissibleSurfaceContract(
+        contractID: "onboarding.developer-key",
+        name: "Developer override settings",
+        titleIdentifier: "quillcode-settings-title",
+        requiredControlIdentifier: "quillcode-settings-api-key",
+        requiredControlDescription: "developer key field",
+        closeIdentifier: "quillcode-settings-close"
+    )
     private static let automationsSurfaceContract = DismissibleSurfaceContract(
         contractID: "command.toggle-automations",
         name: "Automations",
@@ -163,6 +171,12 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
         await verifyDismissibleSurface(settingsSurfaceContract, contentView: contentView)
+    }
+
+    static func verifyDeveloperKeySettingsDismissal(
+        contentView: NSView
+    ) async -> QuillCodeDesktopAccessibilityActivationVerification {
+        await verifyDismissibleSurface(developerKeySettingsSurfaceContract, contentView: contentView)
     }
 
     static func verifyAutomationsDismissal(

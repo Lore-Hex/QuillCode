@@ -10,6 +10,7 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
     @Binding var commandQuery: String
     @Binding var isSettingsPresented: Bool
     @Binding var settingsDraft: QuillCodeSettingsDraft
+    @Binding var settingsAuthModeOverride: TrustedRouterAuthMode?
     @Binding var isKeyboardShortcutsPresented: Bool
     @Binding var codeReviewDraft: WorkspaceCodeReviewRequest
     @Binding var worktreeSheet: QuillCodeWorktreeSheet?
@@ -57,8 +58,12 @@ struct QuillCodeWorkspaceSheetsModifier: ViewModifier {
             .overlay { modalLayer }
             .onChange(of: isSettingsPresented) { _, isPresented in
                 if isPresented {
-                    settingsDraft = QuillCodeSettingsDraft(settings: surface.settings)
+                    settingsDraft = QuillCodeSettingsDraft(
+                        settings: surface.settings,
+                        authModeOverride: settingsAuthModeOverride
+                    )
                 }
+                settingsAuthModeOverride = nil
             }
             .onChange(of: surface.codeReviewRequest) { _, request in
                 if let request {
@@ -459,6 +464,7 @@ extension View {
         commandQuery: Binding<String>,
         isSettingsPresented: Binding<Bool>,
         settingsDraft: Binding<QuillCodeSettingsDraft>,
+        settingsAuthModeOverride: Binding<TrustedRouterAuthMode?>,
         isKeyboardShortcutsPresented: Binding<Bool>,
         codeReviewDraft: Binding<WorkspaceCodeReviewRequest>,
         worktreeSheet: Binding<QuillCodeWorktreeSheet?>,
@@ -509,6 +515,7 @@ extension View {
             commandQuery: commandQuery,
             isSettingsPresented: isSettingsPresented,
             settingsDraft: settingsDraft,
+            settingsAuthModeOverride: settingsAuthModeOverride,
             isKeyboardShortcutsPresented: isKeyboardShortcutsPresented,
             codeReviewDraft: codeReviewDraft,
             worktreeSheet: worktreeSheet,

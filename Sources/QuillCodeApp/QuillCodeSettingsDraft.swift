@@ -31,10 +31,14 @@ struct QuillCodeSettingsDraft: Equatable {
 
     init() {}
 
-    init(settings: WorkspaceSettingsSurface) {
+    init(
+        settings: WorkspaceSettingsSurface,
+        authModeOverride: TrustedRouterAuthMode? = nil
+    ) {
         self.apiBaseURL = settings.apiBaseURL
-        self.authMode = settings.authMode
-        self.developerOverrideEnabled = settings.developerOverrideEnabled
+        self.authMode = authModeOverride ?? settings.authMode
+        self.developerOverrideEnabled = authModeOverride.map { $0 == .developerOverride }
+            ?? settings.developerOverrideEnabled
         self.reviewModelText = settings.reviewModel ?? ""
         self.reviewDelivery = settings.reviewDelivery
         self.defaultPersonality = settings.defaultPersonality

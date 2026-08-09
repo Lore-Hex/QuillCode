@@ -43,6 +43,7 @@ REQUIRED_LIVE_ACCESSIBILITY_ACTIVATION_CONTRACT_IDS = [
     "command.toggle-memories",
     "command.toggle-activity",
     "command.toggle-review-panel",
+    "onboarding.developer-key",
 ]
 EXPECTED_SAMPLE_POINTS = {
     "center": (0.5, 0.5),

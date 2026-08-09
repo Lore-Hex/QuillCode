@@ -7,9 +7,15 @@ extension QuillCodeParityTestCase {
         let commandIDs = minimalPackagedWindowCommandIDs
             .map { #"              "\#($0)""# }
             .joined(separator: ",\n")
-        let surfaceContracts = ([minimalComposerSurfaceContractJSON] + minimalPackagedWindowCommandIDs.map(commandSurfaceContractJSON))
+        let surfaceContracts = ([
+            minimalComposerSurfaceContractJSON,
+            minimalDeveloperKeySurfaceContractJSON
+        ] + minimalPackagedWindowCommandIDs.map(commandSurfaceContractJSON))
             .joined(separator: ",\n")
-        let clickProbes = ([minimalComposerClickProbeJSON] + minimalPackagedWindowCommandIDs.map(commandClickProbeJSON))
+        let clickProbes = ([
+            minimalComposerClickProbeJSON,
+            minimalDeveloperKeyClickProbeJSON
+        ] + minimalPackagedWindowCommandIDs.map(commandClickProbeJSON))
             .joined(separator: ",\n")
         let accessibilityFrameSamplesFragment = accessibilityFrameSamples.map { ",\n\($0)" } ?? ""
 
@@ -215,7 +221,8 @@ extension QuillCodeParityTestCase {
         "command.toggle-extensions",
         "command.toggle-memories",
         "command.toggle-activity",
-        "command.toggle-review-panel"
+        "command.toggle-review-panel",
+        "onboarding.developer-key"
     ]
 
     static func accessibilityActivationJSON() -> String {
@@ -247,16 +254,16 @@ extension QuillCodeParityTestCase {
     }
 
     static func accessibilityActivationCheckJSON(contractID: String) -> String {
-        let commandID = String(contractID.dropFirst("command.".count))
+        let selector = accessibilityActivationSelector(contractID: contractID)
         let values = accessibilityActivationValues(contractID: contractID)
         return """
               {
                 "contractID": "\(contractID)",
-                "selectorKind": "command-id",
-                "selector": "\(commandID)",
-                "resolvedIdentifier": "quillcode-sidebar-command-\(commandID)",
+                "selectorKind": "\(selector.kind)",
+                "selector": "\(selector.value)",
+                "resolvedIdentifier": "\(selector.identifier)",
                 "role": "AXButton",
-                "label": "\(commandID)",
+                "label": "\(selector.value)",
                 "activation": "AXPress",
                 "expectedOutcome": "\(accessibilityActivationExpectedOutcome(contractID: contractID))",
                 "beforeValue": "\(values.before)",
@@ -267,6 +274,20 @@ extension QuillCodeParityTestCase {
                 "validationIssue": ""
               }
         """
+    }
+
+    static func accessibilityActivationSelector(
+        contractID: String
+    ) -> (kind: String, value: String, identifier: String) {
+        switch contractID {
+        case "composer.model-picker":
+            return ("test-id", "quillcode-model-picker-button", "quillcode-model-picker-button")
+        case "onboarding.developer-key":
+            return ("test-id", "quillcode-connect-developer-key", "quillcode-connect-developer-key")
+        default:
+            let commandID = String(contractID.dropFirst("command.".count))
+            return ("command-id", commandID, "quillcode-sidebar-command-\(commandID)")
+        }
     }
 
     static func accessibilityActivationExpectedOutcome(contractID: String) -> String {
@@ -289,6 +310,8 @@ extension QuillCodeParityTestCase {
             return "Activity renders its task summary, dismisses through Close, and restores workspace width"
         case "command.toggle-review-panel":
             return "Review renders its scope control and dismisses through Close"
+        case "onboarding.developer-key":
+            return "developer-key onboarding opens Developer override settings and dismisses through Close"
         default:
             return "observable controller state changes"
         }
@@ -314,6 +337,8 @@ extension QuillCodeParityTestCase {
             return "rendered Activity with its task summary, dismissed through quillcode-activity-close with AXPress, and restored composer width from 480 to 800 points"
         case "command.toggle-review-panel":
             return "rendered Review with its scope control and dismissed through quillcode-review-close with AXPress"
+        case "onboarding.developer-key":
+            return "rendered Developer override settings with its developer key field and dismissed through quillcode-settings-close with AXPress"
         default:
             return "AXPress changed observable controller state"
         }
