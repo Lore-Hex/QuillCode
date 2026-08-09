@@ -311,6 +311,28 @@ extension AgentPromisedWorkGuardTests {
         }
     }
 
+    func testDetectsDelegatedWorkerNextStepStalls() {
+        let stalls = [
+            "I found Q3 2024. Now I need Q2 2024 to complete the requested series.",
+            "I could not extract a verified number. Next: re-fetch the investor filing.",
+            "Three rows are verified; I still need to search for the fourth filing.",
+        ]
+        for text in stalls {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.webFetch, .webSearch]),
+                .promisedWork,
+                "unfinished delegated work should re-drive: \(text)"
+            )
+        }
+    }
+
+    func testCompletedDelegatedHandoffIsNotAStall() {
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "All four quarters are verified. The remaining step is for the deliverable owner to merge these findings.",
+            tools: [.webFetch, .fileWrite]
+        ))
+    }
+
     func testPresentProgressObservationIsNotAPromise() {
         XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
             for: "Reading the report now shows three conversion gaps.",

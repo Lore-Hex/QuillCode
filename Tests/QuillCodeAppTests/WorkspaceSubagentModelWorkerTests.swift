@@ -183,7 +183,26 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Explorer"))
         XCTAssertTrue(prompt.contains("Work autonomously with the available tools"))
         XCTAssertTrue(prompt.contains("Do not merely announce what you intend to do"))
+        XCTAssertTrue(prompt.contains("Do not finish while any recoverable part"))
+        XCTAssertTrue(prompt.contains("COMPLETE:"))
+        XCTAssertTrue(prompt.contains("BLOCKED:"))
+        XCTAssertFalse(prompt.contains("any remaining next steps"))
         XCTAssertFalse(prompt.contains(#"{"type":"say""#))
+    }
+
+    func testExplicitBlockedResultIsNotReportedAsDone() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let worker = makeWorker(
+            root: root,
+            actions: [.say("BLOCKED: the required account is signed out after two login checks.")]
+        )
+
+        let result = try await worker.runWithTranscript(
+            WorkspaceSubagentJob(name: "Verifier", role: "inspect the private account", objective: "audit")
+        )
+
+        XCTAssertEqual(result.status, .blocked)
+        XCTAssertTrue(result.summary.contains("BLOCKED:"))
     }
 
     func testPromptOffersOptionalDelegationViaTheParsedMarker() {

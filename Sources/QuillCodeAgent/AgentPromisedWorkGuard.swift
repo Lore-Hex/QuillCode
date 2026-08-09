@@ -136,6 +136,7 @@ enum AgentPromisedWorkGuard {
         return containsFutureWorkPhrase(in: normalized)
             || declaresReadinessToProceed(in: normalized)
             || declaresImmediateWorkInProgress(in: normalized)
+            || declaresUnfinishedNextStep(in: normalized)
     }
 
     /// A say that ENDS the turn by announcing the model is ABOUT to work rather than working — the
@@ -212,6 +213,39 @@ enum AgentPromisedWorkGuard {
         "reading", "writing", "creating", "opening", "inspecting", "checking", "reviewing",
         "running", "fetching", "searching", "updating", "editing", "building", "testing",
         "starting", "continuing",
+    ]
+
+    /// A terminal answer can describe unfinished work without future tense. Delegated research
+    /// workers produced both of these live shapes and were incorrectly reported as complete:
+    /// "Now I need Q2 ... to complete" and "Next: re-fetch the filing". Require both a narrow
+    /// unfinished-work marker and a concrete work verb so completed handoff notes such as
+    /// "the parent can merge these findings" remain valid.
+    private static func declaresUnfinishedNextStep(in normalizedText: String) -> Bool {
+        if remainingWorkStarters.contains(where: { starter in
+            guard let range = normalizedText.range(of: starter) else { return false }
+            return containsWorkVerb(in: normalizedText[range.upperBound...].prefix(96))
+        }) {
+            return true
+        }
+
+        return nextStepLabels.contains { label in
+            ranges(of: label, in: normalizedText).contains { range in
+                containsWorkVerb(in: normalizedText[range.upperBound...].prefix(96))
+            }
+        }
+    }
+
+    private static let remainingWorkStarters = [
+        "now i need ",
+        "i still need to ",
+        "we still need to ",
+        "still need to ",
+    ]
+
+    private static let nextStepLabels = [
+        "next:",
+        "next step:",
+        "next steps:",
     ]
 
     // MARK: - Trailing-off narration (structural, no first-person phrase required)

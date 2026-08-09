@@ -184,7 +184,7 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             .map(WorkspaceContextSummaryTextBounds.collapsedSingleLine)
         let finalSummary = summary.flatMap { $0.isEmpty ? nil : $0 } ?? "Completed \(fallbackRole)"
         return WorkspaceSubagentWorkerResult(
-            status: .completed,
+            status: WorkspaceSubagentTerminalStatus.status(for: assistantText),
             summary: finalSummary,
             transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
         )
@@ -262,10 +262,13 @@ enum WorkspaceSubagentPromptBuilder {
         finish. Do not merely announce what you intend to do. Respect the
         workspace boundary and the active safety mode.
 
-        Finish with a concise result: what you inspected or produced, key
-        findings, verification, and any remaining next steps. Keep it to a few
-        sentences. Do not include credentials, tokens, private keys, or other
-        secrets.
+        Do not finish while any recoverable part of your assigned role remains.
+        Use the available tools now instead of returning a plan or "next steps".
+        End with COMPLETE: followed by a concise result only after every role
+        requirement is satisfied and verified. If the role is genuinely blocked
+        after concrete attempts, end with BLOCKED: followed by the exact blocker,
+        what you tried, and the usable evidence you did gather. Do not include
+        credentials, tokens, private keys, or other secrets.
 
         If — and only if — your work genuinely splits into independent sub-tasks
         that a separate subagent should own, you may delegate by adding one or
@@ -298,5 +301,40 @@ enum WorkspaceSubagentPromptBuilder {
         \(lines)
 
         """
+    }
+}
+
+private enum WorkspaceSubagentTerminalStatus {
+    static func status(for text: String) -> SubagentStatus {
+        let lines = text
+            .lowercased()
+            .split(whereSeparator: \.isNewline)
+            .map { line in
+                line.trimmingCharacters(
+                    in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "#*_`- "))
+                )
+            }
+        if lines.contains(where: { $0.hasPrefix("blocked:") || $0 == "blocked" }) {
+            return .blocked
+        }
+        if hasRecoverableWorkMarker(in: text.lowercased()) {
+            return .failed
+        }
+        return .completed
+    }
+
+    private static func hasRecoverableWorkMarker(in text: String) -> Bool {
+        if text.contains("now i need ") && text.contains(" to complete") {
+            return true
+        }
+        if text.contains("still need to ") {
+            return true
+        }
+        let nextActionMarkers = [
+            "next: re-fetch", "next: refetch", "next: retry", "next: fetch",
+            "next: search", "next: read", "next: write", "next step: re-fetch",
+            "next step: retry", "next step: fetch", "next step: search",
+        ]
+        return nextActionMarkers.contains(where: text.contains)
     }
 }
