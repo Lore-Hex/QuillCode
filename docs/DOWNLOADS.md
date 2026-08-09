@@ -59,6 +59,18 @@ suppresses it for the current build; a newer build may remind the user again.
 Writable installed copies do not show it. Installation guidance and available-update
 state use one coordinated sheet, so they cannot overlap.
 
+## Tester Recovery: Unsaved Settings
+
+If Quill Cowork reports that a settings change is not saved, keep the app open and retry the
+change after checking available disk space and write access to the app-data directory. The app
+keeps quick preference changes usable for the current session and protects the previous durable
+configuration and TrustedRouter credential whenever recovery is possible. A successful retry for
+the affected data clears the warning; an unrelated successful save does not hide it.
+
+For a bug report, include the warning title, affected data labels, app version, and build number.
+Do not include API keys, account details, filesystem paths, URLs, or raw private content. The
+in-app diagnostic is deliberately content-free and should report `Private content included: No`.
+
 ## Build Cadence
 
 The tester release is refreshed:

@@ -1,5 +1,31 @@
 # Code Quality Audit
 
+## 2026-08-09 Transactional Desktop Settings Persistence
+
+Overall grade after this slice: **A+ data integrity, A+ recovery UX, A+ privacy**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Transaction integrity | A+ | Full settings saves snapshot the previous credential, apply a requested replacement or clear, persist configuration last, and restore the previous credential when either step fails. Proposed settings enter the live model only after the transaction succeeds. |
+| OAuth integrity | A+ | TrustedRouter sign-in persists its credential and account configuration through the same transaction, removing the former split-write state where one could succeed without the other. |
+| Recovery UX | A+ | Quick mode, model, favorite, and shortcut changes remain usable for the session when configuration persistence fails, while the normal runtime-issue surface keeps an exact warning visible until that data kind saves successfully. |
+| Privacy | A+ | Failures retain only bounded configuration/credential enum cases and one rollback-failure boolean. Diagnostics contain no key material, account data, paths, URLs, or raw filesystem errors. |
+| Failure compensation | A+ | Credential read failures perform no writes, partial credential mutations are compensated before returning, and configuration failures restore the prior credential. A failed rollback remains visible without exposing the underlying error. |
+
+Validation:
+
+- Focused transaction, persistence issue, desktop recovery, parity, settings regression, and
+  native rendered suites (12 tests, 0 failures)
+- OAuth and settings transaction parity guards (2 tests, 0 failures)
+- Full `swift test` (5,736 tests, 5 skipped, 0 failures)
+- Complete packaged direct, Launch Services, live-window, Accessibility, and repeated-interaction
+  smoke passed with 126 messages, 79 tool cards, 205 timeline items, and 186 click probes
+- Packaged performance passed at 279.59 ms launch-ready, 98.41 MiB initial, 158.27 MiB
+  post-interaction, and 162.66 MiB repeated-interaction memory with 4.39 MiB repeated growth
+- Optimized release executable stripped from 56,189,744 to 28,197,968 bytes before signing;
+  final executable is 28,052,176 bytes, strict signature verification and Launch Services passed
+- `python3 scripts/grade-code-quality.py --root .` reports every module at A+
+
 ## 2026-08-09 Visible Workspace Registry Durability Failures
 
 Overall grade after this slice: **A+ data integrity, A+ recovery UX, A+ privacy**.

@@ -6,6 +6,7 @@ struct QuillCodeDesktopSettingsResult {
     var config: AppConfig
     var runtime: QuillCodeRuntime
     var trustedRouterAPIKeyConfigured: Bool
+    var persistedKinds: Set<WorkspaceSettingsPersistenceKind>
 }
 
 @MainActor
@@ -18,17 +19,17 @@ struct QuillCodeDesktopSettingsCoordinator {
 
     func setMode(_ mode: AgentMode, on model: QuillCodeWorkspaceModel) {
         model.setMode(mode)
-        persist(model.root.config)
+        persist(model.root.config, on: model)
     }
 
     func setModel(_ modelID: String, on model: QuillCodeWorkspaceModel) {
         model.setModel(modelID)
-        persist(model.root.config)
+        persist(model.root.config, on: model)
     }
 
     func toggleModelFavorite(_ modelID: String, on model: QuillCodeWorkspaceModel) {
         model.toggleModelFavorite(modelID)
-        persist(model.root.config)
+        persist(model.root.config, on: model)
     }
 
     func setKeyboardShortcutPreferences(
@@ -36,7 +37,7 @@ struct QuillCodeDesktopSettingsCoordinator {
         on model: QuillCodeWorkspaceModel
     ) {
         model.setKeyboardShortcutPreferences(preferences)
-        persist(model.root.config)
+        persist(model.root.config, on: model)
     }
 
     func refreshModelCatalog(on model: QuillCodeWorkspaceModel) async {
@@ -49,15 +50,34 @@ struct QuillCodeDesktopSettingsCoordinator {
         to model: QuillCodeWorkspaceModel,
         refresh: @escaping @MainActor () -> Void
     ) {
-        let result = apply(
-            update: update,
-            currentConfig: model.root.config
-        )
+        let currentConfig = model.root.config
+        let appliedResult: QuillCodeDesktopSettingsResult
+        do {
+            appliedResult = try apply(
+                update: update,
+                currentConfig: currentConfig
+            )
+            model.recordSettingsPersistenceSuccess(appliedResult.persistedKinds)
+        } catch let error as WorkspaceSettingsPersistenceError {
+            model.recordSettingsPersistenceFailure(error.failedKinds)
+            let currentResult = result(for: currentConfig)
+            model.applySettings(
+                config: currentResult.config,
+                trustedRouterAPIKeyConfigured: currentResult.trustedRouterAPIKeyConfigured
+            )
+            model.applyRuntime(currentResult.runtime)
+            refresh()
+            return
+        } catch {
+            model.recordSettingsPersistenceFailure([.configuration])
+            refresh()
+            return
+        }
         model.applySettings(
-            config: result.config,
-            trustedRouterAPIKeyConfigured: result.trustedRouterAPIKeyConfigured
+            config: appliedResult.config,
+            trustedRouterAPIKeyConfigured: appliedResult.trustedRouterAPIKeyConfigured
         )
-        model.applyRuntime(result.runtime)
+        model.applyRuntime(appliedResult.runtime)
         refresh()
         Task { @MainActor in
             await refreshModelCatalog(on: model)
@@ -65,14 +85,19 @@ struct QuillCodeDesktopSettingsCoordinator {
         }
     }
 
-    func persist(_ config: AppConfig) {
-        try? bootstrap.saveConfig(config)
+    func persist(_ config: AppConfig, on model: QuillCodeWorkspaceModel) {
+        do {
+            try bootstrap.saveConfig(config)
+            model.recordSettingsPersistenceSuccess([.configuration])
+        } catch {
+            model.recordSettingsPersistenceFailure([.configuration])
+        }
     }
 
     func apply(
         update: WorkspaceSettingsUpdate,
         currentConfig: AppConfig
-    ) -> QuillCodeDesktopSettingsResult {
+    ) throws -> QuillCodeDesktopSettingsResult {
         var config = currentConfig
         config.apiBaseURL = update.apiBaseURL
         config.authMode = update.authMode
@@ -89,31 +114,58 @@ struct QuillCodeDesktopSettingsCoordinator {
         config.reviewDelivery = update.reviewDelivery
         config.defaultPersonality = update.defaultPersonality
 
-        if update.shouldClearAPIKey {
-            try? bootstrap.clearTrustedRouterAPIKey()
-            config.trustedRouterAccount = nil
-        }
+        let credentialMutation: WorkspaceTrustedRouterCredentialMutation
         if let replacementAPIKey = update.replacementAPIKey {
-            try? bootstrap.saveTrustedRouterAPIKey(replacementAPIKey)
+            credentialMutation = .replace(replacementAPIKey)
             config.trustedRouterAccount = nil
+        } else if update.shouldClearAPIKey {
+            credentialMutation = .clear
+            config.trustedRouterAccount = nil
+        } else {
+            credentialMutation = .unchanged
         }
         if config.authMode == .developerOverride {
             config.trustedRouterAccount = nil
         }
 
-        return persistAndBuildResult(config)
+        do {
+            try bootstrap.saveSettingsTransaction(
+                currentConfig: currentConfig,
+                proposedConfig: config,
+                credentialMutation: credentialMutation
+            )
+        } catch let error as WorkspaceSettingsPersistenceError {
+            throw error
+        } catch {
+            var kinds: Set<WorkspaceSettingsPersistenceKind> = [.configuration]
+            if credentialMutation.changesCredential {
+                kinds.insert(.trustedRouterCredential)
+            }
+            throw WorkspaceSettingsPersistenceError(
+                failedKinds: kinds,
+                rollbackFailed: true
+            )
+        }
+        var persistedKinds: Set<WorkspaceSettingsPersistenceKind> = [.configuration]
+        if credentialMutation.changesCredential {
+            persistedKinds.insert(.trustedRouterCredential)
+        }
+        return result(for: config, persistedKinds: persistedKinds)
     }
 
     func result(for config: AppConfig) -> QuillCodeDesktopSettingsResult {
-        persistAndBuildResult(config)
+        result(for: config, persistedKinds: [])
     }
 
-    private func persistAndBuildResult(_ config: AppConfig) -> QuillCodeDesktopSettingsResult {
-        try? bootstrap.saveConfig(config)
+    private func result(
+        for config: AppConfig,
+        persistedKinds: Set<WorkspaceSettingsPersistenceKind>
+    ) -> QuillCodeDesktopSettingsResult {
         return QuillCodeDesktopSettingsResult(
             config: config,
             runtime: bootstrap.makeRuntime(config: config),
-            trustedRouterAPIKeyConfigured: bootstrap.hasTrustedRouterAPIKey()
+            trustedRouterAPIKeyConfigured: bootstrap.hasTrustedRouterAPIKey(),
+            persistedKinds: persistedKinds
         )
     }
 }

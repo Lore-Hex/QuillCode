@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-09: settings and credentials persist as one compensated transaction
+
+- **Decision:** A full desktop settings save snapshots the existing TrustedRouter credential,
+  applies the requested credential mutation, and saves configuration last. Any mutation or
+  configuration failure attempts to restore the previous credential before returning failure.
+- **Live state:** Proposed full settings do not enter the workspace model until both durable writes
+  succeed. Quick mode, model, favorite, and keyboard-shortcut changes still apply to the current
+  session immediately, but a failed configuration save remains visibly unsaved until a retry works.
+- **OAuth:** Loopback sign-in uses the same transaction for its exchanged credential and account
+  configuration, so the app cannot report a completed sign-in from only one durable half.
+- **Privacy:** Persistence errors and the issue tracker retain only affected enum kinds and a bounded
+  rollback-failure boolean. Raw errors, paths, URLs, account details, and credential values never
+  enter runtime diagnostics.
+- **Why:** Separate best-effort writes could leave a new credential paired with old configuration,
+  old credentials paired with new configuration, or session-only settings with no visible warning.
+  Compensation preserves the last known durable pair whenever the filesystem permits recovery.
+
 ## 2026-08-09: workspace registry persistence failures remain visible until exact recovery
 
 - **Decision:** Project, automation, and saved-search snapshots share a focused registry
