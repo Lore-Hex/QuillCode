@@ -270,6 +270,13 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("18 emails total", prompt)
         self.assertIn("Do not provide reusable templates", prompt)
 
+    def test_reusable_macro_prompt_allows_only_documented_runtime_fields(self):
+        prompt = PRIOR.build_prompt(self.rows[59])
+
+        self.assertIn("named bracketed runtime fields", prompt)
+        self.assertIn("Document every runtime field", prompt)
+        self.assertIn("generic TBD, TODO, insert, or unscoped placeholders", prompt)
+
     def test_budget_fixture_has_approved_annual_plan_and_exact_seasonality(self):
         table = PRIOR.task_table(self.rows[18])
         headers = table[0]
@@ -791,6 +798,27 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
                 check for check in checks if check["name"] == "no template placeholders"
             )
             self.assertTrue(placeholder["passed"])
+
+    def test_reusable_macros_distinguish_runtime_fields_from_placeholders(self):
+        macro_row = self.rows[59]
+        ordinary_row = self.rows[0]
+        reusable_text = (
+            "Documented fields: [Invoice Number], [Account Name], [Amount], and [Dates]."
+        )
+
+        self.assertEqual(PRIOR.unresolved_placeholders(macro_row, reusable_text), [])
+        self.assertEqual(
+            PRIOR.unresolved_placeholders(macro_row, "Owner: [TBD owner]"),
+            ["[TBD owner]"],
+        )
+        self.assertEqual(
+            PRIOR.unresolved_placeholders(macro_row, "Signed by [Name]"),
+            ["[Name]"],
+        )
+        self.assertEqual(
+            PRIOR.unresolved_placeholders(ordinary_row, reusable_text),
+            ["[Dates]"],
+        )
 
     def test_task_33_semantic_grade_requires_every_personalized_sequence(self):
         row = self.rows[32]

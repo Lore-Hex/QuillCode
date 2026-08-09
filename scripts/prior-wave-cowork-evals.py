@@ -58,6 +58,7 @@ PNG_TASKS = {20}
 HTML_TASKS = {40, 82}
 DOCX_TASKS = {64}
 MERMAID_TASKS = {28}
+REUSABLE_TEMPLATE_TASKS = {60, 202}
 
 FORMAT_INSTRUCTIONS = {
     "csv": (
@@ -1276,6 +1277,13 @@ automation is visible in Quill Cowork's persisted automation state.
             "email. Personalize each first paragraph from that prospect's `booth-notes` value. "
             "Do not provide reusable templates or substitution tokens. "
         )
+    field_instruction = (
+        "Because the requested deliverable is a reusable macro, named bracketed runtime "
+        "fields such as `[Invoice Number]` are allowed. Document every runtime field, but "
+        "do not leave generic TBD, TODO, insert, or unscoped placeholders."
+        if row["id"] in REUSABLE_TEMPLATE_TASKS else
+        "Do not leave template placeholders or blank fields."
+    )
     return f"""{task}
 
 This is an end-to-end native desktop evaluation using an isolated workspace. The
@@ -1294,7 +1302,7 @@ log in the deliverable. Do not ask a follow-up question and do not stop at a pro
 
 Save the complete, decision-ready result to `{output_path(row)}`. Include specific
 source facts, rows or calculations, owners, dates, uncertainties, and the actions taken
-or simulated. {artifact_instruction} Do not leave template placeholders or blank fields.
+or simulated. {artifact_instruction} {field_instruction}
 After writing, read the saved artifact back with the file tool to verify its contents and
 format. A prose summary is not a substitute for the requested artifact.
 """
@@ -1871,6 +1879,24 @@ def visible_prose(text):
     return "\n".join(lines)
 
 
+def unresolved_placeholders(row, text):
+    prose = visible_prose(text)
+    placeholders = re.findall(r"\{[^{}\n]{1,80}\}", prose)
+    if row["id"] in REUSABLE_TEMPLATE_TASKS:
+        bracket_pattern = (
+            r"\[(?:(?:your|insert|tbd|todo|placeholder)\b[^\]\n]*|"
+            r"(?:first\s+name|name|company|date|owner|sender|hook|time|relevant|"
+            r"value\s+prop))\]"
+        )
+    else:
+        bracket_pattern = (
+            r"\[(?:your|insert|tbd|todo|first\s+name|name|company|date|owner|sender|"
+            r"hook|time|relevant|value\s+prop|placeholder)[^\]\n]*\]"
+        )
+    placeholders.extend(re.findall(bracket_pattern, prose, flags=re.IGNORECASE))
+    return placeholders
+
+
 def grade(row, workspace, report, source_hashes):
     checks = []
 
@@ -2028,12 +2054,7 @@ def grade(row, workspace, report, source_hashes):
     if row["capabilityNeeded"] == "Web research":
         citations = re.findall(r"https?://[^\s)>\]]+", combined_text)
         add("source citations", len(set(citations)) >= 2, f"{len(set(citations))} unique URLs")
-    placeholders = re.findall(
-        r"\{[^{}\n]{1,80}\}|\[(?:your|insert|tbd|todo|first\s+name|name|company|date|"
-        r"owner|sender|hook|time|relevant|value\s+prop|placeholder)[^\]\n]*\]",
-        visible_prose(combined_text),
-        flags=re.IGNORECASE,
-    )
+    placeholders = unresolved_placeholders(row, combined_text)
     add("no template placeholders", not placeholders, repr(placeholders))
     return checks, artifact
 
