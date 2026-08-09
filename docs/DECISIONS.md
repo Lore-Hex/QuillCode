@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-09: native layout evidence must stabilize before comparison
+
+- **Decision:** The Activity Accessibility verifier first proves the identified title, task summary,
+  and Close control are present, then samples the composer until three consecutive measurable frames
+  agree within half a point. The normally ready path completes in about 100 ms; the slow path remains
+  bounded to 40 samples at 50 ms.
+- **Restoration:** After the real Close-button `AXPress` dismisses Activity, constrained composer
+  frames are ignored until a stable frame is at least 240 points wider. This waits for the semantic
+  layout outcome instead of failing on a valid but stale frame from the preceding SwiftUI pass.
+- **Why:** Public build 672 reached the hosted Intel window smoke but briefly exposed the composer
+  without a measurable AX frame after Activity state changed. The prior verifier checked that
+  transient snapshot before it checked whether Activity's identified content had finished appearing,
+  so a healthy native transition could fail before disk-image packaging began.
+- **Integrity boundary:** The release gate still requires identified Activity content, successful
+  native dismissal, surface disappearance, and restored workspace width. It does not mutate the
+  controller directly, remove the interaction, or convert a timeout into success.
+- **Evidence:** Unit tests cover delayed, changing, jittering, stale, and never-stable frame streams.
+  The packaged app passed direct and Launch Services smoke plus two complete native interaction
+  sweeps, measuring composer restoration from 563 to 884 points.
+
 ## 2026-08-09: disk-image publication is transactional and bounded-retry
 
 - **Decision:** DMG packaging builds a private candidate beside the requested output and replaces
