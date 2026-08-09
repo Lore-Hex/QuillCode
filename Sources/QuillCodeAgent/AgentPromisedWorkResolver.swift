@@ -11,6 +11,13 @@ extension AgentRunner {
         var candidate = action
         var retryThread = thread
         for attempt in 0..<Self.promisedWorkCorrectionLimit {
+            // A provider may classify an otherwise complete action object as assistant text. This
+            // is still executable protocol output, even when its JSON does not contain a prose
+            // promise that the guard below would recognize.
+            if case .say(let text) = candidate,
+               let recovered = Self.recoveredStandaloneToolAction(from: text, tools: tools) {
+                return recovered
+            }
             guard case .say(let text) = candidate,
                   let correction = AgentPromisedWorkGuard.correctionNeeded(for: text, tools: tools)
             else {
@@ -21,7 +28,7 @@ extension AgentRunner {
             // immediate-action planner re-deriving the user's ask). A deferral has no embedded
             // action to recover — it must be re-driven by the model.
             if correction == .promisedWork {
-                if let recovered = Self.recoveredPromisedWorkAction(from: text, tools: tools) {
+                if let recovered = Self.recoveredStandaloneToolAction(from: text, tools: tools) {
                     return recovered
                 }
                 if let recovered = Self.recoveredPromisedUserIntentAction(
@@ -193,11 +200,13 @@ extension AgentRunner {
         return candidate
     }
 
-    private static func recoveredPromisedWorkAction(
+    private static func recoveredStandaloneToolAction(
         from text: String,
         tools: [ToolDefinition]
     ) -> AgentAction? {
-        guard let action = try? AgentActionJSONParser.parse(text),
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("{") || trimmed.hasPrefix("```"),
+              let action = try? AgentActionJSONParser.parse(trimmed),
               case .tool(let call) = action,
               tools.contains(where: { $0.name == call.name })
         else {

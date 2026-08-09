@@ -440,6 +440,20 @@ final class TrustedRouterActionParserTests: XCTestCase {
         XCTAssertFalse(call.argumentsJSON.contains(#""text""#))
     }
 
+    func testActionParserNormalizesMissingHostPrefixInType() throws {
+        let action = try AgentActionJSONParser.parse("""
+        {"type":"file.write","parameters":{"path":"outputs/report.md","content":"done\\n"}}
+        """)
+
+        guard case .tool(let call) = action else {
+            return XCTFail("Expected tool action")
+        }
+        XCTAssertEqual(call.name, ToolDefinition.fileWrite.name)
+        let arguments = try ToolArguments(call.argumentsJSON)
+        XCTAssertEqual(try arguments.requiredString("path"), "outputs/report.md")
+        XCTAssertEqual(try arguments.requiredString("content"), "done\n")
+    }
+
     func testActionParserNormalizesSayMessageAlias() throws {
         let action = try AgentActionJSONParser.parse(#"{"type":"say","message":"done"}"#)
 

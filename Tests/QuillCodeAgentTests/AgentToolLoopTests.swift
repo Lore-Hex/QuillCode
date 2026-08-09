@@ -367,6 +367,28 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(result.thread.messages.last?.content, "Done after running whoami.")
     }
 
+    func testAgentExecutesStandaloneFileWriteJSONWrappedAsSay() async throws {
+        let root = try makeTempDirectory()
+        let runner = AgentRunner(llm: SequenceLLMClient(actions: [
+            .say(##"{"type":"file.write","parameters":{"path":"result.md","content":"# Result\n\nComplete.\n"}}"##),
+            .say("Created the result."),
+        ]))
+
+        let result = try await runner.send(
+            "complete the current analysis",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 1)
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("result.md"), encoding: .utf8),
+            "# Result\n\nComplete.\n"
+        )
+        XCTAssertEqual(result.thread.messages.last?.content, "Created the result.")
+    }
+
     func testAgentRecoversComplexBacktickedPromisedShellAnswerBeforeFinalizing() async throws {
         let root = try makeTempDirectory()
         let runner = AgentRunner(
