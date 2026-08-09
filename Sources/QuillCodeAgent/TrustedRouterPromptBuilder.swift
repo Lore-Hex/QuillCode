@@ -184,6 +184,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
         let computerUseGuidance = computerUsePrompt(tools: tools)
         let browserGuidance = browserPrompt(tools: tools)
         let collectionReadGuidance = collectionReadPrompt(tools: tools)
+        let subagentGuidance = subagentPrompt(tools: tools)
         return """
         You are QuillCode, a native Swift coding agent.
 
@@ -200,6 +201,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         \(officeCoworkerPrompt)
 
         \(collectionReadGuidance)
+
+        \(subagentGuidance)
 
         \(computerUseGuidance)
 
@@ -302,6 +305,21 @@ public struct TrustedRouterPromptBuilder: Sendable {
         once, then pass the discovered source paths together.
         - Keep the batch bounded. Use host.file.read for a specific source only when read_many reports \
         truncation and the omitted details are necessary for the requested result.
+        """
+    }
+
+    private static func subagentPrompt(tools: [ToolDefinition]) -> String {
+        guard tools.contains(where: { $0.name == ToolDefinition.subagentsRun.name }) else {
+            return ""
+        }
+        return """
+        Long-horizon delegation:
+        - When a task naturally splits into two or more substantial independent research or analysis workstreams, \
+        call host.subagents.run early instead of serially consuming the parent context. Give workers precise, \
+        non-overlapping roles and require concrete facts, source URLs, and any requested calculations.
+        - After delegated work returns, the parent owns integration: create or update the requested artifact, verify \
+        it against the original request, and continue until the deliverable is complete. Do not delegate trivial or \
+        tightly coupled steps, and do not treat worker summaries as the final user response.
         """
     }
 

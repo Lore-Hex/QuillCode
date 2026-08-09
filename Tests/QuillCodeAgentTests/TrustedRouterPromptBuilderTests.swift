@@ -732,6 +732,45 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(observation.contains("inputs/records.csv"))
     }
 
+    func testDelegatedToolFeedbackRetainsEvidenceBeyondGenericOutputLimit() throws {
+        let retained = "DELEGATED-EVIDENCE-NEAR-END"
+        let summary = String(repeating: "worker evidence ", count: 500) + retained
+        let feedback = AgentToolFeedback(
+            toolCall: .init(name: ToolDefinition.subagentsRun.name, argumentsJSON: "{}"),
+            result: .init(
+                ok: true,
+                stdout: ToolArguments.json([
+                    "summary": summary,
+                    "awaitingApproval": false,
+                ])
+            )
+        )
+        let thread = ChatThread(messages: [
+            .init(role: .tool, content: try JSONHelpers.encodePretty(feedback)),
+        ])
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "Continue",
+            tools: [.subagentsRun]
+        )
+        let observation = try XCTUnwrap(messages.first {
+            ($0["content"] as? String)?.contains("Tool observation: host.subagents.run") == true
+        }?["content"] as? String)
+
+        XCTAssertTrue(observation.contains(retained))
+        XCTAssertLessThan(observation.count, 13_000)
+    }
+
+    func testLongHorizonDelegationGuidanceMatchesAdvertisedToolSurface() {
+        let withSubagents = TrustedRouterPromptBuilder.systemPrompt(tools: [.subagentsRun, .webFetch])
+        XCTAssertTrue(withSubagents.contains("call host.subagents.run early"))
+        XCTAssertTrue(withSubagents.contains("parent owns integration"))
+
+        let withoutSubagents = TrustedRouterPromptBuilder.systemPrompt(tools: [.webFetch])
+        XCTAssertFalse(withoutSubagents.contains("call host.subagents.run early"))
+    }
+
     func testSideConversationBoundaryFollowsInheritedHistoryAndPrecedesCurrentPrompt() {
         let parentID = UUID()
         let thread = ChatThread(
