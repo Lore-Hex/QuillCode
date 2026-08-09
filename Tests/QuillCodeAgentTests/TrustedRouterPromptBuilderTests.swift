@@ -821,6 +821,38 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(messages.contains { ($0["content"] as? String) == "third" })
     }
 
+    func testPromptBuilderBoundsAggregateHistoryAndPinsActiveRequest() throws {
+        func feedback(marker: String) throws -> ChatMessage {
+            let value = AgentToolFeedback(
+                toolCall: .init(name: ToolDefinition.webFetch.name, argumentsJSON: "{}"),
+                result: .init(ok: true, stdout: marker + String(repeating: " evidence", count: 900))
+            )
+            return .init(role: .tool, content: try JSONHelpers.encodePretty(value))
+        }
+
+        let activeRequest = "Build the complete cited quarterly revenue artifact."
+        let thread = ChatThread(messages: [
+            .init(role: .user, content: activeRequest),
+            try feedback(marker: "OLDEST-EVIDENCE"),
+            try feedback(marker: "MIDDLE-EVIDENCE"),
+            try feedback(marker: "NEWEST-EVIDENCE"),
+        ])
+        let builder = TrustedRouterPromptBuilder(historyCharacterLimit: 3_000)
+        let assembled = builder.assembled(
+            thread: thread,
+            userMessage: activeRequest,
+            tools: [.webFetch, .fileWrite]
+        )
+        let contents = assembled.messages.compactMap { $0["content"] as? String }
+
+        XCTAssertTrue(contents.contains { $0.contains("NEWEST-EVIDENCE") })
+        XCTAssertFalse(contents.contains { $0.contains("MIDDLE-EVIDENCE") })
+        XCTAssertFalse(contents.contains { $0.contains("OLDEST-EVIDENCE") })
+        XCTAssertEqual(contents.filter { $0 == activeRequest }.count, 1)
+        XCTAssertEqual(contents.last, activeRequest, "the active task is restored after bounded evidence")
+        XCTAssertFalse(assembled.historyPrefixStable)
+    }
+
     func testInjectedContextBeforeFirstTurnPrecedesCurrentPrompt() throws {
         let injected = ThreadModelContextItem(
             afterMessageID: nil,

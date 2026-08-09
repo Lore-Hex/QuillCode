@@ -1,16 +1,20 @@
+import Foundation
 import QuillCodeCore
 import QuillCodePersistence
 import QuillCodeTools
 
 public struct TrustedRouterPromptBuilder: Sendable {
     public let historyLimit: Int
+    public let historyCharacterLimit: Int
     public let imageAttachmentStore: ImageAttachmentStore?
 
     public init(
         historyLimit: Int = 20,
+        historyCharacterLimit: Int = 32_000,
         imageAttachmentStore: ImageAttachmentStore? = nil
     ) {
         self.historyLimit = max(0, historyLimit)
+        self.historyCharacterLimit = max(0, historyCharacterLimit)
         self.imageAttachmentStore = imageAttachmentStore
     }
 
@@ -71,11 +75,19 @@ public struct TrustedRouterPromptBuilder: Sendable {
         appendProjectInstructions(from: thread, to: &messages)
         appendMemories(from: thread, to: &messages)
         let history = orderedModelHistory(from: thread)
-        appendRecentHistory(history, to: &messages)
+        let recentHistory = appendRecentHistory(history, userMessage: userMessage, to: &messages)
         appendRuntimeBoundary(from: thread, to: &messages)
-        appendCurrentUserMessageIfNeeded(thread: thread, userMessage: userMessage, to: &messages)
+        appendCurrentUserMessageIfNeeded(
+            thread: thread,
+            userMessage: userMessage,
+            alreadyIncluded: recentHistory.includesCurrentUserMessage,
+            to: &messages
+        )
 
-        return (messages, history.count <= historyLimit)
+        return (
+            messages,
+            history.count <= historyLimit && recentHistory.includesAllCountLimitedEntries
+        )
     }
 
     /// Environment bring-up + anti-fabrication guidance. Added after driving a real benchmark task
@@ -518,16 +530,51 @@ public struct TrustedRouterPromptBuilder: Sendable {
 
     private func appendRecentHistory(
         _ history: [ModelHistoryEntry],
+        userMessage: String,
         to messages: inout [[String: Any]]
-    ) {
-        for entry in history.suffix(historyLimit) {
-            switch entry {
-            case .message(let message):
-                messages.append(chatMessage(message))
-            case .context(let item):
-                messages.append(ThreadModelContextPromptProjector.message(for: item))
+    ) -> RecentHistoryProjection {
+        let countLimited = history.suffix(historyLimit).map { entry in
+            (entry: entry, message: projectedMessage(for: entry))
+        }
+        var selected: [(entry: ModelHistoryEntry, message: [String: Any])] = []
+        var usedCharacters = 0
+
+        if historyCharacterLimit > 0 {
+            for candidate in countLimited.reversed() {
+                let candidateCharacters = projectedCharacterCount(candidate.message)
+                guard usedCharacters + candidateCharacters <= historyCharacterLimit else { break }
+                selected.append(candidate)
+                usedCharacters += candidateCharacters
             }
         }
+        selected.reverse()
+        messages.append(contentsOf: selected.map(\.message))
+
+        return RecentHistoryProjection(
+            includesAllCountLimitedEntries: selected.count == countLimited.count,
+            includesCurrentUserMessage: selected.contains { candidate in
+                guard case .message(let message) = candidate.entry else { return false }
+                return message.role == .user && message.content == userMessage
+            }
+        )
+    }
+
+    private func projectedMessage(for entry: ModelHistoryEntry) -> [String: Any] {
+        switch entry {
+        case .message(let message):
+            return chatMessage(message)
+        case .context(let item):
+            return ThreadModelContextPromptProjector.message(for: item)
+        }
+    }
+
+    private func projectedCharacterCount(_ message: [String: Any]) -> Int {
+        guard JSONSerialization.isValidJSONObject(message),
+              let data = try? JSONSerialization.data(withJSONObject: message)
+        else {
+            return String(describing: message).utf8.count
+        }
+        return data.count
     }
 
     private func orderedModelHistory(from thread: ChatThread) -> [ModelHistoryEntry] {
@@ -553,12 +600,17 @@ public struct TrustedRouterPromptBuilder: Sendable {
     private func appendCurrentUserMessageIfNeeded(
         thread: ChatThread,
         userMessage: String,
+        alreadyIncluded: Bool,
         to messages: inout [[String: Any]]
     ) {
-        guard thread.messages.last(where: { $0.role == .user })?.content != userMessage else {
-            return
+        guard !alreadyIncluded else { return }
+        if let durableMessage = thread.messages.last(where: {
+            $0.role == .user && $0.content == userMessage
+        }) {
+            messages.append(chatMessage(durableMessage))
+        } else {
+            messages.append(Self.chatMessage(role: "user", content: userMessage))
         }
-        messages.append(Self.chatMessage(role: "user", content: userMessage))
     }
 
     private func chatMessage(_ message: ChatMessage) -> [String: Any] {
@@ -713,4 +765,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
 private enum ModelHistoryEntry {
     case message(ChatMessage)
     case context(ThreadModelContextItem)
+}
+
+private struct RecentHistoryProjection {
+    let includesAllCountLimitedEntries: Bool
+    let includesCurrentUserMessage: Bool
 }
