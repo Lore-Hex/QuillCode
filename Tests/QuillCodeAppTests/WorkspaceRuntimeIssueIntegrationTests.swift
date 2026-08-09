@@ -43,6 +43,69 @@ final class WorkspaceRuntimeIssueIntegrationTests: XCTestCase {
         )
     }
 
+    func testFailedChatSaveSurfacesContentFreeDurabilityWarning() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let privateDirectoryName = "acquisition-confidential"
+        let blockingFile = root.appendingPathComponent(privateDirectoryName)
+        try Data().write(to: blockingFile)
+        let thread = ChatThread(title: "Private acquisition plan")
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread]),
+            threadStore: JSONThreadStore(
+                directory: blockingFile.appendingPathComponent("threads")
+            )
+        )
+
+        model.threadPersistence.save(thread)
+
+        let surface = model.surface()
+        let issue = try XCTUnwrap(surface.runtimeIssue)
+        XCTAssertEqual(issue.severity, .error)
+        XCTAssertEqual(issue.title, "A chat change is not saved")
+        XCTAssertNil(issue.actionLabel)
+        XCTAssertNil(issue.recovery)
+        XCTAssertEqual(surface.topBar.runtimeIssueLabel, issue.title)
+        XCTAssertEqual(surface.settings.runtimeIssue, issue)
+        let visibleText = ([issue.title, issue.message] + issue.diagnostics.flatMap {
+            [$0.label, $0.value]
+        }).joined(separator: " ")
+        XCTAssertFalse(visibleText.contains(privateDirectoryName))
+        XCTAssertFalse(visibleText.contains(thread.title))
+
+        try FileManager.default.removeItem(at: blockingFile)
+        model.threadPersistence.save(thread)
+
+        XCTAssertNotEqual(model.surface().runtimeIssue?.title, issue.title)
+    }
+
+    func testStartupLoadIssueKeepsPriorityOverLaterSaveFailure() throws {
+        let root = try makeQuillCodeTestDirectory()
+        let blockingFile = root.appendingPathComponent("blocked")
+        try Data().write(to: blockingFile)
+        let thread = ChatThread(title: "Unsaved")
+        let listing = ThreadListing(
+            threads: [thread],
+            issues: [
+                ThreadFileIssue(
+                    fileURL: URL(fileURLWithPath: "/ignored/unreadable.json"),
+                    reason: .unreadable
+                )
+            ]
+        )
+        let model = QuillCodeWorkspaceModel(
+            root: QuillCodeRootState(threads: [thread]),
+            threadStore: JSONThreadStore(
+                directory: blockingFile.appendingPathComponent("threads")
+            ),
+            threadLoadIssue: try XCTUnwrap(WorkspaceThreadLoadIssue(listing: listing))
+        )
+
+        model.threadPersistence.save(thread)
+
+        XCTAssertEqual(model.threadPersistenceIssueTracker.failedThreadCount, 1)
+        XCTAssertEqual(model.surface().runtimeIssue?.title, "A saved chat could not be loaded")
+    }
+
     func testApplyRuntimeRefreshesAgentStatus() {
         let model = QuillCodeWorkspaceModel()
 

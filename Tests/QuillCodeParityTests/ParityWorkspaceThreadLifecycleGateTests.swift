@@ -14,10 +14,12 @@ final class ParityWorkspaceThreadLifecycleGateTests: QuillCodeParityTestCase {
         assertPersistenceContracts(persistenceText)
         assertLifecycleActionsDelegate(lifecycleActionsText)
         assertSelectionAndMutationDelegates(selectionText, mutationText)
-        Self.assertSource(
-            modelText,
-            contains: "WorkspaceThreadPersistence(store: threadStore)"
-        )
+        [
+            "let threadPersistenceIssueTracker = WorkspaceThreadPersistenceIssueTracker()",
+            "self.threadPersistenceIssueTracker = threadPersistenceIssueTracker",
+            "store: threadStore,",
+            "issueTracker: threadPersistenceIssueTracker"
+        ].forEach { Self.assertSource(modelText, contains: $0) }
         assertWorkspaceModelAvoidsLifecycleOwnership(modelText)
         assertThreadCreationAPIsAvoidLifecycleOwnership(threadText)
     }

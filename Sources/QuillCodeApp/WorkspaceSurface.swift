@@ -308,6 +308,9 @@ public extension QuillCodeWorkspaceModel {
         if let startupLoadIssue {
             return startupLoadIssue.runtimeIssue
         }
+        if let persistenceIssue = threadPersistenceIssueTracker.runtimeIssue {
+            return persistenceIssue
+        }
         return WorkspaceRuntimeIssueBuilder(
             config: root.config,
             hasStoredAPIKey: root.trustedRouterAPIKeyConfigured,

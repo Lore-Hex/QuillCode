@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-08-09: failed chat persistence is visible until that snapshot recovers
+
+- **Decision:** Every non-ephemeral chat save and delete reports success or failure to a shared,
+  session-bounded tracker. A failed chat stays in the tracker until a later full snapshot or delete
+  for that exact chat succeeds; repairing one chat never clears another chat's warning.
+- **UX:** The normal runtime-issue surface reports that changes are not durable, counts affected
+  chats, and suggests disk-space, app-data permission, and large-chat compaction recovery. Startup
+  load damage remains higher priority because it describes data that was already unavailable when
+  the session opened.
+- **Privacy:** The tracker stores only chat UUIDs in memory. Its diagnostics contain a count and an
+  explicit no-private-content statement; filesystem errors, paths, titles, transcript text, and
+  credentials are never copied into the surface.
+- **Why:** Persistence previously used `try?` for ordinary saves and deletes. Disk exhaustion,
+  read-only storage, permission loss, or the bounded transcript-size limit could therefore leave
+  the workspace looking saved even though its latest state existed only in memory.
+
 ## 2026-08-09: release app executables are stripped before signing
 
 - **Decision:** macOS release apps remove debug symbols and local symbols with `strip -S -x` after
