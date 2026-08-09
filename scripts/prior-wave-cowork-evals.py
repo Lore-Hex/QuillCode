@@ -49,13 +49,13 @@ CSV_TASKS = {
     1, 2, 6, 9, 11, 12, 13, 16, 18, 21, 23, 25, 26, 30, 31, 36, 43,
     47, 48, 49, 50, 53, 54, 58, 59, 61, 65, 68, 72, 73, 75, 76, 81,
     83, 84, 86, 88, 89, 90, 91, 93, 94, 98, 100, 102, 104, 106, 109,
-    110, 117, 121, 124, 132, 136, 145, 147, 153, 163, 170, 177, 186,
+    110, 121, 124, 132, 136, 145, 147, 153, 163, 170, 177, 186,
     189, 193, 197, 198, 200, 204, 205, 207, 208, 209,
 }
 XLSX_TASKS = {19, 62, 63, 74, 158}
 PDF_TASKS = {5, 42}
 PNG_TASKS = {20}
-HTML_TASKS = {40, 82}
+HTML_TASKS = {40, 82, 117}
 DOCX_TASKS = {64}
 MERMAID_TASKS = {28}
 REUSABLE_TEMPLATE_TASKS = {60, 202}
@@ -199,6 +199,7 @@ IMPLICIT_SOURCES = {
         ("email export", "inputs/email-campaign.csv"),
         ("web analytics export", "inputs/web-analytics.csv"),
     ],
+    117: [("named competitor list", "inputs/named-competitors.md")],
 }
 
 
@@ -783,6 +784,24 @@ Record the incident in Atlas Safety Log within 30 minutes when conditions are sa
 Jo Chen or the shift supervisor must sign the restart checklist.
 """
 
+    if row["id"] == 117 and reference == "named competitor list":
+        return """# Named competitors for the quarterly revenue comparison
+
+Evidence date: 2026-08-08
+
+Use these exact public-company competitors. Do not substitute products, private
+companies, or similarly named businesses.
+
+- Asana, Inc. (NYSE: ASAN)
+- monday.com Ltd. (NASDAQ: MNDY)
+- GitLab Inc. (NASDAQ: GTLB)
+
+Comparison basis: total company revenue in each company's four most recently
+reported fiscal quarters as of the evidence date. Preserve each fiscal-quarter label
+and period end date. Use official investor-relations releases or SEC filings as the
+primary sources. Atlas Labs values must be calculated from `inputs/records.csv`.
+"""
+
     key = f"{row['category']} {row['task']} {reference}".casefold()
     base = fixture_context(row)
     details = [
@@ -1276,6 +1295,19 @@ automation is visible in Quill Cowork's persisted automation state.
             "include a concrete subject, greeting, body, call to action, and closing in every "
             "email. Personalize each first paragraph from that prospect's `booth-notes` value. "
             "Do not provide reusable templates or substitution tokens. "
+        )
+    elif row["id"] == 117:
+        task_specific_instruction = (
+            "Use exactly Asana, Inc., monday.com Ltd., and GitLab Inc. from the named "
+            "competitor list; do not substitute product competitors or other peers. Calculate "
+            "Atlas Labs Q1 through Q4 revenue from `inputs/records.csv`. For each competitor, "
+            "research total company revenue for its four most recently reported fiscal quarters "
+            "as of 2026-08-08 using official investor-relations or SEC sources. Preserve the "
+            "reported fiscal-quarter labels and period-end dates. Include a raw USD table with "
+            "one row per company, four numeric quarterly values, and a source URL in every "
+            "competitor row. Include an inline SVG chart or a functional canvas chart comparing "
+            "all four series across oldest-to-newest reporting position; clearly disclose a log "
+            "scale if one is needed to keep Atlas visible. "
         )
     field_instruction = (
         "Because the requested deliverable is a reusable macro, named bracketed runtime "
@@ -1879,6 +1911,86 @@ def validate_task_33_sequence(path):
     return valid, detail
 
 
+def validate_task_117_revenue_chart(path):
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as error:
+        return False, f"could not read revenue chart: {error}"
+
+    source = path.parents[1] / "inputs" / "records.csv"
+    try:
+        with source.open(encoding="utf-8", newline="") as stream:
+            records = list(csv.DictReader(stream))
+        atlas_totals = Counter()
+        for record in records:
+            atlas_totals[record["quarter"]] += int(record["revenue"])
+    except (OSError, csv.Error, KeyError, TypeError, ValueError) as error:
+        return False, f"could not recompute Atlas revenue: {error}"
+
+    plain = html.unescape(re.sub(r"(?is)<[^>]+>", " ", text))
+    compact_plain = re.sub(r"[$,\s]", "", plain).casefold()
+    missing_totals = [
+        f"{quarter}={atlas_totals.get(quarter, 0)}"
+        for quarter in ("Q1", "Q2", "Q3", "Q4")
+        if str(atlas_totals.get(quarter, 0)) not in compact_plain
+    ]
+
+    company_labels = {
+        "Atlas Labs": r"\batlas\s+labs\b",
+        "Asana, Inc.": r"\basana\b",
+        "monday.com Ltd.": r"\bmonday\.com\b",
+        "GitLab Inc.": r"\bgitlab\b",
+    }
+    table_rows = [
+        html.unescape(match)
+        for match in re.findall(r"(?is)<tr\b[^>]*>(.*?)</tr\s*>", text)
+    ]
+    missing_company_rows = []
+    incomplete_company_rows = []
+    missing_row_citations = []
+    for company, pattern in company_labels.items():
+        row_text = next((value for value in table_rows if re.search(pattern, value, re.I)), None)
+        if row_text is None:
+            missing_company_rows.append(company)
+            continue
+        cells = [
+            html.unescape(re.sub(r"(?is)<[^>]+>", " ", value)).strip()
+            for value in re.findall(r"(?is)<t[dh]\b[^>]*>(.*?)</t[dh]\s*>", row_text)
+        ]
+        value_cells = cells[1:5]
+        if len(value_cells) != 4 or any(not re.search(r"\d", value) for value in value_cells):
+            incomplete_company_rows.append(f"{company}: {value_cells}")
+        if company != "Atlas Labs" and not re.search(r"https?://", row_text, re.I):
+            missing_row_citations.append(company)
+
+    svg_shapes = len(re.findall(r"(?i)<(?:rect|path|polyline|line|circle)\b", text))
+    has_svg_chart = bool(re.search(r"(?i)<svg\b", text)) and svg_shapes >= 4
+    has_canvas_chart = bool(re.search(r"(?i)<canvas\b", text)) and bool(
+        re.search(r"(?i)new\s+Chart\s*\(|getContext\s*\(|chart\.js", text)
+    )
+    missing_quarters = [
+        quarter for quarter in ("Q1", "Q2", "Q3", "Q4")
+        if not re.search(rf"\b{quarter}\b", plain, re.I)
+    ]
+
+    valid = not any((
+        missing_totals,
+        missing_company_rows,
+        incomplete_company_rows,
+        missing_row_citations,
+        missing_quarters,
+        not (has_svg_chart or has_canvas_chart),
+    ))
+    detail = (
+        f"records={len(records)}; Atlas totals={dict(atlas_totals)}; "
+        f"missing totals={missing_totals}; missing company rows={missing_company_rows}; "
+        f"incomplete company rows={incomplete_company_rows}; "
+        f"missing row citations={missing_row_citations}; missing quarters={missing_quarters}; "
+        f"svg shapes={svg_shapes}; canvas chart={has_canvas_chart}"
+    )
+    return valid, detail
+
+
 def visible_prose(text):
     text = re.sub(
         r"(?is)<(?:style|script)\b[^>]*>.*?</(?:style|script)\s*>",
@@ -2058,6 +2170,9 @@ def grade(row, workspace, report, source_hashes):
     if row["id"] == 33:
         sequence_valid, sequence_detail = validate_task_33_sequence(artifact)
         add("complete personalized email sequences", sequence_valid, sequence_detail)
+    if row["id"] == 117:
+        chart_valid, chart_detail = validate_task_117_revenue_chart(artifact)
+        add("quarterly revenue chart semantics", chart_valid, chart_detail)
     verification_text = "\n".join(tool_output_text(tool) for tool in reads + shell_reads)
     combined_text = "\n".join(
         value for value in (artifact_text, verification_text, report.get("finalAnswer", "") if report else "")

@@ -160,6 +160,7 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             40: "html",
             64: "docx",
             82: "html",
+            117: "html",
             143: "md",
         }
         for task_id, extension in expected.items():
@@ -269,6 +270,26 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("exactly three fully written emails for each of the six prospects", prompt)
         self.assertIn("18 emails total", prompt)
         self.assertIn("Do not provide reusable templates", prompt)
+
+    def test_competitor_revenue_fixture_and_prompt_define_a_solvable_chart(self):
+        row = self.rows[116]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            competitors = (workspace / "inputs" / "named-competitors.md").read_text(
+                encoding="utf-8"
+            )
+
+        self.assertIn("Asana, Inc. (NYSE: ASAN)", competitors)
+        self.assertIn("monday.com Ltd. (NASDAQ: MNDY)", competitors)
+        self.assertIn("GitLab Inc. (NASDAQ: GTLB)", competitors)
+        self.assertIn("inputs/named-competitors.md", PRIOR.required_source_paths(row))
+
+        prompt = PRIOR.build_prompt(row)
+        self.assertIn("Use exactly Asana, Inc., monday.com Ltd., and GitLab Inc.", prompt)
+        self.assertIn("four numeric quarterly values", prompt)
+        self.assertIn("inline SVG chart or a functional canvas chart", prompt)
+        self.assertIn("source URL in every competitor row", prompt)
 
     def test_reusable_macro_prompt_allows_only_documented_runtime_fields(self):
         prompt = PRIOR.build_prompt(self.rows[59])
@@ -994,6 +1015,55 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             valid, detail = PRIOR.validate_task_33_sequence(artifact)
             self.assertFalse(valid)
             self.assertIn("missing sections", detail)
+
+    def test_task_117_semantic_grade_requires_complete_sourced_chart(self):
+        row = self.rows[116]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            artifact = workspace / PRIOR.output_path(row)
+            artifact.parent.mkdir(parents=True)
+            with (workspace / "inputs" / "records.csv").open(
+                encoding="utf-8", newline=""
+            ) as source:
+                totals = {}
+                for record in csv.DictReader(source):
+                    totals[record["quarter"]] = totals.get(record["quarter"], 0) + int(
+                        record["revenue"]
+                    )
+            artifact.write_text(
+                "<!doctype html><html><body>"
+                "<table><thead><tr><th>Company</th><th>Q1</th><th>Q2</th>"
+                "<th>Q3</th><th>Q4</th><th>Source</th></tr></thead><tbody>"
+                f"<tr><td>Atlas Labs</td><td>${totals['Q1']:,}</td>"
+                f"<td>${totals['Q2']:,}</td><td>${totals['Q3']:,}</td>"
+                f"<td>${totals['Q4']:,}</td><td>Internal records</td></tr>"
+                "<tr><td>Asana, Inc.</td><td>$181.5M</td><td>$187.2M</td>"
+                "<td>$192.1M</td><td>$199.0M</td>"
+                "<td><a href='https://investors.asana.com/results'>Official source</a></td></tr>"
+                "<tr><td>monday.com Ltd.</td><td>$268.0M</td><td>$282.3M</td>"
+                "<td>$299.1M</td><td>$318.4M</td>"
+                "<td><a href='https://ir.monday.com/results'>Official source</a></td></tr>"
+                "<tr><td>GitLab Inc.</td><td>$214.0M</td><td>$226.5M</td>"
+                "<td>$240.0M</td><td>$252.2M</td>"
+                "<td><a href='https://ir.gitlab.com/results'>Official source</a></td></tr>"
+                "</tbody></table><svg><rect/><rect/><rect/><rect/></svg>"
+                "</body></html>",
+                encoding="utf-8",
+            )
+
+            valid, detail = PRIOR.validate_task_117_revenue_chart(artifact)
+            self.assertTrue(valid, detail)
+
+            artifact.write_text(
+                artifact.read_text(encoding="utf-8").replace("<svg>", "<div>").replace(
+                    "</svg>", "</div>"
+                ),
+                encoding="utf-8",
+            )
+            valid, detail = PRIOR.validate_task_117_revenue_chart(artifact)
+            self.assertFalse(valid)
+            self.assertIn("svg shapes=4", detail)
 
     def test_visible_prose_excludes_html_code_but_keeps_rendered_placeholders(self):
         html = (
