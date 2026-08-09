@@ -1961,6 +1961,7 @@ def validate_task_117_revenue_chart(path):
     duplicate_company_rows = []
     incomplete_company_rows = []
     missing_row_citations = []
+    table_series = []
     for company, pattern in company_labels.items():
         matching_rows = [value for value in table_rows if re.search(pattern, value, re.I)]
         if not matching_rows:
@@ -1983,6 +1984,8 @@ def validate_task_117_revenue_chart(path):
             for value in raw_usd_values
         ):
             incomplete_company_rows.append(f"{company}: {value_cells}")
+        else:
+            table_series.append([int(value.removeprefix("USD")) for value in raw_usd_values])
         if company != "Atlas Labs" and not re.search(r"https?://", row_text, re.I):
             missing_row_citations.append(company)
 
@@ -1995,6 +1998,42 @@ def validate_task_117_revenue_chart(path):
         quarter for quarter in ("Q1", "Q2", "Q3", "Q4")
         if not re.search(rf"\b{quarter}\b", plain, re.I)
     ]
+    polyline_series = []
+    for _, points_text in re.findall(
+        r"(?is)<polyline\b[^>]*\bpoints\s*=\s*(['\"])(.*?)\1",
+        text,
+    ):
+        numbers = [float(value) for value in re.findall(r"-?(?:\d+(?:\.\d*)?|\.\d+)", points_text)]
+        if len(numbers) == 8:
+            polyline_series.append([numbers[index] for index in range(1, 8, 2)])
+
+    def direction_signature(values, invert=False):
+        signature = []
+        for previous, current in zip(values, values[1:]):
+            delta = current - previous
+            if abs(delta) <= 0.01:
+                signature.append(0)
+            elif invert:
+                signature.append(-1 if delta > 0 else 1)
+            else:
+                signature.append(1 if delta > 0 else -1)
+        return tuple(signature)
+
+    svg_series_geometry = "not applicable"
+    invalid_svg_series_geometry = False
+    if polyline_series:
+        table_directions = Counter(direction_signature(values) for values in table_series)
+        chart_directions = Counter(
+            direction_signature(y_values, invert=True) for y_values in polyline_series
+        )
+        invalid_svg_series_geometry = (
+            len(table_series) != 4
+            or len(polyline_series) != 4
+            or table_directions != chart_directions
+        )
+        svg_series_geometry = (
+            f"table={dict(table_directions)}; chart={dict(chart_directions)}"
+        )
 
     valid = not any((
         missing_totals,
@@ -2004,6 +2043,7 @@ def validate_task_117_revenue_chart(path):
         missing_row_citations,
         missing_quarters,
         not (has_svg_chart or has_canvas_chart),
+        invalid_svg_series_geometry,
     ))
     detail = (
         f"records={len(records)}; Atlas totals={dict(atlas_totals)}; "
@@ -2011,7 +2051,8 @@ def validate_task_117_revenue_chart(path):
         f"duplicate company rows={duplicate_company_rows}; "
         f"incomplete company rows={incomplete_company_rows}; "
         f"missing row citations={missing_row_citations}; missing quarters={missing_quarters}; "
-        f"svg shapes={svg_shapes}; canvas chart={has_canvas_chart}"
+        f"svg shapes={svg_shapes}; svg series geometry={svg_series_geometry}; "
+        f"canvas chart={has_canvas_chart}"
     )
     return valid, detail
 

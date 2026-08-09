@@ -1038,7 +1038,28 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
                     totals[record["quarter"]] = totals.get(record["quarter"], 0) + int(
                         record["revenue"]
                     )
-            artifact.write_text(
+            revenue_series = [
+                [totals[quarter] for quarter in ("Q1", "Q2", "Q3", "Q4")],
+                [181_500_000, 187_200_000, 192_100_000, 199_000_000],
+                [268_000_000, 282_300_000, 299_100_000, 318_400_000],
+                [214_000_000, 226_500_000, 240_000_000, 252_200_000],
+            ]
+
+            def chart_points(values, inverted=False):
+                y = 100
+                points = [f"0,{y}"]
+                for index, (previous, current) in enumerate(zip(values, values[1:]), start=1):
+                    direction = 1 if current > previous else -1 if current < previous else 0
+                    y += (10 if direction > 0 else -10 if direction < 0 else 0) * (
+                        1 if inverted else -1
+                    )
+                    points.append(f"{index * 10},{y}")
+                return " ".join(points)
+
+            chart = "".join(
+                f"<polyline points='{chart_points(values)}'/>" for values in revenue_series
+            )
+            valid_html = (
                 "<!doctype html><html><body>"
                 "<table><thead><tr><th>Company</th><th>Q1</th><th>Q2</th>"
                 "<th>Q3</th><th>Q4</th><th>Source</th></tr></thead><tbody>"
@@ -1054,15 +1075,24 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
                 "<tr><td>GitLab Inc.</td><td>$214,000,000</td><td>$226,500,000</td>"
                 "<td>$240,000,000</td><td>$252,200,000</td>"
                 "<td><a href='https://ir.gitlab.com/results'>Official source</a></td></tr>"
-                "</tbody></table><svg><rect/><rect/><rect/><rect/></svg>"
-                "</body></html>",
-                encoding="utf-8",
+                f"</tbody></table><svg>{chart}</svg>"
+                "</body></html>"
             )
+            artifact.write_text(valid_html, encoding="utf-8")
 
             valid, detail = PRIOR.validate_task_117_revenue_chart(artifact)
             self.assertTrue(valid, detail)
 
-            rowspanned = artifact.read_text(encoding="utf-8").replace(
+            inverted_chart = "".join(
+                f"<polyline points='{chart_points(values, inverted=True)}'/>"
+                for values in revenue_series
+            )
+            artifact.write_text(valid_html.replace(chart, inverted_chart), encoding="utf-8")
+            valid, detail = PRIOR.validate_task_117_revenue_chart(artifact)
+            self.assertFalse(valid)
+            self.assertIn("svg series geometry", detail)
+
+            rowspanned = valid_html.replace(
                 f"<tr><td>Atlas Labs</td><td>${totals['Q1']:,}</td>"
                 f"<td>${totals['Q2']:,}</td><td>${totals['Q3']:,}</td>"
                 f"<td>${totals['Q4']:,}</td><td>Internal records</td></tr>",
