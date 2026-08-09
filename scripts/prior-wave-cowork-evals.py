@@ -1339,6 +1339,11 @@ def tool_command(tool):
     return str(value).replace("\\", "/")
 
 
+def tool_content(tool):
+    payload = tool_payload(tool, "inputJSON")
+    return str(payload.get("content") or "")
+
+
 def tool_paths(tool, key):
     payload = tool_payload(tool, "inputJSON")
     value = payload.get(key)
@@ -1436,6 +1441,18 @@ def shell_command_writes_path(command, path):
         flags=re.IGNORECASE,
     )
     return bool(variable_writers.search(normalized))
+
+
+def shell_command_executes_path(command, path):
+    normalized = command.replace("\\", "/")
+    normalized_path = path.replace("\\", "/").lstrip("./")
+    quoted_path = rf"(?:['\"])?(?:\./)?{re.escape(normalized_path)}(?:['\"])?"
+    interpreter = r"(?:python(?:3(?:\.\d+)?)?|bash|sh|zsh|node|ruby)"
+    return bool(re.search(
+        rf"(?:^|[;&|]\s*){interpreter}(?:\s+-[A-Za-z]+)*\s+{quoted_path}(?:\s|$)",
+        normalized,
+        flags=re.IGNORECASE,
+    ))
 
 
 def tool_output_text(tool):
@@ -1975,24 +1992,37 @@ def grade(row, workspace, report, source_hashes):
             unread_sources.append(path)
     add("mapped source consumption", not unread_sources, f"unconsumed {unread_sources[:20]}")
     target = output_path(row)
-    writes = [
-        tool for tool in successful
-        if (
+    writes = []
+    written_scripts = {}
+    for tool in successful:
+        name = tool.get("name")
+        direct_write = (
             tool.get("name") in {"host.file.write", "host.chart.render"}
             and tool_path(tool).endswith(target)
         )
-        or (
-            tool.get("name") == "host.shell.run"
+        shell_write = (
+            name == "host.shell.run"
             and (
                 shell_command_references_path(tool_output_text(tool), target)
                 or shell_command_writes_path(tool_command(tool), target)
             )
         )
-        or (
-            tool.get("name") == "host.pdf.merge"
+        scripted_write = (
+            name == "host.shell.run"
+            and any(
+                shell_command_executes_path(tool_command(tool), script_path)
+                and shell_command_writes_path(script_content, target)
+                for script_path, script_content in written_scripts.items()
+            )
+        )
+        merged_write = (
+            name == "host.pdf.merge"
             and any(path_matches(path, target) for path in tool_paths(tool, "output"))
         )
-    ]
+        if direct_write or shell_write or scripted_write or merged_write:
+            writes.append(tool)
+        if name == "host.file.write":
+            written_scripts[tool_path(tool)] = tool_content(tool)
     reads = [tool for tool in successful if tool.get("name") == "host.file.read" and tool_path(tool).endswith(target)]
     shell_reads = [
         tool for tool in successful

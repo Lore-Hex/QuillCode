@@ -691,6 +691,49 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertTrue(PRIOR.shell_command_inspects_path(command, path))
         self.assertFalse(PRIOR.shell_command_writes_path(f'open("{path}").read()', path))
 
+    def test_grade_accepts_executed_generated_script_as_artifact_write(self):
+        row = self.rows[67]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            artifact = workspace / PRIOR.output_path(row)
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text("project,action\nAtlas,review weekly files\n", encoding="utf-8")
+            script_path = "outputs/build_68.py"
+            script_content = (
+                f"with open('{PRIOR.output_path(row)}', 'w') as stream:\n"
+                "    stream.write('project,action\\nAtlas,review weekly files\\n')\n"
+            )
+            script_write = tool("host.file.write", script_path)
+            script_write["inputJSON"] = json.dumps({
+                "path": script_path,
+                "content": script_content,
+            })
+            script_run = tool("host.shell.run")
+            script_run["inputJSON"] = json.dumps({"cmd": f"python3 {script_path}"})
+            report = {
+                "ok": True,
+                "requestedModelID": PRIOR.EXACT_MODEL,
+                "selectedModelID": PRIOR.EXACT_MODEL,
+                "tools": [
+                    tool("host.file.read", "inputs/source-map.md"),
+                    tool("host.file.read", "inputs/evaluation-context.md"),
+                    tool("host.file.read", "inputs/weekly-work/item-001.md"),
+                    script_write,
+                    script_run,
+                    tool("host.file.read", PRIOR.output_path(row)),
+                ],
+            }
+            hashes = {
+                path: PRIOR.sha256(path)
+                for path in workspace.rglob("*") if path.is_file() and path != artifact
+            }
+            checks, _ = PRIOR.grade(row, workspace, report, hashes)
+
+        by_name = {check["name"]: check["passed"] for check in checks}
+        self.assertTrue(by_name["artifact write"])
+        self.assertFalse(PRIOR.shell_command_executes_path(f"cat {script_path}", script_path))
+
     def test_grade_accepts_native_pdf_merge_as_consumption_and_artifact_write(self):
         row = self.rows[4]
         with tempfile.TemporaryDirectory() as temporary:
