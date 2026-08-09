@@ -167,7 +167,7 @@ if [[ -n "$SIGNING_IDENTITY" ]]; then
   fi
   codesign "${CODESIGN_ARGUMENTS[@]}" "$APP_BUNDLE" >&2
   codesign --verify --deep --strict --verbose=2 "$APP_BUNDLE" >&2
-elif [[ "${QUILLCODE_MACOS_ADHOC_CODESIGN:-0}" == "1" ]]; then
+elif [[ "${QUILLCODE_MACOS_ADHOC_CODESIGN:-1}" == "1" ]]; then
   codesign --force --deep --sign - "$APP_BUNDLE" >&2
 fi
 

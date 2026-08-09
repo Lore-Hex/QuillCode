@@ -394,7 +394,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "<key>QuillCodeStableUpdateManifestURL</key>",
             "<key>QuillCodeTesterUpdateManifestURL</key>",
             "<key>QuillCodeBuildCommit</key>",
-            "QuillCodeSigningTeamIdentifier"
+            "QuillCodeSigningTeamIdentifier",
+            #"${QUILLCODE_MACOS_ADHOC_CODESIGN:-1}"#
         ])
         Self.assertSource(packageScript, containsAll: [
             "bundleIdentifier=$BUNDLE_ID",
