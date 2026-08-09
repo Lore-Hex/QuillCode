@@ -268,6 +268,7 @@ public struct AgentRunner: Sendable {
             /// contradicting the grounded artifact.
             var controlledSourceGroundingFinalization: AgentAction?
             var pendingSourceGroundingRepairPath: String?
+            runLoop.seedArtifactVerification(userMessage: userMessage)
             // F29: URLs from the request and the thread's prior turns are grounded provenance —
             // a follow-up send must not flag citations the previous send legitimately fetched.
             runLoop.seedCitationProvenance(userMessage: userMessage, thread: next)

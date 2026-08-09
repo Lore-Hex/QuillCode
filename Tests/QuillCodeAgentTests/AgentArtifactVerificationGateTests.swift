@@ -135,4 +135,53 @@ final class AgentArtifactVerificationGateTests: XCTestCase {
         XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
         XCTAssertEqual(result.thread.messages.last?.content, "The required output is complete and verified.")
     }
+
+    func testRunnerForcesReadbackOfShellGeneratedNamedDeliverable() async throws {
+        let root = try makeWorkspace()
+        let shell = ToolCall(
+            name: "host.shell.run",
+            argumentsJSON: ToolArguments.json(["cmd": "generate outputs/report.md"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(shell),
+                .say("The shell-generated report is complete."),
+                .say("The shell-generated report is complete and verified."),
+            ]),
+            safety: AlwaysApprovingSafetyReviewer(),
+            toolExecutionOverride: { call, workspaceRoot in
+                guard call.name == "host.shell.run" else { return nil }
+                let output = workspaceRoot.appendingPathComponent("outputs/report.md")
+                do {
+                    try FileManager.default.createDirectory(
+                        at: output.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+                    try "# Generated report\n\nVerified shell output.\n".write(
+                        to: output,
+                        atomically: true,
+                        encoding: .utf8
+                    )
+                    return ToolResult(ok: true, stdout: "generated report\n")
+                } catch {
+                    return ToolResult(ok: false, error: error.localizedDescription)
+                }
+            },
+            maxToolSteps: 6
+        )
+
+        let result = try await runner.send(
+            "Generate outputs/report.md with the shell. After writing, read the saved file back to verify it.",
+            in: ChatThread(title: "shell verification"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 2, "the generated file needs a forced file read")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.toolResults.last?.stdout.contains("Verified shell output") == true)
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "The shell-generated report is complete and verified."
+        )
+    }
 }

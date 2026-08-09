@@ -22,6 +22,10 @@ struct AgentRunLoopState: Sendable {
     /// Workspace files successfully read this run. Empty-response recovery uses this to advance
     /// only the finite set of source reads the user explicitly requested and has not completed.
     private(set) var successfullyReadWorkspacePaths: Set<String> = []
+    /// Task-named deliverables that must be read after their latest write. Shell tools can create
+    /// rich artifacts that do not appear in ToolResult.artifacts, so successful shell steps use
+    /// this bounded set to discover those outputs on disk and arm the normal readback gate.
+    private var requiredReadbackWorkspacePaths: Set<String> = []
     /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
     /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
     private(set) var malformedWrittenTextPaths: Set<String> = []
@@ -99,7 +103,7 @@ struct AgentRunLoopState: Sendable {
         toolResults.append(contentsOf: completion.toolResults)
         lastExecutedCall = completion.call
         lastCompletion = completion
-        recordArtifactVerification(completion)
+        recordArtifactVerification(completion, workspaceRoot: workspaceRoot)
         recordCitationProvenance(completion)
 
         let workspaceState = stateSignature(workspaceRoot)
@@ -118,10 +122,34 @@ struct AgentRunLoopState: Sendable {
         ))
     }
 
-    private mutating func recordArtifactVerification(_ completion: AgentToolStepCompletion) {
-        guard completion.result.ok,
-              let path = AgentArtifactVerificationGate.pathArgument(from: completion.call)
-        else { return }
+    mutating func seedArtifactVerification(userMessage: String) {
+        guard AgentArtifactVerificationGate.requiresReadback(in: userMessage) else { return }
+        requiredReadbackWorkspacePaths = Set(
+            AgentDeliverableGate.requiredDeliverables(in: userMessage).map(
+                AgentArtifactVerificationGate.normalizedPath
+            )
+        )
+    }
+
+    private mutating func recordArtifactVerification(
+        _ completion: AgentToolStepCompletion,
+        workspaceRoot: URL
+    ) {
+        guard completion.result.ok else { return }
+        if completion.call.name == ToolDefinition.shellRun.name {
+            for path in requiredReadbackWorkspacePaths where
+                AgentArtifactVerificationGate.isExistingWorkspaceFile(
+                    path,
+                    workspaceRoot: workspaceRoot
+                ) {
+                writtenWorkspacePaths.insert(path)
+                unverifiedWrittenWorkspacePaths.insert(path)
+            }
+            return
+        }
+        guard let path = AgentArtifactVerificationGate.pathArgument(from: completion.call) else {
+            return
+        }
         let normalized = AgentArtifactVerificationGate.normalizedPath(path)
         switch completion.call.name {
         case ToolDefinition.fileWrite.name:

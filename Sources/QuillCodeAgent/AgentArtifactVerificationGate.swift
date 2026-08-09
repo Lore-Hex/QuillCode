@@ -69,6 +69,19 @@ enum AgentArtifactVerificationGate {
         try? ToolArguments(call.argumentsJSON).requiredString("path")
     }
 
+    static func isExistingWorkspaceFile(_ path: String, workspaceRoot: URL) -> Bool {
+        let root = workspaceRoot.standardizedFileURL.resolvingSymlinksInPath()
+        let normalized = normalizedPath(path)
+        let unresolved = (normalized as NSString).isAbsolutePath
+            ? URL(fileURLWithPath: normalized)
+            : root.appendingPathComponent(normalized)
+        let candidate = unresolved.standardizedFileURL.resolvingSymlinksInPath()
+        guard candidate.path.hasPrefix(root.path + "/") else { return false }
+        var isDirectory: ObjCBool = false
+        return FileManager.default.fileExists(atPath: candidate.path, isDirectory: &isDirectory)
+            && !isDirectory.boolValue
+    }
+
     static func pathsMatch(_ lhs: String, _ rhs: String) -> Bool {
         let left = normalizedPath(lhs)
         let right = normalizedPath(rhs)
