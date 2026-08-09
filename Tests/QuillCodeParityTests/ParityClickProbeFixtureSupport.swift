@@ -121,6 +121,53 @@ extension QuillCodeParityTestCase {
         """
     }
 
+    static var minimalDeveloperKeySurfaceContractJSON: String {
+        """
+              {
+                "id": "onboarding.developer-key",
+                "testID": "quillcode-connect-developer-key",
+                "collisionScope": "settings:account-setup",
+                "kind": "formAction",
+                "action": "press",
+                "allowsNestedInteractiveChildren": false,
+                "requiresUnblockedInterior": true,
+                "requiresTactileFeedback": true,
+                "allowsTextSelection": false
+              }
+        """
+    }
+
+    static var minimalDeveloperKeyClickProbeJSON: String {
+        """
+              {
+                "contractID": "onboarding.developer-key",
+                "selectorKind": "test-id",
+                "selector": "quillcode-connect-developer-key",
+                "collisionScope": "settings:account-setup",
+                "kind": "formAction",
+                "action": "press",
+                "allowsNestedInteractiveChildren": false,
+                "requiresUnblockedInterior": true,
+                "requiresTactileFeedback": true,
+                "allowsTextSelection": false,
+                "requiredMinWidth": 240,
+                "requiredMinHeight": 44,
+                "requiredPeerClearance": 8,
+                "samplePoints": [
+                  {"name": "center", "x": 0.5, "y": 0.5},
+                  {"name": "leading-edge", "x": 0.08, "y": 0.5},
+                  {"name": "leading-interior", "x": 0.18, "y": 0.5},
+                  {"name": "trailing-edge", "x": 0.92, "y": 0.5},
+                  {"name": "trailing-interior", "x": 0.82, "y": 0.5},
+                  {"name": "top-edge", "x": 0.5, "y": 0.08},
+                  {"name": "top-interior", "x": 0.5, "y": 0.18},
+                  {"name": "bottom-edge", "x": 0.5, "y": 0.92},
+                  {"name": "bottom-interior", "x": 0.5, "y": 0.82}
+                ]
+              }
+        """
+    }
+
     static func commandSurfaceContractJSON(_ commandID: String) -> String {
         """
               {

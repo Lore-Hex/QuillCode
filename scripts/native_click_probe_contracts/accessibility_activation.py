@@ -110,6 +110,18 @@ def _validated_accessibility_activation_check(report_path: Path, check: Any) -> 
         raise SystemExit(
             f"{report_path} command.settings does not prove rendered controls and close-button dismissal"
         )
+    if contract_id == "onboarding.developer-key" and not all(
+        marker in interaction_evidence
+        for marker in (
+            "Developer override settings",
+            "developer key field",
+            "quillcode-settings-close",
+            "AXPress",
+        )
+    ):
+        raise SystemExit(
+            f"{report_path} onboarding.developer-key does not prove direct developer-key settings routing"
+        )
     if contract_id == "command.toggle-automations" and not all(
         marker in interaction_evidence
         for marker in ("Automations", "Create control", "quillcode-automations-close", "AXPress")

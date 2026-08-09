@@ -38,6 +38,25 @@ final class QuillCodeSettingsDraftTests: XCTestCase {
         XCTAssertEqual(draft.managedWorktreeRootPathText, draft.managedWorktreeDefaultRootPath)
     }
 
+    func testAuthenticationOverrideChangesOnlyThePresentedDraft() {
+        let config = AppConfig(
+            apiBaseURL: "https://api.example.test/v1",
+            authMode: .oauth,
+            developerOverrideEnabled: false
+        )
+        let surface = WorkspaceSettingsSurface(config: config, hasStoredAPIKey: false)
+
+        let draft = QuillCodeSettingsDraft(
+            settings: surface,
+            authModeOverride: .developerOverride
+        )
+
+        XCTAssertEqual(draft.authMode, .developerOverride)
+        XCTAssertTrue(draft.developerOverrideEnabled)
+        XCTAssertEqual(surface.authMode, .oauth)
+        XCTAssertFalse(surface.developerOverrideEnabled)
+    }
+
     func testCodeReviewSettingsInitializeAndBuildNormalizedUpdate() {
         let surface = WorkspaceSettingsSurface(
             config: AppConfig(

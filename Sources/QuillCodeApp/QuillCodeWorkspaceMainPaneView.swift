@@ -43,6 +43,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
     var onRevertTurn: (UUID) -> Void = { _ in }
     var onDeleteFollowUp: (UUID) -> Void = { _ in }
     var onStartTrustedRouterSignIn: () -> Void = {}
+    var onUseDeveloperKey: () -> Void = {}
     var onCommand: (WorkspaceCommandSurface) -> Void
 
     var body: some View {
@@ -97,6 +98,7 @@ struct QuillCodeWorkspaceMainPaneView: View {
                             hasStoredAPIKey: surface.settings.hasStoredAPIKey
                         ),
                         onStartTrustedRouterSignIn: onStartTrustedRouterSignIn,
+                        onUseDeveloperKey: onUseDeveloperKey,
                         requiresProjectSelection: surface.projects.items.isEmpty,
                         onOpenProject: { runCommand(id: "add-project") }
                     )

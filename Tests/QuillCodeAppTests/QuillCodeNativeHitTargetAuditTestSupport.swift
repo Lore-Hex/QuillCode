@@ -21,6 +21,7 @@ class QuillCodeNativeHitTargetAuditTestCase: XCTestCase {
         "transcript.tool-card",
         "transcript.tool-card-action",
         "transcript.context-banner-action",
+        "onboarding.developer-key",
         "command-palette.input",
         "command-palette.result",
         "search.input",

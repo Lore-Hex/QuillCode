@@ -1,5 +1,23 @@
 # QuillCode Decisions
 
+## 2026-08-08: first-run developer keys reuse the Settings credential path
+
+- **Decision:** The first-run connection surface offers browser OAuth as the primary action and
+  `Use a developer key` as a clearly secondary action. The secondary action presents the existing
+  Settings sheet with a one-shot `.developerOverride` draft override; it does not introduce another
+  secret field, persistence service, or Keychain owner.
+- **Persistence boundary:** The override changes only the newly presented settings draft. The active
+  workspace configuration remains OAuth until the user explicitly saves Settings, after which the
+  existing bootstrap and secret-store path owns validation and persistence. Canceling or closing the
+  sheet clears the presentation override without mutating configuration.
+- **Release evidence:** The native Accessibility smoke activates the first-run button before any
+  workspace-replacement interactions, requires the Developer override secure key field, and dismisses
+  Settings through its real Close button. Later resource-convergence sweeps omit this initial-only
+  action while repeating every control that remains valid after workspace mutation.
+- **Why:** Developer-key users need a discoverable first-run path, but credential storage and failure
+  handling should remain centralized. A presentation-only route gives them one click to the correct
+  form without creating divergent security behavior.
+
 ## 2026-08-08: release smoke fallbacks preserve current UI and connection truth
 
 - **Native command fallback:** Accessibility activation continues to prefer the visible workspace

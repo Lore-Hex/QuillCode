@@ -102,6 +102,14 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifySettingsDismissal
         ),
         .presentation(
+            "onboarding.developer-key",
+            phase: .initialSurface,
+            expectedOutcome: "developer-key onboarding opens Developer override settings and dismisses through Close",
+            observe: { $0.isSettingsPresented },
+            resetToBaseline: { $1.isSettingsPresented = $0 },
+            verify: QuillCodeDesktopAccessibilityInteractionVerifier.verifyDeveloperKeySettingsDismissal
+        ),
+        .presentation(
             "command.toggle-automations",
             expectedOutcome: "Automations renders its Create control and dismisses through Close",
             observe: { $0.surface.automations.isVisible },
@@ -159,16 +167,23 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
     ]
 
     static let requiredActivationContractIDs = Set(activationContracts.map(\.contractID))
+    static let repeatableActivationContractIDs = Set(
+        activationContracts
+            .filter { $0.phase != .initialSurface }
+            .map(\.contractID)
+    )
 
     static func validatedReport(
         contentView: NSView,
         controller: QuillCodeDesktopController,
-        nativeHitTargets: QuillCodeNativeHitTargetAuditReport
+        nativeHitTargets: QuillCodeNativeHitTargetAuditReport,
+        includesInitialSurface: Bool = true
     ) async throws -> QuillCodeDesktopAccessibilityActivationReport {
         let report = await sample(
             contentView: contentView,
             controller: controller,
-            nativeHitTargets: nativeHitTargets
+            nativeHitTargets: nativeHitTargets,
+            includesInitialSurface: includesInitialSurface
         )
         guard report.ok else {
             throw QuillCodeDesktopSmokeFailure.nativeAccessibilityActivationFailed(report.validationIssues)
@@ -179,13 +194,17 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
     private static func sample(
         contentView: NSView,
         controller: QuillCodeDesktopController,
-        nativeHitTargets: QuillCodeNativeHitTargetAuditReport
+        nativeHitTargets: QuillCodeNativeHitTargetAuditReport,
+        includesInitialSurface: Bool
     ) async -> QuillCodeDesktopAccessibilityActivationReport {
         let probesByID = Dictionary(uniqueKeysWithValues: nativeHitTargets.clickProbes.map { ($0.contractID, $0) })
         var checks: [QuillCodeDesktopAccessibilityActivationCheck] = []
         var validationIssues: [String] = []
+        let sampledContracts = activationContracts.filter {
+            includesInitialSurface || repeatableActivationContractIDs.contains($0.contractID)
+        }
 
-        for contract in activationContracts.sorted(by: activationOrder) {
+        for contract in sampledContracts.sorted(by: activationOrder) {
             contract.prepare?(controller)
             try? await Task.sleep(nanoseconds: 100_000_000)
             guard let probe = probesByID[contract.contractID] else {
@@ -193,7 +212,10 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
                 continue
             }
             guard let element = await resolveCurrentElement(probe, contentView: contentView) else {
-                validationIssues.append("\(contract.contractID) did not resolve to an AXPress target")
+                validationIssues.append(
+                    "\(contract.contractID) did not resolve to an AXPress target; "
+                        + unresolvedElementDiagnostic(probe, contentView: contentView)
+                )
                 continue
             }
 
@@ -217,7 +239,7 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
 
         return QuillCodeDesktopAccessibilityActivationReport(
             liveAccessibilityActivation: "ax-press-sampled",
-            requiredContractIDs: requiredActivationContractIDs.sorted(),
+            requiredContractIDs: sampledContracts.map(\.contractID).sorted(),
             activatedContractIDs: activatedIDs,
             skippedContractIDs: skippedIDs,
             checks: checks.sorted { $0.contractID < $1.contractID },
@@ -312,6 +334,23 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
             try? await Task.sleep(nanoseconds: 50_000_000)
         }
         return nil
+    }
+
+    private static func unresolvedElementDiagnostic(
+        _ probe: QuillCodeNativeHitTargetProbe,
+        contentView: NSView
+    ) -> String {
+        let elements = QuillCodeDesktopAccessibilityTree(root: contentView).elements
+        let candidates = elements.filter { element in
+            element.identifier.localizedCaseInsensitiveContains(probe.selector)
+                || element.bestLabel.localizedCaseInsensitiveContains(probe.label)
+        }
+        let descriptions = candidates.prefix(6).map { element in
+            "\(element.role) id=\(element.identifier) label=\(element.bestLabel)"
+        }
+        return descriptions.isEmpty
+            ? "no identifier or label candidates were present in the live AX tree"
+            : "live AX candidates: \(descriptions.joined(separator: "; "))"
     }
 
     private static func axErrorDescription(_ error: AXError) -> String {

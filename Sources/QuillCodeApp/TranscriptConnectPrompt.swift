@@ -23,7 +23,7 @@ public struct TranscriptConnectPrompt: Equatable, Sendable {
     public static let developerKeyTitle = "Use a developer key"
     public static let defaultAccountURL = "https://trustedrouter.com"
     /// The three-beat "what happens next" reassurance under the button.
-    public static let steps = ["Sign in", "Choose a model", "Start a task"]
+    public static let steps = ["Connect", "Choose a model", "Start a task"]
 
     public init(accountURL: String = TranscriptConnectPrompt.defaultAccountURL) {
         self.accountURL = accountURL

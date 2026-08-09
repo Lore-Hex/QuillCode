@@ -22,6 +22,7 @@ public struct QuillCodeWorkspaceView: View {
     @State private var activeFindIndex = 0
     @State private var commandQuery = ""
     @State private var settingsDraft = QuillCodeSettingsDraft()
+    @State private var settingsAuthModeOverride: TrustedRouterAuthMode?
     @State private var codeReviewDraft = WorkspaceCodeReviewRequest()
     @State private var sidebarSavedSearchDraft: QuillCodeSidebarSavedSearchDraft?
     @State private var renameThreadDraft: QuillCodeThreadRenameDraft?
@@ -258,6 +259,7 @@ public struct QuillCodeWorkspaceView: View {
                     onRevertTurn: actions.onRevertTurn,
                     onDeleteFollowUp: actions.onDeleteFollowUp,
                     onStartTrustedRouterSignIn: actions.onStartTrustedRouterSignIn,
+                    onUseDeveloperKey: presentDeveloperKeySettings,
                     onCommand: handleCommand
                 )
             }
@@ -294,6 +296,7 @@ public struct QuillCodeWorkspaceView: View {
             commandQuery: $commandQuery,
             isSettingsPresented: $isSettingsPresented,
             settingsDraft: $settingsDraft,
+            settingsAuthModeOverride: $settingsAuthModeOverride,
             isKeyboardShortcutsPresented: $isKeyboardShortcutsPresented,
             codeReviewDraft: $codeReviewDraft,
             worktreeSheet: $worktreeDialogs.sheet,
@@ -396,6 +399,11 @@ public struct QuillCodeWorkspaceView: View {
             return
         }
         handleCommandAction(action)
+    }
+
+    private func presentDeveloperKeySettings() {
+        settingsAuthModeOverride = .developerOverride
+        isSettingsPresented = true
     }
 
     private func handleCommandAction(_ action: WorkspaceViewCommandAction) {

@@ -95,7 +95,8 @@ enum QuillCodeDesktopWindowSmokeRunner {
         _ = try await QuillCodeDesktopAccessibilityActivationSampler.validatedReport(
             contentView: contentView,
             controller: smokeController,
-            nativeHitTargets: nativeHitTargets
+            nativeHitTargets: nativeHitTargets,
+            includesInitialSurface: false
         )
         let surface = try QuillCodeDesktopWindowSmokeSurfaceReport(surface: workspaceSurface)
         markStage("settling-after-interaction-sweep-2")

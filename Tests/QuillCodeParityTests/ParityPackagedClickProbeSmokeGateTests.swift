@@ -108,6 +108,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("window-accessibility-shallow-activity-report.json")
         let shallowReviewActivationReport = temporaryDirectory
             .appendingPathComponent("window-accessibility-shallow-review-report.json")
+        let shallowDeveloperKeyActivationReport = temporaryDirectory
+            .appendingPathComponent("window-accessibility-shallow-developer-key-report.json")
         let windowScreenshot = temporaryDirectory.appendingPathComponent("window.png")
         let accessibilityFrames = temporaryDirectory.appendingPathComponent("packaged-accessibility-frames.json")
         let blockedAccessibilityFrames = temporaryDirectory.appendingPathComponent("blocked-packaged-accessibility-frames.json")
@@ -129,6 +131,8 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             .appendingPathComponent("shallow-activity-packaged-accessibility-frames.json")
         let shallowReviewAccessibilityFrames = temporaryDirectory
             .appendingPathComponent("shallow-review-packaged-accessibility-frames.json")
+        let shallowDeveloperKeyAccessibilityFrames = temporaryDirectory
+            .appendingPathComponent("shallow-developer-key-packaged-accessibility-frames.json")
         try Self.minimalClickProbeReport.write(to: report, atomically: true, encoding: .utf8)
         try FileManager.default.createDirectory(at: directDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: launchServicesDirectory, withIntermediateDirectories: true)
@@ -193,6 +197,12 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 with: "AXPress changed observable controller state"
             )
             .write(to: shallowReviewActivationReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowAccessibilityFrameReport()
+            .replacingOccurrences(
+                of: "rendered Developer override settings with its developer key field and dismissed through quillcode-settings-close with AXPress",
+                with: "AXPress changed observable controller state"
+            )
+            .write(to: shallowDeveloperKeyActivationReport, atomically: true, encoding: .utf8)
         try Data(repeating: 0, count: 4096).write(to: windowScreenshot)
 
         let validator = Self.packageRoot()
@@ -461,6 +471,21 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
                 "command.toggle-review-panel does not prove rendered scope controls and close-button dismissal"
             ),
             shallowReviewResult.output
+        )
+
+        let shallowDeveloperKeyResult = try Self.runPython(validator, arguments: [
+            "frames",
+            shallowDeveloperKeyActivationReport.path,
+            windowScreenshot.path,
+            "--manifest",
+            shallowDeveloperKeyAccessibilityFrames.path
+        ])
+        XCTAssertNotEqual(shallowDeveloperKeyResult.exitCode, 0)
+        XCTAssertTrue(
+            shallowDeveloperKeyResult.output.contains(
+                "onboarding.developer-key does not prove direct developer-key settings routing"
+            ),
+            shallowDeveloperKeyResult.output
         )
     }
 }

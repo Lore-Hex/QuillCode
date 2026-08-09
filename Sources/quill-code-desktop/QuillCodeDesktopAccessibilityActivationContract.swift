@@ -31,6 +31,7 @@ struct QuillCodeDesktopAccessibilityActivationVerification {
 }
 
 enum QuillCodeDesktopAccessibilityActivationPhase: Int, Comparable {
+    case initialSurface
     case transientSurface
     case workspaceReplacement
 
@@ -64,6 +65,7 @@ struct QuillCodeDesktopAccessibilityActivationContract {
 
     static func presentation(
         _ contractID: String,
+        phase: QuillCodeDesktopAccessibilityActivationPhase = .transientSurface,
         expectedOutcome: String,
         observe: @escaping @MainActor (QuillCodeDesktopController) -> Bool,
         resetToBaseline: @escaping @MainActor (Bool, QuillCodeDesktopController) -> Void,
@@ -71,7 +73,7 @@ struct QuillCodeDesktopAccessibilityActivationContract {
     ) -> Self {
         Self(
             contractID: contractID,
-            phase: .transientSurface,
+            phase: phase,
             expectedOutcome: expectedOutcome,
             prepare: { controller in
                 if observe(controller) {

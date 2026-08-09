@@ -70,6 +70,15 @@ extension QuillCodeNativeHitTargetAudit {
                 kind: .textButton,
                 minWidth: 72,
                 testID: "context-banner-action"
+            ),
+            contract(
+                "onboarding.developer-key",
+                family: .settings,
+                surface: "Account setup",
+                label: "Use a developer key",
+                kind: .formAction,
+                minWidth: 240,
+                testID: "connect-developer-key"
             )
         ]
     }
