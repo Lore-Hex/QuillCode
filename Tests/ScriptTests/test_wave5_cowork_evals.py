@@ -650,6 +650,14 @@ class Wave5CoworkEvalTests(unittest.TestCase):
         self.assertTrue(WAVE5.has_artifact_readback([shell_write, read], output))
         self.assertFalse(WAVE5.has_artifact_readback([read, shell_write], output))
 
+    def test_native_chart_render_records_artifact_provenance(self):
+        output = "outputs/chart.png"
+        chart = tool("host.chart.render", {"path": output}, {"ok": True})
+        read = tool("host.file.read", {"path": output}, {"ok": True})
+
+        self.assertTrue(WAVE5.tool_writes_artifact(chart, output))
+        self.assertTrue(WAVE5.has_artifact_readback([chart, read], output))
+
     def test_shell_artifact_provenance_rejects_failed_or_read_only_commands(self):
         output = "outputs/wave5-233.md"
         failed_write = tool(

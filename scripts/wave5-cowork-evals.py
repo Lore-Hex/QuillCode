@@ -1034,7 +1034,7 @@ def tool_writes_artifact(tool, output_path):
     expected = normalized_tool_path(output_path)
     name = tool.get("name")
     arguments = tool_payload(tool, "inputJSON")
-    if name == "host.file.write":
+    if name in {"host.file.write", "host.chart.render"}:
         path = arguments.get("path") or arguments.get("filename")
         return normalized_tool_path(path) == expected
     if name == "host.apply_patch":

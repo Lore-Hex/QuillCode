@@ -674,6 +674,36 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertTrue(by_name["mapped source consumption"])
         self.assertTrue(by_name["artifact write"])
 
+    def test_grade_accepts_native_chart_render_as_artifact_write(self):
+        row = self.rows[19]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            artifact = workspace / PRIOR.output_path(row)
+            PRIOR.write_png(artifact, width=1000, height=600)
+            report = {
+                "ok": True,
+                "requestedModelID": PRIOR.EXACT_MODEL,
+                "selectedModelID": PRIOR.EXACT_MODEL,
+                "tools": [
+                    tool("host.file.read", "inputs/source-map.md"),
+                    tool("host.file.read", "inputs/evaluation-context.md"),
+                    tool("host.file.read", "inputs/regional-revenue.csv"),
+                    tool("host.chart.render", PRIOR.output_path(row)),
+                    tool("host.file.read", PRIOR.output_path(row)),
+                ],
+            }
+            hashes = {
+                path: PRIOR.sha256(path)
+                for path in workspace.rglob("*") if path.is_file() and path != artifact
+            }
+            checks, _ = PRIOR.grade(row, workspace, report, hashes)
+
+        by_name = {check["name"]: check["passed"] for check in checks}
+        self.assertTrue(by_name["artifact write"])
+        self.assertTrue(by_name["artifact verification"])
+        self.assertTrue(by_name["primary artifact format"])
+
     def test_grade_rejects_template_placeholders(self):
         row = self.rows[0]
         with tempfile.TemporaryDirectory() as temporary:

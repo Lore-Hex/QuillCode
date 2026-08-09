@@ -1722,7 +1722,10 @@ def grade(row, workspace, report, source_hashes):
     target = output_path(row)
     writes = [
         tool for tool in successful
-        if (tool.get("name") == "host.file.write" and tool_path(tool).endswith(target))
+        if (
+            tool.get("name") in {"host.file.write", "host.chart.render"}
+            and tool_path(tool).endswith(target)
+        )
         or (
             tool.get("name") == "host.shell.run"
             and (
