@@ -26,6 +26,10 @@ struct AgentRunLoopState: Sendable {
     /// rich artifacts that do not appear in ToolResult.artifacts, so successful shell steps use
     /// this bounded set to discover those outputs on disk and arm the normal readback gate.
     private var requiredReadbackWorkspacePaths: Set<String> = []
+    /// Task-named artifacts with explicit machine-checkable structure. A successful validator is
+    /// invalidated by every later write, unlike ordinary readback which proves only persistence.
+    private var requiredContractAuditWorkspacePaths: Set<String> = []
+    private(set) var contractAuditedWorkspacePaths: Set<String> = []
     /// Task-named text deliverables whose latest write predates a successful live-page fetch.
     /// Terminal completion is gated until a later write incorporates or dispositions that evidence;
     /// the ordinary readback gate then verifies the refreshed artifact.
@@ -160,6 +164,19 @@ struct AgentRunLoopState: Sendable {
         if AgentArtifactVerificationGate.requiresReadback(in: userMessage) {
             requiredReadbackWorkspacePaths = Set(deliverables)
         }
+        if AgentArtifactContractAuditGate.requiresAudit(in: userMessage) {
+            requiredContractAuditWorkspacePaths = Set(deliverables)
+        }
+    }
+
+    func pendingArtifactContractAuditPath() -> String? {
+        requiredContractAuditWorkspacePaths.sorted().first { path in
+            writtenWorkspacePaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, path)
+            }) && !contractAuditedWorkspacePaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, path)
+            })
+        }
     }
 
     func pendingResearchCheckpointPath(minimumResearchWeight: Int) -> String? {
@@ -230,6 +247,12 @@ struct AgentRunLoopState: Sendable {
     ) {
         guard completion.result.ok else { return }
         if completion.call.name == ToolDefinition.shellRun.name {
+            contractAuditedWorkspacePaths.formUnion(
+                AgentArtifactContractAuditGate.auditedPaths(
+                    for: completion.call,
+                    among: requiredContractAuditWorkspacePaths
+                )
+            )
             for path in requiredReadbackWorkspacePaths where
                 AgentArtifactVerificationGate.isExistingWorkspaceFile(
                     path,
@@ -252,10 +275,12 @@ struct AgentRunLoopState: Sendable {
         let normalized = AgentArtifactVerificationGate.normalizedPath(path)
         switch completion.call.name {
         case ToolDefinition.chartRender.name:
+            invalidateContractAudit(for: normalized)
             writtenWorkspacePaths.insert(normalized)
             unverifiedWrittenWorkspacePaths.insert(normalized)
             markResearchArtifactRefreshed(normalized)
         case ToolDefinition.fileWrite.name:
+            invalidateContractAudit(for: normalized)
             unverifiedWrittenWorkspacePaths.insert(normalized)
             markResearchArtifactRefreshed(normalized)
             if let arguments = try? ToolArguments(completion.call.argumentsJSON),
@@ -345,6 +370,12 @@ struct AgentRunLoopState: Sendable {
         default:
             break
         }
+    }
+
+    private mutating func invalidateContractAudit(for writtenPath: String) {
+        contractAuditedWorkspacePaths = Set(contractAuditedWorkspacePaths.filter {
+            !AgentArtifactVerificationGate.pathsMatch($0, writtenPath)
+        })
     }
 
     private mutating func recordSuccessfulFileReads(paths: [String], output: String) {

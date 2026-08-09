@@ -867,6 +867,24 @@ public struct AgentRunner: Sendable {
                     await onProgress?(next)
                     continue actionLoop
                 }
+                if case .say = resolvedAction,
+                   !runLoop.hadDeniedStep,
+                   let path = runLoop.pendingArtifactContractAuditPath(),
+                   let correction = AgentArtifactContractAuditGate.correction(
+                    path: path,
+                    tools: tools
+                   ) {
+                    controlledSourceGroundingFinalization = nil
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: required a deterministic contract audit for "
+                            + "./\(correction.path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
                 // the tool arm below and the loop continues; the gate re-checks at the next say.
@@ -1188,6 +1206,23 @@ public struct AgentRunner: Sendable {
                             next.events.append(.init(
                                 kind: .notice,
                                 summary: "Self-healing: requested a post-research refresh of "
+                                    + "./\(correction.path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
+                        }
+                        if case .say = finalized,
+                           !runLoop.hadDeniedStep,
+                           let path = runLoop.pendingArtifactContractAuditPath(),
+                           let correction = AgentArtifactContractAuditGate.correction(
+                            path: path,
+                            tools: tools
+                           ) {
+                            pendingRepeatNudge = correction.prompt
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: required a deterministic contract audit for "
                                     + "./\(correction.path) before completion."
                             ))
                             next.updatedAt = Date()
