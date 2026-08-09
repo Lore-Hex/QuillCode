@@ -26,6 +26,108 @@ def tool(name, path=None):
     }
 
 
+def write_budget_workbook(path, circular=False):
+    channels = (
+        ("Paid Search", 30000),
+        ("Paid Social", 24000),
+        ("Content and SEO", 18000),
+        ("Events and Webinars", 18000),
+        ("Lifecycle Email", 15000),
+        ("Partner and ABM", 15000),
+    )
+    months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    def column_name(number):
+        name = ""
+        while number:
+            number, remainder = divmod(number - 1, 26)
+            name = chr(ord("A") + remainder) + name
+        return name
+
+    def worksheet_xml(rows):
+        root = ET.Element("worksheet", xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main")
+        sheet_data = ET.SubElement(root, "sheetData")
+        for row_number, row_values in enumerate(rows, start=1):
+            row = ET.SubElement(sheet_data, "row", r=str(row_number))
+            for column_number, (kind, value) in enumerate(row_values, start=1):
+                reference = f"{column_name(column_number)}{row_number}"
+                if kind == "string":
+                    cell = ET.SubElement(row, "c", r=reference, t="inlineStr")
+                    inline = ET.SubElement(cell, "is")
+                    ET.SubElement(inline, "t").text = str(value)
+                elif kind == "number":
+                    cell = ET.SubElement(row, "c", r=reference)
+                    ET.SubElement(cell, "v").text = str(value)
+                else:
+                    cell = ET.SubElement(row, "c", r=reference)
+                    ET.SubElement(cell, "f").text = value
+        return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+    assumptions = [[("string", "Channel"), ("string", "Annual budget")]]
+    assumptions.extend([[("string", channel), ("number", budget)] for channel, budget in channels])
+    monthly = [[("string", "Channel"), *(("string", month) for month in months)]]
+    for row_number, (channel, _) in enumerate(channels, start=2):
+        monthly.append([
+            ("string", channel),
+            *(("formula", f"'Assumptions'!B{row_number}/12") for _ in months),
+        ])
+    quarterly = [[("string", "Channel"), *(("string", quarter) for quarter in ("Q1", "Q2", "Q3", "Q4"))]]
+    for row_number, (channel, _) in enumerate(channels, start=2):
+        formulas = [
+            f"SUM('Monthly Spend'!B{row_number}:D{row_number})",
+            f"SUM('Monthly Spend'!E{row_number}:G{row_number})",
+            f"SUM('Monthly Spend'!H{row_number}:J{row_number})",
+            f"SUM('Monthly Spend'!K{row_number}:M{row_number})",
+        ]
+        if circular and row_number == 2:
+            formulas[0] = "SUM(B2:D2)"
+        quarterly.append([("string", channel), *(("formula", formula) for formula in formulas)])
+
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>""",
+        )
+        archive.writestr(
+            "_rels/.rels",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>""",
+        )
+        archive.writestr(
+            "xl/workbook.xml",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Assumptions" sheetId="1" r:id="rId1"/>
+    <sheet name="Monthly Spend" sheetId="2" r:id="rId2"/>
+    <sheet name="Quarterly Roll-up" sheetId="3" r:id="rId3"/>
+  </sheets>
+</workbook>""",
+        )
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            """<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/>
+</Relationships>""",
+        )
+        archive.writestr("xl/worksheets/sheet1.xml", worksheet_xml(assumptions))
+        archive.writestr("xl/worksheets/sheet2.xml", worksheet_xml(monthly))
+        archive.writestr("xl/worksheets/sheet3.xml", worksheet_xml(quarterly))
+
+
 class PriorWaveCoworkEvalTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -286,6 +388,19 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             self.assertTrue(PRIOR.validate_artifact(workbook, "xlsx")[0])
             self.assertTrue(PRIOR.validate_artifact(image, "png")[0])
             self.assertFalse(PRIOR.validate_artifact(fake_workbook, "xlsx")[0])
+
+    def test_budget_workbook_semantics_require_source_rows_and_non_circular_formulas(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "budget.xlsx"
+            write_budget_workbook(path)
+
+            valid, detail = PRIOR.validate_budget_workbook(path)
+            self.assertTrue(valid, detail)
+
+            write_budget_workbook(path, circular=True)
+            valid, detail = PRIOR.validate_budget_workbook(path)
+            self.assertFalse(valid)
+            self.assertIn("Quarterly Roll-up!B2", detail)
 
     def test_collection_fixtures_materialize_declared_counts_and_valid_png(self):
         with tempfile.TemporaryDirectory() as temporary:

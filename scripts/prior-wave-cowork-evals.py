@@ -16,6 +16,7 @@ import html
 import io
 import json
 import os
+import posixpath
 import re
 import shutil
 import struct
@@ -1384,6 +1385,170 @@ def validate_artifact(path, extension):
     return len(text.strip()) >= 200, f"{len(text)} Markdown characters", text
 
 
+def xlsx_column_number(letters):
+    number = 0
+    for letter in letters.upper():
+        number = number * 26 + ord(letter) - ord("A") + 1
+    return number
+
+
+def xlsx_sheet_cells(path):
+    spreadsheet_namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    document_relationship_namespace = (
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    )
+    with zipfile.ZipFile(path) as archive:
+        workbook = ET.fromstring(archive.read("xl/workbook.xml"))
+        relationships = ET.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
+        targets = {
+            relationship.attrib["Id"]: relationship.attrib["Target"]
+            for relationship in relationships
+        }
+        shared_strings = []
+        if "xl/sharedStrings.xml" in archive.namelist():
+            shared_root = ET.fromstring(archive.read("xl/sharedStrings.xml"))
+            shared_strings = [
+                "".join(node.text or "" for node in item.iter(f"{{{spreadsheet_namespace}}}t"))
+                for item in shared_root.iter(f"{{{spreadsheet_namespace}}}si")
+            ]
+
+        sheets = []
+        for sheet in workbook.iter(f"{{{spreadsheet_namespace}}}sheet"):
+            relationship_id = sheet.attrib[f"{{{document_relationship_namespace}}}id"]
+            target = targets[relationship_id]
+            package_path = (
+                target.lstrip("/")
+                if target.startswith("/")
+                else posixpath.normpath(posixpath.join("xl", target))
+            )
+            sheet_root = ET.fromstring(archive.read(package_path))
+            cells = []
+            for cell in sheet_root.iter(f"{{{spreadsheet_namespace}}}c"):
+                coordinate = cell.attrib.get("r", "")
+                match = re.fullmatch(r"\$?([A-Za-z]{1,3})\$?(\d+)", coordinate)
+                if not match:
+                    continue
+                column = xlsx_column_number(match.group(1))
+                row = int(match.group(2))
+                formula_node = cell.find(f"{{{spreadsheet_namespace}}}f")
+                formula = formula_node.text or "" if formula_node is not None else None
+                value_node = cell.find(f"{{{spreadsheet_namespace}}}v")
+                cell_type = cell.attrib.get("t")
+                value = None
+                if cell_type == "inlineStr":
+                    value = "".join(
+                        node.text or ""
+                        for node in cell.iter(f"{{{spreadsheet_namespace}}}t")
+                    )
+                elif value_node is not None and value_node.text is not None:
+                    raw_value = value_node.text
+                    if cell_type == "s":
+                        value = shared_strings[int(raw_value)]
+                    elif cell_type in {"str", "e"}:
+                        value = raw_value
+                    elif cell_type == "b":
+                        value = raw_value == "1"
+                    else:
+                        numeric = float(raw_value)
+                        value = int(numeric) if numeric.is_integer() else numeric
+                cells.append({
+                    "coordinate": coordinate.replace("$", "").upper(),
+                    "column": column,
+                    "row": row,
+                    "formula": formula,
+                    "value": value,
+                })
+            sheets.append({"name": sheet.attrib["name"], "cells": cells})
+    return sheets
+
+
+def validate_budget_workbook(path):
+    try:
+        sheets = xlsx_sheet_cells(path)
+    except (ET.ParseError, KeyError, IndexError, OSError, ValueError, zipfile.BadZipFile) as error:
+        return False, f"could not inspect budget workbook: {error}"
+
+    sheet_names = [sheet["name"].casefold() for sheet in sheets]
+    missing_sheets = [
+        label for label, terms in (
+            ("assumptions", ("assumption",)),
+            ("monthly spend", ("monthly", "spend")),
+            ("quarterly roll-up", ("quarter",)),
+        )
+        if not any(all(term in name for term in terms) for name in sheet_names)
+    ]
+
+    source_rows = {
+        "paid search": 30000,
+        "paid social": 24000,
+        "content and seo": 18000,
+        "events and webinars": 18000,
+        "lifecycle email": 15000,
+        "partner and abm": 15000,
+    }
+    matched_source_rows = set()
+    strings = set()
+    formulas = []
+    self_references = []
+    local_reference = re.compile(
+        r"(?<![A-Za-z0-9_!:])\$?([A-Za-z]{1,3})\$?(\d+)"
+        r"(?:\s*:\s*\$?([A-Za-z]{1,3})\$?(\d+))?"
+    )
+    for sheet in sheets:
+        rows = {}
+        for cell in sheet["cells"]:
+            rows.setdefault(cell["row"], []).append(cell)
+        for row in rows.values():
+            row_strings = {
+                value.strip().casefold()
+                for cell in row
+                if cell["formula"] is None
+                and isinstance((value := cell["value"]), str)
+            }
+            strings.update(row_strings)
+            row_numbers = {
+                float(cell["value"]) for cell in row
+                if isinstance(cell["value"], (int, float))
+                and not isinstance(cell["value"], bool)
+            }
+            for channel, annual_budget in source_rows.items():
+                if channel in row_strings and float(annual_budget) in row_numbers:
+                    matched_source_rows.add(channel)
+
+            for cell in row:
+                formula = cell["formula"]
+                if formula is None:
+                    continue
+                formulas.append(f"{sheet['name']}!{cell['coordinate']}")
+                for match in local_reference.finditer(formula):
+                    min_column = xlsx_column_number(match.group(1))
+                    min_row = int(match.group(2))
+                    max_column = xlsx_column_number(match.group(3) or match.group(1))
+                    max_row = int(match.group(4) or match.group(2))
+                    if (
+                        min(min_column, max_column) <= cell["column"] <= max(min_column, max_column)
+                        and min(min_row, max_row) <= cell["row"] <= max(min_row, max_row)
+                    ):
+                        self_references.append(
+                            f"{sheet['name']}!{cell['coordinate']} -> {match.group(0)}"
+                        )
+
+    missing_channels = sorted(set(source_rows) - matched_source_rows)
+    missing_months = sorted(
+        set(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"))
+        - strings
+    )
+    missing_quarters = sorted(set(("q1", "q2", "q3", "q4")) - strings)
+    valid = not any((missing_sheets, missing_channels, missing_months, missing_quarters, self_references))
+    valid = valid and len(formulas) >= 12
+    detail = (
+        f"sheets={[sheet['name'] for sheet in sheets]}; formulas={len(formulas)}; "
+        f"missing source rows={missing_channels}; missing months={missing_months}; "
+        f"missing quarters={missing_quarters}; self references={self_references[:8]}"
+    )
+    return valid, detail
+
+
 def grade(row, workspace, report, source_hashes):
     checks = []
 
@@ -1503,6 +1668,9 @@ def grade(row, workspace, report, source_hashes):
     extension = output_format(row)
     valid, format_detail, artifact_text = validate_artifact(artifact, extension)
     add("primary artifact format", valid, format_detail)
+    if row["id"] == 19:
+        budget_valid, budget_detail = validate_budget_workbook(artifact)
+        add("budget workbook semantics", budget_valid, budget_detail)
     verification_text = "\n".join(tool_output_text(tool) for tool in reads + shell_reads)
     combined_text = "\n".join(
         value for value in (artifact_text, verification_text, report.get("finalAnswer", "") if report else "")
