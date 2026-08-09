@@ -22,6 +22,10 @@ def validate_packaged_window_report(report_path: Path, screenshot_path: Path) ->
     require(report.get("ok") is True, f"{report_path} does not report ok=true")
     require(report.get("appName") == "Quill Cowork", f"{report_path} does not report the Quill Cowork app identity")
     require(report.get("windowTitle") == "Quill Cowork", f"{report_path} does not report the Quill Cowork window title")
+    require(
+        report.get("workspaceWindowCount") == 1,
+        f"{report_path} must report exactly one visible Quill Cowork workspace window",
+    )
 
     probe_contracts = normalized_probe_contracts(report, "packaged live-window")
 

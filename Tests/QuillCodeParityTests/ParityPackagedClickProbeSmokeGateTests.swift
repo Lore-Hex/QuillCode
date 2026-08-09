@@ -88,6 +88,7 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         let manifest = temporaryDirectory.appendingPathComponent("packaged-click-probes.json")
         let readiness = temporaryDirectory.appendingPathComponent("packaged-accessibility-readiness.json")
         let windowReport = temporaryDirectory.appendingPathComponent("window-report.json")
+        let duplicateWindowReport = temporaryDirectory.appendingPathComponent("duplicate-window-report.json")
         let accessibilityFrameReport = temporaryDirectory.appendingPathComponent("window-accessibility-report.json")
         let blockedAccessibilityFrameReport = temporaryDirectory.appendingPathComponent("window-accessibility-blocked-report.json")
         let shallowSearchActivationReport = temporaryDirectory
@@ -139,6 +140,9 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
         try Self.minimalClickProbeReport.write(to: directReport, atomically: true, encoding: .utf8)
         try Self.minimalClickProbeReport.write(to: launchServicesReport, atomically: true, encoding: .utf8)
         try Self.minimalPackagedWindowReport.write(to: windowReport, atomically: true, encoding: .utf8)
+        try Self.minimalPackagedWindowReport
+            .replacingOccurrences(of: #""workspaceWindowCount": 1"#, with: #""workspaceWindowCount": 2"#)
+            .write(to: duplicateWindowReport, atomically: true, encoding: .utf8)
         try Self.minimalPackagedWindowAccessibilityFrameReport()
             .write(to: accessibilityFrameReport, atomically: true, encoding: .utf8)
         try Self.minimalPackagedWindowAccessibilityFrameReport(firstSampleHitTestMatchesTarget: false)
@@ -295,6 +299,17 @@ final class ParityPackagedClickProbeSmokeGateTests: QuillCodeParityTestCase {
             windowScreenshot.path
         ])
         XCTAssertEqual(windowResult.exitCode, 0, windowResult.output)
+
+        let duplicateWindowResult = try Self.runPython(validator, arguments: [
+            "window",
+            duplicateWindowReport.path,
+            windowScreenshot.path
+        ])
+        XCTAssertNotEqual(duplicateWindowResult.exitCode, 0)
+        XCTAssertTrue(
+            duplicateWindowResult.output.contains("must report exactly one visible Quill Cowork workspace window"),
+            duplicateWindowResult.output
+        )
 
         let framesResult = try Self.runPython(validator, arguments: [
             "frames",

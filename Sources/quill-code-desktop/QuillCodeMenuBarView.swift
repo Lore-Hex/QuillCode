@@ -2,6 +2,8 @@ import SwiftUI
 import QuillCodeApp
 
 struct QuillCodeMenuBarView: View {
+    @Environment(\.openWindow) private var openWindow
+
     var surface: WorkspaceSurface
     var onNewChat: () -> Void
     var onOpenProject: () -> Void
@@ -42,24 +44,40 @@ struct QuillCodeMenuBarView: View {
             menuActionButton("Stop Recording", action: onStopWorkflowRecording)
         }
         Divider()
-        menuActionButton("New Chat", action: onNewChat)
-        menuActionButton("Open Project...", action: onOpenProject)
-        menuActionButton("Command Palette", action: onCommandPalette)
-        menuActionButton("Keyboard Shortcuts", action: onKeyboardShortcuts)
-        menuActionButton(surface.terminal.isVisible ? "Hide Terminal" : "Show Terminal", action: onToggleTerminal)
-        menuActionButton(surface.browser.isVisible ? "Hide Browser" : "Show Browser", action: onToggleBrowser)
+        menuActionButton("New Chat", revealsMainWindow: true, action: onNewChat)
+        menuActionButton("Open Project...", revealsMainWindow: true, action: onOpenProject)
+        menuActionButton("Command Palette", revealsMainWindow: true, action: onCommandPalette)
+        menuActionButton("Keyboard Shortcuts", revealsMainWindow: true, action: onKeyboardShortcuts)
+        menuActionButton(
+            surface.terminal.isVisible ? "Hide Terminal" : "Show Terminal",
+            revealsMainWindow: true,
+            action: onToggleTerminal
+        )
+        menuActionButton(
+            surface.browser.isVisible ? "Hide Browser" : "Show Browser",
+            revealsMainWindow: true,
+            action: onToggleBrowser
+        )
         menuActionButton(
             "Open Browser Session",
             isDisabled: surface.browser.currentURL == nil && !surface.browser.canOpen,
             action: onOpenBrowserSession
         )
-        menuActionButton(surface.memories.isVisible ? "Hide Memories" : "Show Memories", action: onToggleMemories)
-        menuActionButton(surface.extensions.isVisible ? "Hide Extensions" : "Show Extensions", action: onToggleExtensions)
+        menuActionButton(
+            surface.memories.isVisible ? "Hide Memories" : "Show Memories",
+            revealsMainWindow: true,
+            action: onToggleMemories
+        )
+        menuActionButton(
+            surface.extensions.isVisible ? "Hide Extensions" : "Show Extensions",
+            revealsMainWindow: true,
+            action: onToggleExtensions
+        )
         if surface.topBar.showsComputerUseSetup {
-            menuActionButton("Computer Use Setup", action: onComputerUseSetup)
+            menuActionButton("Computer Use Setup", revealsMainWindow: true, action: onComputerUseSetup)
         }
-        menuActionButton("Settings...", action: onSettings)
-        menuActionButton("Check for Updates...", action: onCheckForUpdates)
+        menuActionButton("Settings...", revealsMainWindow: true, action: onSettings)
+        menuActionButton("Check for Updates...", revealsMainWindow: true, action: onCheckForUpdates)
         menuActionButton("Report an Issue...", action: onReportIssue)
         Divider()
         menuActionButton("Stop All", isDisabled: stopAllCommand?.isEnabled != true, action: onStopAll)
@@ -94,9 +112,15 @@ struct QuillCodeMenuBarView: View {
     private func menuActionButton(
         _ title: String,
         isDisabled: Bool = false,
+        revealsMainWindow: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
-        Button(title, action: action)
+        Button(title) {
+            if revealsMainWindow {
+                openWindow(id: QuillCodeDesktopSceneID.mainWindow)
+            }
+            action()
+        }
             .buttonStyle(QuillCodePressableButtonStyle())
             .quillCodeFullRowButtonTarget()
             .disabled(isDisabled)

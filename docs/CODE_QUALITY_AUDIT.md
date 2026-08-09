@@ -1,5 +1,27 @@
 # Code Quality Audit
 
+## 2026-08-09 Unique Main-Window Ownership
+
+Overall grade after this slice: **A+ memory ownership, A+ lifecycle UX, A+ release hygiene**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Memory ownership | A+ | One identified SwiftUI `Window` replaces the multi-instance `WindowGroup` and the competing AppKit product presenter, so normal launch and reopen cannot retain parallel workspace trees. |
+| Menu-bar UX | A+ | New Chat, project import, navigation, panes, setup, Settings, and update checks reopen the unique main scene before applying their state transition; operational controls remain window-independent. |
+| Release integrity | A+ | Every live packaged report carries the visible workspace-window count, and the validator rejects missing or duplicate windows before performance evidence can publish. |
+| Harness lifecycle | A+ | Window smoke reuses a visible scene before its isolated fallback; DMG relocation tracks the exact relaunched PID and performs bounded TERM/KILL cleanup from a canonical temporary path. |
+| Real-use evidence | A+ | Normal Launch Services startup and close/reopen exposed one `quillcode-main-window` with no overlap or clipping; optimized package attempts each completed both native interaction sweeps with one workspace window. |
+
+Validation:
+
+- Focused desktop report and distribution parity suites (26 tests, 0 failures)
+- Full `swift test` (5,705 tests, 5 skipped, 0 failures)
+- Real packaged direct, Launch Services, live-window, Accessibility, and screenshot smoke
+- Normal app launch plus close/reopen through Computer Use with one identified main window
+- Optimized package: 283.03 ms median launch-ready, 90.48 MiB initial, 146.31 MiB
+  post-interaction, and 150.70 MiB repeated-interaction memory
+- Read-only DMG relocation and relaunch passed; no Quill Cowork process remained afterward
+
 ## 2026-08-09 Transactional First-Install Relocation
 
 Overall grade after this slice: **A+ first-run UX, A+ rollback safety, A+ release evidence**.

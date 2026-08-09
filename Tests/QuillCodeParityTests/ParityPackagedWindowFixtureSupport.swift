@@ -25,6 +25,7 @@ extension QuillCodeParityTestCase {
           "appName": "Quill Cowork",
           "bundleIdentifier": "co.lorehex.QuillCowork",
           "windowTitle": "Quill Cowork",
+          "workspaceWindowCount": 1,
           "screenshotPath": "window.png",
           "image": {
             "width": 1280,

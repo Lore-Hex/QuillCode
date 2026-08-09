@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-09: the desktop has one main-window owner
+
+- **Decision:** The product workspace is a uniquely identified SwiftUI `Window`, not a
+  `WindowGroup` paired with a second AppKit presenter. SwiftUI owns creation, close/reopen,
+  frame restoration, and scene identity for the normal application lifecycle.
+- **Menu-bar UX:** Actions that reveal workspace UI open the unique scene before mutating
+  controller state. Operational actions such as Stop All, Disconnect All, Report an Issue,
+  and Quit remain usable without forcing the workspace onscreen.
+- **Release evidence:** Packaged smoke reuses an existing scene window before constructing
+  its isolated fallback and reports the complete visible workspace-window count. Public
+  validation requires exactly one, so a visible duplicate UI tree fails publication even if
+  screenshots and foreground interactions look correct.
+- **Test cleanup:** The read-only DMG relocation smoke canonicalizes `TMPDIR`, captures the
+  relaunched app PID, and owns bounded TERM/KILL cleanup. Path-pattern fallback remains only
+  for failures before the PID becomes observable.
+- **Why:** A shared controller does not make multiple SwiftUI trees cheap. Competing AppKit
+  and SwiftUI creation paths could retain redundant view state, make closed-window menu
+  actions invisible, distort memory evidence, and leave relocation-test apps running after
+  their temporary bundles were removed.
+
 ## 2026-08-09: first install reuses transactional update activation
 
 - **Decision:** A copy launched from a DMG, App Translocation, or another

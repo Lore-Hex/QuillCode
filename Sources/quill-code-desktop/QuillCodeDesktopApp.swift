@@ -4,6 +4,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 import QuillCodeApp
 
+enum QuillCodeDesktopSceneID {
+    static let mainWindow = "quillcode-main-window"
+}
+
 @main
 struct QuillCodeDesktopApp: App {
     @StateObject private var controller: QuillCodeDesktopController
@@ -107,11 +111,10 @@ struct QuillCodeDesktopApp: App {
             workspaceRoot: QuillCodeDesktopWorkspaceRootResolver.resolve()
         )
         _controller = StateObject(wrappedValue: controller)
-        QuillCodeDesktopMainWindowPresenter.shared.scheduleLaunch(controller: controller)
     }
 
     var body: some Scene {
-        WindowGroup(QuillCodeProduct.displayName) {
+        Window(QuillCodeProduct.displayName, id: QuillCodeDesktopSceneID.mainWindow) {
             QuillCodeDesktopRootView(controller: controller)
         }
         .defaultSize(width: 1280, height: 900)

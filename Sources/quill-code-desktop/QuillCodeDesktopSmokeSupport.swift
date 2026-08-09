@@ -521,6 +521,7 @@ struct QuillCodeDesktopWindowSmokeReport {
     var appName: String
     var bundleIdentifier: String
     var windowTitle: String
+    var workspaceWindowCount: Int
     var windowFrame: CGRect
     var contentSize: CGSize
     var screenshotPath: String
@@ -541,6 +542,7 @@ struct QuillCodeDesktopWindowSmokeReport {
                 "appName": appName,
                 "bundleIdentifier": bundleIdentifier,
                 "windowTitle": windowTitle,
+                "workspaceWindowCount": workspaceWindowCount,
                 "windowFrame": [
                     "x": windowFrame.origin.x,
                     "y": windowFrame.origin.y,
