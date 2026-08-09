@@ -37,6 +37,24 @@ final class ToolCallFingerprintTests: XCTestCase {
         XCTAssertNotEqual(a, b)
     }
 
+    func testFocusedFetchQueriesForSameURLHashEqual() {
+        let a = ToolCallFingerprint.make(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: #"{"url":"https://example.com/results","query":"Q1 revenue"}"#
+        )
+        let b = ToolCallFingerprint.make(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: #"{"query":"full GAAP revenue table","url":"https://example.com/results"}"#
+        )
+        let other = ToolCallFingerprint.make(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: #"{"url":"https://example.com/another-result","query":"Q1 revenue"}"#
+        )
+
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, other)
+    }
+
     func testMalformedJSONStillFingerprintsStably() {
         let a = ToolCallFingerprint.make(name: "t", argumentsJSON: "not json  at all")
         let b = ToolCallFingerprint.make(name: "t", argumentsJSON: "not json at all")
