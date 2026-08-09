@@ -1422,7 +1422,8 @@ def shell_command_writes_path(command, path):
     direct_writers = re.compile(
         rf"(?:open\s*\(\s*{literal}\s*,\s*['\"](?:w|a|x)b?['\"]|"
         rf"(?:write_text|write_bytes|save|to_csv|to_excel|to_html)\s*\(\s*{literal}|"
-        rf">\s*{literal})",
+        rf">\s*{literal}|"
+        rf">>?\s*{re.escape(normalized_path)}(?=\s|$))",
         flags=re.IGNORECASE,
     )
     if direct_writers.search(normalized):
@@ -2089,7 +2090,7 @@ def grade(row, workspace, report, source_hashes):
     if row["capabilityNeeded"] == "Web research":
         citations = re.findall(r"https?://[^\s)>\]]+", combined_text)
         add("source citations", len(set(citations)) >= 2, f"{len(set(citations))} unique URLs")
-    placeholders = unresolved_placeholders(row, combined_text)
+    placeholders = unresolved_placeholders(row, artifact_text)
     add("no template placeholders", not placeholders, repr(placeholders))
     return checks, artifact
 

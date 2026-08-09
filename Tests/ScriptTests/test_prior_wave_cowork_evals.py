@@ -732,6 +732,10 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         )
 
         self.assertTrue(PRIOR.shell_command_writes_path(command, path))
+        self.assertTrue(PRIOR.shell_command_writes_path(
+            f"cat > {path} <<'EOF'\nrisk_id,owner\nR-1,Jo Chen\nEOF",
+            path,
+        ))
         self.assertTrue(PRIOR.shell_command_inspects_path(command, path))
         self.assertFalse(PRIOR.shell_command_writes_path(f'open("{path}").read()', path))
 
@@ -885,6 +889,43 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
                 check for check in checks if check["name"] == "no template placeholders"
             )
             self.assertTrue(placeholder["passed"])
+
+    def test_grade_ignores_placeholder_from_superseded_artifact_readback(self):
+        row = self.rows[98]
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            artifact = workspace / PRIOR.output_path(row)
+            artifact.parent.mkdir(parents=True)
+            artifact.write_text(
+                "# Renewal outreach\n\nJo Chen owns the Northstar renewal review in 2026.\n" * 20,
+                encoding="utf-8",
+            )
+            stale_read = tool("host.file.read", PRIOR.output_path(row))
+            stale_read["outputJSON"] = json.dumps({"content": "Draft: {Owner: Jo Chen}"})
+            report = {
+                "ok": True,
+                "requestedModelID": PRIOR.EXACT_MODEL,
+                "selectedModelID": PRIOR.EXACT_MODEL,
+                "tools": [
+                    tool("host.file.read", "inputs/evaluation-context.md"),
+                    tool("host.file.read", "inputs/renewals.csv"),
+                    stale_read,
+                    tool("host.file.write", PRIOR.output_path(row)),
+                    tool("host.file.read", PRIOR.output_path(row)),
+                ],
+                "finalAnswer": "The corrected renewal outreach is complete.",
+            }
+            hashes = {
+                path: PRIOR.sha256(path)
+                for path in workspace.rglob("*") if path.is_file() and path != artifact
+            }
+            checks, _ = PRIOR.grade(row, workspace, report, hashes)
+
+        placeholder = next(
+            check for check in checks if check["name"] == "no template placeholders"
+        )
+        self.assertTrue(placeholder["passed"], placeholder["detail"])
 
     def test_reusable_macros_distinguish_runtime_fields_from_placeholders(self):
         macro_row = self.rows[59]
