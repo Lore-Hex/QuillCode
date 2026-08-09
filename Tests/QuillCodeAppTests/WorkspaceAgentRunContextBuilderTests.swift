@@ -65,6 +65,46 @@ final class WorkspaceAgentRunContextBuilderTests: XCTestCase {
         )
     }
 
+    func testConfiguredRunnerRotatesFallbackAndDisablesItForE2ETraffic() throws {
+        let fallback = TrustedRouterLLMClient(model: "placeholder/fallback")
+        let baseRunner = AgentRunner(fallbackLLM: fallback)
+        let ordinaryBuilder = WorkspaceAgentRunContextBuilder(
+            selectedProject: nil,
+            browser: BrowserState(),
+            computerUseBackend: nil,
+            globalMemoryDirectory: nil,
+            mcpToolDefinitions: [],
+            mcpToolExecutionOverride: nil,
+            sshRemoteShellExecutor: SSHRemoteShellExecutor()
+        )
+
+        let deepSeekRunner = ordinaryBuilder.configuredRunner(
+            from: baseRunner,
+            modelID: "deepseek/deepseek-v4-flash-0731"
+        )
+        XCTAssertEqual(
+            (deepSeekRunner.fallbackLLM as? TrustedRouterLLMClient)?.model,
+            TrustedRouterDefaults.safetyPrimaryCatalogModel
+        )
+
+        let glmRunner = ordinaryBuilder.configuredRunner(
+            from: baseRunner,
+            modelID: TrustedRouterDefaults.safetyPrimaryCatalogModel
+        )
+        XCTAssertEqual(
+            (glmRunner.fallbackLLM as? TrustedRouterLLMClient)?.model,
+            TrustedRouterDefaults.safetyFallbackCatalogModel
+        )
+
+        var confidentialBuilder = ordinaryBuilder
+        confidentialBuilder.threadIsConfidential = true
+        let confidentialRunner = confidentialBuilder.configuredRunner(
+            from: baseRunner,
+            modelID: "deepseek/deepseek-v4-flash-0731"
+        )
+        XCTAssertNil(confidentialRunner.fallbackLLM)
+    }
+
     func testConfiguredRunnerWiresProactiveCompactionToTheActiveModelsContextWindow() {
         var builder = WorkspaceAgentRunContextBuilder(
             selectedProject: nil,

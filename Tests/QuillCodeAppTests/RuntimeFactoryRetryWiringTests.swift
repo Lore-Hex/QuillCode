@@ -14,6 +14,8 @@ final class RuntimeFactoryRetryWiringTests: XCTestCase {
             runtime.runner.llm is RetryingLLMClient<TrustedRouterLLMClient>,
             "expected the runner's LLM client to be retry-wrapped, got \(type(of: runtime.runner.llm))"
         )
+        let fallback = runtime.runner.fallbackLLM as? RetryingLLMClient<TrustedRouterLLMClient>
+        XCTAssertEqual(fallback?.base.model, TrustedRouterDefaults.safetyPrimaryCatalogModel)
     }
 
     /// The mock runtime (no key / forced mock) is unaffected — it must NOT be retry-wrapped.
@@ -22,6 +24,7 @@ final class RuntimeFactoryRetryWiringTests: XCTestCase {
         let runtime = factory.makeRuntime(config: AppConfig())
         XCTAssertEqual(runtime.mode, .mock)
         XCTAssertFalse(runtime.runner.llm is RetryingLLMClient<TrustedRouterLLMClient>)
+        XCTAssertNil(runtime.runner.fallbackLLM)
     }
 
     /// The run-loop client keeps prompt caching ON (its prefix repeats across turns), but the

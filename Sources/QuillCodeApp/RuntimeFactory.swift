@@ -93,6 +93,14 @@ public struct QuillCodeRuntimeFactory: Sendable {
             base: baseClient,
             onRetry: { attempt, kind, _ in retryChannel.record(attempt: attempt, kind: kind) }
         )
+        // Keep native desktop runs alive when the selected route repeatedly returns clean-but-empty
+        // action streams. The agent only consults this client after exhausting the primary route's
+        // bounded empty-response recovery, and the per-send context builder removes it entirely for
+        // confidential/E2E traffic.
+        let fallbackLLM = RetryingLLMClient(
+            base: baseClient.overridingModel(TrustedRouterDefaults.safetyPrimaryCatalogModel),
+            onRetry: { attempt, kind, _ in retryChannel.record(attempt: attempt, kind: kind) }
+        )
         // Context-summary/compaction calls are one-shot auxiliary housekeeping: each prompt is
         // unique and never re-sent, so a prompt-cache breakpoint on it could only ever be a cache
         // WRITE (billed at 1.25x) with no possible read. The auxiliary-model selector can pick an
@@ -156,7 +164,8 @@ public struct QuillCodeRuntimeFactory: Sendable {
                 webSearchLivenessChecker: WebFetchURLLivenessChecker(),
                 maxToolSteps: config.maxToolSteps,
                 enablesImmediateActionPreflight: true,
-                compaction: AgentCompactionPolicy(compactor: compactor)
+                compaction: AgentCompactionPolicy(compactor: compactor),
+                fallbackLLM: fallbackLLM
             ),
             contextSummaryGenerator: LLMWorkspaceContextSummaryGenerator(llm: summaryLLM),
             mode: .trustedRouter,
