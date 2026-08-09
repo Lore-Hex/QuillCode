@@ -673,6 +673,65 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         })
     }
 
+    func testToolFeedbackKeepsFullCardButBoundsModelFacingWebOutput() throws {
+        let marker = "TAIL-MARKER-SHOULD-NOT-REPLAY"
+        let feedback = AgentToolFeedback(
+            toolCall: .init(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: ToolArguments.json([
+                    "url": "https://example.com/results",
+                    "query": "quarterly revenue",
+                ])
+            ),
+            result: .init(ok: true, stdout: String(repeating: "Revenue evidence. ", count: 2_000) + marker)
+        )
+        let encoded = try JSONHelpers.encodePretty(feedback)
+        let thread = ChatThread(messages: [
+            .init(role: .user, content: "Research the quarter"),
+            .init(role: .tool, content: encoded),
+        ])
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "Research the quarter",
+            tools: [.webFetch]
+        )
+        let observation = try XCTUnwrap(messages.compactMap { $0["content"] as? String }.last)
+
+        XCTAssertEqual(thread.messages.last?.content, encoded, "the durable tool card remains lossless")
+        XCTAssertTrue(observation.contains("Tool observation: host.web.fetch"))
+        XCTAssertTrue(observation.contains("https://example.com/results"))
+        XCTAssertTrue(observation.contains("quarterly revenue"))
+        XCTAssertFalse(observation.contains(marker))
+        XCTAssertLessThan(observation.count, 6_000)
+    }
+
+    func testToolFeedbackRetainsLargerModelAllowanceForSourceReads() throws {
+        let retained = "SOURCE-FACT-NEAR-END"
+        let feedback = AgentToolFeedback(
+            toolCall: .init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "inputs/records.csv"])
+            ),
+            result: .init(ok: true, stdout: String(repeating: "a", count: 8_000) + retained)
+        )
+        let thread = ChatThread(messages: [
+            .init(role: .tool, content: try JSONHelpers.encodePretty(feedback)),
+        ])
+
+        let messages = TrustedRouterPromptBuilder().messages(
+            thread: thread,
+            userMessage: "Continue",
+            tools: [.fileRead]
+        )
+        let observation = try XCTUnwrap(messages.first {
+            ($0["content"] as? String)?.contains("Tool observation: host.file.read") == true
+        }?["content"] as? String)
+
+        XCTAssertTrue(observation.contains(retained))
+        XCTAssertTrue(observation.contains("inputs/records.csv"))
+    }
+
     func testSideConversationBoundaryFollowsInheritedHistoryAndPrecedesCurrentPrompt() {
         let parentID = UUID()
         let thread = ChatThread(

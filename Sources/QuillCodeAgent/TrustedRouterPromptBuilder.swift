@@ -566,7 +566,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
             // turn) — and (b) teaches the model that assistant turns NARRATE tool results, the
             // exact fabrication habit seen in coworker runs. Role "user" matches the multimodal
             // path below, which always sent feedback as user.
-            let text = "Tool output: \(message.content)"
+            let text = "Tool output: \(AgentToolFeedbackModelProjector.project(message.content))"
             guard !message.attachments.isEmpty else {
                 return Self.chatMessage(role: "user", content: text)
             }
