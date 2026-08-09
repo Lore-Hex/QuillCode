@@ -245,6 +245,12 @@ the chat title, transcript, filesystem path, underlying error text, or credentia
 keep the app open while they free disk space, restore application-data permissions, or compact an
 oversized chat, then make another change so Quill Cowork can retry the complete snapshot.
 
+Project, automation, and saved-search write failures use the same durable-warning pattern. The
+warning names only the affected data types and remains visible until each registry writes a complete
+snapshot successfully. Testers should keep the app open, restore disk space or application-data
+permissions, then change each affected data type again. Reports must not include private project
+names, automation details, saved-search queries, filesystem paths, raw errors, or credentials.
+
 ## Versioned Releases
 
 Stable releases are immutable and must use a canonical `vMAJOR.MINOR.PATCH` tag

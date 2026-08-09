@@ -1,5 +1,22 @@
 # QuillCode Decisions
 
+## 2026-08-09: workspace registry persistence failures remain visible until exact recovery
+
+- **Decision:** Project, automation, and saved-search snapshots share a focused registry
+  persistence helper. Every attempted write records success or failure for its exact registry kind;
+  a successful project save never clears an automation or saved-search warning.
+- **UX:** The normal runtime-issue surface reports that workspace changes are not durable and names
+  only the affected data types. Startup load damage and failed chat snapshots remain higher priority,
+  and provider/runtime issues return automatically after every affected registry becomes durable.
+- **Privacy:** The tracker stores only enum cases in memory. It never retains or displays filesystem
+  errors, paths, project names, automation details, saved-search queries, or credentials.
+- **Recovery mode:** A nil store remains a no-op because bootstrap already uses nil to protect data
+  that could not be loaded. Its startup recovery issue stays visible, and later in-memory edits do
+  not overwrite the original damaged file.
+- **Why:** These registries previously used `try?` in the central model. Disk exhaustion, read-only
+  storage, permission loss, or bounded-file limits could leave visible project, automation, and
+  saved-search changes available only in memory without telling the user.
+
 ## 2026-08-09: failed chat persistence is visible until that snapshot recovers
 
 - **Decision:** Every non-ephemeral chat save and delete reports success or failure to a shared,

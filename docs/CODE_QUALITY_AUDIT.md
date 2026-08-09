@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-08-09 Visible Workspace Registry Durability Failures
+
+Overall grade after this slice: **A+ data integrity, A+ recovery UX, A+ privacy**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Data integrity | A+ | Projects, automations, and saved searches share one full-snapshot persistence boundary; every write reports success or failure instead of silently swallowing errors. |
+| Exact recovery | A+ | A successful snapshot clears only its own registry kind, so repairing projects cannot hide an automation or saved-search failure. Throwing project-import saves record failure before rethrowing. |
+| Recovery UX | A+ | The existing top-bar and Settings issue surface explains that affected changes remain available for the session but may not survive relaunch, and gives disk-space and permission guidance. |
+| Privacy | A+ | The bounded tracker retains enum cases only. Diagnostics expose affected data types and explicitly contain no private content, paths, names, queries, automation details, raw errors, or credentials. |
+| Priority integrity | A+ | Startup load damage remains highest priority, followed by unsaved chat snapshots, registry snapshots, and provider/runtime issues. Startup recovery mode keeps unavailable stores disabled instead of overwriting damaged data. |
+
+Validation:
+
+- Focused registry persistence, runtime-issue, parity, and native rendered suites
+  (19 tests, 0 failures)
+- Full `swift test` (5,725 tests, 5 skipped, 0 failures)
+- Optimized packaged app Launch Services smoke passed with 126 transcript messages,
+  79 tool cards, 205 timeline items, and 186 native click probes
+- Release executable stripped from 56,129,056 to 28,160,848 bytes; strict code-signature
+  verification passed
+- `python3 scripts/grade-code-quality.py --root .` reports every module at A+
+
 ## 2026-08-09 Visible Chat Durability Failures
 
 Overall grade after this slice: **A+ data integrity, A+ privacy, A+ recovery UX**.

@@ -79,9 +79,8 @@ public final class QuillCodeWorkspaceModel {
     var verificationRunner: (@Sendable (LocalEnvironmentAction, URL) async -> ToolResult)?
     let threadPersistence: WorkspaceThreadPersistence
     let threadPersistenceIssueTracker: WorkspaceThreadPersistenceIssueTracker
-    private let projectStore: JSONProjectStore?
-    private let automationStore: JSONAutomationStore?
-    private let sidebarSavedSearchStore: JSONSidebarSavedSearchStore?
+    let registryPersistence: WorkspaceRegistryPersistence
+    let registryPersistenceIssueTracker: WorkspaceRegistryPersistenceIssueTracker
     let agentImporter: ClaudeCodeAgentImporter?
     /// Persisted per-project permission rules ("always allow/deny"). The agent's safety gate reads
     /// this same store per review, so a rule saved here applies to the very next tool call. Nil
@@ -229,14 +228,19 @@ public final class QuillCodeWorkspaceModel {
             store: threadStore,
             issueTracker: threadPersistenceIssueTracker
         )
+        let registryPersistenceIssueTracker = WorkspaceRegistryPersistenceIssueTracker()
+        self.registryPersistenceIssueTracker = registryPersistenceIssueTracker
+        self.registryPersistence = WorkspaceRegistryPersistence(
+            projectStore: projectStore,
+            automationStore: automationStore,
+            sidebarSavedSearchStore: sidebarSavedSearchStore,
+            issueTracker: registryPersistenceIssueTracker
+        )
         self.startupLoadIssue = startupLoadIssue ?? WorkspaceStartupLoadIssue(
             loadedThreadCount: root.threads.count,
             threadLoadIssue: threadLoadIssue,
             unreadableDataKinds: []
         )
-        self.projectStore = projectStore
-        self.automationStore = automationStore
-        self.sidebarSavedSearchStore = sidebarSavedSearchStore
         self.agentImporter = agentImporter
         self.permissionRuleStore = permissionRuleStore
         self.projectHookTrustStore = projectHookTrustStore
@@ -472,11 +476,11 @@ public final class QuillCodeWorkspaceModel {
     }
 
     func saveProjects() {
-        try? projectStore?.save(root.projects)
+        registryPersistence.saveProjects(root.projects)
     }
 
     func saveProjectsOrThrow(_ projects: [ProjectRef]) throws {
-        try projectStore?.save(projects)
+        try registryPersistence.saveProjectsOrThrow(projects)
     }
 
     func applyAutomationState(_ state: AutomationsState) {
@@ -493,11 +497,11 @@ public final class QuillCodeWorkspaceModel {
     }
 
     private func saveAutomations() {
-        try? automationStore?.save(automations.items)
+        registryPersistence.saveAutomations(automations.items)
     }
 
     func saveSidebarSavedSearches() {
-        try? sidebarSavedSearchStore?.save(sidebarSavedSearches)
+        registryPersistence.saveSidebarSavedSearches(sidebarSavedSearches)
     }
 
 }
