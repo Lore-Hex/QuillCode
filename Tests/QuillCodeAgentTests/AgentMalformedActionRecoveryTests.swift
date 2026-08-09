@@ -598,6 +598,103 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
         XCTAssertFalse(calls.contains { $0.userMessage.contains("QuillCode continuation") })
     }
 
+    func testTerminalAnswerAdvancesRequiredInputInventoryBeforeCompletion() async throws {
+        let root = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("inputs"),
+            withIntermediateDirectories: true
+        )
+        try "task map\n".write(
+            to: root.appendingPathComponent("inputs/source-map.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "evaluation context\n".write(
+            to: root.appendingPathComponent("inputs/evaluation-context.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let readMap = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "inputs/source-map.md"])
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nGrounded result.\n",
+            ])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(readMap)),
+            .action(.say("Done.")),
+            .action(.tool(write)),
+            .action(.say("Created and verified outputs/report.md.")),
+            .action(.say("Created and verified outputs/report.md.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            """
+            Read every applicable source directly before acting.
+            For this task the required inputs are: `inputs/source-map.md`, \
+            `inputs/evaluation-context.md`, `inputs`.
+            Write the deliverable to `outputs/report.md`, then read the saved file back to verify it.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 4, "two source reads, write, and forced readback")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("before accepting the final answer")
+        })
+    }
+
+    func testMutationAdvancesRequiredInputInventoryBeforeExecutingWrite() async throws {
+        let root = try makeTempDirectory()
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("inputs"),
+            withIntermediateDirectories: true
+        )
+        try "evaluation context\n".write(
+            to: root.appendingPathComponent("inputs/evaluation-context.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nGrounded result.\n",
+            ])
+        )
+        let client = ThrowingSequenceLLMClient(steps: [
+            .action(.tool(write)),
+            .action(.tool(write)),
+            .action(.say("Created and verified outputs/report.md.")),
+            .action(.say("Created and verified outputs/report.md.")),
+        ])
+        let runner = AgentRunner(llm: client)
+
+        let result = try await runner.send(
+            """
+            Read all required inputs before acting.
+            Required inputs are: `inputs/evaluation-context.md`.
+            Write the deliverable to `outputs/report.md`, then read the saved file back to verify it.
+            """,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 3, "required source read, write, and forced readback")
+        XCTAssertTrue(result.toolResults.allSatisfy(\.ok))
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("before the first pending mutation")
+        })
+    }
+
     func testMalformedTerminalOutputAfterWriteStillEnforcesReadback() async throws {
         let write = ToolCall(
             name: ToolDefinition.fileWrite.name,

@@ -483,6 +483,22 @@ public struct AgentRunner: Sendable {
                     }
                 }
                 if case .say = resolvedAction,
+                   let requiredRead = AgentExplicitSourceReadRecovery.nextAction(
+                    userMessage: userMessage,
+                    workspaceRoot: workspaceRoot,
+                    tools: tools,
+                    successfullyReadPaths: runLoop.successfullyReadWorkspacePaths
+                   ) {
+                    resolvedAction = requiredRead
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: completed an explicitly required source read "
+                            + "before accepting the final answer."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                }
+                if case .say = resolvedAction,
                    let correction = AgentArtifactTextQualityGate.correction(
                     userMessage: userMessage,
                     malformedPaths: runLoop.malformedWrittenTextPaths
@@ -770,6 +786,21 @@ public struct AgentRunner: Sendable {
                             result: lastCompletion.result,
                             followUpReviewResult: lastCompletion.followUpReviewResult
                         ))
+                        if let requiredRead = AgentExplicitSourceReadRecovery.nextAction(
+                            userMessage: userMessage,
+                            workspaceRoot: workspaceRoot,
+                            tools: tools,
+                            successfullyReadPaths: runLoop.successfullyReadWorkspacePaths
+                        ) {
+                            finalized = requiredRead
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: completed an explicitly required source read "
+                                    + "before accepting the final answer."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        }
                         if let correction = AgentArtifactTextQualityGate.correction(
                             userMessage: userMessage,
                             malformedPaths: runLoop.malformedWrittenTextPaths
@@ -1082,6 +1113,23 @@ public struct AgentRunner: Sendable {
                         next.updatedAt = Date()
                         await onProgress?(next)
                         continue
+                    }
+
+                    if tools.first(where: { $0.name == activeCall.name })?.risk != .read,
+                       let requiredRead = AgentExplicitSourceReadRecovery.nextAction(
+                        userMessage: userMessage,
+                        workspaceRoot: workspaceRoot,
+                        tools: tools,
+                        successfullyReadPaths: runLoop.successfullyReadWorkspacePaths
+                       ), case .tool(let requiredReadCall) = requiredRead {
+                        activeCall = requiredReadCall
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: completed an explicitly required source read "
+                                + "before the first pending mutation."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
                     }
 
                     // Baseline the workspace state before the first tool step, so that step's own
