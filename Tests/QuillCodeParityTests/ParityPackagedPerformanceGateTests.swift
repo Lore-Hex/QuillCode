@@ -10,7 +10,7 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
         let packagedSmoke = try Self.scriptText(named: "packaged-macos-smoke.sh")
         let performanceSmoke = try Self.scriptText(named: "packaged-macos-performance-smoke.sh")
         let packageDownloads = try Self.scriptText(named: "package-macos-downloads.sh")
-        let workflow = try Self.workflowText(named: "download-builds.yml")
+        let releaseNotes = try Self.scriptText(named: "build-release-notes.py")
         let downloads = try Self.docsText(named: "DOWNLOADS.md")
 
         Self.assertSource(snapshot, containsAll: [
@@ -90,7 +90,11 @@ final class ParityPackagedPerformanceGateTests: QuillCodeParityTestCase {
             "performance=Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",
             #"SWIFT_BUILD_ARGUMENTS+=(-debug-info-format "$SWIFT_DEBUG_INFO_FORMAT")"#
         ])
-        Self.assertSource(workflow, contains: "measured launch and resident-memory release evidence")
+        Self.assertSource(releaseNotes, containsAll: [
+            "performance evidence",
+            "Quill-Cowork-macOS-arm64-PERFORMANCE.json",
+            "Quill-Cowork-macOS-x86_64-PERFORMANCE.json"
+        ])
         Self.assertSource(downloads, containsAll: [
             "within three",
             "256 MiB",

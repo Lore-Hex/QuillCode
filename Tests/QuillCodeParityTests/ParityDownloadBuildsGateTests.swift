@@ -305,10 +305,12 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "runner: macos-15-intel",
             "name: quillcode-macos-downloads-${{ matrix.arch }}",
             "name: quillcode-public-updater-smoke-${{ matrix.arch }}",
-            "Quill-Cowork-macOS-*.dmg",
-            "recommended drag-to-Applications macOS installer",
-            "\\`${MANIFEST_NAME}\\`: machine-readable build metadata",
-            "updater feed metadata",
+            "scripts/build-release-notes.py",
+            "--build-info \"$RUNNER_TEMP/release-assets/BUILD_INFO.txt\"",
+            "--tag \"$RELEASE_TAG\"",
+            "--channel \"$RELEASE_CHANNEL\"",
+            "--commit \"$GITHUB_SHA\"",
+            "--output \"$RUNNER_TEMP/release-notes.md\"",
             "current-release-assets.txt",
             "gh release delete-asset \"$RELEASE_TAG\" \"$asset_name\" --yes",
             "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/* --clobber",
@@ -348,6 +350,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             workflow.contains("permissions:\n  actions: read\n  contents: write"),
             "repository write permission must remain scoped to the publish job"
         )
+        XCTAssertFalse(workflow.contains("cat > \"$RUNNER_TEMP/release-notes.md\""))
+        XCTAssertFalse(workflow.contains("MACOS_DISTRIBUTION_NOTE"))
         let validationIndex = try XCTUnwrap(workflow.range(of: "scripts/validate-download-build-ref.sh"))
         let ciGateIndex = try XCTUnwrap(workflow.range(of: "scripts/wait-for-successful-ci.sh"))
         let planningIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-build.sh"))

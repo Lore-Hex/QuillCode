@@ -202,31 +202,14 @@ jobs:
             git push origin "refs/tags/$RELEASE_TAG" --force
           fi
           MANIFEST_NAME="latest-${RELEASE_CHANNEL}-build.json"
-
-          if grep -Fxq 'codesign=developer-id' "$RUNNER_TEMP/release-assets/BUILD_INFO.txt" &&
-             grep -Fxq 'notarized=true' "$RUNNER_TEMP/release-assets/BUILD_INFO.txt"; then
-            MACOS_DISTRIBUTION_NOTE="The macOS app is Developer ID signed, hardened, notarized by Apple, and stapled for normal first launch."
-          else
-            MACOS_DISTRIBUTION_NOTE="This tester build is ad-hoc signed and not notarized. If Gatekeeper blocks first launch, use right-click > Open."
-          fi
-
-          cat > "$RUNNER_TEMP/release-notes.md" <<NOTES
-          Automated Quill Cowork ${RELEASE_CHANNEL} build.
-
-          Commit: \`${GITHUB_SHA}\`
-          Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
-
-          Downloads:
-          - \`Quill-Cowork-macOS-*.dmg\`: recommended drag-to-Applications macOS installer.
-          - \`Quill-Cowork-macOS-*.zip\`: verified macOS auto-update archive and manual fallback.
-          - \`Quill-Cowork-macOS-*-PERFORMANCE.json\`: measured launch and resident-memory release evidence.
-          - \`quill-code-macOS-*.tar.gz\`: macOS CLI.
-          - \`quill-code-linux-*.tar.gz\`: Linux CLI.
-          - \`SHASUMS256.txt\`: checksums for package and build-info assets.
-          - \`${MANIFEST_NAME}\`: machine-readable build metadata, updater feed metadata, download URLs, sizes, and SHA-256 digests.
-
-          macOS distribution note: ${MACOS_DISTRIBUTION_NOTE} Computer Use still requires normal macOS Screen Recording and Accessibility permissions.
-          NOTES
+          scripts/build-release-notes.py \
+            --build-info "$RUNNER_TEMP/release-assets/BUILD_INFO.txt" \
+            --repo "$GITHUB_REPOSITORY" \
+            --tag "$RELEASE_TAG" \
+            --channel "$RELEASE_CHANNEL" \
+            --commit "$GITHUB_SHA" \
+            --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --output "$RUNNER_TEMP/release-notes.md"
 
           if [[ "$RELEASE_CHANNEL" == "stable" ]]; then
             if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
