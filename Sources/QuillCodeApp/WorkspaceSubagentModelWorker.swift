@@ -80,7 +80,7 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             try? threadStore?.save(thread)
             return result(
                 status: .cancelled,
-                summary: "Cancelled",
+                summary: Self.cancellationSummary(from: thread),
                 transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
             )
         } catch {
@@ -205,6 +205,18 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             summary: finalSummary,
             transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
         )
+    }
+
+    static func cancellationSummary(from thread: ChatThread) -> String {
+        let latestNote = thread.messages
+            .last(where: { $0.role == .assistant })
+            .flatMap { WorkspaceContextSummarySanitizer.summary(from: $0.content) }
+            .map(WorkspaceContextSummaryTextBounds.collapsedSingleLine)
+            .flatMap { $0.isEmpty ? nil : $0 }
+        guard let latestNote else {
+            return "Cancelled at the delegation deadline before the worker produced a final summary."
+        }
+        return "Cancelled at the delegation deadline. Latest worker note: \(latestNote)"
     }
 
     private static func stopSummary(for stopReason: AgentRunStopReason) -> String {

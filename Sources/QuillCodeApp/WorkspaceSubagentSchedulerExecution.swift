@@ -214,7 +214,12 @@ extension WorkspaceSubagentScheduler {
                     do {
                         try Task.checkCancellation()
                         let result = try await worker(job)
-                        try Task.checkCancellation()
+                        // Production workers convert cancellation into a detailed terminal result
+                        // with their captured transcript. Preserve it; only a worker that ignores
+                        // cancellation and claims completion is reduced to generic cancellation.
+                        if Task.isCancelled, result.status == .completed {
+                            return (index, .cancelled)
+                        }
                         return (index, .finished(result))
                     } catch is CancellationError {
                         return (index, .cancelled)

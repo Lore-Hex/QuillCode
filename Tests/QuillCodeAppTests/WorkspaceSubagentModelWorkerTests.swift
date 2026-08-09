@@ -210,6 +210,28 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(result.summary.contains("BLOCKED:"))
     }
 
+    func testCancellationSummaryPreservesLatestWorkerNote() {
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .assistant, content: "Confirmed Q1 revenue from the official release.\nQ2 remains unresolved.")
+        ])
+
+        XCTAssertEqual(
+            AgentWorkspaceSubagentWorker.cancellationSummary(from: thread),
+            "Cancelled at the delegation deadline. Latest worker note: Confirmed Q1 revenue from the official release. Q2 remains unresolved."
+        )
+    }
+
+    func testCancellationSummaryExplainsMissingFinalNote() {
+        let thread = ChatThread(messages: [
+            ChatMessage(role: .user, content: "Research quarterly revenue.")
+        ])
+
+        XCTAssertEqual(
+            AgentWorkspaceSubagentWorker.cancellationSummary(from: thread),
+            "Cancelled at the delegation deadline before the worker produced a final summary."
+        )
+    }
+
     func testIncompleteTerminalNarrationIsNotReportedAsDone() {
         let stalls = [
             "COMPLETE: I need Q4 revenue to finish the requested set.",

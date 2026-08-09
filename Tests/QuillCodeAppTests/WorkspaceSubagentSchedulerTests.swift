@@ -46,6 +46,45 @@ final class WorkspaceSubagentSchedulerTests: XCTestCase {
         XCTAssertFalse(result.record.workers[0].summary?.contains(marker) == true)
     }
 
+    func testSchedulerPreservesDetailedResultReturnedDuringCancellation() async throws {
+        let transcript = [
+            SubagentTranscriptEntry(
+                id: "partial-source",
+                kind: .assistant,
+                title: "Worker update",
+                detail: "Confirmed Q1 from the official source.",
+                statusLabel: "Stopped"
+            )
+        ]
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { _ in
+            do {
+                try await Task.sleep(for: .seconds(30))
+                return WorkspaceSubagentWorkerResult(summary: "Unexpected completion")
+            } catch is CancellationError {
+                return WorkspaceSubagentWorkerResult(
+                    status: .cancelled,
+                    summary: "Cancelled with Q1 evidence preserved.",
+                    transcript: transcript
+                )
+            }
+        })
+        let run = Task {
+            await scheduler.run(request: WorkspaceSubagentRunRequest(
+                objective: "Research quarterly revenue",
+                workers: [.init(name: "Researcher", role: "Find official evidence")]
+            ))
+        }
+
+        try await Task.sleep(for: .milliseconds(25))
+        run.cancel()
+        let result = await run.value
+
+        XCTAssertEqual(result.update.subagents.first?.status, .cancelled)
+        XCTAssertEqual(result.update.subagents.first?.summary, "Cancelled with Q1 evidence preserved.")
+        XCTAssertEqual(result.update.subagents.first?.transcript, transcript)
+        XCTAssertEqual(result.workerResults.values.first, "Cancelled with Q1 evidence preserved.")
+    }
+
     func testSchedulerRunsWorkersConcurrentlyAndPublishesProgress() async throws {
         let probe = ConcurrencyProbe()
         let scheduler = WorkspaceSubagentScheduler { job in
