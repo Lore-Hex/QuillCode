@@ -4,7 +4,7 @@ import Foundation
 /// added to the agent context. The full response is still decoded locally; only the relevant
 /// evidence windows are returned to the model.
 public enum WebFetchMarkdownFocus {
-    public static let defaultMaxSelectedLines = 240
+    public static let defaultMaxSelectedLines = 80
 
     private static let stopWords: Set<String> = [
         "about", "after", "before", "company", "each", "from", "have", "into",

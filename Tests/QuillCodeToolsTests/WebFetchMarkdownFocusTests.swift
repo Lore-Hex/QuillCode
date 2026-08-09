@@ -25,4 +25,28 @@ final class WebFetchMarkdownFocusTests: XCTestCase {
         XCTAssertFalse(result.focused)
         XCTAssertEqual(result.text, text)
     }
+
+    func testDefaultSelectionBoundsBroadlyMatchingPages() {
+        let lines = ["# Revenue history", "Official investor relations source"]
+            + (1...600).map { index in
+                index.isMultiple(of: 10)
+                    ? "Quarterly revenue evidence row \(index)"
+                    : "Unrelated disclosure row \(index)"
+            }
+        let result = WebFetchMarkdownFocus.select(
+            lines.joined(separator: "\n"),
+            query: "quarterly revenue"
+        )
+        let retainedSourceLines = result.text.split(separator: "\n").filter {
+            !$0.hasPrefix("[... ")
+        }
+
+        XCTAssertTrue(result.focused)
+        XCTAssertLessThanOrEqual(
+            retainedSourceLines.count,
+            WebFetchMarkdownFocus.defaultMaxSelectedLines
+        )
+        XCTAssertTrue(result.text.contains("Quarterly revenue evidence row"))
+        XCTAssertTrue(result.text.contains("non-matching lines omitted"))
+    }
 }
