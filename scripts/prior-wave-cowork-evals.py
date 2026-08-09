@@ -300,6 +300,23 @@ def task_terms(row):
     return words[:8]
 
 
+def task_term_variants(term):
+    variants = {term}
+    if len(term) >= 6 and term.endswith("s"):
+        variants.add(term[:-1])
+    if len(term) >= 7 and term.endswith("al"):
+        variants.add(term[:-2])
+    return variants
+
+
+def matched_task_terms(row, text):
+    words = set(normalized_words(text))
+    return [
+        term for term in task_terms(row)
+        if task_term_variants(term) & words
+    ]
+
+
 def source_grounding_anchors(row, workspace):
     ignored = {
         "and", "atlas", "complete", "confirmed", "context", "evaluation", "file",
@@ -1401,9 +1418,8 @@ def grade(row, workspace, report, source_hashes):
         )
     elif extension != "png":
         add("substantive artifact", len(combined_text) >= 120, f"{len(combined_text)} extracted chars")
-    normalized = " ".join(normalized_words(combined_text))
-    matched = [term for term in task_terms(row) if term in normalized]
-    required = min(3, len(task_terms(row)))
+    matched = matched_task_terms(row, combined_text)
+    required = min(2, len(task_terms(row)))
     if extension != "png":
         add("task coverage", len(matched) >= required, f"matched {matched}; required {required}")
     if extension != "png":

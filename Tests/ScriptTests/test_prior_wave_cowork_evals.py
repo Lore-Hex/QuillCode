@@ -194,6 +194,26 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
 
         self.assertEqual(matched, [])
 
+    def test_task_coverage_accepts_conservative_word_variants(self):
+        row = self.rows[5]
+
+        matched = PRIOR.matched_task_terms(
+            row,
+            "region,record_id,headline_revenue_usd\nitem-001,TASK-6-001,437000",
+        )
+
+        self.assertEqual(matched, ["regional", "headline"])
+
+    def test_task_coverage_rejects_source_anchors_without_task_terms(self):
+        row = self.rows[5]
+
+        matched = PRIOR.matched_task_terms(
+            row,
+            "item-001,TASK-6-001,437000\nitem-002,TASK-6-002,511000",
+        )
+
+        self.assertEqual(matched, [])
+
     def test_mapped_collection_does_not_require_generic_records(self):
         row = self.rows[0]
         paths = PRIOR.required_source_paths(row)
