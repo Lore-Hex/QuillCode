@@ -1,5 +1,28 @@
 # Code Quality Audit
 
+## 2026-08-08 Native Interaction And Connection Race Recovery
+
+Overall grade after this slice: **A+ native resilience, A+ connection truth, A+ release evidence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Native interaction | A+ | The sampler still prefers the visible workspace control, then resolves real AppKit menu items across plain, three-dot, and Unicode-ellipsis titles and performs `AXPress`. |
+| Connection state | A+ | Status responses are generation-fenced, so a response delivered before a reader-observed close cannot erase the newer disconnect or regress the UI to pending. |
+| Regression coverage | A+ | Settings fallback tests cover both ellipsis spellings; the complete WebSocket integration suite passes and the previously failing race passed 25 consecutive runs. |
+| Release behavior | A+ | A release-mode package completed three fresh processes and both reversible interaction sweeps per process, including Settings activation. |
+| Performance | A+ | The local package passed at 381.72 ms median launch-ready, 108.31 MiB initial, 161.05 MiB first-settled, and 167.48 MiB repeated-settled memory. |
+
+Validation:
+
+- Full `swift test --skip-build` (5,653 tests, 5 skipped, 0 failures)
+- Accessibility resolution suite (5 tests), desktop window report suite (20 tests), packaged
+  click-probe parity suite (2 tests), and WebSocket integration suite (13 tests), all passing
+- Previously flaky WebSocket disconnect test passed 25 of 25 consecutive cached runs
+- Release-mode arm64 package passed 3 of 3 launch, native interaction, repeated-interaction,
+  memory, thread, disk-image, and CLI packaging attempts
+- `python3 scripts/grade-code-quality.py --root .` reports every module A+
+- `git diff --check`; exact leaked-token fingerprint absent
+
 ## 2026-08-08 Transactional Stable Release Promotion
 
 Overall grade after this slice: **A+ release control, A+ feed integrity, A+ recovery**.

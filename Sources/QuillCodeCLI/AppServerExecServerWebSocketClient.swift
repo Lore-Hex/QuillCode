@@ -77,12 +77,18 @@ actor AppServerExecServerWebSocketClient: AppServerExecServerClient {
         }
 
         do {
+            let generation = connectionGeneration
             let result = try await requestOnInitializedConnection(
                 method: "environment/status",
                 params: .null,
                 timeout: Self.environmentStatusTimeout
             )
             let snapshot = try Self.decodeConnectionSnapshot(result)
+            guard generation == connectionGeneration, initialized, socket != nil else {
+                return .disconnected(
+                    lastConnectionError ?? "the WebSocket closed while checking environment status"
+                )
+            }
             lastConnectionError = nil
             transitionConnectionState(
                 to: snapshot.isConnected ? .connected : .disconnected
