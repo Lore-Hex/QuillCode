@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-09: disk-image publication is transactional and bounded-retry
+
+- **Decision:** DMG packaging builds a private candidate beside the requested output and replaces
+  the public artifact only after `hdiutil` create, verify, and read-only attach; mounted bundle and
+  `/Applications` validation; code-signature verification; and clean detach all succeed.
+- **Retry boundary:** Create, verify, and attach are macOS disk-image service operations and receive
+  up to three attempts with the exact stage and exit status in logs. Bundle shape, install shortcut,
+  code signature, empty output, and detach safety remain fail-fast correctness checks. Normal detach
+  gets one force fallback, but packaging never treats an invalid app as transient.
+- **Recovery:** Each attempt uses a fresh candidate and mount point. Exhaustion removes only private
+  temporary state and preserves a pre-existing destination byte-for-byte, so an infrastructure blip
+  cannot silently destroy the last usable installer.
+- **Why:** Public build 671 passed all three Intel launches, both real Accessibility sweeps, and every
+  memory/thread budget, then the quiet `hdiutil` step exited without diagnostics. A workflow rerun
+  recovered, proving infrastructure transience while also exposing an avoidable publication delay.
+- **Evidence:** Executable fake-tool tests recover independent create, verify, and attach failures;
+  clean a simulated partial attach before retry; prove three-attempt exhaustion preserves the
+  previous output; reject invalid retry policy before work; and prove signature rejection performs
+  no retry or publication.
+
 ## 2026-08-08: workspace surface refreshes project transcript history once
 
 - **Decision:** The selected chat now produces messages, canonical tool cards, and chronological

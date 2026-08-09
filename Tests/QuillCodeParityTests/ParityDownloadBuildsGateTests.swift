@@ -443,13 +443,18 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "BUILD_INFO-macOS-$ARCH.txt"
         ])
         Self.assertSource(diskImageScript, containsAll: [
-            "ditto \"$APP_BUNDLE\" \"$STAGING_DIR/$APP_NAME\"",
+            "\"$DITTO_BIN\" \"$APP_BUNDLE\" \"$STAGING_DIR/$APP_NAME\"",
             "ln -s /Applications \"$STAGING_DIR/Applications\"",
-            "hdiutil create",
-            "hdiutil verify",
-            "hdiutil attach",
-            "codesign --verify --deep --strict"
+            "\"$HDIUTIL_BIN\" create",
+            "\"$HDIUTIL_BIN\" verify",
+            "\"$HDIUTIL_BIN\" attach",
+            "run_image_operation",
+            "Retrying disk-image packaging after transient $FAILED_STAGE failure.",
+            "refusing to retry",
+            "mv -f \"$CANDIDATE_PATH\" \"$OUTPUT_PATH\"",
+            "\"$CODESIGN_BIN\" --verify --deep --strict"
         ])
+        Self.assertSource(diskImageScript, excludes: "-quiet")
         Self.assertSource(smokeScript, containsAll: [
             "assert_plist_value QuillCodeUpdateChannel tester",
             "assert_plist_value QuillCodeBuildCommit \"$EXPECTED_BUILD_COMMIT\"",
