@@ -31,12 +31,27 @@ enum AgentPreActionReasoningBudget {
     /// when the route receives `reasoning_effort: none`. Keep enough room for a grounded decision,
     /// but interrupt before the provider ceiling can consume the entire action turn.
     static let deepSeekV4Flash0731CharacterLimit = 6_000
+    /// Grounded synthesis is materially different from startup routing. DeepSeek V4 Flash often
+    /// reaches the action only after roughly 2,000 reasoning tokens even with reasoning disabled at
+    /// the route. Give synthesis and action-only recovery one larger, still-bounded window while
+    /// keeping startup, checkpoint verification, and every other model on their existing limits.
+    static let deepSeekV4Flash0731SynthesisCharacterLimit = 12_000
 
-    static func effectiveMaximumCharacters(configured: Int, modelID: String) -> Int {
+    static func effectiveMaximumCharacters(
+        configured: Int,
+        modelID: String,
+        phase: AgentReasoningBudgetPhase
+    ) -> Int {
         guard modelID == TrustedRouterChatParameters.deepSeekV4Flash0731Model else {
             return configured
         }
-        return min(configured, deepSeekV4Flash0731CharacterLimit)
+        let providerLimit = switch phase {
+        case .startup, .checkpoint:
+            deepSeekV4Flash0731CharacterLimit
+        case .synthesis, .correction:
+            deepSeekV4Flash0731SynthesisCharacterLimit
+        }
+        return min(configured, providerLimit)
     }
 
     /// Stops a continuously reasoning startup stream before it consumes the whole provider

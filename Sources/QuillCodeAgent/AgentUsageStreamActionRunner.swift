@@ -27,7 +27,9 @@ extension AgentRunner {
             interActionReasoningCharacterLimit
         case .correction:
             preActionReasoningCharacterLimit.map {
-                min($0, Self.correctiveActionReasoningCharacterLimit)
+                routedModelID == TrustedRouterChatParameters.deepSeekV4Flash0731Model
+                    ? min($0, AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit)
+                    : min($0, Self.correctiveActionReasoningCharacterLimit)
             }
         }
         if let reasoningLimit {
@@ -36,7 +38,8 @@ extension AgentRunner {
                     1,
                     AgentPreActionReasoningBudget.effectiveMaximumCharacters(
                         configured: reasoningLimit,
-                        modelID: routedModelID
+                        modelID: routedModelID,
+                        phase: reasoningBudgetPhase
                     )
                 ),
                 on: stream

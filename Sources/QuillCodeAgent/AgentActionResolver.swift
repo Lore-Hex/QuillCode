@@ -353,7 +353,7 @@ extension AgentRunner {
         onProgress: AgentRunProgressHandler?,
         via llm: LLMClient
     ) async throws -> AgentAction {
-        var correctiveRun = correctiveThread
+        var correctiveRun = AgentCorrectiveContext.projected(correctiveThread)
         let priorEventCount = correctiveRun.events.count
         let action = try await dispatchNextAction(
             thread: &correctiveRun,

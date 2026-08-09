@@ -217,6 +217,59 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(requestCount, 4)
     }
 
+    func testDeepSeekSynthesisAfterPostDraftResearchCanRewriteAndVerify() async throws {
+        let root = try makeTempDirectory()
+        let state = UsageStreamSequenceState([
+            [
+                .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"Draft pending source evidence."}}"#),
+            ],
+            [
+                .text(#"{"type":"tool","name":"host.web.fetch","arguments":{"url":"https://example.com/revenue"}}"#),
+            ],
+            [
+                .reasoning(String(repeating: "grounded synthesis ", count: 450)),
+                .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"Revenue was $214,500,000. Source: https://example.com/revenue"}}"#),
+            ],
+            [
+                .text(#"{"type":"tool","name":"host.file.read","arguments":{"path":"outputs/report.md"}}"#),
+            ],
+            [
+                .text(#"{"type":"say","text":"Completed and verified outputs/report.md."}"#),
+            ],
+        ])
+        let runner = AgentRunner(
+            llm: UsageStreamSequenceClient(state: state),
+            additionalToolDefinitions: [.webFetch],
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.webFetch.name else { return nil }
+                return ToolResult(
+                    ok: true,
+                    stdout: "Fetched https://example.com/revenue (HTTP 200). Revenue: $214,500,000."
+                )
+            }
+        )
+
+        let result = try await runner.send(
+            "Research https://example.com/revenue, create outputs/report.md, and verify it by reading it back.",
+            in: ChatThread(
+                title: "grounded synthesis",
+                model: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+            ),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Completed and verified outputs/report.md.")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md"), encoding: .utf8),
+            "Revenue was $214,500,000. Source: https://example.com/revenue"
+        )
+        XCTAssertFalse(result.thread.events.contains {
+            $0.summary.contains("pre-action reasoning budget")
+        })
+        let requestCount = await state.requestCount()
+        XCTAssertEqual(requestCount, 5)
+    }
+
     func testRunnerDefaultsToReasoningBudgetAndCanDisableIt() {
         XCTAssertEqual(
             AgentRunner().preActionReasoningCharacterLimit,
@@ -235,14 +288,16 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(
             AgentPreActionReasoningBudget.effectiveMaximumCharacters(
                 configured: AgentRunner.defaultInterActionReasoningCharacterLimit,
-                modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+                modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model,
+                phase: .startup
             ),
             AgentPreActionReasoningBudget.deepSeekV4Flash0731CharacterLimit
         )
         XCTAssertEqual(
             AgentPreActionReasoningBudget.effectiveMaximumCharacters(
                 configured: 1_500,
-                modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+                modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model,
+                phase: .startup
             ),
             1_500,
             "a caller's tighter limit must remain authoritative"
@@ -250,10 +305,51 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(
             AgentPreActionReasoningBudget.effectiveMaximumCharacters(
                 configured: 16_000,
-                modelID: "openai/gpt-5"
+                modelID: "openai/gpt-5",
+                phase: .synthesis
             ),
             16_000
         )
+        XCTAssertEqual(
+            AgentPreActionReasoningBudget.effectiveMaximumCharacters(
+                configured: AgentRunner.defaultInterActionReasoningCharacterLimit,
+                modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model,
+                phase: .synthesis
+            ),
+            AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit
+        )
+        XCTAssertEqual(
+            AgentPreActionReasoningBudget.effectiveMaximumCharacters(
+                configured: AgentRunner.defaultPreActionReasoningCharacterLimit,
+                modelID: TrustedRouterChatParameters.deepSeekV4Flash0731Model,
+                phase: .correction
+            ),
+            AgentPreActionReasoningBudget.deepSeekV4Flash0731SynthesisCharacterLimit
+        )
+    }
+
+    func testCorrectiveContextKeepsOriginalRequestAndRecentEvidence() {
+        let original = ChatMessage(role: .user, content: "Build the final revenue table.")
+        let stale = (0..<12).map { index in
+            ChatMessage(role: .tool, content: String(repeating: "stale-\(index) ", count: 1_000))
+        }
+        let currentArtifact = ChatMessage(role: .tool, content: "CURRENT ARTIFACT WITH TBD")
+        let gitLab = ChatMessage(role: .tool, content: "GitLab: 192210000 196000000 211400000 214500000")
+        let asana = ChatMessage(role: .tool, content: "Asana: 187300000 196900000 201000000 205600000")
+        let correction = ChatMessage(role: .user, content: "Write outputs/final.html now.")
+        let thread = ChatThread(
+            title: "recovery",
+            messages: [original] + stale + [currentArtifact, gitLab, asana, correction]
+        )
+
+        let projected = AgentCorrectiveContext.projected(thread)
+
+        XCTAssertEqual(projected.messages.first?.id, original.id)
+        XCTAssertTrue(projected.messages.contains(where: { $0.id == currentArtifact.id }))
+        XCTAssertTrue(projected.messages.contains(where: { $0.id == gitLab.id }))
+        XCTAssertTrue(projected.messages.contains(where: { $0.id == asana.id }))
+        XCTAssertEqual(projected.messages.last?.id, correction.id)
+        XCTAssertLessThan(projected.messages.count, thread.messages.count)
     }
 
     private func eventStream(

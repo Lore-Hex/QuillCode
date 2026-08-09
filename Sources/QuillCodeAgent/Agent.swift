@@ -316,6 +316,8 @@ public struct AgentRunner: Sendable {
                 pendingRepeatNudge = nil
                 let reasoningBudgetPhase: AgentReasoningBudgetPhase = if !hasEmittedModelAction {
                     .startup
+                } else if runLoop.requiresGroundedSynthesisReasoningBudget() {
+                    .synthesis
                 } else if hasCompletedWorkspaceMutation {
                     .checkpoint
                 } else {
