@@ -245,6 +245,8 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             "Q2 revenue is confirmed. I need to gather Q3 and Q4 next.",
             "The query windows returned only the headline ($333.9M for Q4 2025) and not the full GAAP revenue table. Fetching the alternate press-release URL to extract the complete fiscal-year and quarterly GAAP revenue figures.",
             "I have all four FY2026 quarters, but I need to verify the",
+            "COMPLETE: Need the four Q figures. One Q4 FY2026 figure found: $205.6M. Need to fetch remaining quarters.",
+            "The prior source repeated the same result. I'll switch to a different source: TipRanks for historical quarterly values.",
         ]
 
         for stall in stalls {

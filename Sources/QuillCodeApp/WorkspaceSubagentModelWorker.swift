@@ -408,8 +408,17 @@ enum WorkspaceSubagentTerminalStatus {
         if text.contains("still need to ") {
             return true
         }
+        let clauses = text
+            .split(whereSeparator: {
+                $0 == "." || $0 == "!" || $0 == "?" || $0 == ";" || $0 == ":" || $0.isNewline
+            })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        if clauses.contains(where: { $0.hasPrefix("need ") || $0.hasPrefix("need to ") }) {
+            return true
+        }
         let promisedAttempts = [
             "i will try ", "i'll try ", "i will now ", "i'll now ",
+            "i will switch ", "i'll switch ",
             "next i will ", "next i'll ", "let me try ", "let me check ",
             "let me search ", "let me fetch ", "going to try ",
             "now retrieving ", "now fetching ", "now searching ", "now checking ",
