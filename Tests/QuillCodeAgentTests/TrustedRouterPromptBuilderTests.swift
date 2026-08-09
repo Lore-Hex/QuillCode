@@ -254,6 +254,32 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Writing a script or a file does NOT run it"))
         XCTAssertTrue(prompt.contains("you MUST call the shell tool"))
         XCTAssertTrue(prompt.contains("not finished until every step has a real tool call"))
+        // The exact requested artifact, not an easier scratch format, defines completion.
+        XCTAssertTrue(prompt.contains("Exact deliverables first"))
+        XCTAssertTrue(prompt.contains("exact requested output path and file extension"))
+        XCTAssertTrue(prompt.contains("Never substitute CSV, Markdown, plain text"))
+        XCTAssertTrue(prompt.contains("Scratch and intermediate files do not satisfy the task"))
+        XCTAssertTrue(prompt.contains("verify its real format and requested structure"))
+        XCTAssertTrue(prompt.contains("Obey any instruction that forbids dependency installation"))
+    }
+
+    func testCollectionReadGuidanceMatchesAdvertisedSurface() {
+        let withCollectionRead = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .fileList,
+            .fileRead,
+            .fileReadMany
+        ])
+        XCTAssertTrue(withCollectionRead.contains("Collection source grounding"))
+        XCTAssertTrue(withCollectionRead.contains("call host.file.read_many"))
+        XCTAssertTrue(withCollectionRead.contains("call host.file.list once"))
+        XCTAssertTrue(withCollectionRead.contains("Use host.file.read for a specific source only"))
+
+        let withoutCollectionRead = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .fileList,
+            .fileRead
+        ])
+        XCTAssertFalse(withoutCollectionRead.contains("Collection source grounding"))
+        XCTAssertFalse(withoutCollectionRead.contains("call host.file.read_many"))
     }
 
     func testPromptIncludesBuiltInTrustedRouterModelAdvisorGuidance() {

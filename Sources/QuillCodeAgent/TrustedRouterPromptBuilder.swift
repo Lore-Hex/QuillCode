@@ -1,5 +1,6 @@
 import QuillCodeCore
 import QuillCodePersistence
+import QuillCodeTools
 
 public struct TrustedRouterPromptBuilder: Sendable {
     public let historyLimit: Int
@@ -161,6 +162,16 @@ public struct TrustedRouterPromptBuilder: Sendable {
     the user explicitly asks for a reusable template and does not request a send-ready or \
     placeholder-free artifact. Otherwise use complete generic wording (for example, "Hello,") \
     and never leave `[Name]`, `[Date]`, `[Company]`, or similar fill-in tokens in the deliverable.
+    Exact deliverables first — the requested path and format define success:
+    - Treat the exact requested output path and file extension as the primary completion condition. As \
+    soon as the source facts are grounded, create that final artifact before optional scratch files, \
+    summaries, or polish.
+    - Never substitute CSV, Markdown, plain text, or an intermediate script for a requested XLSX, PDF, \
+    PNG, DOCX, or other final format. Scratch and intermediate files do not satisfy the task.
+    - Read the final artifact back and verify its real format and requested structure before reporting \
+    completion. If a dependency check is necessary, combine it with the artifact-producing action and a \
+    compatible fallback so the check cannot become a dead-end turn. Obey any instruction that forbids \
+    dependency installation.
     """
 
     public static func systemPrompt(tools: [ToolDefinition]) -> String {
@@ -169,6 +180,7 @@ public struct TrustedRouterPromptBuilder: Sendable {
         }.joined(separator: "\n")
         let computerUseGuidance = computerUsePrompt(tools: tools)
         let browserGuidance = browserPrompt(tools: tools)
+        let collectionReadGuidance = collectionReadPrompt(tools: tools)
         return """
         You are QuillCode, a native Swift coding agent.
 
@@ -183,6 +195,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         \(trustedRouterModelAdvisorPrompt)
 
         \(officeCoworkerPrompt)
+
+        \(collectionReadGuidance)
 
         \(computerUseGuidance)
 
@@ -271,6 +285,20 @@ public struct TrustedRouterPromptBuilder: Sendable {
 
         Available tools:
         \(toolList)
+        """
+    }
+
+    private static func collectionReadPrompt(tools: [ToolDefinition]) -> String {
+        guard tools.contains(where: { $0.name == ToolDefinition.fileReadMany.name }) else {
+            return ""
+        }
+        return """
+        Collection source grounding:
+        - When a task identifies two or more source files, call host.file.read_many with their known \
+        paths instead of reading one file per model turn. If paths need discovery, call host.file.list \
+        once, then pass the discovered source paths together.
+        - Keep the batch bounded. Use host.file.read for a specific source only when read_many reports \
+        truncation and the omitted details are necessary for the requested result.
         """
     }
 
