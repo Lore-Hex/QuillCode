@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-08-08: release smoke fallbacks preserve current UI and connection truth
+
+- **Native command fallback:** Accessibility activation continues to prefer the visible workspace
+  control. When that control is temporarily absent after a repeated interaction sweep, the existing
+  native-menu fallback also recognizes plain, three-dot, and Unicode-ellipsis command titles. The
+  fallback still resolves a real menu item and performs `AXPress`; it does not replace interaction
+  evidence with direct model mutation.
+- **Connection generation fence:** An exec-server status response may arrive immediately before the
+  WebSocket reader observes a close. The status call captures its connection generation and may only
+  clear the disconnect error when that generation, initialized state, and socket are still current.
+  A stale response therefore cannot turn a newer disconnect into a misleading pending state.
+- **Why:** Real Intel packaging exposed the Settings title mismatch during the second native sweep,
+  while exact-main CI exposed the response/close ordering race. Release smoke should remain strict
+  about actual user interaction and actual connection state while tolerating equivalent platform
+  title spelling and actor scheduling order.
+
 ## 2026-08-08: stable releases use verified promotion and automatic quarantine
 
 - **Decision:** A versioned release first becomes a non-latest prerelease candidate. The exact public

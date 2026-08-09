@@ -227,11 +227,23 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
     }
 
     private static func nativeMenuTitles(for probe: QuillCodeNativeHitTargetProbe) -> Set<String> {
-        var titles = Set([probe.label])
+        var titles = nativeMenuTitleVariants(probe.label)
         if probe.selector.hasPrefix("toggle-") {
-            titles.insert("Toggle \(probe.label)")
+            titles.formUnion(nativeMenuTitleVariants("Toggle \(probe.label)"))
         }
         return titles
+    }
+
+    private static func nativeMenuTitleVariants(_ title: String) -> Set<String> {
+        let baseTitle: String
+        if title.hasSuffix("...") {
+            baseTitle = String(title.dropLast(3))
+        } else if title.hasSuffix("…") {
+            baseTitle = String(title.dropLast())
+        } else {
+            baseTitle = title
+        }
+        return [baseTitle, "\(baseTitle)...", "\(baseTitle)…"]
     }
 
     private static func identifiers(for probe: QuillCodeNativeHitTargetProbe) -> Set<String> {

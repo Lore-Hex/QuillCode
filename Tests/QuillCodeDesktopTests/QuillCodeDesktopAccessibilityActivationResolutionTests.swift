@@ -88,6 +88,42 @@ final class QuillCodeDesktopAccessibilityActivationResolutionTests: XCTestCase {
         XCTAssertEqual(resolved?.title, "Toggle Review")
     }
 
+    func testSettingsActivationUsesEllipsisNativeMenuTitleWhenSidebarControlIsNotVisible() {
+        let probe = QuillCodeNativeHitTargetProbe(
+            contractID: "command.settings",
+            family: .sidebar,
+            collisionScope: "sidebar:tools",
+            label: "Settings",
+            kind: .fullRow,
+            action: .press,
+            allowsNestedInteractiveChildren: false,
+            requiresUnblockedInterior: true,
+            requiresTactileFeedback: true,
+            allowsTextSelection: false,
+            selectorKind: .commandID,
+            selector: "settings",
+            requiredMinWidth: 40,
+            requiredMinHeight: 40,
+            samplePoints: []
+        )
+
+        for title in ["Settings...", "Settings…"] {
+            let menu = element(
+                identifier: "",
+                role: kAXMenuItemRole as String,
+                title: title,
+                frame: .zero
+            )
+            let resolved = QuillCodeDesktopAccessibilityFrameSampler.resolveElementForActivation(
+                probe,
+                in: [menu]
+            )
+
+            XCTAssertEqual(resolved?.title, title)
+            XCTAssertEqual(resolved?.role, kAXMenuItemRole as String)
+        }
+    }
+
     private var commandProbe: QuillCodeNativeHitTargetProbe {
         QuillCodeNativeHitTargetProbe(
             contractID: "command.toggle-memories",
