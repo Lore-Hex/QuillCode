@@ -46,6 +46,12 @@ struct AgentRunLoopState: Sendable {
     /// Delegated research counts more than one serial web call because it can return several full
     /// evidence tracks in a single tool result.
     private(set) var successfulResearchStepsAfterCheckpoint = 0
+    /// Direct research performed after a named text deliverable exists. The phase counter resets
+    /// on every rewrite so long runs periodically synthesize instead of accumulating dozens of
+    /// unsaved fetches. The total counter never resets and ultimately closes the direct-research
+    /// phase, leaving a bounded reserve for final synthesis and readback.
+    private(set) var researchPressureAfterLatestDraftByPath: [String: Int] = [:]
+    private(set) var totalResearchPressureAfterFirstDraftByPath: [String: Int] = [:]
     /// Successful parent-authored delegated batches in this run. Once a named deliverable exists,
     /// another broad batch is usually a restart rather than progress and should be synthesized.
     private(set) var successfulDelegatedResearchBatchCount = 0
@@ -182,9 +188,20 @@ struct AgentRunLoopState: Sendable {
     }
 
     func pendingResearchFinalizationPath(minimumResearchSteps: Int) -> String? {
-        guard successfulResearchStepsAfterCheckpoint >= minimumResearchSteps else { return nil }
-        return pendingResearchContinuationWorkspacePaths.sorted().first(where: {
-            didResumeResearch(afterCheckpointAt: $0)
+        if successfulResearchStepsAfterCheckpoint >= minimumResearchSteps,
+           let checkpointPath = pendingResearchContinuationWorkspacePaths.sorted().first(where: {
+               didResumeResearch(afterCheckpointAt: $0)
+           }) {
+            return checkpointPath
+        }
+        return researchPressureAfterLatestDraftByPath.keys.sorted().first(where: {
+            researchPressureAfterLatestDraftByPath[$0, default: 0] >= minimumResearchSteps
+        })
+    }
+
+    func exhaustedResearchBudgetPath(maximumResearchWeight: Int) -> String? {
+        totalResearchPressureAfterFirstDraftByPath.keys.sorted().first(where: {
+            totalResearchPressureAfterFirstDraftByPath[$0, default: 0] >= maximumResearchWeight
         })
     }
 
@@ -445,13 +462,27 @@ struct AgentRunLoopState: Sendable {
     private mutating func recordResearchCheckpointProgress(
         _ completion: AgentToolStepCompletion
     ) {
+        let researchWeight: Int
         if completion.call.name == ToolDefinition.webSearch.name ||
             completion.call.name == ToolDefinition.webFetch.name {
-            researchPressureWeightBeforeDraft += 1
+            // Failed requests consume the same wall-clock/context reserve and establish an evidence
+            // gap the deliverable should disposition, so direct attempts count regardless of result.
+            researchWeight = 1
         } else if completion.call.name == ToolDefinition.subagentsRun.name,
                   completion.result.ok {
-            researchPressureWeightBeforeDraft +=
-                AgentResearchCheckpointGate.delegatedResearchWeight
+            researchWeight = AgentResearchCheckpointGate.delegatedResearchWeight
+        } else {
+            researchWeight = 0
+        }
+        researchPressureWeightBeforeDraft += researchWeight
+        if researchWeight > 0 {
+            for path in namedTextDeliverableWorkspacePaths where
+                writtenWorkspacePaths.contains(where: {
+                    AgentArtifactVerificationGate.pathsMatch($0, path)
+                }) {
+                researchPressureAfterLatestDraftByPath[path, default: 0] += researchWeight
+                totalResearchPressureAfterFirstDraftByPath[path, default: 0] += researchWeight
+            }
         }
 
         guard completion.result.ok else { return }
@@ -502,6 +533,7 @@ struct AgentRunLoopState: Sendable {
                    AgentArtifactVerificationGate.pathsMatch($0, path)
                }) {
                 researchPressureWeightBeforeDraft = 0
+                researchPressureAfterLatestDraftByPath[deliverablePath] = 0
                 if let checkpointPath = expectedResearchCheckpointWorkspacePaths.first(where: {
                     AgentArtifactVerificationGate.pathsMatch($0, deliverablePath)
                 }) {

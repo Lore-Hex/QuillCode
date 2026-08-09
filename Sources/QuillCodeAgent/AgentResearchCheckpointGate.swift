@@ -12,8 +12,10 @@ enum AgentResearchCheckpointGate {
 
     static let minimumPreDraftResearchWeight = 8
     static let minimumPostCheckpointResearchSteps = 6
+    static let maximumPostDraftResearchWeight = 36
     static let delegatedResearchWeight = 3
     static let correctionLimitPerPath = 2
+    static let finalizationCorrectionLimitPerPath = 8
 
     static func correction(
         path: String?,
@@ -38,6 +40,37 @@ enum AgentResearchCheckpointGate {
             host.file.write for exactly ./\(path); do not perform another read-only action first.
             """
         )
+    }
+
+    static func exhaustionCorrection(
+        path: String?,
+        proposedToolName: String,
+        canWriteFiles: Bool,
+        correctionCounts: [String: Int]
+    ) -> Correction? {
+        guard isResearchCollectionTool(proposedToolName),
+              canWriteFiles,
+              let path,
+              correctionCounts[path, default: 0] < correctionLimitPerPath
+        else { return nil }
+
+        return Correction(
+            path: path,
+            prompt: """
+            The bounded direct-research budget for this deliverable is exhausted. Do not search, \
+            fetch, or delegate again. Synthesize the strongest verified evidence already present in \
+            the tool results into the complete final artifact at ./\(path) now. Preserve exact source \
+            URLs, state genuinely unavailable facts honestly, remove pending/draft status language, \
+            and then read the rewritten artifact back. Respond with host.file.write for exactly \
+            ./\(path).
+            """
+        )
+    }
+
+    static func isResearchCollectionTool(_ name: String) -> Bool {
+        name == ToolDefinition.webSearch.name
+            || name == ToolDefinition.webFetch.name
+            || name == ToolDefinition.subagentsRun.name
     }
 
     static func continuationCorrection(
@@ -75,7 +108,7 @@ enum AgentResearchCheckpointGate {
         guard proposedToolRisk == .read,
               canWriteFiles,
               let path,
-              correctionCounts[path, default: 0] < correctionLimitPerPath
+              correctionCounts[path, default: 0] < finalizationCorrectionLimitPerPath
         else { return nil }
 
         return Correction(

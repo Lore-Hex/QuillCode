@@ -285,6 +285,9 @@ public struct AgentRunner: Sendable {
             var researchCheckpointContinuationCorrectionCounts: [String: Int] = [:]
             /// Bounded post-checkpoint research must be synthesized before another read-only step.
             var researchCheckpointFinalizationCorrectionCounts: [String: Int] = [:]
+            /// After the cumulative post-draft budget, no new direct research may displace final
+            /// synthesis. Two exact rewrite requests are followed by deterministic finalization.
+            var researchBudgetExhaustionCorrectionCounts: [String: Int] = [:]
             /// Once a delegated batch has returned and a named deliverable exists, redirect one
             /// redundant broad batch into synthesis. Further repeats become terminal candidates
             /// and flow through the ordinary stale-artifact gate without executing the batch.
@@ -572,6 +575,63 @@ public struct AgentRunner: Sendable {
                     resolvedAction = .say(
                         "The existing delegated evidence must be synthesized into ./\(path)."
                     )
+                }
+                if case .tool(let proposedCall) = resolvedAction,
+                   let path = runLoop.exhaustedResearchBudgetPath(
+                    maximumResearchWeight: AgentResearchCheckpointGate.maximumPostDraftResearchWeight
+                   ), AgentResearchCheckpointGate.isResearchCollectionTool(proposedCall.name) {
+                    runLoop.requireResearchRefresh(at: path)
+                    if let correction = AgentResearchCheckpointGate.exhaustionCorrection(
+                        path: path,
+                        proposedToolName: proposedCall.name,
+                        canWriteFiles: tools.contains(where: {
+                            $0.name == ToolDefinition.fileWrite.name
+                        }),
+                        correctionCounts: researchBudgetExhaustionCorrectionCounts
+                    ) {
+                        researchBudgetExhaustionCorrectionCounts[
+                            correction.path,
+                            default: 0
+                        ] += 1
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: closed the bounded research phase and requested "
+                                + "final synthesis at ./\(correction.path)."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    resolvedAction = .say(
+                        "The bounded research phase is complete; finalize and verify ./\(path)."
+                    )
+                }
+                if case .say = resolvedAction,
+                   let correction = AgentResearchCheckpointGate.finalizationCorrection(
+                    path: runLoop.pendingResearchFinalizationPath(
+                        minimumResearchSteps:
+                            AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
+                    ),
+                    proposedToolRisk: .read,
+                    canWriteFiles: tools.contains(where: {
+                        $0.name == ToolDefinition.fileWrite.name
+                    }),
+                    correctionCounts: researchCheckpointFinalizationCorrectionCounts
+                   ) {
+                    researchCheckpointFinalizationCorrectionCounts[
+                        correction.path,
+                        default: 0
+                    ] += 1
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: synthesized bounded research into "
+                            + "./\(correction.path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
                 }
                 if case .say = resolvedAction,
                    let correction = AgentArtifactTextQualityGate.correction(

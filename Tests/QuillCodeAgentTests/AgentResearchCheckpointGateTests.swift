@@ -106,7 +106,29 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
             path: "outputs/revenue.html",
             proposedToolRisk: .read,
             canWriteFiles: true,
-            correctionCounts: ["outputs/revenue.html": 2]
+            correctionCounts: [
+                "outputs/revenue.html":
+                    AgentResearchCheckpointGate.finalizationCorrectionLimitPerPath,
+            ]
+        ))
+    }
+
+    func testExhaustedResearchBudgetBlocksAnotherFetch() throws {
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.exhaustionCorrection(
+            path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.webFetch.name,
+            canWriteFiles: true,
+            correctionCounts: [:]
+        ))
+
+        XCTAssertTrue(correction.prompt.contains("budget for this deliverable is exhausted"))
+        XCTAssertTrue(correction.prompt.contains("Do not search"))
+        XCTAssertTrue(correction.prompt.contains("host.file.write"))
+        XCTAssertNil(AgentResearchCheckpointGate.exhaustionCorrection(
+            path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.fileRead.name,
+            canWriteFiles: true,
+            correctionCounts: [:]
         ))
     }
 

@@ -389,6 +389,91 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertTrue(state.researchStaleWorkspacePaths.isEmpty)
     }
 
+    func testDirectResearchAfterOrdinaryDraftRequiresPeriodicSynthesis() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research competitors and write outputs/revenue.html with citations."
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/revenue.html",
+                "content": "<p>Initial comparison</p>",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.com/revenue"])
+        )
+        for index in 0..<AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps {
+            _ = state.recordCompletedStep(
+                completed(call: fetch, stdout: "evidence \(index)"),
+                workspaceRoot: root
+            ) { _ in "fetch-\(index)" }
+        }
+
+        XCTAssertEqual(
+            state.pendingResearchFinalizationPath(
+                minimumResearchSteps: AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
+            ),
+            "outputs/revenue.html"
+        )
+        XCTAssertEqual(
+            state.researchPressureAfterLatestDraftByPath["outputs/revenue.html"],
+            AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "rewrote"),
+            workspaceRoot: root
+        ) { _ in "rewrite" }
+        XCTAssertNil(state.pendingResearchFinalizationPath(minimumResearchSteps: 1))
+        XCTAssertEqual(state.researchPressureAfterLatestDraftByPath["outputs/revenue.html"], 0)
+        XCTAssertEqual(
+            state.totalResearchPressureAfterFirstDraftByPath["outputs/revenue.html"],
+            AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
+        )
+    }
+
+    func testFailedPostDraftResearchConsumesCumulativeBudget() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(userMessage: "Research and write outputs/report.md.")
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "Initial report",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+        let fetch = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.com/missing"])
+        )
+
+        for index in 0..<AgentResearchCheckpointGate.maximumPostDraftResearchWeight {
+            _ = state.recordCompletedStep(
+                completed(call: fetch, stdout: "failed", ok: false),
+                workspaceRoot: root
+            ) { _ in "failed-\(index)" }
+        }
+
+        XCTAssertEqual(
+            state.exhaustedResearchBudgetPath(
+                maximumResearchWeight: AgentResearchCheckpointGate.maximumPostDraftResearchWeight
+            ),
+            "outputs/report.md"
+        )
+    }
+
     func testSuccessfulDelegationIsCountedAndWrittenDeliverableCanBeMarkedStale() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(

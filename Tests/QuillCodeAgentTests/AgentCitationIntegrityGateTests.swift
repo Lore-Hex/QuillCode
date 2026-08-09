@@ -301,6 +301,62 @@ final class AgentCitationIntegrityGateTests: XCTestCase {
         })
     }
 
+    func testRunnerSynthesizesOrdinaryDraftAfterBoundedDirectResearch() async throws {
+        let root = try makeWorkspace()
+        let writeDraft = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/brief.md",
+                "content": "initial draft",
+            ])
+        )
+        let fetches = (0...AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps).map {
+            ToolCall(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: ToolArguments.json([
+                    "url": "https://example.com/source-\($0)",
+                ])
+            )
+        }
+        let writeFinal = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/brief.md",
+                "content": "final [source](https://example.com/source-0)",
+            ])
+        )
+        let readFinal = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/brief.md"])
+        )
+        let state = ScriptedState(
+            [.tool(writeDraft)]
+                + fetches.map(AgentAction.tool)
+                + [.tool(writeFinal), .tool(readFinal), .say("Complete.")]
+        )
+        var runner = fetchStubRunner(llm: ScriptedClient(state: state))
+        runner.maxToolSteps = 32
+
+        let result = try await runner.send(
+            "Research sources, write outputs/brief.md, and read it back after the final write.",
+            in: ChatThread(title: "bounded research"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(
+            result.toolResults.count,
+            1 + AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps + 2,
+            "the fetch proposed after the phase budget must not execute"
+        )
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/brief.md")),
+            "final [source](https://example.com/source-0)"
+        )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("synthesized post-checkpoint research")
+        })
+    }
+
     func testReadingBackOwnDeliverableDoesNotGroundItsCitations() throws {
         // The prompt MANDATES reading a written artifact back ("read the artifact back
         // (host.file.read / host.file.list) to confirm it exists"). Harvesting that read's stdout
