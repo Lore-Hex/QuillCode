@@ -1735,7 +1735,12 @@ def validate_task_33_sequence(path):
             int(number)
             for number in re.findall(r"(?i)\bemail\s*(?:#|no\.?\s*)?([123])\b", section)
         }
-        subject_count = len(re.findall(r"(?im)^\s*(?:\*\*)?subject\b", section))
+        subject_count = len(
+            re.findall(
+                r"(?im)^\s*(?:[-*+]\s+|\d+\.\s+)?(?:\*\*)?subject\b",
+                section,
+            )
+        )
         if email_numbers != {1, 2, 3} or subject_count < 3:
             missing_email_numbers.append(
                 f"{contact_id}: email numbers={sorted(email_numbers)}, subjects={subject_count}"

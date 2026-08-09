@@ -769,7 +769,7 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
                 sections.append(
                     f"## {prospect['contact_id']} - {prospect['first_name']}\n\n"
                     + "\n\n".join(
-                        f"### Email {number}\nSubject: Follow-up {number}\n\n"
+                        f"### Email {number}\n- **Subject:** Follow-up {number}\n\n"
                         f"Hi {prospect['first_name']},\n\n"
                         f"Your {prospect['booth-notes']} conversation was useful. "
                         "Could we continue it this week?\n\nBest,\nAtlas Team"
