@@ -13,6 +13,7 @@ import concurrent.futures
 import csv
 import hashlib
 import html
+import io
 import json
 import os
 import re
@@ -168,6 +169,32 @@ COLLECTION_SPECS = {
     193: [("invoice PDFs", "inputs/invoice-pdfs", 8, ".pdf")],
     197: [("12 monthly utility statements", "inputs/utility-statements", 12, ".pdf")],
     207: [("this week's call notes", "inputs/call-notes", 8, ".md")],
+}
+
+IMPLICIT_SOURCES = {
+    9: [("office lease PDF", "inputs/office-lease.pdf")],
+    46: [("maintenance-window notice", "inputs/maintenance-window-notice.md")],
+    47: [("signed Acme SOW", "inputs/signed-acme-sow.pdf")],
+    51: [
+        ("executed MSA", "inputs/executed-msa.docx"),
+        ("vendor Amendment 2", "inputs/vendor-amendment-2.docx"),
+    ],
+    85: [
+        ("team charter", "inputs/team-charter.md"),
+        ("tool list", "inputs/tool-list.csv"),
+        ("last hire's ramp doc", "inputs/last-hire-ramp.docx"),
+    ],
+    89: [("receiving log", "inputs/receiving-log.csv")],
+    91: [
+        ("event registration list", "inputs/event-registration.csv"),
+        ("badge-scan CSV", "inputs/badge-scans.csv"),
+        ("CRM export", "inputs/event-crm-export.csv"),
+    ],
+    92: [
+        ("LinkedIn ads CSV", "inputs/linkedin-ads.csv"),
+        ("email export", "inputs/email-campaign.csv"),
+        ("web analytics export", "inputs/web-analytics.csv"),
+    ],
 }
 
 
@@ -336,6 +363,337 @@ the isolated evaluation tenant and no real account should be modified.
 """
 
 
+def csv_text(values):
+    stream = io.StringIO(newline="")
+    writer = csv.writer(stream, lineterminator="\n")
+    writer.writerows(values)
+    return stream.getvalue()
+
+
+def task_table(row, reference="", item_index=1, count=40):
+    """Return deterministic, task-relevant rows for CSV, XLSX, and browser fixtures."""
+    key = f"{row['category']} {row['task']} {reference}".casefold()
+    owners = ("Priya Shah", "Rafael Ortiz", "Jo Chen", "Avery Lin")
+
+    if "kpi-dashboard" in reference.casefold():
+        return [
+            ("Metric", "Q2", "Q3", "Owner"),
+            ("Revenue", 500000, 540000, "Priya Shah"),
+            ("Operating spend", 390000, 412000, "Rafael Ortiz"),
+            ("Activation percent", 42, 49, "Priya Shah"),
+            ("Northstar open days", 21, 38, "Jo Chen"),
+        ]
+
+    if any(term in key for term in ("event registration", "badge-scan", "badge scan", "event-crm")):
+        rows = []
+        for index in range(1, 21):
+            scanned = index % 4 != 0
+            if "registration" in reference.casefold():
+                scanned = False
+            rows.append((
+                f"E-{index:03d}", f"attendee{index:02d}@example.com", f"Attendee {index:02d}",
+                ("Northstar Systems", "Juniper Health", "Cobalt Works")[index % 3],
+                "registered", "2026-08-05 09:00" if scanned else "", "qualified" if index % 3 == 0 else "nurture",
+            ))
+        return [("registration_id", "email", "name", "company", "registration_status", "badge_scan_time", "crm_status"), *rows]
+
+    if "contact" in key or "lead" in key or "shortlist" in key:
+        names = (
+            "ALICE JOHNSON", "Bruno Garcia", "CHEN WEI", "Dana Okafor",
+            "Elena Rossi", "Fatima Khan", "Gabriel Martin", "HANA SATO",
+        )
+        jobs = ("VP SALES", "customer success mgr", "CFO", "Sr. engineer")
+        rows = []
+        for index in range(1, 13):
+            duplicate = index in {5, 10}
+            base = index - 1 if duplicate else index
+            rows.append((
+                f"C-{index:03d}", names[(index - 1) % len(names)],
+                f"person{base:02d}@example.com", "" if index in {3, 8} else f"+1415555{1000 + index}",
+                "yes" if index in {6, 11} else "no", jobs[(index - 1) % len(jobs)],
+                ("Northstar Systems", "Juniper Health", "Cobalt Works")[index % 3],
+                f"2026-07-{(index % 28) + 1:02d}", "Send pricing recap" if index % 2 else "Book discovery call",
+            ))
+        return [
+            ("contact_id", "name", "email", "phone", "opt_out", "job_title", "company", "last_activity", "next_step"),
+            *rows,
+        ]
+
+    if "signup" in key:
+        rows = []
+        for month, month_factor in (("2026-05", 100), ("2026-06", 82)):
+            for source_index, source in enumerate(("Organic", "Paid Search", "Partner"), start=1):
+                for region_index, region in enumerate(("West", "Central", "East"), start=1):
+                    count_value = month_factor + source_index * 9 + region_index * 4
+                    if month == "2026-06" and source == "Paid Search" and region == "West":
+                        count_value -= 46
+                    rows.append((
+                        f"{month}-{source_index}-{region_index}", f"{month}-15", source,
+                        "Core Demo" if source != "Partner" else "Channel Launch", region, count_value,
+                    ))
+        return [("signup_id", "date", "source", "campaign", "region", "signups"), *rows]
+
+    if "subscription" in key or "cohort" in key:
+        rows = []
+        for cohort_index, cohort in enumerate(("2026-01", "2026-02", "2026-03", "2026-04"), start=1):
+            for month in range(6):
+                retained = max(28, 100 - month * (7 + cohort_index * 2))
+                rows.append((cohort, month, 100, retained, round(retained / 100, 2), ("Starter", "Growth")[cohort_index % 2]))
+        return [("cohort_month", "months_since_signup", "signup_count", "paid_count", "retention_rate", "plan_tier"), *rows]
+
+    if any(term in key for term in ("campaign", "linkedin ads", "google ads", "web analytics", "marketing kpi", "traffic by channel")):
+        rows = []
+        for week in range(1, 13):
+            for channel_index, channel in enumerate(("Paid Search", "LinkedIn", "Email", "Organic"), start=1):
+                spend = 1800 + week * 120 + channel_index * 250
+                clicks = 320 + week * 17 + channel_index * 31
+                leads = 22 + week + channel_index * 3
+                rows.append((
+                    f"2026-W{week + 18:02d}", channel, "Northstar Q3", spend, 18000 + week * 850,
+                    clicks, leads, 5 + (week + channel_index) % 9, 8000 + week * 650 + channel_index * 900,
+                ))
+        return [("week", "channel", "campaign", "spend", "impressions", "clicks", "leads", "customers", "revenue"), *rows]
+
+    if "donor" in key:
+        return [
+            ("donor_id", "Name", "Address", "gift_amount"),
+            ("D-001", "Ada Lovelace", "12 Oak St, Cleveland, OH 44114", 500),
+            ("D-002", "Grace Hopper", "9 Pine Avenue, Columbus, OH 43215", 750),
+            ("D-003", "Prince", "Unparseable address", 250),
+            ("D-004", "Katherine Johnson", "88 Lake Rd, Dayton, OH 45402", 1000),
+        ]
+
+    if "newsletter" in key or "member" in key:
+        return [
+            ("member_id", "name", "email", "phone", "Date Joined", "status"),
+            ("M-001", "Ari Cole", "ari@example.com", "(415) 555-0101", "07/14/2026", "active"),
+            ("M-002", "Bea Diaz", "bea.example.com", "415.555.0102", "14/07/2026", "active"),
+            ("M-003", "Cal Wu", "cal@example.com", "+44 20 7946 0958", "July 15, 2026", "active"),
+            ("M-004", "Dev Rao", "dev@example", "", "2026-07-16", "needs-review"),
+        ]
+
+    if any(term in key for term in ("dependency", "milestone", "timeline", "phase-plan", "plan-v")):
+        version_shift = 14 if any(term in reference.casefold() for term in ("v5", "revised")) else 0
+        rows = []
+        for index, phase in enumerate(("Discovery", "Design", "Build", "Pilot", "Launch"), start=1):
+            day = min(28, 3 + index * 4 + version_shift)
+            rows.append((
+                f"MS-{index:02d}", phase, owners[index % 4],
+                f"2026-{9 if day < 25 else 10:02d}-{day if day < 25 else day - 20:02d}",
+                "On track" if version_shift == 0 else "Slipped",
+                "Vendor dependency" if version_shift and index in {3, 4} else "Approved sequence",
+                "" if index == 2 else f"MS-{index - 1:02d}" if index > 1 else "",
+            ))
+        return [("milestone_id", "milestone", "owner", "due_date", "status", "reason", "depends_on"), *rows]
+
+    if any(term in key for term in ("utility", "kwh", "electric")):
+        rows = []
+        for month in range(1, 13):
+            for site_index, site in enumerate(("HQ", "Warehouse", "Support Center"), start=1):
+                kwh = 8200 + month * 190 + site_index * 740
+                rows.append((f"2025-{month:02d}", site, kwh, round(kwh * (0.14 + site_index * 0.01), 2)))
+        return [("month", "site", "kwh", "cost"), *rows]
+
+    if any(term in key for term in ("freight", "lane", "carrier", "contracted rates")):
+        rows = []
+        for index in range(1, min(count, 60) + 1):
+            contracted = round(1.35 + (index % 5) * 0.17, 2)
+            billed = contracted + (0.22 if index % 6 == 0 else 0)
+            rows.append((
+                f"F-{index:03d}", ("Meridian", "Northwind", "Atlas Freight")[index % 3],
+                ("SFO-LAX", "AUS-DFW", "ORD-JFK")[index % 3], 300 + index * 18,
+                contracted, billed, round((billed - contracted) * (300 + index * 18), 2),
+            ))
+        return [("shipment_id", "carrier", "lane", "miles", "contract_rate_per_mile", "billed_rate_per_mile", "overcharge"), *rows]
+
+    if any(term in key for term in ("invoice", "payment", "bank statement", "chase statement", "amex", "payout", "receipt", "expense")):
+        rows = []
+        for index in range(1, min(count, 60) + 1):
+            invoice_id = f"INV-{1000 + index}"
+            amount = round(425 + index * 137.25, 2)
+            paid = index % 5 not in {0, 1}
+            if "payment" in reference.casefold() or "bank" in reference.casefold():
+                status = "paid" if paid else "unmatched"
+            else:
+                status = "open" if not paid else "paid"
+            rows.append((
+                invoice_id, f"2026-{((item_index - 1) % 12) + 1:02d}-{(index % 27) + 1:02d}",
+                ("Acme Cloud", "Northwind Freight", "Cobalt Office", "Juniper Telecom")[index % 4],
+                f"Service charge, period {index}", amount, amount if index % 7 else amount + 125,
+                status, f"2026-{((item_index + 1) % 12) + 1:02d}-{(index % 27) + 1:02d}",
+                f"PO-{500 + index}", ("Software", "Freight", "Office", "Telecom")[index % 4],
+            ))
+        return [("invoice_id", "date", "vendor", "description", "amount", "matched_amount", "status", "due_date", "po_number", "category"), *rows]
+
+    if any(term in key for term in ("budget", "actual", "cost center", "variance")):
+        actual = "actual" in reference.casefold()
+        rows = []
+        for index, center in enumerate(("Sales", "Marketing", "Product", "Support", "G&A"), start=1):
+            planned = 28000 + index * 6500
+            amount = round(planned * (1 + (0.16 if index in {2, 4} else 0.04))) if actual else planned
+            rows.append((f"CC-{index:02d}", center, "2026-06", amount, owners[index % 4], "Campaign overage" if actual and index == 2 else "Within plan"))
+        return [("cost_center_id", "cost_center", "month", "amount", "owner", "explanation"), *rows]
+
+    if any(term in key for term in ("sales", "revenue", "pipeline", "deal", "crm", "renewal", "account")):
+        rows = []
+        stages = ("Prospecting", "Discovery", "Evaluation", "Proposal", "Negotiation", "Closed Won")
+        for index in range(1, min(count, 45) + 1):
+            rows.append((
+                f"D-{index:03d}", f"Account {index:02d}", f"Buyer {index:02d}", owners[index % 4],
+                stages[index % len(stages)], ("West", "Central", "East")[index % 3],
+                ("Q1", "Q2", "Q3", "Q4")[(index - 1) % 4], 12000 + index * 3100,
+                f"2026-0{(index % 7) + 1}-{(index % 27) + 1:02d}",
+                f"2026-{((index + 1) % 12) + 1:02d}-{(index % 27) + 1:02d}",
+                "Review security terms" if index % 3 else "Schedule executive call",
+                ("LinkedIn", "Email", "Partner")[index % 3],
+            ))
+        return [("deal_id", "account", "contact", "owner", "stage", "region", "quarter", "revenue", "last_activity", "close_date", "next_step", "source"), *rows]
+
+    if any(term in key for term in ("ticket", "zendesk", "survey", "nps", "support", "refund")):
+        rows = []
+        themes = ("Billing", "Login", "Export", "Performance", "Permissions", "Refund")
+        for index in range(1, min(count, 40) + 1):
+            score = (2, 4, 6, 7, 8, 9, 10)[index % 7]
+            rows.append((
+                f"T-{index:03d}", themes[index % len(themes)], ("Starter", "Growth", "Enterprise")[index % 3],
+                score, 25 + index * 6, f"Customer reports {themes[index % len(themes)].casefold()} friction",
+                owners[index % 4], f"2026-07-{(index % 28) + 1:02d}", "open" if index % 4 else "resolved",
+            ))
+        return [("ticket_id", "theme", "plan_tier", "nps_score", "first_response_minutes", "comment", "owner", "created_date", "status"), *rows]
+
+    if any(term in key for term in ("inventory", "warehouse", "sku", "allocation", "capacity")):
+        rows = []
+        system_offset = 0 if "system" in reference.casefold() else item_index * 3
+        for index in range(1, 13):
+            rows.append((
+                f"SKU-{index:03d}", 100 + index * 9 + system_offset,
+                7 + (index % 21), ("Warehouse West", "Warehouse Central", "Warehouse East")[item_index % 3],
+                owners[index % 4], round(0.55 + (index % 6) * 0.12, 2),
+            ))
+        return [("sku", "units", "days_of_cover", "location", "owner", "allocation"), *rows]
+
+    if any(term in key for term in ("comp_band", "comp-band", "comp bands", "headcount", "roster", "pay equity", "employee")):
+        rows = []
+        for index in range(1, min(count, 48) + 1):
+            level = ("L2", "L3", "L4", "L5")[index % 4]
+            band_min = 80000 + (index % 4) * 20000
+            salary = band_min - 4500 if index % 11 == 0 else band_min + 3000 + index * 250
+            rows.append((
+                f"EMP-{index:03d}", ("Engineering", "Sales", "Marketing", "Support")[index % 4],
+                level, ("Woman", "Man", "Nonbinary")[index % 3], 1 + index % 9,
+                salary, band_min, band_min + 30000, "active" if index % 9 else "exited",
+                "REQ-OPEN" if index % 13 == 0 else "",
+            ))
+        return [("employee_id", "department", "level", "gender", "tenure_years", "salary", "band_min", "band_max", "status", "open_req"), *rows]
+
+    if any(term in key for term in ("asana", "project tracker", "launch tracker", "task due", "portfolio")):
+        rows = []
+        for index in range(1, 25):
+            rows.append((
+                f"TASK-{index:03d}", f"Launch work item {index:02d}", owners[index % 4],
+                f"2026-08-{(index % 20) + 9:02d}", "complete" if index <= 9 else "open",
+                ("Northstar Launch", "Billing Upgrade", "CRM Recovery")[index % 3],
+                "2026-08-18" if index % 5 == 0 else "",
+            ))
+        return [("task_id", "task", "owner", "due_date", "status", "project", "revised_due_date"), *rows]
+
+    if "vendor" in key or "rate" in key or "proposal" in key:
+        rows = []
+        for index in range(1, min(count, 30) + 1):
+            alias = ("Acme Inc", "ACME, Inc.", "Acme Incorporated")[index % 3] if index <= 3 else f"Vendor {index:02d}"
+            rows.append((f"V-{index:03d}", alias, 24000 + index * 1700, "99.9%", 30 + index, f"2027-{(index % 12) + 1:02d}-15", owners[index % 4]))
+        return [("vendor_id", "vendor", "annual_cost", "sla", "implementation_days", "renewal_date", "owner"), *rows]
+
+    rows = []
+    statuses = ("confirmed", "open", "needs-review", "complete")
+    for index in range(1, count + 1):
+        rows.append((
+            f"R-{index:03d}", f"Atlas record {index:02d}", owners[index % 4],
+            statuses[index % 4], 1200 + index * 175, f"2026-07-{(index % 28) + 1:02d}",
+            f"source-{index:02d}", "high" if index % 3 else "medium",
+            "review evidence" if index % 4 == 2 else "confirm owner",
+        ))
+    return [("record_id", "name", "owner", "status", "amount", "event_date", "source", "confidence", "next_step"), *rows]
+
+
+def task_source_context(row, reference, item_index=1, count=1):
+    key = f"{row['category']} {row['task']} {reference}".casefold()
+    base = fixture_context(row)
+    details = [
+        f"Source: {reference or 'task source'}",
+        f"Record ID: TASK-{row['id']}-{item_index:03d}",
+        f"Collection position: {item_index} of {count}",
+    ]
+    if any(term in key for term in ("incident", "outage", "maintenance")):
+        details.extend([
+            "Incident began 2026-07-14 09:12 PT and service recovered at 11:47 PT.",
+            "API requests failed for 38 percent of active workspaces; no stored customer data was lost.",
+            "A deployment exposed an unbounded database connection retry; blame is not assigned.",
+            "Changes: capped retries, added saturation alerts, and required canary verification.",
+            "Affected customers receive a 10 percent July service credit.",
+        ])
+    elif any(term in key for term in ("lease", "msa", "contract", "sow", "dpa", "nda", "agreement", "term sheet")):
+        details.extend([
+            "Counterparty: Northwind Logistics LLC. Effective date: 2026-01-01.",
+            "Initial term ends 2027-12-31 and renews for one year unless notice is given 60 days before end.",
+            "Termination for uncured material breach is allowed after 30 days; convenience termination is not allowed.",
+            "Liability cap is fees paid in the prior 12 months, except confidentiality and IP indemnity.",
+            "Security incidents require notice within 48 hours; customer data must be returned or deleted in 30 days.",
+            "Year 1 rent is $18,500 monthly, escalating 3 percent annually; CAM is $4,200 monthly.",
+        ])
+    elif any(term in key for term in ("bank", "statement", "invoice", "receipt", "expense", "payout")):
+        details.extend([
+            f"Invoice ID: INV-{1000 + item_index}. Vendor: Northwind Freight.",
+            f"Transaction date: 2026-{((item_index - 1) % 12) + 1:02d}-15.",
+            f"Amount: ${425 + item_index * 137.25:,.2f}. Running balance: ${50000 - item_index * 911:,.2f}.",
+            f"PO number: PO-{500 + item_index}. Category: Freight.",
+        ])
+    elif any(term in key for term in ("medical", "health plan", "benefit", "insurance")):
+        plan = ("Bronze", "Silver", "Gold")[(item_index - 1) % 3]
+        details.extend([
+            f"Plan: {plan}. Monthly employee premium: ${310 + item_index * 95}.",
+            f"Deductible: ${3500 - item_index * 650}. Out-of-pocket maximum: ${7600 - item_index * 500}.",
+            f"Specialist copay: ${70 - item_index * 10}. Network providers: {12000 + item_index * 4500}.",
+            "RX tiers: $15 generic, $45 preferred brand, $90 non-preferred, 30 percent specialty.",
+        ])
+    elif any(term in key for term in ("resume", "candidate", "interview", "hiring")):
+        details.extend([
+            f"Candidate: Morgan Candidate {item_index}. Current title: Senior Product Manager.",
+            f"Experience: {4 + item_index % 9} years; B2B product experience: {2 + item_index % 6} years.",
+            f"Location: {('San Francisco', 'New York', 'Austin', 'Remote US')[item_index % 4]}.",
+            "Strengths: discovery research, analytics, cross-functional delivery. Gap: limited international launch work.",
+        ])
+    elif any(term in key for term in ("meeting", "notes", "minutes", "retro", "transcript", "status")):
+        details.extend([
+            f"Decision: approve pilot scope {item_index}; owner: Priya Shah; date: 2026-07-{(item_index % 28) + 1:02d}.",
+            f"Action: validate migration data; owner: Rafael Ortiz; due: 2026-08-{(item_index % 20) + 1:02d}.",
+            "Risk: vendor API readiness is amber. Ask: approve a two-week contingency.",
+            "Recurring theme: acceptance criteria arrive late; the checklist change from sprint 19 stuck.",
+        ])
+    elif any(term in key for term in ("paper", "research", "analyst", "assessment", "report")):
+        details.extend([
+            f"Study sample: {180 + item_index * 37} B2B software users across 12 organizations.",
+            "Method: preregistered longitudinal cohort with matched controls.",
+            f"Effect size: {0.12 + item_index * 0.03:.2f}; confidence interval excludes zero for the primary outcome.",
+            "Stated limitation: self-selection and a six-month follow-up constrain generalization.",
+            f"Headline revenue: ${410000 + item_index * 27000}; growth: {8 + item_index} percent; churn: {5.4 - item_index * 0.1:.1f} percent.",
+        ])
+    elif any(term in key for term in ("w-9", "w9", "coi", "certificate")):
+        details.extend([
+            f"Legal name: Vendor Entity {item_index} LLC. TIN type: EIN. Address: {100 + item_index} Market St, Columbus, OH 43215.",
+            f"Policy number: GL-{2026000 + item_index}. Carrier: Meridian Casualty. Limit: ${750000 if item_index % 7 == 0 else 2000000}.",
+            f"Expiry: 2026-{8 + item_index % 4:02d}-{(item_index % 27) + 1:02d}. Signature date: {'missing' if item_index % 11 == 0 else '2026-01-10'}.",
+        ])
+    else:
+        details.extend([
+            f"Owner: {('Priya Shah', 'Rafael Ortiz', 'Jo Chen', 'Avery Lin')[item_index % 4]}.",
+            f"Amount: ${1200 + item_index * 175}. Event date: 2026-07-{(item_index % 28) + 1:02d}.",
+            f"Status: {('confirmed', 'open', 'needs-review', 'complete')[item_index % 4]}.",
+            "Verified next step: validate the evidence and review with the named owner in seven days.",
+        ])
+    return base + "\n\n## Task-specific source evidence\n\n" + "\n".join(f"- {detail}" for detail in details) + "\n"
+
+
 def source_references(task):
     matches = re.findall(
         r"(?<![A-Za-z0-9])(?:~\/|\/)?[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*"
@@ -359,6 +717,7 @@ def required_source_paths(row):
     ]
     paths.extend(mapped_source_path(reference) for reference in source_references(row["task"]))
     paths.extend(spec[1] for spec in COLLECTION_SPECS.get(row["id"], []))
+    paths.extend(relative for _, relative in IMPLICIT_SOURCES.get(row["id"], []))
     task = row["task"].casefold()
     if "last quarter" in task and "memo" in task:
         paths.append("inputs/last-quarter-board-memo.md")
@@ -371,7 +730,7 @@ def mapped_source_path(reference):
 
 
 def xml_escape(text):
-    return html.escape(text, quote=False)
+    return html.escape(str(text), quote=False)
 
 
 def write_docx(path, text):
@@ -467,15 +826,16 @@ def write_pptx(path, text):
         )
 
 
-def write_xlsx(path):
+def write_xlsx(path, values=None):
     path.parent.mkdir(parents=True, exist_ok=True)
-    values = (
-        ("Metric", "Q2", "Q3", "Owner"),
-        ("Revenue", "500000", "540000", "Priya Shah"),
-        ("Operating spend", "390000", "412000", "Rafael Ortiz"),
-        ("Activation percent", "42", "49", "Priya Shah"),
-        ("Northstar open days", "21", "38", "Jo Chen"),
-    )
+    if values is None:
+        values = (
+            ("Metric", "Q2", "Q3", "Owner"),
+            ("Revenue", "500000", "540000", "Priya Shah"),
+            ("Operating spend", "390000", "412000", "Rafael Ortiz"),
+            ("Activation percent", "42", "49", "Priya Shah"),
+            ("Northstar open days", "21", "38", "Jo Chen"),
+        )
     rows = []
     for row_index, values_row in enumerate(values, start=1):
         cells = []
@@ -585,10 +945,12 @@ def write_png(path, width=1200, height=675):
     )
 
 
-def materialize_source(path, context, records, item_index=1):
+def materialize_source(path, row, reference="", item_index=1, count=1):
     suffix = path.suffix.casefold()
+    context = task_source_context(row, reference or path.name, item_index, count)
+    values = task_table(row, reference or path.name, item_index, max(count, 12))
     if suffix == ".xlsx":
-        write_xlsx(path)
+        write_xlsx(path, values)
     elif suffix == ".docx":
         write_docx(path, context)
     elif suffix == ".pptx":
@@ -599,7 +961,7 @@ def materialize_source(path, context, records, item_index=1):
         write_png(path, width=800 + (item_index % 6) * 160, height=600)
     elif suffix == ".csv":
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(records, encoding="utf-8")
+        path.write_text(csv_text(values), encoding="utf-8")
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(context, encoding="utf-8")
@@ -610,39 +972,22 @@ def write_fixture(row, workspace):
     inputs.mkdir(parents=True)
     context = fixture_context(row)
     (inputs / "evaluation-context.md").write_text(context, encoding="utf-8")
-    rows = [
-        "record_id,name,owner,status,amount,event_date,source,confidence,next_step\n"
-    ]
-    statuses = ("confirmed", "open", "needs-review", "complete")
-    for index in range(1, 41):
-        status = statuses[index % len(statuses)]
-        owner = ("Priya Shah", "Rafael Ortiz", "Jo Chen", "Avery Lin")[index % 4]
-        rows.append(
-            f"R-{index:03d},Atlas record {index:02d},{owner},{status},{1200 + index * 175},"
-            f"2026-07-{(index % 28) + 1:02d},source-{index:02d},{'high' if index % 3 else 'medium'},"
-            f"{'review evidence' if status == 'needs-review' else 'confirm owner'}\n"
-        )
-    records = "".join(rows)
-    (inputs / "records.csv").write_text(records, encoding="utf-8")
+    (inputs / "records.csv").write_text(csv_text(task_table(row)), encoding="utf-8")
 
     mappings = []
     for reference in source_references(row["task"]):
         mapped = mapped_source_path(reference)
         path = workspace / mapped
-        materialize_source(path, context, records)
+        materialize_source(path, row, reference)
         mappings.append(f"- `{reference}` -> `{mapped}` (materialized evaluation source)")
+    for description, relative in IMPLICIT_SOURCES.get(row["id"], []):
+        materialize_source(workspace / relative, row, description)
+        mappings.append(f"- `{description}` -> `{relative}` (materialized evaluation source)")
     for description, relative, count, extension in COLLECTION_SPECS.get(row["id"], []):
         directory = workspace / relative
         for index in range(1, count + 1):
-            item_context = (
-                f"{context}\n\n## Collection record {index} of {count}\n\n"
-                f"Record ID: TASK-{row['id']}-{index:03d}. Owner: "
-                f"{('Priya Shah', 'Rafael Ortiz', 'Jo Chen', 'Avery Lin')[index % 4]}. "
-                f"Amount: ${1200 + index * 175}. Event date: 2026-07-{(index % 28) + 1:02d}. "
-                f"Status: {statuses[index % len(statuses)]}.\n"
-            )
             item = directory / f"item-{index:03d}{extension}"
-            materialize_source(item, item_context, records, item_index=index)
+            materialize_source(item, row, description, item_index=index, count=count)
         mappings.append(
             f"- `{description}` -> `{relative}` ({count} materialized `{extension}` sources)"
         )
@@ -668,15 +1013,18 @@ def write_fixture(row, workspace):
     browser_path = None
     if row["capabilityNeeded"] in BROWSER_CAPABILITIES:
         browser_path = "inputs/browser.html"
+        table = task_table(row, "authenticated browser", count=20)
+        headers = "".join(f"<th>{html.escape(str(value))}</th>" for value in table[0])
+        body = "".join(
+            "<tr>" + "".join(f"<td>{html.escape(str(value))}</td>" for value in values) + "</tr>"
+            for values in table[1:21]
+        )
         page = (
             "<!doctype html><html><head><title>Atlas evaluation tenant</title></head><body>"
             f"<main><h1>{html.escape(row['category'])}</h1>"
             f"<p data-task-id=\"{row['id']}\">Controlled task {row['id']}</p>"
             f"<pre>{html.escape(context)}</pre>"
-            "<table><thead><tr><th>Account</th><th>Status</th><th>Owner</th><th>Next step</th></tr></thead>"
-            "<tbody><tr><td>Northstar</td><td>needs-review</td><td>Priya Shah</td>"
-            "<td>Validate on 2026-08-22</td></tr><tr><td>Atlas Labs</td><td>confirmed</td>"
-            "<td>Rafael Ortiz</td><td>Approve by 2026-09-15</td></tr></tbody></table>"
+            f"<table><thead><tr>{headers}</tr></thead><tbody>{body}</tbody></table>"
             "</main></body></html>"
         )
         (workspace / browser_path).write_text(page, encoding="utf-8")

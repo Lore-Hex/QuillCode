@@ -1,4 +1,5 @@
 import importlib.util
+import csv
 import json
 import tempfile
 import unittest
@@ -112,6 +113,55 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
                 ET.fromstring(archive.read("[Content_Types].xml"))
                 sheet = archive.read("xl/worksheets/sheet1.xml").decode("utf-8")
                 self.assertIn("Northstar open days", sheet)
+
+    def test_contact_fixture_contains_real_cleanup_cases(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(self.rows[1], workspace)
+            with (workspace / "inputs" / "contacts_export.csv").open(
+                encoding="utf-8", newline=""
+            ) as source:
+                rows = list(csv.DictReader(source))
+
+        self.assertEqual(len(rows), 12)
+        self.assertEqual(
+            set(rows[0]),
+            {
+                "contact_id", "name", "email", "phone", "opt_out", "job_title",
+                "company", "last_activity", "next_step",
+            },
+        )
+        self.assertLess(len({row["email"] for row in rows}), len(rows))
+        self.assertTrue(any(row["name"].isupper() for row in rows))
+        self.assertTrue(any(not row["phone"] for row in rows))
+        self.assertTrue(any(row["opt_out"] == "yes" for row in rows))
+
+    def test_task_tables_differentiate_source_roles(self):
+        row = self.rows[93]
+        plan_v3 = PRIOR.task_table(row, "plan-v3.csv")
+        plan_v5 = PRIOR.task_table(row, "plan-v5.csv")
+        self.assertEqual(plan_v3[0], plan_v5[0])
+        self.assertNotEqual(plan_v3[1:], plan_v5[1:])
+        self.assertIn("Slipped", {str(value) for values in plan_v5 for value in values})
+
+    def test_fixture_materializes_implied_task_sources(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(self.rows[8], workspace)
+            lease = workspace / "inputs" / "office-lease.pdf"
+            source_map = (workspace / "inputs" / "source-map.md").read_text(encoding="utf-8")
+            self.assertTrue(lease.read_bytes().startswith(b"%PDF"))
+            self.assertIn("inputs/office-lease.pdf", source_map)
+
+    def test_browser_fixture_exposes_task_relevant_table(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            browser_path = PRIOR.write_fixture(self.rows[192], workspace)
+            page = (workspace / browser_path).read_text(encoding="utf-8")
+
+        self.assertIn("invoice_id", page)
+        self.assertIn("vendor", page)
+        self.assertIn("due_date", page)
 
     def test_office_fixtures_include_standard_package_relationships(self):
         with tempfile.TemporaryDirectory() as temporary:
