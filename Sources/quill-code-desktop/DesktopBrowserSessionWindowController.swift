@@ -44,6 +44,19 @@ enum DesktopBrowserLocalPageLoader {
 }
 
 @MainActor
+private final class DesktopBrowserRenderedSnapshotRequest {
+    let tabID: UUID
+    let fallbackURL: URL?
+    weak var webView: WKWebView?
+
+    init(tabID: UUID, fallbackURL: URL?, webView: WKWebView) {
+        self.tabID = tabID
+        self.fallbackURL = fallbackURL
+        self.webView = webView
+    }
+}
+
+@MainActor
 final class DesktopBrowserSessionWindowController: NSWindowController,
     NSWindowDelegate,
     NSTabViewDelegate,
@@ -65,6 +78,18 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
     private var pendingNavigationURLs: [UUID: URL] = [:]
     private var localPageLoadTasks: [UUID: Task<Void, Never>] = [:]
     private var renderedLocalPageURLs: [UUID: URL] = [:]
+    private var renderedSnapshotRefreshScheduler: QuillCodeDesktopLatestTaskScheduler<
+        UUID,
+        DesktopBrowserRenderedSnapshotRequest,
+        BrowserLiveDOMSnapshot
+    >?
+
+    var renderedSnapshotRefreshCounts: (active: Int, pending: Int) {
+        (
+            active: renderedSnapshotRefreshScheduler?.activeWorkerCount ?? 0,
+            pending: renderedSnapshotRefreshScheduler?.pendingCount ?? 0
+        )
+    }
 
     init(snapshot: BrowserSessionSyncSnapshot) {
         self.tabView = NSTabView()
@@ -97,6 +122,8 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
     func windowWillClose(_ notification: Notification) {
         localPageLoadTasks.values.forEach { $0.cancel() }
         localPageLoadTasks.removeAll()
+        renderedSnapshotRefreshScheduler?.cancelAll()
+        renderedSnapshotRefreshScheduler = nil
         pendingNavigationURLs.removeAll()
         renderedLocalPageURLs.removeAll()
         navigationWaiters.finishAll(error: DesktopBrowserSessionScriptError.noOpenSession)
@@ -470,6 +497,7 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
         for id in tabs.keys where !retainedIDs.contains(id) {
             guard let tab = tabs.removeValue(forKey: id) else { continue }
             navigationWaiters.finish(tabID: id, error: DesktopBrowserSessionScriptError.noSelectedTab)
+            renderedSnapshotRefreshScheduler?.cancel(for: id)
             tab.webView.stopLoading()
             pendingNavigationURLs.removeValue(forKey: id)
             localPageLoadTasks.removeValue(forKey: id)?.cancel()
@@ -542,29 +570,51 @@ final class DesktopBrowserSessionWindowController: NSWindowController,
     }
 
     private func emitRenderedSessionUpdate(for id: UUID, webView: WKWebView) {
-        Task { @MainActor [weak self, weak webView] in
-            guard let self,
-                  let webView,
-                  let tab = tabs[id],
-                  tab.webView === webView
-            else {
-                return
-            }
-            do {
-                let captured = try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
+        guard let tab = tabs[id], tab.webView === webView else { return }
+        let request = DesktopBrowserRenderedSnapshotRequest(
+            tabID: id,
+            fallbackURL: tab.snapshot.url,
+            webView: webView
+        )
+        renderedSnapshotScheduler().schedule(request, for: id)
+    }
+
+    private func renderedSnapshotScheduler() -> QuillCodeDesktopLatestTaskScheduler<
+        UUID,
+        DesktopBrowserRenderedSnapshotRequest,
+        BrowserLiveDOMSnapshot
+    > {
+        if let renderedSnapshotRefreshScheduler {
+            return renderedSnapshotRefreshScheduler
+        }
+
+        let scheduler = QuillCodeDesktopLatestTaskScheduler<
+            UUID,
+            DesktopBrowserRenderedSnapshotRequest,
+            BrowserLiveDOMSnapshot
+        >(
+            operation: { request in
+                guard let webView = request.webView else { throw CancellationError() }
+                return try await DesktopBrowserLiveDOMSnapshotExtractor.snapshot(
                     from: webView,
-                    fallbackURL: tab.snapshot.url
+                    fallbackURL: request.fallbackURL
                 )
-                guard let currentTab = tabs[id],
+            },
+            delivery: { [weak self] request, captured in
+                guard let self,
+                      let webView = request.webView,
+                      let currentTab = tabs[request.tabID],
                       currentTab.webView === webView
                 else {
                     return
                 }
-                emitSessionUpdate(liveDOMSnapshots: [id: logicalSnapshot(captured, for: currentTab)])
-            } catch {
-                // URL/title sync above is still useful; rendered DOM is best-effort for visible sessions.
+                emitSessionUpdate(liveDOMSnapshots: [
+                    request.tabID: logicalSnapshot(captured, for: currentTab)
+                ])
             }
-        }
+        )
+        renderedSnapshotRefreshScheduler = scheduler
+        return scheduler
     }
 
     private func emitSessionUpdate(liveDOMSnapshots: [UUID: BrowserLiveDOMSnapshot] = [:]) {
