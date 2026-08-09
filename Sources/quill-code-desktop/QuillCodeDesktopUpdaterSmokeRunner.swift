@@ -31,6 +31,9 @@ struct QuillCodeDesktopUpdaterSmokeReport: Codable, Equatable, Sendable {
 
 @MainActor
 enum QuillCodeDesktopUpdaterSmokeRunner {
+    static let feedPropagationAttemptLimit = 6
+    private static let feedPropagationRetryDelayNanoseconds: UInt64 = 2_000_000_000
+
     static func runAndExit(_ request: QuillCodeDesktopUpdaterSmokeRequest) async -> Never {
         let report: QuillCodeDesktopUpdaterSmokeReport
         do {
@@ -66,12 +69,7 @@ enum QuillCodeDesktopUpdaterSmokeRunner {
         guard let configuration = QuillCodeDesktopUpdateConfiguration.bundled() else {
             throw QuillCodeDesktopUpdateError.updatesUnavailable
         }
-        let result = try await QuillCodeDesktopUpdateChecker().check(configuration: configuration)
-        guard case .updateAvailable(let release) = result else {
-            throw QuillCodeDesktopUpdateError.installationFailed(
-                "the smoke fixture was not older than the published update"
-            )
-        }
+        let release = try await waitForAvailableUpdate(configuration: configuration)
         let prepared = try await QuillCodeDesktopUpdatePreparer().prepare(
             release: release,
             configuration: configuration
@@ -88,6 +86,27 @@ enum QuillCodeDesktopUpdaterSmokeRunner {
             targetBuild: release.build,
             targetCommit: release.commit,
             message: "The verified update was staged and its detached installer started."
+        )
+    }
+
+    static func waitForAvailableUpdate(
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        checker: any QuillCodeDesktopUpdateChecking = QuillCodeDesktopUpdateChecker(),
+        retryDelay: @escaping @Sendable () async throws -> Void = {
+            try await Task.sleep(nanoseconds: feedPropagationRetryDelayNanoseconds)
+        }
+    ) async throws -> QuillCodeDesktopUpdateRelease {
+        for attempt in 1...feedPropagationAttemptLimit {
+            let result = try await checker.check(configuration: configuration)
+            if case .updateAvailable(let release) = result {
+                return release
+            }
+            if attempt < feedPropagationAttemptLimit {
+                try await retryDelay()
+            }
+        }
+        throw QuillCodeDesktopUpdateError.installationFailed(
+            "the published update feed did not advance beyond the smoke fixture after bounded retries"
         )
     }
 

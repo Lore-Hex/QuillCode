@@ -12,7 +12,10 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             "QuillCodeDesktopUpdaterSmokeRunner.runAndExit"
         ])
         Self.assertSource(runner, containsAll: [
-            "QuillCodeDesktopUpdateChecker().check",
+            "waitForAvailableUpdate(configuration: configuration)",
+            "feedPropagationAttemptLimit = 6",
+            "if case .updateAvailable(let release) = result",
+            "try await retryDelay()",
             "QuillCodeDesktopUpdatePreparer().prepare",
             "QuillCodeDesktopUpdateInstaller().stageAndLaunch",
             "targetCommit: release.commit"
