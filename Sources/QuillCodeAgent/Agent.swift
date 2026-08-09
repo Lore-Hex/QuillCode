@@ -32,6 +32,10 @@ public struct AgentRunner: Sendable {
     /// the entire run. Three run-level continuations, on top of the action resolver's local retry,
     /// are enough to survive a stubborn route while remaining bounded if the model never acts.
     static let exhaustedActionContinuationLimit = 3
+    /// Some reasoning-heavy routes can exhaust the action resolver's empty-response retries before
+    /// emitting their first action. Give the run loop a few explicit action-only continuations so
+    /// a transient startup spiral does not kill an otherwise unattended task.
+    static let startupActionContinuationLimit = 3
     /// Bounded recovery for a malformed model action (garbage/mojibake tokens) or a mid-stream
     /// transport reset: re-prompt/re-request up to this many times before the failure is terminal.
     /// One bad sample must not kill an unattended run ([F5/F6] coworker-program findings).
@@ -221,6 +225,9 @@ public struct AgentRunner: Sendable {
             /// shared bounded budget for both failure shapes and reset it after the next executed tool,
             /// so one recovered phase cannot make every later phase of a long run less resilient.
             var exhaustedActionContinuationAttempts = 0
+            /// Startup recovery is separate from post-tool continuation recovery because there is no
+            /// completed call to anchor the latter's prompt or reset semantics yet.
+            var startupActionContinuationAttempts = 0
             /// Listing a not-yet-created output directory is predictably unsuccessful. Correct each
             /// exact proposal once, then allow a repeat through so this preflight stays bounded.
             var preflightCorrectedMissingListCalls = Set<ToolCallFingerprint>()
@@ -298,6 +305,25 @@ public struct AgentRunner: Sendable {
                         )
                     } catch AgentError.emptyStreamingResponse {
                         try Task.checkCancellation()
+                        if runLoop.latestCompletion == nil, !hasEmittedModelAction {
+                            guard startupActionContinuationAttempts
+                                    < Self.startupActionContinuationLimit
+                            else { throw AgentError.emptyStreamingResponse }
+                            startupActionContinuationAttempts += 1
+                            pendingRepeatNudge = Self.startupActionContinuationPrompt(
+                                attempt: startupActionContinuationAttempts
+                            )
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: the model produced no actionable startup "
+                                    + "response; requested one concrete action "
+                                    + "(attempt \(startupActionContinuationAttempts) of "
+                                    + "\(Self.startupActionContinuationLimit))."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
+                        }
                         guard let completion = runLoop.latestCompletion,
                               completion.result.ok
                         else { throw AgentError.emptyStreamingResponse }
@@ -1338,6 +1364,17 @@ public struct AgentRunner: Sendable {
         concrete next {"type":"tool",...} action with complete arguments. Do not repeat the completed \
         call, ask for confirmation, or return an empty response. Only when all work is actually complete \
         may you return a concise {"type":"say",...} final answer.
+        """
+    }
+
+    static func startupActionContinuationPrompt(attempt: Int) -> String {
+        """
+        [QuillCode startup recovery \(attempt) of \(startupActionContinuationLimit)] Your previous \
+        attempts produced no actionable QuillCode response. Do not plan, narrate, explain, or announce \
+        what you will do. Emit exactly one QuillCode JSON object now. Start the requested work with a \
+        concrete {"type":"tool",...} action using complete arguments. If a required source is \
+        unavailable, emit a concise {"type":"say",...} response naming the exact blocker. Never \
+        return only reasoning or an empty response.
         """
     }
 

@@ -330,15 +330,11 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
     }
 
     func testExhaustedEmptyStreamingResponsesStayFatal() async throws {
-        let client = ThrowingSequenceLLMClient(steps: [
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-            .failure(AgentError.emptyStreamingResponse),
-        ])
+        let attemptsPerResolver = AgentRunner.emptyResponseRetryLimit + 1
+        let resolverRuns = AgentRunner.startupActionContinuationLimit + 1
+        let client = ThrowingSequenceLLMClient(steps: (0..<(attemptsPerResolver * resolverRuns)).map { _ in
+            .failure(AgentError.emptyStreamingResponse)
+        })
         let sleeper = RecordingEmptyResponseRetrySleeper()
         let runner = AgentRunner(llm: client, emptyResponseRetrySleeper: sleeper)
 
@@ -353,12 +349,48 @@ final class AgentMalformedActionRecoveryTests: XCTestCase {
             // Correct terminal error.
         }
         let calls = await client.state.recordedCalls()
-        XCTAssertEqual(calls.count, 7)
+        XCTAssertEqual(calls.count, attemptsPerResolver * resolverRuns)
+        XCTAssertTrue(calls[attemptsPerResolver].userMessage.contains("startup recovery 1 of 3"))
+        XCTAssertTrue(calls[attemptsPerResolver * 2].userMessage.contains("startup recovery 2 of 3"))
+        XCTAssertTrue(calls[attemptsPerResolver * 3].userMessage.contains("startup recovery 3 of 3"))
         let durations = await sleeper.recordedDurations()
         XCTAssertEqual(
             durations,
-            [.seconds(2), .seconds(4), .seconds(8), .seconds(12), .seconds(12), .seconds(12)]
+            Array(
+                repeating: [.seconds(2), .seconds(4), .seconds(8), .seconds(12), .seconds(12), .seconds(12)],
+                count: resolverRuns
+            ).flatMap { $0 }
         )
+    }
+
+    func testExhaustedStartupResponsesRecoverThroughActionOnlyContinuation() async throws {
+        let attemptsPerResolver = AgentRunner.emptyResponseRetryLimit + 1
+        let client = ThrowingSequenceLLMClient(steps:
+            (0..<attemptsPerResolver).map { _ in
+                .failure(AgentError.emptyStreamingResponse)
+            } + [
+                .action(.say("Recovered after startup correction.")),
+            ]
+        )
+        let runner = AgentRunner(
+            llm: client,
+            emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
+        )
+
+        let result = try await runner.send(
+            Self.prompt,
+            in: ChatThread(mode: .auto),
+            workspaceRoot: try makeTempDirectory()
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Recovered after startup correction.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("no actionable startup response")
+        })
+        let calls = await client.state.recordedCalls()
+        XCTAssertEqual(calls.count, attemptsPerResolver + 1)
+        XCTAssertTrue(calls.last?.userMessage.contains("startup recovery 1 of 3") == true)
+        XCTAssertTrue(calls.last?.userMessage.contains("Emit exactly one QuillCode JSON object") == true)
     }
 
     func testExhaustedEmptyFinalResponseAfterSuccessfulWriteFinishesFromToolResult() async throws {
