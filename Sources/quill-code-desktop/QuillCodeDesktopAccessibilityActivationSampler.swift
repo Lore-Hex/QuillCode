@@ -323,15 +323,27 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         _ probe: QuillCodeNativeHitTargetProbe,
         contentView: NSView
     ) async -> QuillCodeDesktopAccessibilityElementSnapshot? {
-        for _ in 0..<20 {
-            let elements = QuillCodeDesktopAccessibilityTree(root: contentView).elements
+        await waitForResolvableElement(probe) {
+            QuillCodeDesktopAccessibilityTree(root: contentView).elements
+        }
+    }
+
+    static func waitForResolvableElement(
+        _ probe: QuillCodeNativeHitTargetProbe,
+        maximumAttempts: Int = 100,
+        retryIntervalNanoseconds: UInt64 = 50_000_000,
+        elements: () -> [QuillCodeDesktopAccessibilityElementSnapshot]
+    ) async -> QuillCodeDesktopAccessibilityElementSnapshot? {
+        let attemptCount = max(1, maximumAttempts)
+        for attempt in 0..<attemptCount {
             if let element = QuillCodeDesktopAccessibilityFrameSampler.resolveElementForActivation(
                 probe,
-                in: elements
+                in: elements()
             ) {
                 return element
             }
-            try? await Task.sleep(nanoseconds: 50_000_000)
+            guard attempt + 1 < attemptCount, !Task.isCancelled else { break }
+            try? await Task.sleep(nanoseconds: retryIntervalNanoseconds)
         }
         return nil
     }

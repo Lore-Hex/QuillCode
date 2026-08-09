@@ -219,11 +219,20 @@ enum QuillCodeDesktopAccessibilityFrameSampler {
         titled titles: Set<String>,
         in elements: [QuillCodeDesktopAccessibilityElementSnapshot]
     ) -> QuillCodeDesktopAccessibilityElementSnapshot? {
-        elements
+        let normalizedTitles = Set(titles.map(normalizedNativeMenuTitle))
+        return elements
             .filter { element in
-                element.role == kAXMenuItemRole as String && titles.contains(element.title)
+                element.role == kAXMenuItemRole as String
+                    && normalizedTitles.contains(normalizedNativeMenuTitle(element.title))
             }
             .max { lhs, rhs in lhs.frameArea < rhs.frameArea }
+    }
+
+    private static func normalizedNativeMenuTitle(_ title: String) -> String {
+        title.folding(
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+            locale: Locale(identifier: "en_US_POSIX")
+        )
     }
 
     private static func nativeMenuTitles(for probe: QuillCodeNativeHitTargetProbe) -> Set<String> {
