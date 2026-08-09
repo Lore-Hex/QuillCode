@@ -1,5 +1,25 @@
 # Code Quality Audit
 
+## 2026-08-09 Transactional First-Install Relocation
+
+Overall grade after this slice: **A+ first-run UX, A+ rollback safety, A+ release evidence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| First-run UX | A+ | The native reminder now owns ready, moving, and recoverable-failure states with one-click Move & Relaunch, retry, duplicate-instance protection, busy-state dismissal protection, and Finder fallback. |
+| Integrity | A+ | The staged copy must match the packaged bundle identifier, version, build, source commit, architecture, and ad-hoc or Developer ID signing requirement before activation. |
+| Crash recovery | A+ | Existing installs use atomic swap and rollback; new installs use atomic same-directory rename and remove a failed destination before reopening the known-good mounted source. Activation races leave unexpected destinations untouched. |
+| Release evidence | A+ | Packaging mounts the finished DMG read-only and requires a real helper result, stable relaunch, strict code-signature verification, native architecture, and exact version/build/commit identity before publication. |
+| Regression coverage | A+ | Focused controller/helper tests cover success, retry, busy-state behavior, duplicate processes, request parsing, new install, launch rollback, and destination races; fixed-size rendering covers ready and recovery states, and a parity gate owns the packaged proof chain. |
+
+Validation:
+
+- Focused relocation, installation-location, rendered, and parity suites (19 tests, 0 failures)
+- Update model and helper suite (26 tests, 0 failures)
+- Full `swift test` (5,705 tests, 5 skipped, 0 failures)
+- Complete optimized packaging run, including read-only DMG relocation smoke
+- `git diff --check`
+
 ## 2026-08-09 Validated Public Release Page Generation
 
 Overall grade after this slice: **A+ download UX, A+ claim integrity, A+ maintainability**.

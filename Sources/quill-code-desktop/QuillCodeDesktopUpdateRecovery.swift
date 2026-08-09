@@ -82,7 +82,7 @@ struct QuillCodeDesktopUpdateRecovery: QuillCodeDesktopUpdateRecovering, Sendabl
         return removed
     }
 
-    private static func isOwnedStagingApplication(_ url: URL, baseName: String) -> Bool {
+    static func isOwnedStagingApplication(_ url: URL, baseName: String) -> Bool {
         let prefix = ".\(baseName).update-"
         let suffix = ".app"
         let name = url.lastPathComponent

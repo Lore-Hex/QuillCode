@@ -505,7 +505,9 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         let request = QuillCodeDesktopUpdateHelperRequest(
             parentProcessID: 123,
             helperURL: root.appendingPathComponent("helper"),
-            incomingApplicationURL: root.appendingPathComponent(".Quill Cowork.update-id.app"),
+            incomingApplicationURL: root.appendingPathComponent(
+                ".Quill Cowork.update-\(UUID().uuidString.lowercased()).app"
+            ),
             destinationApplicationURL: root.appendingPathComponent("Quill Cowork.app"),
             handshakeURL: root.appendingPathComponent("launch-id.ack"),
             resultURL: root.appendingPathComponent("UpdateResult.json"),
@@ -513,7 +515,9 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             expectedBundleIdentifier: "co.lorehex.QuillCowork",
             expectedVersion: "0.2.0",
             expectedBuild: "99",
-            expectedCommit: String(repeating: "a", count: 40)
+            expectedCommit: String(repeating: "a", count: 40),
+            activationMode: .replaceExisting,
+            rollbackApplicationURL: nil
         )
 
         let parsed = try XCTUnwrap(QuillCodeDesktopUpdateHelperRequest.parse(
@@ -541,7 +545,10 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: false)
         try Data("staged".utf8).write(to: workspace.appendingPathComponent("archive.zip"))
         let destination = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
-        let incoming = root.appendingPathComponent(".Quill Cowork.update-success.app", isDirectory: true)
+        let incoming = root.appendingPathComponent(
+            ".Quill Cowork.update-\(UUID().uuidString.lowercased()).app",
+            isDirectory: true
+        )
         try makeFakeApplication(
             at: destination,
             version: "0.1.0",
@@ -607,7 +614,7 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: false)
         let destination = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
         let incoming = root.appendingPathComponent(
-            ".Quill Cowork.update-early-exit.app",
+            ".Quill Cowork.update-\(UUID().uuidString.lowercased()).app",
             isDirectory: true
         )
         let rollbackLaunchedURL = root.appendingPathComponent("rollback-launched")
@@ -675,7 +682,10 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         let workspace = cacheRoot.appendingPathComponent("rollback-workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: false)
         let destination = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
-        let incoming = root.appendingPathComponent(".Quill Cowork.update-rollback.app", isDirectory: true)
+        let incoming = root.appendingPathComponent(
+            ".Quill Cowork.update-\(UUID().uuidString.lowercased()).app",
+            isDirectory: true
+        )
         let childPIDURL = root.appendingPathComponent("failed-child.pid")
         let rollbackLaunchedURL = root.appendingPathComponent("rollback-launched")
         try makeFakeApplication(
@@ -738,7 +748,10 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
         let workspace = cacheRoot.appendingPathComponent("launch-failure-workspace", isDirectory: true)
         try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: false)
         let destination = root.appendingPathComponent("Quill Cowork.app", isDirectory: true)
-        let incoming = root.appendingPathComponent(".Quill Cowork.update-launch-failure.app", isDirectory: true)
+        let incoming = root.appendingPathComponent(
+            ".Quill Cowork.update-\(UUID().uuidString.lowercased()).app",
+            isDirectory: true
+        )
         let rollbackLaunchedURL = root.appendingPathComponent("rollback-launched")
         try makeFakeApplication(
             at: destination,
@@ -829,7 +842,9 @@ final class QuillCodeDesktopUpdateModelTests: XCTestCase {
             expectedBundleIdentifier: "co.lorehex.QuillCowork",
             expectedVersion: expectedVersion,
             expectedBuild: expectedBuild,
-            expectedCommit: String(repeating: "a", count: 40)
+            expectedCommit: String(repeating: "a", count: 40),
+            activationMode: .replaceExisting,
+            rollbackApplicationURL: nil
         )
     }
 
@@ -1163,7 +1178,7 @@ private func makeApplicationBundle() throws -> Bundle {
     return try XCTUnwrap(Bundle(url: root))
 }
 
-private func makeFakeApplication(
+func makeFakeApplication(
     at root: URL,
     version: String,
     build: String,

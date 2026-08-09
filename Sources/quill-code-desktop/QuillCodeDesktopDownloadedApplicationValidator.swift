@@ -1,16 +1,44 @@
 import Foundation
 
+struct QuillCodeDesktopApplicationValidationRequirement: Sendable {
+    var bundleIdentifier: String
+    var version: String
+    var build: String
+    var commit: String
+    var architecture: String
+    var signingRequirement: QuillCodeDesktopUpdateSigningRequirement
+}
+
 enum QuillCodeDesktopDownloadedApplicationValidator {
     static func validate(
         _ applicationURL: URL,
         release: QuillCodeDesktopUpdateRelease,
         configuration: QuillCodeDesktopUpdateConfiguration
     ) throws {
+        try validateSigningRequirement(release.signingRequirement, configuration: configuration)
+        try validate(
+            applicationURL,
+            requirement: QuillCodeDesktopApplicationValidationRequirement(
+                bundleIdentifier: configuration.bundleIdentifier,
+                version: release.version,
+                build: release.build,
+                commit: release.commit,
+                architecture: configuration.architecture,
+                signingRequirement: release.signingRequirement
+            )
+        )
+    }
+
+    static func validate(
+        _ applicationURL: URL,
+        requirement: QuillCodeDesktopApplicationValidationRequirement
+    ) throws {
         guard applicationURL.pathExtension == "app",
               let bundle = Bundle(url: applicationURL),
-              bundle.bundleIdentifier == configuration.bundleIdentifier,
-              bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String == release.version,
-              bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String == release.build,
+              bundle.bundleIdentifier == requirement.bundleIdentifier,
+              bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ==
+                requirement.version,
+              bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String == requirement.build,
               let executableURL = bundle.executableURL,
               FileManager.default.isExecutableFile(atPath: executableURL.path)
         else {
@@ -18,7 +46,7 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
         }
         guard bundle.object(
             forInfoDictionaryKey: QuillCodeDesktopBuildMetadata.commitInfoKey
-        ) as? String == release.commit else {
+        ) as? String == requirement.commit else {
             throw QuillCodeDesktopUpdateError.invalidApplication("its source commit does not match")
         }
 
@@ -30,7 +58,6 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
             throw QuillCodeDesktopUpdateError.invalidApplication("its code signature is invalid")
         }
 
-        try validateSigningRequirement(release.signingRequirement, configuration: configuration)
         let details = try QuillCodeDesktopUpdateProcessRunner.run(
             executableURL: URL(fileURLWithPath: "/usr/bin/codesign"),
             arguments: ["--display", "--verbose=4", applicationURL.path]
@@ -38,12 +65,12 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
         guard details.exitCode == 0,
               QuillCodeDesktopCodeSignatureMetadata(
                 codesignOutput: details.combinedOutput
-              ).satisfies(release.signingRequirement)
+              ).satisfies(requirement.signingRequirement)
         else {
             throw QuillCodeDesktopUpdateError.invalidApplication("its signing identity does not match")
         }
 
-        if case .developerID = release.signingRequirement {
+        if case .developerID = requirement.signingRequirement {
             let assessment = try QuillCodeDesktopUpdateProcessRunner.run(
                 executableURL: URL(fileURLWithPath: "/usr/sbin/spctl"),
                 arguments: ["--assess", "--type", "execute", "--verbose=2", applicationURL.path]
@@ -61,7 +88,7 @@ enum QuillCodeDesktopDownloadedApplicationValidator {
             architectures.standardOutput.split(whereSeparator: \.isWhitespace).map(String.init)
         )
         guard architectures.exitCode == 0,
-              availableArchitectures.contains(configuration.architecture)
+              availableArchitectures.contains(requirement.architecture)
         else {
             throw QuillCodeDesktopUpdateError.invalidApplication("it does not support this Mac")
         }

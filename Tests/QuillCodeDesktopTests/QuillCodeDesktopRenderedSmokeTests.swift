@@ -201,7 +201,7 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.001)
     }
 
-    func testRenderedFirstLaunchFromReadOnlyLocationOffersApplicationsFolder() throws {
+    func testRenderedFirstLaunchFromReadOnlyLocationOffersMoveAndRelaunch() throws {
         var configuration = makeConfiguration()
         configuration.applicationURL = URL(
             fileURLWithPath: "/Volumes/Quill Cowork/Quill Cowork.app",
@@ -231,6 +231,46 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
         XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
         XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.001)
+    }
+
+    func testRenderedFirstLaunchMoveFailureOffersRecoveryActions() async throws {
+        var configuration = makeConfiguration()
+        configuration.applicationURL = URL(
+            fileURLWithPath: "/Volumes/Quill Cowork/Quill Cowork.app",
+            isDirectory: true
+        )
+        let controller = QuillCodeDesktopInstallationLocationController(
+            configuration: configuration,
+            inspector: RenderedUpdateInstallationInspector(.requiresRelocation),
+            relocator: RenderedInstallationRelocator(error: .verificationFailed),
+            defaults: UserDefaults(
+                suiteName: "RenderedInstallLocationFailure.\(UUID().uuidString)"
+            ) ?? .standard,
+            openApplications: { _ in },
+            hasOtherRunningCopy: { _ in false },
+            terminateApplication: {}
+        )
+        controller.startIfNeeded()
+        controller.moveAndRelaunch()
+        let expectedState = QuillCodeDesktopInstallationLocationController.State.failed(
+            message: QuillCodeDesktopApplicationRelocationError.verificationFailed
+                .localizedDescription
+        )
+        try await waitForInstallationState(controller) { $0 == expectedState }
+
+        let image = try renderHostedView(
+            QuillCodeDesktopInstallationLocationView(controller: controller),
+            width: 470,
+            height: 320,
+            debugPathEnvironmentKey: "QUILLCODE_RENDER_INSTALL_LOCATION_FAILURE_IMAGE_PATH"
+        )
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 470)
+        XCTAssertEqual(stats.height, 320)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.brightPixelRatio, 0.001)
     }
 
     func testRenderedSSHConnectionDialogShowsConfiguredHostsAndActions() throws {
@@ -538,6 +578,17 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTFail("Updater did not reach the expected rendered state")
     }
 
+    private func waitForInstallationState(
+        _ controller: QuillCodeDesktopInstallationLocationController,
+        matches: @escaping (QuillCodeDesktopInstallationLocationController.State) -> Bool
+    ) async throws {
+        for _ in 0..<200 {
+            if matches(controller.state) { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTFail("Installation reminder did not reach the expected rendered state")
+    }
+
     private func makeTempDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("QuillCodeDesktopRenderTests-\(UUID().uuidString)", isDirectory: true)
@@ -570,6 +621,17 @@ private struct RenderedUpdateInstallationInspector: QuillCodeDesktopUpdateInstal
         for configuration: QuillCodeDesktopUpdateConfiguration
     ) -> QuillCodeDesktopUpdateInstallationAvailability {
         value
+    }
+}
+
+private struct RenderedInstallationRelocator: QuillCodeDesktopApplicationRelocating {
+    var error: QuillCodeDesktopApplicationRelocationError
+
+    func stageAndLaunch(
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        applicationsURL: URL
+    ) async throws {
+        throw error
     }
 }
 

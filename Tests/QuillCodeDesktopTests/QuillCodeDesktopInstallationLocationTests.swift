@@ -72,6 +72,98 @@ final class QuillCodeDesktopInstallationLocationTests: XCTestCase {
         XCTAssertEqual(openedURL, applicationsURL.standardizedFileURL)
     }
 
+    func testMoveStagesVerifiedCopyAndTerminatesForRelaunch() async throws {
+        let relocator = InstallationRelocatorSpy()
+        var terminationCount = 0
+        let applicationsURL = URL(fileURLWithPath: "/Test Applications", isDirectory: true)
+        let controller = makeController(
+            availability: .requiresRelocation,
+            applicationsURL: applicationsURL,
+            relocator: relocator,
+            terminateApplication: { terminationCount += 1 }
+        )
+        controller.startIfNeeded()
+
+        controller.moveAndRelaunch()
+
+        try await waitUntil { terminationCount == 1 }
+        XCTAssertEqual(controller.state, .moving)
+        XCTAssertTrue(controller.isPresented)
+        let calls = await relocator.calls
+        let call = try XCTUnwrap(calls.first)
+        XCTAssertEqual(call.configuration, makeDiskImageConfiguration())
+        XCTAssertEqual(call.applicationsURL, applicationsURL.standardizedFileURL)
+    }
+
+    func testMoveFailureOffersRetryWithoutTerminating() async throws {
+        let relocator = InstallationRelocatorSpy(error: .verificationFailed)
+        var terminationCount = 0
+        let controller = makeController(
+            availability: .requiresRelocation,
+            relocator: relocator,
+            terminateApplication: { terminationCount += 1 }
+        )
+        controller.startIfNeeded()
+
+        controller.moveAndRelaunch()
+
+        let expectedMessage = QuillCodeDesktopApplicationRelocationError.verificationFailed
+            .localizedDescription
+        try await waitUntil { controller.state == .failed(message: expectedMessage) }
+        XCTAssertEqual(terminationCount, 0)
+        XCTAssertTrue(controller.isPresented)
+
+        await relocator.setError(nil)
+        controller.moveAndRelaunch()
+        try await waitUntil { terminationCount == 1 }
+        let calls = await relocator.calls
+        XCTAssertEqual(calls.count, 2)
+    }
+
+    func testAnotherRunningCopyStopsBeforeStaging() async {
+        let relocator = InstallationRelocatorSpy()
+        let controller = makeController(
+            availability: .requiresRelocation,
+            relocator: relocator,
+            hasOtherRunningCopy: { _ in true }
+        )
+        controller.startIfNeeded()
+
+        controller.moveAndRelaunch()
+
+        XCTAssertEqual(
+            controller.state,
+            .failed(
+                message: QuillCodeDesktopApplicationRelocationError.otherCopyRunning
+                    .localizedDescription
+            )
+        )
+        let calls = await relocator.calls
+        XCTAssertEqual(calls.count, 0)
+    }
+
+    func testMovingStateCannotBeDismissedOrOpenFinder() async throws {
+        let relocator = InstallationRelocatorSpy(delay: .milliseconds(120))
+        var openedURL: URL?
+        var terminationCount = 0
+        let controller = makeController(
+            availability: .requiresRelocation,
+            relocator: relocator,
+            openApplications: { openedURL = $0 },
+            terminateApplication: { terminationCount += 1 }
+        )
+        controller.startIfNeeded()
+        controller.moveAndRelaunch()
+        try await waitUntil { await relocator.calls.count == 1 }
+
+        controller.dismiss()
+        controller.openApplicationsFolder()
+
+        XCTAssertTrue(controller.isPresented)
+        XCTAssertNil(openedURL)
+        try await waitUntil { terminationCount == 1 }
+    }
+
     func testUnavailableConfigurationNeverPresents() {
         let controller = QuillCodeDesktopInstallationLocationController(
             configuration: nil,
@@ -91,14 +183,20 @@ final class QuillCodeDesktopInstallationLocationTests: XCTestCase {
         availability: QuillCodeDesktopUpdateInstallationAvailability,
         defaults: UserDefaults? = nil,
         applicationsURL: URL = URL(fileURLWithPath: "/Applications", isDirectory: true),
-        openApplications: @escaping @MainActor (URL) -> Void = { _ in }
+        relocator: any QuillCodeDesktopApplicationRelocating = InstallationRelocatorSpy(),
+        openApplications: @escaping @MainActor (URL) -> Void = { _ in },
+        hasOtherRunningCopy: @escaping @MainActor (String) -> Bool = { _ in false },
+        terminateApplication: @escaping @MainActor () -> Void = {}
     ) -> QuillCodeDesktopInstallationLocationController {
         QuillCodeDesktopInstallationLocationController(
             configuration: configuration ?? makeDiskImageConfiguration(),
             inspector: InstallationLocationInspectorStub(availability),
+            relocator: relocator,
             defaults: defaults ?? makeDefaults(),
             applicationsURL: applicationsURL,
-            openApplications: openApplications
+            openApplications: openApplications,
+            hasOtherRunningCopy: hasOtherRunningCopy,
+            terminateApplication: terminateApplication
         )
     }
 
@@ -115,6 +213,56 @@ final class QuillCodeDesktopInstallationLocationTests: XCTestCase {
 
     private func makeDefaults() -> UserDefaults {
         UserDefaults(suiteName: "InstallationLocationTests.\(UUID().uuidString)") ?? .standard
+    }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        condition: @escaping @MainActor () async -> Bool
+    ) async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while !(await condition()) {
+            if clock.now >= deadline {
+                return XCTFail("Timed out waiting for installation state")
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+}
+
+private actor InstallationRelocatorSpy: QuillCodeDesktopApplicationRelocating {
+    struct Call: Sendable {
+        var configuration: QuillCodeDesktopUpdateConfiguration
+        var applicationsURL: URL
+    }
+
+    private(set) var calls: [Call] = []
+    private var error: QuillCodeDesktopApplicationRelocationError?
+    private let delay: Duration?
+
+    init(
+        error: QuillCodeDesktopApplicationRelocationError? = nil,
+        delay: Duration? = nil
+    ) {
+        self.error = error
+        self.delay = delay
+    }
+
+    func setError(_ error: QuillCodeDesktopApplicationRelocationError?) {
+        self.error = error
+    }
+
+    func stageAndLaunch(
+        configuration: QuillCodeDesktopUpdateConfiguration,
+        applicationsURL: URL
+    ) async throws {
+        calls.append(Call(configuration: configuration, applicationsURL: applicationsURL))
+        if let delay {
+            try await Task.sleep(for: delay)
+        }
+        if let error {
+            throw error
+        }
     }
 }
 

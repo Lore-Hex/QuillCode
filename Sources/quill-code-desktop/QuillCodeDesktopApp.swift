@@ -14,6 +14,25 @@ struct QuillCodeDesktopApp: App {
             Darwin.exit(QuillCodeDesktopUpdateHelper.run(updateRequest))
         }
 
+        if let relocationSmokeRequest = QuillCodeDesktopRelocationSmokeRequest(
+            arguments: CommandLine.arguments
+        ) {
+            let controller = QuillCodeDesktopController(
+                updateController: QuillCodeDesktopUpdateController(
+                    configuration: nil,
+                    installResultURL: nil
+                ),
+                installationLocationController: QuillCodeDesktopInstallationLocationController(
+                    configuration: nil
+                )
+            )
+            _controller = StateObject(wrappedValue: controller)
+            Task { @MainActor in
+                await QuillCodeDesktopRelocationSmokeRunner.runAndExit(relocationSmokeRequest)
+            }
+            return
+        }
+
         if let updaterSmokeRequest = QuillCodeDesktopUpdaterSmokeRequest(
             arguments: CommandLine.arguments
         ) {

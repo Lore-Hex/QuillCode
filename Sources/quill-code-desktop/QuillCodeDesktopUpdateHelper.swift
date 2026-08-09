@@ -16,8 +16,9 @@ enum QuillCodeDesktopUpdateHelper {
     ) -> Int32 {
         var didValidate = false
         do {
-            try validate(request, environment: environment)
+            try validateStaging(request, environment: environment)
             didValidate = true
+            try validateActivation(request)
             guard waitForProcessToExit(
                 request.parentProcessID,
                 timeout: environment.parentExitTimeout
@@ -42,8 +43,7 @@ enum QuillCodeDesktopUpdateHelper {
 
     private static func removeUnactivatedStagingIfSafe(_ request: QuillCodeDesktopUpdateHelperRequest) {
         let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: request.destinationApplicationURL.path),
-              fileManager.fileExists(atPath: request.incomingApplicationURL.path),
+        guard fileManager.fileExists(atPath: request.incomingApplicationURL.path),
               bundleMatches(
                 request.incomingApplicationURL,
                 identifier: request.expectedBundleIdentifier,
@@ -57,25 +57,21 @@ enum QuillCodeDesktopUpdateHelper {
         try? fileManager.removeItem(at: request.incomingApplicationURL)
     }
 
-    private static func validate(
+    private static func validateStaging(
         _ request: QuillCodeDesktopUpdateHelperRequest,
         environment: QuillCodeDesktopUpdateHelperEnvironment
     ) throws {
         let fileManager = FileManager.default
         let parent = request.destinationApplicationURL.deletingLastPathComponent().standardizedFileURL
+        let baseName = request.destinationApplicationURL.deletingPathExtension().lastPathComponent
         guard request.incomingApplicationURL.deletingLastPathComponent().standardizedFileURL == parent,
               request.destinationApplicationURL.pathExtension == "app",
               request.incomingApplicationURL.pathExtension == "app",
-              request.incomingApplicationURL.lastPathComponent.contains(".update-"),
-              fileManager.fileExists(atPath: request.destinationApplicationURL.path),
-              fileManager.fileExists(atPath: request.incomingApplicationURL.path),
-              bundleMatches(
-                request.destinationApplicationURL,
-                identifier: request.expectedBundleIdentifier,
-                version: nil,
-                build: nil,
-                commit: nil
+              QuillCodeDesktopUpdateRecovery.isOwnedStagingApplication(
+                request.incomingApplicationURL,
+                baseName: baseName
               ),
+              fileManager.fileExists(atPath: request.incomingApplicationURL.path),
               bundleMatches(
                 request.incomingApplicationURL,
                 identifier: request.expectedBundleIdentifier,
@@ -93,15 +89,50 @@ enum QuillCodeDesktopUpdateHelper {
         }
     }
 
+    private static func validateActivation(_ request: QuillCodeDesktopUpdateHelperRequest) throws {
+        let fileManager = FileManager.default
+        switch request.activationMode {
+        case .replaceExisting:
+            guard request.rollbackApplicationURL == nil,
+                  fileManager.fileExists(atPath: request.destinationApplicationURL.path),
+                  bundleMatches(
+                    request.destinationApplicationURL,
+                    identifier: request.expectedBundleIdentifier,
+                    version: nil,
+                    build: nil,
+                    commit: nil
+                  )
+            else {
+                throw QuillCodeDesktopUpdateError.installationFailed(
+                    "the existing app cannot be replaced safely"
+                )
+            }
+        case .installNew:
+            guard !fileManager.fileExists(atPath: request.destinationApplicationURL.path),
+                  let rollbackApplicationURL = request.rollbackApplicationURL,
+                  rollbackApplicationURL != request.destinationApplicationURL,
+                  rollbackApplicationURL != request.incomingApplicationURL,
+                  bundleMatches(
+                    rollbackApplicationURL,
+                    identifier: request.expectedBundleIdentifier,
+                    version: request.expectedVersion,
+                    build: request.expectedBuild,
+                    commit: request.expectedCommit
+                  )
+            else {
+                throw QuillCodeDesktopUpdateError.installationFailed(
+                    "the new installation request is no longer safe"
+                )
+            }
+        }
+    }
+
     private static func install(
         _ request: QuillCodeDesktopUpdateHelperRequest,
         environment: QuillCodeDesktopUpdateHelperEnvironment
     ) throws {
         let fileManager = FileManager.default
-        try swapApplications(
-            request.destinationApplicationURL,
-            request.incomingApplicationURL
-        )
+        try activate(request)
 
         let launchedProcess: Process
         do {
@@ -111,9 +142,7 @@ enum QuillCodeDesktopUpdateHelper {
             )
         } catch {
             try rollback(request)
-            throw QuillCodeDesktopUpdateError.installationFailed(
-                "the new build could not be launched; the previous build was restored"
-            )
+            throw recoveredFailure("could not be launched", request: request)
         }
 
         guard waitForFile(
@@ -122,9 +151,7 @@ enum QuillCodeDesktopUpdateHelper {
         ) else {
             terminateProcess(launchedProcess.processIdentifier)
             try rollback(request)
-            throw QuillCodeDesktopUpdateError.installationFailed(
-                "the new build did not finish launching; the previous build was restored"
-            )
+            throw recoveredFailure("did not finish launching", request: request)
         }
         guard remainsRunning(
             launchedProcess,
@@ -132,9 +159,7 @@ enum QuillCodeDesktopUpdateHelper {
         ) else {
             terminateProcess(launchedProcess.processIdentifier)
             try rollback(request)
-            throw QuillCodeDesktopUpdateError.installationFailed(
-                "the new build stopped during startup; the previous build was restored"
-            )
+            throw recoveredFailure("stopped during startup", request: request)
         }
 
         try? fileManager.removeItem(at: request.incomingApplicationURL)
@@ -165,18 +190,79 @@ enum QuillCodeDesktopUpdateHelper {
 
     private static func rollback(_ request: QuillCodeDesktopUpdateHelperRequest) throws {
         let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: request.destinationApplicationURL.path),
-              fileManager.fileExists(atPath: request.incomingApplicationURL.path)
-        else {
-            throw QuillCodeDesktopUpdateError.installationFailed("the previous app backup is missing")
+        switch request.activationMode {
+        case .replaceExisting:
+            guard fileManager.fileExists(atPath: request.destinationApplicationURL.path),
+                  fileManager.fileExists(atPath: request.incomingApplicationURL.path)
+            else {
+                throw QuillCodeDesktopUpdateError.installationFailed(
+                    "the previous app backup is missing"
+                )
+            }
+            try swapApplications(
+                request.destinationApplicationURL,
+                request.incomingApplicationURL
+            )
+            _ = try launch(request.destinationApplicationURL, handshakeURL: nil)
+            try? fileManager.removeItem(at: request.incomingApplicationURL)
+        case .installNew:
+            guard fileManager.fileExists(atPath: request.destinationApplicationURL.path),
+                  !fileManager.fileExists(atPath: request.incomingApplicationURL.path),
+                  let rollbackApplicationURL = request.rollbackApplicationURL,
+                  bundleMatches(
+                    request.destinationApplicationURL,
+                    identifier: request.expectedBundleIdentifier,
+                    version: request.expectedVersion,
+                    build: request.expectedBuild,
+                    commit: request.expectedCommit
+                  )
+            else {
+                throw QuillCodeDesktopUpdateError.installationFailed(
+                    "the original app could not be restored"
+                )
+            }
+            try fileManager.removeItem(at: request.destinationApplicationURL)
+            _ = try launch(rollbackApplicationURL, handshakeURL: nil)
         }
-        try swapApplications(
-            request.destinationApplicationURL,
-            request.incomingApplicationURL
-        )
-        _ = try launch(request.destinationApplicationURL, handshakeURL: nil)
-        try? fileManager.removeItem(at: request.incomingApplicationURL)
         try? fileManager.removeItem(at: request.handshakeURL)
+    }
+
+    private static func activate(_ request: QuillCodeDesktopUpdateHelperRequest) throws {
+        switch request.activationMode {
+        case .replaceExisting:
+            try swapApplications(
+                request.destinationApplicationURL,
+                request.incomingApplicationURL
+            )
+        case .installNew:
+            let result = request.incomingApplicationURL.withUnsafeFileSystemRepresentation { incoming in
+                request.destinationApplicationURL.withUnsafeFileSystemRepresentation { destination in
+                    guard let incoming, let destination else { return Int32(-1) }
+                    return renameatx_np(
+                        AT_FDCWD,
+                        incoming,
+                        AT_FDCWD,
+                        destination,
+                        UInt32(RENAME_EXCL)
+                    )
+                }
+            }
+            guard result == 0 else {
+                throw QuillCodeDesktopUpdateError.installationFailed(
+                    "the app could not be moved into Applications atomically"
+                )
+            }
+        }
+    }
+
+    private static func recoveredFailure(
+        _ reason: String,
+        request: QuillCodeDesktopUpdateHelperRequest
+    ) -> QuillCodeDesktopUpdateError {
+        let recovery = request.activationMode == .installNew
+            ? "the original copy was reopened"
+            : "the previous build was restored"
+        return .installationFailed("the new build \(reason); \(recovery)")
     }
 
     private static func swapApplications(_ firstURL: URL, _ secondURL: URL) throws {
@@ -232,7 +318,16 @@ enum QuillCodeDesktopUpdateHelper {
         build: String?,
         commit: String?
     ) -> Bool {
-        guard let bundle = Bundle(url: url), bundle.bundleIdentifier == identifier else { return false }
+        guard let values = try? url.resourceValues(
+            forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+        ),
+              values.isDirectory == true,
+              values.isSymbolicLink != true,
+              let bundle = Bundle(url: url),
+              bundle.bundleIdentifier == identifier
+        else {
+            return false
+        }
         if let version,
            bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String != version {
             return false

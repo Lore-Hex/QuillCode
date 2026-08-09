@@ -43,11 +43,16 @@ to update. The DMG is the recommended human installation path; the ZIP remains t
 machine-verified updater payload so installation ergonomics cannot change update semantics.
 
 When Quill Cowork is launched directly from the read-only DMG or another
-non-replaceable location outside `/Applications`, it immediately offers to open
-`/Applications`. Dismissing that reminder suppresses it for the current build; a
-newer build may remind the user again. Installed copies already in `/Applications`
-do not show it. Installation guidance and available-update state use one coordinated
-sheet, so they cannot overlap.
+non-replaceable location outside `/Applications`, it offers **Move & Relaunch**.
+The app copies itself to `/Applications`, verifies its bundle identity, source
+commit, architecture, and code signature, then quits and activates the copy through
+the same detached helper used for updates. An existing Quill Cowork copy is swapped
+atomically and restored if the new copy does not complete its launch handshake or
+remain stable. A first install that fails is removed and the known-good mounted copy
+reopens. Finder remains available as manual recovery. Dismissing the reminder
+suppresses it for the current build; a newer build may remind the user again.
+Writable installed copies do not show it. Installation guidance and available-update
+state use one coordinated sheet, so they cannot overlap.
 
 ## Build Cadence
 
@@ -188,6 +193,12 @@ the same manifest scope checks. Its URL must use the declared `.dmg` filename
 exactly and cannot carry a query or fragment; older manifests fall back to the release page.
 The installer repeats the destination checks immediately before staging, so a
 permission change after preflight still fails without replacing the app.
+
+Every macOS download build also mounts its finished DMG read-only and drives the
+production first-install helper into an isolated Applications directory. Publication
+requires the detached helper to report a successful stable relaunch, preserve exact
+version/build/commit identity, retain the expected native architecture, and pass a
+strict recursive code-signature check.
 
 Installation stages the verified app beside the running bundle, then uses a
 detached helper for the final rename and relaunch. The new app must complete a

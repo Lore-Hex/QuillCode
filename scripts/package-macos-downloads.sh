@@ -120,6 +120,9 @@ fi
 "$ROOT_DIR/scripts/create-macos-disk-image.sh" \
   --app "$APP_BUNDLE" \
   --output "$APP_DMG"
+"$ROOT_DIR/scripts/packaged-macos-relocation-smoke.sh" \
+  --dmg "$APP_DMG" \
+  --expected-architecture "$ARCH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$APP_ZIP"
 
 echo "==> Packaging quill-code macOS CLI ($ARCH)"
