@@ -26,7 +26,7 @@ def tool(name, path=None):
     }
 
 
-def write_budget_workbook(path, circular=False):
+def write_budget_workbook(path, circular=False, broken_reference=False):
     channels = (
         ("Paid Search", 30000),
         ("Paid Social", 24000),
@@ -81,6 +81,8 @@ def write_budget_workbook(path, circular=False):
         ]
         if circular and row_number == 2:
             formulas[0] = "SUM(B2:D2)"
+        if broken_reference and row_number == 2:
+            formulas[0] = "SUM('Monthly Spend'!Z99:Z100)"
         quarterly.append([("string", channel), *(("formula", formula) for formula in formulas)])
 
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -401,6 +403,11 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             valid, detail = PRIOR.validate_budget_workbook(path)
             self.assertFalse(valid)
             self.assertIn("Quarterly Roll-up!B2", detail)
+
+            write_budget_workbook(path, broken_reference=True)
+            valid, detail = PRIOR.validate_budget_workbook(path)
+            self.assertFalse(valid)
+            self.assertIn("missing Monthly Spend!Z99", detail)
 
     def test_collection_fixtures_materialize_declared_counts_and_valid_png(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -1392,6 +1392,14 @@ def xlsx_column_number(letters):
     return number
 
 
+def xlsx_column_name(number):
+    name = ""
+    while number:
+        number, remainder = divmod(number - 1, 26)
+        name = chr(ord("A") + remainder) + name
+    return name
+
+
 def xlsx_sheet_cells(path):
     spreadsheet_namespace = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
     document_relationship_namespace = (
@@ -1469,14 +1477,15 @@ def validate_budget_workbook(path):
         return False, f"could not inspect budget workbook: {error}"
 
     sheet_names = [sheet["name"].casefold() for sheet in sheets]
-    missing_sheets = [
-        label for label, terms in (
-            ("assumptions", ("assumption",)),
-            ("monthly spend", ("monthly", "spend")),
-            ("quarterly roll-up", ("quarter",)),
-        )
-        if not any(all(term in name for term in terms) for name in sheet_names)
-    ]
+    missing_sheets = []
+    if not any("assumption" in name for name in sheet_names):
+        missing_sheets.append("assumptions")
+    if not any("monthly" in name and "spend" in name for name in sheet_names):
+        missing_sheets.append("monthly spend")
+    has_quarterly_rollup = any("quarter" in name for name in sheet_names)
+    has_quarterly_tabs = all(quarter in sheet_names for quarter in ("q1", "q2", "q3", "q4"))
+    if not has_quarterly_rollup and not has_quarterly_tabs:
+        missing_sheets.append("quarterly roll-up or Q1-Q4 tabs")
 
     source_rows = {
         "paid search": 30000,
@@ -1490,10 +1499,46 @@ def validate_budget_workbook(path):
     strings = set()
     formulas = []
     self_references = []
+    invalid_references = []
+    cells_by_sheet = {
+        sheet["name"].casefold(): {
+            cell["coordinate"]: cell for cell in sheet["cells"]
+        }
+        for sheet in sheets
+    }
+    qualified_reference = re.compile(
+        r"(?:(?:'((?:[^']|'')+)'|([A-Za-z0-9_]+))!)"
+        r"\$?([A-Za-z]{1,3})\$?(\d+)"
+        r"(?:\s*:\s*\$?([A-Za-z]{1,3})\$?(\d+))?"
+    )
     local_reference = re.compile(
         r"(?<![A-Za-z0-9_!:])\$?([A-Za-z]{1,3})\$?(\d+)"
         r"(?:\s*:\s*\$?([A-Za-z]{1,3})\$?(\d+))?"
     )
+
+    def referenced_cells(sheet_name, match):
+        min_column = xlsx_column_number(match.group(3))
+        min_row = int(match.group(4))
+        max_column = xlsx_column_number(match.group(5) or match.group(3))
+        max_row = int(match.group(6) or match.group(4))
+        for row_number in range(min(min_row, max_row), max(min_row, max_row) + 1):
+            for column_number in range(min(min_column, max_column), max(min_column, max_column) + 1):
+                yield f"{xlsx_column_name(column_number)}{row_number}"
+
+    def validate_reference(owner, target_sheet, coordinates, display):
+        target_cells = cells_by_sheet.get(target_sheet.casefold())
+        if target_cells is None:
+            invalid_references.append(f"{owner} -> missing sheet {target_sheet!r}")
+            return
+        for coordinate in coordinates:
+            target = target_cells.get(coordinate)
+            if target is None:
+                invalid_references.append(f"{owner} -> missing {target_sheet}!{coordinate}")
+            elif target["formula"] is None and isinstance(target["value"], str):
+                invalid_references.append(
+                    f"{owner} -> text {target_sheet}!{coordinate}={target['value']!r} via {display}"
+                )
+
     for sheet in sheets:
         rows = {}
         for cell in sheet["cells"]:
@@ -1519,8 +1564,32 @@ def validate_budget_workbook(path):
                 formula = cell["formula"]
                 if formula is None:
                     continue
-                formulas.append(f"{sheet['name']}!{cell['coordinate']}")
-                for match in local_reference.finditer(formula):
+                owner = f"{sheet['name']}!{cell['coordinate']}"
+                formulas.append(owner)
+
+                for known_name in sheet_names:
+                    if " " in known_name and re.search(
+                        rf"(?<!')\b{re.escape(known_name)}!",
+                        formula,
+                        re.IGNORECASE,
+                    ):
+                        invalid_references.append(
+                            f"{owner} -> unquoted sheet name {known_name!r}"
+                        )
+
+                masked_formula = list(formula)
+                for match in qualified_reference.finditer(formula):
+                    target_sheet = (match.group(1) or match.group(2)).replace("''", "'")
+                    validate_reference(
+                        owner,
+                        target_sheet,
+                        referenced_cells(target_sheet, match),
+                        match.group(0),
+                    )
+                    for index in range(match.start(), match.end()):
+                        masked_formula[index] = " "
+
+                for match in local_reference.finditer("".join(masked_formula)):
                     min_column = xlsx_column_number(match.group(1))
                     min_row = int(match.group(2))
                     max_column = xlsx_column_number(match.group(3) or match.group(1))
@@ -1532,19 +1601,41 @@ def validate_budget_workbook(path):
                         self_references.append(
                             f"{sheet['name']}!{cell['coordinate']} -> {match.group(0)}"
                         )
+                    coordinates = (
+                        f"{xlsx_column_name(column_number)}{row_number}"
+                        for row_number in range(min(min_row, max_row), max(min_row, max_row) + 1)
+                        for column_number in range(min(min_column, max_column), max(min_column, max_column) + 1)
+                    )
+                    validate_reference(
+                        owner,
+                        sheet["name"],
+                        coordinates,
+                        match.group(0),
+                    )
 
     missing_channels = sorted(set(source_rows) - matched_source_rows)
     missing_months = sorted(
         set(("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"))
         - strings
     )
-    missing_quarters = sorted(set(("q1", "q2", "q3", "q4")) - strings)
-    valid = not any((missing_sheets, missing_channels, missing_months, missing_quarters, self_references))
+    missing_quarters = sorted(
+        set(("q1", "q2", "q3", "q4")) - strings - set(sheet_names)
+    )
+    valid = not any((
+        missing_sheets,
+        missing_channels,
+        missing_months,
+        missing_quarters,
+        self_references,
+        invalid_references,
+    ))
     valid = valid and len(formulas) >= 12
     detail = (
         f"sheets={[sheet['name'] for sheet in sheets]}; formulas={len(formulas)}; "
-        f"missing source rows={missing_channels}; missing months={missing_months}; "
+        f"missing sheets={missing_sheets}; missing source rows={missing_channels}; "
+        f"missing months={missing_months}; "
         f"missing quarters={missing_quarters}; self references={self_references[:8]}"
+        f"; invalid references={invalid_references[:12]}"
     )
     return valid, detail
 
