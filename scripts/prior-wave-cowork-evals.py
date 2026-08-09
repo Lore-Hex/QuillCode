@@ -769,14 +769,18 @@ def required_source_paths(row):
     paths = [
         "inputs/source-map.md",
         "inputs/evaluation-context.md",
-        "inputs/records.csv",
     ]
-    paths.extend(mapped_source_path(reference) for reference in source_references(row["task"]))
-    paths.extend(spec[1] for spec in COLLECTION_SPECS.get(row["id"], []))
-    paths.extend(relative for _, relative in IMPLICIT_SOURCES.get(row["id"], []))
+    task_sources = [
+        *(mapped_source_path(reference) for reference in source_references(row["task"])),
+        *(spec[1] for spec in COLLECTION_SPECS.get(row["id"], [])),
+        *(relative for _, relative in IMPLICIT_SOURCES.get(row["id"], [])),
+    ]
+    paths.extend(task_sources or ["inputs/records.csv"])
     task = row["task"].casefold()
     if "last quarter" in task and "memo" in task:
         paths.append("inputs/last-quarter-board-memo.md")
+    if row["id"] == 5:
+        paths.append("inputs/agenda.txt")
     return paths
 
 
@@ -1047,6 +1051,8 @@ def write_fixture(row, workspace):
         mappings.append(
             f"- `{description}` -> `{relative}` ({count} materialized `{extension}` sources)"
         )
+    if not mappings:
+        mappings.append("- task records -> `inputs/records.csv` (materialized evaluation source)")
     if row["id"] == 5:
         (inputs / "agenda.txt").write_text(
             "item-003.docx\nitem-001.docx\nitem-005.docx\nitem-002.docx\nitem-004.docx\n",
@@ -1124,15 +1130,16 @@ automation is visible in Quill Cowork's persisted automation state.
             "When combining PDF files or adding a contents page and bookmarks, use the native "
             "host.pdf.merge tool after producing the ordered inputs. "
         )
+    required_inputs = ", ".join(f"`{path}`" for path in required_source_paths(row))
     return f"""{task}
 
 This is an end-to-end native desktop evaluation using an isolated workspace. The
 original prompt above is authoritative. All local files, folders, documents, exports,
 and account records it references are materialized in this workspace and mapped in
-`inputs/source-map.md`. Read that map, `inputs/evaluation-context.md`,
-`inputs/records.csv`, and every mapped source path directly with the file tool before
-acting. The mapped files are present, standards-complete, sufficient, and take the
-place of any path outside this isolated workspace. Do not install dependencies.
+`inputs/source-map.md`. Read every applicable source directly before acting. For this
+task the required inputs are: {required_inputs}. The mapped files are present,
+standards-complete, sufficient, and take the place of any path outside this isolated
+workspace. Do not install dependencies.
 {browser_instruction}{privacy_instruction}
 Complete the requested analysis or transformation using those supplied records. Never
 modify a real external account or anything outside the workspace. Represent requested

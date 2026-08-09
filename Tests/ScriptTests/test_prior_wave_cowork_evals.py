@@ -194,6 +194,30 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
 
         self.assertEqual(matched, [])
 
+    def test_mapped_collection_does_not_require_generic_records(self):
+        row = self.rows[0]
+        paths = PRIOR.required_source_paths(row)
+        self.assertIn("inputs/Brand/Assets", paths)
+        self.assertNotIn("inputs/records.csv", paths)
+        prompt = PRIOR.build_prompt(row)
+        self.assertIn("`inputs/Brand/Assets`", prompt)
+        self.assertNotIn("`inputs/records.csv`", prompt)
+
+    def test_task_without_concrete_sources_uses_records_fallback(self):
+        row = next(
+            candidate for candidate in self.rows
+            if not PRIOR.source_references(candidate["task"])
+            and candidate["id"] not in PRIOR.COLLECTION_SPECS
+            and candidate["id"] not in PRIOR.IMPLICIT_SOURCES
+            and candidate["capabilityNeeded"] != "Scheduling"
+        )
+        self.assertIn("inputs/records.csv", PRIOR.required_source_paths(row))
+        with tempfile.TemporaryDirectory() as temporary:
+            workspace = Path(temporary)
+            PRIOR.write_fixture(row, workspace)
+            source_map = (workspace / "inputs/source-map.md").read_text(encoding="utf-8")
+        self.assertIn("inputs/records.csv", source_map)
+
     def test_office_fixtures_include_standard_package_relationships(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
