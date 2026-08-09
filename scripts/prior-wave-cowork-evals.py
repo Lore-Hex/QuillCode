@@ -1357,8 +1357,10 @@ def shell_command_references_path(command, path):
 def shell_command_inspects_path(command, path):
     if not shell_command_references_path(command, path):
         return False
-    normalized = command.lower().replace('"', "").replace("'", "")
+    original = command.lower().replace("\\", "/")
+    normalized = original.replace('"', "").replace("'", "")
     normalized_path = path.replace("\\", "/").strip("/").lower()
+    literal = rf"(?:['\"]){re.escape(normalized_path)}(?:['\"])"
     parser_call = re.compile(
         r"(?:load_workbook|zipfile(?:\.zipfile)?|pdfreader|pdfplumber\.open|"
         r"document|read_excel|read_csv|image\.open|et\.parse)"
@@ -1370,12 +1372,62 @@ def shell_command_inspects_path(command, path):
     command_readers = re.compile(
         r"(?:^|[;&|\s])(?:cat|head|tail|file|unzip|zipinfo|pdfinfo|pdftotext|"
         r"identify|sips|xmllint)(?:\s|$)"
+        rf"[^;&|\n]*{re.escape(normalized_path)}"
     )
-    return bool(
+    direct_open = re.compile(
+        rf"open\s*\(\s*{literal}\s*(?:\)|,\s*(?!['\"](?:w|a|x)b?['\"]))",
+        flags=re.IGNORECASE,
+    )
+    if bool(
         parser_call.search(normalized)
         or pathlib_read.search(normalized)
         or command_readers.search(normalized)
+        or direct_open.search(original)
+    ):
+        return True
+    assignment = re.search(
+        rf"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*{literal}",
+        original,
+        flags=re.IGNORECASE,
     )
+    if not assignment:
+        return False
+    variable = re.escape(assignment.group(1))
+    variable_reader = re.compile(
+        rf"open\s*\(\s*{variable}\s*(?:\)|,\s*(?!['\"](?:w|a|x)b?['\"]))",
+        flags=re.IGNORECASE,
+    )
+    return bool(variable_reader.search(original))
+
+
+def shell_command_writes_path(command, path):
+    if not shell_command_references_path(command, path):
+        return False
+    normalized = command.replace("\\", "/")
+    normalized_path = path.replace("\\", "/").strip("/")
+    literal = rf"(?:['\"]){re.escape(normalized_path)}(?:['\"])"
+    direct_writers = re.compile(
+        rf"(?:open\s*\(\s*{literal}\s*,\s*['\"](?:w|a|x)b?['\"]|"
+        rf"(?:write_text|write_bytes|save|to_csv|to_excel|to_html)\s*\(\s*{literal}|"
+        rf">\s*{literal})",
+        flags=re.IGNORECASE,
+    )
+    if direct_writers.search(normalized):
+        return True
+    assignment = re.search(
+        rf"\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*{literal}",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    if not assignment:
+        return False
+    variable = re.escape(assignment.group(1))
+    variable_writers = re.compile(
+        rf"(?:open\s*\(\s*{variable}\s*,\s*['\"](?:w|a|x)b?['\"]|"
+        rf"(?:write_text|write_bytes|save|to_csv|to_excel|to_html)\s*\(\s*{variable}\b)",
+        flags=re.IGNORECASE,
+    )
+    return bool(variable_writers.search(normalized))
 
 
 def tool_output_text(tool):
@@ -1907,10 +1959,7 @@ def grade(row, workspace, report, source_hashes):
             tool.get("name") == "host.shell.run"
             and (
                 shell_command_references_path(tool_output_text(tool), target)
-                or (
-                    shell_command_references_path(tool_command(tool), target)
-                    and not shell_command_inspects_path(tool_command(tool), target)
-                )
+                or shell_command_writes_path(tool_command(tool), target)
             )
         )
         or (

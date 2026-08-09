@@ -670,6 +670,20 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             PRIOR.output_path(row),
         ))
 
+    def test_shell_command_can_write_and_inspect_the_same_artifact(self):
+        path = "outputs/task-54-deliverable.csv"
+        command = (
+            f'out = "{path}"\n'
+            'with open(out, "w", newline="") as stream:\n'
+            '    stream.write("risk_id,owner\\nR-1,Jo Chen\\n")\n'
+            'with open(out, newline="") as stream:\n'
+            '    print(stream.read())\n'
+        )
+
+        self.assertTrue(PRIOR.shell_command_writes_path(command, path))
+        self.assertTrue(PRIOR.shell_command_inspects_path(command, path))
+        self.assertFalse(PRIOR.shell_command_writes_path(f'open("{path}").read()', path))
+
     def test_grade_accepts_native_pdf_merge_as_consumption_and_artifact_write(self):
         row = self.rows[4]
         with tempfile.TemporaryDirectory() as temporary:
