@@ -215,6 +215,19 @@ extension AgentRunner {
             } catch let overrun as AgentPreActionReasoningBudgetExceededError {
                 try Task.checkCancellation()
                 guard attempt < Self.malformedActionCorrectionLimit else {
+                    if let fallback = fallbackLLM, !usedFallback {
+                        usedFallback = true
+                        activeLLM = fallback
+                        attempt = 0
+                        pendingCorrectionPrompt = AgentPreActionReasoningBudget.correctionPrompt
+                        thread.events.append(.init(
+                            kind: .notice,
+                            summary: Self.reasoningFallbackSwitchNotice
+                        ))
+                        thread.updatedAt = Date()
+                        await onProgress?(thread)
+                        continue
+                    }
                     throw overrun
                 }
                 attempt += 1

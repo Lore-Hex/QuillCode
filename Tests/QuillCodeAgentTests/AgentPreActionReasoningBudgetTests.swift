@@ -67,8 +67,49 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         let calls = await state.recorded()
         XCTAssertEqual(calls.count, 2)
         XCTAssertTrue(calls[1].contains {
-            $0.role == .user && $0.content.contains("ask one focused question")
+            $0.role == .user && $0.content.contains("write the best current evidence checkpoint")
         })
+    }
+
+    func testRepeatedReasoningOverrunSwitchesToFallbackAndKeepsItForRun() async throws {
+        let root = try makeTempDirectory()
+        try Data("grounded evidence".utf8).write(to: root.appendingPathComponent("input.txt"))
+        let overrun = AgentPreActionReasoningBudgetExceededError(maximumCharacters: 6_000)
+        let primary = ScriptedState([
+            .failure(overrun),
+            .failure(overrun),
+            .failure(overrun),
+        ])
+        let fallback = ScriptedState([
+            .success(.tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: #"{"path":"input.txt"}"#
+            ))),
+            .success(.say("Fallback synthesized the grounded evidence.")),
+        ])
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: primary),
+            maxToolSteps: 3,
+            fallbackLLM: ScriptedClient(state: fallback)
+        )
+
+        let result = try await runner.send(
+            "Read input.txt and summarize it.",
+            in: ChatThread(title: "t"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.thread.messages.last?.content, "Fallback synthesized the grounded evidence.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary == AgentRunner.reasoningFallbackSwitchNotice
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("keeping that route for the rest of this run")
+        })
+        let primaryCalls = await primary.recorded().count
+        let fallbackCalls = await fallback.recorded().count
+        XCTAssertEqual(primaryCalls, 3)
+        XCTAssertEqual(fallbackCalls, 2)
     }
 
     func testLongReasoningAfterFirstToolActionIsAllowed() async throws {

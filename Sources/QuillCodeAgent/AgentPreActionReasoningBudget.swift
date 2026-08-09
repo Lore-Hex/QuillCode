@@ -91,9 +91,12 @@ enum AgentPreActionReasoningBudget {
     }
 
     static let correctionPrompt = """
-    You used the available reasoning budget without starting an action. Stop planning. Do not scan \
-    or inventory the workspace unless the user named it as a source. If required business facts \
-    are missing, ask one focused question; otherwise use explicit assumptions and placeholders. \
-    Respond now with exactly one JSON action object (a concrete tool call, or a final "say").
+    You used the available reasoning budget without starting an action. Stop planning and do not \
+    narrate. Use the evidence and tool results already in the thread. If the user named a text \
+    deliverable that has not been written, write the best current evidence checkpoint to that exact \
+    path now; otherwise emit the single concrete tool action that advances the latest unfinished \
+    step. Do not restart broad research, ask the user, or insert placeholders when an available tool \
+    can make progress. Respond now with exactly one JSON action object (a concrete tool call, or a \
+    final "say" only when the requested work is actually complete or irrecoverably blocked).
     """
 }

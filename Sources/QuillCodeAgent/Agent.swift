@@ -30,6 +30,8 @@ public struct AgentRunner: Sendable {
     public static let correctiveActionReasoningCharacterLimit = 6_000
     static let fallbackSwitchNotice = "Self-healing: the model kept returning empty responses; "
         + "switching to the fallback model for this step."
+    static let reasoningFallbackSwitchNotice = "Self-healing: the model repeatedly exhausted its "
+        + "reasoning budget without acting; switching to the fallback model for this step."
     static let promisedWorkCorrectionLimit = 2
     /// A long-running task can encounter passive or empty model turns after many different tools.
     /// Keep this budget scoped to the latest completed tool instead of consuming one allowance for
@@ -329,7 +331,8 @@ public struct AgentRunner: Sendable {
                         if let fallback = actionRunner.fallbackLLM,
                            next.events.contains(where: {
                                !priorEventIDs.contains($0.id)
-                                   && $0.summary == Self.fallbackSwitchNotice
+                                   && ($0.summary == Self.fallbackSwitchNotice
+                                       || $0.summary == Self.reasoningFallbackSwitchNotice)
                            }) {
                             actionRunner.llm = fallback
                             actionRunner.fallbackLLM = nil
