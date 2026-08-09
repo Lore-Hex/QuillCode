@@ -443,16 +443,34 @@ enum WorkspaceSubagentTerminalStatus {
             "next: search", "next: read", "next: write", "next step: re-fetch",
             "next step: retry", "next step: fetch", "next step: search",
         ]
-        return nextActionMarkers.contains(where: text.contains)
+        if nextActionMarkers.contains(where: text.contains) {
+            return true
+        }
+        let terminalWords = [
+            "a", "an", "and", "as", "at", "before", "but", "by", "for", "from",
+            "in", "into", "of", "on", "or", "the", "to", "with",
+        ]
+        let finalWord = text
+            .split(whereSeparator: { $0.isWhitespace || $0.isPunctuation })
+            .last
+            .map(String.init) ?? ""
+        return terminalWords.contains(finalWord)
     }
 }
 
 enum WorkspaceSubagentEvidenceDigest {
     private static let maximumCharacters = 5_200
-    private static let maximumReasoningCharacters = 2_200
+    private static let maximumReasoningCharacters = 1_200
     private static let maximumToolCharacters = 900
-    private static let maximumReasoningEntries = 2
-    private static let maximumToolEntries = 3
+    private static let maximumReasoningEntries = 1
+    private static let maximumToolEntries = 4
+
+    private struct ToolEvidence {
+        let index: Int
+        let sourceKey: String
+        let text: String
+        let score: Int
+    }
 
     /// A worker can be cancelled after gathering the answer but before producing a terminal summary.
     /// Preserve a compact, redacted projection of its grounded trace so the parent can still synthesize.
@@ -462,7 +480,7 @@ enum WorkspaceSubagentEvidenceDigest {
             .suffix(maximumReasoningEntries)
             .map { bounded($0.summary, limit: maximumReasoningCharacters) }
 
-        let tools = thread.messages.compactMap { message -> String? in
+        let toolCandidates = thread.messages.enumerated().compactMap { index, message -> ToolEvidence? in
             guard message.role == .tool,
                   let data = message.content.data(using: .utf8),
                   let feedback = try? JSONDecoder().decode(AgentToolFeedback.self, from: data),
@@ -471,14 +489,68 @@ enum WorkspaceSubagentEvidenceDigest {
             let output = [feedback.result.stdout, feedback.result.stderr]
                 .first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) ?? ""
             guard !output.isEmpty else { return nil }
-            return "\(feedback.toolCall.name): \(bounded(output, limit: maximumToolCharacters))"
-        }.suffix(maximumToolEntries)
+            return ToolEvidence(
+                index: index,
+                sourceKey: sourceKey(for: feedback),
+                text: "\(feedback.toolCall.name): \(bounded(output, limit: maximumToolCharacters))",
+                score: evidenceScore(output)
+            )
+        }
+        var bestBySource: [String: ToolEvidence] = [:]
+        for candidate in toolCandidates {
+            guard let existing = bestBySource[candidate.sourceKey] else {
+                bestBySource[candidate.sourceKey] = candidate
+                continue
+            }
+            if candidate.score > existing.score
+                || (candidate.score == existing.score && candidate.index > existing.index)
+            {
+                bestBySource[candidate.sourceKey] = candidate
+            }
+        }
+        let tools = bestBySource.values
+            .sorted {
+                if $0.score == $1.score { return $0.index > $1.index }
+                return $0.score > $1.score
+            }
+            .prefix(maximumToolEntries)
+            .sorted { $0.index < $1.index }
+            .map(\.text)
 
-        let combined = (reasoning + tools).joined(separator: "\n\n")
+        // Grounded outputs come first so the final bound cannot discard them behind long reasoning.
+        let combined = (tools + reasoning).joined(separator: "\n\n")
         guard !combined.isEmpty,
               let sanitized = WorkspaceContextSummarySanitizer.summary(from: combined)
         else { return nil }
         return bounded(sanitized, limit: maximumCharacters)
+    }
+
+    private static func sourceKey(for feedback: AgentToolFeedback) -> String {
+        guard let data = feedback.toolCall.argumentsJSON.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else { return "\(feedback.toolCall.name):\(feedback.toolCall.argumentsJSON)" }
+        for key in ["url", "path", "query"] {
+            if let value = object[key] as? String, !value.isEmpty {
+                return "\(feedback.toolCall.name):\(value)"
+            }
+        }
+        return "\(feedback.toolCall.name):\(feedback.toolCall.argumentsJSON)"
+    }
+
+    private static func evidenceScore(_ output: String) -> Int {
+        let lowercased = output.lowercased()
+        var score = min(output.filter(\.isNumber).count, 24)
+        if lowercased.contains("http://") || lowercased.contains("https://") { score += 12 }
+        if output.contains("$") || output.contains("%") { score += 18 }
+        if lowercased.contains("million") || lowercased.contains("billion") { score += 12 }
+        let evidenceTerms = [
+            "total revenue", "quarter", "evidence", "verified", "passed", "failed",
+            "error", "created", "wrote", "found", "result", "source",
+        ]
+        score += evidenceTerms.reduce(into: 0) { total, term in
+            if lowercased.contains(term) { total += 8 }
+        }
+        return score
     }
 
     private static func bounded(_ text: String, limit: Int) -> String {

@@ -245,6 +245,7 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             "Q2 revenue is confirmed. I need to gather Q3 and Q4 next.",
             "The query windows returned only the headline ($333.9M for Q4 2025) and not the full GAAP revenue table. Fetching the alternate press-release URL to extract the complete fiscal-year and quarterly GAAP revenue figures.",
             "I have all four FY2026 quarters, but I need to verify the",
+            "The previous attempts failed because the focused-evidence fetches kept truncating before the",
             "COMPLETE: Need the four Q figures. One Q4 FY2026 figure found: $205.6M. Need to fetch remaining quarters.",
             "The prior source repeated the same result. I'll switch to a different source: TipRanks for historical quarterly values.",
         ]
@@ -292,6 +293,63 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(summary.contains("Recovered grounded evidence:"))
         XCTAssertTrue(summary.contains("Q1 $214.5M"))
         XCTAssertTrue(summary.contains("https://ir.example.test/q1"))
+    }
+
+    func testFinishedWorkerWithAbruptFinalRecoversGroundedToolEvidence() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let evidence = root.appendingPathComponent("gitlab-q2.txt")
+        try "Official source https://ir.example.test/q2: Total revenue was $236.0 million."
+            .write(to: evidence, atomically: true, encoding: .utf8)
+        let worker = makeWorker(
+            root: root,
+            actions: [
+                .tool(ToolCall(
+                    name: ToolDefinition.fileRead.name,
+                    argumentsJSON: ToolArguments.json(["path": "gitlab-q2.txt"])
+                )),
+                .say("The previous attempts failed because the focused-evidence fetches kept truncating before the"),
+            ]
+        )
+
+        let result = try await worker.runWithTranscript(
+            WorkspaceSubagentJob(name: "Researcher", role: "gather every quarter", objective: "compare revenue")
+        )
+
+        XCTAssertEqual(result.status, .failed)
+        XCTAssertTrue(result.summary.contains("Recovered grounded evidence:"))
+        XCTAssertTrue(result.summary.contains("https://ir.example.test/q2"))
+        XCTAssertTrue(result.summary.contains("$236.0 million"))
+    }
+
+    func testEvidenceDigestPrioritizesDistinctValueBearingSourcesOverTrailingNavigation() throws {
+        func toolMessage(url: String, output: String) throws -> ChatMessage {
+            let feedback = AgentToolFeedback(
+                toolCall: ToolCall(
+                    name: ToolDefinition.webFetch.name,
+                    argumentsJSON: ToolArguments.json(["url": url])
+                ),
+                result: ToolResult(ok: true, stdout: output)
+            )
+            return ChatMessage(role: .tool, content: try JSONHelpers.encodePretty(feedback))
+        }
+
+        let thread = ChatThread(messages: [
+            try toolMessage(url: "https://ir.example.test/q1", output: "Navigation only."),
+            try toolMessage(url: "https://ir.example.test/q1", output: "Q1 total revenue was $214.5 million."),
+            try toolMessage(url: "https://ir.example.test/q2", output: "Q2 total revenue was $236.0 million."),
+            try toolMessage(url: "https://ir.example.test/q3", output: "Q3 total revenue was $244.4 million."),
+            try toolMessage(url: "https://ir.example.test/q4", output: "Q4 total revenue was $260.4 million."),
+            try toolMessage(url: "https://example.test/nav-1", output: "Fetched page navigation and footer."),
+            try toolMessage(url: "https://example.test/nav-2", output: "Fetched page navigation and footer."),
+        ])
+
+        let summary = try XCTUnwrap(WorkspaceSubagentEvidenceDigest.summary(from: thread))
+
+        XCTAssertTrue(summary.contains("$214.5 million"))
+        XCTAssertTrue(summary.contains("$236.0 million"))
+        XCTAssertTrue(summary.contains("$244.4 million"))
+        XCTAssertTrue(summary.contains("$260.4 million"))
+        XCTAssertFalse(summary.contains("page navigation and footer"))
     }
 
     func testToolStepCeilingIsNotReportedAsCompleted() async throws {
