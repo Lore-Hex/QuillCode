@@ -40,6 +40,13 @@ final class AgentFallbackLLMTests: XCTestCase {
         .failure(AgentError.emptyStreamingResponse),
     ]
 
+    private static var exhaustedStartup: [Result<AgentAction, Error>] {
+        Array(
+            repeating: alwaysEmpty,
+            count: AgentRunner.startupActionContinuationLimit + 1
+        ).flatMap { $0 }
+    }
+
     func testExhaustedEmptyResponsesSwitchToFallbackAndRunSucceeds() async throws {
         let primary = ScriptedState(Self.alwaysEmpty)
         let fallback = ScriptedState([.success(.say("fallback finished the step"))])
@@ -63,9 +70,9 @@ final class AgentFallbackLLMTests: XCTestCase {
         XCTAssertEqual(fallbackCalls, 1)
     }
 
-    func testFallbackAlsoFailingStaysFatalAndBounded() async {
-        let primary = ScriptedState(Self.alwaysEmpty)
-        let fallback = ScriptedState(Self.alwaysEmpty + Self.alwaysEmpty)
+    func testFallbackAlsoFailingStaysFatalAcrossBoundedStartupRecovery() async {
+        let primary = ScriptedState(Self.exhaustedStartup)
+        let fallback = ScriptedState(Self.exhaustedStartup)
         let runner = AgentRunner(
             llm: ScriptedClient(state: primary),
             fallbackLLM: ScriptedClient(state: fallback),
@@ -83,12 +90,15 @@ final class AgentFallbackLLMTests: XCTestCase {
         } catch {
             XCTFail("wrong error: \(error)")
         }
+        let primaryCalls = await primary.calls()
         let fallbackCalls = await fallback.calls()
-        XCTAssertEqual(fallbackCalls, 7, "fallback gets ONE fresh budget, never loops")
+        let expectedCalls = Self.alwaysEmpty.count * (AgentRunner.startupActionContinuationLimit + 1)
+        XCTAssertEqual(primaryCalls, expectedCalls)
+        XCTAssertEqual(fallbackCalls, expectedCalls)
     }
 
-    func testNoFallbackConfiguredKeepsTodaysFatalBehavior() async {
-        let primary = ScriptedState(Self.alwaysEmpty)
+    func testNoFallbackConfiguredStaysFatalAcrossBoundedStartupRecovery() async {
+        let primary = ScriptedState(Self.exhaustedStartup)
         let runner = AgentRunner(
             llm: ScriptedClient(state: primary),
             emptyResponseRetrySleeper: ImmediateEmptyResponseRetrySleeper()
@@ -105,5 +115,10 @@ final class AgentFallbackLLMTests: XCTestCase {
         } catch {
             XCTFail("wrong error: \(error)")
         }
+        let primaryCalls = await primary.calls()
+        XCTAssertEqual(
+            primaryCalls,
+            Self.alwaysEmpty.count * (AgentRunner.startupActionContinuationLimit + 1)
+        )
     }
 }
