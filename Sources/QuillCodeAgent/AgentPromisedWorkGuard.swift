@@ -106,6 +106,8 @@ enum AgentPromisedWorkGuard {
         Return exactly one QuillCode JSON action now. If you intended to perform the promised work,
         return the appropriate {"type":"tool",...} action with complete arguments. If no tool is
         needed, return {"type":"say","text":"..."} with a direct final answer and no future-tense promise.
+        If the evidence is already collected, immediately update and verify the final deliverable
+        instead of merely announcing that the data is ready.
         """
     }
 
@@ -135,9 +137,30 @@ enum AgentPromisedWorkGuard {
 
         return containsFutureWorkPhrase(in: normalized)
             || declaresReadinessToProceed(in: normalized)
+            || declaresEvidenceReadyWithoutResult(in: normalized)
             || declaresImmediateWorkInProgress(in: normalized)
             || declaresUnfinishedNextStep(in: normalized)
     }
+
+    /// Collecting the inputs is not completion when the run still owes synthesis or an artifact.
+    /// Keep this exact and short so a real completion statement that goes on to name the verified
+    /// deliverable is allowed through.
+    private static func declaresEvidenceReadyWithoutResult(in normalizedText: String) -> Bool {
+        let bareStatus = normalizedText.trimmingCharacters(
+            in: CharacterSet.whitespacesAndNewlines.union(
+                CharacterSet(charactersIn: "[](){}*_`#:.!-")
+            )
+        )
+        return evidenceReadyStatuses.contains(bareStatus)
+    }
+
+    private static let evidenceReadyStatuses = [
+        "i have all the data needed",
+        "i have all the evidence needed",
+        "i have all the information needed",
+        "all required data is collected",
+        "all required evidence is collected",
+    ]
 
     /// A say that ENDS the turn by announcing the model is ABOUT to work rather than working — the
     /// verbose-planner stall a fast orchestrator falls into: after exploring the repo it wrote

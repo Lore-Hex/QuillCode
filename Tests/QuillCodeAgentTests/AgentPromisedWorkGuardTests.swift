@@ -280,6 +280,31 @@ extension AgentPromisedWorkGuardTests {
         }
     }
 
+    func testDetectsEvidenceReadyAnnouncementWithoutFinalSynthesis() {
+        let stalls = [
+            "I have all the data needed.",
+            "I have all the evidence needed!",
+            "All required data is collected.",
+        ]
+        for text in stalls {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(
+                    for: text,
+                    tools: [.webFetch, .fileWrite, .fileRead]
+                ),
+                .promisedWork,
+                "evidence readiness is not a completed deliverable: \(text)"
+            )
+        }
+    }
+
+    func testEvidenceReadyPhraseWithVerifiedDeliverableIsACompletion() {
+        XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
+            for: "I have all the data needed. The final chart is saved and verified at outputs/revenue.html.",
+            tools: [.fileWrite, .fileRead]
+        ))
+    }
+
     func testDetectsTerminalPresentProgressWorkNarration() {
         let stalls = [
             "I need to read the two source files before writing. Reading inputs/context.md and inputs/data.csv now.",
