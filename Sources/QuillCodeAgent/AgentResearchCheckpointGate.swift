@@ -91,4 +91,18 @@ enum AgentResearchCheckpointGate {
             """
         )
     }
+
+    static func repeatedDelegationCorrection(path: String) -> Correction {
+        Correction(
+            path: path,
+            prompt: """
+            A delegated research batch has already returned and the named deliverable exists at \
+            ./\(path). Do not launch another delegated batch. Preserve the completed worker \
+            evidence and all later direct research by rewriting ./\(path) as the complete final \
+            artifact now. State any genuinely unavailable fact honestly instead of restarting \
+            broad research, then read the rewritten artifact back. Respond with host.file.write for \
+            exactly ./\(path).
+            """
+        )
+    }
 }

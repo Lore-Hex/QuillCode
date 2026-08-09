@@ -46,6 +46,9 @@ struct AgentRunLoopState: Sendable {
     /// Delegated research counts more than one serial web call because it can return several full
     /// evidence tracks in a single tool result.
     private(set) var successfulResearchStepsAfterCheckpoint = 0
+    /// Successful parent-authored delegated batches in this run. Once a named deliverable exists,
+    /// another broad batch is usually a restart rather than progress and should be synthesized.
+    private(set) var successfulDelegatedResearchBatchCount = 0
     /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
     /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
     private(set) var malformedWrittenTextPaths: Set<String> = []
@@ -183,6 +186,18 @@ struct AgentRunLoopState: Sendable {
         return pendingResearchContinuationWorkspacePaths.sorted().first(where: {
             didResumeResearch(afterCheckpointAt: $0)
         })
+    }
+
+    func writtenNamedTextDeliverablePath() -> String? {
+        namedTextDeliverableWorkspacePaths.sorted().first { path in
+            writtenWorkspacePaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, path)
+            })
+        }
+    }
+
+    mutating func requireResearchRefresh(at path: String) {
+        researchStaleWorkspacePaths.insert(AgentArtifactVerificationGate.normalizedPath(path))
     }
 
     private mutating func recordArtifactVerification(
@@ -449,6 +464,7 @@ struct AgentRunLoopState: Sendable {
                 pendingResearchContinuationWorkspacePaths
             )
         case ToolDefinition.subagentsRun.name:
+            successfulDelegatedResearchBatchCount += 1
             if !pendingResearchContinuationWorkspacePaths.isEmpty {
                 // A delegated batch is the last broad research action after a checkpoint. It may
                 // contain several worker tracks and can consume most of the parent's remaining

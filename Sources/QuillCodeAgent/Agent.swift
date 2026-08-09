@@ -285,6 +285,10 @@ public struct AgentRunner: Sendable {
             var researchCheckpointContinuationCorrectionCounts: [String: Int] = [:]
             /// Bounded post-checkpoint research must be synthesized before another read-only step.
             var researchCheckpointFinalizationCorrectionCounts: [String: Int] = [:]
+            /// Once a delegated batch has returned and a named deliverable exists, redirect one
+            /// redundant broad batch into synthesis. Further repeats become terminal candidates
+            /// and flow through the ordinary stale-artifact gate without executing the batch.
+            var repeatedDelegationNudgedPaths = Set<String>()
             var pendingSourceGroundingAuditPath: String?
             var sourceGroundingRepairedPaths = Set<String>()
             /// A completed semantic audit or deterministic source repair owns finalization. Keeping
@@ -546,6 +550,28 @@ public struct AgentRunner: Sendable {
                     ))
                     next.updatedAt = Date()
                     await onProgress?(next)
+                }
+                if case .tool(let proposedCall) = resolvedAction,
+                   proposedCall.name == ToolDefinition.subagentsRun.name,
+                   runLoop.successfulDelegatedResearchBatchCount > 0,
+                   let path = runLoop.writtenNamedTextDeliverablePath() {
+                    runLoop.requireResearchRefresh(at: path)
+                    if repeatedDelegationNudgedPaths.insert(path).inserted {
+                        let correction = AgentResearchCheckpointGate
+                            .repeatedDelegationCorrection(path: path)
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: redirected repeated delegated research into "
+                                + "final synthesis at ./\(path)."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
+                    }
+                    resolvedAction = .say(
+                        "The existing delegated evidence must be synthesized into ./\(path)."
+                    )
                 }
                 if case .say = resolvedAction,
                    let correction = AgentArtifactTextQualityGate.correction(

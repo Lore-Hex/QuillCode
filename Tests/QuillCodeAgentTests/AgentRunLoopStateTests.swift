@@ -389,6 +389,40 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertTrue(state.researchStaleWorkspacePaths.isEmpty)
     }
 
+    func testSuccessfulDelegationIsCountedAndWrittenDeliverableCanBeMarkedStale() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Research competitors and write outputs/revenue.html with citations."
+        )
+        let delegated = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "research competitors",
+                "workers": [["name": "A", "role": "research A"]],
+            ] as [String: Any])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: delegated, stdout: "verified evidence"),
+            workspaceRoot: root
+        ) { _ in "delegated" }
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/revenue.html",
+                "content": "<p>Comparison</p>",
+            ])
+        )
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        XCTAssertEqual(state.successfulDelegatedResearchBatchCount, 1)
+        XCTAssertEqual(state.writtenNamedTextDeliverablePath(), "outputs/revenue.html")
+        state.requireResearchRefresh(at: "./outputs/revenue.html")
+        XCTAssertEqual(state.researchStaleWorkspacePaths, ["outputs/revenue.html"])
+    }
+
     private func recordNoProgress(
         _ call: ToolCall,
         in state: inout AgentRunLoopState

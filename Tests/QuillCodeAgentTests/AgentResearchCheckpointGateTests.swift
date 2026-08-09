@@ -109,4 +109,15 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
             correctionCounts: ["outputs/revenue.html": 2]
         ))
     }
+
+    func testRepeatedDelegationCorrectionRequiresExistingArtifactSynthesis() {
+        let correction = AgentResearchCheckpointGate.repeatedDelegationCorrection(
+            path: "outputs/revenue.html"
+        )
+
+        XCTAssertEqual(correction.path, "outputs/revenue.html")
+        XCTAssertTrue(correction.prompt.contains("Do not launch another delegated batch"))
+        XCTAssertTrue(correction.prompt.contains("host.file.write"))
+        XCTAssertTrue(correction.prompt.contains("read the rewritten artifact back"))
+    }
 }

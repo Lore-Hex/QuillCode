@@ -104,6 +104,68 @@ final class AgentToolLoopTests: XCTestCase {
         XCTAssertEqual(request.workers.map { $0.name }, ["Explorer", "Verifier"])
     }
 
+    func testAgentRedirectsSecondDelegatedBatchIntoNamedDeliverableRewrite() async throws {
+        let root = try makeTempDirectory()
+        let capture = ToolCallCapture()
+        let delegated = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "research competitors",
+                "workers": [["name": "Researcher", "role": "collect evidence"]],
+            ] as [String: Any])
+        )
+        let initialWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Draft\n\nInitial delegated evidence.\n",
+            ])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
+        )
+        let finalWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Final report\n\nAll available evidence synthesized.\n",
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(delegated), .tool(initialWrite), .tool(read), .tool(delegated),
+                .tool(finalWrite), .tool(read), .say("Completed the final report."),
+            ]),
+            additionalToolDefinitions: [ToolDefinition.subagentsRun],
+            threadToolExecutionOverride: { call, _, thread, _ in
+                guard call.name == ToolDefinition.subagentsRun.name else { return nil }
+                await capture.record(call)
+                return AgentThreadToolExecution(
+                    thread: thread,
+                    result: ToolResult(ok: true, stdout: "Delegated evidence returned.")
+                )
+            }
+        )
+
+        let result = try await runner.send(
+            "Research competitors, write outputs/report.md, and read it back.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let delegatedCallCount = await capture.count
+        XCTAssertEqual(delegatedCallCount, 1)
+        XCTAssertTrue(result.thread.messages.last?.content.contains("# Final report") == true)
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("redirected repeated delegated research")
+        })
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "# Final report\n\nAll available evidence synthesized.\n"
+        )
+    }
+
     func testThreadOwningToolMergesStateBeforeTheAgentContinues() async throws {
         let root = try makeTempDirectory()
         let call = ToolCall(
@@ -729,10 +791,13 @@ private struct SubagentRunToolRequest: Decodable {
 }
 
 private actor ToolCallCapture {
-    private(set) var call: ToolCall?
+    private var calls: [ToolCall] = []
+
+    var call: ToolCall? { calls.last }
+    var count: Int { calls.count }
 
     func record(_ call: ToolCall) {
-        self.call = call
+        calls.append(call)
     }
 }
 
