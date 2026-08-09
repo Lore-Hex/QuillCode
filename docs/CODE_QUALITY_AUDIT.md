@@ -1,5 +1,27 @@
 # Code Quality Audit
 
+## 2026-08-09 Bounded Native Smoke Wall Clock
+
+Overall grade after this slice: **A+ release fidelity, A+ bounded recovery, A+ configurability**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Release fidelity | A+ | The outer packaged-window guard allows 90 seconds for two strict native interaction sweeps, so a loaded runner cannot kill a healthy app after the final interaction but before its report is written. |
+| Bounded recovery | A+ | The process remains subject to a hard positive-integer wall-clock limit and is terminated, reaped, and failed closed on exhaustion. |
+| Configurability | A+ | `QUILLCODE_PACKAGED_WINDOW_SMOKE_TIMEOUT_SECONDS` supports controlled stress environments while release and CI retain the reviewed 90-second default. |
+| Regression coverage | A+ | The parity gate pins the named timeout, validated override, variable-based wait, and removal of the obsolete literal 45-second invocation. |
+
+Validation:
+
+- Exact-main smoke completed both live native interaction sweeps before the obsolete 45-second outer
+  guard terminated the process during final settling
+- `bash -n scripts/packaged-macos-smoke.sh`
+- Focused packaged macOS parity gate (1 test, 0 failures) and invalid override rejection
+- Real packaged macOS direct-executable, Launch Services, live-window, Accessibility, screenshot,
+  report, and semantic-validator smoke passed under the 90-second guard
+- Packaged performance passed at 262.21 ms median launch-ready, 98.03 MiB initial memory,
+  162.48 MiB post-interaction memory, and 167.45 MiB repeated-interaction memory
+
 ## 2026-08-09 Atomic Native Surface Readiness
 
 Overall grade after this slice: **A+ semantic integrity, A+ slow-runner resilience, A+ main-actor cost**.

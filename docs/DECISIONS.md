@@ -1,5 +1,21 @@
 # QuillCode Decisions
 
+## 2026-08-09: native smoke wall-clock guards encompass semantic retry budgets
+
+- **Decision:** The packaged live-window process receives a named 90-second wall-clock guard. CI and
+  release use that reviewed default; controlled stress runs may override it only with a positive
+  integer through `QUILLCODE_PACKAGED_WINDOW_SMOKE_TIMEOUT_SECONDS`.
+- **Why:** Exact-main CI completed both native interaction sweeps, including Memories and Activity,
+  then the outer shell killed the process at the legacy 45-second limit while the second sweep was
+  settling. The inner verifier now deliberately permits bounded SwiftUI presentation and dismissal
+  latency, so its aggregate healthy path must fit inside the outer catastrophic-hang guard.
+- **Integrity boundary:** The change does not retry, skip, or convert any interaction failure into
+  success. Every semantic verifier keeps its own tighter deadline, the process must still write its
+  report and screenshot, and exhaustion still terminates and reaps the app with a failing status.
+- **Evidence:** The parity contract pins the default, override validation, variable-based wait, and
+  absence of the obsolete literal invocation. Exact-main CI and the next dual-architecture package
+  remain the final native-host evidence.
+
 ## 2026-08-09: native surface readiness is one Accessibility generation
 
 - **Decision:** A dismissible native pane is ready only when its identified title, required content,

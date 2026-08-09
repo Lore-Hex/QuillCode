@@ -44,6 +44,14 @@ final class ParityPackagedMacOSSmokeGateTests: QuillCodeParityTestCase {
         XCTAssertFalse(packagedSmoke.contains("HOME=\"$SMOKE_ROOT/home\""))
         XCTAssertTrue(packagedSmoke.contains("window-report.json"))
         XCTAssertTrue(packagedSmoke.contains("window.png"))
+        XCTAssertTrue(
+            packagedSmoke.contains(
+                #"WINDOW_SMOKE_TIMEOUT_SECONDS="${QUILLCODE_PACKAGED_WINDOW_SMOKE_TIMEOUT_SECONDS:-90}""#
+            )
+        )
+        XCTAssertTrue(packagedSmoke.contains(#""$WINDOW_SMOKE_TIMEOUT_SECONDS""#))
+        XCTAssertTrue(packagedSmoke.contains("must be a positive integer"))
+        XCTAssertFalse(packagedSmoke.contains(#""$WINDOW_SMOKE_PID" 45"#))
         XCTAssertTrue(packagedSmoke.contains("packaged-accessibility-frames.json"))
         XCTAssertTrue(packagedSmoke.contains("accessibility_frames_manifest=packaged-accessibility-frames.json"))
         XCTAssertTrue(
