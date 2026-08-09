@@ -287,11 +287,16 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
 
         prompt = PRIOR.build_prompt(row)
         self.assertIn("Use exactly Asana, Inc., monday.com Ltd., and GitLab Inc.", prompt)
-        self.assertIn("four numeric quarterly values", prompt)
+        self.assertIn("all four raw numeric USD quarterly values in the same `<tr>`", prompt)
+        self.assertIn("first five cells in every company row", prompt)
+        self.assertIn("full integer USD amount", prompt)
+        self.assertIn("never an M/B abbreviation", prompt)
+        self.assertIn("Do not split a company across quarter rows or use rowspans", prompt)
         self.assertIn("inline SVG chart or a functional canvas chart", prompt)
-        self.assertIn("source URL in every competitor row", prompt)
+        self.assertIn("source URL in that same row for every competitor", prompt)
         self.assertIn("focused query containing the company, fiscal quarters, and revenue", prompt)
         self.assertIn("one results-history or annual-report page per company", prompt)
+        self.assertIn("remove checkpoint, progress, or future-tense completion language", prompt)
 
     def test_reusable_macro_prompt_allows_only_documented_runtime_fields(self):
         prompt = PRIOR.build_prompt(self.rows[59])
@@ -1040,14 +1045,14 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
                 f"<tr><td>Atlas Labs</td><td>${totals['Q1']:,}</td>"
                 f"<td>${totals['Q2']:,}</td><td>${totals['Q3']:,}</td>"
                 f"<td>${totals['Q4']:,}</td><td>Internal records</td></tr>"
-                "<tr><td>Asana, Inc.</td><td>$181.5M</td><td>$187.2M</td>"
-                "<td>$192.1M</td><td>$199.0M</td>"
+                "<tr><td>Asana, Inc.</td><td>$181,500,000</td><td>$187,200,000</td>"
+                "<td>$192,100,000</td><td>$199,000,000</td>"
                 "<td><a href='https://investors.asana.com/results'>Official source</a></td></tr>"
-                "<tr><td>monday.com Ltd.</td><td>$268.0M</td><td>$282.3M</td>"
-                "<td>$299.1M</td><td>$318.4M</td>"
+                "<tr><td>monday.com Ltd.</td><td>$268,000,000</td><td>$282,300,000</td>"
+                "<td>$299,100,000</td><td>$318,400,000</td>"
                 "<td><a href='https://ir.monday.com/results'>Official source</a></td></tr>"
-                "<tr><td>GitLab Inc.</td><td>$214.0M</td><td>$226.5M</td>"
-                "<td>$240.0M</td><td>$252.2M</td>"
+                "<tr><td>GitLab Inc.</td><td>$214,000,000</td><td>$226,500,000</td>"
+                "<td>$240,000,000</td><td>$252,200,000</td>"
                 "<td><a href='https://ir.gitlab.com/results'>Official source</a></td></tr>"
                 "</tbody></table><svg><rect/><rect/><rect/><rect/></svg>"
                 "</body></html>",
@@ -1057,6 +1062,38 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             valid, detail = PRIOR.validate_task_117_revenue_chart(artifact)
             self.assertTrue(valid, detail)
 
+            rowspanned = artifact.read_text(encoding="utf-8").replace(
+                f"<tr><td>Atlas Labs</td><td>${totals['Q1']:,}</td>"
+                f"<td>${totals['Q2']:,}</td><td>${totals['Q3']:,}</td>"
+                f"<td>${totals['Q4']:,}</td><td>Internal records</td></tr>",
+                f"<tr><td rowspan='4'>Atlas Labs</td><td>Q1</td><td>${totals['Q1']:,}</td></tr>"
+                f"<tr><td>Q2</td><td>${totals['Q2']:,}</td></tr>"
+                f"<tr><td>Q3</td><td>${totals['Q3']:,}</td></tr>"
+                f"<tr><td>Q4</td><td>${totals['Q4']:,}</td></tr>",
+            )
+            artifact.write_text(rowspanned, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_117_revenue_chart(artifact)
+            self.assertFalse(valid)
+            self.assertIn("Atlas Labs", detail)
+
+            abbreviated = rowspanned.replace(
+                f"<tr><td rowspan='4'>Atlas Labs</td><td>Q1</td><td>${totals['Q1']:,}</td></tr>"
+                f"<tr><td>Q2</td><td>${totals['Q2']:,}</td></tr>"
+                f"<tr><td>Q3</td><td>${totals['Q3']:,}</td></tr>"
+                f"<tr><td>Q4</td><td>${totals['Q4']:,}</td></tr>",
+                f"<tr><td>Atlas Labs</td><td>${totals['Q1']:,}</td>"
+                f"<td>${totals['Q2']:,}</td><td>${totals['Q3']:,}</td>"
+                f"<td>${totals['Q4']:,}</td><td>Internal records</td></tr>",
+            ).replace("$181,500,000", "$181.5M")
+            artifact.write_text(abbreviated, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_117_revenue_chart(artifact)
+            self.assertFalse(valid)
+            self.assertIn("Asana, Inc.", detail)
+
+            artifact.write_text(
+                abbreviated.replace("$181.5M", "$181,500,000"),
+                encoding="utf-8",
+            )
             artifact.write_text(
                 artifact.read_text(encoding="utf-8").replace("<svg>", "<div>").replace(
                     "</svg>", "</div>"
@@ -1085,12 +1122,42 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             "isConfidential": False,
             "requestedModelID": PRIOR.EXACT_MODEL,
             "selectedModelID": PRIOR.EXACT_MODEL,
+            "windowSource": "swiftui-scene",
+            "workspaceWindowCount": 1,
             "screenshot": None,
             "scheduledAutomation": {"id": "automation-id", "status": "active"},
         }
         checks, artifact = PRIOR.grade(row, Path("/tmp/unused"), report, {})
         self.assertIsNone(artifact)
         self.assertTrue(next(check for check in checks if check["name"] == "persisted automation")["passed"])
+        self.assertTrue(next(
+            check for check in checks if check["name"] == "native physical window ownership"
+        )["passed"])
+
+    def test_grade_surfaces_capture_error_and_rejects_missing_owned_window(self):
+        row = self.rows[147]
+        report = {
+            "ok": False,
+            "isConfidential": False,
+            "requestedModelID": PRIOR.EXACT_MODEL,
+            "selectedModelID": PRIOR.EXACT_MODEL,
+            "windowSource": "eval-native-fallback",
+            "workspaceWindowCount": 0,
+            "desktopCaptureError": "windowNotFound",
+            "screenshot": None,
+            "scheduledAutomation": {"id": "automation-id", "status": "active"},
+        }
+
+        checks, _ = PRIOR.grade(row, Path("/tmp/unused"), report, {})
+        lifecycle = next(check for check in checks if check["name"] == "desktop lifecycle")
+        ownership = next(
+            check for check in checks if check["name"] == "native physical window ownership"
+        )
+
+        self.assertFalse(lifecycle["passed"])
+        self.assertEqual(lifecycle["detail"], "windowNotFound")
+        self.assertFalse(ownership["passed"])
+        self.assertIn("workspaceWindowCount=0", ownership["detail"])
 
 
 if __name__ == "__main__":

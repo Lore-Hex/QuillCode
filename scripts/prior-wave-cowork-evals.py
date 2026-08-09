@@ -1306,11 +1306,20 @@ automation is visible in Quill Cowork's persisted automation state.
             "reported fiscal-quarter labels and period-end dates. Pass a focused query containing "
             "the company, fiscal quarters, and revenue to every `host.web.fetch` call; prefer one "
             "results-history or annual-report page per company over fetching one page per quarter. "
-            "Include a raw USD table with "
-            "one row per company, four numeric quarterly values, and a source URL in every "
-            "competitor row. Include an inline SVG chart or a functional canvas chart comparing "
+            "Include one comparison table whose body has exactly four company rows: Atlas Labs, "
+            "Asana, Inc., monday.com Ltd., and GitLab Inc. Put the company name and all four raw "
+            "numeric USD quarterly values in the same `<tr>` for each company. The first five "
+            "cells in every company row must be company, oldest revenue, second-oldest revenue, "
+            "third-oldest revenue, and newest revenue, in that order. Write each revenue as a "
+            "full integer USD amount such as `$181,500,000`, never an M/B abbreviation; keep "
+            "fiscal labels and period-end dates in the column headers or source notes. Put at "
+            "least one source URL in that same row for every competitor. Do not split a company "
+            "across quarter rows or use rowspans. Include an inline SVG chart or a functional canvas "
+            "chart comparing "
             "all four series across oldest-to-newest reporting position; clearly disclose a log "
-            "scale if one is needed to keep Atlas visible. "
+            "scale if one is needed to keep Atlas visible. Before finishing, inspect the saved "
+            "HTML, verify all four same-row records and the chart, and remove checkpoint, progress, "
+            "or future-tense completion language. "
         )
     field_instruction = (
         "Because the requested deliverable is a reusable macro, named bracketed runtime "
@@ -1949,19 +1958,30 @@ def validate_task_117_revenue_chart(path):
         for match in re.findall(r"(?is)<tr\b[^>]*>(.*?)</tr\s*>", text)
     ]
     missing_company_rows = []
+    duplicate_company_rows = []
     incomplete_company_rows = []
     missing_row_citations = []
     for company, pattern in company_labels.items():
-        row_text = next((value for value in table_rows if re.search(pattern, value, re.I)), None)
-        if row_text is None:
+        matching_rows = [value for value in table_rows if re.search(pattern, value, re.I)]
+        if not matching_rows:
             missing_company_rows.append(company)
             continue
+        if len(matching_rows) != 1:
+            duplicate_company_rows.append(f"{company}: {len(matching_rows)} rows")
+        row_text = matching_rows[0]
         cells = [
             html.unescape(re.sub(r"(?is)<[^>]+>", " ", value)).strip()
             for value in re.findall(r"(?is)<t[dh]\b[^>]*>(.*?)</t[dh]\s*>", row_text)
         ]
         value_cells = cells[1:5]
-        if len(value_cells) != 4 or any(not re.search(r"\d", value) for value in value_cells):
+        raw_usd_values = [
+            re.sub(r"[$,\s]", "", value, flags=re.IGNORECASE)
+            for value in value_cells
+        ]
+        if len(value_cells) != 4 or any(
+            not re.fullmatch(r"(?:USD)?\d+", value, re.IGNORECASE)
+            for value in raw_usd_values
+        ):
             incomplete_company_rows.append(f"{company}: {value_cells}")
         if company != "Atlas Labs" and not re.search(r"https?://", row_text, re.I):
             missing_row_citations.append(company)
@@ -1979,6 +1999,7 @@ def validate_task_117_revenue_chart(path):
     valid = not any((
         missing_totals,
         missing_company_rows,
+        duplicate_company_rows,
         incomplete_company_rows,
         missing_row_citations,
         missing_quarters,
@@ -1987,6 +2008,7 @@ def validate_task_117_revenue_chart(path):
     detail = (
         f"records={len(records)}; Atlas totals={dict(atlas_totals)}; "
         f"missing totals={missing_totals}; missing company rows={missing_company_rows}; "
+        f"duplicate company rows={duplicate_company_rows}; "
         f"incomplete company rows={incomplete_company_rows}; "
         f"missing row citations={missing_row_citations}; missing quarters={missing_quarters}; "
         f"svg shapes={svg_shapes}; canvas chart={has_canvas_chart}"
@@ -2036,7 +2058,18 @@ def grade(row, workspace, report, source_hashes):
     def add(name, passed, detail):
         checks.append({"name": name, "passed": bool(passed), "detail": detail})
 
-    add("desktop lifecycle", bool(report and report.get("ok")), report.get("lastError") if report else "no report")
+    lifecycle_detail = "no report"
+    if report:
+        lifecycle_detail = (
+            report.get("desktopCaptureError")
+            or report.get("lastError")
+            or report.get("stopReasonDetail")
+            or (
+                f"windowSource={report.get('windowSource')!r}; "
+                f"workspaceWindowCount={report.get('workspaceWindowCount')!r}"
+            )
+        )
+    add("desktop lifecycle", bool(report and report.get("ok")), lifecycle_detail)
     if row["capabilityNeeded"] == "Confidential":
         add("confidential mode", bool(report and report.get("isConfidential")), repr(report.get("isConfidential") if report else None))
         add(
@@ -2050,6 +2083,15 @@ def grade(row, workspace, report, source_hashes):
             bool(report and report.get("requestedModelID") == EXACT_MODEL and report.get("selectedModelID") == EXACT_MODEL),
             report.get("selectedModelID") if report else "no report",
         )
+
+    window_source = report.get("windowSource") if report else None
+    workspace_window_count = report.get("workspaceWindowCount") if report else None
+    add(
+        "native physical window ownership",
+        window_source in {"swiftui-scene", "eval-native-fallback"}
+        and workspace_window_count == 1,
+        f"windowSource={window_source!r}; workspaceWindowCount={workspace_window_count!r}",
+    )
 
     screenshot = report.get("screenshot") if report else None
     add(
