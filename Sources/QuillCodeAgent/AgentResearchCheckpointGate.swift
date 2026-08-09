@@ -12,7 +12,7 @@ enum AgentResearchCheckpointGate {
 
     static let minimumPreDraftResearchWeight = 8
     static let minimumPostCheckpointResearchSteps = 6
-    static let maximumPostDraftResearchWeight = 36
+    static let maximumPostDraftResearchWeight = 15
     static let delegatedResearchWeight = 3
     static let correctionLimitPerPath = 2
     static let finalizationCorrectionLimitPerPath = 8
@@ -46,6 +46,7 @@ enum AgentResearchCheckpointGate {
         path: String?,
         proposedToolName: String,
         canWriteFiles: Bool,
+        userMessage: String,
         correctionCounts: [String: Int]
     ) -> Correction? {
         guard isResearchCollectionTool(proposedToolName),
@@ -59,10 +60,17 @@ enum AgentResearchCheckpointGate {
             prompt: """
             The bounded direct-research budget for this deliverable is exhausted. Do not search, \
             fetch, or delegate again. Synthesize the strongest verified evidence already present in \
-            the tool results into the complete final artifact at ./\(path) now. Preserve exact source \
-            URLs, state genuinely unavailable facts honestly, remove pending/draft status language, \
-            and then read the rewritten artifact back. Respond with host.file.write for exactly \
-            ./\(path).
+            the tool results into the complete final artifact at ./\(path) now. Start from the \
+            original request, not the current draft's structure; treat that draft as disposable. \
+            Audit every requested entity and count, row and column shape, numeric value and date, \
+            source URL, and self-contained visual or file-format requirement. Incorporate relevant \
+            values and exact URLs from every successful tool result. Do not reference a local asset \
+            that has not been written. Preserve exact source URLs, state genuinely unavailable facts \
+            honestly, remove pending/draft status language, and then read the rewritten artifact \
+            back. Respond with host.file.write for exactly ./\(path).
+
+            Original request requirements:
+            \(originalRequestExcerpt(userMessage))
             """
         )
     }
@@ -103,6 +111,7 @@ enum AgentResearchCheckpointGate {
         path: String?,
         proposedToolRisk: ToolRiskClass?,
         canWriteFiles: Bool,
+        userMessage: String,
         correctionCounts: [String: Int]
     ) -> Correction? {
         guard proposedToolRisk == .read,
@@ -116,13 +125,31 @@ enum AgentResearchCheckpointGate {
             prompt: """
             The post-checkpoint research budget is complete. Before another read, search, fetch, \
             skill-load, or delegated-research action, synthesize all evidence gathered so far into \
-            the complete final artifact at ./\(path). Replace the checkpoint rather than appending \
-            another status update. Resolve every evidence gap you can from the current tool results; \
-            do not leave TBD, pending, draft, checkpoint, or in-progress markers. Then read the \
-            rewritten artifact back before completing. Respond with host.file.write for exactly \
-            ./\(path) now.
+            the complete final artifact at ./\(path). Start from the original request, not the \
+            current draft's structure; treat that draft as disposable. Audit every requested entity \
+            and count, row and column shape, numeric value and date, source URL, and self-contained \
+            visual or file-format requirement. Incorporate relevant values and exact URLs from every \
+            successful tool result, and do not reference a local asset that has not been written. \
+            Replace the checkpoint rather than appending another status update. Resolve every \
+            evidence gap you can from the current tool results; do not leave TBD, pending, draft, \
+            checkpoint, or in-progress markers. Then read the rewritten artifact back before \
+            completing. Respond with host.file.write for exactly ./\(path) now.
+
+            Original request requirements:
+            \(originalRequestExcerpt(userMessage))
             """
         )
+    }
+
+    private static func originalRequestExcerpt(_ userMessage: String) -> String {
+        let request = userMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        let maximumCharacters = 12_000
+        guard request.count > maximumCharacters else { return request }
+
+        let half = maximumCharacters / 2
+        return String(request.prefix(half))
+            + "\n[...middle of original request omitted for bounded synthesis context...]\n"
+            + String(request.suffix(half))
     }
 
     static func repeatedDelegationCorrection(path: String) -> Correction {

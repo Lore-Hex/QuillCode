@@ -587,6 +587,7 @@ public struct AgentRunner: Sendable {
                         canWriteFiles: tools.contains(where: {
                             $0.name == ToolDefinition.fileWrite.name
                         }),
+                        userMessage: userMessage,
                         correctionCounts: researchBudgetExhaustionCorrectionCounts
                     ) {
                         researchBudgetExhaustionCorrectionCounts[
@@ -617,6 +618,7 @@ public struct AgentRunner: Sendable {
                     canWriteFiles: tools.contains(where: {
                         $0.name == ToolDefinition.fileWrite.name
                     }),
+                    userMessage: userMessage,
                     correctionCounts: researchCheckpointFinalizationCorrectionCounts
                    ) {
                     researchCheckpointFinalizationCorrectionCounts[
@@ -1339,6 +1341,7 @@ public struct AgentRunner: Sendable {
                         canWriteFiles: tools.contains(where: {
                             $0.name == ToolDefinition.fileWrite.name
                         }),
+                        userMessage: userMessage,
                         correctionCounts: researchCheckpointFinalizationCorrectionCounts
                     ) {
                         researchCheckpointFinalizationCorrectionCounts[

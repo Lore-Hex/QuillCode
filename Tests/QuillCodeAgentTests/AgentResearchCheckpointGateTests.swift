@@ -86,12 +86,16 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
             path: "outputs/revenue.html",
             proposedToolRisk: .read,
             canWriteFiles: true,
+            userMessage: "Create one row per company and cite every source URL.",
             correctionCounts: [:]
         ))
 
         XCTAssertTrue(correction.prompt.contains("post-checkpoint research budget"))
         XCTAssertTrue(correction.prompt.contains("complete final artifact"))
         XCTAssertTrue(correction.prompt.contains("do not leave TBD"))
+        XCTAssertTrue(correction.prompt.contains("treat that draft as disposable"))
+        XCTAssertTrue(correction.prompt.contains("row and column shape"))
+        XCTAssertTrue(correction.prompt.contains("Create one row per company"))
         XCTAssertTrue(correction.prompt.contains("host.file.write"))
     }
 
@@ -100,12 +104,14 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
             path: "outputs/revenue.html",
             proposedToolRisk: .append,
             canWriteFiles: true,
+            userMessage: "Create the report.",
             correctionCounts: [:]
         ))
         XCTAssertNil(AgentResearchCheckpointGate.finalizationCorrection(
             path: "outputs/revenue.html",
             proposedToolRisk: .read,
             canWriteFiles: true,
+            userMessage: "Create the report.",
             correctionCounts: [
                 "outputs/revenue.html":
                     AgentResearchCheckpointGate.finalizationCorrectionLimitPerPath,
@@ -118,18 +124,26 @@ final class AgentResearchCheckpointGateTests: XCTestCase {
             path: "outputs/revenue.html",
             proposedToolName: ToolDefinition.webFetch.name,
             canWriteFiles: true,
+            userMessage: "Create an inline SVG chart with exact source URLs.",
             correctionCounts: [:]
         ))
 
         XCTAssertTrue(correction.prompt.contains("budget for this deliverable is exhausted"))
         XCTAssertTrue(correction.prompt.contains("Do not search"))
+        XCTAssertTrue(correction.prompt.contains("self-contained visual"))
+        XCTAssertTrue(correction.prompt.contains("Create an inline SVG chart"))
         XCTAssertTrue(correction.prompt.contains("host.file.write"))
         XCTAssertNil(AgentResearchCheckpointGate.exhaustionCorrection(
             path: "outputs/revenue.html",
             proposedToolName: ToolDefinition.fileRead.name,
             canWriteFiles: true,
+            userMessage: "Create the report.",
             correctionCounts: [:]
         ))
+    }
+
+    func testPostDraftResearchBudgetFitsDesktopRun() {
+        XCTAssertEqual(AgentResearchCheckpointGate.maximumPostDraftResearchWeight, 15)
     }
 
     func testRepeatedDelegationCorrectionRequiresExistingArtifactSynthesis() {
