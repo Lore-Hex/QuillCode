@@ -697,7 +697,16 @@ def task_source_context(row, reference, item_index=1, count=1):
         f"Record ID: TASK-{row['id']}-{item_index:03d}",
         f"Collection position: {item_index} of {count}",
     ]
-    if any(term in key for term in ("incident", "outage", "maintenance")):
+    if row["id"] == 17:
+        modified = task_17_modified_date(item_index)
+        quarter = f"{modified.year}-Q{((modified.month - 1) // 3) + 1}"
+        disposition = "archive" if modified < datetime(2025, 1, 1, tzinfo=timezone.utc) else "keep"
+        details.extend([
+            f"Modified date: {modified.date().isoformat()} UTC.",
+            f"Quarter: {quarter}. Required disposition: {disposition}.",
+            "The content metadata and filesystem modification time are intentionally identical.",
+        ])
+    elif any(term in key for term in ("incident", "outage", "maintenance")):
         details.extend([
             "Incident began 2026-07-14 09:12 PT and service recovered at 11:47 PT.",
             "API requests failed for 38 percent of active workspaces; no stored customer data was lost.",
@@ -1042,6 +1051,26 @@ def materialize_source(path, row, reference="", item_index=1, count=1):
     else:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(context, encoding="utf-8")
+    if row["id"] == 17:
+        timestamp = task_17_modified_date(item_index).timestamp()
+        os.utime(path, (timestamp, timestamp))
+
+
+def task_17_modified_date(item_index):
+    dates = (
+        (2023, 2, 14),
+        (2023, 5, 3),
+        (2023, 11, 8),
+        (2024, 1, 22),
+        (2024, 4, 11),
+        (2024, 10, 30),
+        (2025, 2, 12),
+        (2026, 7, 9),
+    )
+    year, month, day = dates[(item_index - 1) % len(dates)]
+    return datetime(year, month, day, 12, tzinfo=timezone.utc)
+
+
 def write_fixture(row, workspace):
     inputs = workspace / "inputs"
     inputs.mkdir(parents=True)

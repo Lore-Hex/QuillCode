@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -282,6 +283,26 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             assets = list((root / "inputs" / "Brand" / "Assets").glob("*.png"))
             self.assertEqual(len(assets), 8)
             self.assertTrue(all(path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n") for path in assets))
+
+    def test_archive_fixture_has_matching_old_and_current_modification_dates(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            PRIOR.write_fixture(self.rows[16], root)
+            sources = sorted((root / "inputs" / "Client Files").glob("*.txt"))
+
+            modified = [
+                datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
+                for path in sources
+            ]
+            contents = [path.read_text(encoding="utf-8") for path in sources]
+
+        self.assertEqual(len(sources), 8)
+        self.assertEqual(sum(value.year < 2025 for value in modified), 6)
+        self.assertEqual(sum(value.year >= 2025 for value in modified), 2)
+        for value, content in zip(modified, contents):
+            self.assertIn(f"Modified date: {value.date().isoformat()} UTC", content)
+            expected = "Required disposition: archive" if value.year < 2025 else "Required disposition: keep"
+            self.assertIn(expected, content)
 
     def test_document_packet_fixture_has_concrete_agenda_order(self):
         with tempfile.TemporaryDirectory() as temporary:
