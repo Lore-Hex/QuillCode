@@ -211,11 +211,32 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             "The IR page uses JavaScript. Fetching the Q2 release next for revenue figures.",
             "I found the annual report. I will try Nasdaq next for the missing quarter.",
             "The first source was blocked; let me search the investor-relations archive.",
+            "GitLab Q1 FY2026 confirmed. Now retrieving Q2 FY2026 results for the missing figure.",
         ]
 
         for stall in stalls {
             XCTAssertEqual(WorkspaceSubagentTerminalStatus.status(for: stall), .failed)
         }
+    }
+
+    func testToolStepCeilingIsNotReportedAsCompleted() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let worker = makeWorker(
+            root: root,
+            actions: [.tool(ToolCall(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "missing.txt"])
+            ))],
+            maxToolSteps: 1
+        )
+
+        let result = try await worker.runWithTranscript(
+            WorkspaceSubagentJob(name: "Researcher", role: "gather all quarters", objective: "compare revenue")
+        )
+
+        XCTAssertEqual(result.status, .failed)
+        XCTAssertTrue(result.summary.contains("1-step tool limit"))
+        XCTAssertTrue(result.summary.contains("Latest evidence:"))
     }
 
     func testPromptOffersOptionalDelegationViaTheParsedMarker() {
@@ -294,13 +315,15 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         root: URL,
         actions: [AgentAction],
         safety: any SafetyReviewer = SubagentAlwaysApprovingSafetyReviewer(),
-        parentThread: ChatThread = ChatThread()
+        parentThread: ChatThread = ChatThread(),
+        maxToolSteps: Int = AgentRunner.defaultMaxToolSteps
     ) -> AgentWorkspaceSubagentWorker {
         makeWorker(
             root: root,
             llm: SubagentRecordingLLMClient(state: SubagentRecordingActionQueue(actions: actions)),
             safety: safety,
-            parentThread: parentThread
+            parentThread: parentThread,
+            maxToolSteps: maxToolSteps
         )
     }
 
@@ -308,10 +331,11 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         root: URL,
         llm: any LLMClient,
         safety: any SafetyReviewer = SubagentAlwaysApprovingSafetyReviewer(),
-        parentThread: ChatThread = ChatThread()
+        parentThread: ChatThread = ChatThread(),
+        maxToolSteps: Int = AgentRunner.defaultMaxToolSteps
     ) -> AgentWorkspaceSubagentWorker {
         let factory = WorkspaceAgentSendSessionFactory(
-            baseRunner: AgentRunner(llm: llm, safety: safety),
+            baseRunner: AgentRunner(llm: llm, safety: safety, maxToolSteps: maxToolSteps),
             selectedProject: nil,
             config: AppConfig(),
             browser: BrowserState(),

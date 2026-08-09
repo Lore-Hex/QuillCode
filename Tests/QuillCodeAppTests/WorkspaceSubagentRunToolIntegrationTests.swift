@@ -96,6 +96,40 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
         XCTAssertFalse(resolved.result.stdout.contains("private-tool"))
     }
 
+    func testModelAuthoredDelegationBudgetCancelsWorkersAndReturnsEvidenceToParent() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let factory = testFactory(root: root, llm: ChildToolInventoryLLMClient())
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { _ in
+            try await Task.sleep(for: .seconds(30))
+            return WorkspaceSubagentWorkerResult(summary: "Unexpected completion")
+        })
+        let executor = WorkspaceSubagentRunToolExecutor(
+            sessionFactory: factory,
+            threadStore: nil,
+            approvalPayloadStore: nil,
+            schedulerOverride: scheduler,
+            recordSink: nil,
+            delegationBudget: .milliseconds(25)
+        )
+        let call = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "Research within the delegated budget.",
+                "workers": [["name": "Researcher", "role": "Inspect sources."]]
+            ])
+        )
+
+        let startedAt = Date()
+        let execution = await executor.executionOverride(call, root, ChatThread(), nil)
+        let resolved = try XCTUnwrap(execution)
+
+        XCTAssertLessThan(Date().timeIntervalSince(startedAt), 1)
+        XCTAssertTrue(resolved.result.stdout.contains("Delegation time budget reached"))
+        XCTAssertTrue(resolved.result.stdout.contains("Synthesize the parent deliverable now"))
+        let run = try XCTUnwrap(resolved.thread.subagentRuns.first)
+        XCTAssertEqual(run.workers.map(\.status), [.cancelled])
+    }
+
     func testChildSessionCannotStartAnIndependentSubagentTree() async throws {
         let root = try makeQuillCodeTestDirectory()
         let factory = WorkspaceAgentSendSessionFactory(

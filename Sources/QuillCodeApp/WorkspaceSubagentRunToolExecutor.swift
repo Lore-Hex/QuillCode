@@ -12,11 +12,30 @@ typealias WorkspaceSubagentRunRecordSink = @Sendable (
 /// explicit `/subagents` command. The generic agent loop remains scheduler-agnostic: this executor
 /// owns child persistence and returns the parent thread snapshot containing compact run manifests.
 struct WorkspaceSubagentRunToolExecutor: Sendable {
+    private static let defaultDelegationBudget: Duration = .seconds(180)
+
     let sessionFactory: WorkspaceAgentSendSessionFactory
     let threadStore: SubagentThreadStore?
     let approvalPayloadStore: SubagentApprovalPayloadStore?
     let schedulerOverride: WorkspaceSubagentScheduler?
     let recordSink: WorkspaceSubagentRunRecordSink?
+    let delegationBudget: Duration
+
+    init(
+        sessionFactory: WorkspaceAgentSendSessionFactory,
+        threadStore: SubagentThreadStore?,
+        approvalPayloadStore: SubagentApprovalPayloadStore?,
+        schedulerOverride: WorkspaceSubagentScheduler?,
+        recordSink: WorkspaceSubagentRunRecordSink?,
+        delegationBudget: Duration = Self.defaultDelegationBudget
+    ) {
+        self.sessionFactory = sessionFactory
+        self.threadStore = threadStore
+        self.approvalPayloadStore = approvalPayloadStore
+        self.schedulerOverride = schedulerOverride
+        self.recordSink = recordSink
+        self.delegationBudget = delegationBudget
+    }
 
     var executionOverride: AgentThreadToolExecutionOverride {
         { call, _, parentThread, onProgress in
@@ -50,7 +69,8 @@ struct WorkspaceSubagentRunToolExecutor: Sendable {
                 approvalPayloadStore: approvalPayloadStore
             )
         )
-        let result = await scheduler.run(
+        let boundedRun = await run(
+            scheduler: scheduler,
             request: request,
             runID: runID,
             state: { record in
@@ -62,16 +82,76 @@ struct WorkspaceSubagentRunToolExecutor: Sendable {
                 WorkspaceSubagentSpawnDirectiveParser.parse(summary)
             }
         )
+        let result = boundedRun.result
         // The scheduler always publishes its terminal record through `state` before returning.
         // Reuse that projection instead of persisting and publishing the same snapshot twice.
         let finalThread = await projection.snapshot()
-        let output = WorkspaceSubagentRunToolOutput(result: result)
+        let output = WorkspaceSubagentRunToolOutput(
+            result: result,
+            delegationBudgetReached: boundedRun.delegationBudgetReached
+        )
         let stdout = (try? JSONHelpers.encodePretty(output)) ?? result.summary
         return AgentThreadToolExecution(
             thread: finalThread,
             result: ToolResult(ok: true, stdout: stdout)
         )
     }
+
+    private func run(
+        scheduler: WorkspaceSubagentScheduler,
+        request: WorkspaceSubagentRunRequest,
+        runID: UUID,
+        state: @escaping WorkspaceSubagentScheduler.StateSink,
+        spawn: @escaping WorkspaceSubagentScheduler.Spawner
+    ) async -> WorkspaceSubagentBoundedRun {
+        await withTaskGroup(of: WorkspaceSubagentRunRace.self) { group in
+            group.addTask {
+                .result(await scheduler.run(
+                    request: request,
+                    runID: runID,
+                    state: state,
+                    spawn: spawn
+                ))
+            }
+            group.addTask {
+                do {
+                    try await Task.sleep(for: delegationBudget)
+                    return .delegationBudgetReached
+                } catch {
+                    return .cancelledDeadline
+                }
+            }
+
+            var delegationBudgetReached = false
+            while let outcome = await group.next() {
+                switch outcome {
+                case .result(let result):
+                    group.cancelAll()
+                    return WorkspaceSubagentBoundedRun(
+                        result: result,
+                        delegationBudgetReached: delegationBudgetReached
+                    )
+                case .delegationBudgetReached:
+                    delegationBudgetReached = true
+                    group.cancelAll()
+                case .cancelledDeadline:
+                    continue
+                }
+            }
+            preconditionFailure("Subagent scheduler ended without a result")
+        }
+    }
+}
+
+private enum WorkspaceSubagentRunRace: Sendable {
+    case result(WorkspaceSubagentRunResult)
+    case delegationBudgetReached
+    case cancelledDeadline
+}
+
+private struct WorkspaceSubagentBoundedRun: Sendable {
+    var result: WorkspaceSubagentRunResult
+    var delegationBudgetReached: Bool
 }
 
 private actor WorkspaceSubagentParentProjection {
@@ -113,7 +193,7 @@ private struct WorkspaceSubagentRunToolOutput: Codable, Sendable, Hashable {
     var workers: [Worker]
     var awaitingApproval: Bool
 
-    init(result: WorkspaceSubagentRunResult) {
+    init(result: WorkspaceSubagentRunResult, delegationBudgetReached: Bool = false) {
         self.runID = result.record.id
         self.workers = result.record.workers.map { worker in
             Worker(
@@ -130,7 +210,12 @@ private struct WorkspaceSubagentRunToolOutput: Codable, Sendable, Hashable {
             let bounded = String(summary.prefix(Self.parentSummaryLimit))
             return "## \(worker.name) (\(worker.status.label))\n\(bounded)"
         }
-        self.summary = ([result.summary] + detailedResults).joined(separator: "\n\n")
+        let synthesisDirective = delegationBudgetReached
+            ? "Delegation time budget reached. Do not start more research. Synthesize the parent deliverable now from the completed results and existing evidence."
+            : nil
+        self.summary = ([synthesisDirective, result.summary] + detailedResults)
+            .compactMap { $0 }
+            .joined(separator: "\n\n")
         self.awaitingApproval = result.record.workers.contains { $0.status == .awaitingApproval }
     }
 }

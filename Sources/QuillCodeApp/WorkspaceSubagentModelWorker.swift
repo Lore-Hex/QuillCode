@@ -147,7 +147,11 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             )
         }
 
-        return Self.workerResult(from: result.thread, fallbackRole: job.role)
+        return Self.workerResult(
+            from: result.thread,
+            fallbackRole: job.role,
+            stopReason: result.stopReason
+        )
     }
 
     func resume(
@@ -172,22 +176,54 @@ struct AgentWorkspaceSubagentWorker: Sendable {
                 pendingApproval: pendingApproval
             )
         }
-        return Self.workerResult(from: result.thread, fallbackRole: job.role)
+        return Self.workerResult(
+            from: result.thread,
+            fallbackRole: job.role,
+            stopReason: result.stopReason
+        )
     }
 
     private static func workerResult(
         from thread: ChatThread,
-        fallbackRole: String
+        fallbackRole: String,
+        stopReason: AgentRunStopReason
     ) -> WorkspaceSubagentWorkerResult {
         let assistantText = thread.messages.last(where: { $0.role == .assistant })?.content ?? ""
         let summary = WorkspaceContextSummarySanitizer.summary(from: assistantText)
             .map(WorkspaceContextSummaryTextBounds.collapsedSingleLine)
         let finalSummary = summary.flatMap { $0.isEmpty ? nil : $0 } ?? "Completed \(fallbackRole)"
+        guard stopReason == .finished else {
+            let stopSummary = stopSummary(for: stopReason)
+            return WorkspaceSubagentWorkerResult(
+                status: .failed,
+                summary: "\(stopSummary) Latest evidence: \(finalSummary)",
+                transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
+            )
+        }
         return WorkspaceSubagentWorkerResult(
             status: WorkspaceSubagentTerminalStatus.status(for: assistantText),
             summary: finalSummary,
             transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
         )
+    }
+
+    private static func stopSummary(for stopReason: AgentRunStopReason) -> String {
+        switch stopReason {
+        case .finished:
+            return "Completed."
+        case .toolStepCeilingExhausted(let limit):
+            return "Stopped at the delegated \(limit)-step tool limit before finishing."
+        case .flailDetected(let reason):
+            let diagnostic = WorkspaceContextSummarySanitizer.diagnostic(from: reason)
+            return "Stopped after repeated non-progress: \(diagnostic)."
+        case .spendFuseApprovalRequired:
+            return "Stopped because the delegated spend fuse requires approval."
+        case .approvalRequired:
+            return "Stopped because a delegated action requires approval."
+        case .autoReviewCircuitBreaker(let reason):
+            let diagnostic = WorkspaceContextSummarySanitizer.diagnostic(from: reason)
+            return "Stopped after repeated safety denials: \(diagnostic)."
+        }
     }
 
     private func result(
@@ -337,6 +373,8 @@ enum WorkspaceSubagentTerminalStatus {
             "i will try ", "i'll try ", "i will now ", "i'll now ",
             "next i will ", "next i'll ", "let me try ", "let me check ",
             "let me search ", "let me fetch ", "going to try ",
+            "now retrieving ", "now fetching ", "now searching ", "now checking ",
+            "currently retrieving ", "currently fetching ", "currently searching ",
         ]
         if promisedAttempts.contains(where: text.contains) {
             return true
