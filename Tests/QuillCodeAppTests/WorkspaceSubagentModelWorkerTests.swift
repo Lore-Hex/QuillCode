@@ -205,6 +205,17 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
         XCTAssertTrue(result.summary.contains("BLOCKED:"))
     }
 
+    func testIncompleteTerminalNarrationIsNotReportedAsDone() {
+        let stalls = [
+            "COMPLETE: I need Q4 revenue to finish the requested set.",
+            "The IR page uses JavaScript. Fetching the Q2 release next for revenue figures.",
+        ]
+
+        for stall in stalls {
+            XCTAssertEqual(WorkspaceSubagentTerminalStatus.status(for: stall), .failed)
+        }
+    }
+
     func testPromptOffersOptionalDelegationViaTheParsedMarker() {
         let prompt = WorkspaceSubagentPromptBuilder.prompt(
             objective: "ship release",

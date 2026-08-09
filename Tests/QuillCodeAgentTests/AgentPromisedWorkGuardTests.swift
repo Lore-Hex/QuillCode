@@ -316,6 +316,8 @@ extension AgentPromisedWorkGuardTests {
             "I found Q3 2024. Now I need Q2 2024 to complete the requested series.",
             "I could not extract a verified number. Next: re-fetch the investor filing.",
             "Three rows are verified; I still need to search for the fourth filing.",
+            "COMPLETE: I need Q4 FY2026 revenue to finish the four-quarter set. Fetching Q4 report now.",
+            "The IR page uses JavaScript. Fetching the Q2 2025 press release next for concrete revenue figures.",
         ]
         for text in stalls {
             XCTAssertEqual(

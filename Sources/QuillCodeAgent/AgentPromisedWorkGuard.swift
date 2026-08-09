@@ -221,6 +221,23 @@ enum AgentPromisedWorkGuard {
     /// unfinished-work marker and a concrete work verb so completed handoff notes such as
     /// "the parent can merge these findings" remain valid.
     private static func declaresUnfinishedNextStep(in normalizedText: String) -> Bool {
+        if normalizedText.ranges(of: "i need ").contains(where: { range in
+            let remainder = normalizedText[range.upperBound...].prefix(120)
+            return containsWorkVerb(in: remainder)
+                && (remainder.contains(" to finish") || remainder.contains(" to complete"))
+        }) {
+            return true
+        }
+
+        if let terminalClause = normalizedText
+            .split(whereSeparator: { $0 == "." || $0 == "!" || $0 == "?" || $0.isNewline })
+            .last?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           terminalClause.contains(" next"),
+           immediateWorkGerunds.contains(where: { terminalClause.hasPrefix("\($0) ") }) {
+            return true
+        }
+
         if remainingWorkStarters.contains(where: { starter in
             guard let range = normalizedText.range(of: starter) else { return false }
             return containsWorkVerb(in: normalizedText[range.upperBound...].prefix(96))

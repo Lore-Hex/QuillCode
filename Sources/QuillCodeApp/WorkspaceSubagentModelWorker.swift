@@ -304,7 +304,7 @@ enum WorkspaceSubagentPromptBuilder {
     }
 }
 
-private enum WorkspaceSubagentTerminalStatus {
+enum WorkspaceSubagentTerminalStatus {
     static func status(for text: String) -> SubagentStatus {
         let lines = text
             .lowercased()
@@ -324,10 +324,25 @@ private enum WorkspaceSubagentTerminalStatus {
     }
 
     private static func hasRecoverableWorkMarker(in text: String) -> Bool {
-        if text.contains("now i need ") && text.contains(" to complete") {
-            return true
+        if let range = text.range(of: "i need ") {
+            let remainder = text[range.upperBound...].prefix(120)
+            if remainder.contains(" to complete") || remainder.contains(" to finish") {
+                return true
+            }
         }
         if text.contains("still need to ") {
+            return true
+        }
+        let terminalClause = text
+            .split(whereSeparator: { $0 == "." || $0 == "!" || $0 == "?" || $0.isNewline })
+            .last?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let actionGerunds = [
+            "reading", "fetching", "searching", "checking", "reviewing", "retrying",
+            "writing", "verifying",
+        ]
+        if terminalClause.contains(" next"),
+           actionGerunds.contains(where: { terminalClause.hasPrefix("\($0) ") }) {
             return true
         }
         let nextActionMarkers = [
