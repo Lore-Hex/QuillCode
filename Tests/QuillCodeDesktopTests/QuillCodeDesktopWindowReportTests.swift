@@ -2,6 +2,7 @@ import ApplicationServices
 import Foundation
 import XCTest
 import QuillCodeApp
+import QuillCodeCore
 import QuillCodePersistence
 import QuillComputerUseKit
 @testable import quill_code_desktop
@@ -110,6 +111,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             "--cowork-eval-workspace", "/tmp/quill-eval-workspace",
             "--cowork-eval-prompt-file", "/tmp/quill-eval-prompt.txt",
             "--cowork-eval-report", "/tmp/quill-eval-report.json",
+            "--cowork-eval-screenshot", "/tmp/quill-eval-window.png",
             "--cowork-eval-browser-path", "inputs/browser.html",
             "--cowork-eval-timeout-seconds", "3600",
             "--cowork-eval-model", "z-ai/glm-5.2",
@@ -121,8 +123,10 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(request.workspacePath, "/tmp/quill-eval-workspace")
         XCTAssertEqual(request.promptPath, "/tmp/quill-eval-prompt.txt")
         XCTAssertEqual(request.reportPath, "/tmp/quill-eval-report.json")
+        XCTAssertEqual(request.screenshotPath, "/tmp/quill-eval-window.png")
         XCTAssertEqual(request.browserPath, "inputs/browser.html")
         XCTAssertEqual(request.modelID, "z-ai/glm-5.2")
+        XCTAssertFalse(request.isConfidential)
         XCTAssertEqual(request.timeoutSeconds, 3_600)
         XCTAssertEqual(request.maxToolSteps, 512)
         XCTAssertNil(request.runSpendFuseUSD)
@@ -141,6 +145,18 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         XCTAssertEqual(request.timeoutSeconds, QuillCodeDesktopCoworkEvalRequest.maximumTimeoutSeconds)
         XCTAssertEqual(request.maxToolSteps, QuillCodeDesktopCoworkEvalRequest.maximumToolSteps)
         XCTAssertEqual(request.runSpendFuseUSD, 1.0)
+    }
+
+    func testCoworkEvalConfidentialRequestPinsE2ERoute() throws {
+        let request = try XCTUnwrap(QuillCodeDesktopCoworkEvalRequest(arguments: [
+            "QuillCode",
+            "--cowork-eval",
+            "--cowork-eval-confidential",
+            "--cowork-eval-model", "deepseek/deepseek-v4-flash-0731",
+        ]))
+
+        XCTAssertTrue(request.isConfidential)
+        XCTAssertEqual(request.modelID, TrustedRouterDefaults.e2eModel)
     }
 
     func testCoworkEvalControllerUsesExplicitStateAndWorkspace() throws {
@@ -201,6 +217,37 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
         XCTAssertEqual(ceiling.name, "tool-step-ceiling-exhausted")
         XCTAssertTrue(ceiling.detail?.contains("64-step") == true)
+    }
+
+    func testCoworkEvalScheduledAutomationCapturesPersistedContract() throws {
+        let nextRun = Date(timeIntervalSince1970: 1_800_000_000)
+        let automation = QuillAutomation(
+            title: "Scheduled task: check competitor pricing",
+            detail: "Check competitor pricing and notify me with a diff.",
+            kind: .workspaceSchedule,
+            scheduleKind: .cron,
+            scheduleDescription: "Every Monday at 8:00 AM",
+            nextRunAt: nextRun,
+            recurrence: QuillAutomationRecurrence(
+                interval: 1,
+                unit: .weeks,
+                weekdays: [2],
+                hour: 8,
+                minute: 0
+            )
+        )
+
+        let report = QuillCodeDesktopCoworkEvalReport.ScheduledAutomation(automation)
+
+        XCTAssertEqual(report.title, automation.title)
+        XCTAssertEqual(report.kind, "workspace_schedule")
+        XCTAssertEqual(report.status, "active")
+        XCTAssertEqual(report.scheduleKind, "cron")
+        XCTAssertEqual(report.scheduleDescription, "Every Monday at 8:00 AM")
+        XCTAssertEqual(report.nextRunAt, nextRun)
+        XCTAssertEqual(report.recurrence?.unit, "weeks")
+        XCTAssertEqual(report.recurrence?.weekdays, [2])
+        XCTAssertEqual(report.recurrence?.hour, 8)
     }
 
     func testDesktopSmokePixelValidationAcceptsConfiguredMinimumColorBuckets() throws {
