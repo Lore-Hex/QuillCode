@@ -31,11 +31,11 @@ struct AgentRunLoopState: Sendable {
     /// the ordinary readback gate then verifies the refreshed artifact.
     private(set) var researchStaleWorkspacePaths: Set<String> = []
     private var namedTextDeliverableWorkspacePaths: Set<String> = []
-    /// Weighted successful research completed before the first durable named-text draft. A
-    /// delegated research result counts more than one serial web action because it can carry
-    /// several evidence tracks. Long runs checkpoint this evidence before context compaction can
-    /// make the model restart the investigation.
-    private(set) var successfulResearchWeightBeforeDraft = 0
+    /// Weighted research pressure accumulated before the first durable named-text draft. Failed
+    /// web attempts still consume context and identify evidence gaps, so they count toward the
+    /// checkpoint threshold. A successful delegated result counts more because it can carry
+    /// several evidence tracks. Long runs checkpoint before compaction can restart the search.
+    private(set) var researchPressureWeightBeforeDraft = 0
     /// Paths for which the runner explicitly requested a forced research checkpoint. The first
     /// successful write arms continuation; only a later write after renewed web work clears it.
     private var expectedResearchCheckpointWorkspacePaths: Set<String> = []
@@ -154,7 +154,7 @@ struct AgentRunLoopState: Sendable {
     }
 
     func pendingResearchCheckpointPath(minimumResearchWeight: Int) -> String? {
-        guard successfulResearchWeightBeforeDraft >= minimumResearchWeight else { return nil }
+        guard researchPressureWeightBeforeDraft >= minimumResearchWeight else { return nil }
         return namedTextDeliverableWorkspacePaths.sorted().first { path in
             !writtenWorkspacePaths.contains(where: {
                 AgentArtifactVerificationGate.pathsMatch($0, path)
@@ -421,10 +421,18 @@ struct AgentRunLoopState: Sendable {
     private mutating func recordResearchCheckpointProgress(
         _ completion: AgentToolStepCompletion
     ) {
+        if completion.call.name == ToolDefinition.webSearch.name ||
+            completion.call.name == ToolDefinition.webFetch.name {
+            researchPressureWeightBeforeDraft += 1
+        } else if completion.call.name == ToolDefinition.subagentsRun.name,
+                  completion.result.ok {
+            researchPressureWeightBeforeDraft +=
+                AgentResearchCheckpointGate.delegatedResearchWeight
+        }
+
         guard completion.result.ok else { return }
         switch completion.call.name {
         case ToolDefinition.webSearch.name, ToolDefinition.webFetch.name:
-            successfulResearchWeightBeforeDraft += 1
             if !pendingResearchContinuationWorkspacePaths.isEmpty {
                 successfulResearchStepsAfterCheckpoint += 1
             }
@@ -432,8 +440,6 @@ struct AgentRunLoopState: Sendable {
                 pendingResearchContinuationWorkspacePaths
             )
         case ToolDefinition.subagentsRun.name:
-            successfulResearchWeightBeforeDraft +=
-                AgentResearchCheckpointGate.delegatedResearchWeight
             if !pendingResearchContinuationWorkspacePaths.isEmpty {
                 successfulResearchStepsAfterCheckpoint +=
                     AgentResearchCheckpointGate.delegatedResearchWeight
@@ -446,7 +452,7 @@ struct AgentRunLoopState: Sendable {
                let deliverablePath = namedTextDeliverableWorkspacePaths.first(where: {
                    AgentArtifactVerificationGate.pathsMatch($0, path)
                }) {
-                successfulResearchWeightBeforeDraft = 0
+                researchPressureWeightBeforeDraft = 0
                 if let checkpointPath = expectedResearchCheckpointWorkspacePaths.first(where: {
                     AgentArtifactVerificationGate.pathsMatch($0, deliverablePath)
                 }) {

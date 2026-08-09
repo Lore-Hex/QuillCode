@@ -167,10 +167,10 @@ final class AgentRunLoopStateTests: XCTestCase {
         ) { _ in "write" }
 
         XCTAssertNil(state.pendingResearchCheckpointPath(minimumResearchWeight: 1))
-        XCTAssertEqual(state.successfulResearchWeightBeforeDraft, 0)
+        XCTAssertEqual(state.researchPressureWeightBeforeDraft, 0)
     }
 
-    func testFailedWebWorkDoesNotArmResearchCheckpoint() {
+    func testFailedWebWorkArmsResearchCheckpointBeforeContextIsExhausted() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(userMessage: "Research and write outputs/report.md.")
         let fetch = ToolCall(
@@ -185,10 +185,11 @@ final class AgentRunLoopStateTests: XCTestCase {
             ) { _ in "constant" }
         }
 
-        XCTAssertNil(
+        XCTAssertEqual(
             state.pendingResearchCheckpointPath(
                 minimumResearchWeight: AgentResearchCheckpointGate.minimumPreDraftResearchWeight
-            )
+            ),
+            "outputs/report.md"
         )
     }
 
