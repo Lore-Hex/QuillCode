@@ -261,6 +261,9 @@ public struct AgentRunner: Sendable {
             /// Explicitly source-only named artifacts receive one post-draft semantic audit. After
             /// that bounded model pass, deterministic gates own repair, readback, and finalization.
             var sourceGroundingAuditCounts: [String: Int] = [:]
+            /// Live evidence gathered after a named text artifact was drafted gets two bounded
+            /// opportunities per path to force an incorporated, re-verified final artifact.
+            var researchRefreshCorrectionCounts: [String: Int] = [:]
             var pendingSourceGroundingAuditPath: String?
             var sourceGroundingRepairedPaths = Set<String>()
             /// A completed semantic audit or deterministic source repair owns finalization. Keeping
@@ -685,6 +688,23 @@ public struct AgentRunner: Sendable {
                     next.updatedAt = Date()
                     await onProgress?(next)
                 }
+                if case .say = resolvedAction,
+                   let correction = AgentResearchRefreshGate.correction(
+                    stalePaths: runLoop.researchStaleWorkspacePaths,
+                    correctionCounts: researchRefreshCorrectionCounts
+                   ) {
+                    researchRefreshCorrectionCounts[correction.path, default: 0] += 1
+                    controlledSourceGroundingFinalization = nil
+                    pendingRepeatNudge = correction.prompt
+                    next.events.append(.init(
+                        kind: .notice,
+                        summary: "Self-healing: requested a post-research refresh of "
+                            + "./\(correction.path) before completion."
+                    ))
+                    next.updatedAt = Date()
+                    await onProgress?(next)
+                    continue actionLoop
+                }
                 // F23: a terminal say may not end the run while a task-named created file is
                 // missing on disk. A corrective re-sample that returns a tool action flows into
                 // the tool arm below and the loop continues; the gate re-checks at the next say.
@@ -974,6 +994,21 @@ public struct AgentRunner: Sendable {
                             ))
                             next.updatedAt = Date()
                             await onProgress?(next)
+                        }
+                        if let correction = AgentResearchRefreshGate.correction(
+                            stalePaths: runLoop.researchStaleWorkspacePaths,
+                            correctionCounts: researchRefreshCorrectionCounts
+                        ) {
+                            researchRefreshCorrectionCounts[correction.path, default: 0] += 1
+                            pendingRepeatNudge = correction.prompt
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: requested a post-research refresh of "
+                                    + "./\(correction.path) before completion."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                            continue actionLoop
                         }
                         if !runLoop.hadDeniedStep {
                             finalized = try await actionByRequiringNamedDeliverables(

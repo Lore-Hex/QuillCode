@@ -337,6 +337,14 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("never report totals you did not reconcile"))
     }
 
+    func testPromptRequiresRefreshingArtifactsAfterLaterResearch() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.webFetch, .fileWrite])
+
+        XCTAssertTrue(prompt.contains("fetch new evidence after drafting a deliverable"))
+        XCTAssertTrue(prompt.contains("read the revised file back"))
+        XCTAssertTrue(prompt.contains("written before the final research step is not the final artifact"))
+    }
+
     func testPromptRequiresDeterministicTabularAggregation() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
 

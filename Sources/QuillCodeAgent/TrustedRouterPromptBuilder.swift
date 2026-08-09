@@ -140,6 +140,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
     error, a 404, or you never fetched it, do not cite that URL — find a working source or state \
     plainly that the claim is unverified. Every price, wattage, benchmark, or figure must trace to a \
     page you actually opened.
+    - If you fetch new evidence after drafting a deliverable, update the deliverable with the \
+    relevant evidence or an explicit unusable-source note, then read the revised file back. A draft \
+    written before the final research step is not the final artifact.
     Merges and transformations — verify per-source invariants before reporting:
     - When you merge, convert, or reshape data files, the output can be silently wrong while looking \
     plausible (dropped columns, mis-mapped headers, lost rows). Before reporting, reconcile the \

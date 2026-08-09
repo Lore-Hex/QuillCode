@@ -203,6 +203,104 @@ final class AgentCitationIntegrityGateTests: XCTestCase {
         XCTAssertTrue(state.writtenWorkspacePaths.contains("/tmp/brief.md"))
     }
 
+    func testFetchAfterNamedArtifactArmsRefreshUntilRewrite() {
+        var state = AgentRunLoopState()
+        let root = URL(fileURLWithPath: "/tmp")
+        let signature: (URL) -> String = { _ in "" }
+        state.seedArtifactVerification(
+            userMessage: "Write outputs/brief.md, then read the saved file back to verify it."
+        )
+
+        func completion(_ name: String, _ arguments: [String: Any], stdout: String) -> AgentToolStepCompletion {
+            AgentToolStepCompletion(
+                call: ToolCall(name: name, argumentsJSON: ToolArguments.json(arguments)),
+                result: ToolResult(ok: true, stdout: stdout),
+                followUpReviewResult: nil,
+                toolResults: []
+            )
+        }
+
+        _ = state.recordCompletedStep(
+            completion(
+                ToolDefinition.fileWrite.name,
+                ["path": "outputs/brief.md", "content": "draft"],
+                stdout: "Wrote outputs/brief.md"
+            ),
+            workspaceRoot: root,
+            stateSignature: signature
+        )
+        _ = state.recordCompletedStep(
+            completion(
+                "host.web.fetch",
+                ["url": "https://example.com/source"],
+                stdout: "Fetched https://example.com/source (HTTP 200)."
+            ),
+            workspaceRoot: root,
+            stateSignature: signature
+        )
+        XCTAssertEqual(state.researchStaleWorkspacePaths, ["outputs/brief.md"])
+
+        _ = state.recordCompletedStep(
+            completion(
+                ToolDefinition.fileWrite.name,
+                ["path": "./outputs/brief.md", "content": "revised"],
+                stdout: "Wrote outputs/brief.md"
+            ),
+            workspaceRoot: root,
+            stateSignature: signature
+        )
+        XCTAssertTrue(state.researchStaleWorkspacePaths.isEmpty)
+        XCTAssertEqual(state.unverifiedWrittenWorkspacePaths, ["outputs/brief.md"])
+    }
+
+    func testRunnerRefreshesAndReadsArtifactAfterLaterFetch() async throws {
+        let root = try makeWorkspace()
+        let writeDraft = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/brief.md", "content": "draft"])
+        )
+        let readDraft = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/brief.md"])
+        )
+        let fetch = ToolCall(
+            name: "host.web.fetch",
+            argumentsJSON: ToolArguments.json(["url": "https://example.com/source"])
+        )
+        let writeFinal = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/brief.md",
+                "content": "final [source](https://example.com/source)",
+            ])
+        )
+        let state = ScriptedState([
+            .tool(writeDraft), .tool(readDraft), .tool(fetch), .say("Done."),
+            .tool(writeFinal), .say("Updated and verified."), .say("Complete."),
+        ])
+        let runner = fetchStubRunner(llm: ScriptedClient(state: state))
+
+        let result = try await runner.send(
+            "Write outputs/brief.md. After writing, read the saved file back to verify it.",
+            in: ChatThread(title: "research refresh"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 5, "draft write/read, fetch, final write/read")
+        XCTAssertTrue(
+            result.thread.messages.last?.content.contains(
+                "final [source](https://example.com/source)"
+            ) == true
+        )
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/brief.md")),
+            "final [source](https://example.com/source)"
+        )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("post-research refresh")
+        })
+    }
+
     func testReadingBackOwnDeliverableDoesNotGroundItsCitations() throws {
         // The prompt MANDATES reading a written artifact back ("read the artifact back
         // (host.file.read / host.file.list) to confirm it exists"). Harvesting that read's stdout

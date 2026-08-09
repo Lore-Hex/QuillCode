@@ -26,6 +26,11 @@ struct AgentRunLoopState: Sendable {
     /// rich artifacts that do not appear in ToolResult.artifacts, so successful shell steps use
     /// this bounded set to discover those outputs on disk and arm the normal readback gate.
     private var requiredReadbackWorkspacePaths: Set<String> = []
+    /// Task-named text deliverables whose latest write predates a successful live-page fetch.
+    /// Terminal completion is gated until a later write incorporates or dispositions that evidence;
+    /// the ordinary readback gate then verifies the refreshed artifact.
+    private(set) var researchStaleWorkspacePaths: Set<String> = []
+    private var namedTextDeliverableWorkspacePaths: Set<String> = []
     /// Named prose artifacts whose latest successful write contains serialized newline/tab escapes
     /// in visible text. A clean rewrite removes the path before terminal quality enforcement.
     private(set) var malformedWrittenTextPaths: Set<String> = []
@@ -123,12 +128,13 @@ struct AgentRunLoopState: Sendable {
     }
 
     mutating func seedArtifactVerification(userMessage: String) {
-        guard AgentArtifactVerificationGate.requiresReadback(in: userMessage) else { return }
-        requiredReadbackWorkspacePaths = Set(
-            AgentDeliverableGate.requiredDeliverables(in: userMessage).map(
-                AgentArtifactVerificationGate.normalizedPath
-            )
+        let deliverables = AgentDeliverableGate.requiredDeliverables(in: userMessage).map(
+            AgentArtifactVerificationGate.normalizedPath
         )
+        namedTextDeliverableWorkspacePaths = Set(deliverables.filter(Self.isResearchTextArtifact))
+        if AgentArtifactVerificationGate.requiresReadback(in: userMessage) {
+            requiredReadbackWorkspacePaths = Set(deliverables)
+        }
     }
 
     private mutating func recordArtifactVerification(
@@ -161,8 +167,10 @@ struct AgentRunLoopState: Sendable {
         case ToolDefinition.chartRender.name:
             writtenWorkspacePaths.insert(normalized)
             unverifiedWrittenWorkspacePaths.insert(normalized)
+            markResearchArtifactRefreshed(normalized)
         case ToolDefinition.fileWrite.name:
             unverifiedWrittenWorkspacePaths.insert(normalized)
+            markResearchArtifactRefreshed(normalized)
             if let arguments = try? ToolArguments(completion.call.argumentsJSON),
                let content = arguments.string("content") {
                 latestWrittenTextContents[normalized] = content
@@ -327,6 +335,12 @@ struct AgentRunLoopState: Sendable {
         }
         if name == "host.web.fetch" {
             didFetchSuccessfully = true
+            for path in namedTextDeliverableWorkspacePaths where
+                writtenWorkspacePaths.contains(where: {
+                    AgentArtifactVerificationGate.pathsMatch($0, path)
+                }) {
+                researchStaleWorkspacePaths.insert(path)
+            }
             if let data = completion.call.argumentsJSON.data(using: .utf8),
                let arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let requested = arguments["url"] as? String {
@@ -347,6 +361,21 @@ struct AgentRunLoopState: Sendable {
         guard !isReadOfOwnOutput(completion) else { return }
         for url in AgentCitationIntegrityGate.allURLs(in: completion.result.stdout) {
             groundedURLs.insert(AgentCitationIntegrityGate.normalize(url))
+        }
+    }
+
+    private mutating func markResearchArtifactRefreshed(_ writtenPath: String) {
+        researchStaleWorkspacePaths = Set(researchStaleWorkspacePaths.filter {
+            !AgentArtifactVerificationGate.pathsMatch($0, writtenPath)
+        })
+    }
+
+    private static func isResearchTextArtifact(_ path: String) -> Bool {
+        switch URL(fileURLWithPath: path).pathExtension.lowercased() {
+        case "csv", "html", "json", "md", "txt", "tsv", "xml", "yaml", "yml":
+            return true
+        default:
+            return false
         }
     }
 
