@@ -168,6 +168,13 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
             self.assertTrue(PRIOR.output_path(row).endswith(f".{extension}"))
             self.assertIn(PRIOR.FORMAT_INSTRUCTIONS[extension], PRIOR.build_prompt(row))
 
+    def test_workbook_prompt_requires_formula_dependency_verification(self):
+        instruction = PRIOR.FORMAT_INSTRUCTIONS["xlsx"]
+
+        self.assertIn("inspect every formula dependency", instruction)
+        self.assertIn("quote sheet names", instruction)
+        self.assertIn("circular references", instruction)
+
     def test_browser_and_web_cases_have_distinct_evidence_classes(self):
         browser = self.rows[191]
         research = self.rows[110]

@@ -66,7 +66,9 @@ FORMAT_INSTRUCTIONS = {
     ),
     "xlsx": (
         "Create a real Office Open XML workbook, not CSV or Markdown renamed to .xlsx. "
-        "Include the requested sheets, formulas or rollups, and usable column headers."
+        "Include the requested sheets, formulas or rollups, and usable column headers. "
+        "After reopening it, inspect every formula dependency: quote sheet names containing "
+        "spaces, correct references to missing or text-header cells, and remove circular references."
     ),
     "pdf": (
         "Create a real readable PDF beginning with the PDF signature, with the requested "
