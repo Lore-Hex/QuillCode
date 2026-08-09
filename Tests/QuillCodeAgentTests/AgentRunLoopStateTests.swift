@@ -281,7 +281,7 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertEqual(state.successfulResearchStepsAfterCheckpoint, 0)
     }
 
-    func testPostCheckpointResearchBudgetRequiresSynthesis() {
+    func testDelegatedResearchAfterCheckpointRequiresImmediateSynthesis() {
         var state = AgentRunLoopState()
         state.seedArtifactVerification(
             userMessage: "Research competitors and write outputs/revenue.html with citations."
@@ -312,20 +312,8 @@ final class AgentRunLoopStateTests: XCTestCase {
         ) { _ in "delegated" }
         XCTAssertEqual(
             state.successfulResearchStepsAfterCheckpoint,
-            AgentResearchCheckpointGate.delegatedResearchWeight
+            AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
         )
-
-        for index in 0..<(AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
-            - AgentResearchCheckpointGate.delegatedResearchWeight) {
-            let fetch = ToolCall(
-                name: ToolDefinition.webFetch.name,
-                argumentsJSON: ToolArguments.json(["url": "https://example.com/\(index)"])
-            )
-            _ = state.recordCompletedStep(
-                completed(call: fetch, stdout: "evidence \(index)"),
-                workspaceRoot: root
-            ) { _ in "fetch-\(index)" }
-        }
 
         XCTAssertEqual(
             state.pendingResearchFinalizationPath(

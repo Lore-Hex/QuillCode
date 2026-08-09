@@ -450,8 +450,14 @@ struct AgentRunLoopState: Sendable {
             )
         case ToolDefinition.subagentsRun.name:
             if !pendingResearchContinuationWorkspacePaths.isEmpty {
-                successfulResearchStepsAfterCheckpoint +=
-                    AgentResearchCheckpointGate.delegatedResearchWeight
+                // A delegated batch is the last broad research action after a checkpoint. It may
+                // contain several worker tracks and can consume most of the parent's remaining
+                // wall-clock budget, so require reconciliation before any further read-only call.
+                successfulResearchStepsAfterCheckpoint = max(
+                    successfulResearchStepsAfterCheckpoint
+                        + AgentResearchCheckpointGate.delegatedResearchWeight,
+                    AgentResearchCheckpointGate.minimumPostCheckpointResearchSteps
+                )
                 resumedResearchCheckpointWorkspacePaths.formUnion(
                     pendingResearchContinuationWorkspacePaths
                 )
