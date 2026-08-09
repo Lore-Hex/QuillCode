@@ -4,11 +4,13 @@ public extension ToolDefinition {
     static let fileRead = ToolDefinition(
         name: "host.file.read",
         description: """
-        Read a UTF-8 file inside the project workspace. Output is prefixed with 1-based line numbers \
-        (as `<number>\\t<line>`) for precise editing reference — do NOT include those prefixes when \
-        writing a patch. Long files are paginated: pass `offset` (1-based start line) and `limit` \
-        (max lines, default 2000) to page through. Very long lines are truncated. Binary/image files \
-        are reported, not dumped.
+        Read a file inside the project workspace. Text files are read as UTF-8. PDF, DOCX, PPTX, \
+        XLSX, and XLS documents are extracted directly into readable text or cells; use this tool \
+        for those formats without installing converters or parsing them with shell commands. Output \
+        is prefixed with 1-based line numbers (as `<number>\\t<line>`) for precise editing reference \
+        — do NOT include those prefixes when writing a patch. Long files are paginated: pass `offset` \
+        (1-based start line) and `limit` (max lines, default 2000) to page through. Very long lines are \
+        truncated. Unsupported binary/image files are reported, not dumped.
         """,
         parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"integer","description":"1-based line to start at"},"limit":{"type":"integer","description":"maximum lines to return (default 2000)"}},"required":["path"]}"#,
         host: .local,

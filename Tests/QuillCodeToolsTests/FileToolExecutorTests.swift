@@ -137,6 +137,16 @@ final class FileToolExecutorTests: XCTestCase {
         XCTAssertTrue(shellRun.parametersJSON.contains("absolute and escaping paths are allowed"))
     }
 
+    func testFileReadDefinitionAdvertisesRichDocumentExtraction() {
+        let description = ToolDefinition.fileRead.description
+
+        for fileType in ["PDF", "DOCX", "PPTX", "XLSX", "XLS"] {
+            XCTAssertTrue(description.contains(fileType), "Missing \(fileType) from file-read guidance")
+        }
+        XCTAssertTrue(description.contains("without installing converters"))
+        XCTAssertTrue(description.contains("without") && description.contains("shell commands"))
+    }
+
     func testToolRouterAllowsEmptyFileWriteContent() throws {
         let root = try makeTempDirectory()
         try "old content\n".write(
