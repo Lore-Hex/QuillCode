@@ -448,6 +448,30 @@ def task_table(row, reference="", item_index=1, count=40):
     key = f"{row['category']} {row['task']} {reference}".casefold()
     owners = ("Priya Shah", "Rafael Ortiz", "Jo Chen", "Avery Lin")
 
+    if row["id"] == 19:
+        month_weights = (0.07, 0.07, 0.08, 0.08, 0.08, 0.08, 0.085, 0.085, 0.09, 0.09, 0.09, 0.10)
+        channels = (
+            ("Paid Search", 30000, "Capture active demand"),
+            ("Paid Social", 24000, "Reach target-account buying committees"),
+            ("Content and SEO", 18000, "Build durable organic demand"),
+            ("Events and Webinars", 18000, "Support pipeline and Northstar account engagement"),
+            ("Lifecycle Email", 15000, "Activate and retain existing leads"),
+            ("Partner and ABM", 15000, "Develop partner and named-account pipeline"),
+        )
+        headers = (
+            "channel", "annual_budget_usd",
+            "jan_pct", "feb_pct", "mar_pct", "apr_pct", "may_pct", "jun_pct",
+            "jul_pct", "aug_pct", "sep_pct", "oct_pct", "nov_pct", "dec_pct",
+            "owner", "approval_status", "planning_basis",
+        )
+        return [
+            headers,
+            *(
+                (channel, budget, *month_weights, "Jo Chen", "approved by Rafael Ortiz", basis)
+                for channel, budget, basis in channels
+            ),
+        ]
+
     if "kpi-dashboard" in reference.casefold():
         return [
             ("Metric", "Q2", "Q3", "Owner"),

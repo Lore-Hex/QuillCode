@@ -137,6 +137,22 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertTrue(any(not row["phone"] for row in rows))
         self.assertTrue(any(row["opt_out"] == "yes" for row in rows))
 
+    def test_budget_fixture_has_approved_annual_plan_and_exact_seasonality(self):
+        table = PRIOR.task_table(self.rows[18])
+        headers = table[0]
+        budget_index = headers.index("annual_budget_usd")
+        month_indexes = [headers.index(f"{month}_pct") for month in (
+            "jan", "feb", "mar", "apr", "may", "jun",
+            "jul", "aug", "sep", "oct", "nov", "dec",
+        )]
+        approval_index = headers.index("approval_status")
+
+        self.assertEqual(sum(row[budget_index] for row in table[1:]), 120000)
+        self.assertEqual(len(table) - 1, 6)
+        for row in table[1:]:
+            self.assertAlmostEqual(sum(row[index] for index in month_indexes), 1.0)
+            self.assertEqual(row[approval_index], "approved by Rafael Ortiz")
+
     def test_task_tables_differentiate_source_roles(self):
         row = self.rows[93]
         plan_v3 = PRIOR.task_table(row, "plan-v3.csv")
