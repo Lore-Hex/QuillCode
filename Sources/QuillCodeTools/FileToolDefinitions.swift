@@ -52,7 +52,11 @@ public extension ToolDefinition {
 
     static let fileWrite = ToolDefinition(
         name: "host.file.write",
-        description: "Write a UTF-8 file inside the project workspace.",
+        description: """
+        Write a UTF-8 file inside the project workspace. CSV files are validated before writing; every \
+        non-empty row must have the header's column count, and fields containing commas, quotes, or \
+        newlines must use standard CSV quoting. If validation fails, repair the content and retry.
+        """,
         parametersJSON: #"{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}"#,
         host: .local,
         risk: .append

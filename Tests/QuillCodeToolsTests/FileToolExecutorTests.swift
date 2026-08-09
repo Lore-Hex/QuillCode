@@ -95,6 +95,43 @@ final class FileToolExecutorTests: XCTestCase {
         XCTAssertFalse(files.write(path: "../escape.txt", content: "no").ok)
     }
 
+    func testFileWriteRejectsRaggedCSVWithoutReplacingExistingFile() throws {
+        let root = try makeTempDirectory()
+        let target = root.appendingPathComponent("report.csv")
+        let original = "id,summary,owner\n1,Renewal review,Priya\n"
+        try original.write(to: target, atomically: true, encoding: .utf8)
+        let files = FileToolExecutor(workspaceRoot: root)
+
+        let result = files.write(
+            path: "report.csv",
+            content: "id,summary,owner\n1,Fees paid in prior 12 months,except indemnity,Priya\n"
+        )
+
+        XCTAssertFalse(result.ok)
+        XCTAssertTrue(result.error?.contains("row 2 has 4 columns; the header has 3") == true, result.error ?? "")
+        XCTAssertTrue(result.error?.contains("Quote fields containing commas") == true, result.error ?? "")
+        XCTAssertEqual(try String(contentsOf: target, encoding: .utf8), original)
+    }
+
+    func testFileWriteAcceptsStandardCSVQuoting() throws {
+        let root = try makeTempDirectory()
+        let content = """
+        id,summary,owner
+        1,"Fees paid, except ""IP indemnity"".
+        Confirmed from lease.",Priya
+
+        """
+        let files = FileToolExecutor(workspaceRoot: root)
+
+        let result = files.write(path: "report.csv", content: content)
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("report.csv"), encoding: .utf8),
+            content
+        )
+    }
+
     func testUnrestrictedFileToolsUseAndReportExternalAbsolutePaths() throws {
         let root = try makeTempDirectory()
         let outside = try makeTempDirectory()

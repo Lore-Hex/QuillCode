@@ -100,6 +100,7 @@ public struct FileToolExecutor: Sendable {
     public func write(path: String, content: String) -> ToolResult {
         do {
             let url = try resolve(path)
+            try validateStructuredContent(content, for: url)
             guard let editGuard else {
                 return try performWrite(content, to: url)
             }
@@ -128,6 +129,12 @@ public struct FileToolExecutor: Sendable {
         } catch {
             return ToolResult(ok: false, error: String(describing: error))
         }
+    }
+
+    private func validateStructuredContent(_ content: String, for url: URL) throws {
+        guard url.pathExtension.caseInsensitiveCompare("csv") == .orderedSame,
+              !content.isEmpty else { return }
+        try CSVContentValidator.validate(content)
     }
 
     private func performWrite(_ content: String, to url: URL, existing: Data? = nil) throws -> ToolResult {
@@ -218,5 +225,135 @@ public struct FileToolExecutor: Sendable {
             return "{}"
         }
         return String(decoding: data, as: UTF8.self)
+    }
+}
+
+private enum CSVValidationError: Error, CustomStringConvertible {
+    case unexpectedQuote(row: Int, column: Int)
+    case unexpectedCharacterAfterQuote(row: Int, column: Int)
+    case unterminatedQuote(row: Int, column: Int)
+    case inconsistentWidth(row: Int, actual: Int, expected: Int)
+
+    var description: String {
+        let repair = "Quote fields containing commas, quotes, or newlines and retry."
+        switch self {
+        case .unexpectedQuote(let row, let column):
+            return "Invalid CSV: unexpected quote in row \(row), column \(column). \(repair)"
+        case .unexpectedCharacterAfterQuote(let row, let column):
+            return "Invalid CSV: unexpected character after a closing quote in row \(row), column \(column). \(repair)"
+        case .unterminatedQuote(let row, let column):
+            return "Invalid CSV: unterminated quoted field in row \(row), column \(column). \(repair)"
+        case .inconsistentWidth(let row, let actual, let expected):
+            return "Invalid CSV: row \(row) has \(actual) columns; the header has \(expected). \(repair)"
+        }
+    }
+}
+
+private enum CSVContentValidator {
+    private enum FieldState {
+        case start
+        case unquoted
+        case quoted
+        case closedQuote
+    }
+
+    static func validate(_ content: String) throws {
+        let characters = Array(content)
+        var index = 0
+        var row = 1
+        var column = 1
+        var columnsInRow = 1
+        var expectedColumns: Int?
+        var state = FieldState.start
+        var rowHasContent = false
+
+        func validateWidth() throws {
+            guard rowHasContent else { return }
+            if let expectedColumns, columnsInRow != expectedColumns {
+                throw CSVValidationError.inconsistentWidth(
+                    row: row,
+                    actual: columnsInRow,
+                    expected: expectedColumns
+                )
+            }
+            if expectedColumns == nil {
+                expectedColumns = columnsInRow
+            }
+        }
+
+        func finishRow() throws {
+            try validateWidth()
+            row += 1
+            column = 1
+            columnsInRow = 1
+            state = .start
+            rowHasContent = false
+        }
+
+        while index < characters.count {
+            let character = characters[index]
+            switch state {
+            case .quoted:
+                if character == "\"" {
+                    if index + 1 < characters.count, characters[index + 1] == "\"" {
+                        index += 1
+                    } else {
+                        state = .closedQuote
+                    }
+                }
+            case .closedQuote:
+                if character == "," {
+                    columnsInRow += 1
+                    column += 1
+                    state = .start
+                } else if character == "\n" || character == "\r" {
+                    try finishRow()
+                    if character == "\r", index + 1 < characters.count,
+                       characters[index + 1] == "\n" {
+                        index += 1
+                    }
+                } else {
+                    throw CSVValidationError.unexpectedCharacterAfterQuote(row: row, column: column)
+                }
+            case .start:
+                if character == "\"" {
+                    state = .quoted
+                    rowHasContent = true
+                } else if character == "," {
+                    columnsInRow += 1
+                    column += 1
+                    rowHasContent = true
+                } else if character == "\n" || character == "\r" {
+                    try finishRow()
+                    if character == "\r", index + 1 < characters.count,
+                       characters[index + 1] == "\n" {
+                        index += 1
+                    }
+                } else {
+                    state = .unquoted
+                    rowHasContent = true
+                }
+            case .unquoted:
+                if character == "\"" {
+                    throw CSVValidationError.unexpectedQuote(row: row, column: column)
+                } else if character == "," {
+                    columnsInRow += 1
+                    column += 1
+                    state = .start
+                } else if character == "\n" || character == "\r" {
+                    try finishRow()
+                    if character == "\r", index + 1 < characters.count,
+                       characters[index + 1] == "\n" {
+                        index += 1
+                    }
+                }
+            }
+            index += 1
+        }
+
+        if state == .quoted {
+            throw CSVValidationError.unterminatedQuote(row: row, column: column)
+        }
+        try validateWidth()
     }
 }
