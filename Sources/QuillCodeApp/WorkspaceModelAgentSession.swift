@@ -24,13 +24,18 @@ extension QuillCodeWorkspaceModel {
                 thread: sendStart.thread,
                 recordsUserMessage: false
             )
+        let progressRelay = WorkspaceAgentProgressRelay { [weak self] progressThread in
+            self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
+            onProgressUpdated?()
+        }
+        defer { progressRelay.cancel() }
         return await AgentRunRetryScope.$threadID.withValue(sendStart.threadID) {
             await WorkspaceAgentSendTaskCoordinator(
                 start: sendStart,
                 session: session
             ).run { [weak self] progressThread in
-                await self?.applyAgentProgress(progressThread, expectedThreadID: sendStart.threadID)
-                await onProgressUpdated?()
+                guard self != nil else { return }
+                progressRelay.publish(progressThread)
             }
         }
     }
