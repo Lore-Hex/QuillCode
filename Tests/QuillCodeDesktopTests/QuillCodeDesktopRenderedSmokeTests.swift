@@ -110,6 +110,25 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.brightPixelRatio, 0.0008)
     }
 
+    func testRenderedWorkspaceShowsUnsavedSettingsDurabilityWarning() throws {
+        let model = QuillCodeWorkspaceModel()
+        model.recordSettingsPersistenceFailure([
+            .configuration,
+            .trustedRouterCredential
+        ])
+        let surface = model.surface()
+        XCTAssertEqual(surface.runtimeIssue?.title, "Some settings changes are not saved")
+
+        let image = try renderWorkspace(surface)
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 1280)
+        XCTAssertEqual(stats.height, 900)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.brightPixelRatio, 0.0008)
+    }
+
     func testRenderedEmptyWorkspaceShowsAggregatedRegistryRecoveryIssue() throws {
         let firstThread = ChatThread(title: "Recovered chat A")
         let secondThread = ChatThread(title: "Recovered chat B")

@@ -15,7 +15,7 @@ final class ParityDesktopTrustedRouterAuthGateTests: QuillCodeParityTestCase {
         Self.assertSource(text, contains: "TrustedRouterDefaults.loopbackCallbackURL")
         Self.assertSource(text, contains: "createAuthorization")
         Self.assertSource(text, contains: "exchangeCode")
-        Self.assertSource(text, contains: "saveTrustedRouterAPIKey")
+        Self.assertSource(text, contains: "saveSettingsTransaction")
         Self.assertSource(text, contains: "fetchModelCatalog")
         Self.assertSource(signInText, contains: "func completeSignInAndApply")
         Self.assertSource(signInText, contains: "model.applySettings")
@@ -28,6 +28,8 @@ final class ParityDesktopTrustedRouterAuthGateTests: QuillCodeParityTestCase {
         Self.assertSource(controllerText, excludes: "LoopbackHTTPCallbackServer")
         Self.assertSource(controllerText, excludes: "private func completeTrustedRouterSignIn")
         Self.assertSource(controllerText, excludes: "QuillCodeRuntimeStatusLabel.signInFailed")
+        Self.assertSource(signInText, excludes: "try bootstrap.saveTrustedRouterAPIKey(token.key)")
+        Self.assertSource(signInText, excludes: "try bootstrap.saveConfig(config)")
         XCTAssertFalse(
             text.contains("NSWorkspace.shared.open(url)") && text.contains("TrustedRouterDefaults.signInURL"),
             "Desktop sign-in should not regress to opening the static sign-in documentation page."

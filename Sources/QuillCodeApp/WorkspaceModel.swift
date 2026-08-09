@@ -81,6 +81,7 @@ public final class QuillCodeWorkspaceModel {
     let threadPersistenceIssueTracker: WorkspaceThreadPersistenceIssueTracker
     let registryPersistence: WorkspaceRegistryPersistence
     let registryPersistenceIssueTracker: WorkspaceRegistryPersistenceIssueTracker
+    let settingsPersistenceIssueTracker: WorkspaceSettingsPersistenceIssueTracker
     let agentImporter: ClaudeCodeAgentImporter?
     /// Persisted per-project permission rules ("always allow/deny"). The agent's safety gate reads
     /// this same store per review, so a rule saved here applies to the very next tool call. Nil
@@ -236,6 +237,7 @@ public final class QuillCodeWorkspaceModel {
             sidebarSavedSearchStore: sidebarSavedSearchStore,
             issueTracker: registryPersistenceIssueTracker
         )
+        self.settingsPersistenceIssueTracker = WorkspaceSettingsPersistenceIssueTracker()
         self.startupLoadIssue = startupLoadIssue ?? WorkspaceStartupLoadIssue(
             loadedThreadCount: root.threads.count,
             threadLoadIssue: threadLoadIssue,

@@ -176,6 +176,61 @@ public struct QuillCodeWorkspaceBootstrap: Sendable {
         try ConfigStore(fileURL: paths.configFile).save(config)
     }
 
+    public func saveSettingsTransaction(
+        currentConfig: AppConfig,
+        proposedConfig: AppConfig,
+        credentialMutation: WorkspaceTrustedRouterCredentialMutation
+    ) throws {
+        let normalizedMutation: WorkspaceTrustedRouterCredentialMutation
+        switch credentialMutation {
+        case .replace(let credential):
+            let trimmed = credential.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                throw WorkspaceSettingsPersistenceError(
+                    failedKinds: [.trustedRouterCredential],
+                    rollbackFailed: false
+                )
+            }
+            normalizedMutation = .replace(trimmed)
+        case .unchanged, .clear:
+            normalizedMutation = credentialMutation
+        }
+
+        do {
+            try paths.ensure()
+        } catch {
+            var kinds: Set<WorkspaceSettingsPersistenceKind> = [.configuration]
+            if normalizedMutation.changesCredential {
+                kinds.insert(.trustedRouterCredential)
+            }
+            throw WorkspaceSettingsPersistenceError(
+                failedKinds: kinds,
+                rollbackFailed: false
+            )
+        }
+
+        let credentialStore = FileSecretStore(directory: paths.secretsDirectory)
+        let transaction = WorkspaceSettingsPersistenceTransaction(
+            saveConfiguration: { config in
+                try ConfigStore(fileURL: paths.configFile).save(config)
+            },
+            readCredential: {
+                try credentialStore.read(QuillSecretKeys.trustedRouterAPIKey)
+            },
+            writeCredential: { credential in
+                try credentialStore.write(credential, for: QuillSecretKeys.trustedRouterAPIKey)
+            },
+            clearCredential: {
+                try credentialStore.delete(QuillSecretKeys.trustedRouterAPIKey)
+            }
+        )
+        try transaction.apply(
+            currentConfig: currentConfig,
+            proposedConfig: proposedConfig,
+            credentialMutation: normalizedMutation
+        )
+    }
+
     public func makeRuntime(config: AppConfig) -> QuillCodeRuntime {
         runtimeFactory.makeRuntime(config: config)
     }

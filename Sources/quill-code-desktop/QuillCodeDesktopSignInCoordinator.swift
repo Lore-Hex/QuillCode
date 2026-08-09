@@ -57,8 +57,11 @@ struct QuillCodeDesktopSignInCoordinator {
         config.developerOverrideEnabled = false
         config.trustedRouterAccount = await client.accountProfile(from: token)
 
-        try bootstrap.saveTrustedRouterAPIKey(token.key)
-        try bootstrap.saveConfig(config)
+        try bootstrap.saveSettingsTransaction(
+            currentConfig: currentConfig,
+            proposedConfig: config,
+            credentialMutation: .replace(token.key)
+        )
         return QuillCodeDesktopSignInResult(
             config: config,
             trustedRouterAPIKeyConfigured: true
@@ -77,10 +80,21 @@ struct QuillCodeDesktopSignInCoordinator {
                 model.setAgentStatus(label, lastError: error)
                 refresh()
             }
+            model.recordSettingsPersistenceSuccess([
+                .configuration,
+                .trustedRouterCredential
+            ])
             applySignInResult(result, to: model, settingsCoordinator: settingsCoordinator)
             refresh()
             let catalog = await bootstrap.fetchModelCatalog(config: model.root.config)
             model.setModelCatalog(catalog)
+            refresh()
+        } catch let error as WorkspaceSettingsPersistenceError {
+            model.recordSettingsPersistenceFailure(error.failedKinds)
+            model.setAgentStatus(
+                QuillCodeRuntimeStatusLabel.signInFailed,
+                lastError: error.description
+            )
             refresh()
         } catch {
             model.setAgentStatus(
