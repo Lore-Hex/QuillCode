@@ -280,6 +280,9 @@ public struct AgentRunner: Sendable {
             /// A long read-only research phase gets two bounded opportunities to checkpoint a
             /// named text deliverable before more evidence collection can continue.
             var researchCheckpointCorrectionCounts: [String: Int] = [:]
+            /// Repeated serial pre-draft browsing is redirected into one early delegated batch.
+            /// This is separate from checkpointing because the worker evidence should arrive first.
+            var earlyDelegationCorrectionCounts: [String: Int] = [:]
             /// A forced checkpoint cannot terminate the run until web work resumes and the named
             /// deliverable is rewritten. This budget is separate from checkpoint creation.
             var researchCheckpointContinuationCorrectionCounts: [String: Int] = [:]
@@ -1324,6 +1327,33 @@ public struct AgentRunner: Sendable {
                             kind: .notice,
                             summary: "Self-healing: redirected an outside-workspace shell path "
                                 + "before approval review."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
+                    if let correction = AgentResearchCheckpointGate.earlyDelegationCorrection(
+                        path: runLoop.pendingResearchCheckpointPath(
+                            minimumResearchWeight:
+                                AgentResearchCheckpointGate.minimumDirectResearchBeforeDelegation
+                        ),
+                        proposedToolName: activeCall.name,
+                        canDelegate: tools.contains(where: {
+                            $0.name == ToolDefinition.subagentsRun.name
+                        }),
+                        canWriteFiles: tools.contains(where: {
+                            $0.name == ToolDefinition.fileWrite.name
+                        }),
+                        hasDelegatedResearch: runLoop.successfulDelegatedResearchBatchCount > 0,
+                        correctionCounts: earlyDelegationCorrectionCounts
+                    ) {
+                        earlyDelegationCorrectionCounts[correction.path, default: 0] += 1
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: redirected serial pre-draft research into "
+                                + "early parallel delegation for ./\(correction.path)."
                         ))
                         next.updatedAt = Date()
                         await onProgress?(next)

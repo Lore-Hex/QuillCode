@@ -11,11 +11,42 @@ enum AgentResearchCheckpointGate {
     }
 
     static let minimumPreDraftResearchWeight = 8
+    static let minimumDirectResearchBeforeDelegation = 3
     static let minimumPostCheckpointResearchSteps = 6
     static let maximumPostDraftResearchWeight = 15
     static let delegatedResearchWeight = 3
     static let correctionLimitPerPath = 2
     static let finalizationCorrectionLimitPerPath = 8
+
+    static func earlyDelegationCorrection(
+        path: String?,
+        proposedToolName: String,
+        canDelegate: Bool,
+        canWriteFiles: Bool,
+        hasDelegatedResearch: Bool,
+        correctionCounts: [String: Int]
+    ) -> Correction? {
+        guard isDirectResearchCollectionTool(proposedToolName),
+              canDelegate,
+              canWriteFiles,
+              !hasDelegatedResearch,
+              let path,
+              correctionCounts[path, default: 0] < correctionLimitPerPath
+        else { return nil }
+
+        return Correction(
+            path: path,
+            prompt: """
+            The serial pre-draft research limit for ./\(path) has been reached. Do not perform \
+            another direct search or fetch. Launch host.subagents.run now with two to four precise, \
+            independent research workers so named entities or evidence tracks are investigated in \
+            parallel. Require each worker to return the requested facts, exact source URLs, and a \
+            clear blocked status for any missing evidence; a promise to continue is not a completed \
+            worker result. After the batch returns, reconcile every requested entity into ./\(path), \
+            then read the artifact back. Respond with host.subagents.run now.
+            """
+        )
+    }
 
     static func correction(
         path: String?,
@@ -76,9 +107,12 @@ enum AgentResearchCheckpointGate {
     }
 
     static func isResearchCollectionTool(_ name: String) -> Bool {
-        name == ToolDefinition.webSearch.name
-            || name == ToolDefinition.webFetch.name
+        isDirectResearchCollectionTool(name)
             || name == ToolDefinition.subagentsRun.name
+    }
+
+    static func isDirectResearchCollectionTool(_ name: String) -> Bool {
+        name == ToolDefinition.webSearch.name || name == ToolDefinition.webFetch.name
     }
 
     static func continuationCorrection(

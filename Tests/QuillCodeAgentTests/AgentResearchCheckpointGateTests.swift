@@ -3,6 +3,49 @@ import QuillCodeCore
 @testable import QuillCodeAgent
 
 final class AgentResearchCheckpointGateTests: XCTestCase {
+    func testEarlyDelegationBlocksAnotherSerialFetchBeforeDraft() throws {
+        let correction = try XCTUnwrap(AgentResearchCheckpointGate.earlyDelegationCorrection(
+            path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.webFetch.name,
+            canDelegate: true,
+            canWriteFiles: true,
+            hasDelegatedResearch: false,
+            correctionCounts: [:]
+        ))
+
+        XCTAssertEqual(correction.path, "outputs/revenue.html")
+        XCTAssertTrue(correction.prompt.contains("host.subagents.run now"))
+        XCTAssertTrue(correction.prompt.contains("exact source URLs"))
+        XCTAssertTrue(correction.prompt.contains("promise to continue is not a completed"))
+    }
+
+    func testEarlyDelegationRequiresToolsAndStopsAfterSuccessfulBatch() {
+        XCTAssertNil(AgentResearchCheckpointGate.earlyDelegationCorrection(
+            path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.fileRead.name,
+            canDelegate: true,
+            canWriteFiles: true,
+            hasDelegatedResearch: false,
+            correctionCounts: [:]
+        ))
+        XCTAssertNil(AgentResearchCheckpointGate.earlyDelegationCorrection(
+            path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.webSearch.name,
+            canDelegate: false,
+            canWriteFiles: true,
+            hasDelegatedResearch: false,
+            correctionCounts: [:]
+        ))
+        XCTAssertNil(AgentResearchCheckpointGate.earlyDelegationCorrection(
+            path: "outputs/revenue.html",
+            proposedToolName: ToolDefinition.webSearch.name,
+            canDelegate: true,
+            canWriteFiles: true,
+            hasDelegatedResearch: true,
+            correctionCounts: [:]
+        ))
+    }
+
     func testRequiresExactDraftBeforeAnotherReadOnlyAction() throws {
         let correction = try XCTUnwrap(AgentResearchCheckpointGate.correction(
             path: "outputs/revenue.html",

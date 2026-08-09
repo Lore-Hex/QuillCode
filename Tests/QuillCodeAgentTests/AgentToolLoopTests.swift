@@ -166,6 +166,79 @@ final class AgentToolLoopTests: XCTestCase {
         )
     }
 
+    func testAgentRedirectsFourthSerialResearchCallIntoEarlyDelegation() async throws {
+        let root = try makeTempDirectory()
+        let directCapture = ToolCallCapture()
+        let delegatedCapture = ToolCallCapture()
+        let fetches = (1...4).map { index in
+            ToolCall(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: ToolArguments.json(["url": "https://example.test/company-\(index)"])
+            )
+        }
+        let delegated = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "research independent company evidence in parallel",
+                "workers": [
+                    ["name": "Company A", "role": "collect sourced facts"],
+                    ["name": "Company B", "role": "collect sourced facts"],
+                ],
+            ] as [String: Any])
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Final report\n\nDelegated company evidence reconciled.\n",
+            ])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(fetches[0]), .tool(fetches[1]), .tool(fetches[2]), .tool(fetches[3]),
+                .tool(delegated), .tool(write), .tool(read), .say("Completed the report."),
+            ]),
+            additionalToolDefinitions: [ToolDefinition.subagentsRun],
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.webFetch.name else { return nil }
+                await directCapture.record(call)
+                return ToolResult(ok: false, error: "Test source unavailable")
+            },
+            threadToolExecutionOverride: { call, _, thread, _ in
+                guard call.name == ToolDefinition.subagentsRun.name else { return nil }
+                await delegatedCapture.record(call)
+                return AgentThreadToolExecution(
+                    thread: thread,
+                    result: ToolResult(ok: true, stdout: "Independent evidence returned.")
+                )
+            },
+            maxToolSteps: 12
+        )
+
+        let result = try await runner.send(
+            "Research separate company workstreams, write outputs/report.md, and read it back.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let directCallCount = await directCapture.count
+        let delegatedCallCount = await delegatedCapture.count
+        XCTAssertEqual(directCallCount, 3)
+        XCTAssertEqual(delegatedCallCount, 1)
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("early parallel delegation")
+        })
+        XCTAssertEqual(result.thread.messages.last?.content, "Completed the report.")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "# Final report\n\nDelegated company evidence reconciled.\n"
+        )
+    }
+
     func testThreadOwningToolMergesStateBeforeTheAgentContinues() async throws {
         let root = try makeTempDirectory()
         let call = ToolCall(
