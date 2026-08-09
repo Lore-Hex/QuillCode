@@ -295,6 +295,22 @@ extension AgentPromisedWorkGuardTests {
         }
     }
 
+    func testDetectsBareInProgressStatusAsUnfinishedWork() {
+        let stalls = [
+            "[Research in progress]",
+            "Work in progress",
+            "**Analysis in progress**",
+            "Task in progress",
+        ]
+        for text in stalls {
+            XCTAssertEqual(
+                AgentPromisedWorkGuard.correctionNeeded(for: text, tools: [.webSearch, .fileWrite]),
+                .promisedWork,
+                "bare progress status should re-drive: \(text)"
+            )
+        }
+    }
+
     func testPresentProgressObservationIsNotAPromise() {
         XCTAssertNil(AgentPromisedWorkGuard.correctionNeeded(
             for: "Reading the report now shows three conversion gaps.",

@@ -175,6 +175,14 @@ enum AgentPromisedWorkGuard {
     /// the clause must start with a concrete work gerund and end on the token "now", so completed
     /// observations such as "Reading the report now shows three gaps" remain valid final answers.
     private static func declaresImmediateWorkInProgress(in normalizedText: String) -> Bool {
+        let bareStatus = normalizedText.trimmingCharacters(
+            in: CharacterSet.whitespacesAndNewlines.union(
+                CharacterSet(charactersIn: "[](){}*_`#:-")
+            )
+        )
+        if bareInProgressStatuses.contains(bareStatus) {
+            return true
+        }
         let terminalClause = normalizedText
             .replacingOccurrences(
                 of: #"[.!?]\s+"#,
@@ -192,6 +200,13 @@ enum AgentPromisedWorkGuard {
                 || terminalClause.hasPrefix("i am \(gerund) ")
         }
     }
+
+    private static let bareInProgressStatuses = [
+        "analysis in progress",
+        "research in progress",
+        "task in progress",
+        "work in progress",
+    ]
 
     private static let immediateWorkGerunds = [
         "reading", "writing", "creating", "opening", "inspecting", "checking", "reviewing",
