@@ -360,6 +360,13 @@ enum WorkspaceSubagentTerminalStatus {
     }
 
     private static func hasRecoverableWorkMarker(in text: String) -> Bool {
+        let unfinishedStateMarkers = [
+            "starting research", "not yet obtained", "not yet confirmed",
+            "not fully complete", "i need to gather", "now i need ",
+        ]
+        if unfinishedStateMarkers.contains(where: text.contains) {
+            return true
+        }
         if let range = text.range(of: "i need ") {
             let remainder = text[range.upperBound...].prefix(120)
             if remainder.contains(" to complete") || remainder.contains(" to finish") {

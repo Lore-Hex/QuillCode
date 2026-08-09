@@ -212,6 +212,10 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             "I found the annual report. I will try Nasdaq next for the missing quarter.",
             "The first source was blocked; let me search the investor-relations archive.",
             "GitLab Q1 FY2026 confirmed. Now retrieving Q2 FY2026 results for the missing figure.",
+            "COMPLETE: I have not yet obtained reliable total revenue figures for three quarters.",
+            "The role is not fully complete; I need to fetch the remaining releases.",
+            "Starting research. I have Q1, and now I need Q2 through Q4.",
+            "Q2 revenue is confirmed. I need to gather Q3 and Q4 next.",
         ]
 
         for stall in stalls {
