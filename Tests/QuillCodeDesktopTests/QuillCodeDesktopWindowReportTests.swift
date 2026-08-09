@@ -596,6 +596,32 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
         )
     }
 
+    func testWindowAccessibilityActivationSamplerPreservesDeclaredOrderWithinPhases() {
+        XCTAssertEqual(
+            QuillCodeDesktopAccessibilityActivationSampler.orderedActivationContractIDs(
+                includesInitialSurface: true
+            ),
+            [
+                "onboarding.developer-key",
+                "composer.model-picker",
+                "command.search",
+                "command.settings",
+                "command.toggle-automations",
+                "command.toggle-extensions",
+                "command.toggle-memories",
+                "command.toggle-activity",
+                "command.toggle-review-panel",
+                "command.new-chat"
+            ]
+        )
+        XCTAssertEqual(
+            QuillCodeDesktopAccessibilityActivationSampler.orderedActivationContractIDs(
+                includesInitialSurface: false
+            ).first,
+            "composer.model-picker"
+        )
+    }
+
     func testNewChatActivationTransitionRequiresOneAddedSelectedThread() {
         let baselineID = UUID()
         let createdID = UUID()

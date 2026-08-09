@@ -1,5 +1,24 @@
 # QuillCode Decisions
 
+## 2026-08-08: new chats own composer focus and native interaction order is intentional
+
+- **New Chat focus:** The desktop navigation boundary bumps the existing composer focus token after
+  creating a chat and before refreshing the rendered surface. Sidebar, menu, shortcut, and command
+  palette routes all converge there, so a newly created chat is immediately ready for typing instead
+  of leaving keyboard focus on the command that created it.
+- **Smoke ordering:** Accessibility activation still groups contracts by lifecycle phase, but now
+  preserves declaration order inside each phase. Developer-key onboarding runs first, the composer
+  model picker runs first among repeatable transient controls, and New Chat remains last because it
+  replaces workspace state.
+- **Why:** Native Intel build 669 passed both sweeps in its first fresh process, then exposed two
+  cumulative interaction issues in its second: the model button was absent after seven transient
+  surface cycles, and menu-driven New Chat created the correct thread without focusing its composer.
+  Alphabetically reordering independent UI contracts added no product value and obscured the intended
+  low-churn-first sequence.
+- **Evidence integrity:** The smoke still performs real `AXPress` actions, repeats every durable
+  interaction twice, and restores each baseline. Ordering avoids unrelated accumulated presentation
+  churn; it does not skip, mock, or weaken any contract.
+
 ## 2026-08-08: native Accessibility discovery tolerates equivalent titles and delayed trees
 
 - **Decision:** Native command-menu fallback compares case-, diacritic-, and width-folded titles, so

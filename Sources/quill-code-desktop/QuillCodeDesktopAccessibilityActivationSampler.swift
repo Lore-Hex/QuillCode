@@ -200,11 +200,9 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         let probesByID = Dictionary(uniqueKeysWithValues: nativeHitTargets.clickProbes.map { ($0.contractID, $0) })
         var checks: [QuillCodeDesktopAccessibilityActivationCheck] = []
         var validationIssues: [String] = []
-        let sampledContracts = activationContracts.filter {
-            includesInitialSurface || repeatableActivationContractIDs.contains($0.contractID)
-        }
+        let sampledContracts = orderedActivationContracts(includesInitialSurface: includesInitialSurface)
 
-        for contract in sampledContracts.sorted(by: activationOrder) {
+        for contract in sampledContracts {
             contract.prepare?(controller)
             try? await Task.sleep(nanoseconds: 100_000_000)
             guard let probe = probesByID[contract.contractID] else {
@@ -247,14 +245,24 @@ enum QuillCodeDesktopAccessibilityActivationSampler {
         )
     }
 
-    private static func activationOrder(
-        _ lhs: QuillCodeDesktopAccessibilityActivationContract,
-        _ rhs: QuillCodeDesktopAccessibilityActivationContract
-    ) -> Bool {
-        if lhs.phase != rhs.phase {
-            return lhs.phase < rhs.phase
-        }
-        return lhs.contractID < rhs.contractID
+    static func orderedActivationContractIDs(includesInitialSurface: Bool) -> [String] {
+        orderedActivationContracts(includesInitialSurface: includesInitialSurface).map(\.contractID)
+    }
+
+    private static func orderedActivationContracts(
+        includesInitialSurface: Bool
+    ) -> [QuillCodeDesktopAccessibilityActivationContract] {
+        activationContracts.enumerated()
+            .filter { _, contract in
+                includesInitialSurface || repeatableActivationContractIDs.contains(contract.contractID)
+            }
+            .sorted { lhs, rhs in
+                if lhs.element.phase != rhs.element.phase {
+                    return lhs.element.phase < rhs.element.phase
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map(\.element)
     }
 
     private static func activate(
