@@ -18,6 +18,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             build=123
             commit=\(commit)
             configuration=release
+            symbolsStripped=true
+            executableSizeBytes=28311552
             bundleIdentifier=co.lorehex.QuillCowork
             minimumSystemVersion=14.0
             updateChannel=tester
@@ -200,6 +202,8 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             build=456
             commit=\(commit)
             configuration=release
+            symbolsStripped=true
+            executableSizeBytes=28311552
             bundleIdentifier=co.lorehex.QuillCowork
             minimumSystemVersion=14.0
             updateChannel=stable
@@ -440,6 +444,12 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "QUILLCODE_MACOS_BUILD_COMMIT=\"$COMMIT\"",
             "installer=Quill-Cowork-macOS-$ARCH.dmg",
             "performance=Quill-Cowork-macOS-$ARCH-PERFORMANCE.json",
+            "SYMBOLS_STRIPPED=false",
+            #"if [[ "$CONFIGURATION" == "release" ]]; then"#,
+            "SYMBOLS_STRIPPED=true",
+            "symbolsStripped=$SYMBOLS_STRIPPED",
+            "executableSizeBytes=$APP_EXECUTABLE_SIZE_BYTES",
+            "stat -f '%z' \"$APP_EXECUTABLE\"",
             "scripts/packaged-macos-performance-smoke.sh",
             "scripts/create-macos-disk-image.sh",
             "signingTeamIdentifier=${SIGNING_TEAM_IDENTIFIER:-none}",

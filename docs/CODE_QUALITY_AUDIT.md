@@ -1,5 +1,26 @@
 # Code Quality Audit
 
+## 2026-08-09 Pre-Sign Release Executable Stripping
+
+Overall grade after this slice: **A+ binary footprint, A+ signing integrity, A+ public evidence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Binary footprint | A+ | The measured arm64 release executable falls from 56,099,184 to 28,144,256 bytes after `strip -S -x`, removing 49.8%; the final ad-hoc signed app image is 27,998,784 bytes. |
+| Runtime integrity | A+ | The stripped executable completed the full native window smoke, including launch, two interaction sweeps, Accessibility activation, screenshot capture, memory/thread evidence, and clean exit. |
+| Signing integrity | A+ | Only release builds strip, and the operation is ordered after bundle copy but before every ad-hoc or Developer ID signing path. Debug symbols remain available in development builds. |
+| Public verification | A+ | `BUILD_INFO` declares the strip policy and exact executable bytes; publication compares that value to the regular thin Mach-O entry inside each downloaded app ZIP. |
+| Regression coverage | A+ | Executable helper tests prove exact flags and symlink refusal; packaging-order, manifest, and adversarial public-verifier suites cover the complete release path. |
+
+Validation:
+
+- Focused strip, download-manifest, and published-release suites (31 tests, 0 failures)
+- Full `swift test` (5,711 tests, 5 skipped, 0 failures)
+- `bash -n` for the strip helper and macOS app builder
+- Python compile validation for the manifest generator and public artifact verifier
+- Real stripped and signed release app native window smoke passed with one workspace window,
+  10 Accessibility actions, two interaction sweeps, and 372.73 ms launch-ready
+
 ## 2026-08-09 Bounded Public-Updater Feed Propagation
 
 Overall grade after this slice: **A+ release resilience, A+ failure integrity, A+ regression evidence**.

@@ -22,6 +22,7 @@ from release_verification_performance import verify_performance_evidence_asset
 
 APP_INFO_BYTE_LIMIT = 256 * 1024
 APP_ARCHIVE_ENTRY_LIMIT = 20_000
+APP_EXECUTABLE_BYTE_LIMIT = 512 * 1024 * 1024
 MACHO_CPU_TYPES = {
     "arm64": 0x0100000C,
     "x86_64": 0x01000007,
@@ -86,10 +87,11 @@ def verify_build_info(
     *,
     channel: str,
     commit: str,
-) -> None:
+) -> dict[str, int]:
     updater = manifest["updater"]
     signing_team = updater.get("signingTeamIdentifier") or "none"
     asset_names = {asset["name"] for asset in assets}
+    executable_sizes: dict[str, int] = {}
     for app_asset in updater["macOSAppAssets"]:
         architecture = app_asset["arch"]
         build_info_name = f"BUILD_INFO-macOS-{architecture}.txt"
@@ -105,6 +107,7 @@ def verify_build_info(
             "build": manifest["build"],
             "commit": commit,
             "configuration": "release",
+            "symbolsStripped": "true",
             "bundleIdentifier": BUNDLE_IDENTIFIER,
             "minimumSystemVersion": updater["minimumSystemVersion"],
             "updateChannel": channel,
@@ -124,6 +127,17 @@ def verify_build_info(
                 raise VerificationError(
                     f"{build_info_name} {key} disagrees with the manifest"
                 )
+        raw_executable_size = build_info.get("executableSizeBytes", "")
+        if not raw_executable_size.isdecimal():
+            raise VerificationError(
+                f"{build_info_name} executableSizeBytes is not a positive integer"
+            )
+        executable_size = int(raw_executable_size)
+        if executable_size <= 0 or executable_size > APP_EXECUTABLE_BYTE_LIMIT:
+            raise VerificationError(
+                f"{build_info_name} executableSizeBytes is outside the allowed range"
+            )
+        executable_sizes[architecture] = executable_size
         for asset_key in ("installer", "app", "performance", "cli"):
             if build_info[asset_key] not in asset_names:
                 raise VerificationError(
@@ -144,6 +158,7 @@ def verify_build_info(
         raise VerificationError(
             "BUILD_INFO.txt must exactly mirror BUILD_INFO-macOS-arm64.txt"
         )
+    return executable_sizes
 
 
 def verify_primary_checksums(
@@ -207,6 +222,7 @@ def verify_app_archive(
     *,
     channel: str,
     commit: str,
+    expected_executable_size: int,
 ) -> None:
     updater = manifest["updater"]
     archive_path = asset_directory / app_asset["name"]
@@ -227,6 +243,10 @@ def verify_app_archive(
                 executable_path,
                 "executable",
             )
+            if executable_entry.file_size != expected_executable_size:
+                raise VerificationError(
+                    "macOS app executable size disagrees with BUILD_INFO"
+                )
             with archive.open(executable_entry) as handle:
                 executable_header = handle.read(8)
     except VerificationError:
@@ -291,7 +311,7 @@ def verify_asset_files(
             )
     verify_primary_checksums(asset_directory, assets)
     verify_performance_evidence_asset(asset_directory, assets, manifest)
-    verify_build_info(
+    executable_sizes = verify_build_info(
         asset_directory,
         assets,
         manifest,
@@ -310,4 +330,5 @@ def verify_asset_files(
             manifest,
             channel=channel,
             commit=commit,
+            expected_executable_size=executable_sizes[architecture],
         )

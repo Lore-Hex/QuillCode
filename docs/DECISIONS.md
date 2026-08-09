@@ -1,5 +1,20 @@
 # QuillCode Decisions
 
+## 2026-08-09: release app executables are stripped before signing
+
+- **Decision:** macOS release apps remove debug symbols and local symbols with `strip -S -x` after
+  the Swift executable is copied into the app bundle and before ad-hoc or Developer ID signing.
+  Debug builds retain their symbols for development and CI diagnosis.
+- **Integrity boundary:** The strip helper accepts only one regular executable file, rejects
+  symlinks and unavailable tools, and fails if stripping removes executability, empties the image,
+  or grows it. Signing remains downstream so stripping cannot invalidate a finished signature.
+- **Public evidence:** Architecture-specific `BUILD_INFO` files declare the strip policy and exact
+  executable size. The public verifier compares that size with the regular Mach-O entry inside the
+  downloaded ZIP in addition to checking its thin architecture and app metadata.
+- **Why:** The arm64 release executable measured 56,099,184 bytes before stripping and 28,144,256
+  bytes afterward, a 49.8% reduction. Smaller native images reduce download and cold page-in work
+  while retaining global symbols for useful crash backtraces.
+
 ## 2026-08-09: public updater smoke waits out bounded feed propagation
 
 - **Decision:** The packaged public-updater runner retries only an authenticated, valid feed that

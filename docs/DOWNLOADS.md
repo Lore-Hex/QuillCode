@@ -41,6 +41,11 @@ version, signing/notarization status, and exact arm64 and x86_64 updater assets.
 The legacy arm64 field remains present so already-installed tester builds continue
 to update. The DMG is the recommended human installation path; the ZIP remains the
 machine-verified updater payload so installation ergonomics cannot change update semantics.
+Every macOS `BUILD_INFO` also records `symbolsStripped=true` and the exact uncompressed
+app-executable byte size. Release builds remove debug and local symbols before any ad-hoc or
+Developer ID signature is applied. Public verification compares the declared size with the Mach-O
+inside each downloaded app ZIP, so a skipped strip step, stale metadata, or post-sign mutation
+cannot pass publication.
 
 When Quill Cowork is launched directly from the read-only DMG or another
 non-replaceable location outside `/Applications`, it offers **Move & Relaunch**.
