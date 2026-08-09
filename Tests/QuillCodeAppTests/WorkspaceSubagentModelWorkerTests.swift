@@ -244,11 +244,52 @@ final class WorkspaceSubagentModelWorkerTests: XCTestCase {
             "Starting research. I have Q1, and now I need Q2 through Q4.",
             "Q2 revenue is confirmed. I need to gather Q3 and Q4 next.",
             "The query windows returned only the headline ($333.9M for Q4 2025) and not the full GAAP revenue table. Fetching the alternate press-release URL to extract the complete fiscal-year and quarterly GAAP revenue figures.",
+            "I have all four FY2026 quarters, but I need to verify the",
         ]
 
         for stall in stalls {
             XCTAssertEqual(WorkspaceSubagentTerminalStatus.status(for: stall), .failed)
         }
+    }
+
+    func testExplicitCompleteMarkerIsReportedAsDone() {
+        XCTAssertEqual(
+            WorkspaceSubagentTerminalStatus.status(
+                for: "COMPLETE: Verified all four quarters against official investor-relations releases."
+            ),
+            .completed
+        )
+    }
+
+    func testCancellationSummaryRecoversGroundedReasoningAndToolEvidence() throws {
+        let feedback = AgentToolFeedback(
+            toolCall: ToolCall(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: #"{"url":"https://ir.example.test/q1"}"#
+            ),
+            result: ToolResult(
+                ok: true,
+                stdout: "Fetched https://ir.example.test/q1. Q1 revenue was $214.5 million."
+            )
+        )
+        let thread = ChatThread(
+            messages: [
+                ChatMessage(role: .tool, content: try JSONHelpers.encodePretty(feedback)),
+                ChatMessage(role: .assistant, content: "I have the values, but I need to verify the"),
+            ],
+            events: [
+                ThreadEvent(
+                    kind: .notice,
+                    summary: "Thinking: Q1 $214.5M and Q2 $236.0M reconcile to the official filing."
+                ),
+            ]
+        )
+
+        let summary = AgentWorkspaceSubagentWorker.cancellationSummary(from: thread)
+
+        XCTAssertTrue(summary.contains("Recovered grounded evidence:"))
+        XCTAssertTrue(summary.contains("Q1 $214.5M"))
+        XCTAssertTrue(summary.contains("https://ir.example.test/q1"))
     }
 
     func testToolStepCeilingIsNotReportedAsCompleted() async throws {

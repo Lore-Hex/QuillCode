@@ -12,7 +12,7 @@ typealias WorkspaceSubagentRunRecordSink = @Sendable (
 /// explicit `/subagents` command. The generic agent loop remains scheduler-agnostic: this executor
 /// owns child persistence and returns the parent thread snapshot containing compact run manifests.
 struct WorkspaceSubagentRunToolExecutor: Sendable {
-    static let defaultDelegationBudget: Duration = .seconds(300)
+    static let defaultDelegationBudget: Duration = .seconds(600)
 
     let sessionFactory: WorkspaceAgentSendSessionFactory
     let threadStore: SubagentThreadStore?
@@ -179,7 +179,7 @@ private actor WorkspaceSubagentParentProjection {
 }
 
 private struct WorkspaceSubagentRunToolOutput: Codable, Sendable, Hashable {
-    private static let parentSummaryLimit = 1_800
+    private static let parentSummaryLimit = 6_000
 
     struct Worker: Codable, Sendable, Hashable {
         var name: String

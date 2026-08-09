@@ -194,15 +194,23 @@ struct AgentWorkspaceSubagentWorker: Sendable {
         let finalSummary = summary.flatMap { $0.isEmpty ? nil : $0 } ?? "Completed \(fallbackRole)"
         guard stopReason == .finished else {
             let stopSummary = stopSummary(for: stopReason)
+            let summaryWithEvidence = Self.appendingEvidence(
+                WorkspaceSubagentEvidenceDigest.summary(from: thread),
+                to: finalSummary
+            )
             return WorkspaceSubagentWorkerResult(
                 status: .failed,
-                summary: "\(stopSummary) Latest evidence: \(finalSummary)",
+                summary: "\(stopSummary) Latest evidence: \(summaryWithEvidence)",
                 transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
             )
         }
+        let status = WorkspaceSubagentTerminalStatus.status(for: assistantText)
+        let summaryWithEvidence = status == .failed
+            ? Self.appendingEvidence(WorkspaceSubagentEvidenceDigest.summary(from: thread), to: finalSummary)
+            : finalSummary
         return WorkspaceSubagentWorkerResult(
-            status: WorkspaceSubagentTerminalStatus.status(for: assistantText),
-            summary: finalSummary,
+            status: status,
+            summary: summaryWithEvidence,
             transcript: WorkspaceSubagentTranscriptBuilder.entries(from: thread)
         )
     }
@@ -214,9 +222,16 @@ struct AgentWorkspaceSubagentWorker: Sendable {
             .map(WorkspaceContextSummaryTextBounds.collapsedSingleLine)
             .flatMap { $0.isEmpty ? nil : $0 }
         guard let latestNote else {
-            return "Cancelled at the delegation deadline before the worker produced a final summary."
+            let prefix = "Cancelled at the delegation deadline before the worker produced a final summary."
+            return appendingEvidence(WorkspaceSubagentEvidenceDigest.summary(from: thread), to: prefix)
         }
-        return "Cancelled at the delegation deadline. Latest worker note: \(latestNote)"
+        let prefix = "Cancelled at the delegation deadline. Latest worker note: \(latestNote)"
+        return appendingEvidence(WorkspaceSubagentEvidenceDigest.summary(from: thread), to: prefix)
+    }
+
+    private static func appendingEvidence(_ evidence: String?, to summary: String) -> String {
+        guard let evidence, !evidence.isEmpty else { return summary }
+        return "\(summary)\n\nRecovered grounded evidence:\n\(evidence)"
     }
 
     private static func stopSummary(for stopReason: AgentRunStopReason) -> String {
@@ -379,7 +394,7 @@ enum WorkspaceSubagentTerminalStatus {
     private static func hasRecoverableWorkMarker(in text: String) -> Bool {
         let unfinishedStateMarkers = [
             "starting research", "not yet obtained", "not yet confirmed",
-            "not fully complete", "i need to gather", "now i need ",
+            "not fully complete", "i need to gather", "i need to verify", "now i need ",
         ]
         if unfinishedStateMarkers.contains(where: text.contains) {
             return true
@@ -420,5 +435,46 @@ enum WorkspaceSubagentTerminalStatus {
             "next step: retry", "next step: fetch", "next step: search",
         ]
         return nextActionMarkers.contains(where: text.contains)
+    }
+}
+
+enum WorkspaceSubagentEvidenceDigest {
+    private static let maximumCharacters = 5_200
+    private static let maximumReasoningCharacters = 2_200
+    private static let maximumToolCharacters = 900
+    private static let maximumReasoningEntries = 2
+    private static let maximumToolEntries = 3
+
+    /// A worker can be cancelled after gathering the answer but before producing a terminal summary.
+    /// Preserve a compact, redacted projection of its grounded trace so the parent can still synthesize.
+    static func summary(from thread: ChatThread) -> String? {
+        let reasoning = thread.events
+            .filter { $0.kind == .notice && $0.summary.hasPrefix("Thinking:") }
+            .suffix(maximumReasoningEntries)
+            .map { bounded($0.summary, limit: maximumReasoningCharacters) }
+
+        let tools = thread.messages.compactMap { message -> String? in
+            guard message.role == .tool,
+                  let data = message.content.data(using: .utf8),
+                  let feedback = try? JSONDecoder().decode(AgentToolFeedback.self, from: data),
+                  feedback.result.ok
+            else { return nil }
+            let output = [feedback.result.stdout, feedback.result.stderr]
+                .first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) ?? ""
+            guard !output.isEmpty else { return nil }
+            return "\(feedback.toolCall.name): \(bounded(output, limit: maximumToolCharacters))"
+        }.suffix(maximumToolEntries)
+
+        let combined = (reasoning + tools).joined(separator: "\n\n")
+        guard !combined.isEmpty,
+              let sanitized = WorkspaceContextSummarySanitizer.summary(from: combined)
+        else { return nil }
+        return bounded(sanitized, limit: maximumCharacters)
+    }
+
+    private static func bounded(_ text: String, limit: Int) -> String {
+        let collapsed = WorkspaceContextSummaryTextBounds.collapsedSingleLine(text)
+        guard collapsed.count > limit else { return collapsed }
+        return WorkspaceContextSummaryTextBounds.prefix(collapsed, limit: limit)
     }
 }
