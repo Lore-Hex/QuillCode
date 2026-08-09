@@ -18,6 +18,8 @@ enum WorkspaceToolGlyphBuilder {
             return "doc.text"
         case ToolDefinition.fileWrite.name:
             return "square.and.pencil"
+        case ToolDefinition.chartRender.name:
+            return "chart.bar.xaxis"
         case ToolDefinition.fileList.name:
             return "folder"
         case ToolDefinition.fileSearch.name:

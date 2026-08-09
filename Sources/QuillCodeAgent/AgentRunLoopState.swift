@@ -152,6 +152,9 @@ struct AgentRunLoopState: Sendable {
         }
         let normalized = AgentArtifactVerificationGate.normalizedPath(path)
         switch completion.call.name {
+        case ToolDefinition.chartRender.name:
+            writtenWorkspacePaths.insert(normalized)
+            unverifiedWrittenWorkspacePaths.insert(normalized)
         case ToolDefinition.fileWrite.name:
             unverifiedWrittenWorkspacePaths.insert(normalized)
             if let arguments = try? ToolArguments(completion.call.argumentsJSON),
@@ -296,10 +299,9 @@ struct AgentRunLoopState: Sendable {
     private mutating func recordCitationProvenance(_ completion: AgentToolStepCompletion) {
         guard completion.result.ok else { return }
         let name = completion.call.name
-        // Scope: only host.file.write registers written paths (args.path + the executor's
-        // absolute artifact path). apply_patch reports no artifacts; a patch-authored deliverable
-        // is simply not scanned — under-enforcement, never a false positive on user files.
-        if name == "host.file.write" {
+        // Whole-file producers register their requested path plus the executor's absolute artifact
+        // path. apply_patch reports no artifacts; a patch-authored deliverable is simply not scanned.
+        if name == ToolDefinition.fileWrite.name || name == ToolDefinition.chartRender.name {
             if let data = completion.call.argumentsJSON.data(using: .utf8),
                let arguments = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let path = arguments["path"] as? String {

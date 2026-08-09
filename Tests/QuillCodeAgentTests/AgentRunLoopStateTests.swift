@@ -75,6 +75,30 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertEqual(state.unverifiedWrittenWorkspacePaths, ["outputs/report.md"])
     }
 
+    func testRenderedChartNeedsLaterSuccessfulRead() {
+        var state = AgentRunLoopState()
+        let render = ToolCall(
+            name: ToolDefinition.chartRender.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/revenue.png",
+                "categories": ["Q1"],
+                "series": ["East": "10"],
+            ] as [String: Any])
+        )
+        let read = fileReadCall("outputs/revenue.png")
+        state.baselineWorkspaceStateIfNeeded(workspaceRoot: root) { _ in "before" }
+
+        _ = state.recordCompletedStep(completed(call: render, stdout: "rendered"), workspaceRoot: root) { _ in
+            "render"
+        }
+        XCTAssertEqual(state.unverifiedWrittenWorkspacePaths, ["outputs/revenue.png"])
+
+        _ = state.recordCompletedStep(completed(call: read, stdout: "PNG image"), workspaceRoot: root) { _ in
+            "render"
+        }
+        XCTAssertTrue(state.unverifiedWrittenWorkspacePaths.isEmpty)
+    }
+
     private func recordNoProgress(
         _ call: ToolCall,
         in state: inout AgentRunLoopState

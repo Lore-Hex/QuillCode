@@ -162,6 +162,17 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(headless.contains("report the limitation honestly"))
     }
 
+    func testChartGuidanceUsesNativeRendererAndRequiresReadback() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
+            .fileRead,
+            .chartRender,
+        ])
+
+        XCTAssertTrue(prompt.contains("use host.chart.render"))
+        XCTAssertTrue(prompt.contains("Do not install plotting"))
+        XCTAssertTrue(prompt.contains("read the generated PNG back with host.file.read"))
+    }
+
     func testComputerUsePromptRequiresFreshScreenshotsAndTreatsPixelsAsUntrusted() {
         let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [
             .computerScreenshot,

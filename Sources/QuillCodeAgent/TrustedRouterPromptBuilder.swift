@@ -113,6 +113,11 @@ public struct TrustedRouterPromptBuilder: Sendable {
     manually joining values with commas. Quote fields containing commas, quotes, or newlines.
     - Read the saved CSV back with a CSV parser and verify one header row, a consistent column count \
     on every row, and the requested record count before reporting completion.
+    Charts and PNG deliverables — render real images without dependency installs:
+    - When host.chart.render is available, use it for stacked or grouped bar charts instead of \
+    installing plotting libraries, writing plain text to a .png path, or stopping on a missing library. \
+    Compute values from the source first, pass one numeric value per category for every series, then \
+    read the generated PNG back with host.file.read to verify its dimensions and format.
     Do the work — do not narrate it:
     - Writing a script or a file does NOT run it. To run a program, produce output files, or verify \
     anything, you MUST call the shell tool (host.shell.run). A step is real only when a tool call in \
@@ -191,6 +196,9 @@ public struct TrustedRouterPromptBuilder: Sendable {
         "path"; do not use shell grep/find unless the user explicitly asks for a shell command.
         - To combine PDF files, create a table of contents, or add per-file PDF bookmarks, use \
         host.pdf.merge. Do not install PDF libraries or overwrite a .pdf path with plain text.
+        - To create a PNG bar chart, use host.chart.render. Pass `categories` as labels and `series` \
+        as an object whose string values contain comma-separated numbers. Do not install plotting \
+        libraries or write plain text to a .png path.
         - If the user asks to load, use, or run an installed skill, call host.skill.load immediately \
         with a non-empty "name" string, then follow the returned skill instructions.
         - If the user asks to run a command, create a host.shell.run action immediately. Do not answer \

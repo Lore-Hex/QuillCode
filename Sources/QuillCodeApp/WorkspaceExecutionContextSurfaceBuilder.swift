@@ -62,6 +62,7 @@ struct WorkspaceExecutionContextSurfaceBuilder: Sendable, Hashable {
         ToolDefinition.fileList.name,
         ToolDefinition.fileSearch.name,
         ToolDefinition.fileWrite.name,
+        ToolDefinition.chartRender.name,
         ToolDefinition.applyPatch.name,
         ToolDefinition.gitStatus.name,
         ToolDefinition.gitDiff.name,

@@ -52,7 +52,7 @@ enum WorkspaceToolCardSubtitleBuilder {
         switch toolName {
         case ToolDefinition.shellRun.name:
             return sanitized(arguments.string("cmd"))
-        case ToolDefinition.fileRead.name, ToolDefinition.fileWrite.name,
+        case ToolDefinition.fileRead.name, ToolDefinition.fileWrite.name, ToolDefinition.chartRender.name,
              ToolDefinition.fileList.name,
              ToolDefinition.gitStage.name, ToolDefinition.gitRestore.name,
              ToolDefinition.gitStageHunk.name, ToolDefinition.gitUnstageHunk.name,

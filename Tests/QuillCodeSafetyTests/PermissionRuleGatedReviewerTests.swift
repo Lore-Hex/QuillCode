@@ -437,6 +437,22 @@ final class PermissionRuleGatedReviewerTests: XCTestCase {
         )
     }
 
+    func testSubjectForChartRenderScopesTheOutputPath() throws {
+        let root = try makeWorkspace()
+        let subject = PermissionRuleSubject.make(
+            toolCall: ToolCall(
+                name: "host.chart.render",
+                argumentsJSON: ToolArguments.json(["path": "charts/../regional.png"])
+            ),
+            workspaceRoot: root
+        )
+        XCTAssertEqual(subject.action, "host.chart.render")
+        XCTAssertEqual(
+            subject.resource,
+            PermissionRuleSubject.caseFoldedIfNeeded(root.appendingPathComponent("regional.png").path)
+        )
+    }
+
     func testSubjectForMCPCallScopesServerAndTool() {
         let subject = PermissionRuleSubject.make(
             toolCall: ToolCall(

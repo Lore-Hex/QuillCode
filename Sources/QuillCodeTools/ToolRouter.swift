@@ -6,6 +6,7 @@ public struct ToolRouter: Sendable {
     public let accessScope: HostToolAccessScope
     public var shell: ShellToolExecutor
     public var files: FileToolExecutor
+    public var chart: ChartToolExecutor
     public var pdf: PDFToolExecutor
     public var git: GitToolExecutor
     public var patch: PatchToolExecutor
@@ -35,6 +36,11 @@ public struct ToolRouter: Sendable {
             accessScope: accessScope,
             editGuard: editGuard
         )
+        self.chart = ChartToolExecutor(
+            workspaceRoot: workspaceRoot,
+            accessScope: accessScope,
+            editGuard: editGuard
+        )
         self.pdf = PDFToolExecutor(
             workspaceRoot: workspaceRoot,
             accessScope: accessScope,
@@ -52,6 +58,7 @@ public struct ToolRouter: Sendable {
         .fileList,
         .fileSearch,
         .fileWrite,
+        .chartRender,
         .pdfMerge,
         .applyPatch,
         .webFetch,
@@ -108,6 +115,26 @@ public struct ToolRouter: Sendable {
                     content: try args.requiredString("content", allowingEmpty: true)
                 )
                 return withLSPFeedback(result, writtenPaths: [path])
+            case ToolDefinition.chartRender.name:
+                guard let categories = args.stringArray("categories") else {
+                    return ToolResult(ok: false, error: "Missing required string array argument: categories")
+                }
+                guard let series = args.stringDictionary("series") else {
+                    return ToolResult(ok: false, error: "Missing required string object argument: series")
+                }
+                return chart.render(
+                    path: try args.requiredString("path"),
+                    title: args.string("title"),
+                    categories: categories,
+                    series: series,
+                    seriesOrder: args.stringArray("seriesOrder"),
+                    stacked: args.bool("stacked") ?? true,
+                    colors: args.stringDictionary("colors"),
+                    xAxisLabel: args.string("xAxisLabel"),
+                    yAxisLabel: args.string("yAxisLabel"),
+                    width: args.int("width"),
+                    height: args.int("height")
+                )
             case ToolDefinition.pdfMerge.name:
                 guard let inputs = args.stringArray("inputs") else {
                     return ToolResult(ok: false, error: "Missing required string array argument: inputs")

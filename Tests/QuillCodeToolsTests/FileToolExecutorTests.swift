@@ -172,11 +172,17 @@ final class FileToolExecutorTests: XCTestCase {
         let adapted = HostToolAccessScope.unrestricted.adapting(ToolRouter.definitions)
         let fileRead = try XCTUnwrap(adapted.first { $0.name == ToolDefinition.fileRead.name })
         let shellRun = try XCTUnwrap(adapted.first { $0.name == ToolDefinition.shellRun.name })
+        let chartRender = try XCTUnwrap(adapted.first { $0.name == ToolDefinition.chartRender.name })
 
         XCTAssertTrue(fileRead.description.contains("host filesystem"))
         XCTAssertTrue(fileRead.parametersJSON.contains("absolute and escaping paths are allowed"))
         XCTAssertTrue(shellRun.description.contains("absolute or escaping cwd values are allowed"))
         XCTAssertTrue(shellRun.parametersJSON.contains("absolute and escaping paths are allowed"))
+        XCTAssertTrue(chartRender.description.contains("host filesystem"))
+        XCTAssertTrue(
+            chartRender.parametersJSON.contains("absolute and escaping paths are allowed"),
+            chartRender.parametersJSON
+        )
     }
 
     func testFileReadDefinitionAdvertisesRichDocumentExtraction() {

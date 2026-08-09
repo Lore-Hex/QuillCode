@@ -8,6 +8,7 @@ enum WorkspaceToolDisplayNameBuilder {
         ToolDefinition.shellRun.name,
         ToolDefinition.fileRead.name,
         ToolDefinition.fileWrite.name,
+        ToolDefinition.chartRender.name,
         ToolDefinition.fileList.name,
         ToolDefinition.fileSearch.name,
         ToolDefinition.applyPatch.name,
@@ -88,6 +89,8 @@ enum WorkspaceToolDisplayNameBuilder {
             return "Read"
         case ToolDefinition.fileWrite.name:
             return "Write"
+        case ToolDefinition.chartRender.name:
+            return "Render chart"
         case ToolDefinition.fileList.name:
             return "List"
         case ToolDefinition.fileSearch.name:
@@ -117,6 +120,8 @@ enum WorkspaceToolDisplayNameBuilder {
             return "Read file"
         case ToolDefinition.fileWrite.name:
             return "Write file"
+        case ToolDefinition.chartRender.name:
+            return "Render chart"
         case ToolDefinition.fileList.name:
             return "List files"
         case ToolDefinition.fileSearch.name:

@@ -56,4 +56,16 @@ final class FileReadRendererTests: XCTestCase {
         XCTAssertTrue(desc.contains("PNG image"), desc)
         XCTAssertTrue(desc.contains("logo.png"), desc)
     }
+
+    func testBinaryDescriptionReportsPNGDimensions() {
+        let png = Data([
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+            0x00, 0x00, 0x04, 0xB0, 0x00, 0x00, 0x02, 0xA3,
+        ])
+
+        let desc = FileReadRenderer.binaryDescription(png, fileName: "chart.png")
+
+        XCTAssertTrue(desc.contains("1200x675 pixels"), desc)
+    }
 }
