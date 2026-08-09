@@ -137,6 +137,55 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
         XCTAssertEqual(run.workers.map(\.status), [.cancelled])
     }
 
+    func testDelegationBudgetReturnsWithoutWaitingForCancellationInsensitiveWorker() async throws {
+        let root = try makeQuillCodeTestDirectory()
+        let threadStore = SubagentThreadStore(directory: root.appendingPathComponent("children"))
+        let factory = testFactory(root: root, llm: ChildToolInventoryLLMClient())
+        let records = SubagentRunRecordCollector()
+        let evidenceMarker = "PARTIAL-EVIDENCE-BEFORE-HARD-DEADLINE"
+        let scheduler = WorkspaceSubagentScheduler(detailedWorker: { job in
+            var child = ChatThread(id: job.childThreadID, title: "Subagent: \(job.name)")
+            child.messages.append(ChatMessage(role: .assistant, content: evidenceMarker))
+            try threadStore.save(child)
+            await withCheckedContinuation { continuation in
+                DispatchQueue.global().asyncAfter(deadline: .now() + 0.4) {
+                    continuation.resume()
+                }
+            }
+            return WorkspaceSubagentWorkerResult(summary: "Late completion")
+        })
+        let executor = WorkspaceSubagentRunToolExecutor(
+            sessionFactory: factory,
+            threadStore: threadStore,
+            approvalPayloadStore: nil,
+            schedulerOverride: scheduler,
+            recordSink: { record, _ in await records.append(record) },
+            delegationBudget: .milliseconds(25)
+        )
+        let call = ToolCall(
+            name: ToolDefinition.subagentsRun.name,
+            argumentsJSON: ToolArguments.json([
+                "objective": "Return at the hard delegation deadline.",
+                "workers": [["name": "Researcher", "role": "Ignore cancellation temporarily."]]
+            ])
+        )
+
+        let startedAt = Date()
+        let execution = await executor.executionOverride(call, root, ChatThread(), nil)
+        let resolved = try XCTUnwrap(execution)
+
+        XCTAssertLessThan(Date().timeIntervalSince(startedAt), 0.2)
+        XCTAssertTrue(resolved.result.stdout.contains("Delegation time budget reached"))
+        XCTAssertTrue(resolved.result.stdout.contains(evidenceMarker))
+        let run = try XCTUnwrap(resolved.thread.subagentRuns.first)
+        XCTAssertEqual(run.workers.map(\.status), [.cancelled])
+        XCTAssertNotNil(run.finishedAt)
+
+        try await Task.sleep(for: .milliseconds(450))
+        let latestStatuses = await records.latestStatuses()
+        XCTAssertEqual(latestStatuses, [.cancelled])
+    }
+
     func testChildSessionCannotStartAnIndependentSubagentTree() async throws {
         let root = try makeQuillCodeTestDirectory()
         let factory = WorkspaceAgentSendSessionFactory(
@@ -209,6 +258,18 @@ final class WorkspaceSubagentRunToolIntegrationTests: XCTestCase {
             try await Task.sleep(for: .milliseconds(10))
         }
         XCTFail("Timed out waiting for condition")
+    }
+}
+
+private actor SubagentRunRecordCollector {
+    private var records: [SubagentRunRecord] = []
+
+    func append(_ record: SubagentRunRecord) {
+        records.append(record)
+    }
+
+    func latestStatuses() -> [SubagentStatus]? {
+        records.last?.workers.map(\.status)
     }
 }
 

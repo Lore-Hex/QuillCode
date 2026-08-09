@@ -74,9 +74,21 @@ struct WorkspaceSubagentRunToolExecutor: Sendable {
             request: request,
             runID: runID,
             state: { record in
+                guard let snapshot = await projection.recordIfOpen(record) else { return }
                 await recordSink?(record, parentThread.id)
-                let snapshot = await projection.record(record)
+                guard await projection.isOpen else { return }
                 await onProgress?(snapshot)
+            },
+            deadline: { parentCancelled in
+                let result = await projection.finalizeAtDeadline(
+                    request: request,
+                    runID: runID,
+                    threadStore: threadStore,
+                    parentCancelled: parentCancelled
+                )
+                await recordSink?(result.record, parentThread.id)
+                await onProgress?(await projection.snapshot())
+                return result
             },
             spawn: { _, summary in
                 WorkspaceSubagentSpawnDirectiveParser.parse(summary)
@@ -102,43 +114,60 @@ struct WorkspaceSubagentRunToolExecutor: Sendable {
         request: WorkspaceSubagentRunRequest,
         runID: UUID,
         state: @escaping WorkspaceSubagentScheduler.StateSink,
+        deadline: @escaping @Sendable (Bool) async -> WorkspaceSubagentRunResult,
         spawn: @escaping WorkspaceSubagentScheduler.Spawner
     ) async -> WorkspaceSubagentBoundedRun {
-        await withTaskGroup(of: WorkspaceSubagentRunRace.self) { group in
-            group.addTask {
-                .result(await scheduler.run(
-                    request: request,
-                    runID: runID,
-                    state: state,
-                    spawn: spawn
-                ))
+        let (events, continuation) = AsyncStream<WorkspaceSubagentRunRace>.makeStream()
+        let schedulerTask = Task {
+            let result = await scheduler.run(
+                request: request,
+                runID: runID,
+                state: state,
+                spawn: spawn
+            )
+            continuation.yield(.result(result))
+        }
+        let deadlineTask = Task {
+            do {
+                try await Task.sleep(for: delegationBudget)
+                continuation.yield(.delegationBudgetReached)
+            } catch is CancellationError {
+                continuation.yield(.parentCancelled)
             }
-            group.addTask {
-                do {
-                    try await Task.sleep(for: delegationBudget)
-                    return .delegationBudgetReached
-                } catch {
-                    return .cancelledDeadline
-                }
-            }
+        }
 
-            var delegationBudgetReached = false
-            while let outcome = await group.next() {
-                switch outcome {
-                case .result(let result):
-                    group.cancelAll()
-                    return WorkspaceSubagentBoundedRun(
-                        result: result,
-                        delegationBudgetReached: delegationBudgetReached
-                    )
-                case .delegationBudgetReached:
-                    delegationBudgetReached = true
-                    group.cancelAll()
-                case .cancelledDeadline:
-                    continue
-                }
-            }
-            preconditionFailure("Subagent scheduler ended without a result")
+        var iterator = events.makeAsyncIterator()
+        let outcome = await withTaskCancellationHandler {
+            await iterator.next()
+        } onCancel: {
+            schedulerTask.cancel()
+            deadlineTask.cancel()
+        }
+        continuation.finish()
+
+        switch outcome {
+        case .result(let result):
+            deadlineTask.cancel()
+            return WorkspaceSubagentBoundedRun(result: result, delegationBudgetReached: false)
+        case .delegationBudgetReached:
+            schedulerTask.cancel()
+            return WorkspaceSubagentBoundedRun(
+                result: await deadline(false),
+                delegationBudgetReached: true
+            )
+        case .parentCancelled:
+            schedulerTask.cancel()
+            return WorkspaceSubagentBoundedRun(
+                result: await deadline(true),
+                delegationBudgetReached: false
+            )
+        case nil:
+            schedulerTask.cancel()
+            deadlineTask.cancel()
+            return WorkspaceSubagentBoundedRun(
+                result: await deadline(Task.isCancelled),
+                delegationBudgetReached: !Task.isCancelled
+            )
         }
     }
 }
@@ -146,7 +175,7 @@ struct WorkspaceSubagentRunToolExecutor: Sendable {
 private enum WorkspaceSubagentRunRace: Sendable {
     case result(WorkspaceSubagentRunResult)
     case delegationBudgetReached
-    case cancelledDeadline
+    case parentCancelled
 }
 
 private struct WorkspaceSubagentBoundedRun: Sendable {
@@ -156,12 +185,82 @@ private struct WorkspaceSubagentBoundedRun: Sendable {
 
 private actor WorkspaceSubagentParentProjection {
     private var thread: ChatThread
+    private(set) var isOpen = true
 
     init(_ thread: ChatThread) {
         self.thread = thread
     }
 
-    func record(_ record: SubagentRunRecord) -> ChatThread {
+    func recordIfOpen(_ record: SubagentRunRecord) -> ChatThread? {
+        guard isOpen else { return nil }
+        apply(record)
+        return thread
+    }
+
+    func finalizeAtDeadline(
+        request: WorkspaceSubagentRunRequest,
+        runID: UUID,
+        threadStore: SubagentThreadStore?,
+        parentCancelled: Bool
+    ) -> WorkspaceSubagentRunResult {
+        isOpen = false
+        let now = Date()
+        var record = thread.subagentRuns.first(where: { $0.id == runID })
+            ?? Self.initialRecord(request: request, runID: runID, now: now)
+        var items: [SubagentProgressItem] = []
+        var workerResults: [String: String] = [:]
+
+        for index in record.workers.indices {
+            var worker = record.workers[index]
+            let childThread = try? threadStore?.load(worker.childThreadID)
+            let transcript = childThread.map(WorkspaceSubagentTranscriptBuilder.entries(from:)) ?? []
+            let fullSummary: String
+
+            switch worker.status {
+            case .queued, .running, .blocked, .interrupted:
+                worker.status = .cancelled
+                worker.pendingApproval = nil
+                fullSummary = childThread.map(AgentWorkspaceSubagentWorker.cancellationSummary(from:))
+                    ?? (parentCancelled
+                        ? "Cancelled when the parent run stopped before this worker returned."
+                        : "Cancelled at the hard delegation deadline before this worker returned.")
+            case .completed, .failed, .cancelled, .awaitingApproval:
+                fullSummary = Self.recoveredSummary(for: worker, childThread: childThread)
+            }
+
+            worker.summary = WorkspaceSubagentScheduler.boundedSummary(fullSummary)
+            worker.updatedAt = now
+            record.workers[index] = worker
+            workerResults[worker.id] = fullSummary
+            items.append(SubagentProgressItem(
+                workerID: worker.id,
+                name: worker.name,
+                role: worker.role,
+                status: worker.status,
+                summary: worker.summary,
+                groupPath: worker.groupPath,
+                transcript: transcript
+            ))
+        }
+
+        record.updatedAt = now
+        record.finishedAt = record.workers.allSatisfy {
+            $0.status == .completed || $0.status == .failed || $0.status == .cancelled
+        } ? now : nil
+        apply(record)
+        let update = SubagentProgressUpdate(objective: request.objective, subagents: items)
+        return WorkspaceSubagentRunResult(
+            update: update,
+            summary: WorkspaceSubagentScheduler.finalSummary(
+                objective: request.objective,
+                items: items
+            ),
+            record: record,
+            workerResults: workerResults
+        )
+    }
+
+    private func apply(_ record: SubagentRunRecord) {
         if let index = thread.subagentRuns.firstIndex(where: { $0.id == record.id }) {
             var next = record
             next.lastPublishedSummary = thread.subagentRuns[index].lastPublishedSummary
@@ -170,11 +269,65 @@ private actor WorkspaceSubagentParentProjection {
             thread.subagentRuns.append(record)
         }
         thread.updatedAt = Date()
-        return thread
     }
 
     func snapshot() -> ChatThread {
         thread
+    }
+
+    private static func initialRecord(
+        request: WorkspaceSubagentRunRequest,
+        runID: UUID,
+        now: Date
+    ) -> SubagentRunRecord {
+        var workers = request.workers.map { request in
+            SubagentWorkerRecord(
+                name: request.name,
+                role: request.role,
+                groupPath: request.groupPath,
+                status: .queued,
+                updatedAt: now
+            )
+        }
+        let idByName = Dictionary(uniqueKeysWithValues: workers.map { ($0.name.lowercased(), $0.id) })
+        for index in workers.indices {
+            workers[index].dependencyIDs = request.workers[index].dependsOn.compactMap {
+                idByName[$0.lowercased()]
+            }
+        }
+        return SubagentRunRecord(
+            id: runID,
+            objective: request.objective,
+            maxConcurrentWorkers: request.maxConcurrentWorkers,
+            workers: workers,
+            createdAt: now,
+            updatedAt: now
+        )
+    }
+
+    private static func recoveredSummary(
+        for worker: SubagentWorkerRecord,
+        childThread: ChatThread?
+    ) -> String {
+        guard let childThread else {
+            return worker.summary ?? worker.status.label
+        }
+        if worker.status == .cancelled {
+            return AgentWorkspaceSubagentWorker.cancellationSummary(from: childThread)
+        }
+        if worker.status == .awaitingApproval {
+            return worker.summary ?? "Worker needs approval."
+        }
+        let answer = childThread.messages
+            .last(where: { $0.role == .assistant })
+            .flatMap { WorkspaceContextSummarySanitizer.summary(from: $0.content) }
+        guard worker.status == .failed,
+              let evidence = WorkspaceSubagentEvidenceDigest.summary(from: childThread),
+              !evidence.isEmpty
+        else {
+            return answer ?? worker.summary ?? worker.status.label
+        }
+        return "\(answer ?? worker.summary ?? worker.status.label)\n\nRecovered grounded evidence:\n\(evidence)"
     }
 }
 
