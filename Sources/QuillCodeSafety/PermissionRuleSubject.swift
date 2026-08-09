@@ -49,7 +49,8 @@ public struct PermissionRuleSubject: Sendable, Hashable {
         "host.file.read": "path",
         "host.file.write": "path",
         "host.file.list": "path",
-        "host.file.search": "path"
+        "host.file.search": "path",
+        "host.pdf.merge": "output"
     ]
 
     private static let shellRunToolName = "host.shell.run"

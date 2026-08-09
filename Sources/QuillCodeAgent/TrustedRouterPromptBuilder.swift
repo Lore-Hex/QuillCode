@@ -184,6 +184,8 @@ public struct TrustedRouterPromptBuilder: Sendable {
         unless the user explicitly asks for a shell command.
         - For workspace text or symbol searches, use host.file.search with non-empty "query" and optional \
         "path"; do not use shell grep/find unless the user explicitly asks for a shell command.
+        - To combine PDF files, create a table of contents, or add per-file PDF bookmarks, use \
+        host.pdf.merge. Do not install PDF libraries or overwrite a .pdf path with plain text.
         - If the user asks to load, use, or run an installed skill, call host.skill.load immediately \
         with a non-empty "name" string, then follow the returned skill instructions.
         - If the user asks to run a command, create a host.shell.run action immediately. Do not answer \

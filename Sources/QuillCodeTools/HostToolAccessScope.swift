@@ -59,6 +59,16 @@ public enum HostToolAccessScope: Sendable, Hashable {
         case ToolDefinition.fileWrite.name:
             adapted.description = "Write a UTF-8 file on the host filesystem."
             adapted.parametersJSON = pathSchema(definition.parametersJSON)
+        case ToolDefinition.pdfMerge.name:
+            adapted.description = definition.description.replacingOccurrences(
+                of: "workspace PDF files",
+                with: "host filesystem PDF files"
+            )
+            adapted.parametersJSON = schema(
+                definition.parametersJSON,
+                property: "output",
+                description: "Output PDF path. Absolute and escaping paths are allowed."
+            )
         default:
             break
         }

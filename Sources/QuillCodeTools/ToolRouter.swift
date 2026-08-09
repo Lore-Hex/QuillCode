@@ -6,6 +6,7 @@ public struct ToolRouter: Sendable {
     public let accessScope: HostToolAccessScope
     public var shell: ShellToolExecutor
     public var files: FileToolExecutor
+    public var pdf: PDFToolExecutor
     public var git: GitToolExecutor
     public var patch: PatchToolExecutor
     public var web: WebFetchToolExecutor
@@ -34,6 +35,11 @@ public struct ToolRouter: Sendable {
             accessScope: accessScope,
             editGuard: editGuard
         )
+        self.pdf = PDFToolExecutor(
+            workspaceRoot: workspaceRoot,
+            accessScope: accessScope,
+            editGuard: editGuard
+        )
         self.git = git ?? GitToolExecutor(managedWorktreeRoot: managedWorktreeRoot)
         self.patch = PatchToolExecutor(workspaceRoot: workspaceRoot, shell: shell, editGuard: editGuard)
         self.web = web
@@ -46,6 +52,7 @@ public struct ToolRouter: Sendable {
         .fileList,
         .fileSearch,
         .fileWrite,
+        .pdfMerge,
         .applyPatch,
         .webFetch,
         .webSearch,
@@ -101,6 +108,17 @@ public struct ToolRouter: Sendable {
                     content: try args.requiredString("content", allowingEmpty: true)
                 )
                 return withLSPFeedback(result, writtenPaths: [path])
+            case ToolDefinition.pdfMerge.name:
+                guard let inputs = args.stringArray("inputs") else {
+                    return ToolResult(ok: false, error: "Missing required string array argument: inputs")
+                }
+                return pdf.merge(
+                    inputs: inputs,
+                    output: try args.requiredString("output"),
+                    labels: args.stringArray("labels"),
+                    title: args.string("title"),
+                    includeTableOfContents: args.bool("includeTableOfContents") ?? true
+                )
             case ToolDefinition.applyPatch.name:
                 let patchText = try args.requiredString("patch")
                 let result = patch.apply(unifiedDiff: patchText)
