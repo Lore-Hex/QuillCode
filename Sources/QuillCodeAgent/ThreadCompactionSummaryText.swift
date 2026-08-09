@@ -34,9 +34,13 @@ enum ThreadCompactionSummaryText {
         - the user's goal and explicit preferences
         - current implementation state and what has already been done
         - important files, commands, tests, branches, PRs, and decisions
+        - a research evidence ledger with verified facts, exact numbers, labels, dates, and source URLs
+        - source URLs already searched or fetched, whether each source was usable, and remaining evidence gaps
+        - every named deliverable path, whether a draft exists, and what still must be written or refreshed
         - unresolved questions, blockers, and the next steps
 
-        Do not include tool-feedback JSON, credentials, API keys, private keys, or secrets. Do not invent completed work.
+        Preserve enough factual state to avoid repeating completed research after compaction. Do not include
+        tool-feedback JSON, credentials, API keys, private keys, or secrets. Do not invent completed work.
 
         Source thread: \(sourceTitle)
 

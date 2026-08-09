@@ -53,6 +53,20 @@ final class ThreadCompactionPromptTests: XCTestCase {
         XCTAssertTrue(prompt.contains(String(repeating: "x", count: 8_000)))
         XCTAssertFalse(prompt.contains(String(repeating: "x", count: 8_001)))
     }
+
+    func testPromptRequiresDurableResearchEvidenceLedger() {
+        let prompt = ThreadCompactionSummaryText.prompt(
+            sourceTitle: "Research",
+            olderMessages: [ChatMessage(role: .tool, content: "Revenue was $123 at https://example.com")],
+            recentMessages: [ChatMessage(role: .assistant, content: "Drafted report.html")]
+        )
+
+        XCTAssertTrue(prompt.contains("research evidence ledger"))
+        XCTAssertTrue(prompt.contains("exact numbers, labels, dates, and source URLs"))
+        XCTAssertTrue(prompt.contains("remaining evidence gaps"))
+        XCTAssertTrue(prompt.contains("every named deliverable path"))
+        XCTAssertTrue(prompt.contains("avoid repeating completed research after compaction"))
+    }
 }
 
 private actor CapturingCompactionLLM: LLMClient {
