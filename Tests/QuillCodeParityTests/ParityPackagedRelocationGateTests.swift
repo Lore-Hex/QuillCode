@@ -51,9 +51,13 @@ final class ParityPackagedRelocationGateTests: QuillCodeParityTestCase {
             "--expected-architecture \"$ARCH\""
         ])
         Self.assertSource(smokeScript, containsAll: [
+            #""${TEMP_ROOT%/}/quill-cowork-relocation.XXXXXX""#,
             "hdiutil attach \"$DMG\" -readonly -nobrowse",
             "--relocation-smoke-applications \"$APPLICATIONS\"",
             "Installation helper reported failure",
+            #"pgrep -f "$DESTINATION_EXECUTABLE --quillcode-update-handshake""#,
+            #"kill "$DESTINATION_PID""#,
+            #"kill -KILL "$DESTINATION_PID""#,
             "codesign --verify --deep --strict",
             "Relocated app identity does not match the mounted source"
         ])

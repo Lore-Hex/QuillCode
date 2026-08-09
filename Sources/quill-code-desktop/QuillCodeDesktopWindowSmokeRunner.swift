@@ -111,6 +111,7 @@ enum QuillCodeDesktopWindowSmokeRunner {
             appName: Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? QuillCodeProduct.displayName,
             bundleIdentifier: Bundle.main.bundleIdentifier ?? "",
             windowTitle: window.title,
+            workspaceWindowCount: visibleWorkspaceWindows.count,
             windowFrame: window.frame,
             contentSize: bounds.size,
             screenshotPath: screenshotURL.path,
@@ -134,9 +135,12 @@ enum QuillCodeDesktopWindowSmokeRunner {
 
     private static func waitForWindow(controller: QuillCodeDesktopController) async throws -> NSWindow {
         NSApplication.shared.activate(ignoringOtherApps: true)
-        if smokeWindow == nil {
-            openSmokeWindow(controller: controller)
+        if let window = NSApplication.shared.windows.first(where: isSmokeWindow) {
+            smokeWindow = window
+            smokeController = controller
+            return window
         }
+        openSmokeWindow(controller: controller)
         for _ in 0..<100 {
             if let window = smokeWindow, isSmokeWindow(window) {
                 return window
@@ -148,6 +152,10 @@ enum QuillCodeDesktopWindowSmokeRunner {
             try await Task.sleep(nanoseconds: 100_000_000)
         }
         throw QuillCodeDesktopSmokeFailure.windowNotFound
+    }
+
+    private static var visibleWorkspaceWindows: [NSWindow] {
+        NSApplication.shared.windows.filter(isSmokeWindow)
     }
 
     private static func openSmokeWindow(controller: QuillCodeDesktopController) {

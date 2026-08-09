@@ -63,6 +63,11 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         Self.assertSource(appText, contains: "controller.runCommand(commandID: commandID)")
         Self.assertSource(appText, excludes: "observeCommand()")
         Self.assertSource(appText, contains: "QuillCodeSecondaryShortcutResolver.commandID")
+        Self.assertSource(
+            appText,
+            contains: "Window(QuillCodeProduct.displayName, id: QuillCodeDesktopSceneID.mainWindow)"
+        )
+        Self.assertSource(appText, excludes: "WindowGroup(QuillCodeProduct.displayName)")
         Self.assertSource(shortcutMonitorText, contains: "event.charactersIgnoringModifiers?.first")
         Self.assertSource(shortcutMonitorText, contains: "commandsWithPrimaryBinding")
 
@@ -70,6 +75,9 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         Self.assertSource(menuText, contains: "onDisconnectAll")
         Self.assertSource(menuText, contains: "onOpenBrowserSession")
         Self.assertSource(menuText, contains: "onReportIssue")
+        Self.assertSource(menuText, contains: "@Environment(\\.openWindow) private var openWindow")
+        Self.assertSource(menuText, contains: "openWindow(id: QuillCodeDesktopSceneID.mainWindow)")
+        Self.assertSource(menuText, contains: "revealsMainWindow: true")
         Self.assertSource(commandsText, contains: "quillcode-menu-report-issue")
         Self.assertSource(appText, contains: "onReportIssue: controller.reportIssue")
         XCTAssertFalse(

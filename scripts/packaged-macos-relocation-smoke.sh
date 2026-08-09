@@ -51,7 +51,8 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 2
 fi
 
-SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quill-cowork-relocation.XXXXXX")"
+TEMP_ROOT="${TMPDIR:-/tmp}"
+SMOKE_ROOT="$(mktemp -d "${TEMP_ROOT%/}/quill-cowork-relocation.XXXXXX")"
 MOUNT_POINT="$SMOKE_ROOT/mount"
 APPLICATIONS="$SMOKE_ROOT/Applications"
 HOME_ROOT="$SMOKE_ROOT/home"
@@ -60,11 +61,28 @@ REPORT="$SMOKE_ROOT/relocation-report.json"
 SOURCE_LOG="$SMOKE_ROOT/source.log"
 MOUNTED=false
 DESTINATION_EXECUTABLE="$APPLICATIONS/Quill Cowork.app/Contents/MacOS/Quill Cowork"
+DESTINATION_PID=""
+
+stop_destination_process() {
+  if [[ -z "$DESTINATION_PID" ]]; then
+    pkill -f "$DESTINATION_EXECUTABLE" >/dev/null 2>&1 || true
+    return
+  fi
+
+  kill "$DESTINATION_PID" >/dev/null 2>&1 || true
+  for _ in 1 2 3 4 5; do
+    if ! kill -0 "$DESTINATION_PID" >/dev/null 2>&1; then
+      return
+    fi
+    sleep 1
+  done
+  kill -KILL "$DESTINATION_PID" >/dev/null 2>&1 || true
+}
 
 cleanup() {
   local status=$?
   set +e
-  pkill -f "$DESTINATION_EXECUTABLE" >/dev/null 2>&1 || true
+  stop_destination_process
   if [[ "$MOUNTED" == true ]]; then
     hdiutil detach "$MOUNT_POINT" -force >/dev/null 2>&1 || true
   fi
@@ -141,6 +159,11 @@ RESULT_STATUS="$(plutil -extract status raw -o - "$RESULT_PATH")"
 if [[ "$RESULT_STATUS" != "success" ]]; then
   echo "Installation helper reported failure: $RESULT_STATUS" >&2
   cat "$RESULT_PATH" >&2
+  exit 1
+fi
+DESTINATION_PID="$(pgrep -f "$DESTINATION_EXECUTABLE --quillcode-update-handshake" | head -n 1 || true)"
+if [[ -z "$DESTINATION_PID" ]]; then
+  echo "Relocated app did not remain running after its launch handshake." >&2
   exit 1
 fi
 

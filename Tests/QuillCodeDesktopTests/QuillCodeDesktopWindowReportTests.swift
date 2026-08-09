@@ -448,6 +448,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             appName: "Quill Cowork",
             bundleIdentifier: "co.lorehex.QuillCowork",
             windowTitle: "Quill Cowork",
+            workspaceWindowCount: 1,
             windowFrame: CGRect(x: 0, y: 0, width: 1280, height: 928),
             contentSize: CGSize(width: 1280, height: 900),
             screenshotPath: "/tmp/quillcode-window.png",
@@ -488,6 +489,7 @@ final class QuillCodeDesktopWindowReportTests: XCTestCase {
             JSONSerialization.jsonObject(with: report.prettyJSON()) as? [String: Any]
         )
         XCTAssertTrue(json.contains(#""nativeHitTargets""#))
+        XCTAssertEqual(jsonObject["workspaceWindowCount"] as? Int, 1)
         XCTAssertTrue(json.contains(#""clickProbes""#))
         XCTAssertTrue(json.contains(#""quillcode-send-button""#))
         XCTAssertTrue(json.contains(#""collisionScope" : "composer:composer""#))
