@@ -33,7 +33,8 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
             "runs-on: ${{ matrix.runner }}",
             "arch: arm64",
             "arch: x86_64",
-            "needs: publish",
+            "needs: [publish, verify-published, promote-stable]",
+            "needs.promote-stable.result == 'success'",
             "scripts/packaged-macos-updater-smoke.sh",
             "quillcode-public-updater-smoke-${{ matrix.arch }}"
         ])

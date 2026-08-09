@@ -315,13 +315,30 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--verify-tag",
             "--draft",
             "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/*",
-            "gh release edit \"$RELEASE_TAG\" --draft=false --latest",
+            "--prerelease",
+            "--latest=false",
             "Stable release $RELEASE_TAG already exists and is immutable.",
             "verify-published:",
             "needs: publish",
             "Verify public release downloads",
             "scripts/verify-published-release.py",
-            "--workflow-run-url \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\""
+            "--workflow-run-url \"$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID\"",
+            "VERIFY_ARGUMENTS+=(--stable-candidate)",
+            "quarantine-stable-candidate:",
+            "Return failed stable candidate to draft",
+            "needs.verify-published.result != 'success'",
+            "promote-stable:",
+            "Promote verified stable candidate",
+            "--prerelease=false",
+            "needs: [publish, verify-published, promote-stable]",
+            "verify-stable-promotion:",
+            "needs: [promote-stable, verify-updater]",
+            "Verify promoted stable release",
+            "quarantine-promoted-stable:",
+            "Return failed promoted stable release to draft",
+            "needs.verify-updater.result != 'success'",
+            "needs.verify-stable-promotion.result != 'success'",
+            "--draft --latest=false"
         ])
         XCTAssertFalse(
             workflow.contains("cancel-in-progress: true"),
@@ -336,6 +353,15 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         let planningIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-build.sh"))
         XCTAssertLessThan(validationIndex.lowerBound, ciGateIndex.lowerBound)
         XCTAssertLessThan(ciGateIndex.lowerBound, planningIndex.lowerBound)
+        let publishIndex = try XCTUnwrap(workflow.range(of: "  publish:"))
+        let publicVerificationIndex = try XCTUnwrap(workflow.range(of: "  verify-published:"))
+        let promotionIndex = try XCTUnwrap(workflow.range(of: "  promote-stable:"))
+        let updaterIndex = try XCTUnwrap(workflow.range(of: "  verify-updater:"))
+        let finalVerificationIndex = try XCTUnwrap(workflow.range(of: "  verify-stable-promotion:"))
+        XCTAssertLessThan(publishIndex.lowerBound, publicVerificationIndex.lowerBound)
+        XCTAssertLessThan(publicVerificationIndex.lowerBound, promotionIndex.lowerBound)
+        XCTAssertLessThan(promotionIndex.lowerBound, updaterIndex.lowerBound)
+        XCTAssertLessThan(updaterIndex.lowerBound, finalVerificationIndex.lowerBound)
     }
 
     func testDownloadDocsExposeStableManifestLink() throws {
@@ -357,7 +383,10 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "same moving channel feed embedded",
             "publication is not green until this consumer check passes",
             "creates one annotated tag and pushes it without force",
-            "an existing stable release is never edited or clobbered automatically",
+            "Pre-existing stable releases remain untouched",
+            "non-latest prerelease candidate",
+            "returns the new release to draft",
+            "previous stable feed",
             "avoids no-op build-number updates and unnecessary",
             "channel is `tester`",
             "channel is `stable`"

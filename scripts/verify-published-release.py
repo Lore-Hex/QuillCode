@@ -38,6 +38,11 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--repo", required=True, help="GitHub owner/repository slug.")
     parser.add_argument("--tag", required=True, help="Published release tag.")
     parser.add_argument("--channel", required=True, choices=("stable", "tester"))
+    parser.add_argument(
+        "--stable-candidate",
+        action="store_true",
+        help="Require a public stable prerelease that has not been promoted to latest.",
+    )
     parser.add_argument("--commit", required=True, help="Expected 40-character commit SHA.")
     parser.add_argument(
         "--workflow-run-url",
@@ -57,8 +62,18 @@ def parse_arguments() -> argparse.Namespace:
         help="Seconds between retries.",
     )
     parser.add_argument("--release-json", type=Path, help="Offline release API fixture.")
+    parser.add_argument(
+        "--latest-release-json",
+        type=Path,
+        help="Offline GitHub latest-release API fixture for final stable verification.",
+    )
     parser.add_argument("--tag-commit", help="Offline resolved tag commit.")
     parser.add_argument("--manifest", type=Path, help="Offline manifest fixture.")
+    parser.add_argument(
+        "--stable-feed-manifest",
+        type=Path,
+        help="Offline latest-stable-build.json fixture for final stable verification.",
+    )
     parser.add_argument(
         "--assets-dir",
         type=Path,
@@ -73,6 +88,8 @@ def parse_arguments() -> argparse.Namespace:
         parser.error("--attempts must be between 1 and 20")
     if arguments.retry_delay < 0 or arguments.retry_delay > 60:
         parser.error("--retry-delay must be between 0 and 60 seconds")
+    if arguments.stable_candidate and arguments.channel != "stable":
+        parser.error("--stable-candidate requires --channel stable")
     offline_values = (
         arguments.release_json,
         arguments.tag_commit,
@@ -85,6 +102,24 @@ def parse_arguments() -> argparse.Namespace:
         parser.error(
             "offline verification requires --release-json, --tag-commit, "
             "--manifest, and --assets-dir"
+        )
+    final_stable = arguments.channel == "stable" and not arguments.stable_candidate
+    stable_promotion_values = (
+        arguments.latest_release_json,
+        arguments.stable_feed_manifest,
+    )
+    if arguments.release_json is not None and final_stable and not all(
+        value is not None for value in stable_promotion_values
+    ):
+        parser.error(
+            "offline final stable verification requires --latest-release-json "
+            "and --stable-feed-manifest"
+        )
+    if (arguments.release_json is None or not final_stable) and any(
+        value is not None for value in stable_promotion_values
+    ):
+        parser.error(
+            "latest-release fixtures are only valid for offline final stable verification"
         )
     return arguments
 
@@ -259,8 +294,27 @@ def validate_snapshot(
         channel=arguments.channel,
         commit=arguments.commit,
         workflow_run_url=arguments.workflow_run_url,
+        stable_candidate=arguments.stable_candidate,
     )
     return manifest, assets
+
+
+def validate_stable_promotion(
+    release: dict[str, Any],
+    latest_release: dict[str, Any],
+    manifest_bytes: bytes,
+    stable_feed_bytes: bytes,
+    tag: str,
+) -> None:
+    release_id = release.get("id")
+    if type(release_id) is not int or latest_release.get("id") != release_id:
+        raise VerificationError("GitHub latest release is not the verified stable release")
+    if latest_release.get("tag_name") != tag:
+        raise VerificationError("GitHub latest release tag does not match the stable tag")
+    if stable_feed_bytes != manifest_bytes:
+        raise VerificationError(
+            "latest stable feed does not match the versioned release manifest"
+        )
 
 
 def verify_offline(arguments: argparse.Namespace) -> None:
@@ -286,6 +340,27 @@ def verify_offline(arguments: argparse.Namespace) -> None:
         arguments.tag_commit,
         arguments,
     )
+    if arguments.channel == "stable" and not arguments.stable_candidate:
+        latest_release = load_json_bytes(
+            read_bounded(
+                arguments.latest_release_json,
+                API_BYTE_LIMIT,
+                "latest release JSON",
+            ),
+            "latest release JSON",
+        )
+        stable_feed_bytes = read_bounded(
+            arguments.stable_feed_manifest,
+            MANIFEST_BYTE_LIMIT,
+            "stable feed manifest",
+        )
+        validate_stable_promotion(
+            release,
+            latest_release,
+            manifest_bytes,
+            stable_feed_bytes,
+            arguments.tag,
+        )
     verify_asset_files(
         arguments.assets_dir,
         assets,
@@ -307,6 +382,16 @@ def verify_public(arguments: argparse.Namespace) -> None:
         )
         tag_commit = resolve_tag_commit(arguments.repo, arguments.tag, token)
         manifest_bytes = fetch_bytes(urls["manifest"], MANIFEST_BYTE_LIMIT)
+        if arguments.channel == "stable" and not arguments.stable_candidate:
+            latest_release = api_json(arguments.repo, "releases/latest", token)
+            stable_feed_bytes = fetch_bytes(urls["stable"], MANIFEST_BYTE_LIMIT)
+            validate_stable_promotion(
+                release,
+                latest_release,
+                manifest_bytes,
+                stable_feed_bytes,
+                arguments.tag,
+            )
         return validate_snapshot(release, manifest_bytes, tag_commit, arguments)
 
     manifest, assets = retry(

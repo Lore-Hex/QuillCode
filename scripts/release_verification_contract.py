@@ -154,9 +154,14 @@ def validate_manifest(
     channel: str,
     commit: str,
     workflow_run_url: str,
+    stable_candidate: bool = False,
 ) -> list[dict[str, Any]]:
     urls = expected_urls(repo, tag, channel)
-    expected_prerelease = channel == "tester"
+    if stable_candidate and channel != "stable":
+        raise VerificationError(
+            "stable-candidate verification is only valid for the stable channel"
+        )
+    expected_prerelease = channel == "tester" or stable_candidate
     if release.get("tag_name") != tag:
         raise VerificationError("GitHub release tag does not match the requested tag")
     if release.get("draft") is not False:

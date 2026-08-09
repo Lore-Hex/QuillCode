@@ -228,9 +228,23 @@ If that push fails, the command removes only the local tag it just created.
 
 The workflow rejects tags that are malformed, off `main`, missing successful CI,
 or already published. It creates the stable release as a draft, uploads every
-asset, and only then publishes it as the latest release. If a stable publish
-fails after creating its draft, inspect and delete that draft before retrying;
-an existing stable release is never edited or clobbered automatically.
+asset, and exposes it first as a non-latest prerelease candidate. The public
+consumer verifier must accept the candidate's exact inventory, hashes, bundle
+metadata, CPU architectures, performance evidence, signing identity, and
+notarization declaration before GitHub promotes it to the stable latest feed.
+Both native updater runners then install and relaunch through that live feed.
+A final verifier requires GitHub's `releases/latest` API object to identify the
+same release and requires the moving `latest-stable-build.json` bytes to match
+the versioned manifest exactly.
+
+If candidate verification fails, the workflow returns the new release to draft
+without changing the previous stable feed. If either native updater gate or the
+final feed verification fails after promotion, the workflow also returns the new
+release to draft so GitHub falls back to the previous stable feed. Inspect and
+delete that failed draft before retrying; an existing stable release is never
+edited or clobbered automatically. Treat a versioned release as announced only
+after the complete **Download Builds** run is green.
+Pre-existing stable releases remain untouched throughout this recovery flow.
 
 Use versioned releases for public announcements. Use `tester-latest` for quick
 iteration with early testers.
