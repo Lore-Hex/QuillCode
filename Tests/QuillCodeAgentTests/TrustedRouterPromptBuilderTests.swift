@@ -309,6 +309,16 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Do not perform multi-row arithmetic from memory"))
     }
 
+    func testPromptRequiresStandardsCompliantCSVAndParseBack() {
+        let prompt = TrustedRouterPromptBuilder.systemPrompt(tools: [.shellRun, .fileWrite])
+
+        XCTAssertTrue(prompt.contains("CSV deliverables"))
+        XCTAssertTrue(prompt.contains("standards-compliant serializer"))
+        XCTAssertTrue(prompt.contains("Quote fields containing commas, quotes, or newlines"))
+        XCTAssertTrue(prompt.contains("Read the saved CSV back with a CSV parser"))
+        XCTAssertTrue(prompt.contains("consistent column count on every row"))
+    }
+
     func testPromptForbidsInventedFactsInDraftedCommunications() {
         // Live UC-24 finding: an angry-customer draft asserted "I've checked the recent logs …
         // the project still exists" with zero tool calls behind it — an invented reassurance a

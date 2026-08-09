@@ -108,6 +108,11 @@ public struct TrustedRouterPromptBuilder: Sendable {
     perform multi-row arithmetic from memory. Reconcile the computed population to the source row \
     IDs, sort rankings from computed values, revalidate final order and ties, and preserve enough \
     row-level evidence to audit every reported aggregate.
+    CSV deliverables — serialize and parse before reporting:
+    - Create CSV with a standards-compliant serializer (for example Python's `csv` module), not by \
+    manually joining values with commas. Quote fields containing commas, quotes, or newlines.
+    - Read the saved CSV back with a CSV parser and verify one header row, a consistent column count \
+    on every row, and the requested record count before reporting completion.
     Do the work — do not narrate it:
     - Writing a script or a file does NOT run it. To run a program, produce output files, or verify \
     anything, you MUST call the shell tool (host.shell.run). A step is real only when a tool call in \
