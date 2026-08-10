@@ -1,5 +1,19 @@
 # QuillCode Decisions
 
+## 2026-08-09: verified-update launch acknowledgment belongs to app entry
+
+- **Decision:** `QuillCodeDesktopApp.init` acknowledges a validated updater launch token exactly
+  once, immediately after recording app-entry uptime and before helper-mode or scene dispatch.
+- **Window independence:** The token is not owned by `QuillCodeDesktopRootView.task`; macOS can
+  restore a menu-bar app without materializing its main window, and update success must not depend
+  on a particular scene or view lifecycle.
+- **Recovery boundary:** The detached helper still owns process-exit waiting, atomic activation,
+  handshake timeout, launch stability, rollback, result persistence, and staging cleanup. Moving
+  acknowledgment earlier does not weaken any helper validation or allow an unverified update.
+- **Why:** A daily-driver updater run staged build 687 correctly, but the relaunched app restored
+  without creating the root view. The handshake timed out and the helper correctly restored build
+  686. Process-entry acknowledgment proves the executable launched regardless of window state.
+
 ## 2026-08-09: accessibility readiness uses collision-safe targeted traversal
 
 - **Decision:** Accessibility traversal deduplicates `AXUIElement` values with `CFEqual` and hashes

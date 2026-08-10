@@ -8,9 +8,18 @@ final class ParityPackagedUpdaterGateTests: QuillCodeParityTestCase {
         let workflow = try Self.workflowText(named: "download-builds.yml")
 
         Self.assertSource(app, containsAll: [
+            "_ = QuillCodeDesktopLaunchClock.appEntryUptime",
+            "QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()",
             "QuillCodeDesktopUpdaterSmokeRequest",
             "QuillCodeDesktopUpdaterSmokeRunner.runAndExit"
         ])
+        let handshake = "QuillCodeDesktopUpdateLaunchHandshake.acknowledgeIfRequested()"
+        XCTAssertEqual(app.components(separatedBy: handshake).count - 1, 1)
+        let entryRange = try XCTUnwrap(app.range(of: "_ = QuillCodeDesktopLaunchClock.appEntryUptime"))
+        let handshakeRange = try XCTUnwrap(app.range(of: handshake))
+        let helperRange = try XCTUnwrap(app.range(of: "QuillCodeDesktopUpdateHelperRequest.parse"))
+        XCTAssertLessThan(entryRange.lowerBound, handshakeRange.lowerBound)
+        XCTAssertLessThan(handshakeRange.lowerBound, helperRange.lowerBound)
         Self.assertSource(runner, containsAll: [
             "waitForAvailableUpdate(configuration: configuration)",
             "feedPropagationAttemptLimit = 6",

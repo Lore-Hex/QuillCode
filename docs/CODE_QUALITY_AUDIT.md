@@ -1,5 +1,29 @@
 # Code Quality Audit
 
+## 2026-08-09 Window-Independent Updater Launch Handshake
+
+Overall grade after this slice: **A+ update resilience, A+ rollback integrity, A+ lifecycle ownership**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Lifecycle ownership | A+ | The verified-update launch handshake is acknowledged once in `QuillCodeDesktopApp.init`, immediately after the launch clock starts and before helper or scene dispatch. It no longer depends on a workspace window being restored and rendering its root view. |
+| Recovery integrity | A+ | The detached helper still requires the bounded handshake and stable child process before committing activation. Missing handshakes continue to terminate the candidate, atomically restore the previous build, and reopen it. |
+| Security boundary | A+ | Only the ownership of an already validated cache-root token moved. Path containment, extension and filename checks, bundle identity, signature, version, build, commit, and helper request validation remain unchanged. |
+| Regression coverage | A+ | The packaged-updater parity gate requires exactly one acknowledgment and proves its source order between app entry and helper-mode dispatch. Existing swap, rollback, relocation, feed, and updater smoke suites remain green. |
+
+Validation:
+
+- Focused updater model, relocation, smoke-request, and parity suites (38 tests, 0 failures)
+- Full `swift test` (5,740 tests, 5 skipped, 0 failures)
+- Deterministic code-quality grader: every source, test, and script module remains A+
+- Optimized release app wrote the canonical isolated launch token at process entry before scene work
+- Optimized release performance across three fresh processes: 261.55 ms selected median
+  launch-ready, 90.92 MiB initial, 153.45 MiB post-interaction, 157.91 MiB repeated, and
+  4.45 MiB repeated growth; all three attempts passed every budget
+- Complete packaged direct, Launch Services, live-window, Accessibility, and repeated-interaction
+  smoke passed with 126 messages, 79 tool cards, 205 timeline items, 186 click probes, 10 strict
+  Accessibility actions, two interaction sweeps, and one workspace window
+
 ## 2026-08-09 Collision-Safe Targeted Accessibility Readiness
 
 Overall grade after this slice: **A+ launch resilience, A+ bounded work, A+ diagnostics**.
