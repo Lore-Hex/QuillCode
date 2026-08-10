@@ -249,6 +249,10 @@ final class TrustedRouterPromptBuilderTests: XCTestCase {
         // Never fabricate a result a command did not produce.
         XCTAssertTrue(prompt.contains("Never fabricate results"))
         XCTAssertTrue(prompt.contains("must come from real tool output"))
+        XCTAssertTrue(prompt.contains("coverage checklist of every requested entity and field"))
+        XCTAssertTrue(prompt.contains("A similarly named company is not the same entity"))
+        XCTAssertTrue(prompt.contains("Affiliate roundups, generic directories"))
+        XCTAssertTrue(prompt.contains("live price and budget-fit result for every candidate"))
         // Execute, don't narrate: writing a script is not running it; keep going until outputs exist.
         XCTAssertTrue(prompt.contains("do not narrate it"))
         XCTAssertTrue(prompt.contains("Writing a script or a file does NOT run it"))

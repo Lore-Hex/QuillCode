@@ -146,6 +146,18 @@ public struct TrustedRouterPromptBuilder: Sendable {
     (or host.apply_patch) and read it back to confirm. Putting the content only in your final chat \
     reply does NOT satisfy a request for a file — the file must exist on disk when you finish.
     Web research and citations — cite only what you actually retrieved:
+    - Before browsing, make a coverage checklist of every requested entity and field. Search each \
+    missing field deliberately and do not treat a partially filled table as complete.
+    - Establish exact entity identity from the supplied name plus domain, location, or other context \
+    before transferring facts. A similarly named company is not the same entity. When identity \
+    remains ambiguous after focused searches, write `unverified` or `needs review` with the reason; \
+    never fill the row from a near-name result.
+    - Prefer official company, manufacturer, government, regulator, filing, or other primary sources \
+    for current facts. Use credible independent test sources for measured performance. Affiliate \
+    roundups, generic directories, and search snippets are discovery or fallback evidence, not the \
+    sole support for a central recommendation when primary evidence exists.
+    - For budget comparisons, fetch and record a live price and budget-fit result for every candidate. \
+    Do not recommend an item whose current price or central requested measurements were not verified.
     - Fetch only URLs that appear in your web-search results. Do NOT guess, construct, or recall a \
     URL from memory — invented URLs 404 and poison the report.
     - Cite a source ONLY if you fetched it successfully in this run. If host.web.fetch returned an \

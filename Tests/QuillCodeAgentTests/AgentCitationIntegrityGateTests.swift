@@ -301,6 +301,55 @@ final class AgentCitationIntegrityGateTests: XCTestCase {
         })
     }
 
+    func testRunnerRequiresRefreshBeforeReturningToLocalReads() async throws {
+        let root = try makeWorkspace()
+        let state = ScriptedState([
+            .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "outputs/brief.md",
+                    "content": "draft",
+                ])
+            )),
+            .tool(.init(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: ToolArguments.json(["url": "https://example.com/source"])
+            )),
+            .tool(.init(
+                name: ToolDefinition.fileReadMany.name,
+                argumentsJSON: ToolArguments.json(["paths": ["inputs/records.csv"]])
+            )),
+            .tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: ToolArguments.json([
+                    "path": "outputs/brief.md",
+                    "content": "final [source](https://example.com/source)",
+                ])
+            )),
+            .tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: ToolArguments.json(["path": "outputs/brief.md"])
+            )),
+            .say("Complete."),
+        ])
+        let runner = fetchStubRunner(llm: ScriptedClient(state: state))
+
+        let result = try await runner.send(
+            "Research and write outputs/brief.md, then read it back.",
+            in: ChatThread(title: "eager research refresh"),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.toolResults.count, 4, "the stale local read must not execute")
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/brief.md")),
+            "final [source](https://example.com/source)"
+        )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.kind == .notice && $0.summary.contains("immediate post-research refresh")
+        })
+    }
+
     func testRunnerSynthesizesOrdinaryDraftAfterBoundedDirectResearch() async throws {
         let root = try makeWorkspace()
         let writeDraft = ToolCall(

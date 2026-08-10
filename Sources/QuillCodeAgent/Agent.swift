@@ -1447,6 +1447,29 @@ public struct AgentRunner: Sendable {
                         continue
                     }
 
+                    if let correction = AgentResearchRefreshGate.correctionBeforeNonResearchRead(
+                        stalePaths: runLoop.researchStaleWorkspacePaths,
+                        proposedToolName: activeCall.name,
+                        proposedToolRisk: tools.first(where: {
+                            $0.name == activeCall.name
+                        })?.risk,
+                        canWriteFiles: tools.contains(where: {
+                            $0.name == ToolDefinition.fileWrite.name
+                        }),
+                        correctionCounts: researchRefreshCorrectionCounts
+                    ) {
+                        researchRefreshCorrectionCounts[correction.path, default: 0] += 1
+                        pendingRepeatNudge = correction.prompt
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: "Self-healing: required an immediate post-research refresh of "
+                                + "./\(correction.path) before local inspection."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue
+                    }
+
                     if let correction = AgentResearchCheckpointGate.earlyDelegationCorrection(
                         path: runLoop.pendingResearchCheckpointPath(
                             minimumResearchWeight:
