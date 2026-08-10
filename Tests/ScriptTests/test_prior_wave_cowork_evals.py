@@ -397,6 +397,8 @@ class PriorWaveCoworkEvalTests(unittest.TestCase):
         self.assertIn("Prefix every nominal and rounded real-revenue amount with `$`", prompt)
         self.assertIn("deterministic post-write validator", prompt)
         self.assertIn("rejects any repeated dollar amount", prompt)
+        self.assertIn("parse a decimal dollar amount as one complete value", prompt)
+        self.assertIn("validator itself is wrong", prompt)
         self.assertEqual(PRIOR.minimum_source_citation_count(row), 1)
 
     def test_real_revenue_semantics_require_bls_basis_and_adjusted_values(self):
@@ -427,6 +429,26 @@ Cumulative 2023 to 2025 growth: nominal 42.86%; real 35.21%.
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "result.md"
             path.write_text(artifact, encoding="utf-8")
+            valid, detail = PRIOR.validate_task_126_real_revenue(path)
+            self.assertTrue(valid, detail)
+
+            full_precision_audit = artifact.replace(
+                "2023 CPI basis: 304.701583\n"
+                "2024 CPI basis: 313.688833",
+                "2023 CPI basis: 304.702 (annual average, full precision 304.701583)\n"
+                "2024 CPI basis: 313.689 (annual average, full precision 313.688833)",
+            ).replace(
+                "The BLS 2025 annual average is not\n"
+                "published because October is unavailable, so 321.943 is an 11-observation\n"
+                "observed-month proxy.",
+                "The 2025 deflator is an observed-month proxy, not a BLS annual average, "
+                "because October is unavailable. Observation count = 11.",
+            ) + (
+                "\nAudit trail: $4,603,187.11 -> $4,603,187; "
+                "$5,429,441.60 -> $5,429,442; "
+                "$6,223,809.80 -> $6,223,810.\n"
+            )
+            path.write_text(full_precision_audit, encoding="utf-8")
             valid, detail = PRIOR.validate_task_126_real_revenue(path)
             self.assertTrue(valid, detail)
 

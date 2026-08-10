@@ -1469,6 +1469,10 @@ automation is visible in Quill Cowork's persisted automation state.
             "a deterministic post-write validator that parses it, independently recalculates "
             "each real-revenue value from the stated full-precision CPI inputs, and rejects any "
             "repeated dollar amount or growth result that disagrees with the canonical result. "
+            "The validator must parse a decimal dollar amount as one complete value and compare "
+            "its nearest-dollar normalization; it must not mistake the integer prefix before a "
+            "decimal point for a separate contradictory amount. If the validator fails, inspect "
+            "whether the validator itself is wrong before rewriting a correct deliverable. "
             "Before readback, remove duplicate or malformed Markdown table headers. "
         )
     field_instruction = (
@@ -2302,22 +2306,22 @@ def validate_task_126_real_revenue(path):
         if value not in normalized
     ]
     dollar_values = {
-        int(value.replace(",", ""))
-        for value in re.findall(r"\$\s*(\d[\d,]{5,})", text)
+        int(Decimal(value.replace(",", "")).quantize(
+            Decimal("1"),
+            rounding=ROUND_HALF_UP,
+        ))
+        for value in re.findall(r"\$\s*(\d[\d,]{5,}(?:\.\d+)?)", text)
     }
     cpi_values = {}
     missing_cpi_years = []
     for year in (2023, 2024, 2025, 2026):
         candidates = []
-        pattern = re.compile(
-            rf"\b{year}\b[^\n]{{0,80}}?\b([23]\d{{2}}\.\d{{3,9}})\b"
-        )
-        for match in pattern.finditer(text):
-            raw_value = match.group(1)
-            try:
-                candidates.append((len(raw_value.partition(".")[2]), Decimal(raw_value)))
-            except InvalidOperation:
-                continue
+        for year_match in re.finditer(rf"\b{year}\b[^\n]*", text):
+            for raw_value in re.findall(r"\b[23]\d{2}\.\d{3,9}\b", year_match.group(0)):
+                try:
+                    candidates.append((len(raw_value.partition(".")[2]), Decimal(raw_value)))
+                except InvalidOperation:
+                    continue
         if candidates:
             cpi_values[year] = max(candidates, key=lambda candidate: candidate[0])[1]
         else:
@@ -2375,19 +2379,23 @@ def validate_task_126_real_revenue(path):
         and "nominal" in line.casefold()
         and "real" in line.casefold()
     ]
-    mislabeled_2025_average = bool(
-        re.search(
-            r"2025.{0,80}annual[- ]average\s*\([^)]*(?:11|partial|missing)",
-            compact_text,
+    mislabeled_2025_average = False
+    for match in re.finditer(r"annual[- ]average", compact_text, re.I):
+        before = compact_text[max(0, match.start() - 80):match.start()]
+        after = compact_text[match.end():match.end() + 140]
+        explicitly_negated = bool(re.search(
+            r"(?:\bnot\b|\bnever\b|does\s+not\s+publish)"
+            r"[^.!?]{0,55}$",
+            before,
             re.I,
+        ))
+        tied_to_partial_year = bool(
+            re.search(r"\([^)]*(?:11|partial|missing)", after, re.I)
+            or re.search(r"(?:uses|computed from)[^.!?]{0,20}\b11\b", after, re.I)
         )
-        or re.search(
-            r"2025.{0,120}annual[- ]average.{0,100}(?:uses|computed from).{0,10}11",
-            compact_text,
-            re.I,
-        )
-        or re.search(r"\ban annual[- ]average\s*\([^)]*11", compact_text, re.I)
-    )
+        if tied_to_partial_year and not explicitly_negated:
+            mislabeled_2025_average = True
+            break
     markdown_lines = text.splitlines()
     malformed_table_headers = []
     for index, line in enumerate(markdown_lines[:-1]):
@@ -2428,7 +2436,12 @@ def validate_task_126_real_revenue(path):
         ),
         "2025 observed-month proxy": bool(
             re.search(r"2025", text)
-            and re.search(r"11[- ](?:month|observation)|11 (?:published|observed) months", text, re.I)
+            and re.search(
+                r"(?:11[- ](?:month|observation)|11 (?:published|observed) months|"
+                r"(?:observation count|n)\s*=\s*11)",
+                text,
+                re.I,
+            )
             and re.search(r"observed[- ]month proxy|partial[- ]year proxy", text, re.I)
             and re.search(r"october", text, re.I)
         ),
