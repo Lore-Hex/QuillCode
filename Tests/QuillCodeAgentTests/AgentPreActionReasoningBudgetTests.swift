@@ -572,6 +572,55 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(projected.messages.last?.id, recent.last?.id)
     }
 
+    func testCorrectiveContextPinsCompletedWorkerBeforeLongFailedWorkerOutput() throws {
+        let failedNoise = String(repeating: "failed-worker-noise ", count: 1_200)
+        let delegatedOutput = """
+        {
+          "summary": "Delegation deadline reached; synthesize completed results.",
+          "workers": [
+            {"name":"Failed first","status":"failed","summary":"\(failedNoise)"},
+            {"name":"CPI 2025","status":"completed","summary":"VERIFIED_CPI_2025 annual average 320.229 from https://data.bls.gov/timeseries/CUUR0000SA0"},
+            {"name":"CPI 2026","status":"cancelled","summary":"Recovered June 2026 evidence."}
+          ]
+        }
+        """
+        let toolPayload: [String: Any] = [
+            "toolCall": [
+                "name": ToolDefinition.subagentsRun.name,
+                "argumentsJSON": "{}",
+            ],
+            "result": [
+                "ok": true,
+                "stdout": delegatedOutput,
+                "stderr": "",
+                "artifacts": [],
+            ],
+        ]
+        let toolData = try JSONSerialization.data(withJSONObject: toolPayload)
+        let delegated = ChatMessage(
+            role: .tool,
+            content: try XCTUnwrap(String(data: toolData, encoding: .utf8))
+        )
+        let original = ChatMessage(role: .user, content: "Build the CPI report.")
+        let stale = (0..<12).map { index in
+            ChatMessage(role: .tool, content: String(repeating: "stale-\(index) ", count: 1_000))
+        }
+        let recent = (0..<4).map { index in
+            ChatMessage(role: .tool, content: String(repeating: "recent-\(index) ", count: 1_000))
+        }
+
+        let projected = AgentCorrectiveContext.projected(
+            ChatThread(messages: [original, delegated] + stale + recent)
+        )
+        let projectedText = projected.messages.map(\.content).joined(separator: "\n")
+        let completedRange = try XCTUnwrap(projectedText.range(of: "VERIFIED_CPI_2025"))
+        let failedRange = try XCTUnwrap(projectedText.range(of: "failed-worker-noise"))
+
+        XCTAssertLessThan(completedRange.lowerBound, failedRange.lowerBound)
+        XCTAssertTrue(projectedText.contains("[completed worker: CPI 2025]"))
+        XCTAssertTrue(projectedText.contains("https://data.bls.gov/timeseries/CUUR0000SA0"))
+    }
+
     private func eventStream(
         _ events: [AgentTextStreamEvent]
     ) -> AsyncThrowingStream<AgentTextStreamEvent, Error> {

@@ -131,6 +131,78 @@ final class AgentCorrectionEscalationTests: XCTestCase {
         XCTAssertTrue(try XCTUnwrap(correctives.last).contains("host.file.write"))
     }
 
+    func testBoundedAuditEscalatesPassiveResponsesIntoValidatorAndCompletes() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("bounded-audit-escalation-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+
+        let reportPath = "outputs/report.md"
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": reportPath,
+                "content": "name,value\nalpha,1\nbeta,2\n",
+            ])
+        )
+        let validator = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 scripts/validate_report.py outputs/report.md",
+            ])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": reportPath])
+        )
+        let state = PromptRecorder([
+            .tool(write),
+            .say("The report is complete."),
+            .say("Validation is unnecessary."),
+            .say("I already finished."),
+            .tool(validator),
+            .tool(read),
+            .say("Completed and verified outputs/report.md."),
+        ])
+        let runner = AgentRunner(
+            llm: RecordingClient(state: state),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 12,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Create outputs/report.md with exactly two data rows, run a deterministic validator "
+                + "against it, read it back, and report completion.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let prompts = await state.recorded()
+        let auditPrompts = prompts.filter { $0.contains("reserved validation window") }
+        let diagnostics = prompts.enumerated()
+            .map { "[\($0.offset)] \($0.element)" }
+            .joined(separator: "\n---\n")
+        XCTAssertEqual(result.stopReason, .finished, diagnostics)
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true], diagnostics)
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified outputs/report.md.",
+            diagnostics
+        )
+        XCTAssertTrue(prompts.contains {
+            $0.contains("requested deliverable, deterministic audit, and readback are complete")
+        }, diagnostics)
+        XCTAssertGreaterThanOrEqual(auditPrompts.count, AgentCorrectiveTurnBudget.limit)
+        XCTAssertFalse(try XCTUnwrap(auditPrompts.first).contains("FINAL ATTEMPT"))
+        XCTAssertTrue(try XCTUnwrap(auditPrompts.last).contains("FINAL ATTEMPT (3 of 3)"))
+        XCTAssertTrue(try XCTUnwrap(auditPrompts.last).contains("\"cmd\" argument"))
+        XCTAssertTrue(try XCTUnwrap(auditPrompts.last).contains("host.shell.run"))
+    }
+
     func testExhaustedPromisedWorkAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("promised-continuation-\(UUID().uuidString)", isDirectory: true)

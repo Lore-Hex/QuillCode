@@ -16,6 +16,17 @@ enum AgentCorrectiveContext {
         var stdout: String
     }
 
+    private struct DelegatedResearchOutput: Decodable {
+        struct Worker: Decodable {
+            var name: String
+            var status: SubagentStatus
+            var summary: String?
+        }
+
+        var summary: String
+        var workers: [Worker]
+    }
+
     static func projected(_ thread: ChatThread) -> ChatThread {
         guard thread.messages.count > minimumRecentMessageCount else { return thread }
 
@@ -42,7 +53,13 @@ enum AgentCorrectiveContext {
         let olderMessages = body.filter { message in
             message.id != originalRequest?.id && !retainedIDs.contains(message.id)
         }
-        let evidence = pinnedResearchEvidence(from: olderMessages)
+        let retainedDelegatedMessages = retainedReversed.filter { message in
+            successfulResearchEvidence(from: message)?.toolName
+                == ToolDefinition.subagentsRun.name
+        }
+        let evidence = pinnedResearchEvidence(
+            from: olderMessages + retainedDelegatedMessages
+        )
 
         var projected = thread
         var messages = Array(leadingSystem)
@@ -114,7 +131,44 @@ enum AgentCorrectiveContext {
            let arguments = try? JSONSerialization.jsonObject(with: argumentsData) as? [String: Any] {
             source = arguments["url"] as? String
         }
-        return ResearchEvidence(toolName: toolName, source: source, stdout: stdout)
+        let retainedOutput = toolName == ToolDefinition.subagentsRun.name
+            ? delegatedResearchDigest(from: stdout) ?? stdout
+            : stdout
+        return ResearchEvidence(toolName: toolName, source: source, stdout: retainedOutput)
+    }
+
+    private static func delegatedResearchDigest(from stdout: String) -> String? {
+        guard let data = stdout.data(using: .utf8),
+              let output = try? JSONDecoder().decode(DelegatedResearchOutput.self, from: data)
+        else { return nil }
+
+        let workers = output.workers.sorted { left, right in
+            let leftPriority = delegatedStatusPriority(left.status)
+            let rightPriority = delegatedStatusPriority(right.status)
+            if leftPriority != rightPriority { return leftPriority < rightPriority }
+            return left.name.localizedStandardCompare(right.name) == .orderedAscending
+        }
+        let entries = workers.compactMap { worker -> String? in
+            guard let summary = worker.summary?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !summary.isEmpty
+            else { return nil }
+            return "[\(worker.status.rawValue) worker: \(worker.name)]\n\(summary)"
+        }
+        return (["[delegated research coordinator]\n\(output.summary)"] + entries)
+            .joined(separator: "\n\n")
+    }
+
+    private static func delegatedStatusPriority(_ status: SubagentStatus) -> Int {
+        switch status {
+        case .completed:
+            0
+        case .cancelled, .failed, .interrupted:
+            1
+        case .blocked, .awaitingApproval:
+            2
+        case .queued, .running:
+            3
+        }
     }
 
     private static func boundedExcerpt(_ text: String, maximumCharacters: Int) -> String {

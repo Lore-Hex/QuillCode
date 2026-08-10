@@ -382,6 +382,18 @@ public struct AgentRunner: Sendable {
                         stopReason: .flailDetected(reason: reason)
                     )
                 }
+                let injectedCorrection: String? = if repeatNudge != nil,
+                                                     let path = boundedRunFinalizationPath {
+                    AgentBoundedRunFinalizationGate.escalatedCorrectionPrompt(
+                        path: path,
+                        userMessage: userMessage,
+                        phase: runLoop.boundedRunFinalizationPhase(at: path),
+                        attempt: correctiveTurnBudget.consecutiveTurns - 1,
+                        limit: AgentCorrectiveTurnBudget.limit
+                    )
+                } else {
+                    repeatNudge
+                }
                 let reasoningBudgetPhase: AgentReasoningBudgetPhase = if hasEnteredBoundedRunFinalization {
                     .boundedFinalization
                 } else if !hasEmittedModelAction {
@@ -405,7 +417,7 @@ public struct AgentRunner: Sendable {
                             tools: tools,
                             workspaceRoot: workspaceRoot,
                             onProgress: onProgress,
-                            injectedCorrection: repeatNudge,
+                            injectedCorrection: injectedCorrection,
                             reasoningBudgetPhase: reasoningBudgetPhase,
                             emptyResponseRetryPolicy: runLoop.latestCompletion?.result.ok == true
                                 ? .afterSuccessfulTool

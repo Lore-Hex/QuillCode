@@ -85,6 +85,21 @@ enum AgentBoundedRunFinalizationGate {
         }
     }
 
+    static func escalatedCorrectionPrompt(
+        path: String,
+        userMessage: String,
+        phase: Phase,
+        attempt: Int,
+        limit: Int
+    ) -> String {
+        AgentCorrectionEscalation.escalated(
+            correctionPrompt(path: path, userMessage: userMessage, phase: phase),
+            attempt: attempt,
+            limit: limit,
+            alternatives: [requiredActionDescription(path: path, phase: phase)]
+        )
+    }
+
     private static func synthesisPrompt(path: String, userMessage: String) -> String {
         """
         The bounded run has entered its reserved finalization window. Stop researching, browsing, \
@@ -98,6 +113,19 @@ enum AgentBoundedRunFinalizationGate {
         Original request requirements:
         \(originalRequestExcerpt(userMessage))
         """
+    }
+
+    private static func requiredActionDescription(path: String, phase: Phase) -> String {
+        switch phase {
+        case .synthesize:
+            return "emit only a host.file.write tool action whose path is exactly \"\(path)\" and whose content is the complete deliverable"
+        case .audit:
+            return "emit only a host.shell.run tool action with a populated \"cmd\" argument that uses python3 with explicit assert checks against ./\(path)"
+        case .readback:
+            return "emit only a host.file.read tool action whose path is exactly \"\(path)\""
+        case .complete:
+            return "emit only a terminal say action that accurately reports ./\(path) completed and verified"
+        }
     }
 
     private static func isReadback(_ call: ToolCall, deliverablePath: String) -> Bool {
