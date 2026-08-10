@@ -34,8 +34,15 @@ extension QuillCodeWorkspaceModel {
         WorkspaceTerminalEngine.recallNextCommand(terminal: &terminal)
     }
 
-    public func runTerminalCommand(workspaceRoot: URL) async {
-        await runTerminalCommand(terminal.draft, workspaceRoot: workspaceRoot)
+    public func runTerminalCommand(
+        workspaceRoot: URL,
+        onStateChange: (@MainActor () -> Void)? = nil
+    ) async {
+        await runTerminalCommand(
+            terminal.draft,
+            workspaceRoot: workspaceRoot,
+            onStateChange: onStateChange
+        )
     }
 
     @discardableResult
@@ -107,13 +114,18 @@ extension QuillCodeWorkspaceModel {
         return true
     }
 
-    public func runTerminalCommand(_ input: String, workspaceRoot: URL) async {
+    public func runTerminalCommand(
+        _ input: String,
+        workspaceRoot: URL,
+        onStateChange: (@MainActor () -> Void)? = nil
+    ) async {
         let command = WorkspaceTerminalEngine.normalizedCommand(input)
         guard WorkspaceTerminalEngine.canBeginRun(command: command, terminal: terminal) else { return }
         syncTerminalSessionToSelectedProject()
 
         let entryID = WorkspaceTerminalEngine.beginRun(command: command, terminal: &terminal)
         applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.started())
+        onStateChange?()
 
         guard let executionContext = WorkspaceTerminalEngine.executionContext(
             command: command,
@@ -125,6 +137,7 @@ extension QuillCodeWorkspaceModel {
         ) else {
             WorkspaceTerminalEngine.failMissingExecutionContext(id: entryID, terminal: &terminal)
             applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.missingExecutionContext())
+            onStateChange?()
             return
         }
         WorkspaceTerminalEngine.updateExecutionContext(
@@ -132,6 +145,7 @@ extension QuillCodeWorkspaceModel {
             executionContext: executionContext.surface,
             terminal: &terminal
         )
+        onStateChange?()
 
         var finalResult: ToolResult?
         let session = WorkspaceTerminalProcessLauncher.startSession(
@@ -148,6 +162,8 @@ extension QuillCodeWorkspaceModel {
             }
             if let result = WorkspaceTerminalEngine.applyStreamingEvent(event, id: entryID, terminal: &terminal) {
                 finalResult = result
+            } else {
+                onStateChange?()
             }
         }
         // The session has ended (completed, stopped, or cancelled); job control no longer applies.
@@ -156,6 +172,7 @@ extension QuillCodeWorkspaceModel {
         if WorkspaceTerminalEngine.entryIsStopped(id: entryID, terminal: terminal) {
             WorkspaceTerminalEngine.finishStoppedRun(executionContext: executionContext, terminal: &terminal)
             applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.stopped())
+            onStateChange?()
             return
         }
         guard !Task.isCancelled, let result = finalResult else {
@@ -165,6 +182,7 @@ extension QuillCodeWorkspaceModel {
                 terminal: &terminal
             )
             applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.cancelled())
+            onStateChange?()
             return
         }
 
@@ -180,6 +198,7 @@ extension QuillCodeWorkspaceModel {
             _ = reconcileManagedWorktreeBranch(threadID: threadID, workspaceRoot: managedRoot)
         }
         applyTerminalLifecyclePlan(WorkspaceTerminalLifecyclePlanner.finished(result: result))
+        onStateChange?()
     }
 
     private func applyTerminalLifecyclePlan(_ plan: WorkspaceTerminalLifecyclePlan) {

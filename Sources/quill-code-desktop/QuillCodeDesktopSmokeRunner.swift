@@ -49,6 +49,7 @@ enum QuillCodeDesktopSmokeRunner {
         )
 
         let chrome = try QuillCodeDesktopChromeSmoke.verify(controller: controller)
+        try await QuillCodeDesktopTerminalRetentionSmoke.verify(controller: controller)
 
         let writePrompt = #"Can you write a file that says "hello world""#
         controller.draft = writePrompt

@@ -4,6 +4,9 @@ import QuillCodeTools
 enum WorkspaceHTMLTerminalRenderer {
     static func render(_ terminal: TerminalSurface) -> String {
         guard terminal.isVisible else { return "" }
+        let retentionNotice = terminal.retentionNotice.map {
+            #"<p class="terminal-retention-notice" data-testid="terminal-retention-notice">\#(escape($0))</p>"#
+        } ?? ""
         let entries = terminal.entries.isEmpty
             ? #"<p data-testid="terminal-empty">\#(escape(terminal.emptyTitle))</p>"#
             : terminal.entries.map { renderEntry($0, keyboardMode: terminal.keyboardMode) }.joined(separator: "\n")
@@ -21,6 +24,7 @@ enum WorkspaceHTMLTerminalRenderer {
             \(jobControlButton(terminal))
           </header>
           <div data-testid="terminal-history">
+            \(retentionNotice)
             \(entries)
           </div>
           <form data-testid="terminal-form">

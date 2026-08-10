@@ -39,6 +39,7 @@ enum WorkspaceTerminalEngine {
         entryID: UUID = UUID(),
         terminal: inout TerminalState
     ) -> UUID {
+        WorkspaceTerminalRetentionPolicy.prepareForNewEntry(terminal: &terminal)
         terminal.draft = ""
         terminal.historyCursor = nil
         terminal.historyDraft = nil
@@ -112,15 +113,7 @@ enum WorkspaceTerminalEngine {
         terminal: inout TerminalState
     ) {
         WorkspaceTerminalSessionAdapter.removeMarkers(executionContext.markerURLs)
-        finishEntry(
-            id: id,
-            stdout: "",
-            stderr: stoppedMessage,
-            exitCode: nil,
-            ok: false,
-            status: .stopped,
-            terminal: &terminal
-        )
+        stopEntry(id: id, terminal: &terminal)
         terminal.isRunning = false
         terminal.resetInputModes()
     }
@@ -197,8 +190,7 @@ enum WorkspaceTerminalEngine {
               terminal.entries[index].status == .running else {
             return
         }
-        terminal.entries[index].stdout += stdout
-        terminal.entries[index].stderr += stderr
+        terminal.entries[index].appendLiveOutput(stdout: stdout, stderr: stderr)
         if !stdout.isEmpty {
             terminal.consumeInputModes(from: stdout)
         }
@@ -226,23 +218,28 @@ enum WorkspaceTerminalEngine {
         if terminal.entries[index].status == .stopped, status != .stopped {
             return
         }
-        terminal.entries[index].stdout = stdout
-        terminal.entries[index].stderr = stderr
-        terminal.entries[index].exitCode = exitCode
-        terminal.entries[index].ok = ok
-        terminal.entries[index].status = status
+        terminal.entries[index].finishOutput(
+            stdout: stdout,
+            stderr: stderr,
+            exitCode: exitCode,
+            ok: ok,
+            status: status
+        )
     }
 
     static func stopRunningEntries(terminal: inout TerminalState) {
         for index in terminal.entries.indices where terminal.entries[index].status == .running {
-            terminal.entries[index].stderr = terminal.entries[index].stderr.isEmpty
-                ? stoppedMessage
-                : terminal.entries[index].stderr
-            terminal.entries[index].exitCode = nil
-            terminal.entries[index].ok = false
-            terminal.entries[index].status = .stopped
+            terminal.entries[index].stopOutput(message: stoppedMessage)
         }
         terminal.resetInputModes()
+    }
+
+    private static func stopEntry(id: UUID, terminal: inout TerminalState) {
+        guard let index = terminal.entries.firstIndex(where: { $0.id == id }),
+              terminal.entries[index].status == .running else {
+            return
+        }
+        terminal.entries[index].stopOutput(message: stoppedMessage)
     }
 
     static func executionContext(

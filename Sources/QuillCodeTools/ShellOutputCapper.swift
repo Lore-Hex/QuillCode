@@ -25,7 +25,7 @@ public enum ShellOutputCapper {
 /// Incrementally retains the same bounded tail as ``ShellOutputCapper`` without first buffering an
 /// arbitrarily large command response. This is used by long-lived streaming shells where collecting
 /// the complete output would defeat the cap's memory-safety guarantee.
-public struct ShellOutputAccumulator: Sendable {
+public struct ShellOutputAccumulator: Sendable, Hashable {
     private let maxLines: Int
     private let maxBytes: Int
     private var tail = Data()
@@ -46,10 +46,11 @@ public struct ShellOutputAccumulator: Sendable {
         guard !text.isEmpty else { return }
         let data = Data(text.utf8)
         hasContent = true
-        totalBytes += data.count
-        newlineCount += data.reduce(into: 0) { count, byte in
+        totalBytes = Self.saturatingSum(totalBytes, data.count)
+        let appendedNewlineCount = data.reduce(into: 0) { count, byte in
             if byte == 0x0A { count += 1 }
         }
+        newlineCount = Self.saturatingSum(newlineCount, appendedNewlineCount)
         endsWithNewline = data.last == 0x0A
         tail.append(data)
         if tail.count > maxBytes {
@@ -63,7 +64,9 @@ public struct ShellOutputAccumulator: Sendable {
 
     public var result: (text: String, truncated: Bool) {
         guard hasContent else { return ("", false) }
-        let totalLines = newlineCount + (endsWithNewline ? 0 : 1)
+        let totalLines = endsWithNewline
+            ? newlineCount
+            : Self.saturatingSum(newlineCount, 1)
         var bytes = Array(tail)
         while let first = bytes.first, first & 0b1100_0000 == 0b1000_0000 {
             bytes.removeFirst()
@@ -81,5 +84,10 @@ public struct ShellOutputAccumulator: Sendable {
         guard totalLines > maxLines || totalBytes > maxBytes else { return (kept, false) }
         let note = "[output truncated — showing the tail; \(totalLines) line\(totalLines == 1 ? "" : "s"), \(totalBytes) bytes total]\n"
         return (note + kept, true)
+    }
+
+    private static func saturatingSum(_ lhs: Int, _ rhs: Int) -> Int {
+        let (sum, overflow) = lhs.addingReportingOverflow(rhs)
+        return overflow ? Int.max : sum
     }
 }

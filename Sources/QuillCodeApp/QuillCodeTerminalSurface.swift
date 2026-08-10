@@ -10,6 +10,7 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
     public var cwdLabel: String
     public var entries: [TerminalCommandSurface]
     public var emptyTitle: String
+    public var retentionNotice: String?
 
     /// A running command can be paused (job control); a paused one can be resumed. Mutually exclusive.
     public var canSuspend: Bool {
@@ -56,6 +57,9 @@ public struct TerminalSurface: Codable, Sendable, Hashable {
             TerminalCommandSurface(entry: $0, ambiguousWidthPolicy: ambiguousWidthPolicy)
         }
         self.emptyTitle = emptyTitle
+        self.retentionNotice = WorkspaceTerminalRetentionPolicy.retentionNotice(
+            discardedEntryCount: terminal.discardedEntryCount
+        )
     }
 }
 
