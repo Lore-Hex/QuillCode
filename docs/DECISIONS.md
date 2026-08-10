@@ -1,22 +1,24 @@
 # QuillCode Decisions
 
-## 2026-08-10: agent progress preserves compact event storage
+## 2026-08-10: agent progress keeps producer and model histories independently owned
 
-- **Decision:** Applying an agent progress snapshot no longer compacts the entire event history on
-  the main actor. The streaming publisher maintains at most one reasoning notice per active burst,
-  and thread persistence remains the repair boundary for legacy or externally shaped histories.
-- **Memory and CPU boundary:** Agent snapshots now retain the event array's copy-on-write storage
-  through the 50 millisecond presentation path. Transcript growth therefore does not introduce a
-  same-sized allocation and event traversal for every visible streaming update. Persistence's
-  compactor also returns already-compact arrays unchanged, avoiding a second event buffer during
-  normal saves and loads.
-- **Safety:** Durable save, direct load, and best-effort listing still compact consecutive historical
-  reasoning notices. The agent-streaming regression gate requires in-place reasoning replacement,
-  while core and model integration prove 50,000-event compact histories retain the same array
-  storage and exact event identity.
-- **Evidence:** `WorkspaceComposerIntegrationTests/testAgentRunSnapshotReusesAlreadyCompactEventStorage`,
+- **Decision:** Presentation-cadence progress reconciles identified message, context, event, and
+  subagent histories into the model's existing arrays. Matching records update in place, new tails
+  append, truncated tails are removed, and identity changes trigger a detached structural rebuild.
+- **Memory and CPU boundary:** The model never retains the agent producer's large array storage.
+  After a callback returns, the producer can mutate its next streamed tail without a transcript-sized
+  copy-on-write clone, while the model also retains and reuses its own capacity. Reconciliation scans
+  the overlapping history without allocating; persistence still repairs legacy reasoning bursts and
+  returns healthy arrays unchanged.
+- **State ownership:** Instructions, memories, goals, composer drafts and attachments, and queued
+  follow-ups stay model-owned because they can change after the agent captures its send-start copy.
+  Completion remains the authoritative full-snapshot boundary, and destroyed ephemeral chats retain
+  their existing non-resurrection guard.
+- **Evidence:**
+  `WorkspaceComposerIntegrationTests/testAgentProgressKeepsLargeProducerAndModelEventStorageIndependent`
+  proves two independent 50,000-event buffers survive successive ticks; the structural-history test,
   `ThreadEventLogCompactorTests`, `JSONThreadStoreTests`, `ParityAgentStreamingGateTests`, and
-  `ParityWorkspaceThreadMutationModelGateTests`.
+  `ParityWorkspaceThreadMutationModelGateTests` cover exact replacement, durable repair, and ownership.
 
 ## 2026-08-10: model streams publish at presentation cadence
 
