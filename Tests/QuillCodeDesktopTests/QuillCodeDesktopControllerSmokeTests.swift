@@ -923,8 +923,8 @@ final class QuillCodeDesktopControllerSmokeTests: XCTestCase {
     }
 
     /// Structural guard against the whole "native refresh drops a composer field" bug class the
-    /// focus-composer review surfaced: `refreshState` is the ONLY place that rebuilds a sub-surface
-    /// (the composer); everything else is copied verbatim. So with the local draft matching the
+    /// focus-composer review surfaced: the model-state coordinator owns every local-draft composer
+    /// rebuild. So with the local draft matching the
     /// model's, the rebuilt composer must EQUAL `model.surface().composer` exactly — any field a
     /// future rebuild forgets to carry (focusToken, sentMessageHistory, …) trips this immediately.
     /// (Compares the composer, not the whole surface, because the sidebar carries relative-time

@@ -1,4 +1,5 @@
 import Foundation
+import QuillCodeApp
 
 /// Coalesces high-frequency model progress into a responsive, bounded presentation cadence.
 /// Authoritative workspace state is updated before this scheduler is called; only the expensive
@@ -8,7 +9,8 @@ final class QuillCodeDesktopProgressRefreshScheduler {
     static let defaultDelayNanoseconds: UInt64 = 50_000_000
 
     private let delayNanoseconds: UInt64
-    private var pendingAction: (() -> Void)?
+    private var pendingScope: WorkspaceProgressSurfaceScope = []
+    private var pendingAction: ((WorkspaceProgressSurfaceScope) -> Void)?
     private var pendingTask: Task<Void, Never>?
     private var generation: UInt64 = 0
 
@@ -24,7 +26,12 @@ final class QuillCodeDesktopProgressRefreshScheduler {
         pendingTask != nil
     }
 
-    func schedule(_ action: @escaping @MainActor () -> Void) {
+    func schedule(
+        _ scope: WorkspaceProgressSurfaceScope,
+        action: @escaping @MainActor (WorkspaceProgressSurfaceScope) -> Void
+    ) {
+        guard !scope.isEmpty else { return }
+        pendingScope.formUnion(scope)
         pendingAction = action
         guard pendingTask == nil else { return }
 
@@ -50,6 +57,7 @@ final class QuillCodeDesktopProgressRefreshScheduler {
 
     func cancel() {
         generation &+= 1
+        pendingScope = []
         pendingAction = nil
         pendingTask?.cancel()
         pendingTask = nil
@@ -57,14 +65,17 @@ final class QuillCodeDesktopProgressRefreshScheduler {
 
     private func runIfCurrent(_ scheduledGeneration: UInt64) {
         guard generation == scheduledGeneration else { return }
+        let scope = pendingScope
         let action = pendingAction
+        pendingScope = []
         pendingAction = nil
         pendingTask = nil
-        action?()
+        action?(scope)
     }
 
     private func clearIfCurrent(_ scheduledGeneration: UInt64) {
         guard generation == scheduledGeneration else { return }
+        pendingScope = []
         pendingAction = nil
         pendingTask = nil
     }
