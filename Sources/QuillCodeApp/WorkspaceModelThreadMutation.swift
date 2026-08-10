@@ -98,10 +98,10 @@ extension QuillCodeWorkspaceModel {
         }
     }
 
-    func updateThreadFromAgentProgress(_ thread: ChatThread) {
+    func updateThreadFromAgentProgress(_ thread: ChatThread) -> WorkspaceAgentProgressThreadMutation? {
         if thread.runtimeContext.isEphemeral,
            !root.threads.contains(where: { $0.id == thread.id }) {
-            return
+            return nil
         }
         let result = WorkspaceThreadLifecycleEngine.applyAgentRunProgressThreadUpdate(
             thread,
@@ -110,12 +110,13 @@ extension QuillCodeWorkspaceModel {
             selectedThreadID: root.selectedThreadID,
             selectedProjectID: root.selectedProjectID
         )
-        root.selectedThreadID = result.selectedThreadID
-        root.selectedProjectID = result.selectedProjectID
-        if result.didSelectUpdatedThread {
+        root.selectedThreadID = result.lifecycle.selectedThreadID
+        root.selectedProjectID = result.lifecycle.selectedProjectID
+        if result.lifecycle.didSelectUpdatedThread {
             syncTerminalSessionToSelectedProject()
             touchProject(root.selectedProjectID)
             saveProjects()
         }
+        return result.mutation
     }
 }

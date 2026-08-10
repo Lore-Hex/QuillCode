@@ -1,5 +1,25 @@
 # QuillCode Decisions
 
+## 2026-08-10: agent transcript progress projects only proven tail changes
+
+- **Decision:** Reconciliation classifies each presentation-cadence snapshot as transcript
+  unchanged, one assistant-tail replacement, one assistant-tail append, or full rebuild. It also
+  marks message/tool/approval events and execution-context changes as projection-relevant. The next
+  coalesced agent refresh may reuse the selected transcript or patch that one tail only when the
+  model has an authoritative published baseline and every accumulated mutation remains compatible.
+- **Correctness boundary:** Hints are consumed once. A missing or changed baseline, changed message
+  identity or role, persisted message-event ambiguity, tool lifecycle mutation, structural history
+  change, project-context change, or incompatible coalesced sequence falls back to the complete
+  transcript projector. The incremental result is regression-tested against the authoritative
+  surface, including 50,000-event selected histories and 10,000-message background histories.
+- **Memory boundary:** The tracker retains only enum cases and UUIDs, never messages, events, tool
+  cards, timelines, or producer snapshots. Assistant streaming therefore reuses the already-reduced
+  tool-card buffer, and background progress reuses every selected transcript buffer, without
+  reintroducing copy-on-write coupling between the producer and workspace model.
+- **Evidence:** `WorkspaceAgentTranscriptRefreshTrackerTests`, `WorkspaceProgressSurfaceTests`,
+  `ParityDesktopTaskCoordinationGateTests`, the complete 5,831-test Swift suite, and release-packaged
+  native smoke with launch, resident-memory, repeated-interaction, and Accessibility budgets.
+
 ## 2026-08-10: agent progress keeps producer and model histories independently owned
 
 - **Decision:** Presentation-cadence progress reconciles identified message, context, event, and

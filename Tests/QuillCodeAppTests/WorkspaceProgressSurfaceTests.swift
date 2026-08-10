@@ -111,6 +111,163 @@ final class WorkspaceProgressSurfaceTests: XCTestCase {
         XCTAssertEqual(progress.worktreeEnvironments, previous.worktreeEnvironments)
     }
 
+    func testTrackedAssistantTailProgressSkipsLongHistoryTranscriptProjection() throws {
+        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
+        var events = [ThreadEvent(
+            kind: .toolQueued,
+            createdAt: timestamp,
+            summary: "queued"
+        )]
+        events.reserveCapacity(50_000)
+        for index in 1..<50_000 {
+            events.append(ThreadEvent(
+                kind: .notice,
+                createdAt: timestamp,
+                summary: "Progress record \(index)"
+            ))
+        }
+        let assistant = ChatMessage(
+            role: .assistant,
+            content: "Initial streamed answer",
+            createdAt: timestamp
+        )
+        let thread = ChatThread(
+            title: "Long streaming task",
+            messages: [ChatMessage(role: .user, content: "Proceed", createdAt: timestamp), assistant],
+            events: events
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        model.beginAgentRun(
+            threadID: thread.id,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
+        )
+        let previous = model.surface()
+        XCTAssertEqual(previous.transcript.toolCards.count, 1)
+
+        var snapshot = try XCTUnwrap(model.selectedThread)
+        snapshot.messages[snapshot.messages.index(before: snapshot.messages.endIndex)].content = "Fresh streamed answer"
+        snapshot.events[snapshot.events.index(before: snapshot.events.endIndex)].summary = "Thinking: validating"
+        model.applyAgentProgress(snapshot, expectedThreadID: thread.id)
+
+        let progress = model.progressSurface(reusing: previous, scope: .agent)
+        XCTAssertEqual(progress.transcript.messages.last?.text, "Fresh streamed answer")
+        XCTAssertEqual(
+            storageAddress(of: progress.transcript.toolCards),
+            storageAddress(of: previous.transcript.toolCards),
+            "assistant streaming should retain the already-reduced tool-card buffer"
+        )
+        XCTAssertEqual(progress, model.surface())
+    }
+
+    func testBackgroundAgentProgressReusesSelectedLongTranscript() throws {
+        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
+        let selected = ChatThread(
+            title: "Foreground history",
+            messages: (0..<10_000).map { index in
+                ChatMessage(
+                    role: index.isMultiple(of: 2) ? .user : .assistant,
+                    content: "Turn \(index)",
+                    createdAt: timestamp
+                )
+            },
+            events: [ThreadEvent(kind: .toolQueued, createdAt: timestamp, summary: "queued")]
+        )
+        let background = ChatThread(
+            title: "Background run",
+            messages: [ChatMessage(role: .user, content: "Keep working", createdAt: timestamp)]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [selected, background],
+            selectedThreadID: selected.id
+        ))
+        model.beginAgentRun(
+            threadID: background.id,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
+        )
+        let previous = model.surface()
+
+        var snapshot = try XCTUnwrap(model.root.threads.first { $0.id == background.id })
+        snapshot.messages.append(ChatMessage(
+            role: .assistant,
+            content: "Background result",
+            createdAt: timestamp
+        ))
+        model.applyAgentProgress(snapshot, expectedThreadID: background.id)
+
+        let progress = model.progressSurface(reusing: previous, scope: .agent)
+        XCTAssertEqual(
+            storageAddress(of: progress.transcript.messages),
+            storageAddress(of: previous.transcript.messages)
+        )
+        XCTAssertEqual(
+            storageAddress(of: progress.transcript.toolCards),
+            storageAddress(of: previous.transcript.toolCards)
+        )
+        XCTAssertEqual(
+            storageAddress(of: progress.transcript.timelineItems),
+            storageAddress(of: previous.transcript.timelineItems)
+        )
+        XCTAssertEqual(progress, model.surface())
+    }
+
+    func testToolLifecycleProgressFallsBackToAuthoritativeTranscriptProjection() throws {
+        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
+        let thread = ChatThread(
+            messages: [ChatMessage(role: .user, content: "Run it", createdAt: timestamp)],
+            events: [ThreadEvent(kind: .toolQueued, createdAt: timestamp, summary: "queued")]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        model.beginAgentRun(
+            threadID: thread.id,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
+        )
+        let previous = model.surface()
+
+        var snapshot = try XCTUnwrap(model.selectedThread)
+        snapshot.events.append(ThreadEvent(kind: .toolRunning, createdAt: timestamp, summary: "running"))
+        model.applyAgentProgress(snapshot, expectedThreadID: thread.id)
+
+        let progress = model.progressSurface(reusing: previous, scope: .agent)
+        XCTAssertEqual(progress.transcript.toolCards.last?.status, .running)
+        XCTAssertNotEqual(
+            storageAddress(of: progress.transcript.toolCards),
+            storageAddress(of: previous.transcript.toolCards)
+        )
+        XCTAssertEqual(progress, model.surface())
+    }
+
+    func testCoalescedAssistantAppendAndTailUpdateMatchesAuthoritativeSurface() throws {
+        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
+        let thread = ChatThread(
+            messages: [ChatMessage(role: .user, content: "Stream", createdAt: timestamp)]
+        )
+        let model = QuillCodeWorkspaceModel(root: QuillCodeRootState(
+            threads: [thread],
+            selectedThreadID: thread.id
+        ))
+        model.beginAgentRun(
+            threadID: thread.id,
+            lifecycle: WorkspaceComposerSendLifecycle.started(from: model.composer)
+        )
+        let previous = model.surface()
+
+        var snapshot = try XCTUnwrap(model.selectedThread)
+        snapshot.messages.append(ChatMessage(role: .assistant, content: "First", createdAt: timestamp))
+        model.applyAgentProgress(snapshot, expectedThreadID: thread.id)
+        snapshot.messages[snapshot.messages.index(before: snapshot.messages.endIndex)].content = "First complete chunk"
+        model.applyAgentProgress(snapshot, expectedThreadID: thread.id)
+
+        let progress = model.progressSurface(reusing: previous, scope: .agent)
+        XCTAssertEqual(progress.transcript.messages.map(\.text), ["Stream", "First complete chunk"])
+        XCTAssertEqual(progress, model.surface())
+    }
+
     func testAgentProgressReusesFilesystemBackedWorktreeEnvironmentProjection() throws {
         let root = try makeQuillCodeTestDirectory()
         let configurationDirectory = root.appendingPathComponent(".quillcode")
@@ -154,5 +311,11 @@ final class WorkspaceProgressSurfaceTests: XCTestCase {
         [local_environments.\(name)]
         title = "\(title)"
         """.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private func storageAddress<Element>(of values: [Element]) -> UInt {
+        values.withUnsafeBufferPointer { buffer in
+            UInt(bitPattern: buffer.baseAddress)
+        }
     }
 }
