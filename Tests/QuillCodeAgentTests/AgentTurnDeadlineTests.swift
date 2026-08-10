@@ -75,6 +75,46 @@ final class AgentTurnDeadlineTests: XCTestCase {
         }
     }
 
+    private actor BoundaryState {
+        private var callCount = 0
+
+        func next() async throws -> AgentAction {
+            callCount += 1
+            switch callCount {
+            case 1:
+                try await Task.sleep(nanoseconds: 300_000_000)
+                throw AgentTurnDeadlineExceededError(seconds: 300)
+            case 2:
+                return .tool(ToolCall(
+                    name: ToolDefinition.fileWrite.name,
+                    argumentsJSON: ToolArguments.json([
+                        "path": "outputs/report.md",
+                        "content": "# Final report\n\nVerified findings.\n",
+                    ])
+                ))
+            case 3:
+                return .tool(ToolCall(
+                    name: ToolDefinition.fileRead.name,
+                    argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
+                ))
+            default:
+                return .say("Completed the report.")
+            }
+        }
+    }
+
+    private struct BoundaryClient: LLMClient {
+        let state: BoundaryState
+
+        func nextAction(
+            thread: ChatThread,
+            userMessage: String,
+            tools: [ToolDefinition]
+        ) async throws -> AgentAction {
+            try await state.next()
+        }
+    }
+
     func testDeadlineOverrunGetsOneCorrectiveAttemptAndRunSucceeds() async throws {
         let state = ScriptedState([
             .failure(AgentTurnDeadlineExceededError(seconds: 300)),
@@ -122,6 +162,35 @@ final class AgentTurnDeadlineTests: XCTestCase {
         }
     }
 
+    func testHostBoundaryEntersFinalizationWithoutPriorToolWork() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            UUID().uuidString,
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let runner = AgentRunner(
+            llm: BoundaryClient(state: BoundaryState()),
+            maxToolSteps: 6,
+            boundedRunFinalizationAfterSeconds: 0.2
+        )
+
+        let result = try await runner.send(
+            "Write outputs/report.md and read it back.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "# Final report\n\nVerified findings.\n"
+        )
+        XCTAssertEqual(result.thread.messages.last?.content, "Completed the report.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("moved early into bounded finalization")
+        })
+    }
+
     // MARK: - Configuration
 
     func testRunnerDefaultsToTheLibraryDeadline() {
@@ -131,5 +200,58 @@ final class AgentTurnDeadlineTests: XCTestCase {
 
     func testDeadlineCanBeDisabled() {
         XCTAssertNil(AgentRunner(turnDeadlineSeconds: nil).turnDeadlineSeconds)
+    }
+
+    func testPreFinalizationDeadlineUsesRemainingHostBudget() {
+        XCTAssertEqual(
+            AgentBoundedRunFinalizationGate.preFinalizationTurnDeadlineSeconds(
+                remainingSeconds: 45,
+                configuredTurnDeadlineSeconds: 300
+            ),
+            45
+        )
+        XCTAssertEqual(
+            AgentBoundedRunFinalizationGate.preFinalizationTurnDeadlineSeconds(
+                remainingSeconds: 120,
+                configuredTurnDeadlineSeconds: 60
+            ),
+            60
+        )
+        XCTAssertEqual(
+            AgentBoundedRunFinalizationGate.preFinalizationTurnDeadlineSeconds(
+                remainingSeconds: 30,
+                configuredTurnDeadlineSeconds: nil
+            ),
+            30
+        )
+        XCTAssertNil(
+            AgentBoundedRunFinalizationGate.preFinalizationTurnDeadlineSeconds(
+                remainingSeconds: 0,
+                configuredTurnDeadlineSeconds: 300
+            )
+        )
+    }
+
+    func testExpiredFinalizationDeadlineStopsResolverBeforeSampling() async {
+        let state = ScriptedState([.success(.say("must not be sampled"))])
+        let runner = AgentRunner(llm: ScriptedClient(state: state))
+        var thread = ChatThread(title: "expired")
+
+        do {
+            _ = try await runner.nextAction(
+                thread: &thread,
+                userMessage: "write outputs/report.md",
+                tools: [],
+                workspaceRoot: FileManager.default.temporaryDirectory,
+                onProgress: nil,
+                absoluteTurnDeadline: Date(timeIntervalSinceNow: -1)
+            )
+            XCTFail("expected the expired host deadline to surface")
+        } catch is AgentTurnDeadlineExceededError {
+            let calls = await state.recorded()
+            XCTAssertTrue(calls.isEmpty)
+        } catch {
+            XCTFail("wrong error: \(error)")
+        }
     }
 }

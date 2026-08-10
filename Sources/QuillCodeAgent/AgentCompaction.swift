@@ -96,7 +96,8 @@ extension AgentRunner {
         onProgress: AgentRunProgressHandler?,
         injectedCorrection: String? = nil,
         reasoningBudgetPhase: AgentReasoningBudgetPhase = .startup,
-        emptyResponseRetryPolicy: AgentEmptyResponseRetryPolicy = .standard
+        emptyResponseRetryPolicy: AgentEmptyResponseRetryPolicy = .standard,
+        absoluteTurnDeadline: Date? = nil
     ) async throws -> AgentAction {
         guard let compaction else {
             return try await nextAction(
@@ -107,7 +108,8 @@ extension AgentRunner {
                 onProgress: onProgress,
                 injectedCorrection: injectedCorrection,
                 reasoningBudgetPhase: reasoningBudgetPhase,
-                emptyResponseRetryPolicy: emptyResponseRetryPolicy
+                emptyResponseRetryPolicy: emptyResponseRetryPolicy,
+                absoluteTurnDeadline: absoluteTurnDeadline
             )
         }
 
@@ -129,7 +131,8 @@ extension AgentRunner {
                     onProgress: onProgress,
                     injectedCorrection: injectedCorrection,
                     reasoningBudgetPhase: reasoningBudgetPhase,
-                    emptyResponseRetryPolicy: emptyResponseRetryPolicy
+                    emptyResponseRetryPolicy: emptyResponseRetryPolicy,
+                    absoluteTurnDeadline: absoluteTurnDeadline
                 )
             } catch {
                 // Only a recognized context overflow is compactable; everything else propagates

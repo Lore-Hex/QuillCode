@@ -22,6 +22,21 @@ enum AgentBoundedRunFinalizationGate {
         return elapsedSeconds >= finalizationAfterSeconds
     }
 
+    /// Caps every model sample, including resolver-internal retries, to the time remaining before
+    /// the host's reserved finalization window. A nil configured turn deadline still respects the
+    /// host boundary; nil is returned only after that boundary has already expired.
+    static func preFinalizationTurnDeadlineSeconds(
+        remainingSeconds: TimeInterval,
+        configuredTurnDeadlineSeconds: TimeInterval?
+    ) -> TimeInterval? {
+        guard remainingSeconds.isFinite, remainingSeconds > 0 else { return nil }
+        guard let configuredTurnDeadlineSeconds,
+              configuredTurnDeadlineSeconds.isFinite,
+              configuredTurnDeadlineSeconds > 0
+        else { return max(1, remainingSeconds) }
+        return max(1, min(configuredTurnDeadlineSeconds, remainingSeconds))
+    }
+
     static func allows(
         _ action: AgentAction,
         deliverablePath: String,

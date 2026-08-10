@@ -441,6 +441,76 @@ final class AgentToolLoopTests: XCTestCase {
         })
     }
 
+    func testBoundedRunStartsRequiredAuditImmediatelyAfterDeliverableWrite() async throws {
+        let root = try makeTempDirectory()
+        let researchCapture = ToolCallCapture()
+        let validatorCapture = ToolCallCapture()
+        let deliverableWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\nbeta,2\n",
+            ])
+        )
+        let research = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.test/late-research"])
+        )
+        let validatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/validate_report.py",
+                "content": """
+                import pathlib, sys
+                target = pathlib.Path(sys.argv[1])
+                assert target.name == "report.md"
+                rows = target.read_text().splitlines()
+                assert len(rows) == 3
+                print("PASS: exactly two data rows")
+                """,
+            ])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(deliverableWrite), .tool(research), .tool(validatorWrite),
+            ]),
+            toolExecutionOverride: { call, _ in
+                if call.name == ToolDefinition.webFetch.name {
+                    await researchCapture.record(call)
+                    return ToolResult(ok: true, stdout: "late research")
+                }
+                if call.name == ToolDefinition.shellRun.name {
+                    await validatorCapture.record(call)
+                    return ToolResult(ok: true, stdout: "PASS: exactly two data rows")
+                }
+                return nil
+            },
+            maxToolSteps: 10,
+            boundedRunFinalizationAfterSeconds: 3_600
+        )
+
+        let result = try await runner.send(
+            "Create outputs/report.md with exactly two data rows, run a deterministic post-write "
+                + "validator against it, and read the saved output back before finishing.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let eventSummary = result.thread.events.map(\.summary).joined(separator: "\n")
+        let researchCallCount = await researchCapture.count
+        let validatorCallCount = await validatorCapture.count
+        XCTAssertEqual(researchCallCount, 0, eventSummary)
+        XCTAssertEqual(validatorCallCount, 1, eventSummary)
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified `outputs/report.md`.",
+            eventSummary
+        )
+        XCTAssertTrue(eventSummary.contains(
+            "entered deterministic contract audit immediately after writing ./outputs/report.md"
+        ))
+    }
+
     func testBoundedFinalizationRejectsValidatorUntilSourceContradictionIsRewritten() async throws {
         let root = try makeTempDirectory()
         let validatorCapture = ToolCallCapture()

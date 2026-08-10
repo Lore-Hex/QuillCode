@@ -493,6 +493,15 @@ public struct AgentRunner: Sendable {
                 } else {
                     do {
                         let priorEventIDs = Set(next.events.map(\.id))
+                        let absoluteTurnDeadline: Date? = if !hasEnteredBoundedRunFinalization,
+                                                            let finalizationAfterSeconds =
+                                                                boundedRunFinalizationAfterSeconds,
+                                                            finalizationAfterSeconds.isFinite,
+                                                            finalizationAfterSeconds >= 0 {
+                            runStartedAt.addingTimeInterval(finalizationAfterSeconds)
+                        } else {
+                            nil
+                        }
                         action = try await actionRunner.nextActionCompactingOnOverflow(
                             thread: &next,
                             userMessage: userMessage,
@@ -503,7 +512,8 @@ public struct AgentRunner: Sendable {
                             reasoningBudgetPhase: reasoningBudgetPhase,
                             emptyResponseRetryPolicy: runLoop.latestCompletion?.result.ok == true
                                 ? .afterSuccessfulTool
-                                : .standard
+                                : .standard,
+                            absoluteTurnDeadline: absoluteTurnDeadline
                         )
                         if let fallback = actionRunner.fallbackLLM,
                            next.events.contains(where: {
@@ -655,8 +665,14 @@ public struct AgentRunner: Sendable {
                         let exhaustedActionTurn = error is AgentPreActionReasoningBudgetExceededError
                             || error is AgentTurnDeadlineExceededError
                             || error is AgentReasoningOnlyResponseError
+                        let reachedBoundedFinalizationDeadline =
+                            AgentBoundedRunFinalizationGate.shouldEnter(
+                                elapsedSeconds: Date().timeIntervalSince(runStartedAt),
+                                finalizationAfterSeconds: boundedRunFinalizationAfterSeconds
+                            )
                         guard exhaustedActionTurn,
-                              runLoop.latestCompletion?.result.ok == true,
+                              (runLoop.latestCompletion?.result.ok == true
+                               || reachedBoundedFinalizationDeadline),
                               tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }),
                               let path = runLoop.boundedRunFinalizationTargetPath()
                         else { throw error }
@@ -1983,6 +1999,37 @@ public struct AgentRunner: Sendable {
                             workspaceRoot: workspaceRoot,
                             stateSignature: stateSignature
                         )
+                        if !hasEnteredBoundedRunFinalization,
+                           boundedRunFinalizationAfterSeconds.map({
+                            $0.isFinite && $0 >= 0
+                           }) == true,
+                           completion.result.ok,
+                           completion.call.name == ToolDefinition.fileWrite.name,
+                           let writtenPath = AgentArtifactVerificationGate.pathArgument(
+                            from: completion.call
+                           ), let auditPath = runLoop.pendingArtifactContractAuditPath(),
+                           AgentArtifactVerificationGate.pathsMatch(writtenPath, auditPath) {
+                            hasEnteredBoundedRunFinalization = true
+                            boundedRunFinalizationPath = auditPath
+                            actionRunner.turnDeadlineSeconds = min(
+                                actionRunner.turnDeadlineSeconds
+                                    ?? Self.boundedRunFinalizationTurnDeadlineSeconds,
+                                Self.boundedRunFinalizationTurnDeadlineSeconds
+                            )
+                            pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
+                                path: auditPath,
+                                userMessage: userMessage,
+                                phase: .audit,
+                                evidenceReceipt: runLoop.latestAuthoritativeEvidenceReceipt
+                            )
+                            next.events.append(.init(
+                                kind: .notice,
+                                summary: "Self-healing: entered deterministic contract audit "
+                                    + "immediately after writing ./\(auditPath)."
+                            ))
+                            next.updatedAt = Date()
+                            await onProgress?(next)
+                        }
                         if !completion.result.ok,
                            let path = runLoop.pendingArtifactContractAuditPath(),
                            runLoop.needsContractAuditRepairReadback(at: path),

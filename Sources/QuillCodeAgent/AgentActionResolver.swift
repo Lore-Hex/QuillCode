@@ -39,7 +39,8 @@ extension AgentRunner {
         onProgress: AgentRunProgressHandler?,
         injectedCorrection: String? = nil,
         reasoningBudgetPhase: AgentReasoningBudgetPhase = .startup,
-        emptyResponseRetryPolicy: AgentEmptyResponseRetryPolicy = .standard
+        emptyResponseRetryPolicy: AgentEmptyResponseRetryPolicy = .standard,
+        absoluteTurnDeadline: Date? = nil
     ) async throws -> AgentAction {
         if injectedCorrection == nil,
            enablesImmediateActionPreflight,
@@ -75,9 +76,23 @@ extension AgentRunner {
         var activeLLM: LLMClient = llm
         var usedFallback = false
         while true {
+            var attemptRunner = self
+            if let absoluteTurnDeadline {
+                guard let deadlineSeconds = AgentBoundedRunFinalizationGate
+                    .preFinalizationTurnDeadlineSeconds(
+                        remainingSeconds: absoluteTurnDeadline.timeIntervalSinceNow,
+                        configuredTurnDeadlineSeconds: turnDeadlineSeconds
+                    )
+                else {
+                    // Throw outside the corrective catch below so the owning run loop can enter
+                    // finalization instead of spending another retry beyond the reserved boundary.
+                    throw AgentTurnDeadlineExceededError(seconds: 0)
+                }
+                attemptRunner.turnDeadlineSeconds = deadlineSeconds
+            }
             do {
                 if let correctionPrompt = pendingCorrectionPrompt {
-                    return try await performCorrectiveAttempt(
+                    return try await attemptRunner.performCorrectiveAttempt(
                         correctiveThread: correctiveThread,
                         correctionPrompt: correctionPrompt,
                         tools: tools,
@@ -89,7 +104,7 @@ extension AgentRunner {
                             : .correction
                     )
                 }
-                return try await dispatchNextAction(
+                return try await attemptRunner.dispatchNextAction(
                     thread: &thread,
                     userMessage: userMessage,
                     tools: tools,
