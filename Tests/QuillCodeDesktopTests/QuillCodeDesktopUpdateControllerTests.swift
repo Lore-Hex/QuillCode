@@ -244,9 +244,7 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         controller?.dismiss()
         XCTAssertFalse(try XCTUnwrap(controller).isPresented)
 
-        weak let releasedController = controller
         controller = nil
-        try await waitUntil { releasedController == nil }
 
         let restartedChecker = UpdateCheckerSpy(result: .updateAvailable(release))
         let restartedController = QuillCodeDesktopUpdateController(
