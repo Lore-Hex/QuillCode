@@ -204,6 +204,37 @@ final class QuillCodeDesktopRenderedSmokeTests: XCTestCase {
         XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.001)
     }
 
+    func testRenderedUpdaterKeepsReminderAndInstallActionsInsideSheet() async throws {
+        let release = makeRelease(version: "0.2.0", build: "700")
+        let controller = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            checker: RenderedUpdateChecker(release: release),
+            installationInspector: RenderedUpdateInstallationInspector(.available),
+            defaults: UserDefaults(
+                suiteName: "RenderedUpdaterReminder.\(UUID().uuidString)"
+            ) ?? .standard,
+            automaticSchedule: .production,
+            installResultURL: nil
+        )
+        controller.checkForUpdates()
+        try await waitForUpdaterState(controller) { $0 == .updateAvailable(release) }
+
+        let image = try renderHostedView(
+            QuillCodeDesktopUpdateView(controller: controller),
+            width: 470,
+            height: 340,
+            debugPathEnvironmentKey: "QUILLCODE_RENDER_UPDATE_REMINDER_IMAGE_PATH"
+        )
+        let stats = try RenderedWorkspacePixelStats(image: image)
+
+        XCTAssertEqual(stats.width, 470)
+        XCTAssertEqual(stats.height, 340)
+        XCTAssertGreaterThan(stats.opaquePixelRatio, 0.98)
+        XCTAssertGreaterThan(stats.distinctColorBuckets, 24)
+        XCTAssertGreaterThan(stats.brightPixelRatio, 0.001)
+        XCTAssertGreaterThan(stats.sageAccentPixelRatio, 0.001)
+    }
+
     func testRenderedUpdaterFailureKeepsRecoveryActionsInsideSheet() async throws {
         let release = makeRelease(version: "0.2.0", build: "7")
         let controller = QuillCodeDesktopUpdateController(
@@ -847,7 +878,11 @@ private final class RenderSmokeNoopBrowserSessionPresenter: DesktopBrowserSessio
     func clickInSelectedTab(selector: String) async throws -> DesktopBrowserSessionActionResult {
         throw DesktopBrowserSessionActionError.noOpenSession
     }
-    func typeInSelectedTab(selector: String, text: String, submit: Bool) async throws -> DesktopBrowserSessionActionResult {
+    func typeInSelectedTab(
+        selector: String,
+        text: String,
+        submit: Bool
+    ) async throws -> DesktopBrowserSessionActionResult {
         throw DesktopBrowserSessionActionError.noOpenSession
     }
     func reloadSession() {}

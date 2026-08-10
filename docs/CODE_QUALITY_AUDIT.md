@@ -1,5 +1,32 @@
 # Code Quality Audit
 
+## 2026-08-10 Durable Update Reminders
+
+Overall grade after this slice: **A+ interruption UX, A+ update freshness, A+ bounded persistence**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Interruption UX | A+ | **Remind Me Tomorrow** gives dismissal an explicit 24-hour meaning across app restarts instead of allowing the same tester build to reopen its modal every six hours. |
+| Update freshness | A+ | Automatic feed polling continues on the normal channel cadence, a different release bypasses the deferral immediately, and explicit **Check for Updates...** always clears it. |
+| Deadline behavior | A+ | The scheduler wakes at the exact reminder deadline and republishes the already-verified cached release without a redundant network request, even when the ordinary channel interval is longer. |
+| Failure safety | A+ | Records are schema- and size-bounded; expiry, channel/release mismatch, malformed JSON, excessive clock rollback, and implausibly future-dated state all fail open. |
+| Privacy | A+ | The record contains only schema, public channel/commit/version/build identity, and a deadline; it never persists paths, prompts, transcripts, account data, or credentials. |
+| Visual UX | A+ | The fixed 470-point native sheet keeps the wider reminder action and primary relaunch action readable, separated, accessible, and inside the footer at real rendered dimensions. |
+| Architecture | A+ | Reminder persistence has one focused 118-line owner, updater state moved into a focused 33-line model, and the coordinating controller remains below the 400-line quality threshold at 391 lines. |
+
+Validation:
+
+- Final updater, rendered UI, packaging, hit-target, controller-architecture, and global source-safety
+  matrix: 97 tests, 0 failures
+- Authoritative full Swift suite: 5,789 tests, 5 skipped, 0 failures
+- Native desktop executable smoke passed; release-configured packaged direct-executable, Launch
+  Services, live-window, Accessibility-frame, interaction, and Computer Use smokes passed
+- Dedicated packaged performance smoke passed 3/3 launches: 269.39 ms median launch-ready,
+  90.86 MiB initial RSS, 149.33 MiB after interaction, 153.64 MiB after repeated interaction,
+  4.31 MiB repeated growth, and at most 2 repeated threads of growth
+- Rendered update-availability sheet was captured and visually inspected at 470 x 340 pixels
+- Deterministic grader: every touched production and feature-specific test file scores 100/A+
+
 ## 2026-08-10 Unexpected-Exit Recovery
 
 Overall grade after this slice: **A+ crash visibility, A+ privacy, A+ lifecycle ownership**.

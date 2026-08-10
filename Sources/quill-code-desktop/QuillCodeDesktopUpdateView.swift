@@ -250,9 +250,10 @@ struct QuillCodeDesktopUpdateView: View {
         HStack(spacing: 8) {
             switch controller.state {
             case .updateAvailable:
-                Button("Later", action: controller.dismiss)
+                Button("Remind Me Tomorrow", action: controller.dismiss)
                     .buttonStyle(QuillCodeActionButtonStyle())
-                    .quillCodeFormActionTarget()
+                    .quillCodeFormActionTarget(minWidth: 154)
+                    .accessibilityIdentifier("quillcode-update-remind-later")
                 Spacer()
                 if controller.updateRequiresManualInstallation {
                     Button(action: controller.openManualInstaller) {

@@ -20,6 +20,10 @@ QuillCode uses unit, functional, integration, Playwright, and native smoke tests
   non-directory app and out-of-bundle executable refusal, zero preparation from a non-replaceable
   copy, trusted architecture-matching DMG selection, hostile/malformed/duplicate installer rejection,
   release-page fallback, fixed-size manual-installer UI, and a real mounted-DMG update check.
+- Updater reminder UX: exact-release 24-hour persistence across controller/store recreation, normal
+  automatic polling while deferred, changed-build and explicit-check override, exact cached deadline
+  presentation without a redundant request, small clock rollback tolerance, fail-open expiry and
+  malformed/oversized/future-state handling, fixed-size rendering, and stable accessibility identity.
 - Updater signing trust: exact ad-hoc metadata, notarized Developer ID transition, ten-character
   team validation, pinned-team continuity, ad-hoc downgrade and cross-team refusal, stable-channel
   requirements, Developer ID Application authority parsing, and Installer-authority rejection.
