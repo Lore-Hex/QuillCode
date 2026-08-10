@@ -75,6 +75,68 @@ final class AgentRunLoopStateTests: XCTestCase {
         XCTAssertEqual(state.unverifiedWrittenWorkspacePaths, ["outputs/report.md"])
     }
 
+    func testBoundedFinalizationTargetsWrittenDeliverablePendingReadback() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Write outputs/report.md and verify the saved output by reading it back."
+        )
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n\nComplete.\n",
+            ])
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: write, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "write" }
+
+        XCTAssertNil(state.pendingBoundedRunFinalizationPath())
+        XCTAssertEqual(state.boundedRunFinalizationTargetPath(), "outputs/report.md")
+        XCTAssertEqual(
+            state.boundedRunFinalizationPhase(at: "outputs/report.md"),
+            .readback
+        )
+    }
+
+    func testRequestedReadbackDoesNotIncludeHelperWrites() {
+        var state = AgentRunLoopState()
+        state.seedArtifactVerification(
+            userMessage: "Write outputs/report.md and verify the saved output by reading it back."
+        )
+        let deliverableWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Report\n",
+            ])
+        )
+        let helperWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": "assert True\n",
+            ])
+        )
+
+        _ = state.recordCompletedStep(
+            completed(call: deliverableWrite, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "deliverable" }
+        _ = state.recordCompletedStep(
+            completed(call: helperWrite, stdout: "wrote"),
+            workspaceRoot: root
+        ) { _ in "helper" }
+
+        XCTAssertEqual(
+            state.unverifiedWrittenWorkspacePaths,
+            ["outputs/report.md", "scripts/validate_report.py"]
+        )
+        XCTAssertEqual(state.pendingArtifactReadbackWorkspacePaths, ["outputs/report.md"])
+    }
+
     func testRenderedChartNeedsLaterSuccessfulRead() {
         var state = AgentRunLoopState()
         let render = ToolCall(

@@ -213,7 +213,140 @@ final class AgentToolLoopTests: XCTestCase {
             $0.summary.contains("reserved finalization window")
         })
         XCTAssertTrue(result.thread.events.contains {
-            $0.summary.contains("rejected a non-deliverable action")
+            $0.summary.contains("rejected a non-finalization action")
+        })
+    }
+
+    func testBoundedRunFinalizationStopsResearchAfterDeliverableWrite() async throws {
+        let root = try makeTempDirectory()
+        let capture = ToolCallCapture()
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "# Final report\n\nVerified evidence synthesized.\n",
+            ])
+        )
+        let research = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.test/more-research"])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(write), .tool(research), .tool(read), .say("Completed and verified the report."),
+            ]),
+            toolExecutionOverride: { call, _ in
+                if call.name == ToolDefinition.fileWrite.name {
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    return nil
+                }
+                if call.name == ToolDefinition.webFetch.name {
+                    await capture.record(call)
+                    return ToolResult(ok: true, stdout: "late research")
+                }
+                return nil
+            },
+            maxToolSteps: 8,
+            boundedRunFinalizationAfterSeconds: 0.1
+        )
+
+        let result = try await runner.send(
+            "Write outputs/report.md and verify the saved output by reading it back.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let researchCallCount = await capture.count
+        XCTAssertEqual(researchCallCount, 0)
+        XCTAssertEqual(result.thread.messages.last?.content, "Completed and verified the report.")
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("reserved finalization window")
+        })
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("rejected a non-finalization action")
+        })
+    }
+
+    func testBoundedRunFinalizationPermitsAuditHelperValidatorAndReadback() async throws {
+        let root = try makeTempDirectory()
+        let researchCapture = ToolCallCapture()
+        let validatorCapture = ToolCallCapture()
+        let deliverableWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "outputs/report.md",
+                "content": "name,value\nalpha,1\nbeta,2\n",
+            ])
+        )
+        let research = ToolCall(
+            name: ToolDefinition.webFetch.name,
+            argumentsJSON: ToolArguments.json(["url": "https://example.test/late-research"])
+        )
+        let validatorWrite = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": "scripts/validate_report.py",
+                "content": """
+                import pathlib, sys
+                rows = pathlib.Path(sys.argv[1]).read_text().splitlines()
+                assert len(rows) == 3, "report.md must contain one header and exactly two rows"
+                print("PASS: report.md has exactly two rows")
+                """,
+            ])
+        )
+        let validatorRun = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 scripts/validate_report.py outputs/report.md",
+            ])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": "outputs/report.md"])
+        )
+        let runner = AgentRunner(
+            llm: SequenceLLMClient(actions: [
+                .tool(deliverableWrite), .tool(research), .tool(validatorWrite),
+                .tool(validatorRun), .tool(read), .say("Completed and verified the report."),
+            ]),
+            toolExecutionOverride: { call, _ in
+                if call.name == ToolDefinition.webFetch.name {
+                    await researchCapture.record(call)
+                    return ToolResult(ok: true, stdout: "late research")
+                }
+                if call.name == ToolDefinition.shellRun.name {
+                    await validatorCapture.record(call)
+                    return ToolResult(ok: true, stdout: "PASS: report.md has exactly two rows")
+                }
+                return nil
+            },
+            maxToolSteps: 10,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Create outputs/report.md with exactly two data rows. After writing, read the saved "
+                + "output back and verify it.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let researchCallCount = await researchCapture.count
+        let validatorCallCount = await validatorCapture.count
+        XCTAssertEqual(researchCallCount, 0)
+        let eventSummary = result.thread.events.map(\.summary).joined(separator: "\n")
+        XCTAssertEqual(validatorCallCount, 1, eventSummary)
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified the report.",
+            eventSummary
+        )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("rejected a non-finalization action")
         })
     }
 

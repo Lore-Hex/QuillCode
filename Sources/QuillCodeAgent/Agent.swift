@@ -332,16 +332,15 @@ public struct AgentRunner: Sendable {
             let stateSignature = workspaceStateSignature ?? Self.defaultWorkspaceStateSignature
 
             actionLoop: for _ in 0..<limit {
-                if let path = boundedRunFinalizationPath,
-                   !runLoop.needsBoundedRunFinalization(at: path) {
-                    boundedRunFinalizationPath = nil
+                if hasEnteredBoundedRunFinalization {
+                    boundedRunFinalizationPath = runLoop.boundedRunFinalizationTargetPath()
                 }
                 if !hasEnteredBoundedRunFinalization,
                    AgentBoundedRunFinalizationGate.shouldEnter(
                     elapsedSeconds: Date().timeIntervalSince(runStartedAt),
                     finalizationAfterSeconds: boundedRunFinalizationAfterSeconds
                    ), tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }),
-                   let path = runLoop.pendingBoundedRunFinalizationPath() {
+                   let path = runLoop.boundedRunFinalizationTargetPath() {
                     hasEnteredBoundedRunFinalization = true
                     boundedRunFinalizationPath = path
                     actionRunner.turnDeadlineSeconds = min(
@@ -351,7 +350,8 @@ public struct AgentRunner: Sendable {
                     )
                     pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
                         path: path,
-                        userMessage: userMessage
+                        userMessage: userMessage,
+                        phase: runLoop.boundedRunFinalizationPhase(at: path)
                     )
                     next.events.append(.init(
                         kind: .notice,
@@ -637,19 +637,20 @@ public struct AgentRunner: Sendable {
                     await onProgress?(next)
                 }
                 if let path = boundedRunFinalizationPath,
-                   runLoop.needsBoundedRunFinalization(at: path),
                    !AgentBoundedRunFinalizationGate.allows(
                     resolvedAction,
-                    deliverablePath: path
+                    deliverablePath: path,
+                    phase: runLoop.boundedRunFinalizationPhase(at: path)
                    ) {
                     pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
                         path: path,
-                        userMessage: userMessage
+                        userMessage: userMessage,
+                        phase: runLoop.boundedRunFinalizationPhase(at: path)
                     )
                     next.events.append(.init(
                         kind: .notice,
-                        summary: "Self-healing: rejected a non-deliverable action during bounded "
-                            + "finalization; ./\(path) must be written first."
+                        summary: "Self-healing: rejected a non-finalization action during the "
+                            + "bounded run's closure window for ./\(path)."
                     ))
                     next.updatedAt = Date()
                     await onProgress?(next)
@@ -1041,7 +1042,7 @@ public struct AgentRunner: Sendable {
                         resolvedAction,
                         userMessage: userMessage,
                         tools: tools,
-                        unverifiedPaths: runLoop.unverifiedWrittenWorkspacePaths
+                        unverifiedPaths: runLoop.pendingArtifactReadbackWorkspacePaths
                     )
                 }
                 try Task.checkCancellation()
@@ -1402,7 +1403,7 @@ public struct AgentRunner: Sendable {
                                 finalized,
                                 userMessage: userMessage,
                                 tools: tools,
-                                unverifiedPaths: runLoop.unverifiedWrittenWorkspacePaths
+                                unverifiedPaths: runLoop.pendingArtifactReadbackWorkspacePaths
                             )
                         }
                         switch finalized {

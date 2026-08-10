@@ -179,6 +179,18 @@ struct AgentRunLoopState: Sendable {
         }
     }
 
+    func pendingArtifactReadbackPath() -> String? {
+        pendingArtifactReadbackWorkspacePaths.sorted().first
+    }
+
+    var pendingArtifactReadbackWorkspacePaths: Set<String> {
+        Set(requiredReadbackWorkspacePaths.filter { path in
+            unverifiedWrittenWorkspacePaths.contains(where: {
+                AgentArtifactVerificationGate.pathsMatch($0, path)
+            })
+        })
+    }
+
     func pendingResearchCheckpointPath(minimumResearchWeight: Int) -> String? {
         guard researchPressureWeightBeforeDraft >= minimumResearchWeight else { return nil }
         return namedTextDeliverableWorkspacePaths.sorted().first { path in
@@ -234,6 +246,33 @@ struct AgentRunLoopState: Sendable {
         namedTextDeliverableWorkspacePaths.sorted().first(where: {
             needsBoundedRunFinalization(at: $0)
         })
+    }
+
+    func boundedRunFinalizationTargetPath() -> String? {
+        pendingBoundedRunFinalizationPath()
+            ?? pendingArtifactContractAuditPath()
+            ?? pendingArtifactReadbackPath()
+            ?? writtenNamedTextDeliverablePath()
+            ?? namedTextDeliverableWorkspacePaths.sorted().first
+    }
+
+    func boundedRunFinalizationPhase(
+        at path: String
+    ) -> AgentBoundedRunFinalizationGate.Phase {
+        if needsBoundedRunFinalization(at: path) {
+            return .synthesize
+        }
+        if pendingArtifactContractAuditPath().map({
+            AgentArtifactVerificationGate.pathsMatch($0, path)
+        }) == true {
+            return .audit
+        }
+        if pendingArtifactReadbackPath().map({
+            AgentArtifactVerificationGate.pathsMatch($0, path)
+        }) == true {
+            return .readback
+        }
+        return .complete
     }
 
     func needsBoundedRunFinalization(at path: String) -> Bool {

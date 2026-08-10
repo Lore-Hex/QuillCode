@@ -82,7 +82,7 @@ enum AgentArtifactContractAuditGate {
 
     private static func isValidatorCommand(_ command: String) -> Bool {
         let executorPattern = #"(?is)\b(?:python\d*|ruby|perl|node|deno|awk|jq|xmllint|tidy)\b"#
-        let assertionPattern = #"(?is)(?:\b(?:assert|validate|validator|verify|verification|lint|check)\b|\b(?:xmllint|tidy)\b|raise\s+SystemExit|exit\s*\()"#
+        let assertionPattern = #"(?is)(?:\b(?:assert|validate|validator|verify|verification|lint|check)\b|\b(?:validate|validator|verify|verification|lint|check)[-_][\w.-]*\.(?:py|js|mjs|cjs|rb|pl)\b|\b(?:xmllint|tidy)\b|raise\s+SystemExit|exit\s*\()"#
         let range = NSRange(command.startIndex..., in: command)
         guard let executorRegex = try? NSRegularExpression(pattern: executorPattern),
               let assertionRegex = try? NSRegularExpression(pattern: assertionPattern)

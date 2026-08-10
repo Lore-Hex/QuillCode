@@ -74,6 +74,21 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ), [path])
     }
 
+    func testValidatorScriptWithDescriptiveUnderscoreNameAuditsArtifact() {
+        let path = "outputs/report.md"
+        let validator = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 scripts/check_deliverable.py outputs/report.md",
+            ])
+        )
+
+        XCTAssertEqual(
+            AgentArtifactContractAuditGate.auditedPaths(for: validator, among: [path]),
+            [path]
+        )
+    }
+
     func testCorrectionBudgetIsBoundedPerArtifact() {
         let tools = [ToolDefinition.shellRun]
         XCTAssertNotNil(AgentArtifactContractAuditGate.correction(
