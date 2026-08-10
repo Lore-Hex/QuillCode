@@ -5,6 +5,7 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         let text = try Self.desktopSourceText()
         let commandsText = try Self.desktopSourceText(named: "DesktopCommands.swift")
         let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
+        let rootViewText = try Self.desktopSourceText(named: "QuillCodeDesktopRootView.swift")
         let shortcutMonitorText = try Self.desktopSourceText(
             named: "QuillCodeDesktopShortcutMonitor.swift"
         )
@@ -60,9 +61,9 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
         Self.assertSource(commandsText, contains: ".disabled(commandsByID[commandID]?.isEnabled != true)")
         Self.assertSource(commandsText, contains: "accessibilityIdentifier(\"quillcode-menu-command-\\(commandID)\")")
         Self.assertSource(appText, contains: "onCommand: { controller.runCommand(commandID: $0) }")
-        Self.assertSource(appText, contains: "controller.runCommand(commandID: commandID)")
+        Self.assertSource(rootViewText, contains: "controller.runCommand(commandID: commandID)")
         Self.assertSource(appText, excludes: "observeCommand()")
-        Self.assertSource(appText, contains: "QuillCodeSecondaryShortcutResolver.commandID")
+        Self.assertSource(rootViewText, contains: "QuillCodeSecondaryShortcutResolver.commandID")
         Self.assertSource(
             appText,
             contains: "Window(QuillCodeProduct.displayName, id: QuillCodeDesktopSceneID.mainWindow)"
@@ -85,5 +86,26 @@ final class ParityDesktopGateTests: QuillCodeParityTestCase {
             "Disconnect All must not regress to a no-op button."
         )
         Self.assertSource(menuText, excludes: ".disabled(true)")
+    }
+
+    func testDesktopOwnsUnexpectedExitRecoveryAtTheApplicationBoundary() throws {
+        let appText = try Self.desktopSourceText(named: "QuillCodeDesktopApp.swift")
+        let rootViewText = try Self.desktopSourceText(named: "QuillCodeDesktopRootView.swift")
+        let lifecycleText = try Self.desktopSourceText(named: "QuillCodeDesktopLaunchLifecycle.swift")
+        let smokeText = try Self.desktopSourceText(named: "QuillCodeDesktopLaunchRecoverySmoke.swift")
+        let reporterText = try Self.desktopSourceText(named: "QuillCodeDesktopIssueReporter.swift")
+
+        Self.assertSource(appText, contains: "launchLifecycleController?.startIfNeeded()")
+        Self.assertSource(rootViewText, contains: "launchLifecycleController?.markReady()")
+        Self.assertSource(rootViewText, contains: "Quill Cowork closed unexpectedly")
+        Self.assertSource(rootViewText, contains: "controller.launchLifecycleController?.takeUnexpectedExit()")
+        Self.assertSource(rootViewText, contains: "QuillCodeDesktopIssueReporter.open(")
+        Self.assertSource(lifecycleText, contains: "flock(descriptor, LOCK_EX)")
+        Self.assertSource(lifecycleText, contains: "record.launchID == launchID")
+        Self.assertSource(lifecycleText, contains: "processIsRunning(record.processIdentifier)")
+        Self.assertSource(lifecycleText, contains: "NSApplication.willTerminateNotification")
+        Self.assertSource(reporterText, contains: "## Previous session")
+        Self.assertSource(appText, contains: "QuillCodeDesktopLaunchRecoverySmoke.runAndExit(request)")
+        Self.assertSource(smokeText, contains: "try verify(home: root.home)")
     }
 }

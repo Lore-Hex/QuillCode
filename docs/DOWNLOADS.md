@@ -71,6 +71,19 @@ For a bug report, include the warning title, affected data labels, app version, 
 Do not include API keys, account details, filesystem paths, URLs, or raw private content. The
 in-app diagnostic is deliberately content-free and should report `Private content included: No`.
 
+## Tester Recovery: Unexpected Exit
+
+Packaged builds keep one private, content-free active-launch marker. A normal Quit or updater-driven
+termination clears the matching marker. If the process instead disappears during startup or while
+running, the next successful launch shows **Quill Cowork closed unexpectedly** and warns that an
+in-progress command may be incomplete. Choose **Continue** to return to the workspace or **Report
+Issue...** to open a prefilled crash report.
+
+The marker and report include only launch phase/time plus version, build, source commit, channel,
+architecture, and macOS version. They do not include project paths, filenames, prompts, transcripts,
+tool output, account details, or credentials. Live-process, stale, future-dated, unsafe, and graceful
+termination records are ignored to avoid false crash notices.
+
 ## Build Cadence
 
 The tester release is refreshed:

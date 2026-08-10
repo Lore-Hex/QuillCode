@@ -127,6 +127,13 @@
 
 ## Latest Quality Pass
 
+- Packaged macOS launches now register an atomic, cross-process-locked, privacy-safe launch sentinel
+  before workspace construction, mark Ready only after the first native root view appears, and clear
+  only a matching launch on graceful termination. A fresh dead-process marker produces one native
+  recovery alert with Continue and a bounded Report Issue route; live PIDs, stale/future or unsafe
+  records, graceful Terminating state, development/smoke modes, and old-owner cleanup cannot create or
+  erase the wrong incident. The marker stores no project paths, prompts, transcripts, account data,
+  or credentials, and packaged smoke proves ready-state recovery followed by false-positive-free quit.
 - App-server Git inspection now includes Codex-compatible `gitDiffToRemote`: one bounded, binary,
   non-mutating diff from the current local upstream tip to committed-ahead, staged, unstaged, and
   untracked state, with ignored files excluded. Focused real-Git tests and the built JSONL smoke cover
