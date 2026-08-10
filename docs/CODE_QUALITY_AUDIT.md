@@ -1,5 +1,27 @@
 # Code Quality Audit
 
+## 2026-08-09 Current-Main Publication Boundary
+
+Overall grade after this slice: **A+ release freshness, A+ supersession safety, A+ stable isolation**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Tester freshness | A+ | The publisher re-fetches `origin/main` after every architecture artifact is ready and immediately before the first moving-release mutation. Only the exact current commit can move `tester-latest`. |
+| Supersession behavior | A+ | A stale tester run records `publish-required=false`, succeeds without touching the tag, release notes, manifest, or assets, and skips public-download and updater verification for a release it did not publish. The newer serialized run proceeds next. |
+| Stable isolation | A+ | Canonical version tags bypass main freshness but are resolved again from the remote and must still equal the workflow commit. Missing, malformed, moved, and unsupported refs fail closed. |
+| Workflow ownership | A+ | Build serialization remains non-cancelling, so a publisher cannot be interrupted during release replacement. The new gate narrows the stale-publication window without weakening artifact, CI, signing, or consumer verification gates. |
+
+Validation:
+
+- Focused publication planner, release policy, and Download Builds parity suites
+  (15 tests, 0 failures)
+- Full `swift test` (5,752 tests, 5 skipped, 0 failures)
+- Real GitHub remote: current `main` emitted `publish-required=true`; superseded build-691 commit
+  `50b88eb5` emitted `publish-required=false` and exited successfully
+- `bash -n` and YAML parsing passed; `git diff --check` passed
+- Deterministic code-quality grader: every module A+; the new planner and parity suite each score
+  100/A+ with no automated issues
+
 ## 2026-08-09 Window-Independent Application Services
 
 Overall grade after this slice: **A+ update reliability, A+ background ownership, A+ lifecycle isolation**.

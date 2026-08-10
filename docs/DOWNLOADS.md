@@ -95,7 +95,11 @@ on that commit. This avoids no-op build-number updates and unnecessary updater
 prompts without treating a partial publication as healthy.
 When a build is required, the workflow updates the stable `tester-latest` tag
 and replaces release assets in place, so the links above do not change as new
-builds are published.
+builds are published. Immediately before changing that moving release, the
+publisher fetches `origin/main` again. If another merge has superseded the
+packaged commit, the run exits successfully without touching the tag, manifest,
+or assets; the already queued run for the newer commit becomes the next publisher.
+Immutable stable version tags are unaffected by this tester-channel freshness gate.
 
 DMG construction is transactional and stage-aware. The packager creates each
 candidate beside the destination, then verifies, mounts, inspects, signature-checks,

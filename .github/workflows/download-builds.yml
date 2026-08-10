@@ -148,6 +148,8 @@ jobs:
     permissions:
       actions: read
       contents: write
+    outputs:
+      published: ${{ steps.publication.outputs.publish-required }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -182,7 +184,11 @@ jobs:
             --workflow-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --output "$RUNNER_TEMP/release-assets/$MANIFEST_NAME"
           find "$RUNNER_TEMP/release-assets" -maxdepth 1 -type f -print | sort
+      - name: Recheck publication freshness
+        id: publication
+        run: scripts/plan-download-publication.sh
       - name: Publish tester or tagged release
+        if: steps.publication.outputs.publish-required == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -256,6 +262,7 @@ jobs:
 
   verify-published:
     needs: publish
+    if: needs.publish.outputs.published == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

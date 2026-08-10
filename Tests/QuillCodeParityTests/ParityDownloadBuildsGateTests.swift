@@ -316,6 +316,10 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
             "--commit \"$GITHUB_SHA\"",
             "--output \"$RUNNER_TEMP/release-notes.md\"",
             "current-release-assets.txt",
+            "scripts/plan-download-publication.sh",
+            "published: ${{ steps.publication.outputs.publish-required }}",
+            "if: steps.publication.outputs.publish-required == 'true'",
+            "if: needs.publish.outputs.published == 'true'",
             "gh release delete-asset \"$RELEASE_TAG\" \"$asset_name\" --yes",
             "gh release upload \"$RELEASE_TAG\" \"$RUNNER_TEMP\"/release-assets/* --clobber",
             "--verify-tag",
@@ -362,11 +366,14 @@ final class ParityDownloadBuildsGateTests: QuillCodeParityTestCase {
         XCTAssertLessThan(validationIndex.lowerBound, ciGateIndex.lowerBound)
         XCTAssertLessThan(ciGateIndex.lowerBound, planningIndex.lowerBound)
         let publishIndex = try XCTUnwrap(workflow.range(of: "  publish:"))
+        let freshnessIndex = try XCTUnwrap(workflow.range(of: "scripts/plan-download-publication.sh"))
+        let releaseMutationIndex = try XCTUnwrap(workflow.range(of: "git tag -f \"$RELEASE_TAG\""))
         let publicVerificationIndex = try XCTUnwrap(workflow.range(of: "  verify-published:"))
         let promotionIndex = try XCTUnwrap(workflow.range(of: "  promote-stable:"))
         let updaterIndex = try XCTUnwrap(workflow.range(of: "  verify-updater:"))
         let finalVerificationIndex = try XCTUnwrap(workflow.range(of: "  verify-stable-promotion:"))
         XCTAssertLessThan(publishIndex.lowerBound, publicVerificationIndex.lowerBound)
+        XCTAssertLessThan(freshnessIndex.lowerBound, releaseMutationIndex.lowerBound)
         XCTAssertLessThan(publicVerificationIndex.lowerBound, promotionIndex.lowerBound)
         XCTAssertLessThan(promotionIndex.lowerBound, updaterIndex.lowerBound)
         XCTAssertLessThan(updaterIndex.lowerBound, finalVerificationIndex.lowerBound)
