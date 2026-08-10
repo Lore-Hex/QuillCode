@@ -3,19 +3,22 @@
 [![CI](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/ci.yml)
 [![Download Builds](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml/badge.svg)](https://github.com/Lore-Hex/QuillCode/actions/workflows/download-builds.yml)
 
-**A native macOS coding agent and AI coworker for real project work.**
+**A 100% Swift coding agent and AI coworker, built for Swift developers.**
 
 [Download for Apple silicon](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-arm64.dmg) · [Download for Intel](https://github.com/Lore-Hex/QuillCode/releases/download/tester-latest/Quill-Cowork-macOS-x86_64.dmg) · [Release notes and checksums](https://github.com/Lore-Hex/QuillCode/releases/tag/tester-latest)
 
 ![Quill Cowork showing a code review with TrustedRouter billing limits expanded](docs/images/quill-cowork-desktop.png)
 
 Quill Cowork combines project-aware chat, local tools, Git workflows, Computer Use, automations,
-plugins, and a full workspace terminal in one SwiftUI desktop app. It is built natively in Swift
-rather than Electron, with bounded background work, persistent local state, and a verified updater
-with automatic rollback.
+plugins, and a full workspace terminal in one SwiftUI desktop app. The desktop app and agent runtime
+are written entirely in Swift, with no Electron or web-app shell. Swift developers can inspect,
+extend, profile, and contribute to the same strongly typed code that ships to users. Bounded
+background work, persistent local state, and a verified updater with automatic rollback are built
+into that Swift architecture.
 
 ## What You Can Do
 
+- Build Swift projects with a coding agent whose application and agent runtime are themselves Swift.
 - Work across multiple projects and chats with project instructions, memories, and context.
 - Read, search, edit, and review files; run shell commands; inspect Git changes; and manage branches,
   worktrees, commits, pushes, and pull requests.
