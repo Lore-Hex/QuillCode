@@ -24,6 +24,10 @@ final class AgentToolLoopTests: XCTestCase {
             XCTAssertTrue(prompt.contains("exact output from successful research tool calls"))
             XCTAssertTrue(prompt.contains("take precedence over delegated summaries"))
             XCTAssertTrue(prompt.contains("claim is contradicted by the receipt"))
+            XCTAssertTrue(prompt.contains("align every value with its exact source header"))
+            XCTAssertTrue(prompt.contains("Never relabel a half-period"))
+            XCTAssertTrue(prompt.contains("underlying observations independently"))
+            XCTAssertTrue(prompt.contains("locate intended table fields by their headers"))
         }
     }
 

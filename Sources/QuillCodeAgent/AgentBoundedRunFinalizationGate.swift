@@ -114,8 +114,9 @@ enum AgentBoundedRunFinalizationGate {
             source-derived claims against the actual source and tool evidence already in the thread, \
             not merely against values declared by the artifact. An artifact sentence claiming that a \
             validator passed is not validation evidence. For numeric source work, encode the observed \
-            source values as independent expected data and recompute derived values. The \
-            command must include ./\(path), print a concise PASS summary, and exit nonzero with \
+            source values as independent expected data and recompute derived values. \
+            \(AgentArtifactContractAuditGate.sourceTableIntegrityInstruction) \
+            The command must include ./\(path), print a concise PASS summary, and exit nonzero with \
             named failures. If the validator needs a multiline script, write one validator helper \
             first and then execute it against ./\(path). If validation fails, you may read the \
             saved ./\(path) once to inspect the exact failing content. Then rewrite only the complete \
@@ -145,7 +146,9 @@ enum AgentBoundedRunFinalizationGate {
         assertions and the saved ./\(path) readback to identify which side is wrong. If the \
         deliverable is wrong, rewrite the complete ./\(path). If the deliverable satisfies the \
         original request but the validator parsed or compared it incorrectly, rewrite the validator \
-        helper with materially corrected assertions; the host will execute the changed helper \
+        helper with materially corrected assertions that locate intended fields by header and compare \
+        them with independent evidence rather than values copied from the deliverable; the host will \
+        execute the changed helper \
         automatically. Emit exactly one of those file writes now.
         """
     }
@@ -181,7 +184,8 @@ enum AgentBoundedRunFinalizationGate {
         delegating, parsing, and creating helper files. Synthesize the strongest verified evidence \
         already present in the tool results into the complete requested deliverable at ./\(path) now. \
         Start from the original request, state genuinely unavailable facts honestly, and do not invent \
-        missing evidence. Respond with host.file.write for exactly ./\(path); no other action is \
+        missing evidence. \(AgentArtifactContractAuditGate.sourceTableIntegrityInstruction) Respond \
+        with host.file.write for exactly ./\(path); no other action is \
         permitted until that deliverable exists. The normal artifact readback and validation steps will \
         run after the write.
 

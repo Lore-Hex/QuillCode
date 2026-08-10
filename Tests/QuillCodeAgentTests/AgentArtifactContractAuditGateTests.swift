@@ -103,6 +103,20 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
     }
 
+    func testCorrectionRequiresSourceTableAndParserIntegrity() throws {
+        let correction = try XCTUnwrap(AgentArtifactContractAuditGate.correction(
+            path: "outputs/report.md",
+            tools: [.shellRun],
+            correctionCount: 0
+        ))
+
+        XCTAssertTrue(correction.prompt.contains("align every value with its exact source header"))
+        XCTAssertTrue(correction.prompt.contains("Never relabel a half-period"))
+        XCTAssertTrue(correction.prompt.contains("underlying observations independently"))
+        XCTAssertTrue(correction.prompt.contains("locate intended table fields by their headers"))
+        XCTAssertTrue(correction.prompt.contains("expected values copied from the artifact"))
+    }
+
     func testRunnerRequiresAuditAndReauditsAfterRewrite() async throws {
         let root = try makeWorkspace()
         let firstWrite = ToolCall(

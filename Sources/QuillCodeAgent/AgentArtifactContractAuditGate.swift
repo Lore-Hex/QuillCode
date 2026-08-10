@@ -13,6 +13,16 @@ enum AgentArtifactContractAuditGate {
 
     static let correctionLimitPerPath = 3
 
+    static let sourceTableIntegrityInstruction = """
+        When evidence is tabular, align every value with its exact source header. Never relabel a \
+        half-period, subtotal, latest-period, partial-period, or adjacent column as an annual or \
+        full-period aggregate. If a requested aggregate is absent, recompute it from the applicable \
+        underlying observations and disclose the observation count and any missing periods. A \
+        validator must derive source aggregates from those underlying observations independently of \
+        the artifact and must locate intended table fields by their headers, not by taking the first \
+        similar number or currency value from a row.
+        """
+
     static func requiresAudit(in userMessage: String) -> Bool {
         let patterns = [
             #"(?is)\bexactly\s+(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(?:[\w-]+\s+){0,3}(?:rows?|records?|entries|items|sections?|emails?|slides?|sheets?|columns?|cells?|series)\b"#,
@@ -84,7 +94,10 @@ enum AgentArtifactContractAuditGate {
             mechanically testable requirement in the original request: counts, row/cell/field \
             order, required raw value formats, labels, and chart-series data. For SVG or canvas \
             coordinates, also assert that value changes map in the correct visual direction. The \
-            command must contain real assertions or validation checks, print a concise PASS summary, \
+            validator must compare source-derived claims with independent source observations, not \
+            with expected values copied from the artifact. \
+            \(sourceTableIntegrityInstruction) \
+            The command must contain real assertions or validation checks, print a concise PASS summary, \
             and exit nonzero with named failures. A presence-only grep or another readback is not \
             sufficient. If it fails, rewrite the complete artifact and rerun the validator; do not \
             claim completion until the latest write passes. Return exactly one executable tool \
