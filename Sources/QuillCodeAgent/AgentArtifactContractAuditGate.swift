@@ -158,6 +158,12 @@ enum AgentArtifactContractAuditGate {
         if let issue = monthlyTableMeanContradiction(in: artifact) {
             return issue
         }
+        if let issue = sourceMonthlyMeanContradiction(
+            artifact: artifact,
+            evidenceReceipt: evidenceReceipt
+        ) {
+            return issue
+        }
         if let issue = latestPeriodContradiction(
             artifact: artifact,
             evidenceReceipt: evidenceReceipt
@@ -216,6 +222,55 @@ enum AgentArtifactContractAuditGate {
                 expected,
                 claim
             )
+        }
+        return nil
+    }
+
+    private static func sourceMonthlyMeanContradiction(
+        artifact: String,
+        evidenceReceipt: String
+    ) -> String? {
+        let artifactLines = artifact.components(separatedBy: .newlines)
+        for table in markdownTables(in: evidenceReceipt) {
+            guard let yearColumn = table.headers.firstIndex(where: {
+                normalizedTableLabel($0) == "year"
+            }) else { continue }
+
+            let monthColumns = table.headers.indices.filter {
+                $0 != yearColumn && isMonthlyPeriodHeader(table.headers[$0])
+            }
+            guard monthColumns.count >= 6 else { continue }
+
+            for row in table.rows where row.count == table.headers.count {
+                let year = row[yearColumn].trimmingCharacters(in: .whitespacesAndNewlines)
+                guard year.range(of: #"^(?:19|20)\d{2}$"#, options: .regularExpression) != nil,
+                      let claim = aggregateClaim(for: year, in: artifactLines)
+                else { continue }
+
+                let observations = monthColumns.compactMap { decimalValue(row[$0]) }
+                guard observations.count >= 3 else { continue }
+                let expected = observations.reduce(0, +) / Double(observations.count)
+                guard abs(expected - claim.value) > displayedRoundingTolerance(for: claim.raw) else {
+                    continue
+                }
+
+                let missingPeriods = monthColumns.compactMap { index -> String? in
+                    decimalValue(row[index]) == nil ? table.headers[index] : nil
+                }
+                let missing = missingPeriods.isEmpty
+                    ? ""
+                    : " Missing or nonnumeric periods: \(missingPeriods.joined(separator: ", "))."
+                return String(
+                    format: "The retained source table's %@ monthly observations average to "
+                        + "%.6f across %d published values, not %@.%@ Recompute the aggregate "
+                        + "from the month columns and propagate it to every downstream value.",
+                    year,
+                    expected,
+                    observations.count,
+                    claim.raw,
+                    missing
+                )
+            }
         }
         return nil
     }
@@ -444,6 +499,11 @@ enum AgentArtifactContractAuditGate {
     private static func isMonthLabel(_ raw: String) -> Bool {
         let month = normalizedTableLabel(raw)
         return orderedPeriodAliases.prefix(12).contains { $0.contains(month) }
+    }
+
+    private static func isMonthlyPeriodHeader(_ raw: String) -> Bool {
+        let header = normalizedTableLabel(raw)
+        return orderedPeriodAliases.prefix(12).contains { $0.contains(header) }
     }
 
     private struct PeriodObservation {
