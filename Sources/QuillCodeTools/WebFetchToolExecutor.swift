@@ -8,8 +8,8 @@ import FoundationNetworking
 #endif
 
 /// Executes `host.web.fetch`: SSRF-gate the URL, GET it (following a bounded number of
-/// redirects, re-gating every hop), retry once with browser-like headers when Cloudflare's
-/// bot protection interferes, then decode and convert the body to markdown.
+/// redirects, re-gating every hop), retry once with browser-like headers when bot protection
+/// or a client-specific transport reset interferes, then decode and convert the body to markdown.
 public struct WebFetchToolExecutor: Sendable {
     public var client: any WebFetchHTTPClient
     /// Streaming cap on the response body (~5 MB per the tool contract).
@@ -65,7 +65,19 @@ public struct WebFetchToolExecutor: Sendable {
             }
             return buildResult(requestedURL: url, outcome: outcome, query: query)
         case .failure(let failure):
-            return Self.failure(failure.message)
+            guard failure.retryWithBrowserHeaders else {
+                return Self.failure(failure.message)
+            }
+            let retry = performAttempt(startingAt: url, headers: Self.browserLikeHeaders)
+            switch retry {
+            case .success(let outcome):
+                return buildResult(requestedURL: url, outcome: outcome, query: query)
+            case .failure(let retryFailure):
+                return Self.failure("""
+                \(failure.message) A retry with browser-like headers also failed: \
+                \(retryFailure.message)
+                """)
+            }
         }
     }
 
@@ -79,9 +91,11 @@ public struct WebFetchToolExecutor: Sendable {
 
     private struct AttemptFailure: Error {
         var message: String
+        var retryWithBrowserHeaders: Bool
 
-        init(_ message: String) {
+        init(_ message: String, retryWithBrowserHeaders: Bool = false) {
             self.message = message
+            self.retryWithBrowserHeaders = retryWithBrowserHeaders
         }
     }
 
@@ -107,10 +121,14 @@ public struct WebFetchToolExecutor: Sendable {
                     maxBodyBytes: maxBodyBytes
                 ))
             } catch let error as WebFetchHTTPClientError {
-                return .failure(AttemptFailure("Fetching \(currentURL.absoluteString) failed: \(error.description)."))
+                return .failure(AttemptFailure(
+                    "Fetching \(currentURL.absoluteString) failed: \(error.description).",
+                    retryWithBrowserHeaders: true
+                ))
             } catch {
                 return .failure(AttemptFailure(
-                    "Fetching \(currentURL.absoluteString) failed: \(error.localizedDescription)"
+                    "Fetching \(currentURL.absoluteString) failed: \(error.localizedDescription)",
+                    retryWithBrowserHeaders: true
                 ))
             }
 

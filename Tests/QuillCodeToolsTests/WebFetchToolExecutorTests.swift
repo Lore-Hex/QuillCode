@@ -432,11 +432,29 @@ final class WebFetchToolExecutorTests: XCTestCase {
     }
 
     func testTransportErrorIsSurfaced() {
-        let client = StubWebFetchHTTPClient([.failure(.timedOut)])
+        let client = StubWebFetchHTTPClient([.failure(.timedOut), .failure(.timedOut)])
         let executor = WebFetchToolExecutor(client: client)
         let result = executor.fetch(urlString: "https://example.com/slow")
         XCTAssertFalse(result.ok)
         XCTAssertTrue(result.error?.contains("timed out") == true)
+        XCTAssertTrue(result.error?.contains("browser-like headers") == true)
+        XCTAssertEqual(client.requests.count, 2)
+    }
+
+    func testTransportFailureRetriesWithBrowserHeaders() {
+        let client = StubWebFetchHTTPClient([
+            .failure(.transport("HTTP/2 stream reset")),
+            .success(htmlResponse("<p>Quarterly revenue: $191,000,000</p>")),
+        ])
+        let executor = WebFetchToolExecutor(client: client)
+
+        let result = executor.fetch(urlString: "https://example.com/results")
+
+        XCTAssertTrue(result.ok, result.error ?? "")
+        XCTAssertTrue(result.stdout.contains("$191,000,000"))
+        XCTAssertEqual(client.requests.count, 2)
+        XCTAssertTrue(client.requests[0].headers["User-Agent"]?.contains("QuillCode") == true)
+        XCTAssertTrue(client.requests[1].headers["User-Agent"]?.contains("Mozilla") == true)
     }
 
     func testEmptyPageYieldsPlaceholder() {
