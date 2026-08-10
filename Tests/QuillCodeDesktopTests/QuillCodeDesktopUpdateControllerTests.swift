@@ -226,28 +226,45 @@ final class QuillCodeDesktopUpdateControllerTests: XCTestCase {
         XCTAssertFalse(controller.isPresented)
     }
 
-    func testDismissedAutomaticReleaseStaysHiddenAndManualCheckOverridesDeferral() async throws {
+    func testDismissedAutomaticReleaseStaysHiddenAfterRestartAndManualCheckOverridesDeferral() async throws {
         let release = makeRelease(version: "0.2.0", build: "7")
-        let checker = UpdateCheckerSpy(result: .updateAvailable(release))
-        let controller = QuillCodeDesktopUpdateController(
+        let defaults = makeDefaults()
+        var controller: QuillCodeDesktopUpdateController? = QuillCodeDesktopUpdateController(
             configuration: makeConfiguration(),
-            checker: checker,
-            defaults: makeDefaults(),
-            automaticSchedule: makeAutomaticSchedule(testerInterval: 0.03),
+            checker: UpdateCheckerSpy(result: .updateAvailable(release)),
+            defaults: defaults,
+            automaticSchedule: makeAutomaticSchedule(),
             installResultURL: temporaryInstallResultURL()
         )
 
-        controller.startAutomaticChecks()
-        try await waitUntil { controller.state == .updateAvailable(release) && controller.isPresented }
-        controller.dismiss()
-        XCTAssertFalse(controller.isPresented)
+        controller?.startAutomaticChecks()
+        try await waitUntil {
+            controller?.state == .updateAvailable(release) && controller?.isPresented == true
+        }
+        controller?.dismiss()
+        XCTAssertFalse(try XCTUnwrap(controller).isPresented)
 
-        try await waitUntil { await checker.callCount >= 2 }
-        try await waitUntil { controller.state == .updateAvailable(release) && !controller.isPresented }
+        controller = nil
 
-        controller.checkForUpdates()
-        try await waitUntil { await checker.callCount >= 3 }
-        try await waitUntil { controller.state == .updateAvailable(release) && controller.isPresented }
+        let restartedChecker = UpdateCheckerSpy(result: .updateAvailable(release))
+        let restartedController = QuillCodeDesktopUpdateController(
+            configuration: makeConfiguration(),
+            checker: restartedChecker,
+            defaults: defaults,
+            now: { Date().addingTimeInterval(61) },
+            automaticSchedule: makeAutomaticSchedule(),
+            installResultURL: temporaryInstallResultURL()
+        )
+        restartedController.startAutomaticChecks()
+        try await waitUntil { await restartedChecker.callCount >= 1 }
+        XCTAssertEqual(restartedController.state, .updateAvailable(release))
+        XCTAssertFalse(restartedController.isPresented)
+
+        restartedController.checkForUpdates()
+        try await waitUntil { await restartedChecker.callCount >= 2 }
+        try await waitUntil {
+            restartedController.state == .updateAvailable(release) && restartedController.isPresented
+        }
     }
 
     func testNewAutomaticReleaseBypassesPersistedDeferral() async throws {
