@@ -2317,7 +2317,7 @@ def validate_task_126_real_revenue(path):
     for year in (2023, 2024, 2025, 2026):
         candidates = []
         for year_match in re.finditer(rf"\b{year}\b[^\n]*", text):
-            for raw_value in re.findall(r"\b[23]\d{2}\.\d{3,9}\b", year_match.group(0)):
+            for raw_value in re.findall(r"\b[23]\d{2}\.\d{3,}\b", year_match.group(0)):
                 try:
                     candidates.append((len(raw_value.partition(".")[2]), Decimal(raw_value)))
                 except InvalidOperation:
@@ -2384,14 +2384,23 @@ def validate_task_126_real_revenue(path):
         before = compact_text[max(0, match.start() - 80):match.start()]
         after = compact_text[match.end():match.end() + 140]
         explicitly_negated = bool(re.search(
-            r"(?:\bnot\b|\bnever\b|does\s+not\s+publish)"
+            r"(?:\bno\b|\bnot\b|\bnever\b|does\s+not\s+publish)"
             r"[^.!?]{0,55}$",
             before,
             re.I,
         ))
         tied_to_partial_year = bool(
-            re.search(r"\([^)]*(?:11|partial|missing)", after, re.I)
-            or re.search(r"(?:uses|computed from)[^.!?]{0,20}\b11\b", after, re.I)
+            re.search(
+                r"^\s*(?:\*\*)?\s*\([^)]*(?:\b11\b|partial|missing)",
+                after,
+                re.I,
+            )
+            or re.search(
+                r"^[^.!?]{0,30}(?:based on|using|uses|computed from)"
+                r"[^.!?]{0,20}\b11\b",
+                after,
+                re.I,
+            )
         )
         if tied_to_partial_year and not explicitly_negated:
             mislabeled_2025_average = True
