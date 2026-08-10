@@ -435,6 +435,75 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(requestCount, 4)
     }
 
+    func testSuccessfulResearchEntersBoundedFinalizationAfterRepeatedReasoningOverrun() async throws {
+        let root = try makeTempDirectory()
+        let overrun = AgentPreActionReasoningBudgetExceededError(maximumCharacters: 12_000)
+        let state = ScriptedState([
+            .success(.tool(.init(
+                name: ToolDefinition.webFetch.name,
+                argumentsJSON: #"{"url":"https://example.com/evidence"}"#
+            ))),
+            .failure(overrun),
+            .failure(overrun),
+            .failure(overrun),
+            .success(.tool(.init(
+                name: ToolDefinition.fileWrite.name,
+                argumentsJSON: #"{"path":"outputs/report.md","content":"Grounded evidence retained."}"#
+            ))),
+            .success(.tool(.init(
+                name: ToolDefinition.fileRead.name,
+                argumentsJSON: #"{"path":"outputs/report.md"}"#
+            ))),
+            .success(.say("Completed and verified outputs/report.md.")),
+        ])
+        let runner = AgentRunner(
+            llm: ScriptedClient(state: state),
+            additionalToolDefinitions: [.webFetch],
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.webFetch.name else { return nil }
+                return ToolResult(
+                    ok: true,
+                    stdout: "Fetched official evidence from https://example.com/evidence."
+                )
+            },
+            maxToolSteps: 8,
+            boundedRunFinalizationAfterSeconds: 3_600
+        )
+
+        let result = try await runner.send(
+            "Research https://example.com/evidence, write outputs/report.md, and read it back.",
+            in: ChatThread(
+                title: "early bounded finalization",
+                mode: .auto,
+                model: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+            ),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.stopReason, .finished)
+        XCTAssertEqual(
+            try String(contentsOf: root.appendingPathComponent("outputs/report.md")),
+            "Grounded evidence retained."
+        )
+        XCTAssertEqual(
+            result.thread.messages.last?.content,
+            "Completed and verified outputs/report.md."
+        )
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("moved early into bounded finalization")
+                && $0.summary.contains("outputs/report.md")
+        })
+        let calls = await state.recorded()
+        XCTAssertEqual(calls.count, 7)
+        let finalizationContext = calls[4]
+            .filter { $0.role == .user }
+            .map(\.content)
+            .joined(separator: "\n")
+        XCTAssertTrue(finalizationContext.contains("outputs/report.md"))
+        XCTAssertTrue(finalizationContext.contains("Host-retained successful research evidence"))
+        XCTAssertTrue(finalizationContext.contains("https://example.com/evidence"))
+    }
+
     func testBoundedAuditUsesCorrectiveReasoningFuseAndPreservesValidatorInstruction() async throws {
         let root = try makeTempDirectory()
         let state = UsageStreamSequenceState([

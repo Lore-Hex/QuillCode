@@ -619,6 +619,44 @@ public struct AgentRunner: Sendable {
                         ))
                         next.updatedAt = Date()
                         await onProgress?(next)
+                    } catch {
+                        try Task.checkCancellation()
+                        let exhaustedActionTurn = error is AgentPreActionReasoningBudgetExceededError
+                            || error is AgentTurnDeadlineExceededError
+                            || error is AgentReasoningOnlyResponseError
+                        guard exhaustedActionTurn,
+                              runLoop.latestCompletion?.result.ok == true,
+                              tools.contains(where: { $0.name == ToolDefinition.fileWrite.name }),
+                              let path = runLoop.boundedRunFinalizationTargetPath()
+                        else { throw error }
+
+                        let enteredEarly = !hasEnteredBoundedRunFinalization
+                        hasEnteredBoundedRunFinalization = true
+                        boundedRunFinalizationPath = path
+                        actionRunner.turnDeadlineSeconds = min(
+                            actionRunner.turnDeadlineSeconds
+                                ?? Self.boundedRunFinalizationTurnDeadlineSeconds,
+                            Self.boundedRunFinalizationTurnDeadlineSeconds
+                        )
+                        pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
+                            path: path,
+                            userMessage: userMessage,
+                            phase: runLoop.boundedRunFinalizationPhase(at: path),
+                            evidenceReceipt: runLoop.latestResearchEvidenceReceipt
+                        )
+                        next.events.append(.init(
+                            kind: .notice,
+                            summary: enteredEarly
+                                ? "Self-healing: the model exhausted its action-turn budget after "
+                                    + "successful tool work; moved early into bounded finalization "
+                                    + "for ./\(path) using retained evidence."
+                                : "Self-healing: the model exhausted its action-turn budget during "
+                                    + "bounded finalization for ./\(path); required the next closure "
+                                    + "action using retained evidence."
+                        ))
+                        next.updatedAt = Date()
+                        await onProgress?(next)
+                        continue actionLoop
                     }
                 }
                 hasEmittedModelAction = true
