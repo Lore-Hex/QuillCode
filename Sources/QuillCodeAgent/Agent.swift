@@ -363,6 +363,23 @@ public struct AgentRunner: Sendable {
                 }
                 let repeatNudge = pendingRepeatNudge
                 pendingRepeatNudge = nil
+                let boundedFinalizationPhase = boundedRunFinalizationPath.map {
+                    runLoop.boundedRunFinalizationPhase(at: $0)
+                }
+                let boundedFinalizationPrompt: String? = if let path = boundedRunFinalizationPath,
+                                                            let boundedFinalizationPhase {
+                    AgentBoundedRunFinalizationGate.correctionPrompt(
+                        path: path,
+                        userMessage: userMessage,
+                        phase: boundedFinalizationPhase
+                    )
+                } else {
+                    nil
+                }
+                let isBoundedFinalizationCorrection = repeatNudge != nil
+                    && repeatNudge == boundedFinalizationPrompt
+                let isSemanticArtifactCorrection = repeatNudge != nil
+                    && !isBoundedFinalizationCorrection
                 if repeatNudge != nil, !correctiveTurnBudget.beginCorrectiveTurn() {
                     let reason = "the model did not produce an executable tool action after "
                         + "\(AgentCorrectiveTurnBudget.limit) consecutive corrective turns"
@@ -382,20 +399,30 @@ public struct AgentRunner: Sendable {
                         stopReason: .flailDetected(reason: reason)
                     )
                 }
-                let injectedCorrection: String? = if repeatNudge != nil,
-                                                     let path = boundedRunFinalizationPath {
+                let injectedCorrection: String? = if isBoundedFinalizationCorrection,
+                                                     let path = boundedRunFinalizationPath,
+                                                     let boundedFinalizationPhase {
                     AgentBoundedRunFinalizationGate.escalatedCorrectionPrompt(
                         path: path,
                         userMessage: userMessage,
-                        phase: runLoop.boundedRunFinalizationPhase(at: path),
+                        phase: boundedFinalizationPhase,
                         attempt: correctiveTurnBudget.consecutiveTurns - 1,
                         limit: AgentCorrectiveTurnBudget.limit
                     )
-                } else {
+                } else if let repeatNudge {
                     repeatNudge
+                } else if hasEnteredBoundedRunFinalization {
+                    boundedFinalizationPrompt
+                } else {
+                    nil
                 }
-                let reasoningBudgetPhase: AgentReasoningBudgetPhase = if hasEnteredBoundedRunFinalization {
+                let reasoningBudgetPhase: AgentReasoningBudgetPhase = if isSemanticArtifactCorrection {
+                    .correction
+                } else if hasEnteredBoundedRunFinalization,
+                          boundedFinalizationPhase == .synthesize {
                     .boundedFinalization
+                } else if hasEnteredBoundedRunFinalization {
+                    .correction
                 } else if !hasEmittedModelAction {
                     .startup
                 } else if runLoop.requiresGroundedSynthesisReasoningBudget() {
@@ -655,7 +682,11 @@ public struct AgentRunner: Sendable {
                     resolvedAction,
                     deliverablePath: path,
                     phase: runLoop.boundedRunFinalizationPhase(at: path)
-                   ) {
+                   ), !(isSemanticArtifactCorrection
+                        && AgentBoundedRunFinalizationGate.allowsSemanticAuditReadback(
+                            resolvedAction,
+                            deliverablePath: path
+                        )) {
                     pendingRepeatNudge = AgentBoundedRunFinalizationGate.correctionPrompt(
                         path: path,
                         userMessage: userMessage,

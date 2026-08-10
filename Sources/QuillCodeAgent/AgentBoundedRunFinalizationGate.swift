@@ -52,6 +52,14 @@ enum AgentBoundedRunFinalizationGate {
         }
     }
 
+    static func allowsSemanticAuditReadback(
+        _ action: AgentAction,
+        deliverablePath: String
+    ) -> Bool {
+        guard case .tool(let call) = action else { return false }
+        return isReadback(call, deliverablePath: deliverablePath)
+    }
+
     static func correctionPrompt(
         path: String,
         userMessage: String,
@@ -64,7 +72,11 @@ enum AgentBoundedRunFinalizationGate {
             """
             The bounded run is in its reserved validation window. Stop researching, browsing, and \
             delegating. Run one deterministic validator with host.shell.run against ./\(path) now, \
-            with real assertions for the original request's machine-checkable requirements. The \
+            with real assertions for the original request's machine-checkable requirements. Compare \
+            source-derived claims against the actual source and tool evidence already in the thread, \
+            not merely against values declared by the artifact. An artifact sentence claiming that a \
+            validator passed is not validation evidence. For numeric source work, encode the observed \
+            source values as independent expected data and recompute derived values. The \
             command must include ./\(path), print a concise PASS summary, and exit nonzero with \
             named failures. If the validator needs a multiline script, write one validator helper \
             first and then execute it against ./\(path). If validation fails, rewrite only the \

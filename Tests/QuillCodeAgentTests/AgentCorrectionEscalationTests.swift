@@ -196,11 +196,70 @@ final class AgentCorrectionEscalationTests: XCTestCase {
         XCTAssertTrue(prompts.contains {
             $0.contains("requested deliverable, deterministic audit, and readback are complete")
         }, diagnostics)
-        XCTAssertGreaterThanOrEqual(auditPrompts.count, AgentCorrectiveTurnBudget.limit)
+        XCTAssertTrue(prompts[1].contains("reserved validation window"), diagnostics)
+        XCTAssertEqual(auditPrompts.count, AgentCorrectiveTurnBudget.limit + 1)
         XCTAssertFalse(try XCTUnwrap(auditPrompts.first).contains("FINAL ATTEMPT"))
         XCTAssertTrue(try XCTUnwrap(auditPrompts.last).contains("FINAL ATTEMPT (3 of 3)"))
         XCTAssertTrue(try XCTUnwrap(auditPrompts.last).contains("\"cmd\" argument"))
         XCTAssertTrue(try XCTUnwrap(auditPrompts.last).contains("host.shell.run"))
+    }
+
+    func testBoundedFinalizationPreservesSemanticSourceAuditCorrection() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("bounded-source-audit-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+
+        let reportPath = "outputs/report.md"
+        let write = ToolCall(
+            name: ToolDefinition.fileWrite.name,
+            argumentsJSON: ToolArguments.json([
+                "path": reportPath,
+                "content": "# Report\n\nOne source-grounded row.\n",
+            ])
+        )
+        let validator = ToolCall(
+            name: ToolDefinition.shellRun.name,
+            argumentsJSON: ToolArguments.json([
+                "cmd": "python3 -c 'assert open(\"outputs/report.md\").read()' outputs/report.md",
+            ])
+        )
+        let read = ToolCall(
+            name: ToolDefinition.fileRead.name,
+            argumentsJSON: ToolArguments.json(["path": reportPath])
+        )
+        let state = PromptRecorder([
+            .tool(write),
+            .tool(validator),
+            .say("Completed and verified outputs/report.md."),
+            .tool(read),
+        ])
+        let runner = AgentRunner(
+            llm: RecordingClient(state: state),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 10,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Use only facts from supplied sources. Create outputs/report.md, run a deterministic "
+                + "validator against it, read it back, and report completion.",
+            in: ChatThread(mode: .auto),
+            workspaceRoot: root
+        )
+
+        let prompts = await state.recorded()
+        let diagnostics = prompts.enumerated()
+            .map { "[\($0.offset)] \($0.element)" }
+            .joined(separator: "\n---\n")
+        XCTAssertEqual(result.stopReason, .finished, diagnostics)
+        XCTAssertEqual(result.toolResults.map(\.ok), [true, true, true], diagnostics)
+        XCTAssertEqual(result.thread.messages.last?.content, "Completed and verified `outputs/report.md`.")
+        XCTAssertTrue(try XCTUnwrap(prompts.last).contains("limits facts to supplied sources"))
+        XCTAssertFalse(try XCTUnwrap(prompts.last).contains("Do not call another tool"))
     }
 
     func testExhaustedPromisedWorkAfterSuccessfulReadGetsOneRunLevelContinuation() async throws {

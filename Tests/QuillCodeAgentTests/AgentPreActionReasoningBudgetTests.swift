@@ -423,6 +423,55 @@ final class AgentPreActionReasoningBudgetTests: XCTestCase {
         XCTAssertEqual(requestCount, 3)
     }
 
+    func testBoundedAuditUsesCorrectiveReasoningFuseAndPreservesValidatorInstruction() async throws {
+        let root = try makeTempDirectory()
+        let state = UsageStreamSequenceState([
+            [
+                .reasoning(String(repeating: "grounded synthesis ", count: 800)),
+                .text(#"{"type":"tool","name":"host.file.write","arguments":{"path":"outputs/report.md","content":"Verified evidence synthesized."}}"#),
+            ],
+            [
+                .reasoning(String(repeating: "audit planning ", count: 1_000)),
+                .text(#"{"type":"say","text":"still planning"}"#),
+            ],
+            [
+                .text(#"{"type":"tool","name":"host.shell.run","arguments":{"cmd":"python3 -c 'assert open(\"outputs/report.md\").read()' outputs/report.md"}}"#),
+            ],
+            [
+                .text(#"{"type":"tool","name":"host.file.read","arguments":{"path":"outputs/report.md"}}"#),
+            ],
+            [
+                .text(#"{"type":"say","text":"Completed and verified outputs/report.md."}"#),
+            ],
+        ])
+        let runner = AgentRunner(
+            llm: UsageStreamSequenceClient(state: state),
+            toolExecutionOverride: { call, _ in
+                guard call.name == ToolDefinition.shellRun.name else { return nil }
+                return ToolResult(ok: true, stdout: "PASS")
+            },
+            maxToolSteps: 8,
+            boundedRunFinalizationAfterSeconds: 0
+        )
+
+        let result = try await runner.send(
+            "Write outputs/report.md, validate it deterministically, and read it back.",
+            in: ChatThread(
+                title: "bounded finalization",
+                mode: .auto,
+                model: TrustedRouterChatParameters.deepSeekV4Flash0731Model
+            ),
+            workspaceRoot: root
+        )
+
+        XCTAssertEqual(result.stopReason, .finished)
+        XCTAssertTrue(result.thread.events.contains {
+            $0.summary.contains("pre-action reasoning budget")
+        })
+        let requestCount = await state.requestCount()
+        XCTAssertEqual(requestCount, 5)
+    }
+
     func testRunnerDefaultsToReasoningBudgetAndCanDisableIt() {
         XCTAssertEqual(
             AgentRunner().preActionReasoningCharacterLimit,
