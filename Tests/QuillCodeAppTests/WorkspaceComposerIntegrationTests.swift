@@ -519,7 +519,7 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         let producerMessageStorage = storageAddress(of: snapshot.messages)
         let producerEventStorage = storageAddress(of: snapshot.events)
 
-        WorkspaceAgentProgressThreadReconciler.reconcile(snapshot, into: &live)
+        let mutation = WorkspaceAgentProgressThreadReconciler.reconcile(snapshot, into: &live)
 
         XCTAssertEqual(live.messages, snapshot.messages)
         XCTAssertEqual(live.events, snapshot.events)
@@ -531,6 +531,8 @@ final class WorkspaceComposerIntegrationTests: XCTestCase {
         XCTAssertEqual(live.composerDraft, "A newer draft")
         XCTAssertEqual(live.composerAttachments.map(\.id), [liveAttachment.id])
         XCTAssertEqual(live.followUpQueue.map(\.text), ["Then run tests"])
+        XCTAssertEqual(mutation.messageMutation, .rebuild)
+        XCTAssertTrue(mutation.eventsAffectTranscript)
     }
 
     func testCancelledComposerRunRecordsNoticeOnOriginalThread() async throws {

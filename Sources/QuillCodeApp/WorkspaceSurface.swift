@@ -166,7 +166,7 @@ private struct WorkspaceAgentProgressSurface {
 public extension QuillCodeWorkspaceModel {
     func surface() -> WorkspaceSurface {
         let progress = agentProgressSurface()
-        return WorkspaceSurface(
+        let surface = WorkspaceSurface(
             chrome: progress.chrome,
             topBar: progress.topBar,
             projects: progress.projects,
@@ -213,6 +213,10 @@ public extension QuillCodeWorkspaceModel {
             lastError: progress.lastError,
             attentionDigest: progress.attentionDigest
         )
+        agentTranscriptRefreshTracker.didPublishAuthoritativeSurface(
+            selectedThreadID: root.selectedThreadID
+        )
+        return surface
     }
 
     /// Reprojects only state that the named progress producers are allowed to mutate.
@@ -224,7 +228,13 @@ public extension QuillCodeWorkspaceModel {
         guard !scope.isEmpty else { return surface }
         var next = surface
         if scope.contains(.agent) {
-            agentProgressSurface().apply(to: &next)
+            let transcriptRefresh = agentTranscriptRefreshTracker.consume(
+                selectedThreadID: root.selectedThreadID
+            )
+            agentProgressSurface(
+                reusing: surface.transcript,
+                transcriptRefresh: transcriptRefresh
+            ).apply(to: &next)
         }
         if scope.contains(.terminal) {
             next.terminal = terminalSurface()
@@ -236,26 +246,52 @@ public extension QuillCodeWorkspaceModel {
         return next
     }
 
-    private func agentProgressSurface() -> WorkspaceAgentProgressSurface {
+    private func agentProgressSurface(
+        reusing previousTranscript: TranscriptSurface? = nil,
+        transcriptRefresh: WorkspaceAgentTranscriptRefreshPlan = .rebuild
+    ) -> WorkspaceAgentProgressSurface {
         let thread = selectedThread
         let topBarState = root.topBar
         let runtimeIssue = runtimeIssueSurface()
-        let transcriptProjection = thread.map {
-            WorkspaceTranscriptSurfaceBuilder(
-                thread: $0,
-                allowsRevert: selectedProject?.isRemote != true
-            ).projection()
-        } ?? .empty
         let executionContextBuilder = WorkspaceExecutionContextSurfaceBuilder(
             selectedProject: selectedProject,
             projects: root.projects
         )
-        let toolCards = thread.map {
-            executionContextBuilder.enrichToolCards(transcriptProjection.toolCards, for: $0)
-        } ?? []
-        let timelineItems = thread.map {
-            executionContextBuilder.enrichTimelineItems(transcriptProjection.timelineItems, for: $0)
-        } ?? []
+        let transcript: TranscriptSurface
+        if var incrementalTranscript = previousTranscript.flatMap({
+            transcriptRefresh.updatingTranscript($0, for: thread)
+        }) {
+            incrementalTranscript.thinking = WorkspaceTranscriptThinkingSurfaceBuilder(
+                thread: thread,
+                composer: composer,
+                agentStatus: topBarState.agentStatus
+            ).surface()
+            transcript = incrementalTranscript
+        } else {
+            let transcriptProjection = thread.map {
+                WorkspaceTranscriptSurfaceBuilder(
+                    thread: $0,
+                    allowsRevert: selectedProject?.isRemote != true
+                ).projection()
+            } ?? .empty
+            let toolCards = thread.map {
+                executionContextBuilder.enrichToolCards(transcriptProjection.toolCards, for: $0)
+            } ?? []
+            let timelineItems = thread.map {
+                executionContextBuilder.enrichTimelineItems(transcriptProjection.timelineItems, for: $0)
+            } ?? []
+            transcript = TranscriptSurface(
+                messages: transcriptProjection.messages,
+                toolCards: toolCards,
+                timelineItems: thread == nil ? nil : timelineItems,
+                thinking: WorkspaceTranscriptThinkingSurfaceBuilder(
+                    thread: thread,
+                    composer: composer,
+                    agentStatus: topBarState.agentStatus
+                ).surface()
+            )
+        }
+        let toolCards = transcript.toolCards
         let activeSources = WorkspaceContextResolver(
             projects: root.projects,
             globalMemories: root.globalMemories,
@@ -324,16 +360,7 @@ public extension QuillCodeWorkspaceModel {
             topBar: topBar,
             projects: navigation.projects,
             sidebar: navigation.sidebar,
-            transcript: TranscriptSurface(
-                messages: transcriptProjection.messages,
-                toolCards: toolCards,
-                timelineItems: thread == nil ? nil : timelineItems,
-                thinking: WorkspaceTranscriptThinkingSurfaceBuilder(
-                    thread: thread,
-                    composer: composer,
-                    agentStatus: topBarState.agentStatus
-                ).surface()
-            ),
+            transcript: transcript,
             contextBanner: WorkspaceContextBannerBuilder(
                 thread: thread,
                 selectedModelID: topBarState.model,

@@ -39,6 +39,9 @@ public final class QuillCodeWorkspaceModel {
     /// registry lets diagnostics distinguish a genuine finish from a budget or safety stop after
     /// the running entry has been removed.
     var completedAgentRunStopReasons: [UUID: AgentRunStopReason] = [:]
+    /// One-shot structural hints for the next coalesced agent refresh. This deliberately stores no
+    /// transcript arrays, so publishing progress cannot retain a producer's large history buffers.
+    var agentTranscriptRefreshTracker = WorkspaceAgentTranscriptRefreshTracker()
     public private(set) var lastError: String?
     let startupLoadIssue: WorkspaceStartupLoadIssue?
 

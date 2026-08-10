@@ -76,6 +76,9 @@ final class ParityDesktopTaskCoordinationGateTests: QuillCodeParityTestCase {
         let composerText = try Self.desktopSourceText(named: "QuillCodeDesktopController+ComposerAndPanes.swift")
         let terminalText = try Self.desktopSourceText(named: "QuillCodeDesktopController+Terminal.swift")
         let surfaceText = try Self.appSourceText(named: "WorkspaceSurface.swift")
+        let transcriptTrackerText = try Self.appSourceText(
+            named: "WorkspaceAgentTranscriptRefreshTracker.swift"
+        )
 
         Self.assertSource(refreshText, contains: "modelStateCoordinator.refreshProgressState(")
         Self.assertSource(refreshText, contains: "progressRefreshScheduler.flush")
@@ -83,17 +86,22 @@ final class ParityDesktopTaskCoordinationGateTests: QuillCodeParityTestCase {
         Self.assertSource(composerText, contains: "scheduleProgressRefresh(.agent)")
         Self.assertSource(terminalText, contains: "scheduleProgressRefresh(.terminal)")
         Self.assertSource(surfaceText, contains: "func progressSurface(")
-        Self.assertSource(surfaceText, contains: "agentProgressSurface().apply(to: &next)")
+        Self.assertSource(surfaceText, contains: "agentTranscriptRefreshTracker.consume(")
+        Self.assertSource(surfaceText, contains: "reusing: surface.transcript")
+        Self.assertSource(surfaceText, contains: "transcriptRefresh.updatingTranscript")
         Self.assertSource(surfaceText, contains: "next.terminal = terminalSurface()")
+        Self.assertSource(transcriptTrackerText, contains: "private var pendingPlan")
+        Self.assertSource(transcriptTrackerText, excludes: "[ChatMessage]")
+        Self.assertSource(transcriptTrackerText, excludes: "[ThreadEvent]")
 
         let progressImplementation = try XCTUnwrap(
             surfaceText.components(separatedBy: "func progressSurface(").dropFirst().first
-        ).components(separatedBy: "private func agentProgressSurface()").first ?? ""
+        ).components(separatedBy: "private func agentProgressSurface(").first ?? ""
         XCTAssertFalse(progressImplementation.contains("surface()"))
         XCTAssertFalse(progressImplementation.contains("WorkspaceProjectConfigurationLoader"))
 
         let agentImplementation = try XCTUnwrap(
-            surfaceText.components(separatedBy: "private func agentProgressSurface()").dropFirst().first
+            surfaceText.components(separatedBy: "private func agentProgressSurface(").dropFirst().first
         ).components(separatedBy: "private func terminalSurface()").first ?? ""
         XCTAssertFalse(agentImplementation.contains("WorkspaceProjectConfigurationLoader"))
     }
