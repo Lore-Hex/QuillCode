@@ -22,7 +22,10 @@ enum AgentArtifactContractAuditGate {
         columns; HALF1, HALF2, H1, and H2 columns are never annual values. A \
         validator must derive source aggregates from those underlying observations independently of \
         the artifact and must locate intended table fields by their headers, not by taking the first \
-        similar number or currency value from a row. For a latest-period claim, pair the ordered \
+        similar number or currency value from a row. Whole-document approximate-number searches are \
+        invalid: compare each expected number with the exact row/header field, use no more than half \
+        of the artifact's displayed rounding unit as tolerance, and reject conflicting repeated \
+        values for the same row/header field. For a latest-period claim, pair the ordered \
         period headers with the row values and select the rightmost non-missing eligible period; \
         exclude summary, half-period, subtotal, and projection columns, and assert both the selected \
         period label and value.
@@ -149,6 +152,12 @@ enum AgentArtifactContractAuditGate {
         if let issue = explicitArithmeticContradiction(in: artifact) {
             return issue
         }
+        if let issue = duplicateTableFieldContradiction(in: artifact) {
+            return issue
+        }
+        if let issue = monthlyTableMeanContradiction(in: artifact) {
+            return issue
+        }
         if let issue = latestPeriodContradiction(
             artifact: artifact,
             evidenceReceipt: evidenceReceipt
@@ -171,6 +180,16 @@ enum AgentArtifactContractAuditGate {
     }
 
     private static func explicitArithmeticContradiction(in artifact: String) -> String? {
+        if let issue = explicitSumDivisionContradiction(in: artifact) {
+            return issue
+        }
+        if let issue = explicitProductDivisionContradiction(in: artifact) {
+            return issue
+        }
+        return explicitGrowthContradiction(in: artifact)
+    }
+
+    private static func explicitSumDivisionContradiction(in artifact: String) -> String? {
         let pattern = #"\((\s*\d{1,8}(?:\.\d+)?(?:\s*\+\s*\d{1,8}(?:\.\d+)?){2,}\s*)\)\s*(?:/|÷)\s*(\d+)\s*=\s*(\d{1,8}(?:\.\d+)?)"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
         let range = NSRange(artifact.startIndex..., in: artifact)
@@ -189,9 +208,7 @@ enum AgentArtifactContractAuditGate {
             guard terms.count >= 3 else { continue }
             let expected = terms.reduce(0, +) / divisor
             let claim = String(artifact[claimRange])
-            let precision = claim.split(separator: ".", maxSplits: 1)
-                .dropFirst().first?.count ?? 0
-            let tolerance = max(0.000_000_5, 1.5 * pow(10, -Double(precision)))
+            let tolerance = displayedRoundingTolerance(for: claim)
             guard abs(expected - claimed) > tolerance else { continue }
             return String(
                 format: "The artifact's explicit sum/division equation evaluates to %.6f, not %@. "
@@ -201,6 +218,232 @@ enum AgentArtifactContractAuditGate {
             )
         }
         return nil
+    }
+
+    private static func explicitProductDivisionContradiction(in artifact: String) -> String? {
+        let number = #"(?:[$€£]\s*)?-?\d[\d,]*(?:\.\d+)?"#
+        let pattern = "(?x)\\(?\\s*(\(number))\\s*(?:×|\\*)\\s*\\(?\\s*(\(number))"
+            + "\\s*\\)?\\s*(?:/|÷)\\s*(\(number))\\s*\\)?\\s*=\\s*(\(number))"
+            + "(?![\\d,.])"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(artifact.startIndex..., in: artifact)
+        for match in regex.matches(in: artifact, range: range) {
+            guard let left = numericCapture(1, in: match, text: artifact),
+                  let multiplier = numericCapture(2, in: match, text: artifact),
+                  let divisor = numericCapture(3, in: match, text: artifact),
+                  divisor.value != 0,
+                  let claimed = numericCapture(4, in: match, text: artifact)
+            else { continue }
+
+            let expected = left.value * multiplier.value / divisor.value
+            guard abs(expected - claimed.value) > displayedRoundingTolerance(for: claimed.raw) else {
+                continue
+            }
+            return String(
+                format: "The artifact's explicit multiplication/division equation evaluates to "
+                    + "%.6f, not %@. Recompute the value and every repeated downstream field.",
+                expected,
+                claimed.raw
+            )
+        }
+        return nil
+    }
+
+    private static func explicitGrowthContradiction(in artifact: String) -> String? {
+        let number = #"(?:[$€£]\s*)?-?\d[\d,]*(?:\.\d+)?"#
+        let percent = #"-?\d[\d,]*(?:\.\d+)?"#
+        let pattern = "(?x)\\(?\\s*(\(number))\\s*(?:−|-)\\s*(\(number))\\s*\\)?"
+            + "\\s*(?:/|÷)\\s*(\(number))\\s*=\\s*(\(percent))\\s*%"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        let range = NSRange(artifact.startIndex..., in: artifact)
+        for match in regex.matches(in: artifact, range: range) {
+            guard let current = numericCapture(1, in: match, text: artifact),
+                  let prior = numericCapture(2, in: match, text: artifact),
+                  let divisor = numericCapture(3, in: match, text: artifact),
+                  divisor.value != 0,
+                  let claimed = numericCapture(4, in: match, text: artifact)
+            else { continue }
+
+            let expected = (current.value - prior.value) / divisor.value * 100
+            guard abs(expected - claimed.value) > displayedRoundingTolerance(for: claimed.raw) else {
+                continue
+            }
+            return String(
+                format: "The artifact's explicit growth equation evaluates to %.6f%%, not %@%%. "
+                    + "Recompute the rate from the displayed operands.",
+                expected,
+                claimed.raw
+            )
+        }
+        return nil
+    }
+
+    private struct NumericCapture {
+        var raw: String
+        var value: Double
+    }
+
+    private static func numericCapture(
+        _ index: Int,
+        in match: NSTextCheckingResult,
+        text: String
+    ) -> NumericCapture? {
+        guard let range = Range(match.range(at: index), in: text) else { return nil }
+        let raw = String(text[range])
+        guard let value = decimalValue(raw) else { return nil }
+        return .init(raw: raw, value: value)
+    }
+
+    private static func displayedRoundingTolerance(for raw: String) -> Double {
+        let normalized = raw.replacingOccurrences(of: ",", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let precision = normalized.split(separator: ".", maxSplits: 1)
+            .dropFirst().first?.prefix(while: { $0.isNumber }).count ?? 0
+        return 0.500_001 * pow(10, -Double(precision))
+    }
+
+    private struct MarkdownTable {
+        var headers: [String]
+        var rows: [[String]]
+    }
+
+    private static func duplicateTableFieldContradiction(in artifact: String) -> String? {
+        var seen: [String: NumericCapture] = [:]
+        for table in markdownTables(in: artifact) where table.headers.count >= 2 {
+            let rowHeader = normalizedTableLabel(table.headers[0])
+            for row in table.rows where row.count >= table.headers.count {
+                let rowLabel = normalizedTableLabel(row[0])
+                guard !rowHeader.isEmpty, !rowLabel.isEmpty else { continue }
+                for column in 1..<table.headers.count {
+                    let field = normalizedTableLabel(table.headers[column])
+                    guard !field.isEmpty, let value = singleNumericCell(row[column]) else { continue }
+                    let key = "\(rowHeader)\u{1F}\(rowLabel)\u{1F}\(field)"
+                    if let prior = seen[key],
+                       abs(prior.value - value.value) > max(
+                           displayedRoundingTolerance(for: prior.raw),
+                           displayedRoundingTolerance(for: value.raw)
+                       ) {
+                        return "The artifact repeats table field \(table.headers[column]) for "
+                            + "\(table.headers[0]) \(row[0]) with conflicting values "
+                            + "\(prior.raw) and \(value.raw). Keep one canonical value everywhere."
+                    }
+                    seen[key] = value
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func monthlyTableMeanContradiction(in artifact: String) -> String? {
+        let lines = artifact.components(separatedBy: .newlines)
+        for index in lines.indices {
+            let headers = pipeCells(lines[index])
+            guard headers.count >= 2,
+                  normalizedTableLabel(headers[0]) == "month",
+                  index + 1 < lines.count,
+                  isMarkdownSeparatorRow(pipeCells(lines[index + 1])),
+                  let year = nearestYear(before: index, in: lines)
+            else { continue }
+
+            var observations: [Double] = []
+            for line in lines.dropFirst(index + 2) {
+                let cells = pipeCells(line)
+                guard cells.count >= headers.count else { break }
+                guard isMonthLabel(cells[0]) else { continue }
+                if let value = singleNumericCell(cells[1])?.value {
+                    observations.append(value)
+                }
+            }
+            guard observations.count >= 3 else { continue }
+            let expected = observations.reduce(0, +) / Double(observations.count)
+            guard let claim = aggregateClaim(for: year, in: lines) else { continue }
+            guard abs(expected - claim.value) > displayedRoundingTolerance(for: claim.raw) else {
+                continue
+            }
+            return String(
+                format: "The artifact's %@ monthly table averages to %.6f across %d numeric "
+                    + "observations, not %@. Recompute the stated mean and downstream values.",
+                year,
+                expected,
+                observations.count,
+                claim.raw
+            )
+        }
+        return nil
+    }
+
+    private static func markdownTables(in artifact: String) -> [MarkdownTable] {
+        let lines = artifact.components(separatedBy: .newlines)
+        var tables: [MarkdownTable] = []
+        var index = 0
+        while index + 1 < lines.count {
+            let headers = pipeCells(lines[index])
+            let separator = pipeCells(lines[index + 1])
+            guard headers.count >= 2, separator.count == headers.count,
+                  isMarkdownSeparatorRow(separator) else {
+                index += 1
+                continue
+            }
+            var rows: [[String]] = []
+            index += 2
+            while index < lines.count {
+                let cells = pipeCells(lines[index])
+                guard cells.count == headers.count else { break }
+                rows.append(cells)
+                index += 1
+            }
+            tables.append(.init(headers: headers, rows: rows))
+        }
+        return tables
+    }
+
+    private static func normalizedTableLabel(_ raw: String) -> String {
+        raw.replacingOccurrences(of: "`", with: "")
+            .replacingOccurrences(of: "*", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .casefolded
+    }
+
+    private static func singleNumericCell(_ raw: String) -> NumericCapture? {
+        let trimmed = raw.replacingOccurrences(of: "`", with: "")
+            .replacingOccurrences(of: "**", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let pattern = #"^(?:[$€£]\s*)?-?\d[\d,]*(?:\.\d+)?(?:\s*%)?$"#
+        guard trimmed.range(of: pattern, options: .regularExpression) != nil,
+              let value = decimalValue(trimmed.replacingOccurrences(of: "%", with: ""))
+        else { return nil }
+        return .init(raw: trimmed, value: value)
+    }
+
+    private static func nearestYear(before index: Int, in lines: [String]) -> String? {
+        let pattern = #"\b(?:19|20)\d{2}\b"#
+        for candidate in stride(from: index - 1, through: max(0, index - 12), by: -1) {
+            guard let range = lines[candidate].range(of: pattern, options: .regularExpression) else {
+                continue
+            }
+            return String(lines[candidate][range])
+        }
+        return nil
+    }
+
+    private static func aggregateClaim(for year: String, in lines: [String]) -> NumericCapture? {
+        let escapedYear = NSRegularExpression.escapedPattern(for: year)
+        let pattern = "(?i)\\b\(escapedYear)\\b[^\\n]{0,220}\\b(?:mean|average|proxy)\\b"
+            + "[^\\n]{0,220}?(\\d[\\d,]*\\.\\d+)"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        for line in lines {
+            let range = NSRange(line.startIndex..., in: line)
+            guard let match = regex.firstMatch(in: line, range: range),
+                  let claim = numericCapture(1, in: match, text: line)
+            else { continue }
+            return claim
+        }
+        return nil
+    }
+
+    private static func isMonthLabel(_ raw: String) -> Bool {
+        let month = normalizedTableLabel(raw)
+        return orderedPeriodAliases.prefix(12).contains { $0.contains(month) }
     }
 
     private struct PeriodObservation {
@@ -315,8 +558,12 @@ enum AgentArtifactContractAuditGate {
     ]
 
     private static func decimalValue(_ raw: String) -> Double? {
-        Double(raw.replacingOccurrences(of: ",", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines))
+        let normalized = raw.replacingOccurrences(of: ",", with: "")
+            .replacingOccurrences(of: "$", with: "")
+            .replacingOccurrences(of: "€", with: "")
+            .replacingOccurrences(of: "£", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return Double(normalized)
     }
 
     private static func decimalValuesMatch(_ left: String, _ right: String) -> Bool {

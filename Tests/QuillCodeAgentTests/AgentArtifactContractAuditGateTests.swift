@@ -118,6 +118,85 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         ))
     }
 
+    func testRejectsIncorrectExplicitProductDivision() throws {
+        let artifact = "2023 real = 4,200,000 × 333.952 / 304.702 = $4,603,818"
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+
+        XCTAssertTrue(issue.contains("4603180.812729"), issue)
+        XCTAssertTrue(issue.contains("$4,603,818"), issue)
+    }
+
+    func testAllowsCorrectExplicitProductDivisionRoundedToDollar() {
+        let artifact = "2023 real = 4,200,000 × 333.952 / 304.702 = $4,603,181"
+        XCTAssertNil(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+    }
+
+    func testRejectsIncorrectExplicitGrowthRate() throws {
+        let artifact = "(5,429,439 − 4,603,181) / 4,603,181 = 18.50%"
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+
+        XCTAssertTrue(issue.contains("explicit growth equation"), issue)
+        XCTAssertTrue(issue.contains("18.50%"), issue)
+    }
+
+    func testRejectsConflictingRepeatedMarkdownTableField() throws {
+        let artifact = """
+        | fiscal_year | real_revenue_usd |
+        |---|---|
+        | 2023 | $4,603,451 |
+
+        | fiscal_year | real_revenue_usd |
+        |---|---|
+        | 2023 | $4,603,181 |
+        """
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+
+        XCTAssertTrue(issue.contains("conflicting values"), issue)
+        XCTAssertTrue(issue.contains("$4,603,451"), issue)
+        XCTAssertTrue(issue.contains("$4,603,181"), issue)
+    }
+
+    func testRejectsMeanThatConflictsWithMonthlyTable() throws {
+        let artifact = """
+        The 2025 observed-month proxy mean is 321.4650.
+
+        ### Detailed 2025 monthly indexes
+        | Month | Index |
+        |---|---|
+        | Jan | 317.671 |
+        | Feb | 319.082 |
+        | Mar | 319.799 |
+        | Apr | 320.795 |
+        | May | 321.465 |
+        | Jun | 322.561 |
+        | Jul | 323.048 |
+        | Aug | 323.976 |
+        | Sep | 324.800 |
+        | Oct | unavailable |
+        | Nov | 324.122 |
+        | Dec | 324.054 |
+        """
+        let issue = try XCTUnwrap(AgentArtifactContractAuditGate.evidenceContradiction(
+            artifact: artifact,
+            evidenceReceipt: "retained source evidence"
+        ))
+
+        XCTAssertTrue(issue.contains("321.943000"), issue)
+        XCTAssertTrue(issue.contains("321.4650"), issue)
+    }
+
     private func makeWorkspace() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("artifact-contract-audit-\(UUID().uuidString)", isDirectory: true)
@@ -230,6 +309,9 @@ final class AgentArtifactContractAuditGateTests: XCTestCase {
         XCTAssertTrue(correction.prompt.contains("HALF1, HALF2, H1, and H2 columns are never annual values"))
         XCTAssertTrue(correction.prompt.contains("underlying observations independently"))
         XCTAssertTrue(correction.prompt.contains("locate intended table fields by their headers"))
+        XCTAssertTrue(correction.prompt.contains("Whole-document approximate-number searches are invalid"))
+        XCTAssertTrue(correction.prompt.contains("half of the artifact's displayed rounding unit"))
+        XCTAssertTrue(correction.prompt.contains("conflicting repeated values"))
         XCTAssertTrue(correction.prompt.contains("rightmost non-missing eligible period"))
         XCTAssertTrue(correction.prompt.contains("selected period label and value"))
         XCTAssertTrue(correction.prompt.contains("expected values copied from the artifact"))
