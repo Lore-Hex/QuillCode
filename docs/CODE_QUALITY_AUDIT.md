@@ -1,5 +1,30 @@
 # Code Quality Audit
 
+## 2026-08-09 Collision-Safe Targeted Accessibility Readiness
+
+Overall grade after this slice: **A+ launch resilience, A+ bounded work, A+ diagnostics**.
+
+| Area | Grade | Evidence |
+| --- | --- | --- |
+| Traversal integrity | A+ | Accessibility elements now deduplicate with `CFEqual` identity and `CFHash` hashing, so a hash collision cannot silently discard an unrelated subtree. The same identity protects ancestor traversal from false cycle detection. |
+| Bounded work | A+ | Dismissible-surface readiness traverses only for its three required visible identifiers and stops as soon as all are found instead of rebuilding the complete app Accessibility snapshot on every sample. |
+| Failure integrity | A+ | The verifier retains strict title, primary-control, AXPress dismissal, Activity layout-restoration, and controller-state checks. A surface that remains incomplete still fails after the existing bounded sampling window. |
+| Diagnostics | A+ | Success evidence reports the exact targeted sample count; failure evidence reports the bounded sample count and sorted missing safe identifiers without user data. |
+| Regression coverage | A+ | Identity tests prove equivalent AX wrappers deduplicate while distinct roots remain distinct. Sampler tests prove exact counts, generation isolation, bounded exhaustion, and zero work for an empty requirement. |
+
+Validation:
+
+- Focused Accessibility identity, sampler, window-report, and parity suites (30 tests, 0 failures)
+- Full `swift test` (5,740 tests, 5 skipped, 0 failures)
+- Optimized release performance across three fresh processes: 259.69 ms selected median
+  launch-ready, 91.09 MiB initial, 149.69 MiB post-interaction, 153.95 MiB repeated, and
+  4.27 MiB repeated growth; all three attempts passed every budget
+- Complete packaged direct, Launch Services, live-window, Accessibility, and repeated-interaction
+  smoke passed with 126 messages, 79 tool cards, 205 timeline items, 186 click probes, 10 strict
+  Accessibility actions, two interaction sweeps, and one workspace window
+- Optimized release app Launch Services smoke passed independently
+- `python3 scripts/grade-code-quality.py --root .` reports every module at A+
+
 ## 2026-08-09 Transactional Desktop Settings Persistence
 
 Overall grade after this slice: **A+ data integrity, A+ recovery UX, A+ privacy**.

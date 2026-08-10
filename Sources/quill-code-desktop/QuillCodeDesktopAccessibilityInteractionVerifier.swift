@@ -328,6 +328,7 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         validateBeforeDismiss: (() async -> QuillCodeDesktopAccessibilityActivationVerification?)? = nil
     ) async -> QuillCodeDesktopAccessibilityActivationVerification {
         let presentation = await waitForDismissibleSurface(contract, in: contentView)
+        var readinessSampleCount = presentation.sampleCount
         guard presentation.isComplete,
               var closeButton = presentation.elementsByIdentifier[contract.closeIdentifier]
         else {
@@ -341,6 +342,7 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         }
         if validateBeforeDismiss != nil {
             let refreshedPresentation = await waitForDismissibleSurface(contract, in: contentView)
+            readinessSampleCount += refreshedPresentation.sampleCount
             guard refreshedPresentation.isComplete,
                   let refreshedCloseButton = refreshedPresentation.elementsByIdentifier[contract.closeIdentifier]
             else {
@@ -372,7 +374,9 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         }
 
         return .init(
-            evidence: "rendered \(contract.name) with its \(contract.requiredControlDescription) and dismissed through \(contract.closeIdentifier) with AXPress",
+            evidence: "rendered \(contract.name) with its \(contract.requiredControlDescription) "
+                + "after \(targetedSampleDescription(readinessSampleCount)) and dismissed through "
+                + "\(contract.closeIdentifier) with AXPress",
             validationIssue: nil
         )
     }
@@ -388,7 +392,14 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
                 contract.closeIdentifier
             ],
             elements: {
-                QuillCodeDesktopAccessibilityTree(root: contentView).elements
+                QuillCodeDesktopAccessibilityTree(
+                    root: contentView,
+                    matchingIdentifiers: [
+                        contract.titleIdentifier,
+                        contract.requiredControlIdentifier,
+                        contract.closeIdentifier
+                    ]
+                ).elements
             }
         )
     }
@@ -397,22 +408,30 @@ enum QuillCodeDesktopAccessibilityInteractionVerifier {
         _ contract: DismissibleSurfaceContract,
         sample: QuillCodeDesktopAccessibilityRequiredElementSample
     ) -> QuillCodeDesktopAccessibilityActivationVerification {
+        let missing = sample.missingIdentifiers.sorted().joined(separator: ", ")
+        let sampleEvidence = "after \(targetedSampleDescription(sample.sampleCount)); missing \(missing)"
         if sample.missingIdentifiers.contains(contract.titleIdentifier) {
             return .init(
-                evidence: "\(contract.name) title did not render",
-                validationIssue: "\(contract.contractID) did not render \(contract.name)"
+                evidence: "\(contract.name) title did not render \(sampleEvidence)",
+                validationIssue: "\(contract.contractID) did not render \(contract.name); \(sampleEvidence)"
             )
         }
         if sample.missingIdentifiers.contains(contract.requiredControlIdentifier) {
             return .init(
-                evidence: "\(contract.name) rendered without its \(contract.requiredControlDescription)",
-                validationIssue: "\(contract.contractID) did not expose its \(contract.requiredControlDescription)"
+                evidence: "\(contract.name) rendered without its "
+                    + "\(contract.requiredControlDescription) \(sampleEvidence)",
+                validationIssue: "\(contract.contractID) did not expose its "
+                    + "\(contract.requiredControlDescription); \(sampleEvidence)"
             )
         }
         return .init(
-            evidence: "\(contract.name) rendered without an accessible close button",
-            validationIssue: "\(contract.contractID) did not expose \(contract.closeIdentifier)"
+            evidence: "\(contract.name) rendered without an accessible close button \(sampleEvidence)",
+            validationIssue: "\(contract.contractID) did not expose \(contract.closeIdentifier); \(sampleEvidence)"
         )
+    }
+
+    private static func targetedSampleDescription(_ count: Int) -> String {
+        "\(count) targeted AX \(count == 1 ? "sample" : "samples")"
     }
 
     private static func waitForElement(

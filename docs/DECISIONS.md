@@ -1,5 +1,20 @@
 # QuillCode Decisions
 
+## 2026-08-09: accessibility readiness uses collision-safe targeted traversal
+
+- **Decision:** Accessibility traversal deduplicates `AXUIElement` values with `CFEqual` and hashes
+  them with `CFHash`. A hash value alone is never treated as element identity or cycle evidence.
+- **Readiness boundary:** Dismissible surfaces request only their title, required control, and close
+  identifiers. The targeted traversal reads only identifiers while searching, records requested
+  matches with positive-area frames, and stops when the whole set is present; consumers that need
+  the full hierarchy keep the complete traversal.
+- **Failure integrity:** Sampling remains bounded and does not replay the activating command. Missing
+  elements still fail the strict interaction contract, while evidence reports the exact targeted
+  sample count and sorted safe identifiers that never appeared.
+- **Why:** The former `Set<CFHashCode>` could mistake a collision for a previously visited element and
+  skip an unrelated subtree. Rebuilding every Accessibility snapshot also did unnecessary work at
+  the exact packaged-launch boundary where panes can still be materializing.
+
 ## 2026-08-09: settings and credentials persist as one compensated transaction
 
 - **Decision:** A full desktop settings save snapshots the existing TrustedRouter credential,

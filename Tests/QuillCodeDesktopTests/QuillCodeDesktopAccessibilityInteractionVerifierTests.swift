@@ -98,6 +98,7 @@ final class QuillCodeDesktopAccessibilityInteractionVerifierTests: XCTestCase {
         XCTAssertTrue(result.isComplete)
         XCTAssertEqual(result.elementsByIdentifier["close"]?.identifier, "close")
         XCTAssertEqual(sampleIndex, generations.count)
+        XCTAssertEqual(result.sampleCount, generations.count)
     }
 
     func testRequiredElementSamplerDoesNotCombinePartialGenerations() async {
@@ -123,6 +124,23 @@ final class QuillCodeDesktopAccessibilityInteractionVerifierTests: XCTestCase {
         XCTAssertFalse(result.isComplete)
         XCTAssertEqual(result.missingIdentifiers, ["summary"])
         XCTAssertEqual(sampleIndex, generations.count)
+        XCTAssertEqual(result.sampleCount, generations.count)
+    }
+
+    func testRequiredElementSamplerSkipsSnapshotsForEmptyRequirement() async {
+        var sampleCount = 0
+
+        let result = await QuillCodeDesktopAccessibilityElementSetSampler.waitForRequiredElements(
+            [],
+            elements: {
+                sampleCount += 1
+                return []
+            }
+        )
+
+        XCTAssertTrue(result.isComplete)
+        XCTAssertEqual(result.sampleCount, 0)
+        XCTAssertEqual(sampleCount, 0)
     }
 
     private func element(
